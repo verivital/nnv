@@ -75,6 +75,7 @@ classdef FFNN
                 [R1, rn1, t1] = obj.Layers(i).reach(R1, option);
                 rn = [rn, rn1];
                 t = [t, t1];
+                fprintf('\nFinish reach set computation for layer %d in %.5f seconds', i, t1);
             end
             R = R1;
             

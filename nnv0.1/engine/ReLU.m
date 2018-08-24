@@ -9,11 +9,19 @@ classdef ReLU
         
         % evaluation
         function y = evaluate(x)
-            if x < 0
-                y = 0;
-            else
-                y = x;
+            n = size(x, 1);
+            if size(x, 2) ~= 1
+                error('x is not a vector')
             end
+            y = zeros(n, 1);
+            for i=1:n
+                if x(i, 1) < 0
+                    y(i, 1) = 0;
+                else
+                    y(i, 1) = x(i, 1);
+                end
+            end
+
         end
         
         % step reach set y = ReLU(x)
@@ -57,6 +65,12 @@ classdef ReLU
                     if strcmp(option, 'exact')    
                         R = [R1 R2]; % array of 2 polyhedra
                     elseif strcmp(option, 'approx')
+                        if (size(R1.A, 1) >= 15) || (size(R2.A, 1) >= 15)
+                            fprintf('Input set dimension is too large for approx option');
+                            fprintf('Approx option with compute convex hull of a set of polyhedron for each layer');
+                            fprintf('The input set dimension is too large, the convex hull operation may be crashed or very time-consumming');
+                            fprintf('Consider choosing approx-box option instead');
+                        end
                         P(1) = R1;
                         P(2) = R2;
                         U = PolyUnion('Set', P);

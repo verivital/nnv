@@ -68,7 +68,7 @@ classdef Layer
             R = [];
             p = size(inputSetArray, 1); % number of polyhedron in the input set
             for i=1:p
-                I = inputSetArray(p); 
+                I = inputSetArray(i); 
                 if size(obj.W, 2) ~= size(I.A, 2)
                     error('Inconsistent dimensions between input set and weights matrix')
                 end
@@ -84,14 +84,23 @@ classdef Layer
                 else
                     error('Unsupported activation function, currently support ReLU and Linear')
                 end
-                
                 R = [R, R1];
                 rn = rn + rn1;
-            end
-
-            
+            end            
             t = toc;              
         end
+        
+        % evaluate the value of the layer output with all vertices of input set 
+        function Y = sample(obj, V)
+  
+            n = size(V, 2);
+            Y = [];
+            for j=1:n
+                y = obj.evaluate(V(:, j));
+                Y = [Y y];
+            end
+        end
+        
                
     end
     

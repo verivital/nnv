@@ -18,7 +18,7 @@ C = [1 0 0; -1 0 0; 0 1 0; 0 -1 0; 0 0 1; 0 0 -1];
 d = [1; 1; 1; 1; 1; 1];
 I = Polyhedron(C, d); % input set    -1 <= x(i) <= 1, i = 1, 2, 3
 
-%[R1, rn1, t1] = F.reach(I, 'exact'); % exact reach set
+[R1, rn1, t1] = F.reach(I, 'exact'); % exact reach set
 % generate some input to test the output
 e = 0.25;
 x = [];
@@ -34,7 +34,7 @@ for x1=-1:e:1
     end
 end
 
-n = size(y, 2);
-for i=1:n
-    plot(y(1, i), y(2, i), 'o');
-end
+fig = figure;
+R1.plot;
+hold on;
+plot(y(1, :), y(2, :), 'o');

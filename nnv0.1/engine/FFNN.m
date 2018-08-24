@@ -70,16 +70,35 @@ classdef FFNN
             rn = [];
             t = [];
             
-            R1 = I;
+            In = I;
             for i=1:obj.nL
-                [R1, rn1, t1] = obj.Layers(i).reach(R1, option);
+                fprintf('\nComputing reach set for Layer %d ...', i)
+                [R1, rn1, t1] = obj.Layers(i).reach(In, option);
+                In = R1;
                 rn = [rn, rn1];
                 t = [t, t1];
                 fprintf('\nFinish reach set computation for layer %d in %.5f seconds', i, t1);
             end
             R = R1;
-            
+            fprintf('\nTotal reach set computation time: %.5f seconds', sum(t));
+            fprintf('\nTotal number of ReLU_i stepReach operations reduced: %d', sum(rn));
         end
+        
+        % Sample of FFNN
+        function Y = sample(obj, V)
+            % sample the output of each layer in the FFNN based on the
+            % vertices of input set I, this is useful for testing.
+            % @V : array of vertices to evaluate
+            % @Y : output which is a cell array
+        
+            Y = cell(1, obj.nL);
+            In = V;
+            for i=1:obj.nL
+                In = obj.Layers(i).sample(In);
+                Y{1, i} = In;
+            end
+        end
+        
     end
     
 end

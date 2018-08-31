@@ -30,8 +30,8 @@ classdef ReLU
             % @i : index of current x[index] of current step
             % @xmin: min of x[index]
             % @xmax: max of x[index]
-            % @option: 'exact' -> return an exact reach set
-            %           'approx' -> return an over-approximation reach set
+            % @option: = 'exact' -> compute an exact reach set
+            %          = 'approx' -> compute an over-approximate reach set
             
             dim = size(I.A, 2);  % dimension of input space
             if xmin >= 0
@@ -61,25 +61,22 @@ classdef ReLU
                     R = R2;
                 elseif R2 <= R1 % if R2 is a subset of R1
                     R = R1;
-                else
-                    if strcmp(option, 'exact')    
-                        R = [R1 R2]; % array of 2 polyhedra
-                    elseif strcmp(option, 'approx')
-                        if (size(R1.A, 1) >= 15) || (size(R2.A, 1) >= 15)
-                            fprintf('Input set dimension is too large for approx option');
-                            fprintf('Approx option with compute convex hull of a set of polyhedron for each layer');
-                            fprintf('The input set dimension is too large, the convex hull operation may be crashed or very time-consumming');
-                            fprintf('Consider choosing approx-box option instead');
-                        end
-                        P(1) = R1;
-                        P(2) = R2;
-                        U = PolyUnion('Set', P);
-                        R = U.convexHull;
+                else                   
+                    In = [R1 R2];
+                    
+                    if strcmp(option, 'exact')
+                        R = In;
+                    elseif strcmp(option, 'approx-oriented-box')
+                        R = Reduction.orientedRectangularHull(In);
+                    elseif strcmp(option, 'approx-box')
+                        R = Reduction.hypercubeHull(In);
+                    elseif strcmp(option, 'approx-polyhedron')
+                        R = Reduction.fastHull(R1, R2);
                     else
-                        error('Unknown option');
+                        error('Unknown option for reachable set computation');
                     end
-                end
-                  
+
+                end                  
                 
             end
             
@@ -92,17 +89,17 @@ classdef ReLU
             % @index: index of current x[index] of current step
             % @xmin: min value of x[index]
             % @xmax: max value of x[index]
-            % @option: = 'exact' -> compute exact reach set
-            %          = 'approx' -> compute over-approximate reach set
+            % @option: = 'exact' -> compute an exact reach set
+            %          = 'approx' -> compute an over-approximate reach set
             
-            p = size(I_array, 1);
+            p = length(I_array);
             R = [];
             for i=1:p
                 I = I_array(i);
                 O = ReLU.stepReach(I, index, xmin, xmax, option);
                 R = [R, O];
             end
- 
+             
         end
         
         % reach of ReLU(x)
@@ -118,23 +115,19 @@ classdef ReLU
                 error('Input set is not bounded')
             end
             
-            if I.isEmptySet
-                R = []; % if I is empty, return empty set
-                rn = 0;
-            else                      
-                B = outerApprox(I); % interval hull of the input set
-                lb = B.Internal.lb; % min-vec of x vector
-                ub = B.Internal.ub; % max-vec of x vector
-                map = find(lb < 0); % computation map
-                m = size(map, 1); % number of stepReach operations needs to be executed
-                rn = size(lb, 1) - m;
+            I.outerApprox; % find bounds of I state vector
+            lb = I.Internal.lb; % min-vec of x vector
+            ub = I.Internal.ub; % max-vec of x vector
+            map = find(lb < 0); % computation map
+            m = size(map, 1); % number of stepReach operations needs to be executed
+            rn = size(lb, 1) - m;
 
-                In = I;
-                for i=1:m
-                    In = ReLU.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)), option);
-                end
-                R = In;
-            end
+            In = I;
+            for i=1:m
+                In = ReLU.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)), option);
+            end               
+            R = In;
+           
         end
         
         

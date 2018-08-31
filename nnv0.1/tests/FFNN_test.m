@@ -18,26 +18,7 @@ I.plot;
 Y = I.V';
 hold on; 
 plot(Y(1, :), Y(2, :), '*');
-
-% plot figure of the reach set of the first layer output and the sampled
-% points of the output corresponding to the input's sampled points
-R1 = L1.reach(I, 'exact');
-Y1 = L1.sample(I.V');
-fig = figure;
-R1.plot;
-hold on;
-plot(Y1(1, :), Y1(2, :), '*');
-
-% plot figure of the reach set of the second layer output, i.e., the output
-% layer, and the sampled points of the output corresponding to the input's
-% sampled points
-R2 = L2.reach(R1, 'exact');
-Y2 = L2.sample(Y1);
-fig = figure; 
-plot(Y2(1, :), Y2(2, :), '*');
-hold on;
-R2.plot;
-
+title('Input Set')
 
 % plot figure of the output reach set, i.e., equal to R2, using FFNN.reach
 % command, and some sampled points of the output from the input's sampled
@@ -50,6 +31,25 @@ fig = figure;
 plot(Y32(1, :), Y32(2, :), '*');
 hold on;
 R.plot;
+title('Exact output set');
+
+R1 = F.reach(I, 'approx-oriented-box');
+fig = figure; 
+R1.plot;
+hold on;
+plot(Y32(1, :), Y32(2, :), '*');
+title('Over-approximate output set using oriented box');
+
+R2 = F.reach(I, 'approx-box');
+fig = figure;
+R2.plot;
+hold on;
+plot(Y32(1, :), Y32(2, :), '*');
+title('Over-approximate output set using box');
+
+
+
+
 
 
 

@@ -66,7 +66,7 @@ classdef Layer
             
             rn = 0; 
             R = [];
-            p = size(inputSetArray, 1); % number of polyhedron in the input set
+            p = length(inputSetArray); % number of polyhedron in the input set
             for i=1:p
                 I = inputSetArray(i); 
                 if size(obj.W, 2) ~= size(I.A, 2)

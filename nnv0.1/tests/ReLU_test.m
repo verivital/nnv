@@ -5,7 +5,7 @@ B = outerApprox(I); % interval hull of the input set
 lb = B.Internal.lb; % min-vec of x vector
 ub = B.Internal.ub; % max-vec of x vector
 
-O1 = ReLU.stepReach(I, 1, lb(1), ub(1)); % step reach set corresponding to index = 1
+O1 = ReLU.stepReach(I, 1, lb(1), ub(1), 'exact'); % step reach set corresponding to index = 1
 
 Out = ReLU.reach(I, 'exact');    % reach set of ReLU(I)
 

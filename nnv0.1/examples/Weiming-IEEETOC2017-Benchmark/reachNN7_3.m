@@ -16,12 +16,17 @@ Layers = [Layers Ln];
 F = FFNN(Layers);
 C = [1 0 0; -1 0 0; 0 1 0; 0 -1 0; 0 0 1; 0 0 -1];
 d = [1; 1; 1; 1; 1; 1];
-I = Polyhedron(C, d); % input set    -1 <= x(i) <= 1, i = 1, 2, 3
+I = Polyhedron(C, d);
+
+I.plot;
 
 % select option for reachability algorithm
-%[R1, rn1, t1] = F.reach(I, 'exact'); % exact reach set
-%[R1, rn1, t1] = F.reach(I, 'approx-box'); % over-approximate reach set using box for each ReLU_i operation
-%[R1, rn1, t1] = F.reach(I, 'approx-polyhedron'); % over-approximate reach set using fastHull in each ReLU_i operation
+%[R1, rn1, t1] = F.reach(I, 'exact', 'parallel'); % exact reach set with parallel computing
+%[R1, rn1, t1] = F.reach(I, 'exact', 'single'); % exact reach set with single core
+
+%[R1, rn1, t1] = F.reach(I, 'approx-box', 'single'); % over-approximate reach set using box 
+%[R1, rn1, t1] = F.reach(I, 'approx-box', 'parallel'); % over-approximate reach set using box 
+%[R1, rn1, t1] = F.reach(I, 'approx-polyhedron', 'single'); % over-approximate reach set using polyhedron
 % generate some input to test the output
 e = 0.25;
 x = [];

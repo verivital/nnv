@@ -3,10 +3,140 @@ classdef Reduction
     % A class contains methods for reducing number of contraints of
     % polyhedrons or doing quick convex-hull operations of two polyhedrons
     
+    % Dung Tran: 6/9/2018
+    
     properties
     end
     
     methods(Static)
+        
+        
+        % merge a set of polyhedrons into one polyhedron - more efficient
+        % than convex-hull approach.
+        
+        function R = merge(I, B, parallel)
+            % @I: an array of input polyhedrons
+            % @B: a box contains all input polyhedrons
+            % @parallel: = 'parallel' -> using parallel computing
+            %            = 'single'  -> using single core for computing
+            
+            
+            N = length(I);
+            if strcmp(parallel, 'parallel')
+                R = B;
+                n_ind = cell(N, 1); %remember the constraints index that can be added to the box
+                Os = [];
+                % select constraints to add to the box
+                parfor i=1:N
+                    O = I(i).minHRep();
+                    Os = [Os O];
+                    
+                    n = size(O.A, 1);
+                    ind = [];
+
+                    for j=1:n
+                        A = vertcat(O.A(j,:), B.A);
+                        b = vertcat(O.b(j,:), B.b);
+                        B1 = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'be', B.be);
+                        
+                        l = 0;
+                        for k=1:N
+                            if I(k) <= B1
+                                l = l + 1;
+                                ind = [ind j];
+                            end                                    
+                        end
+                        
+                        %if l == N
+                        %    ind = [ind j];
+                        %end
+                        
+                    end
+                    n_ind{i, 1} = ind;
+                end
+
+                % add constraints to the box
+                if ~isempty(n_ind)
+                    A = cell(N, 1);
+                    b = cell(N, 1);
+                    parfor i=1:N
+                        O = Os(i);
+                        ind = n_ind{i, 1};
+                        
+                        if ~isempty(ind)
+                            A1 = O.A(ind(1), :);
+                            b1 = O.b(ind(1), :);
+                            if length(ind) > 1
+                                for j=2:length(ind)
+                                    A1 = vertcat(A1, O.A(ind(j), :));
+                                    b1 = vertcat(b1, O.b(ind(j), :));
+                                end
+                            end
+                            
+                            A{i, 1} = A1;
+                            b{i, 1} = b1;
+                                
+                        end
+                                   
+                    end
+                    
+                    A = cell2mat(A);
+                    b = cell2mat(b);
+                    
+                    % refine the box with some new constraints
+                    R = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'be', B.be);   
+                    
+                end
+               
+                
+            elseif strcmp(parallel, 'single')
+                
+                R = B; 
+                for i=1:N
+                    O = I(i).minHRep();
+                    
+                    n = size(O.A, 1);
+                    n_ind = []; % remember the constraint index that can add to the box                            
+
+                    for j=1:n
+                        A = vertcat(O.A(j,:), R.A);
+                        b = vertcat(O.b(j,:), R.b);
+                        B1 = Polyhedron('A', A, 'b', b, 'Ae', R.Ae, 'be', R.be);
+                        
+                        l = 0;
+                        for k=1:N
+                            if I(k) <= B1 % check if all set is contained by B1
+                                %l =  l + 1;
+                                n_ind = [n_ind j];
+                            end                                    
+                        end
+                        %if l == N
+                        %    n_ind = [n_ind j];
+                        %end
+                    end
+
+                    if ~isempty(n_ind)                            
+                        A = O.A(n_ind(1), :);
+                        b = O.b(n_ind(1), :);
+                        if length(n_ind) > 1
+                            for j=2:length(n_ind)
+                                A = vertcat(A, O.A(n_ind(j), :));
+                                b = vertcat(b, O.b(n_ind(j), :));
+                            end
+                        end                                
+                        A = vertcat(A, R.A);
+                        b = vertcat(b, R.b);
+                        R = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'be', B.be);                  
+                    end
+
+                end
+                
+            else
+                error('Unknown computation option, choose parallel or single');
+            end
+            
+            
+        end
         
         % fast hull of two polyhedrons
         function P = fastHull(P1, P2)
@@ -50,7 +180,103 @@ classdef Reduction
                     end
                 end
             end
-            fprintf('\nNumber of contraints = %d', size(P.A, 1));
+            %fprintf('\nNumber of contraints = %d', size(P.A, 1));
+            
+        end
+        
+        % reducing combines with batching technique
+        function [R, t] = reduce_and_batch(I, n)
+            % batching the input polyhedrons array into two arrays
+            % R1 contains all polyhedrons having <= 2*dim inequalities 
+            % R2 contains all polyhedrons having > 2*dim inequalities
+            
+            % Then we batch R2 into n boxes 
+            % The array is R = [R1 R2]
+            % R contains all polyhedrons having <= 2*dim inequalities ->
+            % this will reducing the time for computing reachable set
+            % The number of polyhedrons reduced is : N[I] - N[R1] - n
+            
+            N = length(I);
+            R1 = [];
+            R2 = [];
+            
+            dim = size(I(1).A, 2);
+            
+            tic;
+            fprintf('\nDecomposing input set...')
+            for i=1:N
+                if size(I(i).A, 1) <= 2*dim
+                    R1 = [R1 I(i)];
+                else
+                    R2 = [R2 I(i)];
+                end
+            end
+            t = toc;
+            fprintf('\nFinish Decomposition in %.5f seconds', t); 
+            
+            if ~isempty(R2)
+                fprintf('\nBatching input set with > %d inequalities using boxes ...', 2*dim);
+                [R2, t] = Reduction.batch(R2, n);
+                fprintf('\nFinish batching in %.5f seconnds', t);
+                R = [R1 R2];                
+            else
+                R = R1;
+            end
+            fprintf('\nNumber of polyhedrons reduced is %d', N - length(R));
+                       
+        end
+        
+        % batching polyhedron array
+        function [R, t] = batch(I, n)
+            % batching polyhedron array I with N polyhedrons
+            % into array R containing n polyhedrons, n << N
+            % @I : array of polyhedrons 
+            % @n : number of batches 
+            
+            tic;
+            if n < 1
+                error('\nNumber of batch should be >= 1');
+            end
+            N = length(I);
+            R = [];
+            m = floor(N/n); % number of polyhedrons merged in one batch
+       
+            if n==1
+                R = I;            
+            else
+                if m >=1
+                    for i=1:n
+                        P = I((i-1)*m + 1 : i*m);
+                        V = [];
+                        for j=1:m
+                            V = [V P(j).V'];
+                        end
+                        R = [R Polyhedron(V').outerApprox];
+                    end
+
+                    if n*m < N
+                        P = I(n*m:N);
+                        V = [];
+                        for j=1:N-n*m
+                            V = [V P(j).V'];
+                        end
+                        R = [R Polyhedron(V').outerApprox];
+                    end
+
+                else
+                    
+                    P = I(1:N);
+                    V = [];
+                    for j=1:N
+                        V = [V P(j).V'];
+                    end
+                    R = [R Polyhedron(V').outerApprox];
+                end
+                
+                    
+            end
+            t = toc;
+                       
             
         end
         
@@ -67,16 +293,17 @@ classdef Reduction
             
             l = length(I);
             V = [];
+            %tic;
             for i=1:l
                 if ~I(i).isBounded
                     error('I(%d) is not bounded', i);
                 end
-                I(i).minVRep();
                 V = [V I(i).V'];
             end
-            V1 = unique(V', 'rows', 'stable');
-            V = V1';
+            %t = toc;
+            %fprintf('\nTime for finding vertices is %.5f', t);
             
+            %tic; 
             [n, m] = size(V);            
             x_m = mean(V, 2);   % mean vector (point) of all points
             Vb = zeros(n, m);
@@ -109,6 +336,8 @@ classdef Reduction
                 P = Polyhedron(A, b);
                                 
             end
+            %t = toc;
+            %fprintf('\nTime for finding oriented rectangular hull is %.5f', t);
             
             for i=1:l
                 if ~(I(i) <= P)

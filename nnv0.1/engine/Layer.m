@@ -50,47 +50,188 @@ classdef Layer
             end
         end
         
-        % Reachable Set Computation
-        function [R, rn, t] = reach(obj, inputSetArray, option)
+        % Exact reachable Set computation
+        function [R, rn, t] = reach_exact(obj, inputSetArray, parallel)
             % compute reachable set of a layer
             % @inputSetArray: an array of input sets which are bounded polyhedra
             % @option: = 'exact' or 'approx'
-            % if option = exact: exact reachable set is computed
-            % if option = 'approx': over-approximate reachable set is
             % computed.
             % @R: the reachable set
             % @rn: the number of ReLU operation reduced
             % @t : Elapsed time for reach set computation
+            % @parallel: = 'parallel' use parallel computing
+            %            = 'single' use single core
             
             tic;
             
             rn = 0; 
             R = [];
             p = length(inputSetArray); % number of polyhedron in the input set
-            for i=1:p
-                I = inputSetArray(i); 
-                if size(obj.W, 2) ~= size(I.A, 2)
-                    error('Inconsistent dimensions between input set and weights matrix')
-                end
+            
+            if strcmp(parallel, 'parallel') % use parallel computing                
+            
+                parfor i=1:p
+                    I = inputSetArray(i);
 
-                I1 = I.affineMap(obj.W); % affine map Wx, x in I
-                I1 = I1 + obj.b; % affine map Wx + b, x in I
+                    if size(obj.W, 2) ~= size(I.A, 2)
+                        error('Inconsistent dimensions between input set and weights matrix')
+                    end
 
-                if strcmp(obj.f, 'Linear')
-                    R1 = I1;
-                    rn1 = 0;
-                elseif strcmp(obj.f, 'ReLU')
-                    [R1, rn1] = ReLU.reach(I1, option);
-                else
-                    error('Unsupported activation function, currently support ReLU and Linear')
+                    I1 = I.affineMap(obj.W); % affine map Wx, x in I
+                    I1 = I1 + obj.b; % affine map Wx + b, x in I
+
+                    if strcmp(obj.f, 'Linear')
+                        R1 = I1;
+                        rn1 = 0;
+                    elseif strcmp(obj.f, 'ReLU')
+                        [R1, rn1] = ReLU.reach(I1);
+
+                    else
+                        error('Unsupported activation function, currently support ReLU and Linear')
+                    end
+                    R = [R, R1];
+                    rn = rn + rn1;
                 end
-                R = [R, R1];
-                rn = rn + rn1;
-            end            
+                
+            elseif strcmp(parallel, 'single') % use single core for computing
+                
+                for i=1:p
+                    I = inputSetArray(i);
+
+                    if size(obj.W, 2) ~= size(I.A, 2)
+                        error('Inconsistent dimensions between input set and weights matrix')
+                    end
+
+                    I1 = I.affineMap(obj.W); % affine map Wx, x in I
+                    I1 = I1 + obj.b; % affine map Wx + b, x in I
+
+                    if strcmp(obj.f, 'Linear')
+                        R1 = I1;
+                        rn1 = 0;
+                    elseif strcmp(obj.f, 'ReLU')
+                        [R1, rn1] = ReLU.reach(I1);
+
+                    else
+                        error('Unsupported activation function, currently support ReLU and Linear')
+                    end
+                    R = [R, R1];
+                    rn = rn + rn1;
+                end
+                
+            else                
+                error('Unknown computation option: parallel or single');
+            end
+            
             t = toc;              
         end
         
-        % evaluate the value of the layer output with all vertices of input set 
+        % reach set computation in horizonal manner, contruct a box for the
+        % output set of the layer
+        
+        function [R, t] = reach_approx_box(obj, I, parallel)
+            % @I : input set, a polyhedron
+            % @parallel: @parallel = 'parallel' -> compute in parallel with multiple cores or
+            % clusters
+            %            @parallel = 'single' -> single core
+            % @R: box
+            % @t: computation time
+            
+            tic;
+            
+            if size(obj.W, 2) ~= size(I.A, 2)
+                    error('Inconsistent dimensions between input set and weights matrix')
+            end
+                                    
+            R = I.affineMap(obj.W) + obj.b;
+            
+            if strcmp(obj.f, 'Linear')
+               % do nothing 
+            elseif strcmp(obj.f, 'ReLU')
+                
+                R.outerApprox;
+                lb = zeros(obj.N, 1);
+                ub = zeros(obj.N, 1);
+                
+                if strcmp(parallel, 'parallel') % computing in parallel
+                                    
+                    lb1 = R.Internal.lb;
+                    ub1 = R.Internal.ub;
+                    
+                    N = obj.N; % this needs to be done for parallel computing                   
+                    parfor i=1:N
+                        if lb1(i) <= 0
+                            lb(i) = 0;
+                        else
+                            lb(i) = lb1(i);
+                        end
+                        if ub1(i) <= 0
+                            ub(i) = 0;
+                        else
+                            ub(i) = ub1(i);
+                        end
+                    end
+                    
+                elseif strcmp(parallel, 'single')
+                    
+                    lb = R.Internal.lb;
+                    ub = R.Internal.ub;
+                    
+                    for i=1:obj.N %single core computing
+                        if lb(i) <= 0
+                            lb(i) = 0;
+                        end
+                        if ub(i) <= 0
+                            ub(i) = 0;
+                        end
+                    end
+                    
+                else 
+                    error('\nUnknown option');                  
+                end
+                
+                
+                R = Polyhedron('lb', lb, 'ub', ub);
+                
+            else
+                
+                error('\nUnsupported activation function');
+                
+            end 
+                
+            t = toc;
+            
+        end
+        
+        % over-approximate reach set using polyhedron without parallel
+        % computing
+        function [R, t] = reach_approx_polyhedron(obj, I, parallel)
+            % @I : input set, a polyhedron
+            % @R: over-approximate reach set (a polyhedron)
+            % @t: computation time
+            % @parallel: = 'parallel' -> using parallel computing
+            %            = 'single' -> using single core for computing
+            
+            tic;
+            
+            if I.isEmptySet
+                error('Input set is an empty set');
+            end
+            
+            if size(obj.W, 2) ~= size(I.A, 2)
+                    error('Inconsistent dimensions between input set and weights matrix')
+            end
+            
+            [R1, rn1, t1] = obj.reach_exact(I, parallel);
+            
+            B = obj.reach_approx_box(I, parallel); % computing the box containing all reach set
+            R = Reduction.merge(R1, B, parallel); %merge an array of polyhedron into one polyhedron
+            
+            t = toc;                                          
+            
+        end
+        
+        
+        % evaluate the value of the layer output with all vertices of input set
         function Y = sample(obj, V)
   
             n = size(V, 2);
@@ -102,6 +243,11 @@ classdef Layer
         end
         
                
+    end
+    
+    methods(Static) % Static methods for cluster computing
+        
+        
     end
     
 end

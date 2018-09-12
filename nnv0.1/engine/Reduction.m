@@ -10,131 +10,341 @@ classdef Reduction
     
     methods(Static)
         
-        
-        % merge a set of polyhedrons into one polyhedron - more efficient
-        % than convex-hull approach.
-        
-        function R = merge(I, B, parallel)
+        % Recursively merge a number of polyhedrons into one with more
+        % constraints
+        % This function follows the "divide and conquer idea"
+        % The complexity of this algorithm is O(nlog(n)) where n is the
+        % number of polyhedrons.
+        function P = recursiveMerge(I, parallel)
             % @I: an array of input polyhedrons
-            % @B: a box contains all input polyhedrons
+            % @paprallel: = 'parallel' use parallel computing 
+            %             = 'single' use single core for computing
+            
+            %if length(I) == 1
+            %    return I;
+            %elseif length(I) == 2
+            %    return Reduction.merge(I, parallel);
+            %else 
+            %    R = Reduction.stepMerge(I, parallel);
+            %    return Reduction.recursiveMerge(R, parallel);
+            %end
+            
+            startTime = tic;
+            P = I;
+            i = 0;
+            while length(P) > 1
+                i = i + 1;
+                fprintf('\nPerforming Step Merging %d (merging %d polyhedrons into %d polyhedrons)...', i, length(P), ceil(length(P)/2));
+                P = Reduction.stepMerge(P, parallel);
+                
+            end
+            runtime = toc(startTime);
+            fprintf('\nTotal number of step merging = %d', i);
+            fprintf('\nTotal merging time = %.5f seconds', runtime);
+            fprintf('\nThe merged polyhedron has %d inequality constraints and %d equality constraints', size(P.A, 1), size(P.A, 2));
+            
+        end
+        
+        
+        % reducing a half the number of input polyhedrons 
+        function P = stepMerge(I, parallel)
+            % @I: the input polyhedrons
+            % @paprallel: = 'parallel' use parallel computing 
+            %             = 'single' use single core for computing
+            
+            n = length(I); % number of polyhedrons
+            
+            m = floor(n/2);
+
+            P = [];
+                
+            for i=1:m
+                P = [P Reduction.merge(I(2*i - 1), I(2*i), parallel)];
+            end
+            
+            if 2*m < n
+                P = [P I(n)];
+            end
+            
+                   
+        end
+        
+        
+        % merge two polyhedrons into one polyhedron - more efficient
+        % than convex-hull approach. Only use H-representation of
+        % polyhedron, this approach is computationally cheap and less
+        % conservative than using zonotope (AI^2 toolbox).
+        
+        function P = merge(P1, P2, parallel)
+            % @P1: the first input polyhedron
+            % @P2: the second input polyhedron
             % @parallel: = 'parallel' -> using parallel computing
             %            = 'single'  -> using single core for computing
             
+            %tic;
+            P1.outerApprox;
+            P2.outerApprox;
+            lb1 = P1.Internal.lb;
+            ub1 = P1.Internal.ub;
+            lb2 = P2.Internal.lb;
+            ub2 = P2.Internal.ub;
             
-            N = length(I);
-            if strcmp(parallel, 'parallel')
-                R = B;
-                n_ind = cell(N, 1); %remember the constraints index that can be added to the box
-                Os = [];
-                % select constraints to add to the box
-                parfor i=1:N
-                    O = I(i).minHRep();
-                    Os = [Os O];
-                    
-                    n = size(O.A, 1);
-                    ind = [];
-
-                    for j=1:n
-                        A = vertcat(O.A(j,:), B.A);
-                        b = vertcat(O.b(j,:), B.b);
-                        B1 = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'be', B.be);
-                        
-                        l = 0;
-                        for k=1:N
-                            if I(k) <= B1
-                                l = l + 1;
-                                ind = [ind j];
-                            end                                    
-                        end
-                        
-                        %if l == N
-                        %    ind = [ind j];
-                        %end
-                        
-                    end
-                    n_ind{i, 1} = ind;
-                end
-
-                % add constraints to the box
-                if ~isempty(n_ind)
-                    A = cell(N, 1);
-                    b = cell(N, 1);
-                    parfor i=1:N
-                        O = Os(i);
-                        ind = n_ind{i, 1};
-                        
-                        if ~isempty(ind)
-                            A1 = O.A(ind(1), :);
-                            b1 = O.b(ind(1), :);
-                            if length(ind) > 1
-                                for j=2:length(ind)
-                                    A1 = vertcat(A1, O.A(ind(j), :));
-                                    b1 = vertcat(b1, O.b(ind(j), :));
-                                end
-                            end
-                            
-                            A{i, 1} = A1;
-                            b{i, 1} = b1;
-                                
-                        end
-                                   
-                    end
-                    
-                    A = cell2mat(A);
-                    b = cell2mat(b);
-                    
-                    % refine the box with some new constraints
-                    R = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'be', B.be);   
-                    
-                end
-               
+            m1 = length(lb1);
+            m2 = length(lb2);
+            
+            if m1 ~= m2
+                error('Dimension mismatch between two polyhedrons');
+            end
+            
+            lb = zeros(m1, 1);
+            ub = zeros(m1, 1);
+            
+            for i=1:m1
+                lb(i) = min(lb1(i), lb2(i));
+                ub(i) = max(ub1(i), ub2(i));
+            end
+            
+            B = Polyhedron('lb', lb, 'ub', ub); % box contains two polyhedrons
+            
+            %t = toc;
+            
+            %fprintf('\nTime for building an initial box B is %.5f seconds', t);
+            
+            %tic; 
+            n1_ind = [];
+            n2_ind = [];
+            m1_ind = [];
+            m2_ind = [];
+            
+            n1 = size(P1.A, 1); % number of linear inequalities in P1
+            n2 = size(P2.A, 1); % number of linear inequalities in P2
+            m1 = size(P1.Ae, 1); % number of linear equalities in P1
+            m2 = size(P2.Ae, 1); % number of linear equalities in P2
+            
+            
+            % check which constraints can be added to refine the box B
+            
+            if strcmp(parallel, 'parallel') % using parallel computing
                 
-            elseif strcmp(parallel, 'single')
+                parfor i=1:n1
+                    A = vertcat(P1.A(i, :), B.A);
+                    b = vertcat(P1.b(i, :), B.b);
+                    B1 = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'Be', B.be);
+
+                    if P2 <= B1
+                        n1_ind = [n1_ind i];
+                    end
                 
-                R = B; 
-                for i=1:N
-                    O = I(i).minHRep();
+                end
+                
+            elseif strcmp(parallel, 'single') % using single core
+                for i=1:n1
+                    A = vertcat(P1.A(i, :), B.A);
+                    b = vertcat(P1.b(i, :), B.b);
+                    B1 = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'Be', B.be);
+
+                    if P2 <= B1
+                        n1_ind = [n1_ind i];
+                    end                  
+                
+                end
+            else
+                error('Unknown parallel option');
+            end       
+            
+            if strcmp(parallel, 'parallel') % using parallel computing
+                
+                parfor i=1:m1
+                    Ae = vertcat(P1.Ae(i, :), B.Ae);
+                    be = vertcat(P1.be(i, :), B.be);
+                    B1 = Polyhedron('A', B.A, 'b', B.b, 'Ae', Ae, 'Be', be);
+
+                    if P2 <= B1
+                        m1_ind = [m1_ind i];
+                    end
+                end
+                
+            elseif strcmp(parallel, 'single') % using single core
+                
+                for i=1:m1
+                    Ae = vertcat(P1.Ae(i, :), B.Ae);
+                    be = vertcat(P1.be(i, :), B.be);
+                    B1 = Polyhedron('A', B.A, 'b', B.b, 'Ae', Ae, 'Be', be);
+
+                    if P2 <= B1
+                        m1_ind = [m1_ind i];
+                    end
                     
-                    n = size(O.A, 1);
-                    n_ind = []; % remember the constraint index that can add to the box                            
-
-                    for j=1:n
-                        A = vertcat(O.A(j,:), R.A);
-                        b = vertcat(O.b(j,:), R.b);
-                        B1 = Polyhedron('A', A, 'b', b, 'Ae', R.Ae, 'be', R.be);
-                        
-                        l = 0;
-                        for k=1:N
-                            if I(k) <= B1 % check if all set is contained by B1
-                                %l =  l + 1;
-                                n_ind = [n_ind j];
-                            end                                    
-                        end
-                        %if l == N
-                        %    n_ind = [n_ind j];
-                        %end
-                    end
-
-                    if ~isempty(n_ind)                            
-                        A = O.A(n_ind(1), :);
-                        b = O.b(n_ind(1), :);
-                        if length(n_ind) > 1
-                            for j=2:length(n_ind)
-                                A = vertcat(A, O.A(n_ind(j), :));
-                                b = vertcat(b, O.b(n_ind(j), :));
-                            end
-                        end                                
-                        A = vertcat(A, R.A);
-                        b = vertcat(b, R.b);
-                        R = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'be', B.be);                  
-                    end
-
                 end
                 
             else
-                error('Unknown computation option, choose parallel or single');
+                error('Unknown parallel option');
+            end 
+                       
+            if strcmp(parallel, 'parallel') % using parallel computing
+                
+                parfor i=1:n2
+                    A = vertcat(P2.A(i, :), B.A);
+                    b = vertcat(P2.b(i, :), B.b);
+                    B1 = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'Be', B.be);
+
+                    if P1 <= B1
+                        n2_ind = [n2_ind i];
+                    end
+                
+                end
+                
+            elseif strcmp(parallel, 'single') % using single core
+                
+                for i=1:n2
+                    A = vertcat(P2.A(i, :), B.A);
+                    b = vertcat(P2.b(i, :), B.b);
+                    B1 = Polyhedron('A', A, 'b', b, 'Ae', B.Ae, 'Be', B.be);
+
+                    if P1 <= B1
+                        n2_ind = [n2_ind i];
+                    end
+                
+                end
+            else
+                error('Unknown parallel option');
+            end
+
+            
+            
+            if strcmp(parallel, 'parallel') % using parallel computing
+                
+                parfor i=1:m2
+                    Ae = vertcat(P2.Ae(i, :), B.Ae);
+                    be = vertcat(P2.be(i, :), B.be);
+                    B1 = Polyhedron('A', B.A, 'b', B.b, 'Ae', Ae, 'Be', be);
+
+                    if P1 <= B1
+                        m2_ind = [m2_ind i];
+                    end
+                end
+                
+            elseif strcmp(parallel, 'single') % using single core
+                
+                for i=1:m2
+                    Ae = vertcat(P2.Ae(i, :), B.Ae);
+                    be = vertcat(P2.be(i, :), B.be);
+                    B1 = Polyhedron('A', B.A, 'b', B.b, 'Ae', Ae, 'Be', be);
+
+                    if P1 <= B1
+                        m2_ind = [m2_ind i];
+                    end
+                end
+            else
+                error('Unknown parallel option');
+            end
+                        
+            A = [];
+            b = [];
+            Ae = [];
+            be = [];
+            
+            % using parallel computing
+            if strcmp(parallel, 'parallel')
+
+                if ~isempty(n1_ind)
+                    for i=1:length(n1_ind)
+                        A = vertcat(A, P1.A(n1_ind(i), :));
+                        b = vertcat(b, P1.b(n1_ind(i), :));
+                    end
+                end
+
+
+                if ~isempty(m1_ind)
+                    for i=1:length(m1_ind)
+                        Ae = vertcat(Ae, P1.Ae(m1_ind(i), :));
+                        be = vertcat(be, P1.be(m1_ind(i), :));
+                    end
+                end
+
+
+                if ~isempty(n2_ind)
+                    for i=1:length(n2_ind)
+                        A = vertcat(A, P2.A(n2_ind(i), :));
+                        b = vertcat(b, P2.b(n2_ind(i), :));
+                    end
+                end
+
+
+                if ~isempty(m2_ind)
+                    for i=1:length(m2_ind)
+                        Ae = vertcat(Ae, P2.Ae(m2_ind(i), :));
+                        be = vertcat(be, P2.be(m2_ind(i), :));
+                    end
+                end
+
+            % using single core    
+            elseif strcmp(parallel, 'single')
+            
+                if ~isempty(n1_ind)
+                    for i=1:length(n1_ind)
+                        A = vertcat(A, P1.A(n1_ind(i), :));
+                        b = vertcat(b, P1.b(n1_ind(i), :));
+                    end
+                end
+
+
+                if ~isempty(m1_ind)
+                    for i=1:length(m1_ind)
+                        Ae = vertcat(Ae, P1.Ae(m1_ind(i), :));
+                        be = vertcat(be, P1.be(m1_ind(i), :));
+                    end
+                end
+
+
+                if ~isempty(n2_ind)
+                    for i=1:length(n2_ind)
+                        A = vertcat(A, P2.A(n2_ind(i), :));
+                        b = vertcat(b, P2.b(n2_ind(i), :));
+                    end
+                end
+
+
+                if ~isempty(m2_ind)
+                    for i=1:length(m2_ind)
+                        Ae = vertcat(Ae, P2.Ae(m2_ind(i), :));
+                        be = vertcat(be, P2.be(m2_ind(i), :));
+                    end
+                end
+
+                
+            else 
+                error('Unknown parallel option');
             end
             
+            
+            A = vertcat(A, B.A);
+            b = vertcat(b, B.b);
+            Ae = vertcat(Ae, B.Ae);
+            be = vertcat(be, B.be);
+            
+            % the final merged polyhedron
+            P = Polyhedron('A', A, 'b', b, 'Ae', Ae, 'be', be).minHRep();
+            
+            if ~(P1 <= P) || ~(P2 <= P)
+                error('merging operation gives an error');
+            end
+            
+            %t = toc; 
+            
+            %fprintf('\nTime for refining box B with new constraints to produce a polyhedron P = %.5f seconds', t);
+            
+            %fprintf('\nNumber of inequalities of the first polyhedron P1 is %d', size(P1.A, 1));
+            %fprintf('\nNumber of inequalities of the second polyhedron P2 is %d', size(P2.A, 1));
+            %fprintf('\nNumber of inequalities of P1 added to box B = %d', length(n1_ind));
+            %fprintf('\nNumber of inequalities of P2 added to box B = %d', length(n2_ind));
+            %fprintf('\nNumber of inequalities of the polyhedron P is %d', size(P.A, 1));
+            
+            %fprintf('\nNumber of equalities of P1 = %d', size(P1.Ae, 1));
+            %fprintf('\nNumber of equalities of P2 = %d', size(P2.Ae, 1));
+            %fprintf('\nNumber of equalities of P1 added to box B = %d', length(m1_ind));
+            %fprintf('\nNumber of equalities of P2 added to box B = %d', length(m2_ind));
+            %fprintf('\nNumber of equalities of the polyhedron P = %d', size(P.Ae, 1));
             
         end
         
@@ -160,26 +370,8 @@ classdef Reduction
                 error('Inconsistent dimensions between two polyhedrons');
             end
             
-            if n1 <= n2
-                V = V1;
-                P = Polyhedron(V');
-                for i=1:n2
-                    if ~P.contains(V2(:, i))
-                        V = [V V2(:, i)];
-                        P = Polyhedron(V');
-                    end
-                end
-                                
-            else
-                V = V2;
-                P = Polyhedron(V');
-                for i=1:n1
-                    if ~P.contains(V1(:, i))
-                        V = [V V1(:, i)];
-                        P = Polyhedron(V');
-                    end
-                end
-            end
+            V = [V1 V2];
+            P = Polyhedron(V').minHRep();           
             %fprintf('\nNumber of contraints = %d', size(P.A, 1));
             
         end

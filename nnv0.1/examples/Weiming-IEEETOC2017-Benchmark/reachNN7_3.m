@@ -21,12 +21,13 @@ I = Polyhedron(C, d);
 I.plot;
 
 % select option for reachability algorithm
-%[R1, rn1, t1] = F.reach(I, 'exact', 'parallel'); % exact reach set with parallel computing
-%[R1, rn1, t1] = F.reach(I, 'exact', 'single'); % exact reach set with single core
 
-%[R1, rn1, t1] = F.reach(I, 'approx-box', 'single'); % over-approximate reach set using box 
-%[R1, rn1, t1] = F.reach(I, 'approx-box', 'parallel'); % over-approximate reach set using box 
-%[R1, rn1, t1] = F.reach(I, 'approx-polyhedron', 'single'); % over-approximate reach set using polyhedron
+[R1, t1] = F.reach(I, 'exact', 1); % exact reach set with single core
+%[R1, t1] = F.reach(I, 'approx-box', 1); % over-approximate reach set using box
+%[R1, t1] = F.reach(I, 'approx-polyhedron', 4); % over-approximate reach set using polyhedron
+save F F; % save the verified network
+F.print('F.info'); % print all information to a file
+
 % generate some input to test the output
 e = 0.25;
 x = [];

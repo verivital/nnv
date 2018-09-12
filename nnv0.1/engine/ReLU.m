@@ -43,7 +43,7 @@ classdef ReLU
                 Z1(1, index) = 1;
                 Z2 = zeros(1, dim);
                 Z2(1, index) = -1;
-                
+
                 A1 = vertcat(I.A, Z1);
                 A2 = vertcat(I.A, Z2);
                 b  = vertcat(I.b, [0]);
@@ -58,18 +58,16 @@ classdef ReLU
                     if R2.isEmptySet
                         R = Polyhedron;
                     else
-                        R = R2;
+                        R = R2.minHRep();
                     end
                 else
                     if R2.isEmptySet
-                        R = R1;
+                        R = R1.minHRep();
                     else
                         if R1 <= R2
-                            R = R2;
-                        elseif R2 <= R1
-                            R = R1;
+                            R = R2.minHRep();
                         else
-                            R = [R1 R2];
+                            R = [R1.minHRep() R2.minHRep()];
                         end
                     end
                 end                          
@@ -121,6 +119,7 @@ classdef ReLU
             
             In = I;
             for i=1:m
+                %fprintf('\nPerforming ReLU_%d operation', i);
                 In = ReLU.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)));
             end               
             R = In;

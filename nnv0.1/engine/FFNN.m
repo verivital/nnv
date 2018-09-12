@@ -1,4 +1,4 @@
-classdef FFNN
+classdef FFNN < handle
     % FeedForward Neural Network Class
     % Dung Tran: 8/22/2018
     
@@ -8,6 +8,19 @@ classdef FFNN
         nN = 0; % number of Neurons
         nI = 0; % number of Inputs
         nO = 0; % number of Outputs
+        
+        % properties for reach set computation
+        
+        reachScheme = '';    % reachable set computation scheme
+        numOfCores = 0; % number of cores (workers) using in computation
+        inputSet = [];  % input set
+        reachSet = [];  % reachable set for each layers
+        outputSet = []; % output reach set
+        reachTime = []; % computation time for each layers
+        totalReachTime = 0; % total computation time
+        n_ReLU_reduced = []; % number of ReLU stepReach operation is reduced
+        total_n_ReLU_reduced = 0; % total number of ReLU stepReach operation is reduced
+        
     end
     
     methods
@@ -56,7 +69,7 @@ classdef FFNN
         end
         
         % Reach Set computation
-        function [R, rn, t] = reach(obj, I, scheme, parallel)
+        function [R, t] = reach(obj, I, scheme, numOfCores)
             % Reach Set Computation of this FFNN
             % @I: input set which is a polyhedron
             % @scheme: = 'exact' -> compute the exact reach set
@@ -66,11 +79,43 @@ classdef FFNN
             % @rn: number of ReLU_i (stepReach) operation reduced
             % @t : computation time which is an array containing computation time
             %     on each layer.
-            % @parallel: = 'parallel' -> use parallel computing
-            %            = 'single'  -> use single core
+            % @numOfCores: number of cores you want to run the reachable
+            % set computation, @numOfCores >= 1, maximum is the number of
+            % cores in your computer. We also can run this method on a
+            % clusters. You need to change: parpool('local', numOfCores) to
+            % parcluster(your_cluster_profile), you also need to set up
+            % your local clusters with installed MPT toolbox also. see: 
+            % https://www.mathworks.com/help/distcomp/discover-clusters-and-use-cluster-profiles.html
+           
         
-            rn = [];
-            t = [];
+            if numOfCores < 1
+                error('Number of cores should be at least one');
+            end
+            
+            if numOfCores == 1
+                parallel = 'single';
+            else
+                parallel = 'parallel';
+            end
+            
+            obj.numOfCores = numOfCores;
+            obj.reachScheme = scheme;
+            obj.inputSet = I;
+            obj.reachSet = cell(1, obj.nL);
+            
+            % set up parallel computing with number of cores (workers)
+            if numOfCores > 1
+                poolobj = gcp('nocreate'); % If no pool, do not create new one.
+                if isempty(poolobj)
+                    poolobj = parpool('local', numOfCores); 
+                else
+                    if poolobj.NumWorkers ~= numOfCores
+                        delete(poolobj); % delete the old poolobj
+                        poolobj = parpool('local', numOfCores); % start the new one with new number of cores
+                    end                    
+                end
+            end
+            
             
             In = I;
             for i=1:obj.nL
@@ -79,6 +124,7 @@ classdef FFNN
                 if strcmp(scheme, 'exact')
                     
                     [In, rn1, t1] = obj.Layers(i).reach_exact(In, parallel);
+                    obj.n_ReLU_reduced = [obj.n_ReLU_reduced rn1];
                     
                 elseif strcmp(scheme, 'approx-box')
                     
@@ -92,20 +138,26 @@ classdef FFNN
                     error('Unknown scheme');                    
                 end
                 
-                t = [t, t1];
+                obj.reachSet{1, i} = In;
+                obj.reachTime = [obj.reachTime t1];
+                
                 fprintf('\nFinish reach set computation for layer %d in %.5f seconds', i, t1);               
                 fprintf('\nNumber of polyhedrons at the output of layer %d is %d', i, length(In));
                 
-                str = sprintf('L%d',i);
-                save(str, 'In'); % store reach set of each layer
-                
+                               
             end
-            R = In;
-            fprintf('\nTotal reach set computation time: %.5f seconds', sum(t));
-            if ~isempty(rn)
-                fprintf('\nTotal number of ReLU_i stepReach operations reduced: %d', sum(rn));
+            
+            obj.outputSet = In;
+            obj.totalReachTime = sum(obj.reachTime);
+            obj.total_n_ReLU_reduced = sum(obj.n_ReLU_reduced);
+            R = obj.outputSet;
+            t = obj.totalReachTime;
+                       
+            fprintf('\nTotal reach set computation time: %.5f seconds', obj.totalReachTime);
+            if ~isempty(obj.n_ReLU_reduced)
+                fprintf('\nTotal number of ReLU_i stepReach operations reduced: %d', obj.total_n_ReLU_reduced);
             end
-            fprintf('\nTotal number of polyhedron at output layer is %d', length(R));
+            fprintf('\nTotal number of polyhedron at output layer is %d', length(obj.outputSet));
         end
         
         % Sample of FFNN
@@ -122,6 +174,41 @@ classdef FFNN
                 Y{1, i} = In;
             end
         end
+        
+        
+        % print information to a file
+        function print(obj, file_name)
+            % @file_name: name of file you want to store all data
+            % information
+            f = fopen(file_name, 'w');
+            fprintf(f, 'Feedforward Neural Network Information\n');
+            fprintf(f, '\nNumber of layers: %d', obj.nL);
+            fprintf(f, '\nNumber of neurons: %d', obj.nN);
+            fprintf(f, '\nNumber of inputs: %d', obj.nI);
+            fprintf(f, '\nNumber of outputs: %d', obj.nO);
+            
+            if ~isempty(obj.reachSet)
+                fprintf(f, '\n\nReach Set Information');
+                fprintf(f, '\nReachability scheme: %s', obj.reachScheme);
+                fprintf(f, '\nNumber of cores used in computation: %d', obj.numOfCores);
+                
+                for i=1:length(obj.reachSet)-1
+                    fprintf(f, '\nLayer %d reach set consists of %d polyhedrons that are computed in %.5f seconds', i, length(obj.reachSet{1, i}), obj.reachTime(i));
+                    if ~isempty(obj.n_ReLU_reduced)
+                        fprintf(f, '\nNumber of ReLU_i stepReach operations neglected for layer %d: %d', i, obj.n_ReLU_reduced(i));
+                    end
+                end
+                fprintf(f, '\nOutput Layer reach set consists of %d polyhedrons that are computed in %.5f seconds', length(obj.reachSet{1, obj.nL}), obj.reachTime(obj.nL)); 
+                fprintf(f, '\nTotal reachable set computation time: %.5f', obj.totalReachTime);
+                
+                if ~isempty(obj.n_ReLU_reduced)
+                    fprintf(f, '\nTotal number of ReLU_i stepReach operations neglected: %d', obj.total_n_ReLU_reduced);
+                end
+                
+            end
+               
+        end
+        
         
     end
     

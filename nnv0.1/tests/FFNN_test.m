@@ -24,26 +24,47 @@ title('Input Set')
 % command, and some sampled points of the output from the input's sampled
 % points to see if the reach set actually contained these points.
 
-[R1, rn, t] = L1.reach_exact(I, 'parallel');
+[R1, rn, t] = L1.reach_exact(I, 'single');
 fig = figure;
 R1.plot;
 title('Layer 1 exact set')
 
-[R2, rn, t] = L2.reach_exact(R1, 'parallel');
-fig = figure;
-R2.plot;
-title('Layer 2 exact set')
+%[R2, rn, t] = L2.reach_exact(R1, 'parallel');
+%fig = figure;
+%R2.plot;
+%title('Layer 2 exact set')
 
 
-[R11, t] = L1.reach_approx_polyhedron(I, 'parallel');
+[R11, t] = L1.reach_approx_polyhedron(I, 'single');
 fig = figure;
 R11.plot;
 title('Layer 1 over-approximate reach set using polyhedron');
 
-[R22, t] = L2.reach_approx_polyhedron(R11, 'parallel');
-fig = figure;
-R22.plot;
-title('Layer 2 over-approximate reach set using polyhedron');
+%[R22, t] = L2.reach_approx_polyhedron(R11, 'parallel');
+%fig = figure;
+%R22.plot;
+%title('Layer 2 over-approximate reach set using polyhedron');
+
+%[R1, rn, t] = L1.reach_exact(I, 'parallel');
+%fig = figure;
+%R1.plot;
+%title('Layer 1 exact set')
+
+%[R2, rn, t] = L2.reach_exact(R1, 'parallel');
+%fig = figure;
+%R2.plot;
+%title('Layer 2 exact set')
+
+
+%[R11, t] = L1.reach_approx_polyhedron(I, 'parallel');
+%fig = figure;
+%R11.plot;
+%title('Layer 1 over-approximate reach set using polyhedron');
+
+%[R22, t] = L2.reach_approx_polyhedron(R11, 'parallel');
+%fig = figure;
+%R22.plot;
+%title('Layer 2 over-approximate reach set using polyhedron');
 
 
 %[R, t] = L1.reach_approx_box(I, 'single');

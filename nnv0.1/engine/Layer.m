@@ -204,14 +204,14 @@ classdef Layer
         
         % over-approximate reach set using polyhedron without parallel
         % computing
-        function [R, t] = reach_approx_polyhedron(obj, I, parallel)
+        function [R, runtime] = reach_approx_polyhedron(obj, I, parallel)
             % @I : input set, a polyhedron
             % @R: over-approximate reach set (a polyhedron)
             % @t: computation time
             % @parallel: = 'parallel' -> using parallel computing
             %            = 'single' -> using single core for computing
             
-            tic;
+            startTime = tic;
             
             if I.isEmptySet
                 error('Input set is an empty set');
@@ -220,13 +220,22 @@ classdef Layer
             if size(obj.W, 2) ~= size(I.A, 2)
                     error('Inconsistent dimensions between input set and weights matrix')
             end
+           
             
-            [R1, rn1, t1] = obj.reach_exact(I, parallel);
+            if ~I.isBounded
+                error('Input set is not bounded')
+            end
             
-            B = obj.reach_approx_box(I, parallel); % computing the box containing all reach set
-            R = Reduction.merge(R1, B, parallel); %merge an array of polyhedron into one polyhedron
+            if strcmp(obj.f, 'Linear')
+                R = I.affineMap(obj.W) + obj.b;
+            elseif strcmp(obj.f, 'ReLU')                
+                R = ReLU.reach(I.affineMap(obj.W) + obj.b);
+                R = Reduction.recursiveMerge(R, parallel);                                
+            else
+                error('Unsupported activiation function');
+            end
             
-            t = toc;                                          
+            runtime = toc(startTime);                                          
             
         end
         

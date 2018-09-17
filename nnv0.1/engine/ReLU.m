@@ -31,14 +31,16 @@ classdef ReLU
             % @xmin: min of x[index]
             % @xmax: max of x[index]
            
+           
             dim = size(I.A, 2);  % dimension of input space
             if xmin >= 0
                 R = I; 
             elseif xmax < 0 
                 Im = eye(dim);
-                Im(index, index) = 0;
+                Im(index, index) = 0;                
                 R = I.affineMap(Im);    % y[index] = ReLU(x[index]) = 0
             elseif xmin < 0 && xmax >= 0
+                
                 Z1 = zeros(1, dim);
                 Z1(1, index) = 1;
                 Z2 = zeros(1, dim);
@@ -70,7 +72,8 @@ classdef ReLU
                             R = [R1.minHRep() R2.minHRep()];
                         end
                     end
-                end                          
+                end
+                
                 
             end
             
@@ -105,11 +108,10 @@ classdef ReLU
             % @option: = 'exact' -> compute an exact reach set
             %          = 'approx' -> compute an over-approximate reach set
             
-            %tic; 
             if ~I.isBounded
                 error('Input set is not bounded')
             end
-                        
+            
             I.outerApprox; % find bounds of I state vector
             lb = I.Internal.lb; % min-vec of x vector
             ub = I.Internal.ub; % max-vec of x vector

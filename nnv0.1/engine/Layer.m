@@ -62,7 +62,7 @@ classdef Layer
             % @parallel: = 'parallel' use parallel computing
             %            = 'single' use single core
             
-            tic;
+            t1 = tic;
             
             rn = 0; 
             R = [];
@@ -122,120 +122,198 @@ classdef Layer
                 error('Unknown computation option: parallel or single');
             end
             
-            t = toc;              
+            t = toc(t1);              
         end
         
         % reach set computation in horizonal manner, contruct a box for the
         % output set of the layer
         
-        function [R, t] = reach_approx_box(obj, I, parallel)
+        function [R, t] = reach_approx_box(obj, I, nB, parallel)
             % @I : input set, a polyhedron
+            % @nB: number of boxes used to over-approximate reach set
             % @parallel: @parallel = 'parallel' -> compute in parallel with multiple cores or
             % clusters
             %            @parallel = 'single' -> single core
             % @R: box
             % @t: computation time
             
-            tic;
-            
-            if size(obj.W, 2) ~= size(I.A, 2)
-                    error('Inconsistent dimensions between input set and weights matrix')
-            end
-                                    
-            R = I.affineMap(obj.W) + obj.b;
-            
+            t1 = tic;
+            n = length(I);
+            R = [];
             if strcmp(obj.f, 'Linear')
-               % do nothing 
+               for i=1:n
+                   % if activation function is linear we don't use box but
+                   % return the exact output
+                   R = [R I(i).affineMap(obj.W) + obj.b]; 
+               end
+                
+                
             elseif strcmp(obj.f, 'ReLU')
                 
-                R.outerApprox;
-                lb = zeros(obj.N, 1);
-                ub = zeros(obj.N, 1);
+                [R, rn, t2] = obj.reach_exact(I, parallel);
+                R = Reduction.merge_box(R, nB, 'single');
                 
-                if strcmp(parallel, 'parallel') % computing in parallel
-                                    
-                    lb1 = R.Internal.lb;
-                    ub1 = R.Internal.ub;
-                    
-                    N = obj.N; % this needs to be done for parallel computing                   
-                    parfor i=1:N
-                        if lb1(i) <= 0
-                            lb(i) = 0;
-                        else
-                            lb(i) = lb1(i);
-                        end
-                        if ub1(i) <= 0
-                            ub(i) = 0;
-                        else
-                            ub(i) = ub1(i);
-                        end
-                    end
-                    
-                elseif strcmp(parallel, 'single')
-                    
-                    lb = R.Internal.lb;
-                    ub = R.Internal.ub;
-                    
-                    for i=1:obj.N %single core computing
-                        if lb(i) <= 0
-                            lb(i) = 0;
-                        end
-                        if ub(i) <= 0
-                            ub(i) = 0;
-                        end
-                    end
-                    
-                else 
-                    error('\nUnknown option');                  
-                end
-                
-                
-                R = Polyhedron('lb', lb, 'ub', ub);
-                
-            else
-                
+            else                
                 error('\nUnsupported activation function');
-                
             end 
                 
-            t = toc;
+            t = toc(t1);
             
         end
         
         % over-approximate reach set using polyhedron without parallel
         % computing
-        function [R, runtime] = reach_approx_polyhedron(obj, I, parallel)
+        function [R, runtime] = reach_approx_polyhedron(obj, I, nP, nC, parallel)
             % @I : input set, a polyhedron
             % @R: over-approximate reach set (a polyhedron)
             % @t: computation time
+            % @nP: number of polyhedra in the output R ( can set = number of cores)
+            % @nC: number of constraints in each polyhedron of the output R
+            %      @nC: is used to control the number of constraints of the
+            %      polyhedra of the output, make it always ~nC.
             % @parallel: = 'parallel' -> using parallel computing
             %            = 'single' -> using single core for computing
             
             startTime = tic;
             
-            if I.isEmptySet
-                error('Input set is an empty set');
-            end
-            
-            if size(obj.W, 2) ~= size(I.A, 2)
-                    error('Inconsistent dimensions between input set and weights matrix')
-            end
-           
-            
-            if ~I.isBounded
-                error('Input set is not bounded')
+            for i=1:length(I)
+                if I(i).isEmptySet
+                    error('Input %d is an empty set', i);
+                end
+                if size(obj.W, 2) ~= size(I(i).A, 2)
+                    error('Inconsistent dimensions between input set %d and weights matrix', i);
+                end
+                if ~I(i).isBounded
+                    error('Input set is not bounded')
+                end
             end
             
             if strcmp(obj.f, 'Linear')
-                R = I.affineMap(obj.W) + obj.b;
+                R = [];
+                for i=1:length(I)
+                    R = [R I(i).affineMap(obj.W) + obj.b];
+                end                
             elseif strcmp(obj.f, 'ReLU')                
-                R = ReLU.reach(I.affineMap(obj.W) + obj.b);
-                R = Reduction.recursiveMerge(R, parallel);                                
+                
+                % compute the exact reach set
+                fprintf('\nComputing the exact reach set of the current layer...')
+                [R, rn, t] = obj.reach_exact(I, parallel);
+                fprintf('\nReach set computation is done in %.5f seconds', t);
+                
+                
+                % clustering output reach set into nP groups based on their overlapness
+                
+                fprintf('\nClustering reach set (%d polyhedra) into %d groups based on their overlapness...', length(R), nP);
+                t1 = tic;
+                clustered_set = Reduction.clusterByOverlapness(R, nP); 
+                t2 = toc(t1);
+                fprintf('\nFinish clustering in %.5f seconds', t2);
+                display(clustered_set);
+                
+                t1 = tic; 
+                R = [];
+                for j=1:nP
+                    fprintf('\nMerging all polyhedra in the %dth clustered group into one polyhdron...', j);
+                    % merge all polyhedra in one group into one polyhedron
+                    R = [R Reduction.recursiveMerge(clustered_set{j, 1}, 1, parallel)]; 
+                end
+                t2 = toc(tic);
+                fprintf('\nFinish merging in %.5f seconds', t2);
+                
+                % reduce the number of constraints of the output polyhedra
+                t1 = tic;
+                fprintf('\nReducing the constraints of the %d merged polyhedra to ~%d constraints', nP, nC)
+                R = Reduction.reduceConstraints(R, nC, parallel); 
+                t2 = toc(t1);
+                fprintf('\nFinish constraints reduction in %.5f seconds', t2);
             else
                 error('Unsupported activiation function');
             end
             
             runtime = toc(startTime);                                          
+            
+        end
+        
+        
+        % coarse over-approximation of reachable set using box
+        
+        function [R, runtime] = reach_approx_box_coarse(obj, I, parallel)
+            % @I: input array
+            % @parallel: = 'parallel' using parallel computing
+            %            = 'single' using single core for computing
+            
+            t1 = tic;
+            n = length(I);
+            R = [];
+            
+            if strcmp(parallel, 'single')
+                if strcmp(obj.f, 'Linear')
+                    for i=1:n
+                        R = [R I(i).affineMap(obj.W) + obj.b];
+                    end
+                elseif strcmp(obj.f, 'ReLU')
+                    
+                    for i=1:n
+                        I1 = I(i).affineMap(obj.W) + obj.b;
+                        I1.outerApprox;
+                        lb = I1.Internal.lb;
+                        ub = I1.Internal.ub;
+
+                        for j=1:length(lb)
+                            if lb(j) < 0
+                                lb(j) = 0;
+                            end
+                            if ub(j) < 0
+                                ub(j) = 0;
+                            end
+                        end
+
+                        R = [R Polyhedron('lb', lb, 'ub', ub)];
+
+                    end
+                else
+                    error('Unsupported activation function');
+                end
+                
+            
+            elseif strcmp(parallel, 'parallel')
+                
+                
+                if strcmp(obj.f, 'Linear')
+                    parfor i=1:n
+                        R = [R I(i).affineMap(obj.W) + obj.b];
+                    end
+                elseif strcmp(obj.f, 'ReLU')
+                    
+                    parfor i=1:n
+                        I1 = I(i).affineMap(obj.W) + obj.b;
+                        I1.outerApprox;
+                        lb = I1.Internal.lb;
+                        ub = I1.Internal.ub;
+
+                        for j=1:length(lb)
+                            if lb(j) < 0
+                                lb(j) = 0;
+                            end
+                            if ub(j) < 0
+                                ub(j) = 0;
+                            end
+                        end
+
+                        R = [R Polyhedron('lb', lb, 'ub', ub)];
+
+                    end
+                    
+                else
+                    error('Unsupported activation function');
+                end
+                
+            else 
+                error('Unknown parallel computing option');
+            end
+                
+            runtime = toc(t1);
+            
             
         end
         

@@ -128,7 +128,7 @@ classdef Layer
         % reach set computation in horizonal manner, contruct a box for the
         % output set of the layer
         
-        function [R, runtime] = reach_approx_box(obj, I, nP, parallel)
+        function [R, runtime] = reach_approx(obj, I, nP, parallel)
             % @I : input set, a polyhedron
             % @parallel: @parallel = 'parallel' -> compute in parallel with multiple cores or
             % clusters
@@ -142,12 +142,10 @@ classdef Layer
             
             if strcmp(parallel, 'parallel')
                 if strcmp(obj.f, 'Linear')
-                    parfor i=1:n
-                   % if activation function is linear we don't use box but
-                   % return the exact output
-                    R = [R I(i).affineMap(obj.W) + obj.b]; 
-                    end
-                
+                    
+                    I1 = Reduction.hypercubeHull(I);
+                    R = I1.affineMap(obj.W) + obj.b;
+             
                  elseif strcmp(obj.f, 'ReLU')
                      
                      R1 = [];
@@ -276,8 +274,10 @@ classdef Layer
         
         % coarse over-approximation of reachable set using box
         
-        function [R, runtime] = reach_approx_box_coarse(obj, I, parallel)
+        function [R, runtime] = reach_approx_box_coarse(obj, I, nP, parallel)
             % @I: input array
+            % @nP: maximum number of polyhedra to over-approximate reach
+            % set for each layer
             % @parallel: = 'parallel' using parallel computing
             %            = 'single' using single core for computing
             
@@ -310,6 +310,10 @@ classdef Layer
 
                         R = [R Polyhedron('lb', lb, 'ub', ub)];
 
+                    end
+                    
+                    if length(R) > nP
+                        R = Reduction.merge_box(R, nP, parallel);
                     end
                 else
                     error('Unsupported activation function');
@@ -345,6 +349,10 @@ classdef Layer
 
                     end
                     
+                    if length(R) > nP
+                        R = Reduction.merge_box(R, nP, parallel);
+                    end
+                    
                 else
                     error('Unsupported activation function');
                 end
@@ -376,7 +384,7 @@ classdef Layer
                P = obj.reach_exact(I, parallel);
            else                                        
                P = Reduction.merge_box(I, nP, parallel);
-               P = obj.reach_approx_box_coarse(P, parallel);
+               P = obj.reach_approx_box_coarse(P, nP, parallel);
            end
            
            runtime = toc(t1);

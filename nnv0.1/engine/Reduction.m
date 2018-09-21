@@ -11,12 +11,91 @@ classdef Reduction
     methods(Static)
         
         
+        % find nP smallest polyhedra close to the origin the most
+        function P = findSmallestPolyhedraCloseOrigin(I, nP)
+            % @I: an array of input polyhedra
+            % @nP: the number of polyhedra that is close to the origin
+            % @P : the output polyhedra P = {P1, P2} = I, |P2| = nP
+            %    : this algorithm divide the input into two sets, the
+            %    second set contains nP smalllest polyhedra that is close the most to
+            %    the origin
+            
+            
+            % criteria for  clustering: J = 1/2 * d + 1/2 * V 
+            
+            % d = || (ub + lb)/2||: distance from the center of the box bounding a
+            % polyhedron to the origin
+            % V = ||ub - lb||, distance between lowerbound and upperbound of the box 
+            
+            
+            n = length(I);
+            C = zeros(n, 1);
+            for i=1:n
+                I(i).outerApprox;
+                lb = I(i).Internal.lb;
+                ub = I(i).Internal.ub;
+                %C(i,1) = norm(ub);
+                C(i, 1) = 0.5*norm((ub +lb)/2) + 0.5*norm((ub - lb));
+            end
+
+            [~, Index] = sort(C);
+            Idx = Index(1:nP); % index of nP smallest number
+
+            P2 = [];
+            for i=1:nP
+                P2 = [P2 I(Idx(i))];
+            end
+            
+            Idx = Index(nP + 1:n); % index of n-NP largest number
+            P1 = [];
+            for i=1:length(Idx)
+                P1 = [P1 I(Idx(i))];
+            end
+            
+            P = cell(2,1);
+            P{1,1} = P1;
+            P{2,1} = P2;
+            
+        end
+        
+        %clustering a set of polyhedra by dependent variables        
+        function P = clusterByDependentVariables(I)
+            % @I: an array of input polyhedra
+            
+            n = length(I);
+            m = size(I(1).A, 2); % number of variables (dimension)
+            R = zeros(n, m); % matrix to show dependent variables of polyhedra
+
+            for i=1:n
+
+                for j=1:m
+                    if sum(I(i).A(:, j) > 0)
+                        R(i, j) = 1;
+                    end                   
+                end
+
+            end
+
+            [C,~,~]=unique(R,'rows','stable');
+
+            P = cell(size(C, 1), 1);
+
+            for i=1:size(C, 1)
+                for j=1:n
+                    if sum(abs(R(j, :) - C(i, :))) == 0
+                        P{i,1} = [P{i, 1} I(j)];
+                    end        
+                end
+            end
+                  
+        end
+        
         
         % clustering a set of polyhedra by overlapness
-        
         function P = clusterByOverlapness(I, nP)
             % @I: an array of input polyhedra
             % @nP: number of groups of the output polyhedra
+            
             
             n = length(I);
             B = [];
@@ -73,54 +152,71 @@ classdef Reduction
                
                
                    n = size(I(k).A, 1);
+                   
+                   if n <= nc
+                       R = I(k);
+                   else
+                       
+                       C = zeros(n, n);
 
-                   C = zeros(n, n);
+                       for i=1:n
+                           for j=1:n
+                               if j~=i
+                                   C(i, j) = abs(I(k).A(i, :)* (I(k).A(j,:)'));
+                               end
 
-                    for i=1:n
-                        for j=1:n
-                            if j~=i
-                                C(i, j) = abs(I(k).A(i, :)* (I(k).A(j,:)'));
-                            end
+                           end
+                       end
 
+                       [row, col] = find(C==max(max(C, [], 2)));
+
+                       A = vertcat(I(k).A(row(1), :), I(k).A(col(1), :));
+                       b = vertcat(I(k).b(row(1), :), I(k).b(col(1), :));
+
+                       R = Polyhedron('A', A, 'b', b, 'Ae', I(k).Ae, 'be', I(k).be);
+
+                       maps = zeros(2, 1);
+                       maps(1) = row(1);
+                       maps(2) = col(1);
+
+                       C(maps(1), :) = 0;
+                       C(maps(2), :) = 0;
+
+
+                       while (size(R.A, 1) < nc || ~R.isBounded || R.isEmptySet) && length(maps) < n
+
+                           m = length(maps);
+                           idx_vec = zeros(m, 1);
+                           max_val_vec = zeros(m, 1);
+                           for i=1:m
+                               [max_val_vec(i), idx_vec(i)] = max(C(:, maps(i)));
+                           end
+
+                           [max_val, j] = max(max_val_vec);
+                           if max_val > 0
+                               idx = idx_vec(j);
+                           else
+                               [row, ~] = find(C==max(max(C, [], 2)));   
+                               idx = row(1);
+                           end
+
+                           C(idx, :) = 0;
+                           maps = vertcat(maps, idx);
+                           A = vertcat(R.A, I(k).A(idx, :));
+                           b = vertcat(R.b, I(k).b(idx, :));
+                           R = Polyhedron('A', A, 'b', b, 'Ae', I(k).Ae, 'be', I(k).be);
+                       
                         end
+
+                        
+                   end
+
+                    
+                    if ~(I(k) <= R)
+                        error('reduceConstraints operation gives an error')
                     end
 
-                    [row, col] = find(C==max(max(C, [], 2)));
-
-                    A = vertcat(I(k).A(row(1), :), I(k).A(col(1), :));
-                    b = vertcat(I(k).b(row(1), :), I(k).b(col(1), :));
-
-                    R = Polyhedron('A', A, 'b', b, 'Ae', I(k).Ae, 'be', I(k).be);
-
-                    maps = zeros(2, 1);
-                    maps(1) = row(1);
-                    maps(2) = col(1);
-
-                    C(maps(1), :) = 0;
-                    C(maps(2), :) = 0;
-
-
-                    while (size(R.A, 1) < nc || ~R.isBounded) && length(maps) < n
-
-                        m = length(maps);
-                        idx_vec = zeros(m, 1);
-                        max_val_vec = zeros(m, 1);
-                        for i=1:m
-                            [max_val_vec(i), idx_vec(i)] = max(C(:, maps(i)));
-                        end
-
-                        [max_val, j] = max(max_val_vec);
-                        idx = idx_vec(j);
-
-                        C(idx, :) = 0;
-                        maps = vertcat(maps, idx);
-                        A = vertcat(R.A, I(k).A(idx, :));
-                        b = vertcat(R.b, I(k).b(idx, :));
-                        R = Polyhedron('A', A, 'b', b, 'Ae', I(k).Ae, 'be', I(k).be);
-
-                    end
-
-                P = [P R.minHRep()];
+                    P = [P R.minHRep()];
 
                end
                
@@ -129,54 +225,70 @@ classdef Reduction
                for k=1:L
                
                
-                   n = size(I(k).A, 1);
+                    n = size(I(k).A, 1);
+                    if n <= nc
+                       R = I(k);
+                    else
+                                               
+                       C = zeros(n, n);
 
-                   C = zeros(n, n);
+                       for i=1:n
+                           for j=1:n
+                               if j~=i
+                                   C(i, j) = abs(I(k).A(i, :)* (I(k).A(j,:)'));
+                               end
 
-                    for i=1:n
-                        for j=1:n
-                            if j~=i
-                                C(i, j) = abs(I(k).A(i, :)* (I(k).A(j,:)'));
-                            end
+                           end
+                       end
 
+                       [row, col] = find(C==max(max(C, [], 2)));
+
+                       A = vertcat(I(k).A(row(1), :), I(k).A(col(1), :));
+                       b = vertcat(I(k).b(row(1), :), I(k).b(col(1), :));
+
+                       R = Polyhedron('A', A, 'b', b, 'Ae', I(k).Ae, 'be', I(k).be);
+
+                       maps = zeros(2, 1);
+                       maps(1) = row(1);
+                       maps(2) = col(1);
+
+                       C(maps(1), :) = 0;
+                       C(maps(2), :) = 0;
+
+
+                       while (size(R.A, 1) < nc || ~R.isBounded || R.isEmptySet) && length(maps) < n
+
+                           m = length(maps);
+                           idx_vec = zeros(m, 1);
+                           max_val_vec = zeros(m, 1);
+                           for i=1:m
+                               [max_val_vec(i), idx_vec(i)] = max(C(:, maps(i)));
+                           end
+
+                           [max_val, j] = max(max_val_vec);
+                           if max_val > 0
+                               idx = idx_vec(j);
+                           else
+                               [row, ~] = find(C==max(max(C, [], 2)));   
+                               idx = row(1);
+                           end
+
+                           C(idx, :) = 0;
+                           maps = vertcat(maps, idx);
+                           A = vertcat(R.A, I(k).A(idx, :));
+                           b = vertcat(R.b, I(k).b(idx, :));
+                           R = Polyhedron('A', A, 'b', b, 'Ae', I(k).Ae, 'be', I(k).be);
+                       
                         end
+
+                        
                     end
 
-                    [row, col] = find(C==max(max(C, [], 2)));
-
-                    A = vertcat(I(k).A(row(1), :), I(k).A(col(1), :));
-                    b = vertcat(I(k).b(row(1), :), I(k).b(col(1), :));
-
-                    R = Polyhedron('A', A, 'b', b, 'Ae', I(k).Ae, 'be', I(k).be);
-
-                    maps = zeros(2, 1);
-                    maps(1) = row(1);
-                    maps(2) = col(1);
-
-                    C(maps(1), :) = 0;
-                    C(maps(2), :) = 0;
-
-
-                    while (size(R.A, 1) < nc || ~R.isBounded) && length(maps) < n
-
-                        m = length(maps);
-                        idx_vec = zeros(m, 1);
-                        max_val_vec = zeros(m, 1);
-                        for i=1:m
-                            [max_val_vec(i), idx_vec(i)] = max(C(:, maps(i)));
-                        end
-
-                        [max_val, j] = max(max_val_vec);
-                        idx = idx_vec(j);
-
-                        C(idx, :) = 0;
-                        maps = vertcat(maps, idx);
-                        A = vertcat(R.A, I(k).A(idx, :));
-                        b = vertcat(R.b, I(k).b(idx, :));
-                        R = Polyhedron('A', A, 'b', b, 'Ae', I(k).Ae, 'be', I(k).be);
-
+                   
+                    if ~(I(k) <= R)
+                        error('reduceConstraints operation gives an error');
                     end
-                P = [P R.minHRep()];
+                    P = [P R.minHRep()];
                end
            else 
                error('Unknown parallel computing option');
@@ -641,31 +753,24 @@ classdef Reduction
         end
         
         % fast hull of two polyhedrons
-        function P = fastHull(P1, P2)
+        function P = fastHull(I)
             % the convexHull operation in mpt toolbox may crash when
             % the dimensions of P1 and P2 increase
             % This fast hull implement a simple algorithm to construct
             % A convex hull of two polyhedrons using their vertices
             % This function exploits the fact that a bounded polyhedron has
             % no rays.
-            % @P1: the first polyhedron
-            % @P2: the second polyhedron
-            % %P : the hull of two polyhedron
+            % @I: the array of polyhedra
+            % @P: hull of polyhedra
             
-            V1 = P1.V';
-            V2 = P2.V'; 
-            
-            [m1, n1] = size(V1); % number of vertices of P1
-            [m2, n2] = size(V2); % number of vertices of P2
-            
-            if m1 ~= m2
-                error('Inconsistent dimensions between two polyhedrons');
+            n = length(I);
+            V = [];
+            for i=1:n
+                V = [V I(i).V'];
             end
             
-            V = [V1 V2];
-            P = Polyhedron(V').minHRep();           
-            %fprintf('\nNumber of contraints = %d', size(P.A, 1));
-            
+            P = Polyhedron(V').minHRep;
+                        
         end
         
         % reducing combines with batching technique
@@ -735,7 +840,7 @@ classdef Reduction
                         for j=1:m
                             V = [V P(j).V'];
                         end
-                        R = [R Polyhedron(V').outerApprox];
+                        R = [R Polyhedron(V')];
                     end
 
                     
@@ -744,7 +849,7 @@ classdef Reduction
                     for j=1:N-(n-1)*m
                         V = [V P(j).V'];
                     end
-                    R = [R Polyhedron(V').outerApprox];
+                    R = [R Polyhedron(V')];
 
 
                 else

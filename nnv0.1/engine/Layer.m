@@ -128,9 +128,8 @@ classdef Layer
         % reach set computation in horizonal manner, contruct a box for the
         % output set of the layer
         
-        function [R, t] = reach_approx_box(obj, I, nB, parallel)
+        function [R, runtime] = reach_approx_box(obj, I, nP, parallel)
             % @I : input set, a polyhedron
-            % @nB: number of boxes used to over-approximate reach set
             % @parallel: @parallel = 'parallel' -> compute in parallel with multiple cores or
             % clusters
             %            @parallel = 'single' -> single core
@@ -140,39 +139,78 @@ classdef Layer
             t1 = tic;
             n = length(I);
             R = [];
-            if strcmp(obj.f, 'Linear')
-               for i=1:n
+            
+            if strcmp(parallel, 'parallel')
+                if strcmp(obj.f, 'Linear')
+                    parfor i=1:n
                    % if activation function is linear we don't use box but
                    % return the exact output
-                   R = [R I(i).affineMap(obj.W) + obj.b]; 
-               end
+                    R = [R I(i).affineMap(obj.W) + obj.b]; 
+                    end
                 
+                 elseif strcmp(obj.f, 'ReLU')
+                     
+                     R1 = [];
+                     parfor i=1:n                         
+                         R1 = [R1 ReLU.reach_approx(I(i).affineMap(obj.W) + obj.b)];
+                     end
+                     
+                     if length(R1) > nP
+                         R = Reduction.merge_box(R1, nP, parallel);
+                     else
+                         
+                         R = R1;
+                     end
                 
-            elseif strcmp(obj.f, 'ReLU')
+                 else                
+                    error('\nUnsupported activation function');
+                end
+                 
+            elseif strcmp(parallel, 'single')
+                 if strcmp(obj.f, 'Linear')
+                    for i=1:n
+                   % if activation function is linear we don't use box but
+                   % return the exact output
+                        R = [R I(i).affineMap(obj.W) + obj.b]; 
+                    end
                 
-                [R, rn, t2] = obj.reach_exact(I, parallel);
-                R = Reduction.merge_box(R, nB, 'single');
+                 elseif strcmp(obj.f, 'ReLU')
+                     R1 = [];
+                     for i=1:n                         
+                         R1 = [R1 ReLU.reach_approx(I(i).affineMap(obj.W) + obj.b)];
+                     end
+                     
+                     if length(R1) > nP
+                         R = Reduction.merge_box(R1, nP, parallel);
+                     else
+                         
+                         R = R1;
+                     end
+                     
+                 else                
+                    error('\nUnsupported activation function');
+                 end 
                 
-            else                
-                error('\nUnsupported activation function');
-            end 
-                
-            t = toc(t1);
+            end
+        
+            runtime = toc(t1);
             
         end
         
-        % over-approximate reach set using polyhedron without parallel
-        % computing
+        % over-approximate reach set using polyhedron 
         function [R, runtime] = reach_approx_polyhedron(obj, I, nP, nC, parallel)
             % @I : input set, a polyhedron
             % @R: over-approximate reach set (a polyhedron)
             % @t: computation time
-            % @nP: number of polyhedra in the output R ( can set = number of cores)
+            % @nP: number of clusters for clustering output polyhedra
             % @nC: number of constraints in each polyhedron of the output R
             %      @nC: is used to control the number of constraints of the
             %      polyhedra of the output, make it always ~nC.
             % @parallel: = 'parallel' -> using parallel computing
             %            = 'single' -> using single core for computing
+            
+            % *** This approach only works for layers with small number of
+            % neurons.
             
             startTime = tic;
             
@@ -197,35 +235,36 @@ classdef Layer
                 
                 % compute the exact reach set
                 fprintf('\nComputing the exact reach set of the current layer...')
-                [R, rn, t] = obj.reach_exact(I, parallel);
+                [R, ~, t] = obj.reach_exact(I, parallel);
                 fprintf('\nReach set computation is done in %.5f seconds', t);
                 
                 
                 % clustering output reach set into nP groups based on their overlapness
                 
-                fprintf('\nClustering reach set (%d polyhedra) into %d groups based on their overlapness...', length(R), nP);
+                fprintf('\nCluster reach set (%d polyhedra) into %d groups based on their overlapness...', length(R), nP);
                 t1 = tic;
                 clustered_set = Reduction.clusterByOverlapness(R, nP); 
-                t2 = toc(t1);
-                fprintf('\nFinish clustering in %.5f seconds', t2);
-                display(clustered_set);
+                display(clustered_set); 
                 
-                t1 = tic; 
+                
+                fprintf('\nCluster polyhedra in the groups into smaller groups based on dependent variables and merging them to one and reducing the number of constraints');
                 R = [];
                 for j=1:nP
-                    fprintf('\nMerging all polyhedra in the %dth clustered group into one polyhdron...', j);
-                    % merge all polyhedra in one group into one polyhedron
-                    R = [R Reduction.recursiveMerge(clustered_set{j, 1}, 1, parallel)]; 
+                    P1 = Reduction.clusterByDependentVariables(clustered_set{j, 1});
+                    fprintf('\nCluster polyhedra in the group %d into %d smaller groups', j, length(P1));
+                    
+                    for k=1:length(P1)
+                        fprintf('\nMerge polyhedra in the small group %d into one polyhedron and reduce the number of constraints of the merged polyhedron', k);
+                        P2 = Reduction.recursiveMerge(P1{k, 1}, 1, parallel);
+                        fprintf('\n');
+                        R = [R Reduction.reduceConstraints(P2, nC, parallel)];
+                    end                
+                  
                 end
-                t2 = toc(tic);
-                fprintf('\nFinish merging in %.5f seconds', t2);
                 
-                % reduce the number of constraints of the output polyhedra
-                t1 = tic;
-                fprintf('\nReducing the constraints of the %d merged polyhedra to ~%d constraints', nP, nC)
-                R = Reduction.reduceConstraints(R, nC, parallel); 
                 t2 = toc(t1);
-                fprintf('\nFinish constraints reduction in %.5f seconds', t2);
+                fprintf('\nFinish clustering, merging and reducing constraints in %.5f seconds', t2);                                
+                
             else
                 error('Unsupported activiation function');
             end
@@ -233,7 +272,7 @@ classdef Layer
             runtime = toc(startTime);                                          
             
         end
-        
+                
         
         % coarse over-approximation of reachable set using box
         
@@ -248,9 +287,10 @@ classdef Layer
             
             if strcmp(parallel, 'single')
                 if strcmp(obj.f, 'Linear')
-                    for i=1:n
-                        R = [R I(i).affineMap(obj.W) + obj.b];
-                    end
+                    
+                    I1 = Reduction.hypercubeHull(I);
+                    R = I1.affineMap(obj.W) + obj.b;
+                    
                 elseif strcmp(obj.f, 'ReLU')
                     
                     for i=1:n
@@ -280,9 +320,10 @@ classdef Layer
                 
                 
                 if strcmp(obj.f, 'Linear')
-                    parfor i=1:n
-                        R = [R I(i).affineMap(obj.W) + obj.b];
-                    end
+                                   
+                    I1 = Reduction.hypercubeHull(I);
+                    R = I1.affineMap(obj.W) + obj.b;
+                    
                 elseif strcmp(obj.f, 'ReLU')
                     
                     parfor i=1:n
@@ -317,6 +358,31 @@ classdef Layer
             
         end
         
+        
+        % reach set computation by mixing between boxes and polyhedra
+        
+        function [P, runtime] = reach_mix(obj, I, nP, parallel)
+            % @I: input polyhedra
+            % @nP: maximum allowable total number of polyhedra at output
+          
+            
+            % @parallel: = 'parallel' using parallel computing
+            %            = 'single' using single core computing
+            
+           t1 = tic; 
+           n = length(I);
+           
+           if length(I) < nP                        
+               P = obj.reach_exact(I, parallel);
+           else                                        
+               P = Reduction.merge_box(I, nP, parallel);
+               P = obj.reach_approx_box_coarse(P, parallel);
+           end
+           
+           runtime = toc(t1);
+            
+            
+        end
         
         % evaluate the value of the layer output with all vertices of input set
         function Y = sample(obj, V)

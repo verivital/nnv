@@ -20,8 +20,8 @@ I = Polyhedron(C, d);
 
 % select option for reachability algorithm
 
-%[R1, t1] = F.reach(I, 'exact', 4, []); % exact reach set with single core
-[R1, t1] = F.reach(I, 'approx-box', 1, [4 4 4 4 4 4 4 1]); % over-approximate reach set using box
+%[R1, t1] = F.reach(I, 'exact', 1, []); % exact reach set with single core
+[R1, t1] = F.reach(I, 'approx-box', 4, [4 4 4 4 4 4 4 1]); % over-approximate reach set using box
 %[R1, t1] = F.reach(I, 'approx-polyhedron', 4); % over-approximate reach set using polyhedron
 save F F; % save the verified network
 F.print('F.info'); % print all information to a file

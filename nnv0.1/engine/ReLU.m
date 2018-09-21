@@ -58,7 +58,7 @@ classdef ReLU
                 
                 if R1.isEmptySet 
                     if R2.isEmptySet
-                        R = Polyhedron;
+                        R = [];
                     else
                         R = R2.minHRep();
                     end
@@ -99,7 +99,7 @@ classdef ReLU
              
         end
         
-        % reach of ReLU(x)
+        % exact reach of ReLU(x)
         function [R, rn] = reach(I)
             % reachable set computation for ReLU(x)
             % @I: input set which is a polyhedron
@@ -126,6 +126,83 @@ classdef ReLU
             end               
             R = In;
            
+        end
+        
+        % over-arpproximate reach of ReLU(x)
+        
+        function R = reach_approx(I)
+           % @I: input set
+           % @R: output set which is an over-approximation of the actual
+           % reach set
+           % @nC: number of constraints of the output polyhedra
+           % @parallel: = 'parallel' using parallel computing
+           %            = 'single' not using parallel computing
+           
+            
+            if ~I.isBounded
+                error('Input set is not bounded');
+            end
+            
+            I.outerApprox; % find bounds of I state vector
+            lb = I.Internal.lb; % min-vec of x vector
+            ub = I.Internal.ub; % max-vec of x vector
+            
+            n = length(lb);
+      
+            for j=1:n
+                if lb(j) < 0
+                    lb(j) = 0;
+                end
+                if ub(j) < 0
+                    ub(j) = 0;
+                end
+            end
+            
+            B = Polyhedron('lb', lb, 'ub', ub);
+                        
+            if sum(abs(ub)) ~= 0
+                
+                P1 = I & B;
+                
+                if ~isEmptySet(P1)
+                    
+                    P1.outerApprox;
+                    ub1 = P1.Internal.ub;
+            
+                    if sum(abs(ub - ub1)) ~= 0
+
+                        R = [];
+                        for i=1:n
+                            if ub1(i) < ub(i)                            
+                                Z = eye(n);
+                                Z(i,i) = 0;
+
+                                R = [R B.affineMap(Z)];
+                            end                      
+                        end
+                        R = [R P1];
+                    end
+                    
+                else
+                    
+                    R = [];
+                    for i=1:n
+                        if  ub(i) > 0                            
+                            Z = eye(n);
+                            Z(i,i) = 0;
+
+                            R = [R B.affineMap(Z)];
+                        end                      
+                    end
+                                      
+                end
+                                   
+            else
+                R = [];
+            end
+            
+
+
         end
         
         

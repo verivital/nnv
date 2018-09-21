@@ -184,12 +184,12 @@
                     
                     if strcmp(scheme, 'approx-box')
 
-                        [In, t1] = obj.Layers(i).reach_approx_box(In, numOfPolyhedra(i), parallel);
-                        %[In, t1] = obj.Layers(i).reach_approx_box_coarse(In, parallel);
+                        %[In, t1] = obj.Layers(i).reach_approx_box(In, 1000, parallel);
+                        [In, t1] = obj.Layers(i).reach_mix(In, 800, parallel);
 
                     elseif strcmp(scheme, 'approx-polyhedron')
 
-                        [In, t1] = obj.Layers(i).reach_approx_polyhedron(In, numOfPolyhedra(i), parallel);
+                        [In, t1] = obj.Layers(i).reach_approx_polyhedron(In, numOfPolyhedra(i), 10, parallel);
 
                     else      
                         error('Unknown scheme');

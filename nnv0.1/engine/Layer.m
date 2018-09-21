@@ -331,10 +331,13 @@ classdef Layer
                 elseif strcmp(obj.f, 'ReLU')
                     
                     parfor i=1:n
+                        
                         I1 = I(i).affineMap(obj.W) + obj.b;
                         I1.outerApprox;
                         lb = I1.Internal.lb;
                         ub = I1.Internal.ub;
+                        display(lb);
+                        display(ub);
 
                         for j=1:length(lb)
                             if lb(j) < 0
@@ -346,7 +349,7 @@ classdef Layer
                         end
 
                         R = [R Polyhedron('lb', lb, 'ub', ub)];
-
+                        
                     end
                     
                     if length(R) > nP

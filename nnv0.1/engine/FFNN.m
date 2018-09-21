@@ -161,7 +161,7 @@
                                         
                     if strcmp(scheme, 'approx')
 
-                        [In, t1] = obj.Layers(i).reach_approx_box_coarse(In, nP, parallel);
+                        [In, t1] = obj.Layers(i).reach_approx_box_coarse(In, max_nP, parallel);
 
                     elseif strcmp(scheme, 'mix')
 

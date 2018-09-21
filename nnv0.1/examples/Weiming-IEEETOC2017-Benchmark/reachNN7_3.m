@@ -28,7 +28,7 @@ F.print('F1.info'); % print all information to a file
 save F2.mat F; % save the verified network
 F.print('F2.info'); % print all information to a file
 
-[R3, t3] = F.reach(I, 'mix', 4, 300); % mixing scheme - over-approximate reach set
+[R3, t3] = F.reach(I, 'mix', 4, 800); % mixing scheme - over-approximate reach set
 save F3.mat F; % save the verified network
 F.print('F3.info'); % print all information to a file
 

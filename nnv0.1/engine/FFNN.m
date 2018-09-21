@@ -69,16 +69,16 @@
         end
         
         % Reach Set computation
-        function [R, t] = reach(obj, I, scheme, numOfCores, numOfPolyhedra)
+        function [R, t] = reach(obj, I, scheme, numOfCores, max_nP)
             % Reach Set Computation of this FFNN
             
             % @I: input set which is a polyhedron
             
             % @scheme: = 'exact' -> compute the exact reach set
-            %          = 'approx-box' -> compute the over-approximate reach
+            %          = 'approx' -> compute the over-approximate reach
             %          set using boxes
-            %          = 'approx-polyhedron' -> compute the
-            %          over-approximate reach set using polyhedra.
+            %          = 'mix' -> compute the over-approximate reach set
+            %          using mixing scheme, exact-approx
             
             % @R: output set which is an array of polyhedron if option = 'exact'
             %     or is a polyhedron if option = 'approx'
@@ -96,13 +96,10 @@
             % your local clusters with installed MPT toolbox also. see: 
             % https://www.mathworks.com/help/distcomp/discover-clusters-and-use-cluster-profiles.html
            
-            % @numOfPolyhedra: the number of Polyhedra or boxes used to
+            % @max_nP: the maximum number of Polyhedra or boxes used to
             % over-approximate the reachable set of each layers
-            % this input is only used for over-approximation scheme i.e.,
-            % 'approx-box' or 'approx-polyhedron'
-            %  @numOfPolyhedra is an array, for example [3 2 1 5] means, 
-            % we use 3 boxes for over-approximating the reachable set of
-            % layer 1, and 2 boxes for layer 2 ....
+            % this input is only used for 'approx' and 'mix' schemes.
+           
             
             
         
@@ -132,23 +129,7 @@
                         poolobj = parpool('local', numOfCores); % start the new one with new number of cores
                     end                    
                 end
-            end
-            
-            
-            % check consistency of numOfPolyhedra if the scheme is an
-            % over-approximate scheme.
-            if ~strcmp(scheme, 'exact')
-
-                [n1, m1] = size(numOfPolyhedra);
-                if n1 ~=1
-                    error('NumOfPolyhedra shoule be a one row array');
-                end
-
-                if m1 ~= obj.nL
-                    error('Number of column of NumOfPolyhedra array should be equal the number of layers')
-                end
-            end
-            
+            end            
             
             In = I;
                         
@@ -178,18 +159,13 @@
                     
                 else
                                         
-                    if numOfPolyhedra(i) < 1
-                        error('Number of Polyhedra using to over-approximating reach set should be >= 1');
-                    end
-                    
-                    if strcmp(scheme, 'approx-box')
+                    if strcmp(scheme, 'approx')
 
-                        %[In, t1] = obj.Layers(i).reach_approx_box(In, 1000, parallel);
-                        [In, t1] = obj.Layers(i).reach_mix(In, 800, parallel);
+                        [In, t1] = obj.Layers(i).reach_approx_box_coarse(In, nP, parallel);
 
-                    elseif strcmp(scheme, 'approx-polyhedron')
+                    elseif strcmp(scheme, 'mix')
 
-                        [In, t1] = obj.Layers(i).reach_approx_polyhedron(In, numOfPolyhedra(i), 10, parallel);
+                        [In, t1] = obj.Layers(i).reach_mix(In, max_nP, parallel);                        
 
                     else      
                         error('Unknown scheme');

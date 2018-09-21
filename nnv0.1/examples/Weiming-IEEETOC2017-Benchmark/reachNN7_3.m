@@ -20,11 +20,18 @@ I = Polyhedron(C, d);
 
 % select option for reachability algorithm
 
-%[R1, t1] = F.reach(I, 'exact', 1, []); % exact reach set with single core
-[R1, t1] = F.reach(I, 'approx-box', 4, [4 4 4 4 4 4 4 1]); % over-approximate reach set using box
-%[R1, t1] = F.reach(I, 'approx-polyhedron', 4); % over-approximate reach set using polyhedron
-save F F; % save the verified network
-F.print('F.info'); % print all information to a file
+[R1, t1] = F.reach(I, 'exact', 4, []); % exact reach set
+save F1.mat F; % save the verified network
+F.print('F1.info'); % print all information to a file
+
+[R2, t2] = F.reach(I, 'approx', 4, 300); % over-approximate reach set
+save F2.mat F; % save the verified network
+F.print('F2.info'); % print all information to a file
+
+[R3, t3] = F.reach(I, 'mix', 4, 300); % mixing scheme - over-approximate reach set
+save F3.mat F; % save the verified network
+F.print('F3.info'); % print all information to a file
+
 
 % generate some input to test the output
 e = 0.25;
@@ -45,3 +52,13 @@ fig = figure;
 R1.plot;
 hold on;
 plot(y(1, :), y(2, :), 'o');
+
+fig = figure; 
+R2.plot;
+hold on;
+R1.plot;
+
+fig = figure;
+R3.plot;
+hold on;
+R1.plot;

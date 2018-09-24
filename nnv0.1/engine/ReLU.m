@@ -121,7 +121,7 @@ classdef ReLU
             
             In = I;
             for i=1:m
-                %fprintf('\nPerforming ReLU_%d operation', i);
+                fprintf('\nPerforming ReLU_%d operation', i);
                 In = ReLU.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)));
             end               
             R = In;

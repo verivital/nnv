@@ -102,8 +102,7 @@ classdef Layer
                         error('Inconsistent dimensions between input set and weights matrix')
                     end
 
-                    I1 = I.affineMap(obj.W); % affine map Wx, x in I
-                    I1 = I1 + obj.b; % affine map Wx + b, x in I
+                    I1 = I.affineMap(obj.W) + obj.b; % affine map Wx, x in I                    
 
                     if strcmp(obj.f, 'Linear')
                         R1 = I1;
@@ -125,75 +124,6 @@ classdef Layer
             t = toc(t1);              
         end
         
-        % reach set computation in horizonal manner, contruct a box for the
-        % output set of the layer
-        
-        function [R, runtime] = reach_approx(obj, I, nP, parallel)
-            % @I : input set, a polyhedron
-            % @parallel: @parallel = 'parallel' -> compute in parallel with multiple cores or
-            % clusters
-            %            @parallel = 'single' -> single core
-            % @R: box
-            % @t: computation time
-            
-            t1 = tic;
-            n = length(I);
-            R = [];
-            
-            if strcmp(parallel, 'parallel')
-                if strcmp(obj.f, 'Linear')
-                    
-                    I1 = Reduction.hypercubeHull(I);
-                    R = I1.affineMap(obj.W) + obj.b;
-             
-                 elseif strcmp(obj.f, 'ReLU')
-                     
-                     R1 = [];
-                     parfor i=1:n                         
-                         R1 = [R1 ReLU.reach_approx(I(i).affineMap(obj.W) + obj.b)];
-                     end
-                     
-                     if length(R1) > nP
-                         R = Reduction.merge_box(R1, nP, parallel);
-                     else
-                         
-                         R = R1;
-                     end
-                
-                 else                
-                    error('\nUnsupported activation function');
-                end
-                 
-            elseif strcmp(parallel, 'single')
-                 if strcmp(obj.f, 'Linear')
-                    for i=1:n
-                   % if activation function is linear we don't use box but
-                   % return the exact output
-                        R = [R I(i).affineMap(obj.W) + obj.b]; 
-                    end
-                
-                 elseif strcmp(obj.f, 'ReLU')
-                     R1 = [];
-                     for i=1:n                         
-                         R1 = [R1 ReLU.reach_approx(I(i).affineMap(obj.W) + obj.b)];
-                     end
-                     
-                     if length(R1) > nP
-                         R = Reduction.merge_box(R1, nP, parallel);
-                     else
-                         
-                         R = R1;
-                     end
-                     
-                 else                
-                    error('\nUnsupported activation function');
-                 end 
-                
-            end
-        
-            runtime = toc(t1);
-            
-        end
         
         % over-approximate reach set using polyhedron 
         function [R, runtime] = reach_approx_polyhedron(obj, I, nP, nC, parallel)

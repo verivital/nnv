@@ -1,11 +1,33 @@
 load SingleCarPlant.mat;
 
-W1 = SingleCarPlant.W{1, 1};
-b1 = SingleCarPlant.b{1, 1};
-W2 = SingleCarPlant.W{1, 2};
-b2 = SingleCarPlant.b{1, 2};
-
 Layers = [];
-for i=1:5
-    W = SingleCarPlant.W
+for i=1:6
+    W = double(SingleCarPlant.W{1, i}');
+    b = double(SingleCarPlant.b{1, i}');
+    Layers = [Layers Layer(W, b, 'ReLU')];
 end
+
+F = FFNN(Layers);
+
+lb = SingleCarPlant.min';
+ub = SingleCarPlant.max';
+
+I = Polyhedron('lb', lb, 'ub', ub); % Input set
+
+A1 = eye(7);
+A2 = -eye(7);
+
+b1 = SingleCarPlant.max;
+b2 = -SingleCarPlant.min;
+
+
+
+
+%[R, t] = F.reach(I, 'exact', 1, []); % exact reach set
+%[R, t] = F.reach(I, 'approx', 1, 500); % exact reach set
+save F.mat F; % save the verified network
+F.print('F.info'); % print all information to a file
+
+fig = figure; 
+R.plot;
+

@@ -1,0 +1,11 @@
+load SingleCarPlant.mat;
+
+W1 = SingleCarPlant.W{1, 1};
+b1 = SingleCarPlant.b{1, 1};
+W2 = SingleCarPlant.W{1, 2};
+b2 = SingleCarPlant.b{1, 2};
+
+Layers = [];
+for i=1:5
+    W = SingleCarPlant.W
+end

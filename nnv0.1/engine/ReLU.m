@@ -108,10 +108,7 @@ classdef ReLU
             % @option: = 'exact' -> compute an exact reach set
             %          = 'approx' -> compute an over-approximate reach set
             
-            if ~I.isBounded
-                error('Input set is not bounded')
-            end
-            
+                        
             I.outerApprox; % find bounds of I state vector
             lb = I.Internal.lb; % min-vec of x vector
             ub = I.Internal.ub; % max-vec of x vector

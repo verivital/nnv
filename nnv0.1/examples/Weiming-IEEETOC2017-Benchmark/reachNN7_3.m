@@ -20,7 +20,7 @@ I = Polyhedron(C, d);
 
 % select option for reachability algorithm
 
-[R, t] = F.reach(I, 'exact', 1, []); % exact reach set
+[R, t] = F.reach(I, 'exact', 4, []); % exact reach set
 %[R, t] = F.reach(I, 'approx', 1, 300); % over-approximate reach set
 %[R, t] = F.reach(I, 'mix', 4, 800); % mixing scheme - over-approximate reach set
 save F.mat F; % save the verified network

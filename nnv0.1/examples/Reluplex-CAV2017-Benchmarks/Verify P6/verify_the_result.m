@@ -20,7 +20,7 @@ I = [x1'; x2'; x3'; x4'; x5'];
 Y = F.sample(I);
 
 output = Y{1, 7};
-maps = [0 0 0 1 0; 0 0 0 0 1; 0 0 1 0 0];
+maps = [1 0 0 0 0; 0 0 1 0 0; 0 0 0 0 1]; % map to COC, Strong Right, Strong Left
 output_mapped = maps*output;
 
 R1 = [];
@@ -30,6 +30,9 @@ end
 
 fig = figure;
 R1.plot;
+xlabel('COC');
+ylabel('Strong-Right');
+zlabel('Strong-Left');
 hold on;
 plot3(output_mapped(1, :), output_mapped(2, :), output_mapped(3, :), 'o');
 

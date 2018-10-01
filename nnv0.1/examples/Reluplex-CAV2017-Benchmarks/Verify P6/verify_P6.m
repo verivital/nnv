@@ -1,4 +1,7 @@
 load ACASXU_run2a_1_1_batch_2000.mat;
+
+% construct the network
+
 Layers = [];
 n = length(b);
 for i=1:n - 1
@@ -21,12 +24,28 @@ F = FFNN(Layers);
 % 100 <= i4 (\v_own) <= 1200,
 % 0 <= i5 (\v_in) <= 1200
 
+
 lb1 = [12000; 0.7; -3.141592; 100; 0.0];
 ub1 = [62000; 3.141592; -3.141592 + 0.005; 1200; 1200];
+
+% normalized inputs 
+% for example:
+% (12000 - 19791)/60261  <= i1 <= (62000 - 19791)/60261
+
+for i=1:5
+    lb1(i) = (lb1(i) - means_for_scaling(i))/range_for_scaling(i);
+    ub1(i) = (ub1(i) - means_for_scaling(i))/range_for_scaling(i);   
+end
+
 I1 = Polyhedron('lb', lb1, 'ub', ub1);
 
 lb2 = [12000; -3.141592; -3.141592; 100; 0.0];
 ub2 = [62000; -0.7; -3.141592 + 0.005; 1200; 1200];
+% normalized inputs 
+for i=1:5
+    lb2(i) = (lb2(i) - means_for_scaling(i))/range_for_scaling(i);
+    ub2(i) = (ub2(i) - means_for_scaling(i))/range_for_scaling(i);   
+end
 I2 = Polyhedron('lb', lb2, 'ub', ub2);
 
 I = [I1 I2];

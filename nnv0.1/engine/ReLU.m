@@ -60,6 +60,7 @@ classdef ReLU
                     if R2.isEmptySet
                         R = [];
                     else
+                        
                         R = R2.minHRep();
                     end
                 else

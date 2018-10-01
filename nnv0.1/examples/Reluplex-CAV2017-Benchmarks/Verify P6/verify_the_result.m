@@ -1,4 +1,5 @@
 load F.mat;
+load ACASXU_run2a_1_1_batch_2000.mat;
 
 R = F.outputSet;
 n = length(R); 
@@ -8,6 +9,11 @@ n = length(R);
 
 lb1 = [12000; 0.7; -3.141592; 100; 0.0];
 ub1 = [62000; 3.141592; -3.141592 + 0.005; 1200; 1200];
+for i=1:5
+    lb1(i) = (lb1(i) - means_for_scaling(i))/range_for_scaling(i);
+    ub1(i) = (ub1(i) - means_for_scaling(i))/range_for_scaling(i);   
+end
+
 n=5000;
 x1 = (ub1(1) - lb1(1)).*rand(n, 1) + lb1(1);
 x2 = (ub1(2) - lb1(2)).*rand(n, 1) + lb1(2);

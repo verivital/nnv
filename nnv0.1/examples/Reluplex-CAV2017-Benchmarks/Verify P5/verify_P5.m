@@ -24,6 +24,12 @@ F = FFNN(Layers);
 lb = [250; 0.2; -3.141592; 100; 0.0];
 ub = [400; 0.4; -3.141592 + 0.005; 400; 400];
 
+% normalize input
+for i=1:5
+    lb(i) = (lb(i) - means_for_scaling(i))/range_for_scaling(i);
+    ub(i) = (ub(i) - means_for_scaling(i))/range_for_scaling(i);   
+end
+
 I = Polyhedron('lb', lb, 'ub', ub);
 
 [R, t] = F.reach(I, 'exact', 4, []); % exact reach set

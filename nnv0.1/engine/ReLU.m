@@ -96,7 +96,25 @@ classdef ReLU
             for i=1:p
                 R =[R, ReLU.stepReach(I_array(i), index, xmin, xmax)];                
             end
+                     
+        end
+        
+        % stepReach for multiple Input Sets use parallel computing
+        
+        function R = stepReachMultipleInputs_parallel(I_array, index, xmin, xmax)
+            % @I: an array of input sets which are polyhedra
+            % @index: index of current x[index] of current step
+            % @xmin: min value of x[index]
+            % @xmax: max value of x[index]
+            % @option: = 'exact' -> compute an exact reach set
+            %          = 'approx' -> compute an over-approximate reach set
             
+            p = length(I_array);
+            R = [];
+            
+            parfor i=1:p
+                R =[R, ReLU.stepReach(I_array(i), index, xmin, xmax)];                
+            end            
              
         end
         
@@ -121,6 +139,32 @@ classdef ReLU
             for i=1:m
                 fprintf('\nPerforming ReLU_%d operation', i);
                 In = ReLU.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)));
+            end               
+            R = In;
+           
+        end
+        
+        % exact reach of ReLU(x) in parallel
+        function [R, rn] = reach_parallel(I)
+            % reachable set computation for ReLU(x)
+            % @I: input set which is a polyhedron
+            % @R : reachable set of ReLU(x), may be an array of polyhedra
+            % @rn: number of ReLU_i (stepReach) operations reduced
+            % @option: = 'exact' -> compute an exact reach set
+            %          = 'approx' -> compute an over-approximate reach set
+            
+                        
+            I.outerApprox; % find bounds of I state vector
+            lb = I.Internal.lb; % min-vec of x vector
+            ub = I.Internal.ub; % max-vec of x vector
+            map = find(lb < 0); % computation map
+            m = size(map, 1); % number of stepReach operations needs to be executed
+            rn = size(lb, 1) - m;
+            
+            In = I;
+            for i=1:m
+                fprintf('\nPerforming ReLU_%d operation', i);
+                In = ReLU.stepReachMultipleInputs_parallel(In, map(i), lb(map(i)), ub(map(i)));
             end               
             R = In;
            

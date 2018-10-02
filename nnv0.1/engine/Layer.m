@@ -69,29 +69,56 @@ classdef Layer
             p = length(inputSetArray); % number of polyhedron in the input set
             
             if strcmp(parallel, 'parallel') % use parallel computing                
-            
-                parfor i=1:p
-                    I = inputSetArray(i);
+                
+                if p > 1
+                    parfor i=1:p
+                        I = inputSetArray(i);
 
-                    if size(obj.W, 2) ~= size(I.A, 2)
-                        error('Inconsistent dimensions between input set and weights matrix')
+                        if size(obj.W, 2) ~= size(I.A, 2)
+                            error('Inconsistent dimensions between input set and weights matrix')
+                        end
+
+                        I1 = I.affineMap(obj.W); % affine map Wx, x in I
+                        I1 = I1 + obj.b; % affine map Wx + b, x in I
+
+                        if strcmp(obj.f, 'Linear')
+                            R1 = I1;
+                            rn1 = 0;
+                        elseif strcmp(obj.f, 'ReLU')
+                            [R1, rn1] = ReLU.reach(I1);
+
+                        else
+                            error('Unsupported activation function, currently support ReLU and Linear')
+                        end
+                        R = [R, R1];
+                        rn = rn + rn1;
                     end
+                    
+                else  % if single input, use ReLU parallel
+                    
+                    I = inputSetArray(1);
 
-                    I1 = I.affineMap(obj.W); % affine map Wx, x in I
-                    I1 = I1 + obj.b; % affine map Wx + b, x in I
+                        if size(obj.W, 2) ~= size(I.A, 2)
+                            error('Inconsistent dimensions between input set and weights matrix')
+                        end
 
-                    if strcmp(obj.f, 'Linear')
-                        R1 = I1;
-                        rn1 = 0;
-                    elseif strcmp(obj.f, 'ReLU')
-                        [R1, rn1] = ReLU.reach(I1);
+                        I1 = I.affineMap(obj.W); % affine map Wx, x in I
+                        I1 = I1 + obj.b; % affine map Wx + b, x in I
 
-                    else
-                        error('Unsupported activation function, currently support ReLU and Linear')
-                    end
-                    R = [R, R1];
-                    rn = rn + rn1;
+                        if strcmp(obj.f, 'Linear')
+                            R1 = I1;
+                            rn1 = 0;
+                        elseif strcmp(obj.f, 'ReLU')
+                            [R1, rn1] = ReLU.reach_parallel(I1);
+
+                        else
+                            error('Unsupported activation function, currently support ReLU and Linear')
+                        end
+                        R = [R, R1];
+                        rn = rn + rn1;
+                    
                 end
+                
                 
             elseif strcmp(parallel, 'single') % use single core for computing
                 

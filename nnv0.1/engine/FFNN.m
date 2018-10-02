@@ -152,10 +152,10 @@
                     fprintf('\nEstimated computation time: ~ %.5f seconds', estimatedTime);
                 end
                 
-                if strcmp(scheme, 'exact')
-                    
+                if strcmp(scheme, 'exact')                   
+
                     [In, rn1, t1] = obj.Layers(i).reach_exact(In, parallel);
-                    obj.n_ReLU_reduced = [obj.n_ReLU_reduced rn1];
+                    obj.n_ReLU_reduced = [obj.n_ReLU_reduced rn1];                        
                     
                 else
                                         

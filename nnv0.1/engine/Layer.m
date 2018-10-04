@@ -269,7 +269,7 @@ classdef Layer
 
                     end
                     
-                    if length(R) > nP
+                    if ~isempty(nP) && length(R) > nP
                         R = Reduction.merge_box(R, nP, parallel);
                     end
                 else
@@ -293,8 +293,6 @@ classdef Layer
                         I1.outerApprox;
                         lb = I1.Internal.lb;
                         ub = I1.Internal.ub;
-                        display(lb);
-                        display(ub);
 
                         for j=1:length(lb)
                             if lb(j) < 0
@@ -309,7 +307,7 @@ classdef Layer
                         
                     end
                     
-                    if length(R) > nP
+                    if ~isempty(nP) && length(R) > nP
                         R = Reduction.merge_box(R, nP, parallel);
                     end
                     

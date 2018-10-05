@@ -77,7 +77,8 @@ classdef Layer
                         if size(obj.W, 2) ~= size(I.A, 2)
                             error('Inconsistent dimensions between input set and weights matrix')
                         end
-                        I1 = Reduction.affineMap(I, obj.W) + obj.b; 
+                        %I1 = I.affineMap(obj.W) + obj.b;
+                        I1 = Reduction.affineMap(I, obj.W) + obj.b;
                         if strcmp(obj.f, 'Linear')
                             R1 = I1;
                             rn1 = 0;
@@ -100,7 +101,7 @@ classdef Layer
                         end
 
                         I1 = Reduction.affineMap(I, obj.W) + obj.b; 
-
+                        %I1 = I.affineMap(obj.W) + obj.b;
                         if strcmp(obj.f, 'Linear')
                             R1 = I1;
                             rn1 = 0;
@@ -126,7 +127,7 @@ classdef Layer
                     end
 
                     I1 = Reduction.affineMap(I, obj.W) + obj.b;                    
-
+                    %I1 = I.affineMap(obj.W) + obj.b;
                     if strcmp(obj.f, 'Linear')
                         R1 = I1;
                         rn1 = 0;
@@ -242,7 +243,7 @@ classdef Layer
                 if strcmp(obj.f, 'Linear')
                     
                     I1 = Reduction.hypercubeHull(I);
-                    R = Reduction.affineMap(I, obj.W) + obj.b;
+                    R = Reduction.affineMap(I1, obj.W) + obj.b;
                     
                 elseif strcmp(obj.f, 'ReLU')
                     
@@ -251,9 +252,7 @@ classdef Layer
                         I1.outerApprox;
                         lb = I1.Internal.lb;
                         ub = I1.Internal.ub;
-                        display(lb);
-                        display(ub);
-
+                       
                         for j=1:length(lb)
                             if lb(j) < 0
                                 lb(j) = 0;
@@ -280,7 +279,7 @@ classdef Layer
                 
                 if strcmp(obj.f, 'Linear')
                     I1 = Reduction.hypercubeHull(I);
-                    R = Reduction.affineMap(I, obj.W) + obj.b;                 
+                    R = Reduction.affineMap(I1, obj.W) + obj.b;                 
                 elseif strcmp(obj.f, 'ReLU')
                     
                     parfor i=1:n
@@ -289,9 +288,7 @@ classdef Layer
                         I1.outerApprox;
                         lb = I1.Internal.lb;
                         ub = I1.Internal.ub;
-                        display(lb);
-                        display(ub);
-
+          
                         for j=1:length(lb)
                             if lb(j) < 0
                                 lb(j) = 0;

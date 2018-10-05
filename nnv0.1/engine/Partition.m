@@ -59,9 +59,12 @@ classdef Partition
             B{1, 1} = [I.Internal.lb I.Internal.ub];   % put box into a cell
             
             for i=1:n
-                for j=1:N
-                    B = Partition.stepDivide(B, i);
+                if I.Internal.lb(i) ~= I.Internal.ub(i)
+                    for j=1:N
+                        B = Partition.stepDivide(B, i);
+                    end
                 end
+                
             end
             
             L = length(B);

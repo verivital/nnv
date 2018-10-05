@@ -37,8 +37,9 @@ classdef ReLU
                 R = I; 
             elseif xmax < 0 
                 Im = eye(dim);
-                Im(index, index) = 0;                
-                R = Reduction.affineMap(I, Im);
+                Im(index, index) = 0;
+                R = I.affineMap(Im);
+                %R = Reduction.affineMap(I, Im);
             elseif xmin < 0 && xmax >= 0
                 
                 Z1 = zeros(1, dim);
@@ -54,8 +55,8 @@ classdef ReLU
                 
                 Im = eye(dim);
                 Im(index, index) = 0;
-                R1 = Reduction.affineMap(R1, Im);
-                
+                %R1 = Reduction.affineMap(R1, Im);
+                R1 = R1.affineMap(Im);
                 if R1.isEmptySet 
                     if R2.isEmptySet
                         R = [];
@@ -110,13 +111,12 @@ classdef ReLU
             %          = 'approx' -> compute an over-approximate reach set
             
             p = length(I_array);
-            R1 = [];
+            R = [];
             
             parfor i=1:p
-                R1 =[R1, ReLU.stepReach(I_array(i), index, xmin, xmax)];                
+                R =[R, ReLU.stepReach(I_array(i), index, xmin, xmax)];                
             end            
             
-            R = R1;
         end
         
         % exact reach of ReLU(x)

@@ -281,9 +281,12 @@ classdef Layer
                 
                 
                 if strcmp(obj.f, 'Linear')
-                                   
+                    %fprintf('\nHello')
                     I1 = Reduction.hypercubeHull(I);
                     R = I1.affineMap(obj.W) + obj.b;
+                    %if R.isEmptySet
+                    %    error('error');
+                    %end
                     
                 elseif strcmp(obj.f, 'ReLU')
                     

@@ -117,6 +117,7 @@
             obj.reachScheme = scheme;
             obj.inputSet = I;
             obj.reachSet = cell(1, obj.nL);
+            obj.reachTime = []; 
             
             % set up parallel computing with number of cores (workers)
             if numOfCores > 1

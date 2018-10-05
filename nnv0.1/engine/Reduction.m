@@ -944,12 +944,19 @@ classdef Reduction
             % @B: a hypercube Hull of I
             
             l = length(I);
+            lb = [];
+            ub = [];
+            
             for i=1:l
-                P(i) = I(i);
+                I(i).outerApprox;
+                lb = [lb I(i).Internal.lb];
+                ub = [ub I(i).Internal.ub];
             end
-            U = PolyUnion(P);
-            B = U.outerApprox;
-                      
+            
+            lb = min(lb, [], 2);
+            ub = max(ub, [], 2);
+            
+             B = Polyhedron('lb', lb, 'ub', ub);
         end
         
         

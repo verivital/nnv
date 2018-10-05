@@ -11,6 +11,22 @@ classdef Reduction
     methods(Static)
         
         
+        % affineMap this affineMap function in MPT toolbox is not reliable
+        % This function use vertices for affineMapping
+        
+        function P = affineMap(I, W)
+            % @I: input polyhedron
+            % @W: affine mapping matrix
+            
+            if size(W, 2) ~= size(I.A, 2)
+                error('Inconsistent dimension between mapping matrix and input set');
+            end
+            
+            V = W * I.V';           
+            P = Polyhedron('V', V');
+        end
+        
+        
         % find nP smallest polyhedra close to the origin the most
         function P = findSmallestPolyhedraCloseOrigin(I, nP)
             % @I: an array of input polyhedra

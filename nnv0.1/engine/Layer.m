@@ -242,17 +242,27 @@ classdef Layer
             if strcmp(parallel, 'single')
                 if strcmp(obj.f, 'Linear')
                     
-                    I1 = Reduction.hypercubeHull(I);
-                    R = Reduction.affineMap(I1, obj.W) + obj.b;
-                    
+                    I1 = Box.boxHull(I);
+                    R = I1.affineMap(obj.W, obj.b);
+                                        
                 elseif strcmp(obj.f, 'ReLU')
                     
                     for i=1:n
-                        I1 = Reduction.affineMap(I(i), obj.W) + obj.b;
-                        I1.outerApprox;
-                        lb = I1.Internal.lb;
-                        ub = I1.Internal.ub;
+                        
+                        if ~isa(I(i), 'Box')
+                            I1 = Reduction.affineMap(I(i), obj.W) + obj.b;
+                            I1.outerApprox;
+                            lb = I1.Internal.lb;
+                            ub = I1.Internal.ub;
+                            
+                        else 
+                            
+                            I1 = I(i).affineMap(obj.W, obj.b);
+                            lb = I1.lb;
+                            ub = I1.ub;
                        
+                        end
+
                         for j=1:length(lb)
                             if lb(j) < 0
                                 lb(j) = 0;
@@ -261,13 +271,13 @@ classdef Layer
                                 ub(j) = 0;
                             end
                         end
-                        
-                        R = [R Polyhedron('lb', lb, 'ub', ub)];
 
+                        R = [R Box(lb, ub)];     
+       
                     end
                     
                     if ~isempty(nP) && length(R) > nP
-                        R = Reduction.merge_box(R, nP, parallel);
+                        R = Reduction.merge_box2(R, nP, parallel);
                     end
                 else
                     error('Unsupported activation function');
@@ -278,17 +288,27 @@ classdef Layer
                 
                 
                 if strcmp(obj.f, 'Linear')
-                    I1 = Reduction.hypercubeHull(I);
-                    R = Reduction.affineMap(I1, obj.W) + obj.b;                 
+                    I1 = Box.boxHull(I);
+                    R = I1.affineMap(obj.W, obj.b);
+                    
                 elseif strcmp(obj.f, 'ReLU')
                     
                     parfor i=1:n
                         
-                        I1 = Reduction.affineMap(I(i), obj.W) + obj.b;
-                        I1.outerApprox;
-                        lb = I1.Internal.lb;
-                        ub = I1.Internal.ub;
-          
+                        if ~isa(I(i), 'Box')
+                            
+                            I1 = Reduction.affineMap(I(i), obj.W) + obj.b;
+                            I1.outerApprox;
+                            lb = I1.Internal.lb;
+                            ub = I1.Internal.ub;
+                            
+                        else 
+                            
+                            I1 = I(i).affineMap(obj.W, obj.b);
+                            lb = I1.lb;
+                            ub = I1.ub;
+                        end
+
                         for j=1:length(lb)
                             if lb(j) < 0
                                 lb(j) = 0;
@@ -298,12 +318,13 @@ classdef Layer
                             end
                         end
 
-                        R = [R Polyhedron('lb', lb, 'ub', ub)];
-                        
+                        R = [R Box(lb, ub)];     
+
+       
                     end
                     
                     if ~isempty(nP) && length(R) > nP
-                        R = Reduction.merge_box(R, nP, parallel);
+                        R = Reduction.merge_box2(R, nP, parallel);
                     end
                     
                 else
@@ -335,8 +356,13 @@ classdef Layer
            
            if length(I) < nP                        
                P = obj.reach_exact(I, parallel);
-           else                                        
-               P = Reduction.merge_box(I, nP, parallel);
+           else
+               if ~isa(I(1), 'Box')
+                   P = Reduction.merge_box(I, nP, parallel);
+               else
+                   P = Reduction.merge_box2(I, nP, parallel);
+               end
+               
                P = obj.reach_approx_box_coarse(P, nP, parallel);
            end
            

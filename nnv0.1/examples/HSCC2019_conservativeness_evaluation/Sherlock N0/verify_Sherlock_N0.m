@@ -21,16 +21,19 @@ F.print('F_exact.info');
 [R2, t2] = F.reach(I, 'approx', 4, []); % lazy-approximate scheme
 save F_approx.mat F;
 F.print('F_approx.info');
+range2 = [R2.lb R2.ub];
 
-I1 = Partition.partition_box(I, 2);
-[R22, t22] = F.reach(I1, 'approx', 4, []); % lazy-approximate scheme
+I1 = Partition.partition_box(I, 4);
+[R3, t3] = F.reach(I1, 'approx', 4, []); % lazy-approximate scheme
 save F_approx_partition.mat F;
 F.print('F_approx_partition.info');
 
-R23 = Reduction.hypercubeHull(R22);
-R23.outerApprox;
+R31 = Box.boxHull(R3);
+range3 = [R31.lb R31.ub];
 
 
 [R3, t3] = F.reach(I, 'mixing', 4, 100); % mixing scheme
 save F_mixing.mat F;
 F.print('F_mixing.info');
+
+

@@ -41,8 +41,18 @@ ylabel('x_2', 'FontSize', 16);
 [R1, t1] = L1.reach_approx_box_coarse(I1, 16, 'single'); % exact reachable set of layer 1
 [R2, t2] = L2.reach_approx_box_coarse(R1, 16,'single'); % exact reachable set of layer 2
 
+R11 = [];
+for i=1:length(R1)
+    R11 = [R11 R1(i).toPolyhedron];
+end
+
+R21 = [];
+for i=1:length(R2)
+    R21 = [R21 R2(i).toPolyhedron];
+end
+
 subplot(1, 3, 2);
-R1.plot;
+R11.plot;
 hold on;
 plot3(Y{1, 1}(1, :), Y{1, 1}(2, :), Y{1, 1}(3, :), '*');
 title('Hidden Layer Reachable Set', 'FontSize', 20);
@@ -51,7 +61,7 @@ ylabel('x_2', 'FontSize', 16);
 zlabel('x_3', 'FontSize', 16);
 
 subplot(1, 3, 3);
-R2.plot;
+R21.plot;
 hold on;
 plot(Y{1, 2}(1, :), Y{1, 2}(2, :), '*');
 title('Output Layer Reachable Set', 'FontSize', 20);

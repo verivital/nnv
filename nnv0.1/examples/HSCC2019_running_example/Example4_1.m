@@ -36,7 +36,9 @@ xlabel('x_1', 'FontSize', 16);
 ylabel('x_2', 'FontSize', 16);
 
 [R1, t1] = L1.reach_approx_box_coarse(I, 1, 'single'); % exact reachable set of layer 1
+R1 = R1.toPolyhedron;
 [R2, t2] = L2.reach_approx_box_coarse(R1, 1,'single'); % exact reachable set of layer 2
+R2 = R2.toPolyhedron;
 
 subplot(1, 3, 2);
 R1.plot;

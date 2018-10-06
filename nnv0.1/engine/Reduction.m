@@ -381,8 +381,7 @@ classdef Reduction
             
         end
         
-        % merge polyhedra using boxes
-        
+        % merge polyhedra using boxes        
         function P = merge_box(I, nP, parallel)
             % @I: array of polyhedra
             % @nP: number of polyhera of the output P
@@ -455,6 +454,74 @@ classdef Reduction
 
             
                   
+        end
+        
+        
+        % merge boxes using box
+        
+        function P = merge_box2(I, nP, parallel)
+            % @I: array of boxes
+            % @nP: number of polyhera of the output P
+            % @parallel: = 'parallel' use parallel computing
+            %            = 'single' use single core for computing
+            
+            n = length(I);
+            B = [];
+            
+            if strcmp(parallel, 'single')
+                
+                
+                m = length(I(1).lb);
+                C = zeros(n, 2*m);
+                for i=1:n
+                    C(i, :) = [I(i).lb' I(i).ub'];
+                end
+
+                idx = kmeans(C, nP); % clustering boxes into nP groups
+
+                R = cell(nP, 1);
+
+                for i=1:nP
+                    for j=1:n
+                        if idx(j) == i
+                            R{i, 1} = [R{i, 1} I(j)];
+                        end
+                    end
+                end
+
+                P = [];
+                for i=1:nP
+                    P = [P Box.boxHull(R{i, 1})];
+                end
+
+            elseif strcmp(parallel, 'parallel')
+
+
+                m = size(I(1).lb, 1);
+                C = zeros(n, 2*m);
+                
+                for i=1:n
+                    C(i, :) = [I(i).lb' I(i).ub'];
+                end
+                
+                idx = kmeans(C, nP);
+                R = cell(nP, 1);
+
+                for i=1:nP
+                    for j=1:n
+                        if idx(j) == i
+                            R{i, 1} = [R{i, 1} I(j)];
+                        end
+                    end
+                end
+
+                P = [];
+                parfor i=1:nP
+                    P = [P Box.boxHull(R{i, 1})];
+                end
+
+            end
+            
         end
         
         

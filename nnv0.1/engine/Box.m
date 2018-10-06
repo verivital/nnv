@@ -1,0 +1,116 @@
+classdef Box
+    %Hyper-rectangle class
+    % Box and simple methods
+    % Dung Tran: 10/4/2018
+    properties
+        lb = [];
+        ub = [];
+        center = []; 
+        generators = []; 
+    end
+    
+    methods
+        
+        % constructor
+        function obj = Box(lb, ub)
+            % @lb: lower-bound vector
+            % @ub: upper-bound vector
+            
+            [n1, m1] = size(lb);
+            [n2, m2] = size(ub);
+            
+            if m1 ~= 1 || m2 ~= 1
+                error('lb and ub should be a vector');
+            end
+            
+            if n1 ~= n2
+                error('Inconsistent dimensions between lb and ub');
+            end
+            
+            obj.lb = lb;
+            obj.ub = ub;
+            
+            obj.center = 0.5 * (lb + ub);
+            vec = 0.5 * (ub - lb);
+            for i=1:n1
+                if vec(i) ~= 0
+                    gen = zeros(n1, 1);
+                    gen(i) = vec(i);
+                    obj.generators = [obj.generators gen];
+                end                
+            end
+                
+        end
+        
+        % affine mapping of a box
+        
+        function B = affineMap(obj, W, b)
+            % @W: mapping matrix
+            % @b: mapping vector
+            
+            % @B: return a new box bound the affine map
+            
+            if size(b, 2) ~= 1
+                error('b should be a vector');
+            end
+            
+            if size(W, 1) ~= size(b, 1) 
+                error('Inconsistency between mapping matrix, mapping vector');
+            end
+            
+            new_center = W * obj.center + b;
+            new_generators = W * obj.generators;
+            
+            n = length(new_center);
+            new_lb = zeros(n, 1);
+            new_ub = zeros(n, 1);
+            
+            for i=1:n
+                v = new_generators(i, :)';
+                new_lb(i) = new_center(i) - norm(v, 1);
+                new_ub(i) = new_center(i) + norm(v, 1);
+            end
+            
+            
+            B = Box(new_lb, new_ub);
+            
+        end
+        
+        
+        % transform box to polyhedron
+        function P = toPolyhedron(obj)
+            
+            P = Polyhedron('lb', obj.lb, 'ub', obj.ub);
+        end
+        
+        
+    end
+    
+    methods(Static)
+       
+        % box merging
+        function B = boxHull(I)
+            % merge boxes into one box
+            % @I: array of boxes
+            
+            n = length(I);
+            lb = [];
+            ub = [];
+            
+            for i=1:n
+                lb = [lb I.lb];
+                ub = [ub I.ub];                
+            end
+            
+            lb = min(lb, [], 2);
+            ub = max(ub, [], 2);
+            
+            
+            B = Box(lb, ub);
+            
+        end
+        
+    end
+    
+end
+

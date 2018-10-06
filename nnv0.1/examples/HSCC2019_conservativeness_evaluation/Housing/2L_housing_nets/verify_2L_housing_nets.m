@@ -11,7 +11,7 @@ b3 = nnetwork.b{1, 3};
 
 L1 = Layer(W1, b1, 'ReLU');
 L2 = Layer(W2, b2, 'ReLU');
-L3 = Layer(W3, b3, 'Linear');
+L3 = Layer(W3, b3, 'ReLU');
 
 
 F = FFNN([L1, L2, L3]);
@@ -75,6 +75,11 @@ R41.outerApprox;
 range4 = [R41.Internal.lb, R41.Internal.ub];
 save F_2L_mixing.mat F;
 
+% compute conservativeness
+CSV1 = 0;
+CSV2 = (abs(range2(1) - range1(1)) + abs(range2(2) - range1(2))) / (range1(2) - range1(1));
+CSV3 = (abs(range3(1) - range1(1)) + abs(range3(2) - range1(2))) / (range1(2) - range1(1));
+CSV4 = (abs(range4(1) - range1(1)) + abs(range4(2) - range1(2))) / (range1(2) - range1(1));
 
 
 

@@ -71,7 +71,11 @@ range4 = [R41.Internal.lb, R41.Internal.ub];
 save F_1L_mixing.mat F;
 
 
-
+% compute conservativeness
+CSV1 = 0;
+CSV2 = (abs(range2(1) - range1(1)) + abs(range2(2) - range1(2))) / (range1(2) - range1(1));
+CSV3 = (abs(range3(1) - range1(1)) + abs(range3(2) - range1(2))) / (range1(2) - range1(1));
+CSV4 = (abs(range4(1) - range1(1)) + abs(range4(2) - range1(2))) / (range1(2) - range1(1));
 
 
 

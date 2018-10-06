@@ -64,14 +64,18 @@ range3 = [R31.Internal.lb R31.Internal.ub];
 save F_1L_approx_partition.mat F;
 
 % mixing scheme for output range analysis
-[R4, t4] = F.reach(I, 'mix', 4, 10);
+[R4, t4] = F.reach(I, 'mix', 4, 17);
 R41 = Reduction.hypercubeHull(R4);
 R41.outerApprox;
 range4 = [R41.Internal.lb, R41.Internal.ub];
 save F_1L_mixing.mat F;
 
 
-
+% compute conservativeness
+CSV1 = 0;
+CSV2 = (abs(range2(1) - range1(1)) + abs(range2(2) - range1(2))) / (range1(2) - range1(1));
+CSV3 = (abs(range3(1) - range1(1)) + abs(range3(2) - range1(2))) / (range1(2) - range1(1));
+CSV4 = (abs(range4(1) - range1(1)) + abs(range4(2) - range1(2))) / (range1(2) - range1(1));
 
 
 

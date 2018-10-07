@@ -38,22 +38,11 @@ title('Input Set', 'FontSize', 20);
 xlabel('x_1', 'FontSize', 16);
 ylabel('x_2', 'FontSize', 16);
 
-[R1, t1] = L1.reach_mix(I1, 100, 'single'); % exact reachable set of layer 1
-[R2, t2] = L2.reach_mix(R1, 100,'single'); % exact reachable set of layer 2
-
-R11 = [];
-for i=1:length(R1)
-    R11 = [R11 R1(i).toPolyhedron];
-end
-
-R21 = [];
-for i=1:length(R2)
-    R21 = [R21 R2(i).toPolyhedron];
-end
-
+[R1, t1] = L1.reach_mix(I1, 100, 'single'); % over-approximate reachable set
+[R2, t2] = L2.reach_mix(R1, 100,'single'); % over-approximate reachable set
 
 subplot(1, 3, 2);
-R11.plot;
+Box.plots(R1); % plot an array of boxes
 hold on;
 plot3(Y{1, 1}(1, :), Y{1, 1}(2, :), Y{1, 1}(3, :), '*');
 title('Hidden Layer Reachable Set', 'FontSize', 20);
@@ -62,7 +51,7 @@ ylabel('x_2', 'FontSize', 16);
 zlabel('x_3', 'FontSize', 16);
 
 subplot(1, 3, 3);
-R21.plot;
+Box.plots(R2) % plot an array of boxes
 hold on;
 plot(Y{1, 2}(1, :), Y{1, 2}(2, :), '*');
 title('Output Layer Reachable Set', 'FontSize', 20);

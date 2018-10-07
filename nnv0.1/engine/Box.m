@@ -83,6 +83,12 @@ classdef Box
             P = Polyhedron('lb', obj.lb, 'ub', obj.ub);
         end
         
+        % plot a box using mpt toolbox
+        function plot(obj)
+            P = obj.toPolyhedron;
+            P.plot;
+        end
+        
         
     end
     
@@ -107,6 +113,19 @@ classdef Box
             
             
             B = Box(lb, ub);
+            
+        end
+        
+        % plot an array of boxes 
+        function plots(boxes)
+            
+            n = length(boxes);
+            
+            R = [];
+            for i=1:n
+                R = [R boxes(i).toPolyhedron];
+            end
+            R.plot;
             
         end
         

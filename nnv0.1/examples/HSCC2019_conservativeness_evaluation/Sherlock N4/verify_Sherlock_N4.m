@@ -14,11 +14,16 @@ ub = [0.5; 1];
 
 I = Polyhedron('lb', lb, 'ub', ub);
 
-[R1, t1] = F.reach(I, 'exact', 4, []);   
-save F_exact.mat F;
-F.print('F_exact.info');
-R11 = Reduction.hypercubeHull(R1);
-range1 = [R11.lb R11.ub]; 
+n=5000;
+
+x1 = (ub(1) - lb(1)).*rand(n, 1) + lb(1);
+x2 = (ub(2) - lb(2)).*rand(n, 1) + lb(2);
+
+Is = [x1'; x2'];
+Y = F.sample(Is);
+output = Y{1, 2}; % sampled output
+range1 = [min(output) max(output)];
+
     
 [R2, t2] = F.reach(I, 'approx', 4, []); % lazy-approximate scheme takes < 1 seconds to compute
 save F_approx.mat F;
@@ -34,14 +39,10 @@ R31 = Box.boxHull(R3);
 range3 = [R31.lb R31.ub];
 
 
-[R4, t4] = F.reach(I, 'mixing', 4, 100); % mixing scheme
-save F_mixing.mat F;
-F.print('F_mixing.info');
-R41 = Box.boxHull(R4);
-range4 = [R41.lb R41.ub];
+
 
 % compute conservativeness
 CSV1 = 0;
 CSV2 = (abs(range2(1) - range1(1)) + abs(range2(2) - range1(2))) / (range1(2) - range1(1));
 CSV3 = (abs(range3(1) - range1(1)) + abs(range3(2) - range1(2))) / (range1(2) - range1(1));
-CSV4 = (abs(range4(1) - range1(1)) + abs(range4(2) - range1(2))) / (range1(2) - range1(1));
+

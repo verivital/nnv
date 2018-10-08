@@ -242,8 +242,13 @@ classdef Layer
             if strcmp(parallel, 'single')
                 if strcmp(obj.f, 'Linear')
                     
-                    I1 = Box.boxHull(I);
-                    R = I1.affineMap(obj.W, obj.b);
+                    if ~isa(I(1), 'Box')
+                        I1 = Reduction.hypercubeHull(I);
+                        I1.outerApprox;
+                        I1 = Box(I1.Internal.lb, I1.Internal.ub);
+                    else
+                        I1 = Box.boxHull(I);
+                    end
                                         
                 elseif strcmp(obj.f, 'ReLU')
                     
@@ -288,7 +293,14 @@ classdef Layer
                 
                 
                 if strcmp(obj.f, 'Linear')
-                    I1 = Box.boxHull(I);
+                    
+                    if ~isa(I(1), 'Box')
+                        I1 = Reduction.hypercubeHull(I);
+                        I1.outerApprox;
+                        I1 = Box(I1.Internal.lb, I1.Internal.ub);
+                    else
+                        I1 = Box.boxHull(I);
+                    end
                     R = I1.affineMap(obj.W, obj.b);
                     
                 elseif strcmp(obj.f, 'ReLU')

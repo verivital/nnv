@@ -1102,9 +1102,14 @@ classdef Reduction
             ub = [];
             
             for i=1:l
-                I(i).outerApprox;
-                lb = [lb I(i).Internal.lb];
-                ub = [ub I(i).Internal.ub];
+                if ~isa(I(i), 'Box')
+                    I(i).outerApprox;
+                    lb = [lb I(i).Internal.lb];
+                    ub = [ub I(i).Internal.ub];
+                else
+                    lb = [lb I(i).lb];
+                    ub = [lb I(i).ub];
+                end
             end
             
             lb = min(lb, [], 2);

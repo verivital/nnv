@@ -418,7 +418,8 @@ classdef Reduction
 
                 P = [];
                 for i=1:nP
-                    P = [P Reduction.hypercubeHull(R{i, 1})];
+                    B = Reduction.hypercubeHull(R{i, 1}); % return a box                    
+                    P = [P B];
                 end
 
             elseif strcmp(parallel, 'parallel')
@@ -446,8 +447,9 @@ classdef Reduction
                 end
 
                 P = [];
-                parfor i=1:nP
-                    P = [P Reduction.hypercubeHull(R{i, 1})];
+                parfor i=1:nP                   
+                    B = Reduction.hypercubeHull(R{i, 1}); % return a box                    
+                    P = [P B];
                 end
 
             end
@@ -1108,7 +1110,7 @@ classdef Reduction
             lb = min(lb, [], 2);
             ub = max(ub, [], 2);
             
-             B = Polyhedron('lb', lb, 'ub', ub);
+             B = Box(lb, ub);
         end
         
         

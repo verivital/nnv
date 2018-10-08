@@ -47,15 +47,13 @@ I = Polyhedron('A', A, 'b', b, 'Ae', Ae, 'be', be);
 % exact range analysis
 [R1, t1] = F.reach(I, 'exact', 4, []); % exact scheme
 R11 = Reduction.hypercubeHull(R1);
-R11.outerApprox;
-range1 = [R11.Internal.lb, R11.Internal.ub];
+range1 = [R11.lb, R11.ub];
 save F_2L_exact.mat F;
 
 
 % lazy-approximate range analysis
 [R2, t2] = F.reach(I, 'approx', 4, []); % lazy-approximate scheme
-R2.outerApprox;
-range2 = [R2.Internal.lb R2.Internal.ub];
+range2 = [R2.lb R2.ub];
 save F_2L_approx.mat F;
 
 
@@ -64,15 +62,13 @@ save F_2L_approx.mat F;
 I1 = Partition.partition_box(I, 2); % lazy-approximate scheme + input partition
 [R3, t3] = F.reach(I1, 'approx', 4, []); % lazy-approximate scheme
 R31 = Reduction.hypercubeHull(R3);
-R31.outerApprox;
-range3 = [R31.Internal.lb R31.Internal.ub];
+range3 = [R31.lb R31.ub];
 save F_2L_approx_partition.mat F;
 
 % mixing scheme for output range analysis
 [R4, t4] = F.reach(I, 'mix', 4, 10);
 R41 = Reduction.hypercubeHull(R4);
-R41.outerApprox;
-range4 = [R41.Internal.lb, R41.Internal.ub];
+range4 = [R41.lb, R41.ub];
 save F_2L_mixing.mat F;
 
 % compute conservativeness

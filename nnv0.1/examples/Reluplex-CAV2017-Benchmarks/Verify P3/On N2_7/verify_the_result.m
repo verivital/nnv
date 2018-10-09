@@ -24,8 +24,9 @@ for i=1:m
 end
 
 
-lb = [250; 0.2; -3.141592; 100; 0.0];
-ub = [400; 0.4; -3.141592 + 0.005; 400; 400];
+lb = [1500; -0.06; 3.1; 980; 960];
+ub = [1800; 0.06; 3.14; 1200; 1200];
+
 % normalize input
 for i=1:5
     lb(i) = (lb(i) - means_for_scaling(i))/range_for_scaling(i);

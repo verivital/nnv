@@ -31,7 +31,7 @@ classdef ReLU
             % @xmin: min of x[index]
             % @xmax: max of x[index]
            
-           
+            I.normalize;
             dim = size(I.A, 2);  % dimension of input space
             if xmin >= 0
                 R = I; 

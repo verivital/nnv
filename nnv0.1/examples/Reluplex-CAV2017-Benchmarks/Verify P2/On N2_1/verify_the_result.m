@@ -23,9 +23,9 @@ for i=1:m
     B = [B R_bounded(i).outerApprox];
 end
 
+lb = [55947.69; -3.14; -3.14; 1145; 0];
+ub = [60760; 3.14; 3.14; 1200; 60];
 
-lb = [250; 0.2; -3.141592; 100; 0.0];
-ub = [400; 0.4; -3.141592 + 0.005; 400; 400];
 % normalize input
 for i=1:5
     lb(i) = (lb(i) - means_for_scaling(i))/range_for_scaling(i);

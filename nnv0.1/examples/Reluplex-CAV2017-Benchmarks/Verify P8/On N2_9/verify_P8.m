@@ -1,4 +1,4 @@
-load ACASXU_run2a_1_9_batch_2000.mat;
+load ACASXU_run2a_2_9_batch_2000.mat;
 Layers = [];
 n = length(b);
 for i=1:n - 1
@@ -16,13 +16,13 @@ F = FFNN(Layers);
 
 % Input Constraints (see paper Reluplex: An Efficient SMT Solver for Verifying Deep Neural Networks, CAV 2017)
 % 0 <= i1 (\rho) <= 60760,  
-% -3.141592 <= i2 (\theta) <= 3.141592   
-% -3.141592 <= i3 (\shi) <= 3.141592
-% 100 <= i4 (\v_own) <= 1200,
-% 0 <= i5 (\v_in) <= 1200
+% -3.141592 <= i2 (\theta) <= -0.75*3.141592  
+% -0.1 <= i3 (\shi) <= 0.1
+% 600 <= i4 (\v_own) <= 1200,
+% 600 <= i5 (\v_in) <= 1200
 
-lb = [0; -3.141592; -3.141592; 100; 0];
-ub = [60760; 3.141592; 3.141592; 1200; 1200];
+lb = [0; -3.141592; -0.1; 600; 600];
+ub = [60760; -0.75*3.141592; 0.1; 1200; 1200];
 
 % normalize input
 for i=1:5
@@ -32,7 +32,7 @@ end
 
 I = Polyhedron('lb', lb, 'ub', ub);
 
-I1 = Partition.partition_box(I, 2);
+I1 = Partition.partition_box(I, 1);
 
 [R, t] = F.reach(I1, 'exact', 4, []); % exact reach set
 save F.mat F; % save the verified network

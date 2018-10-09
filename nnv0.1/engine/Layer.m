@@ -296,8 +296,7 @@ classdef Layer
                     
                     if ~isa(I(1), 'Box')
                         I1 = Reduction.hypercubeHull(I);
-                        I1.outerApprox;
-                        I1 = Box(I1.Internal.lb, I1.Internal.ub);
+                        I1 = Box(I1.lb, I1.ub);
                     else
                         I1 = Box.boxHull(I);
                     end

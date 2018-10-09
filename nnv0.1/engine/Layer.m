@@ -77,8 +77,8 @@ classdef Layer
                         if size(obj.W, 2) ~= size(I.A, 2)
                             error('Inconsistent dimensions between input set and weights matrix')
                         end
-                        %I1 = I.affineMap(obj.W) + obj.b;
-                        I1 = Reduction.affineMap(I, obj.W) + obj.b;
+                        I1 = I.affineMap(obj.W) + obj.b;
+                        %I1 = Reduction.affineMap(I, obj.W) + obj.b;
                         if strcmp(obj.f, 'Linear')
                             R1 = I1;
                             rn1 = 0;
@@ -100,8 +100,8 @@ classdef Layer
                             error('Inconsistent dimensions between input set and weights matrix')
                         end
 
-                        I1 = Reduction.affineMap(I, obj.W) + obj.b; 
-                        %I1 = I.affineMap(obj.W) + obj.b;
+                        %I1 = Reduction.affineMap(I, obj.W) + obj.b; 
+                        I1 = I.affineMap(obj.W) + obj.b;
                         if strcmp(obj.f, 'Linear')
                             R1 = I1;
                             rn1 = 0;
@@ -126,8 +126,8 @@ classdef Layer
                         error('Inconsistent dimensions between input set and weights matrix')
                     end
 
-                    I1 = Reduction.affineMap(I, obj.W) + obj.b;                    
-                    %I1 = I.affineMap(obj.W) + obj.b;
+                    %I1 = Reduction.affineMap(I, obj.W) + obj.b;                    
+                    I1 = I.affineMap(obj.W) + obj.b;
                     if strcmp(obj.f, 'Linear')
                         R1 = I1;
                         rn1 = 0;

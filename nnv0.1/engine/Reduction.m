@@ -1108,7 +1108,7 @@ classdef Reduction
                     ub = [ub I(i).Internal.ub];
                 else
                     lb = [lb I(i).lb];
-                    ub = [lb I(i).ub];
+                    ub = [ub I(i).ub];
                 end
             end
             

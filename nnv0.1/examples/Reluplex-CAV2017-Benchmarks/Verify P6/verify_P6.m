@@ -48,7 +48,7 @@ for i=1:5
 end
 I2 = Polyhedron('lb', lb2, 'ub', ub2);
 
-I = [I1 I2];
+I = [Partition.partition_box(I1,2) Partition.partition_box(I2,2)];
 
 [R, t] = F.reach(I, 'exact', 4, []); % exact reach set
 save F.mat F; % save the verified network

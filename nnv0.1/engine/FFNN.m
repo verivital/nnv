@@ -195,6 +195,60 @@
             fprintf('\nTotal number of polyhedron at the output layer: %d', length(obj.outputSet));
         end
         
+        % estimate conservativeness of output reachable set compared with
+        % the actual output ranges
+        function [csv_vec, r, computed_range, est_range] = estimate_CSV(obj, I, n_samples)
+            % @I: input set, currently only support input set as a box
+            % @n_samples: number of samples used to estimate the actual
+            % ranges 
+            % @CSV_vec: conservativeness vector
+            % @r: = 0: exact range
+            %     = 1: over-approximation
+            %     = 2: under-approximation
+            %     = 3: wrong range
+            % @est_range: estimated range from sampling the network
+            % @computed_range: the computed range from reachable set
+            % computation
+            
+            
+            % get lower-bound vector and upper-bound vector
+            
+            if isempty(obj.outputSet)
+                error('output set is empty, call reach method to compute the reachable set first');
+            end
+            
+            if ~isa(I, 'Box')
+                I.outerApprox;
+                lb = I.Internal.lb;
+                ub = I.Internal.ub;
+            else
+                lb = I.lb;
+                ub = I.ub;
+            end
+            
+            % sampling the network with n_samples of input vector           
+            % get sampled input vectors
+            X = cell(1, obj.nO);
+            V = [];
+            for i=1:obj.nO
+                X{1, i} = (ub(i) - lb(i)).*rand(n_samples, 1) + lb(i);
+                V = vertcat(V, X{1, i}');
+            end
+            
+            Y = obj.sample(V); % evaluate the network with a set of input vectors V
+            output = Y{1, obj.nL}; % sampled output vectors
+            output_lb = min(output, [], 2); % estimate ranges of outputs
+            output_ub = max(output, [], 2);
+            
+            B = Reduction.hypercubeHull(obj.outputSet);
+            
+            est_range = [output_lb output_ub];
+            computed_range = [B.lb B.ub];
+            [csv_vec, r] = CSV.getConservativeness(computed_range, est_range);     
+            
+        end
+        
+        
         % Sample of FFNN
         function Y = sample(obj, V)
             % sample the output of each layer in the FFNN based on the

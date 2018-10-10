@@ -16,38 +16,30 @@ lb = nnetwork.min;
 ub = nnetwork.max;
 
 % Input set
-% x[i] = 0, i = 1:10
-% lb(i) <= x[i] <= ub(i), i=11, 12
+% x[i] = 0, i = 1:6
+% lb(i) <= x[i] <= ub(i), i=7, 8
 
 n = length(lb);
 
-Ae = eye(n);
-Ae(n-1:n, :) = [];
-be = zeros(n-2, 1);
+lb1 = lb;
+ub1 = lb;
+ub1(7) = ub(7);
+ub1(8) = ub(8);
 
-A1 = zeros(2, n);
-A1(1, n) = 1;
-A1(2, n) = -1;
-
-A2 = zeros(2, n);
-A2(1, n-1) = 1;
-A2(2, n-1) = -1;
-
-A = vertcat(A1, A2);
-b = vertcat(ub(n), -lb(n), ub(n-1), -lb(n-1));
+V = Reduction.getVertices(lb1, ub1);
 
 % Input Set
-I = Polyhedron('A', A, 'b', b, 'Ae', Ae, 'be', be);
+I = Polyhedron('V', V');
 
 % exact range analysis
-[R1, t1] = F.reach(I, 'exact', 4, []); % exact scheme
+[R1, t1] = F.reach(I, 'exact', 2, []); % exact scheme
 R11 = Reduction.hypercubeHull(R1);
 range1 = [R11.lb, R11.ub];
 save F_1L_exact.mat F;
 
 
 % lazy-approximate range analysis
-[R2, t2] = F.reach(I, 'approx', 4, []); % lazy-approximate scheme
+[R2, t2] = F.reach(I, 'approx', 2, []); % lazy-approximate scheme
 range2 = [R2.lb R2.ub];
 save F_1L_approx.mat F;
 
@@ -55,13 +47,13 @@ save F_1L_approx.mat F;
 
 % lazy-approximate + input partition method for range analysis
 I1 = Partition.partition_box(I, 2); % lazy-approximate scheme + input partition
-[R3, t3] = F.reach(I1, 'approx', 4, []); % lazy-approximate scheme
+[R3, t3] = F.reach(I1, 'approx', 2, []); % lazy-approximate scheme
 R31 = Reduction.hypercubeHull(R3);
 range3 = [R31.lb R31.ub];
 save F_1L_approx_partition.mat F;
 
 % mixing scheme for output range analysis
-[R4, t4] = F.reach(I, 'mix', 4, 10);
+[R4, t4] = F.reach(I, 'mix', 2, 10);
 R41 = Reduction.hypercubeHull(R4);
 range4 = [R41.lb, R41.ub];
 save F_1L_mixing.mat F;

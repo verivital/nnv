@@ -195,6 +195,39 @@
             fprintf('\nTotal number of polyhedron at the output layer: %d', length(obj.outputSet));
         end
         
+        
+        % reachability analysis with conservativeness guarantee,
+        % this is used for lazy-approximate + input partition scheme
+        % and mixing scheme
+        % NOTE : *** This method only works for hyper-rectangle input set 
+        function [R, t] = reach_approx_with_CSV_guarantee(obj, I, desired_csv, numOfCores, n_samples)
+            % @I: input set
+            % @desired_csv: desired conservativeness specified by user
+            % the algorithm stop when all outputs ranges's conservativeness <= desired_csv
+            % @numOfCores: number of cores used in computation
+            % @n_samples: number of samples used to estimate the unknown
+            % actual ranges of the outputs
+            
+            % @R: output reachable set with desired conservativeness
+            % @t: computation time
+            
+            t1 = tic;
+            obj.reach(I, 'approx', numOfCores, []);
+            csv_vec = obj.estimate_CSV(I, n_samples);
+            k = 0;
+            while (min(csv_vec) > desired_csv)
+                k = k + 1;
+                fprintf('\nPartitioning input space...')
+                I1 = Partition.partition_box(I, k);
+                fprintf('\nRecompute reachable set with %d smaller input sets', length(I1));
+                obj.reach(I1, 'approx', numOfCores, []);
+                csv_vec = obj.estimate_CSV(I, n_samples);
+            end
+            R = obj.outputSet;
+            t = toc(t1);
+            
+        end
+        
         % estimate conservativeness of output reachable set compared with
         % the actual output ranges
         function [csv_vec, r, computed_range, est_range] = estimate_CSV(obj, I, n_samples)

@@ -228,13 +228,13 @@
             
             % sampling the network with n_samples of input vector           
             % get sampled input vectors
-            X = cell(1, obj.nO);
+            X = cell(1, obj.nI);
             V = [];
-            for i=1:obj.nO
+            for i=1:obj.nI
                 X{1, i} = (ub(i) - lb(i)).*rand(n_samples, 1) + lb(i);
                 V = vertcat(V, X{1, i}');
             end
-            
+                        
             Y = obj.sample(V); % evaluate the network with a set of input vectors V
             output = Y{1, obj.nL}; % sampled output vectors
             output_lb = min(output, [], 2); % estimate ranges of outputs

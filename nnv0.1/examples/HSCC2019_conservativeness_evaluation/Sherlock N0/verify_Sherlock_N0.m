@@ -38,10 +38,10 @@ range3 = [R31.lb R31.ub];
 save F_mixing.mat F;
 F.print('F_mixing.info');
 R41 = Box.boxHull(R4);
-range4 = [R41.lb R41.ub];
+range4 = [R41.lb R41.ub]; % range4 = [0 9.6517]
 
 % compute conservativeness
 CSV1 = 0;
-CSV2 = (abs(range2(1) - range1(1)) + abs(range2(2) - range1(2))) / (range1(2) - range1(1));
-CSV3 = (abs(range3(1) - range1(1)) + abs(range3(2) - range1(2))) / (range1(2) - range1(1));
-CSV4 = (abs(range4(1) - range1(1)) + abs(range4(2) - range1(2))) / (range1(2) - range1(1));
+[CSV2, r2] = CSV.getConservativeness(range2, range1);
+[CSV3, r3] = CSV.getConservativeness(range3, range1);
+[CSV4, r4] = CSV.getConservativeness(range4, range1);

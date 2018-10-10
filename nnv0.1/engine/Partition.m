@@ -49,17 +49,28 @@ classdef Partition
             % @I: input polyhedra (ideally a box) if not we get an
             % over-approximation of the polyhedra
             % @N: number of step devide for each element
-            % @B: a cell of partitioned boxes
-            %     |B| = n^(2^N), n is the dimension of the box
+                        
             
-            I.outerApprox;     % find a box bound the input polyhedra                   
-            n = size(I.A, 2);
+            % @P: a cell of partitioned boxes
+            %     |P| = n^(2^N), n is the dimension of the box
+            
+            
+            if ~isa(I, 'Box')
+                I.outerApprox;
+                n = size(I.A, 2);
+                lb = I.Internal.lb;
+                ub = I.Internal.ub;
+            else
+                lb = I.lb;
+                ub = I.ub;
+                n = size(lb, 1);
+            end
             
             B = cell(1,1);
-            B{1, 1} = [I.Internal.lb I.Internal.ub];   % put box into a cell
-            
+            B{1, 1} = [lb ub];   % put box into a cell
+                 
             for i=1:n
-                if I.Internal.lb(i) ~= I.Internal.ub(i)
+                if lb(i) ~= ub(i)
                     for j=1:N
                         B = Partition.stepDivide(B, i);
                     end
@@ -69,10 +80,12 @@ classdef Partition
             
             L = length(B);
             P = [];
+           
             for i=1:L
-                P = [P Polyhedron('lb', B{i,1}(:,1), 'ub', B{i,1}(:,2))];
+                P = [P Box(B{i,1}(:,1), B{i,1}(:,2))];
             end
             
+                
         end
         
         

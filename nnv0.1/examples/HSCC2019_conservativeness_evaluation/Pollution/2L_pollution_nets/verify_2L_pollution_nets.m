@@ -74,23 +74,13 @@ save F_2L_mixing.mat F;
 
 % compute conservativeness
 
+
 % compute conservativeness
-CSV1 = [0; 0; 0];
-CSV2 = zeros(3, 1);
-for i=1:3
-    CSV2(i, 1) = (abs(range2(i,1) - range1(i,1)) + abs(range2(i,2) - range1(i,2))) / (range1(i,2) - range1(i,1));
-end
+CSV1 = 0;
+[CSV2, r2] = CSV.getConservativeness(range2, range1);
+[CSV3, r3] = CSV.getConservativeness(range3, range1);
+[CSV4, r4] = CSV.getConservativeness(range4, range1);
 
-
-CSV3 = zeros(3,1);
-for i=1:3
-    CSV3(i, 1) = (abs(range3(i,1) - range1(i,1)) + abs(range3(i,2) - range1(i,2))) / (range1(i,2) - range1(i,1));
-end
-
-CSV4 = zeros(3, 1);
-for i=1:3
-    CSV4(i, 1) = (abs(range4(i,1) - range1(i,1)) + abs(range4(i,2) - range1(i,2))) / (range1(i,2) - range1(i,1));
-end
 
 
 

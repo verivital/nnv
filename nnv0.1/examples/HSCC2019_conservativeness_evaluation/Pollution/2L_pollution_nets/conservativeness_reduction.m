@@ -64,7 +64,7 @@ for k=1:n
     range3 = [R31.lb R31.ub];
     CSV = zeros(3,1);
     for i=1:3
-        CSV(i, 1) = (abs(range3(i,1) - range1(i,1)) + abs(range3(i,2) - range1(i,2))) / (range1(i,2) - range1(i,1));
+        CSV(i, 1) = max(abs(range3(i,1) - range1(i,1)), abs(range3(i,2) - range1(i,2))) / (range1(i,2) - range1(i,1));
     end
     CSV3{1, k} = 100*CSV;
     T3 = [T3 t3];
@@ -94,7 +94,7 @@ for k=1:4
     range4 = [R41.lb, R41.ub];
     CSV = zeros(3,1);
     for i=1:3
-        CSV(i, 1) = (abs(range4(i,1) - range1(i,1)) + abs(range4(i,2) - range1(i,2))) / (range1(i,2) - range1(i,1));
+        CSV(i, 1) = max(abs(range4(i,1) - range1(i,1)), abs(range4(i,2) - range1(i,2))) / (range1(i,2) - range1(i,1));
     end
     CSV4{1, k} = 100*CSV;
     T4 = [T4 t4];    

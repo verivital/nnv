@@ -72,11 +72,7 @@ classdef Layer
                 
                 if p > 1
                     parfor i=1:p
-                        I = inputSetArray(i);
-
-                        if size(obj.W, 2) ~= size(I.A, 2)
-                            error('Inconsistent dimensions between input set and weights matrix')
-                        end
+                        I = inputSetArray(i);                                 
                         I1 = I.affineMap(obj.W) + obj.b;
                         %I1 = Reduction.affineMap(I, obj.W) + obj.b;
                         if strcmp(obj.f, 'Linear')
@@ -94,25 +90,22 @@ classdef Layer
                     
                 else  % if single input, use ReLU parallel
                     
-                    I = inputSetArray(1);
+                    I = inputSetArray(1);                                 
 
-                        if size(obj.W, 2) ~= size(I.A, 2)
-                            error('Inconsistent dimensions between input set and weights matrix')
-                        end
+                    %I1 = Reduction.affineMap(I, obj.W) + obj.b;                   
+                    I1 = I.affineMap(obj.W) + obj.b;
+           
+                    if strcmp(obj.f, 'Linear')
+                        R1 = I1;
+                        rn1 = 0;
+                    elseif strcmp(obj.f, 'ReLU')
+                        [R1, rn1] = ReLU.reach_parallel(I1);
 
-                        %I1 = Reduction.affineMap(I, obj.W) + obj.b; 
-                        I1 = I.affineMap(obj.W) + obj.b;
-                        if strcmp(obj.f, 'Linear')
-                            R1 = I1;
-                            rn1 = 0;
-                        elseif strcmp(obj.f, 'ReLU')
-                            [R1, rn1] = ReLU.reach_parallel(I1);
-
-                        else
-                            error('Unsupported activation function, currently support ReLU and Linear')
-                        end
-                        R = [R, R1];
-                        rn = rn + rn1;
+                    else
+                        error('Unsupported activation function, currently support ReLU and Linear')
+                    end
+                    R = [R, R1];
+                    rn = rn + rn1;
                     
                 end
                 
@@ -120,14 +113,10 @@ classdef Layer
             elseif strcmp(parallel, 'single') % use single core for computing
                 
                 for i=1:p
-                    I = inputSetArray(i);
-
-                    if size(obj.W, 2) ~= size(I.A, 2)
-                        error('Inconsistent dimensions between input set and weights matrix')
-                    end
-
-                    %I1 = Reduction.affineMap(I, obj.W) + obj.b;                    
+                    I = inputSetArray(i);               
+                    %I1 = Reduction.affineMap(I, obj.W) + obj.b;                                   
                     I1 = I.affineMap(obj.W) + obj.b;
+            
                     if strcmp(obj.f, 'Linear')
                         R1 = I1;
                         rn1 = 0;

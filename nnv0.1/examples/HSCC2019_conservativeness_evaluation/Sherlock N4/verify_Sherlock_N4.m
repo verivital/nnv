@@ -9,8 +9,8 @@ L2 = Layer(W2, b2, 'ReLU');
 
 F = FFNN([L1, L2]);
 
-lb = [0; 0];
-ub = [0.5; 1];
+lb = [0; 0];   % input range from Sherlock
+ub = [10; 10]; % input range from Sherlock
 
 I = Polyhedron('lb', lb, 'ub', ub);
 
@@ -39,10 +39,9 @@ R31 = Box.boxHull(R3);
 range3 = [R31.lb R31.ub];
 
 
-
-
 % compute conservativeness
 CSV1 = 0;
-CSV2 = (abs(range2(1) - range1(1)) + abs(range2(2) - range1(2))) / (range1(2) - range1(1));
-CSV3 = (abs(range3(1) - range1(1)) + abs(range3(2) - range1(2))) / (range1(2) - range1(1));
+[CSV2, r2] = CSV.getConservativeness(range2, range1);
+[CSV3, r3] = CSV.getConservativeness(range3, range1);
+
 

@@ -11,18 +11,16 @@ L2 = Layer(W2, b2, 'ReLU');
 
 F = FFNN([L1, L2]);
 
-
-lb = nnetwork.min;
 ub = nnetwork.max;
 
 % Input set
 % x[i] = 0, i = 1:6
 % lb(i) <= x[i] <= ub(i), i=7, 8
 
-n = length(lb);
+n = length(ub);
 
-lb1 = lb;
-ub1 = lb;
+lb1 = zeros(8,1);
+ub1 = zeros(8,1);
 ub1(7) = ub(7);
 ub1(8) = ub(8);
 

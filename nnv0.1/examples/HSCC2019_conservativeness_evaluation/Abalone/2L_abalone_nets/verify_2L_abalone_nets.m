@@ -17,17 +17,16 @@ L3 = Layer(W3, b3, 'ReLU');
 F = FFNN([L1, L2, L3]);
 
 
-lb = nnetwork.min;
 ub = nnetwork.max;
 
 % Input set
 % x[i] = 0, i = 1:6
 % lb(i) <= x[i] <= ub(i), i=7, 8
 
-n = length(lb);
+n = length(ub);
 
-lb1 = lb;
-ub1 = lb;
+lb1 = zeros(8,1);
+ub1 = zeros(8,1);
 ub1(7) = ub(7);
 ub1(8) = ub(8);
 
@@ -57,7 +56,7 @@ range3 = [R31.lb R31.ub];
 save F_2L_approx_partition.mat F;
 
 % mixing scheme for output range analysis
-[R4, t4] = F.reach(I, 'mix', 2, 14);
+[R4, t4] = F.reach(I, 'mix', 2, 16);
 R41 = Reduction.hypercubeHull(R4);
 range4 = [R41.lb, R41.ub];
 save F_2L_mixing.mat F;

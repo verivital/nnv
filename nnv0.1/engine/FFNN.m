@@ -200,10 +200,13 @@
         % this is used for lazy-approximate + input partition scheme
         % and mixing scheme
         % NOTE : *** This method only works for hyper-rectangle input set 
-        function [R, t] = reach_approx_with_CSV_guarantee(obj, I, desired_csv, numOfCores, n_samples)
+        function [R, t] = reach_approx_with_CSV_guarantee(obj, I, desired_csv, k_max, numOfCores, n_samples)
             % @I: input set
             % @desired_csv: desired conservativeness specified by user
             % the algorithm stop when all outputs ranges's conservativeness <= desired_csv
+            % @k_max: maximum divide times, for example k=1 -> each x[i]
+            % with be divide into 2 subsegments, k=2 -> each x[i] is
+            % divided into 4 subsegments, and so on.
             % @numOfCores: number of cores used in computation
             % @n_samples: number of samples used to estimate the unknown
             % actual ranges of the outputs
@@ -215,13 +218,29 @@
             obj.reach(I, 'approx', numOfCores, []);
             csv_vec = obj.estimate_CSV(I, n_samples);
             k = 0;
-            while (min(csv_vec) > desired_csv)
+            while (max(csv_vec) > desired_csv) && k < k_max
                 k = k + 1;
                 fprintf('\nPartitioning input space...')
                 I1 = Partition.partition_box(I, k);
                 fprintf('\nRecompute reachable set with %d smaller input sets', length(I1));
                 obj.reach(I1, 'approx', numOfCores, []);
                 csv_vec = obj.estimate_CSV(I, n_samples);
+            end
+            if k >= k_max
+                fprintf('\nParitioning reaches to the limitation');
+                if max(csv_vec) > desired_csv
+                    fprintf('\nThe Reachable set refinement is not successful, try again by increasing the dividing limitation k_max');
+                    fprintf('\nThe conservativeness (in percentage) of the return output reachable set is:');
+                    display(csv_vec);
+                else
+                    fprintf('\nReachable set refinement is done successfully');
+                    fprintf('\nThe conservativeness (in percentage) of the return output reachable set is:');
+                    display(csv_vec);
+                end
+            else
+                fprintf('\nReachable set refinement is done successfully');
+                fprintf('\nThe conservativeness (in percentage) of the return output reachable set is:');
+                display(csv_vec);
             end
             R = obj.outputSet;
             t = toc(t1);
@@ -242,41 +261,14 @@
             % @est_range: estimated range from sampling the network
             % @computed_range: the computed range from reachable set
             % computation
-            
-            
-            % get lower-bound vector and upper-bound vector
-            
+                        
             if isempty(obj.outputSet)
                 error('output set is empty, call reach method to compute the reachable set first');
             end
-            
-            if ~isa(I, 'Box')
-                I.outerApprox;
-                lb = I.Internal.lb;
-                ub = I.Internal.ub;
-            else
-                lb = I.lb;
-                ub = I.ub;
-            end
-            
-            % sampling the network with n_samples of input vector           
-            % get sampled input vectors
-            X = cell(1, obj.nI);
-            V = [];
-            for i=1:obj.nI
-                X{1, i} = (ub(i) - lb(i)).*rand(n_samples, 1) + lb(i);
-                V = vertcat(V, X{1, i}');
-            end
-                        
-            Y = obj.sample(V); % evaluate the network with a set of input vectors V
-            output = Y{1, obj.nL}; % sampled output vectors
-            output_lb = min(output, [], 2); % estimate ranges of outputs
-            output_ub = max(output, [], 2);
-            
+               
             B = Reduction.hypercubeHull(obj.outputSet);
-            
-            est_range = [output_lb output_ub];
             computed_range = [B.lb B.ub];
+            est_range = obj.estimate_ranges(I, n_samples);
             [csv_vec, r] = CSV.getConservativeness(computed_range, est_range);     
             
         end
@@ -295,6 +287,47 @@
                 In = obj.Layers(i).sample(In);
                 Y{1, i} = In;
             end
+        end
+        
+        % quick estimate ranges of an FFNN
+        function est_ranges = estimate_ranges(obj, I, n_samples)
+            % @I: input set, currently works for a hyper-rectangle
+            % @n_samples: number of samples used to estimate the output
+            % ranges
+            
+            % @est_range: the estimated ranges of the outputs with given
+            % input set I.
+            
+            if ~isa(I, 'Box')
+                I.outerApprox;
+                lb = I.Internal.lb;
+                ub = I.Internal.ub;
+            else
+                lb = I.lb;
+                ub = I.ub;
+            end
+            
+            V1 = Reduction.getVertices(lb, ub); % get vertices from the set,
+            % these vertices usually are the input points corresponding to the 
+            % maximum and minimum values of the output ranges.
+            
+            % sampling the network with n_samples of input vector           
+            % get sampled input vectors
+            X = cell(1, obj.nI);
+            V = [];
+            for i=1:obj.nI
+                X{1, i} = (ub(i) - lb(i)).*rand(n_samples, 1) + lb(i);
+                V = vertcat(V, X{1, i}');
+            end
+      
+            V = horzcat(V, V1);
+                        
+            Y = obj.sample(V); % evaluate the network with a set of input vectors V
+            output = Y{1, obj.nL}; % sampled output vectors
+            output_lb = min(output, [], 2); % estimate ranges of outputs
+            output_ub = max(output, [], 2);
+            
+            est_ranges = [output_lb output_ub];
         end
         
         

@@ -26,8 +26,8 @@ ub = nnetwork.max;
 
 n = length(lb);
 
-lb1 = lb;
-ub1 = lb;
+lb1 = zeros(8,1);
+ub1 = zeros(8,1);
 ub1(7) = ub(7);
 ub1(8) = ub(8);
 
@@ -36,9 +36,10 @@ V = Reduction.getVertices(lb1, ub1);
 I = Polyhedron('V', V');
 
 desired_csv = 15; % conservativeness of 15%
+k_max = 5; % maximum division level, k=1 -> divide each x[i] into 2 segments, k = 2 -> futher divide 2 segments into 4 ..
 numOfCores = 2; % number of cores used in computation
 n_samples = 5000; % use 5000 samples to estimate the output range
 
-[R1, t1] = F.reach_approx_with_CSV_guarantee(I, desired_csv, numOfCores, n_samples); % exact scheme
 
-[csv_vec, r, computed_range, est_range] = F.estimate_CSV(I, n_samples);
+[R1, t1] = F.reach_approx_with_CSV_guarantee(I, desired_csv, k_max, numOfCores, n_samples); % exact scheme
+[csv_vec, r, computed_range, est_range] = F.estimate_CSV(I, 5000);

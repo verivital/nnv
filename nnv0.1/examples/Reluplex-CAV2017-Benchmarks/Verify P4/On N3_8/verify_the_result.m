@@ -1,5 +1,5 @@
 load F.mat;
-load ACASXU_run2a_1_1_batch_2000.mat;
+load ACASXU_run2a_3_8_batch_2000.mat;
 
 R = F.outputSet;
 n = length(R); 
@@ -78,6 +78,11 @@ U = Polyhedron('A', A, 'b', b); % unsafe set
 % this property is hold, safe = true == to Reluplex's result
 [safe, check_time] = Verifier.checkSafety(R_normalized, U); % verify safety
 
+if safe
+    fprintf('\nThe property 4 holds for N3_8, -> safe');
+else
+    fprintf('\nThe property 4 does not hold for N3_8 -> unsafe');
+end 
 
 
 

@@ -52,11 +52,11 @@ n = length(output);
 normalized_output = [];
 for i=1:n
     out_i = output(:, i);
-    x1 = out_i(1) * range_for_scaling(1) + means_for_scaling(1);
-    x2 = out_i(2) * range_for_scaling(2) + means_for_scaling(2);
-    x3 = out_i(3) * range_for_scaling(3) + means_for_scaling(3);
-    x4 = out_i(4) * range_for_scaling(4) + means_for_scaling(4);
-    x5 = out_i(5) * range_for_scaling(5) + means_for_scaling(5);
+    x1 = out_i(1) * range_for_scaling(6) + means_for_scaling(6);
+    x2 = out_i(2) * range_for_scaling(6) + means_for_scaling(6);
+    x3 = out_i(3) * range_for_scaling(6) + means_for_scaling(6);
+    x4 = out_i(4) * range_for_scaling(6) + means_for_scaling(6);
+    x5 = out_i(5) * range_for_scaling(6) + means_for_scaling(6);
     x = [x1; x2; x3; x4; x5];
     normalized_output = [normalized_output x];
     
@@ -71,10 +71,10 @@ for i=1:length(R_bounded)
     R1 = [R1 R_bounded(i).affineMap(maps)];   
 end
 
-fig = figure;
-R1.plot;
-hold on;
-plot(output_mapped(1, :), output_mapped(2, :), 'o');
+%fig = figure;
+%R1.plot;
+%hold on;
+%plot(output_mapped(1, :), output_mapped(2, :), 'o');
 
 
 % find a counter example

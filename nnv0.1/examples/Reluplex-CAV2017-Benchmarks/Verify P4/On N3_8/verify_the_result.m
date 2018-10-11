@@ -60,32 +60,24 @@ for i=1:length(R_normalized)
     R1 = [R1 Reduction.affineMap(R_normalized(i),maps)];   
 end
 
+% plot reachable set
 fig = figure;
 R1.plot;
 hold on;
 plot3(output_mapped(1, :), output_mapped(2, :), output_mapped(3, :), 'o');
 
 
-% find a counter example
+% verify safety: COC is not the minimal score 
+% unsafe: x1 <= x2, x1 <= x3, x1 <= x4, x1 <= x5
 
-n = length(output);
+A = [1 -1 0 0 0; 1 0 -1 0 0; 1 0 0 -1 0; 1 0 0 0 -1];
+b = [0; 0; 0; 0];
 
-counter_O = [];
-counter_I = [];
+U = Polyhedron('A', A, 'b', b); % unsafe set
 
-for i=1:n
-    
-    [temp, idx] = min(normalized_output(:, i));
-    if idx ==1
-        fprintf('\nInput %d produce counter example', i);
-        fprintf('\nThis is the output of the neural network:')
-        display(normalized_output(:, i));
-        fprintf('\nThis is the corresponding input for above output');
-        display(I(:, i));
-        counter_O = [counter_O normalized_output(:, i)];
-        counter_I = [counter_I I(:, i)];
-    end
-end
+% this property is hold, safe = true == to Reluplex's result
+[safe, check_time] = Verifier.checkSafety(R_normalized, U); % verify safety
+
 
 
 

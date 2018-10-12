@@ -64,7 +64,12 @@ end
 fig = figure;
 R1.plot;
 hold on;
-plot3(output_mapped(1, :), output_mapped(2, :), output_mapped(3, :), 'o');
+plot3(output_mapped(1, :), output_mapped(2, :), output_mapped(3, :), '*');
+xlabel('COC', 'Fontsize', 30);
+ylabel('Strong-Right', 'Fontsize', 30);
+zlabel('Weak-Right', 'Fontsize', 30);
+set(gca, 'Fontsize', 25);
+
 
 
 % verify safety: COC is not the minimal score 

@@ -30,10 +30,11 @@ for i=1:5
     ub(i) = (ub(i) - means_for_scaling(i))/range_for_scaling(i);   
 end
 
-I = Polyhedron('lb', lb, 'ub', ub);
 
-I1 = Partition.partition_box(I, 1);
+V = Reduction.getVertices(lb, ub);
 
-[R, t] = F.reach(I1, 'exact', 4, []); % exact reach set
+I = Polyhedron('V', V');
+
+[R, t] = F.reach(I, 'exact', 4, []); % exact reach set
 save F.mat F; % save the verified network
 F.print('F.info'); % print all information to a file

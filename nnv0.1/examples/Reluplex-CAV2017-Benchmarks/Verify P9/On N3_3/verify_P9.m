@@ -30,7 +30,9 @@ for i=1:5
     ub(i) = (ub(i) - means_for_scaling(i))/range_for_scaling(i);   
 end
 
-I = Polyhedron('lb', lb, 'ub', ub);
+V = Reduction.getVertices(lb, ub);
+
+I = Polyhedron('V', V');
 
 [R, t] = F.reach(I, 'exact', 4, []); % exact reach set
 save F.mat F; % save the verified network

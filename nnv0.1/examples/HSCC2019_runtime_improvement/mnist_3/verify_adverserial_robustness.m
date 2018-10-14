@@ -14,7 +14,7 @@ F = FFNN(Layers);
 % we perform the test on 100 images of each digit
 n_inputs = size(ones, 1); % number of digit 1's images in the test: 100
 
-attacked_pos = [6 10 12 16 20 22];
+attacked_pos = [1 2 3 4 5 6];
 
 bound = 0.2; % bound of disturbance
 
@@ -35,7 +35,7 @@ end
 V = Reduction.getVertices(lb, ub);
 I = Polyhedron('V', V');
 
-n_cores = [1, 2, 4];
+n_cores = [4];
 runtime = [];
 output = []; 
 

@@ -87,10 +87,6 @@ classdef Reduction
             % @I: input polyhedron
             % @W: affine mapping matrix
             
-            if size(W, 2) ~= size(I.A, 2)
-                error('Inconsistent dimension between mapping matrix and input set');
-            end
-            
             V = W * I.V';           
             P = Polyhedron('V', V');
         end

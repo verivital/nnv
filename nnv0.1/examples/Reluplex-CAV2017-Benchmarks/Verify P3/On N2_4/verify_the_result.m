@@ -1,5 +1,5 @@
 load result.mat;
-load ACASXU_run2a_5_7_batch_2000.mat;
+load ACASXU_run2a_2_4_batch_2000.mat;
 
 R = F.outputSet;
 n = length(R); 
@@ -63,7 +63,13 @@ end
 fig = figure;
 R1.plot;
 hold on;
-plot3(output_mapped(1, :), output_mapped(2, :), output_mapped(3, :), 'o');
+plot3(output_mapped(1, :), output_mapped(2, :), output_mapped(3, :), '*');
+xlabel('COC', 'Fontsize', 30);
+ylabel('Strong-Right', 'Fontsize', 30);
+zlabel('Weak-Right', 'Fontsize', 30);
+set(gca, 'Fontsize', 25);
+
+saveas(gcf,'COC_WeakRight_StrongRight.pdf');
 
 
 % verify safety: COC is not the minimal score 
@@ -78,8 +84,8 @@ U = Polyhedron('A', A, 'b', b); % unsafe set
 [safe, check_time] = Verifier.checkSafety(R_normalized, U); % verify safety
 
 if safe
-    fprintf('\nThe property 3 holds for N5_7, -> safe');
+    fprintf('\nThe property 3 holds for N2_4, -> safe');
 else
-    fprintf('\nThe property 3 does not hold for N5_7 -> unsafe');
+    fprintf('\nThe property 3 does not hold for N2_4 -> unsafe');
 end 
 

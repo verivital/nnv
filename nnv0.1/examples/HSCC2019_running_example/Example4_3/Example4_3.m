@@ -15,13 +15,13 @@ xlabel('x_1', 'FontSize', 16);
 ylabel('x_2', 'FontSize', 16);
 
 subplot(1,3, 2);
-P1.plot;
+Box.plots(P1);
 title('Merged reachable set, N = 16', 'FontSize', 20);
 xlabel('x_1', 'FontSize', 16);
 ylabel('x_2', 'FontSize', 16);
 
 subplot(1,3, 3);
-P2.plot;
+Box.plots(P2);
 title('Merged reachable set, N = 128', 'FontSize', 20);
 xlabel('x_1', 'FontSize', 16);
 ylabel('x_2', 'FontSize', 16);

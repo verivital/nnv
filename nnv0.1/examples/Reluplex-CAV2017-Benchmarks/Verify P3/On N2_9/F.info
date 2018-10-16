@@ -1,0 +1,25 @@
+Feedforward Neural Network Information
+
+Number of layers: 7
+Number of neurons: 305
+Number of inputs: 5
+Number of outputs: 5
+
+Reach Set Information
+Reachability scheme: exact
+Number of cores used in computation: 4
+Layer 1 reach set consists of 12 polyhedrons that are computed in 36.64400 seconds
+Number of ReLU_i stepReach operations neglected for layer 1: 20
+Layer 2 reach set consists of 33 polyhedrons that are computed in 175.93105 seconds
+Number of ReLU_i stepReach operations neglected for layer 2: 100
+Layer 3 reach set consists of 43 polyhedrons that are computed in 165.48041 seconds
+Number of ReLU_i stepReach operations neglected for layer 3: 660
+Layer 4 reach set consists of 186 polyhedrons that are computed in 417.16218 seconds
+Number of ReLU_i stepReach operations neglected for layer 4: 917
+Layer 5 reach set consists of 188 polyhedrons that are computed in 1300.06991 seconds
+Number of ReLU_i stepReach operations neglected for layer 5: 556
+Layer 6 reach set consists of 188 polyhedrons that are computed in 40.00967 seconds
+Number of ReLU_i stepReach operations neglected for layer 6: 940
+Output Layer reach set consists of 188 polyhedrons that are computed in 0.23391 seconds
+Total reachable set computation time: 2135.53114
+Total number of ReLU_i stepReach operations neglected: 3193

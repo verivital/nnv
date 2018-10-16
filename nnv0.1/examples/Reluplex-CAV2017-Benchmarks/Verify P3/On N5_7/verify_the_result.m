@@ -78,8 +78,8 @@ U = Polyhedron('A', A, 'b', b); % unsafe set
 [safe, check_time] = Verifier.checkSafety(R_normalized, U); % verify safety
 
 if safe
-    fprintf('\nThe property 3 holds for N2_7, -> safe');
+    fprintf('\nThe property 3 holds for N5_7, -> safe');
 else
-    fprintf('\nThe property 3 does not hold for N2_7 -> unsafe');
+    fprintf('\nThe property 3 does not hold for N5_7 -> unsafe');
 end 
 

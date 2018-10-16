@@ -12,7 +12,7 @@ F = FFNN([L1, L2]);
 lb = [0; 0];   % input range from Sherlock
 ub = [10; 10]; % input range from Sherlock
 
-I = Polyhedron('lb', lb, 'ub', ub);
+I = Box(lb, ub);
 
 n=5000;
 

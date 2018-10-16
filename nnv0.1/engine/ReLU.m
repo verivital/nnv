@@ -38,10 +38,7 @@ classdef ReLU
             elseif xmax < 0 
                 Im = eye(dim);
                 Im(index, index) = 0;
-                R = I.affineMap(Im);
-                if ~R.isBounded
-                    R = Reduction.affineMap(I, Im);
-                end
+                R = I.affineMap(Im, 'vrep');
             elseif xmin < 0 && xmax >= 0
                 
                 Z1 = zeros(1, dim);
@@ -57,10 +54,7 @@ classdef ReLU
                 
                 Im = eye(dim);
                 Im(index, index) = 0;
-                R1 = R1.affineMap(Im);
-                if ~R1.isBounded
-                    R1 = Reduction.affineMap(R1, Im);
-                end
+                R1 = R1.affineMap(Im, 'vrep');
                 if R1.isEmptySet 
                     if R2.isEmptySet
                         R = [];

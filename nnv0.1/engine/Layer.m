@@ -73,10 +73,8 @@ classdef Layer
                 if p > 1
                     parfor i=1:p
                         I = inputSetArray(i);                                 
-                        I1 = I.affineMap(obj.W) + obj.b;
-                        if ~I1.isBounded
-                            I1 = Reduction.affineMap(I, obj.W) + obj.b;
-                        end
+                        I1 = I.affineMap(obj.W, 'vrep') + obj.b;
+                      
                         if strcmp(obj.f, 'Linear')
                             R1 = I1;
                             rn1 = 0;
@@ -93,10 +91,7 @@ classdef Layer
                 else  % if single input, use ReLU parallel
                     
                     I = inputSetArray(1);                                                
-                    I1 = I.affineMap(obj.W) + obj.b;
-                    if ~I1.isBounded
-                         I1 = Reduction.affineMap(I, obj.W) + obj.b;
-                    end
+                    I1 = I.affineMap(obj.W, 'vrep') + obj.b;
            
                     if strcmp(obj.f, 'Linear')
                         R1 = I1;
@@ -118,10 +113,7 @@ classdef Layer
                 for i=1:p
                     I = inputSetArray(i);               
                                                 
-                    I1 = I.affineMap(obj.W) + obj.b;
-                    if ~I1.isBounded
-                        I1 = Reduction.affineMap(I, obj.W) + obj.b;       
-                    end
+                    I1 = I.affineMap(obj.W, 'vrep') + obj.b;
                     
                     if strcmp(obj.f, 'Linear')
                         R1 = I1;

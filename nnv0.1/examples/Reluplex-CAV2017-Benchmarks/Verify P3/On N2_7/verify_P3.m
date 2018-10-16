@@ -33,5 +33,5 @@ end
 I = Polyhedron('lb', lb, 'ub', ub);
 
 [R, t] = F.reach(I, 'exact', 4, []); % exact reach set
-save F.mat F; % save the verified network
+save result.mat; % save the verified network
 F.print('F.info'); % print all information to a file

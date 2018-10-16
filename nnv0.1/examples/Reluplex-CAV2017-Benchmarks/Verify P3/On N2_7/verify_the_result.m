@@ -1,4 +1,4 @@
-load F.mat;
+load result.mat;
 load ACASXU_run2a_2_7_batch_2000.mat;
 
 R = F.outputSet;

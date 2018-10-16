@@ -30,7 +30,8 @@ classdef Verifier
             
             N = 0;
             for i=1:n
-                for j=1:m                 
+                for j=1:m
+                   % fprintf('\nchecking for i=%d, j=%d', i, j);
                    if ~isEmptySet(intersect(reachSet(i), property(j)))
                         fprintf('\nThe %d^th reachable set violates the %d^th property', i, j);
                         N = N + 1;

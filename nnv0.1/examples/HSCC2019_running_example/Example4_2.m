@@ -31,7 +31,7 @@ Y = F.sample(S);
 % plot figure of input set and some sampled points of the input set
 fig = figure;
 subplot(1, 3, 1);
-I1.plot;
+Box.plots(I1);
 hold on; 
 plot(S(1, :), S(2, :), '*');
 title('Input Set', 'FontSize', 20);

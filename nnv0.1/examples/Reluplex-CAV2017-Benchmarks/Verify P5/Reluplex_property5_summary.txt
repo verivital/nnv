@@ -1,0 +1,4 @@
+./nnet/ACASXU_run2a_1_1_batch_2000.nnet, UNSAT, 4999654, 01:23:19, 42, 13932
+./nnet/ACASXU_run2a_1_1_batch_2000.nnet, UNSAT, 5314889, 01:28:34, 45, 15030
+./nnet/ACASXU_run2a_1_1_batch_2000.nnet, UNSAT, 4453710, 01:14:13, 42, 12630
+./nnet/ACASXU_run2a_1_1_batch_2000.nnet, UNSAT, 5682374, 01:34:42, 54, 17322

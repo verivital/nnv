@@ -44,7 +44,7 @@ for i=1:n
 end
 
 
-maps = [1 0 0 0 0; 0 0 0 0 1; 0 0 1 0 0];
+maps = [1 0 0 0 0; 0 1 0 0 0; 0 0 1 0 0];
 output_mapped = maps*normalized_output;
 
 normalized_mat = range_for_scaling(6) * eye(5);
@@ -60,16 +60,36 @@ for i=1:length(R_normalized)
     R1 = [R1 Reduction.affineMap(R_normalized(i),maps)];   
 end
 
+
+maps2 = [1 0 0 0 0; 0 0 0 1 0; 0 0 0 0 1];
+output_mapped2 = maps2*normalized_output;
+
+R2 = [];
+for i=1:length(R_normalized)
+    R2 = [R2 Reduction.affineMap(R_normalized(i),maps2)];   
+end
+
+
+
 % plot reachable set
 fig = figure;
+subplot(1, 2, 1);
 R1.plot;
 hold on;
 plot3(output_mapped(1, :), output_mapped(2, :), output_mapped(3, :), '*');
 xlabel('COC', 'Fontsize', 30);
-ylabel('Strong-Right', 'Fontsize', 30);
+ylabel('Weak-Left', 'Fontsize', 30);
 zlabel('Weak-Right', 'Fontsize', 30);
 set(gca, 'Fontsize', 25);
 
+subplot(1, 2, 2);
+R2.plot;
+hold on;
+plot3(output_mapped2(1, :), output_mapped2(2, :), output_mapped2(3, :), '*');
+xlabel('COC', 'Fontsize', 30);
+ylabel('Strong-Left', 'Fontsize', 30);
+zlabel('Strong-Right', 'Fontsize', 30);
+set(gca, 'Fontsize', 25);
 
 
 % verify safety: COC is not the minimal score 

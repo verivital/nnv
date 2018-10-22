@@ -1,5 +1,5 @@
 classdef NNCS
-    %Neural network-based control system class
+    %Neural network-based control system class 
     %   Dung Tran: 10/21/2018
     
     properties

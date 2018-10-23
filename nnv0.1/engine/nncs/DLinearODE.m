@@ -108,8 +108,45 @@ classdef DLinearODE
             
         end
         
-        % reachability analysis of DlinearODE
- 
+        % reachability analysis of DlinearODE using star set
+        function R = stepReachStar(obj, I, U)
+            % @I: set of initial condition 
+            % @U: set of control input
+            % @R: state reachable set (a star set)
+            
+            if ~isa(I, 'Star')
+                error('Set of initial condition is not a star set');
+            end
+            if ~isa(U, 'Star')
+                error('Set of control input is not a star set');
+            end
+            
+            % R = AI + BU
+            R1 = I.affineMap(obj.A, []);
+            R2 = U.affineMap(obj.B, []);
+            
+            R = R1.MinkowskiSum(R2);
+            
+        end
+        
+        % reachability analysis of DLinearODE using zonotope
+        function Z = stepReachZono(obj, I, U)
+            % @I: set of initial condition (a zonotope)
+            % @U: set of control input (a zonotope)
+            % @R: state reachable set (a zonotope)
+            
+            if ~isa(I, 'Zono')
+                error('Set of initial condition is not a zonotope');
+            end
+            if ~isa(U, 'Zono')
+                error('Set of control input is not a zonotope');
+            end
+            
+            Z1 = I.affineMap(obj.A, []);
+            Z2 = U.affineMap(obj.B, []);
+  
+            Z = Z1.MinkowskiSum(Z2);          
+        end
         
         
     end

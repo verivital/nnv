@@ -89,6 +89,19 @@ classdef Box
             P.plot;
         end
         
+        % transform box to star set
+        function S = toStar(obj)
+            
+            c = (obj.lb + obj.ub)/2;
+            V = eye(length(obj.lb));
+            P = obj.toPolyhedron;
+            C = P.A;
+            d = P.b;
+            V = horzcat(c, V);
+            
+            S = Star(V, C, d);       
+        end
+        
         
     end
     

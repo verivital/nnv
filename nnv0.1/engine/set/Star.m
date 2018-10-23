@@ -54,16 +54,20 @@ classdef Star
                 error('Inconsistency between the affine mapping matrix and dimension of the star set');
             end
             
-            if size(b, 1) ~= size(W, 1)
-                error('Inconsistency between the mapping vec and mapping matrix');
+            if ~isempty(b)
+                if size(b, 1) ~= size(W, 1)
+                    error('Inconsistency between the mapping vec and mapping matrix');
+                end
+
+                if size(b, 2) ~= 1
+                    error('Mapping vector should have one column');
+                end
+
+                newV = W * obj.V;
+                newV(:, 1) = newV(:, 1) + b;
+            else
+                newV = W * obj.V;
             end
-            
-            if size(b, 2) ~= 1
-                error('Mapping vector should have one column');
-            end
-            
-            newV = W * obj.V;
-            newV(:, 1) = newV(:, 1) + b;
             S = Star(newV, obj.C, obj.d);            
         end
         

@@ -11,14 +11,14 @@ sysd = sys.c2d(Ts); % convert from continuous to discrete
 
 lb1 = [-1 ;-1];
 ub1 = [1; 1]; 
-B = Box(lb1, ub1);
-I = B.toStar();
+Bi = Box(lb1, ub1);
+I = Bi.toStar();
 
 % set of control input: -0.5 <= u <= 1
 lb1 = [-1];
 ub1 = [0.5];
-B = Box(lb1, ub1);
-U = B.toStar();
+Bu = Box(lb1, ub1);
+U = Bu.toStar();
 
 fig = figure;
 U.plot; % plot control input set
@@ -29,4 +29,12 @@ I.plot; % plot initial condition
 R = sysd.stepReachStar(I, U);
 fig = figure;
 R.plot; % plot one step reachable set
+
+I = Bi.toZono();
+U = Bu.toZono();
+Z = sysd.stepReachZono(I, U);
+fig = figure;
+Z.plot; % plot one step reachable set with zonotope
+
+
 

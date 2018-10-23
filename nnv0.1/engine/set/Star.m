@@ -112,6 +112,22 @@ classdef Star
             P.plot;
         end
         
+        % find a box bounding a star
+        function B = getBox(obj)
+            
+            lb = zeros(obj.dim, 1);
+            ub = zeros(obj.dim, 1);
+            
+            for i=1:obj.dim
+                f = obj.V(i, 2:size(obj.V, 2));
+                [~, fval] = linprog(f, obj.C, obj.d);
+                lb(i) = fval + obj.V(i, 1);
+                [~, fval] = linprog(-f, obj.C, obj.d);
+                ub(i) = -fval + obj.V(i, 1);
+            end           
+            B = Box(lb, ub);           
+        end
+        
     end
     
 end

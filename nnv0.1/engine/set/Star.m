@@ -54,8 +54,8 @@ classdef Star
                 error('Inconsistency between the affine mapping matrix and dimension of the star set');
             end
             
-            if size(b, 1) ~= obj.dim
-                error('Inconsistency between the affine mapping vec and dimension of the star set');
+            if size(b, 1) ~= size(W, 1)
+                error('Inconsistency between the mapping vec and mapping matrix');
             end
             
             if size(b, 2) ~= 1

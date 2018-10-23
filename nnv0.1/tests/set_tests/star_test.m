@@ -18,3 +18,5 @@ hold on;
 S1.plot;
 hold on;
 S3.plot;
+
+B2 = S2.getBox();

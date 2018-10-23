@@ -102,6 +102,11 @@ classdef Box
             S = Star(V, C, d);       
         end
         
+        % transform box to zonotope
+        function Z = toZono(obj)
+            Z = Zono(obj.center, obj.generators);
+        end
+        
         
     end
     

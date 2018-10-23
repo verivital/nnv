@@ -43,19 +43,20 @@ classdef Zono
             [nW, mW] = size(W);
             [nb, mb] = size(b);
             
-            if mb ~= 1
-                error('Mapping vector should have one column');
+            if mW ~= obj.dim
+                    error('Inconsistent dimension between mapping matrix with the zonotope dimension');
             end
             
             if ~isempty(b)
+                
+                if mb ~= 1
+                    error('Mapping vector should have one column');
+                end
             
                 if nb ~= nW
                     error('Inconsistent dimension between mapping vector and mapping matrix');
                 end
 
-                if mW ~= obj.dim
-                    error('Inconsistent dimension between mapping matrix with the zonotope dimension');
-                end
                 new_c = W * obj.c + b;
                 new_V = W * obj.V;
             else

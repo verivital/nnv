@@ -95,6 +95,16 @@ classdef Zono
             P = Pa.affineMap(obj.V, 'vrep') + obj.c;
         end
         
+        % convert to Star
+        function S = toStar(obj)
+            n = size(obj.V, 2);           
+            lb = -ones(n, 1);
+            ub = ones(n, 1);                    
+            Pa = Polyhedron('lb', lb, 'ub', ub);
+            
+            S = Star([obj.c obj.V], Pa.A, Pa.b);            
+        end
+        
         % plot a zonotope
         function plot(obj)
             P = obj.toPolyhedron();

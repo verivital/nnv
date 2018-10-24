@@ -194,16 +194,19 @@ classdef LinearODE
             Im = eye(m);
             e1 = Im(:,1); % 1fst unit vector of R^m 
             X = zeros(mA,N);
-            [V,H] = arnoldi(A,x0,m);
-            beta  = norm(x0);
-            Vm = V(:,1:m);
-            Hm = H(1:m,1:m);
-            Vmm = beta*Vm;
-            Hms = h*Hm;
+            
+            if norm(x0, 1) > 0
+                [V,H] = arnoldi(A,x0,m);
+                beta  = norm(x0);
+                Vm = V(:,1:m);
+                Hm = H(1:m,1:m);
+                Vmm = beta*Vm;
+                Hms = h*Hm;
 
-            for i=1:N
-                P = expm(i*Hms);
-                X(:,i) = Vmm*P*e1;
+                for i=1:N
+                    P = expm(i*Hms);
+                    X(:,i) = Vmm*P*e1;
+                end
             end
             
             X = [x0 X];
@@ -249,7 +252,7 @@ classdef LinearODE
             % @X : reachable set X = [X0, X1, ..., XN] (Star set)
             
             % author: Dung Tran 
-            % date : May/30/2017
+            % date : 10/24/2018
             
             if ~isa(X0, 'Star')
                 error('Initial set is not a Star');
@@ -273,6 +276,75 @@ classdef LinearODE
                         
         end
         
+        % simulation-based reachability analysis for dot{x} = Ax using
+        % Krylov subspace method and star set
+        function R = simReachKrylov(A, X0, h, N, m)
+            % @A: system matrix
+            % @X0: initial set of states (a Star set)
+            % @h: timeStep for simulation
+            % @N: number of steps
+            % @X : reachable set X = [X0, X1, ..., XN] (Star set)
+            % @m : the number of basic vectors for Krylov supspace Km, Vm = [v1, .., vm]
+            
+            % author: Dung Tran 
+            % date : 10/24/2018
+            
+            if ~isa(X0, 'Star')
+                error('Initial set is not a Star');
+            end
+            
+            k = size(X0.V, 2); % number of basic vectors
+            Z = cell(1, k);
+            
+            for i=1:k
+                Z{1, i} = LinearODE.simKrylov(A, X0.V(:, i), h, N, m);
+                display(Z{1, i});
+            end
+           
+            R = [];
+            for i=1:N+1
+                V = [];
+                for j=1:k
+                    V = [V Z{1, j}(:, i)];                  
+                end
+                R = [R Star(V, X0.C, X0.d)]; % reachable set
+            end
+                        
+        end
+        
+        % simulation-based reachability analysis for dot{x} = Ax using
+        % ode45 and star set
+        function R = simReachOde45(A, X0, h, N)
+            % @A: system matrix
+            % @X0: initial set of states (a Star set)
+            % @h: timeStep for simulation
+            % @N: number of steps
+            % @X : reachable set X = [X0, X1, ..., XN] (Star set)
+            
+            % author: Dung Tran 
+            % date : 10/24/2018
+            
+            if ~isa(X0, 'Star')
+                error('Initial set is not a Star');
+            end
+            
+            m = size(X0.V, 2); % number of basic vectors
+            Z = cell(1, m);
+            
+            for i=1:m
+                Z{1, i} = LinearODE.simOde45(A, X0.V(:, i), h, N);
+            end
+           
+            R = [];
+            for i=1:N+1
+                V = [];
+                for j=1:m
+                    V = [V Z{1, j}(:, i)];                  
+                end
+                R = [R Star(V, X0.C, X0.d)]; % reachable set
+            end
+                        
+        end
         
               
     end

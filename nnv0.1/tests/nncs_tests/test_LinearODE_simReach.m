@@ -8,5 +8,13 @@ ub = [1; 1];
 B = Box(lb, ub);
 X0 = B.toStar(); % initial set
 
-R = LinearODE.simReachDirect(A, X0, h, N);
-Star.plots(R);
+R1 = LinearODE.simReachDirect(A, X0, h, N);
+R2 = LinearODE.simReachKrylov(A, X0, h, N, 2);
+R3 = LinearODE.simReachOde45(A, X0, h, N);
+
+fig = figure;
+Star.plots(R1);
+fig = figure;
+Star.plots(R2);
+fig = figure;
+Star.plots(R3);

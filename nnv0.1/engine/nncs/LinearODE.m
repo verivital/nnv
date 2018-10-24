@@ -116,6 +116,97 @@ classdef LinearODE
             sysd = DLinearODE(sys1.A, sys1.B, sys1.C, sys1.D, Ts);
             
         end
+        
+        
+        % simulation-based reachability analysis for linearODE
+        function R = simReach(obj, method, X0, U, h, N, m)
+            % @X0: initial set of states (a Star)
+            % @U : control input set (a Star)
+            %     let U = [] if the system has no input
+            % @R : reachable set (an array of Stars)
+            % @method: = 'direct' -> use direct method to compute reach set
+            %          = 'krylov' -> use krylov subspace to compute reach
+            %          set
+            %          = 'ode45' -> use ode45 to compute reach set
+            % @m : the number of basic vectors for Krylov supspace Km, Vm = [v1, .., vm]
+            %      let m = [] if method = 'direct' or 'ode45'
+            
+            % NOTE****: we assume that input u is piecewise constant
+            
+            % author: Dung Tran
+            % date: 10/24/2018
+            
+            if ~isa(X0, 'Star')
+                error('Initial set of states is not a Star');
+            end
+            if ~isempty(U) && ~isa(U, 'Star')
+                error('Control input set is not a Star');
+            end
+            
+            if strcmp(method, 'krylov') && isempty(m)
+                error('Please choose the number of basic vectors for Krylov subspace m');
+            end
+                        
+            if isempty(obj.B) || isempty(U) % the system has no control input              
+               
+               if strcmp(method, 'direct')
+                   R = LinearODE.simReachDirect(obj.A, X0, h, N);
+               elseif strcmp(method, 'ode45')
+                   R = LinearODE.simReachOde45(obj.A, X0, h, N);
+               elseif strcmp(method, 'krylov')
+                   R = LinearODE.simReachKrylov(obj.A, X0, h, N, m);
+               else
+                   error('Unknown reachability analsysis method');
+               end
+                                
+            end
+            
+            if ~isempty(obj.B) && ~isempty(U)
+                % convert x' = Ax + Bu -> x1' = [A B; 0 0]x1, x1 = [x u]^T                
+                A1 = [obj.A obj.B; zeros(obj.nI, obj.dim) zeros(obj.nI, obj.nI)];
+                k = size(U.V, 2);
+                % initial condition for x1' = A1 * x1
+                X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d);
+                W = [eye(obj.dim) zeros(obj.dim, obj.nI)]; % mapping matrix
+                            
+                if strcmp(method, 'direct')
+                    
+                    Rx = LinearODE.simReachDirect(obj.A, X0, h, N);
+                    R1 = LinearODE.simReachDirect(A1, X1, h, N);
+                    % Ru = W*R1 = [I O] * [x u]^T
+                    R = [];
+                    for i = 1:length(R1)
+                        R = [R Rx(i).MinkowskiSum(R1(i).affineMap(W, []))];
+                    end
+                    
+                elseif strcmp(method, 'ode45')
+                    
+                    Rx = LinearODE.simReachOde45(obj.A, X0, h, N);
+                    R1 = LinearODE.simReachOde45(A1, X1, h, N);
+                    % Ru = W*R1 = [I O] * [x u]^T
+                    R = [];
+                    for i = 1:length(R1)
+                        R = [R Rx(i).MinkowskiSum(R1(i).affineMap(W, []))];
+                    end                 
+                    
+                elseif strcmp(method, 'krylov')
+                    
+                    Rx = LinearODE.simReachKrylov(obj.A, X0, h, N, m);
+                    R1 = LinearODE.simReachKrylov(A1, X1, h, N, m);
+                    % Ru = W*R1 = [I O] * [x u]^T
+                    R = [];
+                    for i = 1:length(R1)
+                        R = [R Rx(i).MinkowskiSum(R1(i).affineMap(W, []))];
+                    end                    
+                    
+                else
+                       error('Unknown reachability analsysis method');
+                end               
+                
+            end
+            
+        end
+        
                 
     end
     
@@ -298,7 +389,6 @@ classdef LinearODE
             
             for i=1:k
                 Z{1, i} = LinearODE.simKrylov(A, X0.V(:, i), h, N, m);
-                display(Z{1, i});
             end
            
             R = [];

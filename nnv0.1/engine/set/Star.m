@@ -134,5 +134,22 @@ classdef Star
         
     end
     
+    methods(Static)
+        
+        % plot an array of Star
+        function plots(S)
+            % @S: an array of Stars
+            
+            n = length(S);
+            for i=1:n-1
+                S(i).plot;
+                hold on;
+            end
+            S(n).plot;
+            
+        end
+        
+    end
+    
 end
 

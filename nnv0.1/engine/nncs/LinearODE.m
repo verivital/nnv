@@ -127,7 +127,8 @@ classdef LinearODE
             % @x0: initial states
             % @h: timeStep for simulation
             % @N: number of steps
-            % @X : simulation result X = [x0, x1, ..., xN]; 
+            % @X : simulation result X = [x0, x1, ..., xN]
+            
             % author: Dung Tran 
             % date : May/30/2017
             
@@ -152,8 +153,8 @@ classdef LinearODE
             % @h: time Step for simulation
             % @N: number of Step we want to simulate
             % @m : the number of basic vectors for Krylov supspace Km, Vm = [v1, .., vm]
-
-            % @X : simulation result X = [x0, x1, ..., xN]; 
+            % @X : simulation result X = [x0, x1, ..., xN]
+            
             % author: Dung Tran 
             % date : May/30/2017
             
@@ -236,6 +237,42 @@ classdef LinearODE
             X = y';
             
         end
+        
+        
+        % simulation-based reachability analysis for dot{x} = Ax using
+        % direct method and star set
+        function R = simReachDirect(A, X0, h, N)
+            % @A: system matrix
+            % @X0: initial set of states (a Star set)
+            % @h: timeStep for simulation
+            % @N: number of steps
+            % @X : reachable set X = [X0, X1, ..., XN] (Star set)
+            
+            % author: Dung Tran 
+            % date : May/30/2017
+            
+            if ~isa(X0, 'Star')
+                error('Initial set is not a Star');
+            end
+            
+            m = size(X0.V, 2); % number of basic vectors
+            Z = cell(1, m);
+            
+            for i=1:m
+                Z{1, i} = LinearODE.simDirect(A, X0.V(:, i), h, N);
+            end
+           
+            R = [];
+            for i=1:N+1
+                V = [];
+                for j=1:m
+                    V = [V Z{1, j}(:, i)];                  
+                end
+                R = [R Star(V, X0.C, X0.d)]; % reachable set
+            end
+                        
+        end
+        
         
               
     end

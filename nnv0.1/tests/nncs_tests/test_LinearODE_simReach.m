@@ -31,7 +31,7 @@ U = Bu.toStar();
 
 sys = LinearODE(A, B, C, D);
 
-R11 = sys.simReach('direct', X0, U, h, N, []);
+R11 = sys.simReach('direct', X0, U, h, N, []); 
 R21 = sys.simReach('ode45', X0, U, h, N, []);
 R31 = sys.simReach('krylov', X0, U, h, N, 2);
 figure;

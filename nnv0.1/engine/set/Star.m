@@ -103,7 +103,7 @@ classdef Star
         % convert to polyhedron
         function P = toPolyhedron(obj)
             
-            b = obj.V(:, 1);
+            b = obj.V(:, 1);        
             W = obj.V(:, 2:size(obj.V, 2));           
             Pa = Polyhedron('A', obj.C, 'b', obj.d);
             P = Pa.affineMap(W, 'vrep') + b;

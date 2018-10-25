@@ -53,7 +53,9 @@ classdef LinearODE
             obj.C = C;
             obj.D = D;
             obj.nI = mB;
-            obj.nO = nC;
+            if ~isempty(C)
+                obj.nO = nC;
+            end
             obj.dim = nA;
                 
         end
@@ -178,19 +180,27 @@ classdef LinearODE
                 if strcmp(method, 'direct')
                     
                     R1 = LinearODE.simReachDirect(A1, X1, h, N); % Ru = W*R1 = [I O] * [x u]^T
+                    Ru = [];
+                    for i=1:length(R1)
+                        Ru = [Ru R1(i).affineMap(W, [])];
+                    end
                     
                     if ~isempty(X0)
                         Rx = LinearODE.simReachDirect(obj.A, X0, h, N);
-                        R = [];
-                        for i = 1:length(R1)
-                            R = [R Rx(i).MinkowskiSum(R1(i).affineMap(W, []))];
+                        R = [Rx(1)];
+                        T = Ru(1);
+                        for i = 2:length(R1)
+                            R = [R Rx(i).MinkowskiSum(T)];
+                            T = T.MinkowskiSum(Ru(i));
                         end
                         
                     else
                         
                         R = [];
-                        for i = 1:length(R1)
-                            R = [R R1(i).affineMap(W, [])];
+                        T = Ru(1);
+                        for i = 2:length(R1)                          
+                            R = [R T];
+                            T = T.MinkowskiSum(Ru(i));
                         end
                                                 
                     end

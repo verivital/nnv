@@ -17,5 +17,11 @@ N = 2;
 
 sys = LinearODE(A, B, [], []);
 R1 = sys.simReach('direct', X0, U, h, N, []);
+R2 = sys.simReach('ode45', X0, U, h, N, []);
+R3 = sys.simReach('krylov', X0, U, h, N, 2);
 figure;
 Star.plots(R1);
+figure;
+Star.plots(R2);
+figure;
+Star.plots(R3);

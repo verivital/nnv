@@ -208,42 +208,60 @@ classdef LinearODE
                 elseif strcmp(method, 'ode45')
                     
                     R1 = LinearODE.simReachOde45(A1, X1, h, N); % Ru = W*R1 = [I O] * [x u]^T
+                    Ru = [];
+                    for i=1:length(R1)
+                        Ru = [Ru R1(i).affineMap(W, [])];
+                    end
                     
                     if ~isempty(X0)
                         Rx = LinearODE.simReachOde45(obj.A, X0, h, N);
-                        R = [];
-                        for i = 1:length(R1)
-                            R = [R Rx(i).MinkowskiSum(R1(i).affineMap(W, []))];
+                        R = [Rx(1)];
+                        T = Ru(1);
+                        for i = 2:length(R1)
+                            R = [R Rx(i).MinkowskiSum(T)];
+                            T = T.MinkowskiSum(Ru(i));
                         end
                         
                     else
                         
                         R = [];
-                        for i = 1:length(R1)
-                            R = [R R1(i).affineMap(W, [])];
+                        T = Ru(1);
+                        for i = 2:length(R1)                          
+                            R = [R T];
+                            T = T.MinkowskiSum(Ru(i));
                         end
                                                 
-                    end                 
+                    end
+                                    
                     
                 elseif strcmp(method, 'krylov')
                     
-                    R1 = LinearODE.simReachKrylov(A1, X1, h, N, m + obj.nI); % Ru = W*R1 = [I O] * [x u]^T
+                    R1 = LinearODE.simReachKrylov(A1, X1, h, N, m); % Ru = W*R1 = [I O] * [x u]^T
+                    Ru = [];
+                    for i=1:length(R1)
+                        Ru = [Ru R1(i).affineMap(W, [])];
+                    end
                     
                     if ~isempty(X0)
-                        Rx = LinearODE.simReachKrylov(obj.A, X0, h, N, m + obj.nI);
-                        R = [];
-                        for i = 1:length(R1)
-                            R = [R Rx(i).MinkowskiSum(R1(i).affineMap(W, []))];
+                        Rx = LinearODE.simReachKrylov(obj.A, X0, h, N, m);
+                        R = [Rx(1)];
+                        T = Ru(1);
+                        for i = 2:length(R1)
+                            R = [R Rx(i).MinkowskiSum(T)];
+                            T = T.MinkowskiSum(Ru(i));
                         end
                         
                     else
                         
                         R = [];
-                        for i = 1:length(R1)
-                            R = [R R1(i).affineMap(W, [])];
+                        T = Ru(1);
+                        for i = 2:length(R1)                          
+                            R = [R T];
+                            T = T.MinkowskiSum(Ru(i));
                         end
                                                 
-                    end                
+                    end
+                                
                     
                 else
                        error('Unknown reachability analsysis method');

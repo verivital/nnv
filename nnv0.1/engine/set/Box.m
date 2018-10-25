@@ -93,13 +93,14 @@ classdef Box
         function S = toStar(obj)
             
             c = (obj.lb + obj.ub)/2;
-            V = eye(length(obj.lb));
-            P = obj.toPolyhedron;
-            C = P.A;
-            d = P.b;
-            V = horzcat(c, V);
+            V = obj.generators;
+            n = size(obj.lb, 1);
+            lb1 = -ones(n, 1);
+            ub1 = ones(n, 1);
+            P = Polyhedron('lb', lb1, 'ub', ub1);
             
-            S = Star(V, C, d);       
+            V = horzcat(c, V);
+            S = Star(V, P.A, P.b);       
         end
         
         % transform box to zonotope

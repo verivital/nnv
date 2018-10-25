@@ -500,8 +500,18 @@ classdef LinearODE
                         
         end
         
-              
+       
+        
+        % reachability analysis for linear ODE using zonotope
+        % main reference: Reachability of Uncertain Linear Systems Using
+        % Zonotopes. Antoine Girard, HSCC2005, 
+        
+        
+        
     end
+    
+    
+    
     
 end
 

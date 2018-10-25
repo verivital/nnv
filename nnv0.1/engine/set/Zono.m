@@ -85,6 +85,73 @@ classdef Zono
             
         end
         
+        
+        % convex hull with another zonotope
+        % generally not a zonotope, this function return an
+        % over-approximation (a zonotope) of the convex hull.
+        % main reference: 1) Reachability of Uncertain Linear Systems Using
+        % Zonotopes, Antoin Girard, HSCC2005.
+        function Z = convexHull(obj, X)
+            % @X: input zonotope
+            % @Z: output zonotope
+            
+            % author: Dung Tran
+            % date: 10/25/2018
+            
+            % ===================================================================== #
+            % Convex hull of two zonotopes is generally NOT a zonotope.
+            % This method returns an over-approximation (which is a zonotope)
+            % of a convex hull of two zonotopes.
+            % This method is a generalization of the method proposed in reference 1.
+            % In reference 1: the author deals with: CONVEX_HULL(Z, L*Z)
+            % Here we deals with a more general case: CONVEX_HULL(Z1, Z2)
+            % We will see that if Z2 = L * Z1, the result is reduced to the result
+            % obtained by the reference 1.
+            % We define CH as a convex hull operator and U is union operator.
+            % Z1 = (c1, <g1, g2, ..., gp>), Z2 = (c2, <h1, ...., hq>)
+            % ===================================================================== #
+            % CH(Z1 U Z2) := {a * x1 + (1 - a) * x2}| x1 \in Z1, x2 \in Z2, 0 <= a <= 1}
+            % Let a = (ea + 1)/2, -1<= ea <=1, we have:
+            %     CH(Z1 U Z2) := {(x1 + x2)/2 + ea * (x1 - x2)/2}
+            %                  = (Z1 + Z2)/2 + ea*(Z1 + (-Z2))/2
+            %                  where, '+' denote minkowski sum of two zonotopes
+            % From minkowski sum method, one can see that:
+            %    (Z1 + Z2)/2 =  0.5 * (c1 + c2, <g1, ..., gp, h1, ..., hq>)
+            %    (Z1 - Z2)/2 = 0.5 * (c1 - c2, <g1, ..., gp, -h1, ...., -hq>)
+            %    ea*(Z1-Z2)/2 = 0.5 * (0, <c1 - c2, g1, ..., gp, -h1, ..., -hq>)
+            % Therefore:
+            %     CH(Z1 U Z2) = 0.5(c1 + c2, <g1, ..., gp, h1, ..., hq, c1 - c2,
+            %                                               g1, ..., gp, -h1, ..., -hq>)
+            % So, the zonotope that over-approximate the convex hull of two zonotop
+            % has 2(p + q) + 1 generators.
+            % Let consider the specific case Z2 = L * Z1.
+            % In this case we have:
+            %     (Z1 + L*Z1)/2 = 0.5 * (I+L) * (c1, <g1, g2, ..., gp>)
+            %     (Z1 - L*Z1)/2 = 0.5 * (I-L) * (c1, <g1, ..., gp>)
+            %     ea * (Z1 - L*Z1)/2 = 0.5*(I-L)*(0, <c1, g1, ..., gp>)
+            %     CH(Z1 U L * Z1) = 0.5*((I + L)*c1, <(I+L)*g1, ..., (I+L)*gp,
+            %                        (I-L)*c1, (I-L)*g1, ..., (I-L)*gp>)
+            % where I is an identity matrix.
+            % So the resulted zonotope has 2p + 1 generators.
+            % ===================================================================== #
+
+            if ~isa(X, 'Zono')
+                error('Input set is not a zonotope');
+            end
+            
+            if X.dim ~= obj.dim
+                error('Inconsistent dimension between input set and this zonotope');
+            end
+            
+            new_c = 0.5*(obj.c + X.c);
+            new_V = 0.5 * [obj.V X.V (obj.c - X.c) obj.V -X.V];
+            Z = Zono(new_c, new_V);
+            
+        end
+        
+        
+        
+        
         % convert to polyhedron
         function P = toPolyhedron(obj)
             

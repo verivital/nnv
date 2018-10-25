@@ -108,6 +108,34 @@ classdef Box
             Z = Zono(obj.center, obj.generators);
         end
         
+        % get all vertices of the box
+        function V = getVertices(obj)
+            % author: Dung Tran
+            % date: 10/25/2018
+            
+            n = length(obj.lb);            
+            N = 2^n; % number of vertices in the worst case 
+            V = [];
+            for i=0:N-1               
+                b = de2bi(i, n+3);
+                v = zeros(n, 1);
+                for j=1:n
+                    if b(j) == 1
+                        v(j) = obj.ub(j);
+                    else
+                        v(j) = obj.lb(j);
+                    end
+                end                
+                V = [V v];                
+            end
+            
+            % delete duplicate vertices
+            V1 = V';
+            V1 = unique(V1, 'rows', 'stable');
+            V = V1';
+                      
+        end
+        
         
     end
     

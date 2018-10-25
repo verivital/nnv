@@ -111,9 +111,10 @@ classdef Zono
             % Z1 = (c1, <g1, g2, ..., gp>), Z2 = (c2, <h1, ...., hq>)
             % ===================================================================== #
             % CH(Z1 U Z2) := {a * x1 + (1 - a) * x2}| x1 \in Z1, x2 \in Z2, 0 <= a <= 1}
-            % Let a = (ea + 1)/2, -1<= ea <=1, we have:
-            %     CH(Z1 U Z2) := {(x1 + x2)/2 + ea * (x1 - x2)/2}
-            %                  = (Z1 + Z2)/2 + ea*(Z1 + (-Z2))/2
+            % Let a = (e + 1)/2, -1<= e <=1, we have:
+            %     CH(Z1 U Z2) := {(x1 + x2)/2 + e * (x1 - x2)/2}
+            %                  = (Z1 + Z2)/2 + e*(Z1 + (-Z2))/2
+            %                  = (Z1 + e*Z1)/2 + (Z2 - e*Z2)/2  
             %                  where, '+' denote minkowski sum of two zonotopes
             % From minkowski sum method, one can see that:
             %    (Z1 + Z2)/2 =  0.5 * (c1 + c2, <g1, ..., gp, h1, ..., hq>)
@@ -149,8 +150,7 @@ classdef Zono
             
         end
         
-        
-        
+             
         
         % convert to polyhedron
         function P = toPolyhedron(obj)
@@ -158,7 +158,9 @@ classdef Zono
             n = size(obj.V, 2);           
             lb = -ones(n, 1);
             ub = ones(n, 1);                    
-            Pa = Polyhedron('lb', lb, 'ub', ub);
+            B = Box(lb, ub);
+            Vs = B.getVertices(); % get all vertices of a box
+            Pa = Polyhedron('V', Vs');
             P = Pa.affineMap(obj.V, 'vrep') + obj.c;
         end
         
@@ -193,6 +195,51 @@ classdef Zono
             
         end
         
+        % get all vertices of a zonotope
+        function V = getVertices(obj)
+            
+            % author: Dung Tran
+            % date: 10/25/2018
+            
+            n = size(obj.V, 2); % number of generator
+            
+            lb = -ones(n, 1);
+            ub = ones(n, 1);
+            B = Box(lb, ub);
+            V1 = B.getVertices();
+            m = size(V1, 2); % number of vertices of the zonotope
+            V = [];
+            for i=1:m
+                v = obj.c + obj.V * V1(:, i);
+                V = [V v];
+            end
+            
+            
+        end
+        
+        
+    end
+    
+    methods(Static)
+        
+        % plot an array of zonotopes
+        function plots(Z)
+            % @Z: an array of zonotope
+            
+            n = length(Z);
+            for i=1:n
+                if ~isa(Z, 'Zono')
+                    error('Z(%d) is not a zonotope', i);
+                end
+            end
+            
+            for i=1:n-1                
+                Z(i).plot;
+                hold on;
+            end
+            Z(n).plot;
+            
+        end
     end
     
 end

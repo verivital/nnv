@@ -132,6 +132,29 @@ classdef Star
             B = Box(lb, ub);           
         end
         
+        % find a zonotope bounding a star (an over-approximation of a star using zonotope)
+        function Z = getZono(obj)
+            
+            % author: Dung Tran
+            % date: 10/25/2018
+            
+            P = Polyhedron('A', obj.C, 'b', obj.d);
+            P.outerApprox;
+            lb = P.Internal.lb;
+            ub = P.Internal.ub;
+            
+            n = length(lb);
+            new_V = [];
+            new_c = obj.V(:,1);
+            for i=1:n
+                new_c = new_c + 0.5 * (ub(i) + lb(i)) * obj.V(:, i+1);
+                new_V = [new_V 0.5 * (ub(i) - lb(i)) * obj.V(:, i+1)];
+            end
+            
+            Z = Zono(new_c, new_V);
+                        
+        end
+        
     end
     
     methods(Static)

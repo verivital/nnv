@@ -91,15 +91,27 @@ classdef Star
             
             V1 = obj.V(:, 2:m1);
             V2 = X.V(:, 2:m2);
-           
-            V3 = horzcat(V1, V2);
             new_c = obj.V(:, 1) + X.V(:, 1);
-            new_V = horzcat(new_c, V3);        
-            new_C = blkdiag(obj.C, X.C);        
-            new_d = vertcat(obj.d, X.d);
             
-            S = Star(new_V, new_C, new_d);
-            
+            % check if two Star has the same constraints
+            if size(obj.C, 1) == size(X.C, 1) && size(obj.C, 2) == size(X.C, 2) && norm(obj.C - X.C) + norm(obj.d - X.d) < 0.0001
+                  
+               V3 = V1 + V2;
+               new_V = horzcat(new_c, V3);
+               S = Star(new_V, obj.C, obj.d); % new Star has the same number of basic vectors
+             
+            else
+                
+                V3 = horzcat(V1, V2);
+                new_c = obj.V(:, 1) + X.V(:, 1);
+                new_V = horzcat(new_c, V3);        
+                new_C = blkdiag(obj.C, X.C);        
+                new_d = vertcat(obj.d, X.d);
+
+                S = Star(new_V, new_C, new_d); % new Star has more number of basic vectors
+                
+            end
+                
         end
         
         % intersection with a half space: H(x) := Hx <= g
@@ -158,11 +170,12 @@ classdef Star
             % S has one more basic vector compared with obj
             % =============================================================
             
-            new_c = zeros(obj.dim, 1);
-            new_V = [obj.V new_c];
-            new_C = blkdiag(obj.C, [-1; 1]);           
-            new_d = vertcat(alp_max*obj.d, 0, alp_max);            
-            S = Star(new_V, new_C, new_d);
+            %new_c = zeros(obj.dim, 1);
+            %new_V = [obj.V new_c];
+            %new_C = blkdiag(obj.C, [-1; 1]);           
+            %new_d = vertcat(alp_max*obj.d, 0, alp_max); 
+            new_V = alp_max * obj.V;
+            S = Star(new_V, obj.C, obj.d);
                        
         end
         
@@ -174,6 +187,21 @@ classdef Star
             
             % author: Dung Tran
             % date: 10/27/2018
+            
+            % =============================================================
+            % This method is similar to the method proposed by Prof. Girard
+            % for Zonotope. See the following paper:
+            % 1) Reachability of Uncertain Linear Systems Using
+            % Zonotopes, Antoin Girard, HSCC2005.
+            %
+            % CH(S1 U S2) := {l*x1 + (1-l)*x2}, 0 <= l <= 1, x1 \in S1, x2
+            % \in S2.     := {x2 + l*(x1 - x2)}
+            % 
+            % if S2 = L*S1, i.e., S2 is a projection of S1
+            % 
+            % CH(S1 U S2) := {(l + (1-l)*L) * x1} = {(l(I - L) + L) * x1}
+            %             := (l * (I - L) * x1 + L * x1)
+            % =============================================================
             
             if ~isa(X, 'Star')
                 error('Input set is not a Star');

@@ -114,17 +114,14 @@ classdef Zono
             % Let a = (e + 1)/2, -1<= e <=1, we have:
             %     CH(Z1 U Z2) := {(x1 + x2)/2 + e * (x1 - x2)/2}
             %                  = (Z1 + Z2)/2 + e*(Z1 + (-Z2))/2
-            %                  = (Z1 + e*Z1)/2 + (Z2 - e*Z2)/2  
             %                  where, '+' denote minkowski sum of two zonotopes
             % From minkowski sum method, one can see that:
-            %    (Z1 + Z2)/2 =  0.5 * (c1 + c2, <g1, ..., gp, h1, ..., hq>)
-            %    (Z1 - Z2)/2 = 0.5 * (c1 - c2, <g1, ..., gp, -h1, ...., -hq>)
-            %    ea*(Z1-Z2)/2 = 0.5 * (0, <c1 - c2, g1, ..., gp, -h1, ..., -hq>)
-            % Therefore:
-            %     CH(Z1 U Z2) = 0.5(c1 + c2, <g1, ..., gp, h1, ..., hq, c1 - c2,
-            %                                               g1, ..., gp, -h1, ..., -hq>)
+            %      CH(Z1 U Z2) = 0.5*(c1 + c2 <2g1, ..., 2gp, 2h1, ...2hq, c1 - c2>)
             % So, the zonotope that over-approximate the convex hull of two zonotop
-            % has 2(p + q) + 1 generators.
+            % has (p + q) + 1 generators.
+            %                                               
+            % So, the zonotope that over-approximate the convex hull of two zonotop
+            % has (p + q) + 1 generators.
             % Let consider the specific case Z2 = L * Z1.
             % In this case we have:
             %     (Z1 + L*Z1)/2 = 0.5 * (I+L) * (c1, <g1, g2, ..., gp>)
@@ -145,7 +142,7 @@ classdef Zono
             end
             
             new_c = 0.5*(obj.c + X.c);
-            new_V = 0.5 * [obj.V X.V (obj.c - X.c) obj.V -X.V];
+            new_V = [obj.V X.V 0.5*(obj.c -X.c)];
             Z = Zono(new_c, new_V);
             
         end

@@ -170,13 +170,11 @@ classdef Star
             % S has one more basic vector compared with obj
             % =============================================================
             
-            %new_c = zeros(obj.dim, 1);
-            %new_V = [obj.V new_c];
-            %new_C = blkdiag(obj.C, [-1; 1]);           
-            %new_d = vertcat(alp_max*obj.d, 0, alp_max); 
-            new_V = alp_max * obj.V;
-            S = Star(new_V, obj.C, obj.d);
-                       
+            new_c = zeros(obj.dim, 1);
+            new_V = [obj.V new_c];
+            new_C = blkdiag(obj.C, [-1; 1]);           
+            new_d = vertcat(alp_max*obj.d, 0, alp_max); 
+            S = Star(new_V, new_C, new_d);           
         end
         
         
@@ -197,6 +195,13 @@ classdef Star
             % CH(S1 U S2) := {l*x1 + (1-l)*x2}, 0 <= l <= 1, x1 \in S1, x2
             % \in S2.     := {x2 + l*(x1 - x2)}
             % 
+            %             := c2 + a2 * V2 + l(c1 - c2) + l*a1*V1 - l*a2*V2
+            % let beta1 = l * a1, beta2 = l*a2 -> C1 * beta1 <= l * d1 <=
+            % d1 and C2 * beta2 <= l * d2 <= d2
+            %
+            % CH(S1 U S2) = c2 + a2 * V2 + l * (c1 - c2) + beta1 * V1 -
+            %                                                   beta2 * V2
+            %
             % if S2 = L*S1, i.e., S2 is a projection of S1
             % 
             % CH(S1 U S2) := {(l + (1-l)*L) * x1} = {(l(I - L) + L) * x1}
@@ -210,8 +215,44 @@ classdef Star
             if X.dim ~= obj.dim
                 error('Inconsisten dimension between input set and this star');
             end
-                        
+
+            new_V = horzcat(X.V(:,1), X.V(:, 2:X.nVar+1), (obj.V(:,1) - X.V(:,1)), obj.V(:,2:obj.nVar+1), -X.V(:, 2:X.nVar+1));
+            display(new_V);
+            new_C = blkdiag(X.C, [-1; 1], obj.C, X.C);
+            display(new_C);
+            new_d = vertcat(X.d, [0; 1], obj.d, X.d);
             
+            S = Star(new_V, new_C, new_d);
+                                    
+        end
+        
+        % convexHull of a Star with its linear transformation
+        function S = convexHull_with_linearTransform(obj, L)
+            % @L: linear transformation matrix
+            % @S: new Star
+            
+            % author: Dung Tran
+            % date: 10/27/2018
+            
+            [nL, mL] = size(L);
+            
+            if nL ~= mL 
+                error('Trasformation matrix should be a square matrix');
+            end
+            if nL ~= obj.dim
+                error('Inconsistent dimension of tranformation matrix and this zonotope');
+            end
+            
+            M = eye(obj.dim) - L; 
+            S1 = obj.affineMap(L, []);
+            S2 = obj.affineMap(M, []);
+            
+            new_V = [S1.V(:,1) S1.V(:,2:S1.nVar+1) S2.V(:,1) S2.V(:,2:S2.nVar+1)];
+            new_C = blkdiag(S1.C, [-1; 1], S2.C);
+            new_d = vertcat(S1.d, [0; 1], S2.d);
+            
+            S = Star(new_V, new_C, new_d);
+                        
         end
         
         

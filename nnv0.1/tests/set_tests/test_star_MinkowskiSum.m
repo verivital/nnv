@@ -18,3 +18,12 @@ S3 = S1.affineMap(W, b);
 
 S12 = S1.MinkowskiSum(S2);
 S13 = S1.MinkowskiSum(S3);
+
+figure;
+S12.plot;
+hold on;
+S1.plot;
+hold on;
+S2.plot;
+figure;
+S12.plot;

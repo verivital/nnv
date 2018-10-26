@@ -146,6 +146,33 @@ classdef Zono
             Z = Zono(new_c, new_V);
             
         end
+        
+        % convexHull of a zonotope with its linear transformation
+        function Z = convexHull_with_linearTransform(obj, L)
+            % @L: linear transformation matrix
+            % @Z: new zonotope
+            
+            % author: Dung Tran
+            % date: 10/27/2018
+            
+            [nL, mL] = size(L);
+            
+            if nL ~= mL 
+                error('Trasformation matrix should be a square matrix');
+            end
+            if nL ~= obj.dim
+                error('Inconsistent dimension of tranformation matrix and this zonotope');
+            end
+            
+            M1 = eye(nL) + L;
+            M2 = eye(nL) - L;
+            
+            new_c = 0.5 * M1 * obj.c;
+            new_V = 0.5*[M1 * obj.V M2 * obj.c M2 * obj.V];
+            
+            Z = Zono(new_c, new_V);
+                        
+        end
                    
         
         % convert to polyhedron

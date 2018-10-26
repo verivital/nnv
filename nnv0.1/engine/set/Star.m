@@ -100,6 +100,41 @@ classdef Star
             
         end
         
+        % intersection with a half space: H(x) := Hx <= g
+        function S = intersectHalfSpace(obj, H, g)
+            % @H: HalfSpace matrix
+            % @g: HalfSpace vector
+            % @S : new star set with more constraints
+            
+            % author: Dung Tran
+            % date: 10/27/2018
+            
+            [nH, mH] = size(H);
+            [ng, mg] = size(g);
+            
+            if mg ~= 1
+                error('Halfspace vector should have one column');
+            end
+            if nH ~= ng
+                error('Inconsistent dimension between Halfspace matrix and halfspace vector');
+            end
+            if mH ~= obj.dim
+                error('Inconsistent dimension between halfspace and star set');
+            end
+            
+            m = size(obj.V, 2);
+            
+            C1 = H*obj.V(:, 2:m);
+            d1 = g - H*obj.V(:,1);
+            
+            new_C = vertcat(obj.C, C1);
+            new_d = vertcat(obj.d, d1);
+            
+            S = Star(obj.V, new_C, new_d);
+            
+        end
+        
+        
         % convert to polyhedron
         function P = toPolyhedron(obj)
             

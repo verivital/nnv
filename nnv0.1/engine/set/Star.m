@@ -11,6 +11,7 @@ classdef Star
         C = []; % constraint matrix
         d = []; % constraint vector
         dim = 0; % dimension of star set
+        nVar = 0; % number of variable in the constraints
     end
     
     methods
@@ -41,6 +42,7 @@ classdef Star
             obj.C = C; 
             obj.d = d;
             obj.dim = nV;
+            obj.nVar = mC;
             
         end
         
@@ -131,6 +133,56 @@ classdef Star
             new_d = vertcat(obj.d, d1);
             
             S = Star(obj.V, new_C, new_d);
+            
+        end
+        
+        % scalar map of a Star S' = alp * S, 0 <= alp <= alp_max
+        function S = scalarMap(obj, alp_max)
+            % @a_max: maximum value of a
+            % @S: new Star
+            
+            % note: we always require that alp >= 0
+            % author: Dung Tran
+            % date: 10/27/2018
+            
+            % =============================================================
+            % S: x = alp*c + V* alph * a, Ca <= d
+            % note that:   Ca <= d -> C*alph*a <= alp*a <= alp_max * d
+            % let: beta = alp * a, we have
+            % S := x = alp * c + V * beta, C * beta <= alp_max * d,
+            %                              0 <= alp <= alp_max
+            % Let g = [beta; alp]
+            % S = Star(new_V, new_C, new_d), where:
+            %   new_V = [0 c V], new_C = [0 -1; 0 1; 0 C], new_d = [0; alpha_max; alp_max * d]
+            %       
+            % S has one more basic vector compared with obj
+            % =============================================================
+            
+            new_c = zeros(obj.dim, 1);
+            new_V = [obj.V new_c];
+            new_C = blkdiag(obj.C, [-1; 1]);           
+            new_d = vertcat(alp_max*obj.d, 0, alp_max);            
+            S = Star(new_V, new_C, new_d);
+                       
+        end
+        
+        
+        % convex hull of two Stars
+        function S = convexHull(obj, X)
+            % @X: input star
+            % @S: an over-approximation of (convex hull) of two Stars
+            
+            % author: Dung Tran
+            % date: 10/27/2018
+            
+            if ~isa(X, 'Star')
+                error('Input set is not a Star');
+            end
+            
+            if X.dim ~= obj.dim
+                error('Inconsisten dimension between input set and this star');
+            end
+                        
             
         end
         

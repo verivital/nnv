@@ -146,8 +146,7 @@ classdef Zono
             Z = Zono(new_c, new_V);
             
         end
-        
-             
+                   
         
         % convert to polyhedron
         function P = toPolyhedron(obj)

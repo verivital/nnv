@@ -314,6 +314,18 @@ classdef Zono
             
         end
         
+        % get an oriented rectangular hull enclosing a zonotope
+        function Z = getOrientedBox(obj)
+            % this code is from MATTISE of Prof. Girard, in 2005. 
+            % date: 10/30/2018
+            
+            [Q, ~, ~] = svd(obj.V);
+            P = Q' * obj.V;
+            D = diag(sum(abs(P), 2));
+            Z = Zono(obj.c, Q*D);
+            
+        end
+        
         % get interval hull
         function I = getIntervalHull(obj)
                       

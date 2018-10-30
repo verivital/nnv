@@ -255,6 +255,48 @@ classdef Star
                         
         end
         
+        % order reduction for Stars
+        % similar for order reduction for zonotope
+        % see the Zono class for the detail
+        % We reduce the number of basic vectors of a Star
+        function S = orderReduction_box(obj, n_max)
+            % @n_max: maximum allowable number of basic vectors
+            % @S: a new Star with number of basic vectors = n_max
+            
+            % author: Dung Tran - not finish yet
+            % date: 10/29/2018
+            
+            if n_max < obj.dim
+                error('n_max should be >= %d', obj.dim);
+            end
+            
+            if n_max == obj.dim
+                B = obj.getBox();
+                S = B.toStar();
+            end
+            
+            n = size(obj.V, 2) - 1; % number of generators
+            if n_max > obj.dim
+                n1 = n - n_max + obj.dim; % number of generators need to be reduced
+                                
+                % sort generators based on their lengths
+                length_gens = zeros(n, 1);
+                for i=2:n+1
+                    length_gens(i) = norm(obj.V(:, i), 2);
+                end
+                [~, sorted_ind] = sort(length_gens); 
+                
+                sorted_gens = zeros(obj.dim, n);
+                for i=1:n
+                    sorted_gens(:, i) = obj.V(:, sorted_ind(i));
+                end
+                
+                S = [];
+                
+            end
+            
+        end
+        
         
         % convert to polyhedron
         function P = toPolyhedron(obj)

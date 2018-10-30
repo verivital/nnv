@@ -271,6 +271,31 @@ classdef LinearODE
             
         end
         
+        
+        % reachability analysis of LinearODE using zonotope
+        % reference: 1) Reachability of Uncertain Linear Systems Using
+        % Zonotopes, Antoin Girard, HSCC2005.
+        function R = reachZono(obj, I, U, h, N)
+            % @I: input set, a zonotope
+            % @U: control set, a zonotope
+            % @h: time-step for reachability analysis
+            % @N: number of steps
+            
+            % author: Dung Tran
+            % date: 10/30/2018
+            
+            if ~isa(I, 'Zono')
+                error('Input set is not a zonotope');
+            end
+            if ~isa(U, 'Zono')
+                error('Control input set is not a zonotope');
+            end
+            
+            
+            
+            
+        end
+        
                 
     end
     

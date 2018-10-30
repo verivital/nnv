@@ -289,7 +289,7 @@ classdef Zono
             P.plot;
         end
         
-        % get interval hull
+        % get a box bounding the zonotope
         function B = getBox(obj)
             
             lb = zeros(obj.dim, 1);
@@ -309,6 +309,16 @@ classdef Zono
                       
             B = obj.getBox();
             I = B.toZono();
+        end
+        
+        
+        % get sup_{x\in Z }||x||_\infinity
+        function r = getSupInfinityNorm(obj)
+            
+            B = obj.getBox();
+            V1 = [abs(B.lb) abs(B.ub)];
+            r = max(max(V1));
+            
         end
         
         % get all vertices of a zonotope

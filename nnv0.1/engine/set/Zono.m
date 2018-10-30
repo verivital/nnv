@@ -228,33 +228,43 @@ classdef Zono
             
             if n_max < obj.dim
                 error('n_max should be >= %d', obj.dim);
-            end
-            
-            if n_max == obj.dim
-                Z = obj.getIntervalHull();
-            end
+            end      
             
             n = size(obj.V, 2); % number of generators
-            if n_max > obj.dim
-                n1 = n - n_max + obj.dim; % number of generators need to be reduced
-                                
-                % sort generators based on their lengths
-                length_gens = zeros(n, 1);
-                for i=1:n
-                    length_gens(i) = norm(obj.V(:, i), 2);
+            
+            if n <= n_max
+                
+                Z = obj;
+                
+            else
+                
+                if n_max > obj.dim 
+                    n1 = n - n_max + obj.dim; % number of generators need to be reduced
+                   
+                    % sort generators based on their lengths
+                    length_gens = zeros(n, 1);
+                    for i=1:n
+                        length_gens(i) = norm(obj.V(:, i), 2);
+                    end
+                    [~, sorted_ind] = sort(length_gens); 
+
+                    sorted_gens = zeros(obj.dim, n);
+                    for i=1:n
+                        sorted_gens(:, i) = obj.V(:, sorted_ind(i));
+                    end
+
+                    Z1 = Zono(obj.c, sorted_gens(:, 1:n1));
+                    Z2 = Zono(obj.c, sorted_gens(:, n1+1:n));                          
+                    Z = Z2.MinkowskiSum(Z1.getIntervalHull);
+                   
                 end
-                [~, sorted_ind] = sort(length_gens); 
                 
-                sorted_gens = zeros(obj.dim, n);
-                for i=1:n
-                    sorted_gens(:, i) = obj.V(:, sorted_ind(i));
+                if n_max == obj.dim
+                    Z = obj.getIntervalHull();
                 end
                 
-                Z1 = Zono(obj.c, sorted_gens(:, 1:n1));
-                Z2 = Zono(obj.c, sorted_gens(:, n1+1:n));
-                Z = Z2.MinkowskiSum(Z1.getIntervalHull);
-                
-            end
+            end            
+            
             
         end
         

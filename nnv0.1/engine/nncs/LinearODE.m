@@ -275,11 +275,13 @@ classdef LinearODE
         % reachability analysis of LinearODE using zonotope
         % reference: 1) Reachability of Uncertain Linear Systems Using
         % Zonotopes, Antoin Girard, HSCC2005.
-        function R = reachZono(obj, I, U, h, N)
+        function R = reachZono(obj, I, U, h, N, order_max)
             % @I: input set, a zonotope
             % @U: control set, a zonotope
             % @h: time-step for reachability analysis
             % @N: number of steps
+            % @order_max: maximum allowable order of zonotopes used to
+            % represent the reachable set
             
             % author: Dung Tran
             % date: 10/30/2018
@@ -290,8 +292,40 @@ classdef LinearODE
             if ~isa(U, 'Zono')
                 error('Control input set is not a zonotope');
             end
+            if h <= 0
+                error('Time-step should be larger than zero');
+            end
             
+            if order_max < 1
+                error('Maximum allowable order should be >= 1');
+            end
             
+            n_gens_max = order_max * obj.dim; % maximum allowable number of generators
+            
+            norm_x = I.getSupInfinityNorm();
+            BU = U.affineMap(obj.B, []);
+            mu = BU.getSupInfinityNorm();
+            norm_A = norm(obj.A, inf);
+            alpha = (exp(h * norm_A) - 1 - h * norm_A) * norm_x;
+            beta = (exp(h * norm_A) - 1) * mu / norm_A;
+            Zab = Zono(zeros(obj.dim, 1), (alpha + beta) * eye(obj.dim)); 
+            Zb = Zono(zeros(obj.dim, 1), beta * eye(obj.dim));
+            
+            E = expm(h * obj.A);
+            P =  I.convexHull_with_linearTransform(E);
+            R = I;
+            for i=1:N
+                if i==1
+                    Q1 = P.MinkowskiSum(Zab);
+                    Q = Q1.orderReduction_box(n_gens_max);
+                    R = [R Q];
+                else
+                    P = Q.affineMap(E, []);
+                    Q1 = P.MinkowskiSum(Zb);
+                    Q = Q1.orderReduction_box(n_gens_max);
+                    R = [R Q];
+                end
+            end
             
             
         end

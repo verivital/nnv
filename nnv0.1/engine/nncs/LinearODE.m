@@ -313,6 +313,11 @@ classdef LinearODE
             
             E = expm(h * obj.A);
             P =  I.convexHull_with_linearTransform(E);
+            display(P.c);
+            display(I.c);
+            display(alpha);
+            display(beta);
+            display(E);
             R = I;
             for i=1:N
                 if i==1
@@ -324,6 +329,7 @@ classdef LinearODE
                     Q1 = P.MinkowskiSum(Zb);
                     Q = Q1.orderReduction_box(n_gens_max);
                     R = [R Q];
+                    
                 end
             end
             

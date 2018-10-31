@@ -313,11 +313,6 @@ classdef LinearODE
             
             E = expm(h * obj.A);
             P =  I.convexHull_with_linearTransform(E);
-            display(P.c);
-            display(I.c);
-            display(alpha);
-            display(beta);
-            display(E);
             R = I;
             for i=1:N
                 if i==1

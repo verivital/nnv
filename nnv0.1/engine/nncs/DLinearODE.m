@@ -108,24 +108,80 @@ classdef DLinearODE
             
         end
         
+        % reachability analysis of DlinearODE using Polyhedra
+        function P = stepReachPolyhedra(obj, I, U)
+            % @I: set of intial condition
+            % @U: set of control input
+            % @P: state reachable set (a polyhedron)
+            
+            if ~isempty(I) && ~isa(I, 'Polyhedron')
+                error('Set of initial condition is not a polyhedron');
+            end
+            
+            if ~isempty(U) && ~isa(U, 'Polyhedron')
+                error('Set of control input is not a polyhedron');
+            end
+            
+            if ~isempty(I)
+                P1 = I.affineMap(obj.A);
+            else
+                P1 = [];
+            end
+            
+            if ~isempty(U)
+                P2 = U.affineMap(obj.B);
+            else
+                P2 = [];
+            end
+            
+            if ~isempty(P1) && ~isempty(P2)
+                P = P1 + P2;
+            elseif ~isempty(P1) && isempty(P2)
+                P = P1;
+            elseif isempty(P1) && ~isempty(P2)
+                P = P2;
+            else
+                P = [];
+            end
+            
+        end
+        
         % reachability analysis of DlinearODE using star set
-        function R = stepReachStar(obj, I, U)
+        function S = stepReachStar(obj, I, U)
             % @I: set of initial condition 
             % @U: set of control input
             % @R: state reachable set (a star set)
             
-            if ~isa(I, 'Star')
+            if ~isempty(I) && ~isa(I, 'Star')
                 error('Set of initial condition is not a star set');
             end
-            if ~isa(U, 'Star')
+            if ~isempty(U) && ~isa(U, 'Star')
                 error('Set of control input is not a star set');
             end
             
-            % R = AI + BU
-            R1 = I.affineMap(obj.A, []);
-            R2 = U.affineMap(obj.B, []);
+            % S = AI + BU            
+            if ~isempty(I)
+                S1 = I.affineMap(obj.A, []);
+            else
+                S1 = [];
+            end
             
-            R = R1.MinkowskiSum(R2);
+            if ~isempty(U)
+                S2 = U.affineMap(obj.B, []);
+            else
+                S2 = [];
+            end
+            
+            if ~isempty(S1) && ~isempty(S2)
+                S = S1.MinkowskiSum(S2);
+            elseif ~isempty(S1) && isempty(S2)
+                S = S1;
+            elseif isempty(S1) && ~isempty(S2)
+                S = S2;
+            else
+                S = [];
+            end          
+            
             
         end
         
@@ -135,17 +191,36 @@ classdef DLinearODE
             % @U: set of control input (a zonotope)
             % @R: state reachable set (a zonotope)
             
-            if ~isa(I, 'Zono')
+            if ~isempty(I) && ~isa(I, 'Zono')
                 error('Set of initial condition is not a zonotope');
             end
-            if ~isa(U, 'Zono')
+            if ~isempty(u) && ~isa(U, 'Zono')
                 error('Set of control input is not a zonotope');
             end
             
-            Z1 = I.affineMap(obj.A, []);
-            Z2 = U.affineMap(obj.B, []);
-  
-            Z = Z1.MinkowskiSum(Z2);          
+            % Z = AI + BU            
+            if ~isempty(I)
+                Z1 = I.affineMap(obj.A, []);
+            else
+                Z1 = [];
+            end
+            
+            if ~isempty(U)
+                Z2 = U.affineMap(obj.B, []);
+            else
+                Z2 = [];
+            end
+            
+            if ~isempty(Z1) && ~isempty(Z2)
+                Z = Z1.MinkowskiSum(Z2);
+            elseif ~isempty(Z1) && isempty(Z2)
+                Z = Z1;
+            elseif isempty(Z1) && ~isempty(Z2)
+                Z = Z2;
+            else
+                Z = [];
+            end          
+            
         end
         
         

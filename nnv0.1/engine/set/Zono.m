@@ -385,7 +385,6 @@ classdef Zono
             
             for i=1:n-1
                 max_gens = max_order * Z(i).dim;
-                display(max_gens);
                 if max_gens >= size(Z(i).V, 2)
                     Z(i).plot;
                 else

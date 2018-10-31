@@ -1,0 +1,8 @@
+load controller.mat;
+load sysd.mat;
+
+L1 = Layer(W{1,1}, b{1,1}, 'ReLU');
+L2 = Layer(W{1,2}, b{1,2}, 'Linear');
+
+NN_Controller = FFNN([L1 L2]);
+Plant = sysd;

@@ -234,7 +234,7 @@ classdef Zono
             
             if n <= n_max
                 
-                Z = obj;
+                Z = Zono(obj.c, obj.V);
                 
             else
                 
@@ -253,7 +253,7 @@ classdef Zono
                         sorted_gens(:, i) = obj.V(:, sorted_ind(i));
                     end
 
-                    Z1 = Zono(obj.c, sorted_gens(:, 1:n1));
+                    Z1 = Zono(zeros(obj.dim, 1), sorted_gens(:, 1:n1));
                     Z2 = Zono(obj.c, sorted_gens(:, n1+1:n));                          
                     Z = Z2.MinkowskiSum(Z1.getIntervalHull);
                    
@@ -381,11 +381,27 @@ classdef Zono
                 end
             end
             
-            for i=1:n-1                
-                Z(i).plot;
+            max_order = 2;
+            
+            for i=1:n-1
+                max_gens = max_order * Z(i).dim;
+                display(max_gens);
+                if max_gens >= size(Z(i).V, 2)
+                    Z(i).plot;
+                else
+                    Zr = Z(i).orderReduction_box(max_gens);
+                    Zr.plot;
+                end
                 hold on;
             end
-            Z(n).plot;
+            
+            if max_gens >= size(Z(n).V, 2)
+                Z(n).plot;
+            else
+                Zr = Z(n).orderReduction_box(max_gens);
+                Zr.plot;
+            end
+            
             
         end
     end

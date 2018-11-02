@@ -109,7 +109,7 @@ classdef DLinearODE
         end
         
         % reachability analysis of DlinearODE using Polyhedra
-        function P = stepReachPolyhedra(obj, I, U)
+        function P = stepReachPolyhedron(obj, I, U)
             % @I: set of intial condition
             % @U: set of control input
             % @P: state reachable set (a polyhedron)

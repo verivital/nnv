@@ -144,16 +144,6 @@ classdef NNCS
     
     methods(Static)
         
-         % step Reach controller
-         function U = stepReachController(controller, ref_input, fb_input)
-             % @controller: the controller neural network
-             % @ref_input: reference input set
-             % @fb_input: feedback input set
-            
-             
-
-         end
-
         
                            
     end

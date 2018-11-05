@@ -10,10 +10,11 @@ feedbackMap = [1;2]; % feedback map
 
 ncs = NNCS(NN_Controller, Plant, feedbackMap); % the neural network control system
 
-B = Box([0.8; -1],[1; -0.8]);
 % initial set of state of the plant 
-I = B.toPolyhedron();
+I = Polyhedron('lb', [0.8; -1], 'ub', [1; -0.8]);
 
+% control input set: 0.99 m <= r <= 1 m
+U = Polyhedron('lb', 0.99, 'ub', 1);
 
 N = 2; % number of step
 
@@ -23,9 +24,8 @@ Ry = Rx.affineMap(Plant.C);
 Y = Ry;
 X = Rx;
 
-
 % construct input set for neural net controller in each step
 
 
-%next_I = NNCS.nextInputSet(feedbackMap, I, Ry);
+
 

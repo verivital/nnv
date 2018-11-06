@@ -4,7 +4,7 @@ P1 = Polyhedron('lb', [-1; 0], 'ub', [1; 2]);
 
 P2 = Polyhedron('lb', 0, 'ub', 1);
 
-P = Conversion.concatenatePolyhedron(P1, P2);
+P = Conversion.concatenatePolyhedron([P1 P2]);
 
 figure; 
 P.plot;

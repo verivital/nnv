@@ -146,6 +146,38 @@ classdef DLinearODE
             
         end
         
+        % reachability analysis of DlinearODE using Polyhedra with parallel
+        % computing
+        function P = stepReachPolyhedron_parallel(obj, I, U, n_cores)
+            % @I: set of intial condition
+            % @U: an array of set of control input
+            % @n_cores: number of cores used in computation
+            % @P: state reachable set (a polyhedron)
+            
+            % author: Dung Tran
+            % date: 11/8/2018
+            
+            if n_cores > 1
+                n = length(U);
+                P = [];
+                parfor i=1:n
+                    P1 = obj.stepReachPolyhedron(I, U(i));
+                    P = [P P1];
+                end
+            elseif n_cores == 1
+                n = length(U);
+                P = [];
+                for i=1:n
+                    P1 = obj.stepReachPolyhedron(I, U(i));
+                    P = [P P1];
+                end
+            elseif n_core < 1
+                error('Number of cores needs to be >= 1');
+            end
+            
+        end
+        
+        
         % reachability analysis of DlinearODE using star set
         function S = stepReachStar(obj, I, U)
             % @I: set of initial condition 

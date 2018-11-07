@@ -1,4 +1,4 @@
-classdef NNCS
+classdef NNCS < handle
     %Neural network control system class 
     %   Dung Tran: 10/21/2018
     
@@ -37,6 +37,13 @@ classdef NNCS
         nI = 0; % number of inputs = size(I1, 1) + size(I2, 1)
         nI_ref = 0; % number of reference inputs
         nI_fb = 0; % number of feedback inputs
+        
+        % used for reachable set computation
+        ref_I = []; % reference input set
+        init_set = []; % initial set for the plant
+        reachSetTree = []; % reachable set tree
+        totalNumOfReachSet = 0; % total number of reachable sets
+        reachTime = 0; % reachable set computation time
     end
     
     methods
@@ -81,19 +88,18 @@ classdef NNCS
         
         
          % reachability analysis of NNCS using polyhedron
-        function [Px, Py] = reachPolyhedron(obj, init_set, ref_inputSet, N)
+        function [P, reachTime] = reachPolyhedron_approx(obj, init_set, ref_inputSet, n_steps)
              % @init_set: the initial set of condition for the plant
              % @ref_inputSet: the reference input set applied to the controller
-             % @N: number of steps 
-             % @Px: the state reachable set of the plant
-             % @Py: the output reachable set of the plant
-             %     we get the output reachable set by mapping Px on the
-             %     dimension of interest
+             % @n_steps: number of steps 
+             % @P: the state reachable set of the plant
+             %     we get the output reachable set by mapping P on the
+             %     direction of interest plant.C
 
              % author: Dung Tran
              % date: 11/2/2018
 
-
+             start_time = tic; 
              if ~isa(obj.plant, 'DLinearODE')
                  error('Reachability analysis of NNCS using Polyhedron only supports for Discrete linear ODE plant');
              end
@@ -106,43 +112,35 @@ classdef NNCS
                  error('The reference input set is not a polyhedron');
              end
 
-             if N == 0
-                 P = init_set;
+             if n_steps < 1
+                 error('Number of steps should be >= 1');
              end
+             
+             obj.reachSetTree = SetTree(n_steps + 1); % initialize reach set tree
+             obj.init_set = init_set;
+             obj.ref_I = ref_inputSet;
+             obj.reachSetTree.addReachSet(init_set, 1); % add the init_set to the reachSetTree
 
-             if N == 1
-                 Rx = obj.plant.stepReachPolyhedron(init_set, []); % state reachable set
-                 Px = [init_set Rx];
-                 Py = [init_set.affineMap(obj.plant.C) Rx.affineMap(obj.plant.C)];
-             end         
-
-             if N > 1
-
-                 % first step
-                 Rx = obj.plant.stepReachPolyhedron(init_set, []); % state reachable set
-                 Px = [init_set Rx];
-                 Py = [init_set.affineMap(obj.plant.C) Rx.affineMap(obj.plant.C)];
-
-
-                 for i=2:N
-                     % next input set for the controller
-                     I = obj.nextInputSetPolyhedron(ref_inputSet, Py); % input set to the controller at step i
-                     U = obj.controller.reach(I, 'exact', 1, []); % control set at step i
-                     U1 = Reduction.fastHull(U);
-                     Rx = obj.plant.stepReachPolyhedron(Px(length(Px)), U1); 
-                     Px = [Px Rx];
-                     Ry = Rx.affineMap(obj.plant.C);
-                     Py = [Py Ry];                 
-                 end
-
+             for i=2:n_steps + 1                 
+                 fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);
+                 display(fb_I{1, 1});
+                 input_set = obj.nextInputSetPolyhedron(fb_I{1});
+                 display(input_set);
+                 [U,~] = obj.controller.reach(input_set, 'exact', 1, []); % control set at step i
+                 U1 = Reduction.fastHull(U);
+                 R = obj.plant.stepReachPolyhedron(fb_I{1}(length(fb_I{1})), U1);                 
+                 obj.reachSetTree.addReachSet(R, i);                 
              end
-
-
+             reachTime = toc(start_time);
+             obj.reachTime = reachTime;
+             P = obj.reachSetTree.flatten();
+             obj.totalNumOfReachSet = obj.reachSetTree.getTotalNumOfReachSet();
+             
         end
         
         % reach Polyhedron with exact reachable set computation
         
-        function [Px, Py] = reachPolyhedron_exact(obj, init_set, ref_inputSet, n_cores, n_steps)
+        function [P, reachTime] = reachPolyhedron_exact(obj, init_set, ref_inputSet, n_cores, n_steps)
              % @init_set: the initial set of condition for the plant
              % @ref_inputSet: the reference input set applied to the controller
              % @n_cores: number of cores used in computation
@@ -155,6 +153,8 @@ classdef NNCS
              % author: Dung Tran
              % date: 11/6/2018
             
+             start_time = tic; 
+             
              if ~isa(obj.plant, 'DLinearODE')
                  error('Reachability analysis of NNCS using Polyhedron only supports for Discrete linear ODE plant');
              end
@@ -166,63 +166,65 @@ classdef NNCS
              if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Polyhedron')
                  error('The reference input set is not a polyhedron');
              end
-
-             if n_steps == 0
-                 Px = init_set;
-                 Py = init_set.affineMap(obj.plant.C, 'vrep');
-             end
-
-             if n_steps > 0
-                 
-                 % step 0
-                 Px = init_set;
-                 
-                 for i=1:n_steps
-                     
-                    if i == 1
-                        % step 1: reference_input = []; feedback_input = []
-                        ref_I = [];
-                        fb_I = cell(1,1);
-                        [R, fb_R] = obj.stepReachPolyhedron_singleFeedBack(init_set, ref_I, fb_I_cell, n_cores);
-                        Px = [Px R];                     
-                    else
-                        
-                        n = length(R); % multiple init_set for the plant
-                        m = length(fb_R); % m feedback set for the controller
-                        
-                        % n init_set combined with m feedback set for the
-                        % controller produce p reachable set, p is unknown
-                        R2 = [];
-                        fb2 = [];
-                        for j=1:n                            
-                            [R1, fb1] = obj.stepReachPolyhedron_multipleFeedbacks(R(j), ref_I, fb_R, n_cores);                            
-                            R2 = [R2 R1];
-                            fb2 = [fb2 fb1];                            
-                        end
-                        
-                        R = R2;
-                        fb_R = fb2;
-                        Px = [Px R];
-                        
-                    end
-
-                     
-                 end
-                 
-                 
-                 
+             
+             if n_steps < 1
+                 error('number of step should be >= 1');
              end
              
-
-
+             if n_cores < 1
+                 error('number of cores should be >= 1');
+             end
              
+             obj.reachSetTree = SetTree(n_steps + 1); % initialize reach set tree
+             obj.init_set = init_set;
+             obj.ref_I = ref_inputSet;
              
+             obj.reachSetTree.addReachSet(init_set, 1); % add the init_set to the reachSetTree
              
+             for i=2:n_steps + 1
+                 obj.stepReachPolyhedron(i, n_cores);                 
+             end
+             
+             reachTime = toc(start_time);
+             obj.reachTime = reachTime;
+             P = obj.reachSetTree.flatten();
+             obj.totalNumOfReachSet = obj.reachSetTree.getTotalNumOfReachSet();
+             
+        end
+        
+        
+        % step reach Polyhedron
+        function R = stepReachPolyhedron(obj, i, n_cores)
+            % @i: the step number
+            % @n_cores: number of cores used in computation
+            % @R: the reachable set of step i   
+            
+            % author: Dung Tran
+            % date: 11/6/2018
+            
+            if i < 1
+                error('Step ID should >= 1');
+            end
+            
+            fb_R = obj.reachSetTree.extract_fb_ReachSet(i - 1); % feedback reach set 
+            % the last element of fb_R{1, i} is the initial set of the
+            % plant for the current step
+            n = length(fb_R);
+            
+            R = [];            
+            for j=1:n
+                l = length(fb_R{1, j});
+                cur_init_set = fb_R{1, j}(l); % init set for current step
+                R1 = obj.stepReachPolyhedron_singleFeedBack(cur_init_set, fb_R{1, j}, n_cores);
+                R = [R R1];               
+            end
+                        
+            obj.reachSetTree.addReachSet(R, i);        
             
         end
      
         % step reach Polyhedron with a single feedback set
-        function [R, fb_R] = stepReachPolyhedron_singleFeedBack(obj, init_set, ref_I, fb_I_cell, n_cores)
+        function R = stepReachPolyhedron_singleFeedBack(obj, init_set, fb_I, n_cores)
             % @init_set: the initial set of the step
             % @ref_I: the reference input set
             % @fb_I_cell: the feedback input set
@@ -233,18 +235,15 @@ classdef NNCS
             % author: Dung Tran
             % date: 11/6/2018
             
-            fb_I = fb_I_cell{1, 1}; % get an array of feedback set 
             
-            input_set = obj.nextInputSetPolyhedron(ref_I, fb_I); % get the input set for the current step
+            input_set = obj.nextInputSetPolyhedron(fb_I); % get the input set for the current step
             
             if isempty(input_set) && isempty(init_set)
                 R = [];
-                fb_R = [];
             end
             
             if isempty(input_set) && ~isempty(init_set)
-                R = obj.plant.stepReachPolyhedron(init_set, []);
-                fb_R = R.affineMap(obj.plant.C, 'vrep');             
+                R = obj.plant.stepReachPolyhedron(init_set, []);             
             end
             
             if ~isempty(input_set)
@@ -254,12 +253,7 @@ classdef NNCS
                 % plant
                 
                 % compute reachable set for the plant
-                p = length(U);
-                fb_R = cell(1, p);
                 R = obj.plant.stepReachPolyhedron_parallel(init_set, U, n_cores);
-                for i=1:length(R)
-                    fb_R{1, i} = [fb_I R(i).affineMap(obj.plant.C, 'vrep')];
-                end
                 
             end
       
@@ -267,64 +261,40 @@ classdef NNCS
             
         end
         
-        % step Reach Polyhedron with multiple feedback sets
-        function [R, fb_R] = stepReachPolyhedron_multipleFeedbacks(obj, init_set, ref_I, fb_Is, n_cores)
-            % @init_set: the initial set of plant
-            % @ref_I: the reference input
-            % @fb_Is: a cell of feedback sets
-            % @n_cores: number of cores used in computation
-            % @R: the state reachable set
-            % @fb_R: the output feedback set for the next step
-            
-            % author: Dung Tran
-            % date: 11/8/2018
-            
-            n = length(fb_Is); % an array of cell
-            if n == 0
-                [R, fb_R] = obj.stepReachPolyhedron_singleFeedback(init_set, ref_I, [], n_cores);
-            else
-                fb_R = []; % an array of cell
-                R = [];
-                for i=1:n                  
-                   [R1, fb_R1] = obj.stepReachPolyhedron_singleFeedback(init_set, ref_I, fb_Is(i), n_cores);
-                   R = [R R1];
-                   fb_R = [fb_R fb_R1];
-                end
-                
-            end
-            
-            
-            
-        end
-     
+               
         % get the next step input set
-        function I = nextInputSetPolyhedron(obj, ref_I, outputSet)
-            % @ref_I: is the reference input
-            % @outputSet: the output set
-            % initial step ref_I = [] and outputSet = []
+        function I = nextInputSetPolyhedron(obj, fb_I)
+            % @fb_I: the feedback input set
             
             % author: Dung Tran
             % date: 11/5/2018
             
+            l = length(fb_I);
+            fb_inputSet = [];
+            if l > 0
+                for i=1:l
+                    fb_inputSet = [fb_inputSet fb_I(i).affineMap(obj.plant.C, 'vrep')];
+                end
+            end
             n = size(obj.feedbackMap, 1);          
             
-            if isempty(ref_I) && isempty(outputSet)
+            if isempty(obj.ref_I) && isempty(fb_inputSet)
                 I = [];
             end
-            if ~isempty(ref_I) && isempty(outputSet)
+            if ~isempty(obj.ref_I) && isempty(fb_inputSet)
                 
                 lb = zeros(obj.nI_fb);
                 ub = zeros(obj.nI_fb);
                 
                 I2 = Polyhedron('lb', lb, 'ub', ub);
-                I = Conversion.concatenatePolyhedron([ref_I I2]);
+                I = Conversion.concatenatePolyhedron([obj.ref_I I2]);
                 
             end
             
-            if ~isempty(ref_I) && ~isempty(outputSet)
+            if ~isempty(obj.ref_I) && ~isempty(fb_inputSet)
                
-                l = length(outputSet);
-                nA = size(outputSet(1).A,2);
+                l = length(fb_inputSet);
+                nA = size(fb_inputSet(1).A,2);
                 I2 = [];
                 for i=1:n
 
@@ -332,20 +302,20 @@ classdef NNCS
                         I2 = [I2 Polyhedron('lb', zeros(nA, 1), 'ub', zeros(nA, 1))];
                     else
 
-                        I2 = [I2 outputSet(l - obj.feedbackMap(i))];
+                        I2 = [I2 fb_inputSet(l - obj.feedbackMap(i))];
 
                     end                
 
                 end
 
-                I = Conversion.concatenatePolyhedron([ref_I I2]);
+                I = Conversion.concatenatePolyhedron([obj.ref_I I2]);
             end
             
             
-            if isempty(ref_I) && ~isempty(outputSet)
+            if isempty(obj.ref_I) && ~isempty(fb_inputSet)
                 
-                l = length(outputSet);
-                nA = size(outputSet(1).A,2);
+                l = length(fb_inputSet);
+                nA = size(fb_inputSet(1).A,2);
                 I2 = [];
                 for i=1:n
 
@@ -353,7 +323,7 @@ classdef NNCS
                         I2 = [I2 Polyhedron('lb', zeros(nA, 1), 'ub', zeros(nA, 1))];
                     else
 
-                        I2 = [I2 outputSet(l - obj.feedbackMap(i))];
+                        I2 = [I2 fb_inputSet(l - obj.feedbackMap(i))];
 
                     end                
 
@@ -365,10 +335,6 @@ classdef NNCS
                 I = Conversion.concatenatePolyhedron([I1 I2]);
                 
             end
-            
-            
-            
-            
             
         end
                               

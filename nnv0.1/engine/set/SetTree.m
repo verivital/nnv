@@ -5,8 +5,9 @@ classdef SetTree < handle
     
     properties
         
-        S = [];
-        height = 0;
+        S = []; % reach set tree
+        fb = []; % feedback set tree
+        height = 0; % height of the set tree
         
     end
     
@@ -20,12 +21,13 @@ classdef SetTree < handle
            end
            
            obj.S = cell(height, 1);
+           obj.fb = cell(height, 1);
            obj.height = height;
            
        end
         
        % add a reach set to some position      
-       function addReachSet(obj, pos, R)
+       function addReachSet(obj, R, pos)
            % @pos: position of the reachable set
            % @R: an array of reachable set
            
@@ -33,10 +35,28 @@ classdef SetTree < handle
                error('Posistion > limitation');
            end
            if pos <= 0
-               error('Position should be >= 0');
-           end
+               error('Position should be > 0');
+           end          
            
-           obj.S{pos} = R;
+           obj.S{pos} = R; % update set tree
+           
+           % update feedback set tree
+           if pos == 1
+               obj.fb{pos} = cell(1,1);
+               obj.fb{pos}{1, 1} = R;
+           elseif pos > 1
+               l = length(obj.fb{pos - 1});
+               p = length(R);
+               obj.fb{pos} = cell(1, l*p); 
+               
+               for k=1:l*p
+                   i = fix((k-1)/p) + 1;
+                   j = k - (i - 1) * p;
+                   old_fb = obj.fb{pos-1}{1, i};                   
+                   obj.fb{pos}{1, k} = [old_fb R(j)]; 
+               end
+               
+           end
         
        end
        
@@ -52,8 +72,19 @@ classdef SetTree < handle
                error('Position should be >= 0');
            end
            
-           R = obj.S{pos};      
+           R = obj.S{pos};             
+       end
        
+       % extract feedback reach set
+       function fb_R = extract_fb_ReachSet(obj, pos)
+           if pos > obj.height
+               error('Posistion > limitation');
+           end
+           if pos <= 0
+               error('Position should be >= 0');
+           end
+           
+           fb_R = obj.fb{pos}; % a cell of cell   
        end
         
        
@@ -82,8 +113,16 @@ classdef SetTree < handle
            
        end
        
-       
-       
+       % flattening SetTree
+       function R = flatten(obj)
+           
+           R = [];
+           for i=1:obj.height
+               R = [R obj.S{i}];
+           end
+           
+       end
+            
     end
 end
 

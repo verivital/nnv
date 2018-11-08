@@ -79,6 +79,61 @@ classdef ReLU
             
         end
         
+        % stepReach with input as a Star set
+        function R = stepReach_Star(I, index, xmin, xmax)
+            % @I : input set, a polyhedron
+            % @i : index of current x[index] of current step
+            % @xmin: min of x[index]
+            % @xmax: max of x[index]
+            
+            % author: Dung Tran
+            % date: 11/7/2018
+            
+            if ~isa(I, 'Star')
+                error('Input is not a star');
+            end
+            
+            if xmin >= 0
+                R = I; 
+            elseif xmax < 0 
+                Im = eye(I.dim);
+                Im(index, index) = 0;
+                R = I.affineMap(Im, []);
+            elseif xmin < 0 && xmax >= 0
+                
+                % R1 = I && x[index] < 0 
+                c = I.V(index, 1);
+                V = I.V(index, 2:I.nVar + 1);
+                new_C = vertcat(I.C, V);
+                new_d = vertcat(I.d, -c);                
+                R1 = Star(I.V, new_C, new_d);
+                Im = eye(I.dim);
+                Im(index, index) = 0;
+                R1 = R1.affineMap(Im, []);
+                % R2 = I && x[index] >= 0
+                new_C = vertcat(I.C, -V);
+                new_d = vertcat(I.d, c);
+                R2 = Star(I.V, new_C, new_d);
+                                             
+                if R1.isEmptySet && ~R2.isEmptySet
+                    R = R2;
+                end
+                if R1.isEmptySet && R2.isEmptySet
+                    R = [];
+                end
+                if ~R1.isEmptySet && R2.isEmptySet
+                    R = R1;
+                end
+                if ~R1.isEmptySet && ~R2.isEmptySet
+                    R = [R1 R2];
+                end
+        
+            end
+            
+            
+            
+        end
+        
         % stepReach for multiple Input Sets
         
         function R = stepReachMultipleInputs(I_array, index, xmin, xmax)
@@ -93,7 +148,13 @@ classdef ReLU
             R = [];
             
             for i=1:p
-                R =[R, ReLU.stepReach(I_array(i), index, xmin, xmax)];                
+                if isa(I_array(i), 'Polyhedron')                    
+                    R =[R, ReLU.stepReach(I_array(i), index, xmin, xmax)];
+                elseif isa(I_array(i), 'Star')
+                    R =[R, ReLU.stepReach_Star(I_array(i), index, xmin, xmax)];
+                else
+                    error('Unknown set');
+                end
             end
                      
         end
@@ -112,7 +173,15 @@ classdef ReLU
             R = [];
             
             parfor i=1:p
-                R =[R, ReLU.stepReach(I_array(i), index, xmin, xmax)];                
+                
+                if isa(I_array(i), 'Polyhedron')                    
+                    R =[R, ReLU.stepReach(I_array(i), index, xmin, xmax)];
+                elseif isa(I_array(i), 'Star')
+                    R =[R, ReLU.stepReach_Star(I_array(i), index, xmin, xmax)];
+                else
+                    error('Unknown set');
+                end
+                
             end            
             
         end
@@ -126,10 +195,18 @@ classdef ReLU
             % @option: = 'exact' -> compute an exact reach set
             %          = 'approx' -> compute an over-approximate reach set
             
-                        
-            I.outerApprox; % find bounds of I state vector
-            lb = I.Internal.lb; % min-vec of x vector
-            ub = I.Internal.ub; % max-vec of x vector
+            if isa(I, 'Polyhedron')            
+                I.outerApprox; % find bounds of I state vector
+                lb = I.Internal.lb; % min-vec of x vector
+                ub = I.Internal.ub; % max-vec of x vector
+            elseif isa(I, 'Star')
+                B = I.getBox;
+                lb = B.lb;
+                ub = B.ub;
+            else
+                error('Input set is not a Polyhedron or Star');
+            end
+            
             map = find(lb < 0); % computation map
             m = size(map, 1); % number of stepReach operations needs to be executed
             rn = size(lb, 1) - m;
@@ -153,9 +230,18 @@ classdef ReLU
             %          = 'approx' -> compute an over-approximate reach set
             
                         
-            I.outerApprox; % find bounds of I state vector
-            lb = I.Internal.lb; % min-vec of x vector
-            ub = I.Internal.ub; % max-vec of x vector
+            if isa(I, 'Polyhedron')            
+                I.outerApprox; % find bounds of I state vector
+                lb = I.Internal.lb; % min-vec of x vector
+                ub = I.Internal.ub; % max-vec of x vector
+            elseif isa(I, 'Star')
+                B = I.getBox;
+                lb = B.lb;
+                ub = B.ub;
+            else
+                error('Input set is not a Polyhedron or Star');
+            end
+            
             map = find(lb < 0); % computation map
             m = size(map, 1); % number of stepReach operations needs to be executed
             rn = size(lb, 1) - m;

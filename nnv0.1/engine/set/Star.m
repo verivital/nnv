@@ -242,13 +242,23 @@ classdef Star
                 error('Inconsisten dimension between input set and this star');
             end
 
-            new_V = horzcat(X.V(:,1), X.V(:, 2:X.nVar+1), (obj.V(:,1) - X.V(:,1)), obj.V(:,2:obj.nVar+1), -X.V(:, 2:X.nVar+1));
-            display(new_V);
-            new_C = blkdiag(X.C, [-1; 1], obj.C, X.C);
-            display(new_C);
-            new_d = vertcat(X.d, [0; 1], obj.d, X.d);
+            %new_V = horzcat(X.V(:,1), X.V(:, 2:X.nVar+1), (obj.V(:,1) - X.V(:,1)), obj.V(:,2:obj.nVar+1), -X.V(:, 2:X.nVar+1));
+            %new_C = blkdiag(X.C, [-1; 1], obj.C, X.C);
+            %new_d = vertcat(X.d, [0; 1], obj.d, X.d);      
             
-            S = Star(new_V, new_C, new_d);
+            %S = Star(new_V, new_C, new_d);
+            
+            c1 = obj.V(:, 1);
+            c2 = X.V(:, 1);
+            V1 = obj.V(:, 2:obj.nVar + 1);
+            V2 = X.V(:, 2:obj.nVar + 1);
+            
+            new_V = horzcat(c1-c2, V1, -V2);
+            new_C = blkdiag(obj.C, X.C);
+            new_d = vertcat(obj.d, X.d);
+            
+            S2 = Star(new_V, new_C, new_d);
+            S = X.MinkowskiSum(S2);
                                     
         end
         
@@ -354,6 +364,32 @@ classdef Star
                 ub(i) = -fval + obj.V(i, 1);
             end           
             B = Box(lb, ub);           
+        end
+        
+        % find a oriented box bounding a star
+        function B = getOrientedBox(obj)
+            % author: Dung Tran
+            % date: 11/8/2018
+            
+            [Q, Z, P] = svd(obj.V(:, 2:obj.nVar + 1));
+            S = Z * P';
+            lb = zeros(obj.dim, 1);
+            ub = zeros(obj.dim, 1);
+            
+            for i=1:obj.dim
+                f = S(i, :);
+                [~,fval] = linprog(f, obj.C, obj.d);
+                lb(i) = fval;
+                [~, fval] = linprog(-f, obj.C, obj.d);
+                ub(i) = -fval;
+            end
+            
+            new_V = [obj.V(:,1) Q];
+            new_C = vertcat(eye(obj.dim), -eye(obj.dim));
+            new_d = vertcat(ub, -lb);
+            
+            B = Star(new_V, new_C, new_d);
+            
         end
         
         % find a zonotope bounding a star (an over-approximation of a star using zonotope)

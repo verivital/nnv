@@ -3,7 +3,7 @@ V = [1 0 1; 0 1 1];
 P = ExamplePoly.randHrep('d',3);
 S = Star([center V], P.A, P.b);
 Z = S.getZono();
-B = S.getBox();
+B = S.getOrientedBox();
 figure;
 Z.plot;
 hold on;

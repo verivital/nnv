@@ -16,12 +16,14 @@ init_set = Polyhedron('lb', [0.8; -1], 'ub', [1; -0.8]);
 % control input set: 0.99 m <= r <= 1 m
 ref_inputSet = Polyhedron('lb', 0.99, 'ub', 1);
 
-N = 6; % number of step
+N = 5; % number of step
 n_cores = 1; % number of cores 
 
-[P, reachTime] = ncs.reachPolyhedron_approx(init_set, ref_inputSet, N);
+[P1, reachTime1] = ncs.reachPolyhedron_approx(init_set, ref_inputSet, N);
 
-%[P, reachTime] = ncs.reachPolyhedron_exact(init_set, ref_inputSet, n_cores, N);
+[P2, reachTime2] = ncs.reachPolyhedron_exact(init_set, ref_inputSet, n_cores, N);
 
 figure;
-P.plot;
+P1.plot;
+figure;
+P2.plot;

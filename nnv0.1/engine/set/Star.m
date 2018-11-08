@@ -46,6 +46,32 @@ classdef Star
             
         end
         
+        % check is empty set
+        function bool = isEmptySet(obj)
+            P = Polyhedron(obj.C, obj.d);
+            bool = P.isEmptySet();
+            c = obj.V(:,1);
+            bool = bool && (norm(c, 1) ~= 0);
+        end
+        
+        % check if a star set is a subset of other
+        function bool = isSubSet(obj, S)
+            
+            if ~isa(S, 'Star')
+                error('Input set is not a Star');
+            end
+            
+            if obj.dim ~= S.dim
+                error('Two sets have different dimension');
+            end
+            
+            P1 = obj.toPolyhedron();
+            P2 = S.toPolyhedron();
+            
+            bool = (P1 <= P2);
+            
+        end
+        
         % affine mapping of star set S = Wx + b;
         function S = affineMap(obj, W, b)
             % @W: mapping matrix

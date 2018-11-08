@@ -50,12 +50,10 @@ classdef Layer
             end
         end
         
-        % Exact reachable Set computation
+        % Exact reachable Set computation for one layer using Polyhedron or
+        % Star
         function [R, rn, t] = reach_exact(obj, inputSetArray, parallel)
-            % compute reachable set of a layer
             % @inputSetArray: an array of input sets which are bounded polyhedra
-            % @option: = 'exact' or 'approx'
-            % computed.
             % @R: the reachable set
             % @rn: the number of ReLU operation reduced
             % @t : Elapsed time for reach set computation
@@ -72,8 +70,14 @@ classdef Layer
                 
                 if p > 1
                     parfor i=1:p
-                        I = inputSetArray(i);                                 
-                        I1 = I.affineMap(obj.W, 'vrep') + obj.b;
+                        I = inputSetArray(i); 
+                        if isa(I, 'Polyhedron')                            
+                            I1 = I.affineMap(obj.W, 'vrep') + obj.b;
+                        elseif isa(I, 'Star')
+                            I1 = I.affineMap(obj.W, obj.b);
+                        else
+                            error('Unknown set type');
+                        end
                       
                         if strcmp(obj.f, 'Linear')
                             R1 = I1;
@@ -90,8 +94,14 @@ classdef Layer
                     
                 else  % if single input, use ReLU parallel
                     
-                    I = inputSetArray(1);                                                
-                    I1 = I.affineMap(obj.W, 'vrep') + obj.b;
+                    I = inputSetArray(1);
+                    if isa(I, 'Polyhedron')                            
+                        I1 = I.affineMap(obj.W, 'vrep') + obj.b;
+                    elseif isa(I, 'Star')
+                        I1 = I.affineMap(obj.W, obj.b);
+                    else
+                        error('Unknown set type');
+                    end
            
                     if strcmp(obj.f, 'Linear')
                         R1 = I1;
@@ -111,9 +121,15 @@ classdef Layer
             elseif strcmp(parallel, 'single') % use single core for computing
                 
                 for i=1:p
-                    I = inputSetArray(i);               
-                                                
-                    I1 = I.affineMap(obj.W, 'vrep') + obj.b;
+                    I = inputSetArray(i);
+   
+                    if isa(I, 'Polyhedron')                            
+                        I1 = I.affineMap(obj.W, 'vrep') + obj.b;
+                    elseif isa(I, 'Star')
+                        I1 = I.affineMap(obj.W, obj.b);
+                    else
+                        error('Unknown set type');
+                    end
                     
                     if strcmp(obj.f, 'Linear')
                         R1 = I1;
@@ -134,6 +150,7 @@ classdef Layer
             
             t = toc(t1);              
         end
+        
         
         
         % over-approximate reach set using polyhedron 

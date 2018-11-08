@@ -23,11 +23,11 @@ Z12 = Z1.convexHull(Z2);
 S12 = S1.convexHull(S2);
 
 figure;
-Z12.plot;
-hold on;
 S1.plot;
 hold on;
 S2.plot;
+figure;
+S12.plot;
 
 figure;
 S12.plot;

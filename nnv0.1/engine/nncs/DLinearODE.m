@@ -122,13 +122,13 @@ classdef DLinearODE
                 error('Set of control input is not a polyhedron');
             end
             
-            if ~isempty(I)
+            if ~isempty(I) && ~I.isEmptySet
                 P1 = I.affineMap(obj.A);
             else
                 P1 = [];
             end
             
-            if ~isempty(U)
+            if ~isempty(U) && ~U.isEmptySet
                 P2 = U.affineMap(obj.B);
             else
                 P2 = [];

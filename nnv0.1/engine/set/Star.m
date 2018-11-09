@@ -50,8 +50,6 @@ classdef Star
         function bool = isEmptySet(obj)
             P = Polyhedron(obj.C, obj.d);
             bool = P.isEmptySet();
-            c = obj.V(:,1);
-            bool = bool && (norm(c, 1) ~= 0);
         end
         
         % check if a star set is a subset of other
@@ -354,10 +352,10 @@ classdef Star
         function B = getBox(obj)
             
             lb = zeros(obj.dim, 1);
-            ub = zeros(obj.dim, 1);
+            ub = zeros(obj.dim, 1); 
             
             for i=1:obj.dim
-                f = obj.V(i, 2:size(obj.V, 2));
+                f = obj.V(i, 2:obj.nVar + 1);
                 [~, fval] = linprog(f, obj.C, obj.d);
                 lb(i) = fval + obj.V(i, 1);
                 [~, fval] = linprog(-f, obj.C, obj.d);

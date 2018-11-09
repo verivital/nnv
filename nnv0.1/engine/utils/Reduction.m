@@ -914,12 +914,12 @@ classdef Reduction
             % @P: hull of polyhedra
             
             n = length(I);
-            V = [];
             for i=1:n
-                V = [V I(i).V'];
+                V(i) = I(i);
             end
             
-            P = Polyhedron(V').minHRep;
+            U = PolyUnion('Set', V);
+            P = U.convexHull;
                         
         end
         

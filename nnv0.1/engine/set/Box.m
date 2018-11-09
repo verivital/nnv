@@ -5,6 +5,7 @@ classdef Box
     properties
         lb = [];
         ub = [];
+        dim = 0;
         center = []; 
         generators = []; 
     end
@@ -29,6 +30,7 @@ classdef Box
             
             obj.lb = lb;
             obj.ub = ub;
+            obj.dim = length(lb);
             
             obj.center = 0.5 * (lb + ub);
             vec = 0.5 * (ub - lb);
@@ -91,16 +93,33 @@ classdef Box
         
         % transform box to star set
         function S = toStar(obj)
+                        
+            c = 0.5 * (obj.lb + obj.ub);
+            vec = 0.5 * (obj.ub - obj.lb);  
+           
+            V = [];
+            alp_min = [];
+            alp_max = [];
+            for i=1:obj.dim
+                if vec(i) ~= 0
+                    gen = zeros(obj.dim, 1);
+                    gen(i) = vec(i);
+                    V = [V gen]; 
+                    alp_min = [alp_min obj.lb(i)];
+                    alp_max = [alp_max obj.ub(i)];
+                                       
+                end                
+            end
             
-            c = (obj.lb + obj.ub)/2;
-            V = obj.generators;
-            n = size(obj.lb, 1);
-            lb1 = -ones(n, 1);
-            ub1 = ones(n, 1);
-            P = Polyhedron('lb', lb1, 'ub', ub1);
-            
+            alp_min = alp_min';
+            alp_max = alp_max';
+           
+            n = length(alp_min);
+            C = vertcat(eye(n), -eye(n)); % constraint matrix
+            d = vertcat(alp_max, -alp_min); % constraint vector
+           
             V = horzcat(c, V);
-            S = Star(V, P.A, P.b);       
+            S = Star(V, C, d);       
         end
         
         % transform box to zonotope

@@ -122,12 +122,12 @@ classdef NNCS < handle
              obj.reachSetTree.addReachSet(init_set, 1); % add the init_set to the reachSetTree
 
              for i=2:n_steps + 1                 
-                 fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);
-                 display(fb_I{1, 1});
+                 fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                  input_set = obj.nextInputSetPolyhedron(fb_I{1});
-                 display(input_set);
                  [U,~] = obj.controller.reach(input_set, 'exact', 1, []); % control set at step i
                  U1 = Reduction.fastHull(U);
+                 %U1 = Reduction.hypercubeHull(U);
+                 %U1 = U1.toPolyhedron;
                  R = obj.plant.stepReachPolyhedron(fb_I{1}(length(fb_I{1})), U1);                 
                  obj.reachSetTree.addReachSet(R, i);                 
              end

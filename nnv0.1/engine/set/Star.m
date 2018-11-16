@@ -354,14 +354,59 @@ classdef Star
             lb = zeros(obj.dim, 1);
             ub = zeros(obj.dim, 1); 
             
+            options = optimset('Display','none');
+            
             for i=1:obj.dim
                 f = obj.V(i, 2:obj.nVar + 1);
-                [~, fval] = linprog(f, obj.C, obj.d);
-                lb(i) = fval + obj.V(i, 1);
-                [~, fval] = linprog(-f, obj.C, obj.d);
-                ub(i) = -fval + obj.V(i, 1);
+                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                if exitflag > 0
+                    lb(i) = fval + obj.V(i, 1);
+                else
+                    error('Cannot find an optimal solution');
+                end
+                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                                
+                if exitflag > 0
+                    ub(i) = -fval + obj.V(i, 1);
+                else
+                    error('Cannot find an optimal solution');
+                end
+                
             end           
             B = Box(lb, ub);           
+        end
+        
+        % find range of a state at specific position
+        function [xmin, xmax] = getRange(obj, index)
+            % @index: position of the state
+            % range: min and max values of x[index]
+            
+            % author: Dung Tran
+            % date: 11/16/2018
+            
+            if index < 1 || index > obj.dim
+                error('Invalid index');
+            end
+            
+            options = optimset('Display','none');
+            
+            f = obj.V(index, 2:obj.nVar + 1);
+            [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+            
+            if exitflag > 0
+                xmin = fval + obj.V(index, 1);
+            else
+                error('Cannot find an optimal solution');
+            end          
+            
+            [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+            if exitflag > 0
+                xmax = -fval + obj.V(index, 1);
+            else
+                error('Cannot find an optimal solution');
+            end
+           
+            
         end
         
         % find a oriented box bounding a star
@@ -374,12 +419,28 @@ classdef Star
             lb = zeros(obj.dim, 1);
             ub = zeros(obj.dim, 1);
             
+            options = optimset('Display','none');
+            
             for i=1:obj.dim
                 f = S(i, :);
-                [~,fval] = linprog(f, obj.C, obj.d);
-                lb(i) = fval;
-                [~, fval] = linprog(-f, obj.C, obj.d);
-                ub(i) = -fval;
+                [~,fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                
+                if exitflag > 0
+                    lb(i) = fval;
+                else
+                    error('Cannot find an optimal solution');
+                end
+                
+                
+                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                
+                if exitflag > 0
+                    ub(i) = -fval;
+                else
+                    error('Cannot find an optimal solution');
+                end
+                
+                
             end
             
             new_V = [obj.V(:,1) Q];
@@ -417,7 +478,7 @@ classdef Star
     
     methods(Static)
         
-        % plot an array of Star
+        % plot an array of Star (plot exactly, this is time consuming)
         function plots(S)
             % @S: an array of Stars
             
@@ -429,6 +490,181 @@ classdef Star
             S(n).plot;
             
         end
+        
+        
+        % plot an array of Stars using 2D boxes
+        % plot list of boxes in 2D
+        function plotBoxes_2D(stars, x_pos, y_pos, color)
+            % plot stars using two dimension boxes
+            % author: Dung Tran
+            % date: 11/16/2018
+                     
+            n = length(stars);
+            xmin = zeros(n,1);
+            xmax = zeros(n,1);
+            ymin = zeros(n,1);
+            ymax = zeros(n,1);
+            
+            for i=1:n
+                if isa(stars(i), 'Star')
+                    [xmin(i), xmax(i)] = stars(i).getRange(x_pos);
+                    [ymin(i), ymax(i)] = stars(i).getRange(y_pos);
+                else
+                    error('%d th input object is not a star', i);
+                end
+            end
+            
+                        
+            for i=1:n
+                                
+                x = [xmin(i) xmax(i) xmax(i) xmin(i)];
+                y = [ymin(i) ymin(i) ymax(i) ymax(i)];
+                
+                hold on;
+                patch(x, y, color);
+                                
+            end
+             
+        end
+        
+        % plot list of boxes in 2D with no fill
+        function plotBoxes_2D_noFill(stars, x_pos, y_pos, color)
+            % plot stars using two dimension boxes without filling
+            % author: Dung Tran
+            % date: 11/16/2018
+            
+            n = length(stars);
+            xmin = zeros(n,1);
+            xmax = zeros(n,1);
+            ymin = zeros(n,1);
+            ymax = zeros(n,1);
+            
+            for i=1:n
+                if isa(stars(i), 'Star')
+                    [xmin(i), xmax(i)] = stars(i).getRange(x_pos);
+                    [ymin(i), ymax(i)] = stars(i).getRange(y_pos);
+                else
+                    error('%d th input object is not a star', i);
+                end
+            end
+            
+                        
+            for i=1:n
+                                
+                x = [xmin(i) xmax(i) xmax(i) xmin(i) xmin(i)];
+                y = [ymin(i) ymin(i) ymax(i) ymax(i) ymin(i)];
+                
+                hold on;
+                plot(x, y, color);
+                                
+            end
+            
+        end
+        
+        
+        % plot list of boxes in 3D
+        function plotBoxes_3D(boxes, x_pos, y_pos, z_pos, color)
+            
+            n = length(boxes);
+            
+            for i=1:n
+                if ~isa(boxes(i), 'Box')
+                    error('plot object is not a box');
+                end
+
+                if x_pos > boxes(i).dim || y_pos > boxes(i).dim || z_pos > boxes(i).dim
+                    error('Invalid x_pos, y_pos or z_pos');
+                end
+                
+                p1 = [boxes(i).lb(x_pos) boxes(i).lb(y_pos) boxes(i).lb(z_pos)];
+                p2 = [boxes(i).ub(x_pos) boxes(i).lb(y_pos) boxes(i).lb(z_pos)];
+                p3 = [boxes(i).ub(x_pos) boxes(i).lb(y_pos) boxes(i).ub(z_pos)];
+                p4 = [boxes(i).lb(x_pos) boxes(i).lb(y_pos) boxes(i).ub(z_pos)];
+                p5 = [boxes(i).ub(x_pos) boxes(i).ub(y_pos) boxes(i).lb(z_pos)];
+                p6 = [boxes(i).ub(x_pos) boxes(i).ub(y_pos) boxes(i).ub(z_pos)];
+                p7 = [boxes(i).lb(x_pos) boxes(i).ub(y_pos) boxes(i).ub(z_pos)];
+                p8 = [boxes(i).lb(x_pos) boxes(i).ub(y_pos) boxes(i).lb(z_pos)];
+                
+                % line p1->p2->p3 ->p4->p1
+                                
+                p = vertcat(p1, p2, p3, p4, p1);
+                p = p';
+                x = p(1,:);
+                y = p(2, :);
+                z = p(3, :);
+                          
+                               
+                plot3(x, y, z, color);
+                
+                
+                % line p5->p6->p7->p8->p5
+               
+                
+                p = vertcat(p5, p6, p7, p8, p5);
+                p = p';
+                x = p(1,:);
+                y = p(2, :);
+                z = p(3, :);
+                
+                
+                hold on;                
+                plot3(x, y, z, color);
+                
+                % line p4->p7
+                
+                p = vertcat(p4, p7);
+                p = p';
+                x = p(1,:);
+                y = p(2, :);
+                z = p(3, :);
+                
+                
+                hold on;                
+                plot3(x, y, z, color);
+                
+                
+                % line p3->p6
+                p = vertcat(p3, p6);
+                p = p';
+                x = p(1,:);
+                y = p(2, :);
+                z = p(3, :);
+                
+                
+                hold on;                
+                plot3(x, y, z, color);
+                
+                % line p1->p8
+                p = vertcat(p1, p8);
+                p = p';
+                x = p(1,:);
+                y = p(2, :);
+                z = p(3, :);
+
+                hold on;                
+                plot3(x, y, z, color);
+                
+                % line p2->p5
+                
+                p = vertcat(p2, p5);
+                p = p';
+                
+                x = p(1,:);
+                y = p(2, :);
+                z = p(3, :);
+                
+               
+                hold on;                
+                plot3(x, y, z, color);
+                
+                hold on;
+                                
+            end
+            
+            hold off;
+            
+        end
+        
         
     end
     

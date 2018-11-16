@@ -563,27 +563,41 @@ classdef Star
         
         
         % plot list of boxes in 3D
-        function plotBoxes_3D(boxes, x_pos, y_pos, z_pos, color)
+        function plotBoxes_3D(stars, x_pos, y_pos, z_pos, color)
+            % plot stars using three dimensionall boxes
+            % author: Dung Tran
+            % date: 11/16/2018
             
-            n = length(boxes);
+            
+            n = length(stars);
+            xmin = zeros(n,1);
+            xmax = zeros(n,1);
+            ymin = zeros(n,1);
+            ymax = zeros(n,1);
+            zmin = zeros(n,1);
+            zmax = zeros(n,1);
             
             for i=1:n
-                if ~isa(boxes(i), 'Box')
-                    error('plot object is not a box');
+                if isa(stars(i), 'Star')
+                    [xmin(i), xmax(i)] = stars(i).getRange(x_pos);
+                    [ymin(i), ymax(i)] = stars(i).getRange(y_pos);
+                    [zmin(i), zmax(i)] = stars(i).getRange(z_pos);
+                else
+                    error('%d th input object is not a star', i);
                 end
-
-                if x_pos > boxes(i).dim || y_pos > boxes(i).dim || z_pos > boxes(i).dim
-                    error('Invalid x_pos, y_pos or z_pos');
-                end
-                
-                p1 = [boxes(i).lb(x_pos) boxes(i).lb(y_pos) boxes(i).lb(z_pos)];
-                p2 = [boxes(i).ub(x_pos) boxes(i).lb(y_pos) boxes(i).lb(z_pos)];
-                p3 = [boxes(i).ub(x_pos) boxes(i).lb(y_pos) boxes(i).ub(z_pos)];
-                p4 = [boxes(i).lb(x_pos) boxes(i).lb(y_pos) boxes(i).ub(z_pos)];
-                p5 = [boxes(i).ub(x_pos) boxes(i).ub(y_pos) boxes(i).lb(z_pos)];
-                p6 = [boxes(i).ub(x_pos) boxes(i).ub(y_pos) boxes(i).ub(z_pos)];
-                p7 = [boxes(i).lb(x_pos) boxes(i).ub(y_pos) boxes(i).ub(z_pos)];
-                p8 = [boxes(i).lb(x_pos) boxes(i).ub(y_pos) boxes(i).lb(z_pos)];
+            end
+            
+            
+            for i=1:n
+                                
+                p1 = [xmin(i) ymin(i) zmin(i)];
+                p2 = [xmax(i) ymin(i) zmin(i)];
+                p3 = [xmax(i) ymin(i) zmax(i)];
+                p4 = [xmin(i) ymin(i) zmax(i)];
+                p5 = [xmax(i) ymax(i) zmin(i)];
+                p6 = [xmax(i) ymax(i) zmax(i)];
+                p7 = [xmin(i) ymax(i) zmax(i)];
+                p8 = [xmin(i) ymax(i) zmin(i)];
                 
                 % line p1->p2->p3 ->p4->p1
                                 

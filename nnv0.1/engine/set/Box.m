@@ -195,7 +195,7 @@ classdef Box
             
         end
         
-         % plot list of boxes in 2D
+        % plot list of boxes in 2D
         function plotBoxes_2D(boxes, x_pos, y_pos, color)
             % plot two dimension boxes
             

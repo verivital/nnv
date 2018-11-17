@@ -71,6 +71,20 @@ classdef Conversion
                           
          end
          
+         % to Box
+         function B = toBox(P)
+             % convert a Polyhedron to a Box
+             if ~isa(P, 'Polyhedron')
+                 error('Input is not a polyhedron');
+             end
+             
+             P.outerApprox;
+             lb = P.Internal.lb;
+             ub = P.Internal.ub;
+             B = Box(lb, ub);
+
+         end
+         
          % get range of Polyhedron at specific index
          function [xmin, xmax] = getRange(Ps, index)
              % @P: an array of polyhedra.

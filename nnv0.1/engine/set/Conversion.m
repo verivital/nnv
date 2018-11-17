@@ -1,5 +1,5 @@
 classdef Conversion
-    %Conversion class contains some basic conversion method for merging polyhedra 
+    %Conversion class contains some basic conversion methodd for merging polyhedra 
     %   Dung Tran
     
     properties
@@ -50,6 +50,70 @@ classdef Conversion
              P = Polyhedron('A', A, 'b', b);
              
          end
+         
+         % to Star
+         function S = toStar(P)
+             % convert a Polyhedron to a Star
+             % Author: Dung Tran
+             % Date: 11/16/2018
+             
+             if ~isa(P, 'Polyhedron')
+                 error('Input is not a polyhedron');
+             end
+             
+             dim = P.Dim;
+             P1 = Conversion.removeEqualities(P);
+             
+             c = zeros(dim, 1);
+             V = eye(dim);
+             
+             S = Star([c V], P1.A, P1.b);
+                          
+         end
+         
+         % get range of Polyhedron at specific index
+         function [xmin, xmax] = getRange(Ps, index)
+             % @P: an array of polyhedra.
+             % @index: index
+             
+             % Dung Tran
+             % date: 11/16/2018
+             
+             n = length(Ps); % number of polyhedra
+             xmin = zeros(n,1);
+             xmax = zeros(n,1);
+             for i=1:n 
+                 
+                P = Ps(i);
+                if ~isa(P, 'Polyhedron')
+                   error('Input is not a polyhedron');
+                end
+    
+                dim = P.Dim;
+                f = zeros(1, dim);
+                f(index) = 1;
+                options = optimset('Display','none');
+                [~, fval, exitflag, ~] = linprog(f, P.A, P.b, P.Ae, P.be, [], [], [], options);
+            
+                if exitflag > 0
+                    xmin(i) = fval;
+                else
+                    error('Cannot find an optimal solution');
+                end          
+
+                [~, fval, exitflag, ~] = linprog(-f, P.A, P.b, P.Ae, P.be, [], [], [], options);
+                if exitflag > 0
+                    xmax(i) = -fval;
+                else
+                    error('Cannot find an optimal solution');
+                end
+                
+             end
+             
+                          
+         end
+         
+         
     end
     
 end

@@ -255,6 +255,19 @@ classdef DLinearODE
             
         end
         
+        % reachability analysis of DLinearODE using box
+        function B = stepReachBox(obj, I, U)
+            % @I: set of initial condition (a box)
+            % @U: set of control input (a box)
+            % @R: state reachable set (a box)
+            
+            I1 = I.toZono;
+            U1 = U.toZono;
+            Z = obj.stepReachZono(I1, U1);
+            B = Z.getBox;
+            
+        end
+        
         
     end
     

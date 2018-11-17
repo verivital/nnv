@@ -86,8 +86,9 @@ classdef NNCS < handle
             
         end
         
-        
          % reachability analysis of NNCS using polyhedron
+         % main limitation: the number of vertices in the reachable set
+         % increase quickly which affects the scalability of this approach
         function [P, reachTime] = reachPolyhedron_approx(obj, init_set, ref_inputSet, n_steps)
              % @init_set: the initial set of condition for the plant
              % @ref_inputSet: the reference input set applied to the controller
@@ -137,6 +138,62 @@ classdef NNCS < handle
              obj.totalNumOfReachSet = obj.reachSetTree.getTotalNumOfReachSet();
              
         end
+        
+        
+        % reachability analysis of nncs using zonotope
+        % output reach set of controller is a single box
+        % the plant reachable set is a zonotope
+        function [P, reachTime] = reach_zono(obj, init_set, ref_inputSet, n_cores, n_steps)
+             % @init_set: the initial set of condition for the plant
+             % @ref_inputSet: the reference input set applied to the controller
+             % @n_steps: number of steps 
+             % @P: the state reachable set of the plant
+             %     we get the output reachable set by mapping P on the
+             %     direction of interest plant.C
+
+             % author: Dung Tran
+             % date: 11/16/2018
+             
+             start_time = tic; 
+             if ~isa(obj.plant, 'DLinearODE')
+                 error('Reachability analysis of NNCS using Polyhedron only supports for Discrete linear ODE plant');
+             end
+
+             if ~isa(init_set, 'Polyhedron')
+                 error('Initial set of the plant is not a Box');
+             end
+
+             if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Polyhedron')
+                 error('The reference input set is not a polyhedron');
+             end
+
+             if n_steps < 1
+                 error('Number of steps should be >= 1');
+             end
+             
+             obj.reachSetTree = SetTree(n_steps + 1); % initialize reach set tree
+             obj.init_set = init_set;
+             obj.ref_I = ref_inputSet;
+             obj.reachSetTree.addReachSet(init_set, 1); % add the init_set to the reachSetTree
+
+             for i=2:n_steps + 1                 
+                 fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
+                 input_set = obj.nextInputSetPolyhedron(fb_I{1});
+                 [U,~] = obj.controller.reach(input_set, 'exact', 1, []); % control set at step i
+                 U1 = Reduction.hypercubeHull(U);
+                 % to do:
+                 plant_I = fb_I{1}(length(fb_I{1}));
+                 R = obj.plant.stepReachBox(plant_I, U1);                 
+                 obj.reachSetTree.addReachSet(R, i);                 
+             end
+             reachTime = toc(start_time);
+             obj.reachTime = reachTime;
+             P = obj.reachSetTree.flatten();
+             obj.totalNumOfReachSet = obj.reachSetTree.getTotalNumOfReachSet();
+             
+             
+        end
+        
         
         % reach Polyhedron with exact reachable set computation
         

@@ -140,10 +140,10 @@ classdef NNCS < handle
         end
         
         
-        % reachability analysis of nncs using zonotope
-        % output reach set of controller is a single box
+        % reachability analysis of nncs using stars
+        % output reach set of controller is a single star
         % the plant reachable set is a zonotope
-        function [P, reachTime] = reach_zono(obj, init_set, ref_inputSet, n_cores, n_steps)
+        function [P, reachTime] = reach_star(obj, init_set, ref_inputSet, n_cores, n_steps)
              % @init_set: the initial set of condition for the plant
              % @ref_inputSet: the reference input set applied to the controller
              % @n_steps: number of steps 
@@ -159,12 +159,12 @@ classdef NNCS < handle
                  error('Reachability analysis of NNCS using Polyhedron only supports for Discrete linear ODE plant');
              end
 
-             if ~isa(init_set, 'Polyhedron')
-                 error('Initial set of the plant is not a Box');
+             if ~isa(init_set, 'Star')
+                 error('Initial set of the plant is not a Star');
              end
 
-             if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Polyhedron')
-                 error('The reference input set is not a polyhedron');
+             if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Star')
+                 error('The reference input set is not a Star');
              end
 
              if n_steps < 1
@@ -394,6 +394,86 @@ classdef NNCS < handle
             end
             
         end
+        
+        % get next step input set with Stars
+        function I = nextInputSetStar(obj, fb_I)
+            % @fb_I: feed back input set
+            
+            % author: Dung Tran
+            % date: 11/18/2018
+            
+            l = length(fb_I);
+            fb_inputSet = [];
+            if l > 0
+                for i=1:l
+                    fb_inputSet = [fb_inputSet fb_I(i).affineMap(obj.plant.C, 'vrep')];
+                end
+            end
+            n = size(obj.feedbackMap, 1);          
+            
+            if isempty(obj.ref_I) && isempty(fb_inputSet)
+                I = [];
+            end
+            if ~isempty(obj.ref_I) && isempty(fb_inputSet)
+                
+                lb = zeros(obj.nI_fb);
+                ub = zeros(obj.nI_fb);
+                
+                I2 = Polyhedron('lb', lb, 'ub', ub);
+                I = Conversion.concatenatePolyhedron([obj.ref_I I2]);
+                
+            end
+            
+            if ~isempty(obj.ref_I) && ~isempty(fb_inputSet)
+               
+                l = length(fb_inputSet);
+                nA = size(fb_inputSet(1).A,2);
+                I2 = [];
+                for i=1:n
+
+                    if l - obj.feedbackMap(i) <= 0
+                        I2 = [I2 Polyhedron('lb', zeros(nA, 1), 'ub', zeros(nA, 1))];
+                    else
+
+                        I2 = [I2 fb_inputSet(l - obj.feedbackMap(i))];
+
+                    end                
+
+                end
+
+                I = Conversion.concatenatePolyhedron([obj.ref_I I2]);
+            end
+            
+            
+            if isempty(obj.ref_I) && ~isempty(fb_inputSet)
+                
+                l = length(fb_inputSet);
+                nA = size(fb_inputSet(1).A,2);
+                I2 = [];
+                for i=1:n
+
+                    if l - obj.feedbackMap(i) <= 0
+                        I2 = [I2 Polyhedron('lb', zeros(nA, 1), 'ub', zeros(nA, 1))];
+                    else
+
+                        I2 = [I2 fb_inputSet(l - obj.feedbackMap(i))];
+
+                    end                
+
+                end
+                
+                lb = zeros(obj.nI_ref,1);
+                ub = zeros(obj.nI_ref,1);
+                I1 = Polyhedron('lb', lb, 'ub', ub);
+                I = Conversion.concatenatePolyhedron([I1 I2]);
+                
+            end
+            
+            
+            
+            
+        end
+       
                               
         
     end

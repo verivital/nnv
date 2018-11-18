@@ -116,7 +116,7 @@ classdef Box
            
             n = length(alp_min);
             C = vertcat(eye(n), -eye(n)); % constraint matrix
-            d = vertcat(alp_max, -alp_min); % constraint vector
+            d = ones(2*n, 1);
            
             V = horzcat(c, V);
             S = Star(V, C, d);       

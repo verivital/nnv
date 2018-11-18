@@ -127,8 +127,7 @@ classdef NNCS < handle
                  input_set = obj.nextInputSetPolyhedron(fb_I{1});
                  [U,~] = obj.controller.reach(input_set, 'exact', 1, []); % control set at step i
                  U1 = Reduction.fastHull(U);
-                 %U1 = Reduction.hypercubeHull(U);
-                 %U1 = U1.toPolyhedron;
+                
                  R = obj.plant.stepReachPolyhedron(fb_I{1}(length(fb_I{1})), U1);                 
                  obj.reachSetTree.addReachSet(R, i);                 
              end
@@ -178,12 +177,12 @@ classdef NNCS < handle
 
              for i=2:n_steps + 1                 
                  fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
-                 input_set = obj.nextInputSetPolyhedron(fb_I{1});
-                 [U,~] = obj.controller.reach(input_set, 'exact', 1, []); % control set at step i
-                 U1 = Reduction.hypercubeHull(U);
-                 % to do:
-                 plant_I = fb_I{1}(length(fb_I{1}));
-                 R = obj.plant.stepReachBox(plant_I, U1);                 
+                 input_set = obj.nextInputSetStar(fb_I{1});
+                 [U,~] = obj.controller.reach(input_set, 'exact', n_cores, []); % control set at step i
+                 U1 = Star.get_hypercube_hull(U);
+                 display(U1);
+                 U1 = U1.toStar();                 
+                 R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
                  obj.reachSetTree.addReachSet(R, i);                 
              end
              reachTime = toc(start_time);
@@ -406,9 +405,18 @@ classdef NNCS < handle
             fb_inputSet = [];
             if l > 0
                 for i=1:l
-                    fb_inputSet = [fb_inputSet fb_I(i).affineMap(obj.plant.C, 'vrep')];
+                    if ~isa(fb_I(i), 'Star')
+                        error('The %d th feedback input is not a Star', i);
+                    end
+                    
+                    fb_inputSet = [fb_inputSet fb_I(i).affineMap(obj.plant.C, [])];
                 end
+            end           
+            
+            if ~isa(obj.ref_I, 'Star')
+                error('Reference input is not a star');
             end
+            
             n = size(obj.feedbackMap, 1);          
             
             if isempty(obj.ref_I) && isempty(fb_inputSet)
@@ -416,23 +424,24 @@ classdef NNCS < handle
             end
             if ~isempty(obj.ref_I) && isempty(fb_inputSet)
                 
-                lb = zeros(obj.nI_fb);
-                ub = zeros(obj.nI_fb);
+                new_V = vertcat(obj.ref_I, zeros(obj.nI_fb, obj.ref_I.nVar + 1));
                 
-                I2 = Polyhedron('lb', lb, 'ub', ub);
-                I = Conversion.concatenatePolyhedron([obj.ref_I I2]);
+                I = Star(new_V, obj.ref_I.C, obj.ref_I.d);
                 
             end
             
             if ~isempty(obj.ref_I) && ~isempty(fb_inputSet)
                
                 l = length(fb_inputSet);
-                nA = size(fb_inputSet(1).A,2);
+                nA = fb_inputSet(1).dim;
                 I2 = [];
                 for i=1:n
 
                     if l - obj.feedbackMap(i) <= 0
-                        I2 = [I2 Polyhedron('lb', zeros(nA, 1), 'ub', zeros(nA, 1))];
+                        
+                        P = Polyhedron('lb', zeros(nA, 1), 'ub', zeros(nA, 1));
+                        
+                        I2 = [I2 Conversion.toStar(P)];
                     else
 
                         I2 = [I2 fb_inputSet(l - obj.feedbackMap(i))];
@@ -441,7 +450,7 @@ classdef NNCS < handle
 
                 end
 
-                I = Conversion.concatenatePolyhedron([obj.ref_I I2]);
+                I = Star.concatenateStars([obj.ref_I I2]);
             end
             
             
@@ -453,7 +462,8 @@ classdef NNCS < handle
                 for i=1:n
 
                     if l - obj.feedbackMap(i) <= 0
-                        I2 = [I2 Polyhedron('lb', zeros(nA, 1), 'ub', zeros(nA, 1))];
+                        P = Polyhedron('lb', zeros(nA, 1), 'ub', zeros(nA, 1));
+                        I2 = [I2 Conversion.toStar(P)];
                     else
 
                         I2 = [I2 fb_inputSet(l - obj.feedbackMap(i))];
@@ -465,7 +475,7 @@ classdef NNCS < handle
                 lb = zeros(obj.nI_ref,1);
                 ub = zeros(obj.nI_ref,1);
                 I1 = Polyhedron('lb', lb, 'ub', ub);
-                I = Conversion.concatenatePolyhedron([I1 I2]);
+                I = Star.concatenateStars([Conversion.toStar(I1) I2]);
                 
             end
             

@@ -397,6 +397,7 @@ classdef Star
             options = optimset('Display','none');
             
             f = obj.V(index, 2:obj.nVar + 1);
+           
             [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
             
             if exitflag > 0
@@ -752,7 +753,33 @@ classdef Star
             
         end
         
+        % concatenate many stars
         
+        function S = concatenateStars(stars)
+            % @stars: an array of stars
+            
+            new_c = [];
+            new_V = [];
+            new_C = [];
+            new_d = [];
+            
+            n = length(stars);
+            
+            for i=1:n
+                if ~isa(stars(i), 'Star')
+                    error('The %d th input is not a Star', i);
+                end
+                
+                new_c = vertcat(new_c, stars(i).V(:,1));
+                new_V = blkdiag(new_V, stars(i).V(:, 2:stars(i).nVar + 1));
+                new_C = blkdiag(new_C, stars(i).C);
+                new_d = vertcat(new_d, stars(i).d);
+                
+            end
+            
+            S = Star([new_c new_V], new_C, new_d);
+           
+        end
        
         
         

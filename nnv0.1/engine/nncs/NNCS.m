@@ -180,7 +180,7 @@ classdef NNCS < handle
                  input_set = obj.nextInputSetStar(fb_I{1});
                  [U,~] = obj.controller.reach(input_set, 'exact', n_cores, []); % control set at step i
                  U1 = Star.get_hypercube_hull(U);
-                 display(U1);
+                 
                  U1 = U1.toStar();                 
                  R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
                  obj.reachSetTree.addReachSet(R, i);                 

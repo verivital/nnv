@@ -168,7 +168,13 @@ classdef Star
             new_C = vertcat(obj.C, C1);
             new_d = vertcat(obj.d, d1);
             
-            S = Star(obj.V, new_C, new_d);
+            P = Polyhedron('A', new_C, 'b', new_d);
+            
+            if P.isEmptySet
+                S = [];
+            else    
+                S = Star(obj.V, new_C, new_d);
+            end
             
         end
         
@@ -676,6 +682,42 @@ classdef Star
             end
             
             hold off;
+            
+        end
+        
+        
+        % bound a set of stars by a box
+        function B = get_hypercube_hull(stars)
+            % @stars: an array of stars
+            % @S: a box (represented as a star)
+            
+            n = length(stars);
+            
+            dim = stars(1).dim;
+            
+            for i=2:n
+                
+                if ~isa(stars(i), 'Star')
+                    error('The %d th object is not a star', i);
+                end                
+                if stars(i).dim ~= dim
+                    error('Inconsistent dimensions between stars');
+                end
+                
+            end
+            
+            lb = [];
+            ub = [];
+            for i=1:n
+                B1 = stars(i).getBox();
+                lb = [lb B1.lb];
+                ub = [ub B1.ub];
+            end
+            
+            lb = min(lb, [], 2);
+            ub = max(ub, [], 2);
+            
+            B = Box(lb, ub);            
             
         end
         

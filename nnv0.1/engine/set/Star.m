@@ -480,6 +480,37 @@ classdef Star
                         
         end
         
+        % concatenate with other star
+        function S = concatenate(obj, X)
+            % @X: input star
+            % @S: output star with is the concatenation of obj and X
+            
+            % author: Dung Tran
+            % date: 11/18/2018
+            
+            if ~isa(X, 'Star')
+                error('Input is not a Star');
+            end
+            
+            c1 = obj.V(:, 1);
+            c2 = X.V(:, 1);
+            
+            V1 = obj.V(:, 2:obj.nVar+1);
+            V2 = X.V(:, 2:X.nVar + 1);
+            
+            c = vertcat(c1, c2);
+            
+            V1 = vertcat(V1, zeros(X.dim, obj.nVar));
+            V2 = vertcat(zeros(obj.dim, X.nVar), V2);
+            
+            new_V = horzcat(c, V1, V2);
+            new_C = blkdiag(obj.C, X.C);
+            new_d = vertcat(obj.d, X.d);
+            
+            S = Star(new_V, new_C, new_d);            
+            
+        end
+        
     end
     
     methods(Static)
@@ -720,6 +751,9 @@ classdef Star
             B = Box(lb, ub);            
             
         end
+        
+        
+       
         
         
     end

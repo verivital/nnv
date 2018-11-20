@@ -19,9 +19,8 @@ ref_inputSet = Polyhedron('lb', 0.99, 'ub', 1);
 N = 5; % number of step
 n_cores = 1; % number of cores 
 
-[P1, reachTime1] = ncs.reachPolyhedron_approx(init_set, ref_inputSet, N);
-
-[P2, reachTime2] = ncs.reachPolyhedron_exact(init_set, ref_inputSet, n_cores, N);
+[P1, reachTime1] = ncs.reach('approx-polytope', init_set, ref_inputSet, n_cores, N);
+[P2, reachTime2] = ncs.reach('exact-polytope', init_set, ref_inputSet, n_cores, N);
 
 figure;
 P1.plot;

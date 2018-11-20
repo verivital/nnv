@@ -86,10 +86,49 @@ classdef NNCS < handle
             
         end
         
+        % main reachability analysis method
+        function [R, reachTime] = reach(obj, method, init_set, ref_inputSet, n_cores, n_steps)
+            % @method: methods for reachability analysis
+            %        1) 'approx-polytope': approx analysis using polytope
+            %        2) 'approx-star': approx analysis using star
+            %        3) 'exact-polytope': exact analysis using polytope
+            %        4) 'exact-star': exact analysis using star (not available)
+            % @n_cores: number of cores used in computation
+            % @init_set: initial set
+            % @ref_inputSet: reference input set
+            % @n_steps: number of reachability analysis steps
+            
+            % author: Dung Tran
+            % date: 11/20/2018
+            
+            if ~strcmp(method, 'approx-polytope') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'exact-polytope')
+                error('Unknown reachability analysis method');
+            end
+            
+            if (strcmp(method, 'approx-polytope') || strcmp(method, 'exact-polytope')) && isa(obj.plant, 'NonLinearODE')
+                error('Plant is a nonlinear ODE, please choose approx-star method');
+            end
+            
+            if strcmp(method, 'approx-polytope')
+               [R, reachTime] = obj.reachPolyhedron_approx(init_set, ref_inputSet, n_cores, n_steps);
+            end
+            
+            if strcmp(method, 'approx-star')
+                [R, reachTime] = obj.reach_star_approx(init_set, ref_inputSet, n_cores, n_steps);
+            end
+            
+            if strcmp(method, 'exact-polytope')
+                [R, reachTime] = obj.reachPolyhedron_exact(init_set, ref_inputSet, n_cores, n_steps);
+            end
+            
+        end
+        
+        
+        
          % reachability analysis of NNCS using polyhedron
          % main limitation: the number of vertices in the reachable set
          % increase quickly which affects the scalability of this approach
-        function [P, reachTime] = reachPolyhedron_approx(obj, init_set, ref_inputSet, n_steps)
+        function [P, reachTime] = reachPolyhedron_approx(obj, init_set, ref_inputSet, n_cores, n_steps)
              % @init_set: the initial set of condition for the plant
              % @ref_inputSet: the reference input set applied to the controller
              % @n_steps: number of steps 
@@ -125,7 +164,7 @@ classdef NNCS < handle
              for i=2:n_steps + 1                 
                  fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                  input_set = obj.nextInputSetPolyhedron(fb_I{1});
-                 [U,~] = obj.controller.reach(input_set, 'exact', 1, []); % control set at step i
+                 [U,~] = obj.controller.reach(input_set, 'exact', n_cores, []); % control set at step i
                  U1 = Reduction.fastHull(U);
                 
                  R = obj.plant.stepReachPolyhedron(fb_I{1}(length(fb_I{1})), U1);                 
@@ -142,7 +181,7 @@ classdef NNCS < handle
         % reachability analysis of nncs using stars
         % output reach set of controller is a single star
         % the plant reachable set is a zonotope
-        function [P, reachTime] = reach_star(obj, init_set, ref_inputSet, n_cores, n_steps)
+        function [P, reachTime] = reach_star_approx(obj, init_set, ref_inputSet, n_cores, n_steps)
              % @init_set: the initial set of condition for the plant
              % @ref_inputSet: the reference input set applied to the controller
              % @n_steps: number of steps 
@@ -154,8 +193,8 @@ classdef NNCS < handle
              % date: 11/16/2018
              
              start_time = tic; 
-             if ~isa(obj.plant, 'DLinearODE')
-                 error('Reachability analysis of NNCS using Polyhedron only supports for Discrete linear ODE plant');
+             if ~isa(obj.plant, 'DLinearODE') || ~isa(obj.plant, 'NonLinearODE')
+                 error('Reachability analysis of NNCS using Star only supports for DLinearODE or NonLinearODE plant');
              end
 
              if ~isa(init_set, 'Star')
@@ -175,12 +214,15 @@ classdef NNCS < handle
              obj.ref_I = ref_inputSet;
              obj.reachSetTree.addReachSet(init_set, 1); % add the init_set to the reachSetTree
 
-             for i=2:n_steps + 1                 
+             for i=2:n_steps + 1
+                 
+                 % reachability analysis for  controller
                  fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                  input_set = obj.nextInputSetStar(fb_I{1});
                  [U,~] = obj.controller.reach(input_set, 'exact', n_cores, []); % control set at step i
                  U1 = Star.get_hypercube_hull(U);
                  
+                 % reachability analysis for plant
                  U1 = U1.toStar();                 
                  R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
                  obj.reachSetTree.addReachSet(R, i);                 

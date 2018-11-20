@@ -18,7 +18,7 @@ init_set = Polyhedron('lb', lb, 'ub', ub);
 N = 10; % number of step
 n_cores = 1; % number of cores 
 
-[P1, reachTime1] = ncs.reachPolyhedron_approx(init_set, [], N);
+[P1, reachTime1] = ncs.reach('approx-polytope', init_set, [], n_cores, N);
 
 % plot output (position x[1] and velocity x[2])
 maps = [1 0 0 0; 0 1 0 0]; 

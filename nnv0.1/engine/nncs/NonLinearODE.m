@@ -12,11 +12,12 @@ classdef NonLinearODE < handle
     methods
         
         % constructor
-        function obj = nonLinearODE(dim, nI, dynamics_func)
+        function obj = NonLinearODE(dim, nI, dynamics_func)
             % construct nonLinearODE plant
             % @dim: dimension of the plant
             % @nI: number of input
-            % @dynamics_func: dynamics of the plant
+            % @dynamics_func: dynamics of the plant, the input should have
+            % @ character to specify function, for example @car_dynamics
             
             % author: Dung Tran
             % date: 11/19/2018
@@ -43,7 +44,7 @@ classdef NonLinearODE < handle
             option.R0 = []; % initial set for reachability analysis
             option.timeStep = 0.1; % time step for reachable set computation
             option.taylorTerms = 4; % number of taylor terms for reachable sets
-            option.zonotopOrder = 2; % zonotope order
+            option.zonotopeOrder = 2; % zonotope order
             option.intermediateOrder = 5; 
             option.reductionTechnique = 'girard';
             option.errorOrder = 1;
@@ -52,6 +53,7 @@ classdef NonLinearODE < handle
             option.maxError = 0.5*ones(dim, 1);
             option.advancedLinErrorComp = 0;
             option.tensorOrder=2;
+            option.uTrans = 0;
             
             obj.options = option; % default option
             
@@ -199,11 +201,57 @@ classdef NonLinearODE < handle
             obj.options.x0 = x0;
         end
         
+        % set time step 
+        function set_timeStep(obj, timeStep)
+            if timeStep <= 0
+                error('Invalid time step');
+            end
+            obj.options.timeStep = timeStep;
+        end
+        
     end
     
     
     % reachability anlaysis method
     methods
+        
+        % reachability analysis using zonotope
+        function [R, reachTime] = reach_zono(obj, init_set, input_set, timeStep, num_steps)
+           % @init_set: initial set of state
+           % @input_set: input set u
+           % @timeStep: time step in reachable set computation
+           % @num_steps: number of steps in reachable set computation
+           
+           % this is a grapper of reach method for nonlinear system in CORA
+           % the initial set and input set are Zono in nnv
+           
+           % author: Dung Tran
+           % date: 11/20/2018
+           
+           start = tic;
+           if ~isa(init_set, 'Zono')
+               error('Initial set is not a zonotope');
+           end
+           
+           if ~isa(input_set, 'Zono')
+               error('Input set is not a zonotope');
+           end
+           
+           R0 = zonotope([init_set.c, init_set.V]);
+           U = zonotope([input_set.c, input_set.V]);
+           
+           obj.set_R0(R0);
+           obj.set_U(U);
+           obj.set_timeStep(timeStep);
+           obj.set_tFinal(timeStep * num_steps);
+           
+           sys = nonlinearSys(obj.dim, obj.nI, obj.dynamics_func, obj.options); % CORA nonlinearSys class
+           R = reach(sys, obj.options); % CORA reach method using zonotope and conservative linearization
+           
+           reachTime = toc(start);
+           
+            
+        end
         
     end
     

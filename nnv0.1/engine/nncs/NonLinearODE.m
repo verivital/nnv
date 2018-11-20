@@ -6,7 +6,9 @@ classdef NonLinearODE < handle
         options = []; % option for recahable set computation
         dynamics_func = []; % function to describe dynamics of the system
         dim = 0; % dimension of the system (number of state variable)
-        nI = 0; % number of control input
+        nI = 0; % number of control inputs
+        nO = 0; % number of outputs
+        C; % output matrix y = Cx
     end
     
     methods
@@ -207,6 +209,16 @@ classdef NonLinearODE < handle
                 error('Invalid time step');
             end
             obj.options.timeStep = timeStep;
+        end
+        
+        % set output matrix
+        function set_output_mat(obj, output_mat)
+            if size(output_mat, 2) ~= obj.dim
+                error('Invalid output matrix');
+            end
+            
+            obj.nO = size(output_mat, 1);
+            obj.C = output_mat;
         end
         
     end

@@ -63,7 +63,7 @@ classdef NNCS < handle
                 error('The controller is not a feedforward neural network');
             end
             
-            if ~isa(plant, 'LinearODE') && ~isa(plant, 'DLinearODE')
+            if ~isa(plant, 'LinearODE') && ~isa(plant, 'DLinearODE') && ~isa(plant, 'NonLinearODE')
                 error('The plant is not a linear ode system or a discrete linear ode system');
             end            
                         
@@ -193,7 +193,7 @@ classdef NNCS < handle
              % date: 11/16/2018
              
              start_time = tic; 
-             if ~isa(obj.plant, 'DLinearODE') || ~isa(obj.plant, 'NonLinearODE')
+             if ~isa(obj.plant, 'DLinearODE') && ~isa(obj.plant, 'NonLinearODE')
                  error('Reachability analysis of NNCS using Star only supports for DLinearODE or NonLinearODE plant');
              end
 

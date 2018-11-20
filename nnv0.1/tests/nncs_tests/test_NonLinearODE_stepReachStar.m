@@ -23,16 +23,17 @@ ub = [51; 25.2; 11; 20.2];
 
 B1 = Box(lb, ub);
 
-init_set = B1.toZono; % initial set of state
+init_set = B1.toStar; % initial set of state
 
 lb = 0.9;
 ub = 1.0;
 B1 = Box(lb, ub);
 
-input_set = B1.toZono; % input set
+input_set = B1.toStar; % input set
 
-timeStep = 0.01;
-tFinal = 0.1;
+timeStep = 0.01; % time step for reachability analysis
+tFinal = 0.1; % final time for reachability analysis
+car.set_timeStep(timeStep);
+car.set_tFinal(tFinal);
 
-
-[R, reachTime] = car.reach_zono(init_set, input_set, timeStep, tFinal);
+R = car.stepReachStar(init_set, input_set); % return reach set at t = tFinal

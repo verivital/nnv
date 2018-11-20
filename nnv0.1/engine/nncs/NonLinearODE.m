@@ -38,11 +38,11 @@ classdef NonLinearODE < handle
             
             % default option
             option.tStart = 0;
-            option.tFinal = 1; % we provide method to change the option
+            option.tFinal = 0.1; % we provide method to change the option
             
             option.x0 = [];
             option.R0 = []; % initial set for reachability analysis
-            option.timeStep = 0.1; % time step for reachable set computation
+            option.timeStep = 0.01; % time step for reachable set computation
             option.taylorTerms = 4; % number of taylor terms for reachable sets
             option.zonotopeOrder = 2; % zonotope order
             option.intermediateOrder = 5; 
@@ -216,7 +216,7 @@ classdef NonLinearODE < handle
     methods
         
         % reachability analysis using zonotope
-        function [R, reachTime] = reach_zono(obj, init_set, input_set, timeStep, num_steps)
+        function [R, reachTime] = reach_zono(obj, init_set, input_set, timeStep, tFinal)
            % @init_set: initial set of state
            % @input_set: input set u
            % @timeStep: time step in reachable set computation
@@ -243,15 +243,49 @@ classdef NonLinearODE < handle
            obj.set_R0(R0);
            obj.set_U(U);
            obj.set_timeStep(timeStep);
-           obj.set_tFinal(timeStep * num_steps);
+           obj.set_tFinal(tFinal);
            
            sys = nonlinearSys(obj.dim, obj.nI, obj.dynamics_func, obj.options); % CORA nonlinearSys class
            R = reach(sys, obj.options); % CORA reach method using zonotope and conservative linearization
            
            reachTime = toc(start);
-           
+                   
+        end
+        
+        
+        % step reach using star set used for neural network control system
+        function S = stepReachStar(obj, init_set, input_set)
+            % @init_set: initial set, a star
+            % @input_set: input set, a star
+            % @R: reachable set at the timeStep, a star
+            
+            % author: Dung Tran
+            % date: 11/20/2018
+            
+            if ~isa(init_set, 'Star')
+                error('Initial set is not a star');
+            end
+            
+            if ~isa(input_set, 'Star')
+                error('Input set is not a star');
+            end
+            
+            I = init_set.getZono;
+            U = input_set.getZono;
+            
+            [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.options.tFinal);
+            
+            N = length(R);
+            Z = R{N,1}{1,1}; % get the last zonotope in the reach set
+            Z = Z.Z; % get c and V 
+            c = Z(:,1); % center vector
+            V = Z(:, 2:size(Z, 2)); % generators
+            
+            Z = Zono(c, V);
+            S = Z.toStar;
             
         end
+
         
     end
     

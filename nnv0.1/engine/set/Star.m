@@ -518,6 +518,37 @@ classdef Star
             
         end
         
+        % plot ranges of stars at specific dimension versus time series
+        function plotRanges_2D(stars, index, times, color)
+            % @stars: an array of stars
+            % @index: index of the specified dimension 
+            % @times: an array of time points
+            % @color: color of the plot
+            
+            % author: Dung Tran
+            % date: 11/21/2018
+            
+            if length(stars) ~= length(times)
+                error('Inconsistent length between stars and times');
+            end
+            
+            n = length(stars);
+            [ymin, ymax] = stars(1).getRange(index);
+            y = [ymin ymax];
+            x = [times(1) times(1)];
+            plot(x, y, color);
+            hold on;
+            
+            for i=2:n
+                [ymin, ymax] = stars(i).getRange(index);
+                y = [ymin ymin ymax ymax ymin];
+                x = [times(i-1) times(i) times(i) times(i-1) times(i-1)];
+                plot(x, y, color)
+                hold on; 
+            end
+            hold off;
+            
+        end
         
         % plot an array of Stars using 2D boxes
         % plot list of boxes in 2D

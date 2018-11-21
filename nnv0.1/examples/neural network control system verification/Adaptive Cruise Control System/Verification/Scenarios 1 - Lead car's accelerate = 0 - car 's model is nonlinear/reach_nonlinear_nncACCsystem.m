@@ -82,14 +82,45 @@ for i=1:N+1
 end
 
 figure;
-PLOT.plot_2d_box_noFill(S, 1, 2, 'blue');
+PLOT.plot_2d_box_noFill(S, 1, 2, 'blue'); % plot distance vs velocity
+hold on;
+PLOT.plot_2d_box_noFill(S1, 1, 2, 'red'); % plot safe distance vs. velocity
 title('Ego car reduces speed to keep a safe distance with the lead car');
 xlabel('Safe distances (red) and actual distances (blue)');
 ylabel('Velocity of ego car');
 
+
+% plot intermediate reach set (all reachable set of the plant) vs. time
+reachSet = ncs.plant.intermediate_reachSet;
+reachSet = [init_set reachSet]; % add init_set into the reachable set
+times = 0:0.01:N*0.1;
+
+dis = [];
+safe_dis = [];
+ego_vel = [];
+lead_vel = [];
+
+for i=1:length(reachSet)
+    dis = [dis reachSet(i).affineMap([1 0 -1 0], [])];
+    safe_dis = [safe_dis reachSet(i).affineMap([0 0 0 alp*t_gap], alp*D_default)];
+    ego_vel = [ego_vel reachSet(i).affineMap([0 0 0 1], [])];
+    lead_vel = [lead_vel reachSet(i).affineMap([0 1 0 0], [])];
+end
+
+% plot velocity, distance, safe_distance versus time
+figure;
+subplot(2, 1, 1);
+Star.plotRanges_2D(ego_vel, 1, times, 'blue'); % plot ego car's velocity versus time
 hold on;
-PLOT.plot_2d_box_noFill(S1, 1, 2, 'red');
-
-
-
+Star.plotRanges_2D(lead_vel, 1, times, 'green'); % plot ego car's velocity versus time
+xlabel('time (seconds)');
+ylabel('Velocity');
+title('Ego car velocity (blue) vs. lead car velocity (green)');
+subplot(2, 1, 2);
+Star.plotRanges_2D(dis, 1, times, 'blue'); % plot distance between two cars versus time 
+hold on;
+Star.plotRanges_2D(safe_dis, 1, times, 'red'); % plot safe distance versus time
+xlabel('time(seconds)');
+ylabel('Distance');
+title('Actual distance (blue) vs. safe distance (red)');
 

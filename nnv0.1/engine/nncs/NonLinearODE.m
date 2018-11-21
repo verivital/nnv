@@ -9,6 +9,9 @@ classdef NonLinearODE < handle
         nI = 0; % number of control inputs
         nO = 0; % number of outputs
         C; % output matrix y = Cx
+        
+        intermediate_reachSet = []; % intermediate reachable set between steps
+        % this is used to store all intermediate reachable sets of NNCS
     end
     
     methods
@@ -259,7 +262,7 @@ classdef NonLinearODE < handle
            
            sys = nonlinearSys(obj.dim, obj.nI, obj.dynamics_func, obj.options); % CORA nonlinearSys class
            R = reach(sys, obj.options); % CORA reach method using zonotope and conservative linearization
-           
+                     
            reachTime = toc(start);
                    
         end
@@ -295,6 +298,20 @@ classdef NonLinearODE < handle
             
             Z = Zono(c, V);
             S = Z.toStar;
+            
+            for i=1:N
+                N = length(R);
+                Z = R{i,1}{1,1}; 
+                Z = Z.Z; % get c and V 
+                c = Z(:,1); % center vector
+                V = Z(:, 2:size(Z, 2)); % generators
+
+                Z = Zono(c, V);
+                S = Z.toStar;
+                obj.intermediate_reachSet = [obj.intermediate_reachSet S];
+            end
+            
+            % the last zonotope in the reach set is returned
             
         end
 

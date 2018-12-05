@@ -34,6 +34,6 @@ B = Box(lb, ub);
 
 I = B.toStar;
 
-[R, t] = F.reach(I, 'exact', 4, []); % exact reach set
+[R, t] = F.reach(I, 'exact', 44, []); % exact reach set
 save F.mat F; % save the verified network
 F.print('F.info'); % print all information to a file

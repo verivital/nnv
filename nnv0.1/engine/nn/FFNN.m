@@ -75,6 +75,9 @@
             % @I: input set which is a polyhedron
             
             % @scheme: = 'exact' -> compute the exact reach set
+            %          - if I are Stars, we use exact method with star set
+            %          - if I are Polyhedron, we use exact method with
+            %          polyhedron set.
             %          = 'approx' -> compute the over-approximate reach
             %          set using boxes
             %          = 'mix' -> compute the over-approximate reach set

@@ -13,6 +13,7 @@ classdef Conv2DLayer < handle
     %   Dung Tran: 12/5/2018
     
     properties
+        Name = 'convolutional_layer';
         % Hyperparameters
         FilterSize = []; % height and width of filters
         NumChannels = 'auto';
@@ -58,7 +59,7 @@ classdef Conv2DLayer < handle
                 error('Number of Filters is at least one');
             end
             
-            obj.NumFilters = NumFilters;
+            obj.NumFilters = numFilters;
              
         end
         
@@ -149,11 +150,62 @@ classdef Conv2DLayer < handle
                 error('Inconsistency between weights and biases');
             end
             
+            if w(4) ~= obj.NumFilters
+                fprintf('\nInconsistency between weights and biases and number of filters parameter');
+                fprintf('\nNumber of filters is updated from %d to %d', obj.NumFilters, w(4));
+            end
+            obj.NumFilters = w(4);
+            
             obj.Weights = weights;
             obj.Bias = biases;
             
         end
         
+        % set name of this layer
+        function set_name(obj, name)
+            % @name: name of this layer
+            
+            % author: Dung Tran
+            % date: 12/5/2018
+            
+            if ischar(name)
+                obj.Name = name;
+            else
+                error('Input is not a character array');
+            end
+            
+        end
+        
     end
+    
+    
+    methods(Static)
+        
+        % parse a trained convolutional2dLayer from matlab
+        function L = parse(conv2dLayer)
+            % @conv2dLayer: a convolutional 2d layer from matlab deep
+            % neural network tool box
+            % @L : a Cov2DLayer for reachability analysis purpose
+            
+            % author: Dung Tran
+            % date: 12/5/2018
+            
+            
+            if ~isa(cov2dLayer, 'convolution2dLayer')
+                error('Input is not a Matlab convolution2dLayer class');
+            end
+            
+            L = Conv2DLayer(conv2dLayer.FilterSize, conv2dLayer.NumFilters);
+            L.set_stride(conv2dLayer.Stride);
+            L.set_dilation(conv2dLayer.DilationFactor);
+            L.set_padding(conv2dLayer.PaddingSize);
+            L.set_weights_biases(conv2dLayer.Weights, conv2dLayer.Bias);
+            
+            fprintf('Parsing a Matlab convolutional 2d layer is done successfully');
+            
+        end
+        
+    end
+    
 end
 

@@ -21,7 +21,7 @@ classdef Conv2DLayer < handle
         Stride = [1 1]; % step size for traversing input
         DilationFactor = [1 1]; % factor for dilated convolution
         PaddingMode = 'manual';
-        PaddingSize = [0 0 0 0]; % size of padding
+        PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
         
         % Learnable Parmeters/ Used for reachability analysis
         Weights = [];
@@ -202,6 +202,58 @@ classdef Conv2DLayer < handle
             L.set_weights_biases(conv2dLayer.Weights, conv2dLayer.Bias);
             
             fprintf('Parsing a Matlab convolutional 2d layer is done successfully');
+            
+        end
+        
+        % parse input image with padding
+        function I = get_input(input, paddingSize)
+            % @input: an array of input image, 1 or high-dimensional array
+            % @paddingSize: paddingSize to construct the new input I
+            % @I: the new input array affer applying padding
+            
+            % author: Dung Tran
+            % date: 12/10/2018
+            
+            n = size(input);
+            m = size(paddingSize);
+            if length(m)~= 2 || m(1) ~= 1 || m(2) ~= 4
+                error('Invalid PaddingSize');
+            else
+                t = paddingSize(1);
+                b = paddingSize(2);
+                l = paddingSize(3);
+                r = paddingSize(4);
+            end
+            
+            if length(n) == 2 
+                % input volume has only one channel                
+                h = n(1); % height of input
+                w = n(2); % width of input 
+                      
+                I = zeros(t + h + b, l + w + r);
+                I(t+1:t+h,l+1:l+w) = input; % new constructed input volume
+                
+            elseif length(n) > 2
+                % input volume may has more than one channel
+                
+                % input volume has only one channel                
+                h = n(1); % height of input
+                w = n(2); % width of input 
+                d = n(3); % depth of input (number of channel)
+                
+                for i=1:d
+                    I(:,:,i) = zeros(t + h + b, l + w + r);
+                    I(t+1:t+h, l+1:l+w, i) = input(:, :, i); % new constructed input volume
+                    
+                end              
+                
+                
+            else
+                error('Invalid input');
+            end
+                
+            
+            
             
         end
         

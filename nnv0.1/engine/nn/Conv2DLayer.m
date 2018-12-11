@@ -179,6 +179,50 @@ classdef Conv2DLayer < handle
     end
     
     
+    % evaluation method
+    methods
+        
+        function y = evaluate(obj, input)
+            % @input: 3-dimensional array, for example, input(:, :, :)
+            % @y: high-dimensional array (output volume), depth of output = number of filters
+            
+            % author: Dung Tran
+            % date: 12/10/2018
+            
+            
+            n = size(input);
+            w = size(obj.Weights);
+            
+            if length(n) ~= 3
+                error('Input should be a 3-dimensional array');
+            end
+            
+            if w(3) ~= n(3) % number of channels need to be consistent
+                error('Inconsistency between weights/biases and input');
+            end
+            
+            I = obj.get_input(input, obj.PaddingSize); % construct input with padding
+            
+            for i=1:w(4) % number of filters
+                % compute feature map with i^th filter 
+                for j=1:w(3) % filter for j^th channel of input 
+                    W = obj.Weights(:,:,j, i);                                   
+                    
+                    
+                    
+                    
+                end
+                
+                
+            end
+            
+            
+            
+        end
+    end
+    
+    
+    
     methods(Static)
         
         % parse a trained convolutional2dLayer from matlab
@@ -251,11 +295,30 @@ classdef Conv2DLayer < handle
             else
                 error('Invalid input');
             end
-                
+                         
+        end
+        
+        
+        % compute feature map for specific input and weight
+        function featureMap = compute_featureMap(I, W, stride, dilation)
+            % @I: is input (after padding)
+            % @W: is a weight matrix         
+            % @featureMap: convolved feature (also called feature map)
+            
+            % author: Dung Tran
+            % date: 12/10/2018
+            
+            % referece: https://ujjwalkarn.me/2016/08/11/intuitive-explanation-convnets/
+            
+            n = size(I); % n(1) is height and n(2) is width of input
+            w = size(W); % w(1) is height and w(2) is width of the filter
+            
+            
             
             
             
         end
+        
         
     end
     

@@ -302,7 +302,7 @@ classdef Conv2DLayer < handle
         % compute feature map for specific input and weight
         function featureMap = compute_featureMap(I, W, stride, dilation)
             % @I: is input (after padding)
-            % @W: is a weight matrix         
+            % @W: is a weight matrix (filter)        
             % @featureMap: convolved feature (also called feature map)
             
             % author: Dung Tran

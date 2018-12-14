@@ -300,10 +300,14 @@ classdef Conv2DLayer < handle
         
         
         % compute feature map for specific input and weight
-        function featureMap = compute_featureMap(I, W, stride, dilation)
+        function featureMap = compute_featureMap(I, W, stride, dilation, option)
             % @I: is input (after padding)
             % @W: is a weight matrix (filter)        
             % @featureMap: convolved feature (also called feature map)
+            % @option: = 'single' -> using single core for computation
+            %          = 'parallel-cpu' -> using several cores for
+            %          computation 
+            %          = 'parallel-gpu' -> using gpu for computation( not supported yet)
             
             % author: Dung Tran
             % date: 12/10/2018
@@ -311,11 +315,55 @@ classdef Conv2DLayer < handle
             % referece: https://ujjwalkarn.me/2016/08/11/intuitive-explanation-convnets/
             
             n = size(I); % n(1) is height and n(2) is width of input
-            w = size(W); % w(1) is height and w(2) is width of the filter
+            m = size(W); % m(1) is height and m(2) is width of the filter
             
+            % I, W is 2D matrix
+            % I is assume the input after zero padding
+            % output size: 
+            % (InputSize - (FilterSize - 1)*Dilation + 1)/Stride
             
+            h = floor((n(1) - (m(1) - 1) * dilation(1) - 1) / stride(1) + 1);  % height of feature map
+            w = floor((n(2) - (m(2) - 1) * dilation(2) - 1) / stride(2) + 1);  % width of feature map
+
+            % a collection of start points (the top-left corner of a square) of the region of input that is filtered
+            map = cell(h, w); 
             
+            for i=1:h
+                for j=1:w
+                    map{i, j} = zeros(1, 2);
+
+                    if i==1
+                        map{i, j}(1) = 1;
+                    end
+                    if j==1
+                        map{i, j}(2) = 1;
+                    end
+
+                    if i > 1
+                        map{i, j}(1) = map{i - 1, j}(1) + stride(1);
+                    end
+
+                    if j > 1
+                        map{i, j}(2) = map{i, j - 1}(2) + stride(2);
+                    end
+
+                end
+            end
             
+            % compute feature map for each cell of map
+            % do it in parallel using cpu or gpu
+            % TODO: explore power of using GPU for this problem
+            
+            featureMap = zeros(h*w, 1); % using single vector for parallel computation
+            
+            if strcmp(option, 'single')
+                
+            elseif strcmp(option, 'parallel-cpu')
+                
+            elseif strcmp(option, 'parallel-gpu')
+            else
+                error('Unknown computation option for computing feature map');
+            end
             
         end
         

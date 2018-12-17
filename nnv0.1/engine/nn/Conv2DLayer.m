@@ -215,6 +215,22 @@ classdef Conv2DLayer < handle
             end
                    
         end
+        
+        % parallel evaluation on an array of inputs
+        function y = evaluate_parallel(obj, inputs)
+            % @inputs: an array of inputs
+            % @y: an array of outputs 
+            
+            % author: Dung Tran
+            % date: 12/16/2018
+            y = [];
+            parfor i=1:length(inputs)
+                y = [y obj.evaluate(inputs(i))];               
+            end
+            
+            
+        end
+        
     end
     
     

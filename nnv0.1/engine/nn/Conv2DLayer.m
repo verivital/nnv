@@ -7,7 +7,7 @@ classdef Conv2DLayer < handle
     % 2) More detail about mathematical background of CNN
     %    http://cs231n.github.io/convolutional-networks/
     % 3) Matlab implementation of Convolution2DLayer (for training and evaluating purpose)
-    %    https://www.mathworks.com/help/deeplearning/ug/layers-of-a-convolutional-neural-network.html#ftn.d120e2890
+    %    https://www.mathworks.com/help/deeplearning/ug/layers-of-a-convolutional-neural-network.html
     %    https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.convolution2dlayer.html
     
     %   Dung Tran: 12/5/2018
@@ -201,23 +201,19 @@ classdef Conv2DLayer < handle
                 error('Inconsistency between weights/biases and input');
             end
             
-            I = obj.get_input(input, obj.PaddingSize); % construct input with padding
+            I = obj.get_input(input, obj.PaddingSize); % construct input with padding          
             
             for i=1:w(4) % number of filters
+                y(:, :, i) = obj.Bias(:, :, i) * ones(w(1), w(2)); % initialize output by bias matrix
                 % compute feature map with i^th filter 
                 for j=1:w(3) % filter for j^th channel of input 
-                    W = obj.Weights(:,:,j, i);                                   
-                    
-                    
-                    
-                    
+                    W1 = obj.Weights(:,:,j, i);   
+                    I1 = I(:, :, j); % the j^th input channel              
+                    y(:, :, i) = y(:, :, i) + obj.compute_featureMap(I1, W1, obj.Stride, obj.DilationFactor);
                 end
-                
-                
+                                
             end
-            
-            
-            
+                   
         end
     end
     
@@ -279,16 +275,14 @@ classdef Conv2DLayer < handle
                 
             elseif length(n) > 2
                 % input volume may has more than one channel
-                
-                % input volume has only one channel                
+                            
                 h = n(1); % height of input
                 w = n(2); % width of input 
                 d = n(3); % depth of input (number of channel)
-                
+               
                 for i=1:d
-                    I(:,:,i) = zeros(t + h + b, l + w + r);
+                    I(:, :, i) = zeros(t + h + b, l + w + r); % initialize input volume 
                     I(t+1:t+h, l+1:l+w, i) = input(:, :, i); % new constructed input volume
-                    
                 end              
                 
                 
@@ -300,14 +294,11 @@ classdef Conv2DLayer < handle
         
         
         % compute feature map for specific input and weight
-        function featureMap = compute_featureMap(I, W, stride, dilation, option)
+        function featureMap = compute_featureMap(I, W, stride, dilation)
             % @I: is input (after padding)
-            % @W: is a weight matrix (filter)        
+            % @W: is a weight matrix (filter) 
+     
             % @featureMap: convolved feature (also called feature map)
-            % @option: = 'single' -> using single core for computation
-            %          = 'parallel-cpu' -> using several cores for
-            %          computation 
-            %          = 'parallel-gpu' -> using gpu for computation( not supported yet)
             
             % author: Dung Tran
             % date: 12/10/2018
@@ -318,7 +309,7 @@ classdef Conv2DLayer < handle
             m = size(W); % m(1) is height and m(2) is width of the filter
             
             % I, W is 2D matrix
-            % I is assume the input after zero padding
+            % I is assumed to be the input after zero padding
             % output size: 
             % (InputSize - (FilterSize - 1)*Dilation + 1)/Stride
             
@@ -354,19 +345,46 @@ classdef Conv2DLayer < handle
             % do it in parallel using cpu or gpu
             % TODO: explore power of using GPU for this problem
             
-            featureMap = zeros(h*w, 1); % using single vector for parallel computation
-            
-            if strcmp(option, 'single')
-                
-            elseif strcmp(option, 'parallel-cpu')
-                
-            elseif strcmp(option, 'parallel-gpu')
-            else
-                error('Unknown computation option for computing feature map');
+            featureMap = zeros(1, h*w); % using single vector for parallel computation
+           
+
+            for l=1:h*w
+                a = mod(l, w);
+                if a == 0
+                    i = floor(l/w);
+                    j = w;
+                else
+                    j = a;
+                    i = floor(l/w) + 1;
+                end
+
+                % get a filtered region
+                val = 0;
+                i0 = map{i, j}(1);
+                j0 = map{i, j}(2);
+
+                ie = i0;
+                je = j0;
+                for i=1:m(1)
+                    for j=1:m(2)
+                        if ie <= n(1) && je <= n(2)
+                            val = val + I(ie, je) * W(i, j);
+                        end
+                        je = je + dilation(2);
+                    end
+                    je = j0;
+                    ie = ie + dilation(1);
+                end
+
+                featureMap(1,l) = val;
+
             end
-            
+
+            featureMap = reshape(featureMap, [h, w]);
+            featureMap = featureMap.';
+
         end
-        
+
         
     end
     

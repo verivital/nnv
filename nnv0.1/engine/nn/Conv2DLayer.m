@@ -231,6 +231,49 @@ classdef Conv2DLayer < handle
             
         end
         
+        % reachability analysis method using Stars
+        % a star represent a set of images (2D matrix of h x w)
+        function S = reach(obj, inputs, height, width, option)
+            % @inputs: an array of stars
+            % @height: height of an image
+            % @width: width of an image
+            % @option: = 'single' single core for computation
+            %          = 'parallel' multiple cores for parallel computation
+            % @S: an array of stars output set
+            
+            % author: Dung Tran
+            % date: 12/16/2018
+            
+            n = length(inputs);
+            for i=1:n
+                if isa(inputs(i), 'Star')
+                    error('The %d^th input is not a star set');
+                end
+                
+                if inputs(i).dim ~= height * width
+                    error('Inconsistency between star set and height * width of an image');
+                end
+                
+            end
+            
+            if strcmp(option, 'single')
+                for i=1:n
+                    I = inputs(i);
+                    % Do reachable set  computation                    
+                    
+                    
+                end
+            elseif strcmp(option, 'parallel')
+                parfor i=1:n
+                    I = inputs(i);
+                end
+            else
+                error('Unknown computation option');
+            end
+            
+            
+        end
+        
     end
     
     

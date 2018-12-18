@@ -203,6 +203,7 @@ classdef Conv2DLayer < handle
             
             I = obj.get_input(input, obj.PaddingSize); % construct input with padding          
             
+            y = zeros(w(1),w(2), w(4)); % preallocate 3D matrix
             for i=1:w(4) % number of filters
                 y(:, :, i) = obj.Bias(:, :, i) * ones(w(1), w(2)); % initialize output by bias matrix
                 % compute feature map with i^th filter 
@@ -233,7 +234,7 @@ classdef Conv2DLayer < handle
         
         % reachability analysis method using Stars
         % a star represent a set of images (2D matrix of h x w)
-        function S = reach(obj, inputs, height, width, option)
+        function S = reach_star(obj, inputs, height, width, option)
             % @inputs: an array of stars
             % @height: height of an image
             % @width: width of an image
@@ -259,9 +260,7 @@ classdef Conv2DLayer < handle
             if strcmp(option, 'single')
                 for i=1:n
                     I = inputs(i);
-                    % Do reachable set  computation                    
-                    
-                    
+                    % Do reachable set  computation                                      
                 end
             elseif strcmp(option, 'parallel')
                 parfor i=1:n
@@ -339,8 +338,8 @@ classdef Conv2DLayer < handle
                 w = n(2); % width of input 
                 d = n(3); % depth of input (number of channel)
                
+                I = zeros(t + h + b, l + w + r, d); % preallocate 3D matrix
                 for i=1:d
-                    I(:, :, i) = zeros(t + h + b, l + w + r); % initialize input volume 
                     I(t+1:t+h, l+1:l+w, i) = input(:, :, i); % new constructed input volume
                 end              
                 

@@ -354,14 +354,17 @@ classdef Conv2DLayer < handle
         % compute feature map for specific input and weight
         function featureMap = compute_featureMap(I, W, stride, dilation)
             % @I: is input (after padding)
-            % @W: is a weight matrix (filter) 
-     
+            % @W: is a weight matrix (filter)
+            % @stride: step size for traversing input
+            % @dilation: factor for dilated convolution     
             % @featureMap: convolved feature (also called feature map)
+            
             
             % author: Dung Tran
             % date: 12/10/2018
             
-            % referece: https://ujjwalkarn.me/2016/08/11/intuitive-explanation-convnets/
+            % referece: 1) https://ujjwalkarn.me/2016/08/11/intuitive-explanation-convnets/
+            %           2) https://www.mathworks.com/help/deeplearning/ug/layers-of-a-convolutional-neural-network.html
             
             n = size(I); % n(1) is height and n(2) is width of input
             m = size(W); % m(1) is height and m(2) is width of the filter

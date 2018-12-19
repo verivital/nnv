@@ -49,10 +49,20 @@ classdef ImageStar
         height = 0; % height of image
         width = 0; % width of image
         
-        % 2D representation of an ImageStar
+        % A box representation of an ImageStar
+        % A convenient way for user to specify the attack
+        
         IM = []; % center image (high-dimensional array)
         LB = []; % lower bound of attack (high-dimensional array)
         UB = []; % upper bound of attack (high-dimensional array)
+        
+        % 2D representation of an ImageStar
+        % Convenient for reachability analysis
+        Star2Ds = []; % an array of Star2D, number of stars = numChannel
+        
+        
+        
+        
         
         % 1D representation of an ImageStar
         % flattening image to a normal star set: S = c + V*a (see Star class)
@@ -120,8 +130,8 @@ classdef ImageStar
                         error('Inconsistent number of channels between the center image and the bound matrices');
                     end
 
-                    % flattening 2D ImageStar to get 1D ImageStar (a normal star set)
-                    S = [];
+                    % converting box ImageStar to an array of 2D Stars
+                    S(obj.numChannel) = Star2D(); % preallocating an array of 2D Stars
                     for i=1:obj.numChannel
                         c = reshape(obj.IM(:,:,i)', [obj.height * obj.width,1]);
                         lb = reshape(obj.LB(:,:,i)', [obj.height * obj.width,1]);
@@ -129,30 +139,32 @@ classdef ImageStar
                         lb = lb + c;
                         ub = ub + c;
                         B = Box(lb, ub);
-                        S = [S B.toStar];
+                        X = B.toStar;
+                        V = cell(1, X.nVar + 1);
+                        for j=1:X.nVar + 1
+                            A = reshape(X.V(:,j), [obj.height, obj.width]);
+                            V{j} = A';
+                        end
+                        
+                        S(i) = Star2D(V, X.C, X.d);
 
                     end
-                    obj.Stars = S;
+                    obj.Star2Ds = S;
                     
-                case 2
+                case 1
                     
-                    S = varargin{1}; % 1D representation of an ImageStar
-                    imageSize = varargin{2}; % size of the image
-                    
-                    if length(imageSize) ~= 2
-                        error('Invalid image size of an ImageStar set');
-                    end
-                    
-                    obj.height = imageSize(1);
-                    obj.width = imageSize(2);
-                    obj.numChannel = length(S);
-                    obj.Stars = S; 
-                    
-                    for i=1:obj.numChannel
-                        if obj.Stars(i).dim ~= obj.height * obj.width
-                            error('Inconsistency between dimension of Stars and imageSize');
+                    S = varargin{1}; % 2D representation of an ImageStar
+                    n = length(S);
+                    for i=1:n
+                        if ~isa(S(i), 'Star2D')
+                            error('Input is not 2D represenation of an ImageStar');
                         end
                     end
+                    
+                    obj.Star2Ds = S; 
+                    obj.numChannel = n;
+                    obj.height = S(1).dim(1);
+                    obj.width = S(1).dim(2);
                     
                                  
                 otherwise
@@ -164,10 +176,36 @@ classdef ImageStar
                     obj.IM = [];
                     obj.LB = [];
                     obj.UB = [];
-                    obj.Stars = []; 
+                    obj.Star2Ds = []; 
                     
             end
                         
+        end
+        
+        % extract a single channel image
+        function image = extract_channel(obj, index)
+            % @index: index of the channel that is extracted
+            % @image: a single channel ImageStar
+            
+            % author: Dung Tran
+            % date: 12/17/2018
+            
+            if index == 0 || index > obj.numChannel
+                error('Index is out of range of number of channels');
+            end
+            
+            if ~isempty(obj.IM) && ~isempty(obj.LB) && ~isempty(obj.UB)
+                new_IM = obj.IM(:,:,index);
+                new_LB = obj.LM(:,:,index);
+                new_UB = obj.UB(:,:,index);
+                image = ImageStar(new_IM, new_LB, new_UB);
+            elseif ~isempty(obj.Star2Ds)
+                image = ImageStar(obj.Star2Ds(index));
+            else
+                error('The Image Star is empty to extract');
+            end
+            
+            
         end
         
         
@@ -213,10 +251,10 @@ classdef ImageStar
 
                 padded_image = ImageStar(new_IM, new_LB, new_UB);
 
-            % zero-padding for 1D representation of an image star  
-            elseif ~isempty(obj.Stars)
+            % zero-padding for 2D representation of an image star  
+            elseif ~isempty(obj.Star2Ds)
                 
-                n = length(obj.Stars);
+                n = length(obj.Star2Ds);
                  
                 new_Stars(n) = obj.Stars(1); % preallocating stars array (faster performance without preallocation)
                 for i=1:n
@@ -249,26 +287,112 @@ classdef ImageStar
         end
         
         
-        % Filtering an ImageStar at specific region by a filter W
+        % Convolves an ImageStar 
         % Reference: https://www.mathworks.com/help/deeplearning/ug/layers-of-a-convolutional-neural-network.html
         % =================================================================%
-        % ***Importance: A filtered Image Star is an ImageStar that does
-        % not has a full 2D representation. LB = [] and UB = []
+        % ***Importance: A convolved Image Star is an ImageStar that does
+        % not has a full 2D representation, i.e., IM = [], LB = [] and UB = []
         % The reason is that: 2D representation can not precisely represent
-        % a filtered ImageStar. To precisely reprent a filtered ImageStar,
+        % a convolved ImageStar. To precisely reprent a convolved ImageStar,
         % we use 1D representation. 
         % we can obtain a 2D presentation from 1D representation. However,
         % in this case, 2D representation is an over-approximation (box) of
         % the exact 1D representation. 
         
         % We always use 1D representation to compute the exact reachable set 
-        % of a convolutional 2D layer. 
+        % of a convolutional 2D layer or max pooling layer. 
         % =================================================================%
         
-        
-        
-        
+        function image = convolve(obj, W, stride, dilation)
+            % @W: is a weight matrix (filter)
+            % @stride: step size for traversing input
+            % @dilation: factor for dilated convolution     
+            % @image: convolved image (feature map) of an ImageStar which
+            % is an ImageStar set with 1D representation
+            
+            % author: Dung Tran
+            % date: 12/17/2018
+            
+            % referece: 1) https://ujjwalkarn.me/2016/08/11/intuitive-explanation-convnets/
+            %           2) https://www.mathworks.com/help/deeplearning/ug/layers-of-a-convolutional-neural-network.html
+            
+            
+            
+            
+        end
+           
                
+    end
+    
+    methods(Static)
+        
+        % compute featureMap (also an image) of a single channel of an ImageStar
+        function image = compute_featureMap(I, W, stride, dilation)
+            % @W: is a weight matrix (filter)
+            % @stride: step size for traversing input
+            % @dilation: factor for dilated convolution     
+            % @image: convolved feature (also called feature map) which is
+            % a ImageStar set with 1D representation
+            
+            
+            % author: Dung Tran
+            % date: 12/17/2018
+            
+            % referece: 1) https://ujjwalkarn.me/2016/08/11/intuitive-explanation-convnets/
+            %           2) https://www.mathworks.com/help/deeplearning/ug/layers-of-a-convolutional-neural-network.html
+            
+            if ~isa(I, 'ImageStar')
+                error('Input image is not a ImageStar');
+            end
+            if I.numChannel ~= 1
+                error('Input image is not a single channel ImageStar');
+            end
+            
+            n = [I.height I.width]; % n(1) is height and n(2) is width of input image
+            m = size(W); % m(1) is height and m(2) is width of the filter
+            
+            % W is 2D matrix
+            % obj is assumed to be an ImageStar after zero padding
+            % output size: 
+            % (InputSize - (FilterSize - 1)*Dilation + 1)/Stride
+            
+            h = floor((n(1) - (m(1) - 1) * dilation(1) - 1) / stride(1) + 1);  % height of feature map
+            w = floor((n(2) - (m(2) - 1) * dilation(2) - 1) / stride(2) + 1);  % width of feature map
+
+            % a collection of start points (the top-left corner of a square) of the region of input that is filtered
+            map = cell(h, w); 
+            
+            for i=1:h
+                for j=1:w
+                    map{i, j} = zeros(1, 2);
+
+                    if i==1
+                        map{i, j}(1) = 1;
+                    end
+                    if j==1
+                        map{i, j}(2) = 1;
+                    end
+
+                    if i > 1
+                        map{i, j}(1) = map{i - 1, j}(1) + stride(1);
+                    end
+
+                    if j > 1
+                        map{i, j}(2) = map{i, j - 1}(2) + stride(2);
+                    end
+
+                end
+            end
+            
+            % compute feature map for each cell of map
+            S = I.Stars;
+            
+
+            
+            
+            
+        end
+        
     end
 end
 

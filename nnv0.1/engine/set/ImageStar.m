@@ -83,7 +83,9 @@ classdef ImageStar
             % date: 12/17/2018
             
             switch nargin
-                case 3
+                
+                case 3 % input center image and lower and upper bound matrices (box-representation)
+                    
                     IM = varargin{1};
                     LB = varargin{2};
                     UB = varargin{3};
@@ -127,7 +129,8 @@ classdef ImageStar
                     end
 
                     % converting box ImageStar to an array of 2D Stars
-                    S(obj.numChannel) = Star2D(); % preallocating an array of 2D Stars
+                    obj.Star2Ds(obj.numChannel) = Star2D(); % preallocating an array of 2D Stars
+                    obj.Star1Ds(obj.numChannel) = Star(); % preallocating an array of 1D Stars
                     for i=1:obj.numChannel
                         c = reshape(obj.IM(:,:,i)', [obj.height * obj.width,1]);
                         lb = reshape(obj.LB(:,:,i)', [obj.height * obj.width,1]);
@@ -142,16 +145,17 @@ classdef ImageStar
                             V{j} = A';
                         end
                         
-                        S(i) = Star2D(V, X.C, X.d);
+                        obj.Star2Ds(i) = Star2D(V, X.C, X.d); % 2D representation of the image star
+                        obj.Star1Ds(i) = obj.Star2Ds(i).toStar; % 1D representation of the image star
 
                     end
-                    obj.Star2Ds = S;
                     
-                case 2
+                    
+                case 2 % input 1D representation of the ImageStar and its size
                     
                     S = varargin{1}; % 1D representation of the ImageStar
                     imageSize = varargin{2}; % height and width of the image
-                    n = length(S);
+                    n = length(S); % number of channels
                     for i=1:n
                         if ~isa(S(i), 'Star')
                             error('Input set is not 1D Star');
@@ -162,11 +166,20 @@ classdef ImageStar
                         error('Invalid image size');
                     end
                     
+                    h = imageSize(1);
+                    w = imageSize(2);
                     
+                    obj.Star2Ds(n) = Star2D();
+                    obj.Star1Ds = S; 
+                    for i=1:n
+                        obj.Star2Ds(i) = obj.Star1Ds(i).toStar2D(h, w); % get 2D representation of the image star
+                    end
                     
+                    obj.height = h;
+                    obj.width = w; 
+                    obj.numChannel = n;
                     
-                    
-                case 1
+                case 1 % input 2D representation of an ImageStar
                     
                     S = varargin{1}; % 2D representation of an ImageStar
                     n = length(S);
@@ -180,18 +193,26 @@ classdef ImageStar
                     obj.numChannel = n;
                     obj.height = S(1).dim(1);
                     obj.width = S(1).dim(2);
+                    obj.Star1Ds(n) = Star();
+                    for i=1:n
+                        obj.Star1Ds(i) = S(i).toStar;
+                    end
                     
                                  
-                otherwise
-                    
-                    % create an empty ImageStar
+                case 0 % create an empty ImageStar
+
                     obj.numChannel = 0; 
                     obj.height = 0;
                     obj.width = 0;
                     obj.IM = [];
                     obj.LB = [];
                     obj.UB = [];
-                    obj.Star2Ds = [];  
+                    obj.Star2Ds = [];
+                    obj.Star1Ds = [];
+                    
+                otherwise
+                    
+                    error('Invalid number of input arguments, (should be from 0 to 3)');
                     
             end
                         
@@ -226,6 +247,8 @@ classdef ImageStar
         
         % zero-padding an ImageStar
         % zero-padding an ImageStar results another ImageStar
+        % we only need to use box representation or 2D representation for
+        % this task. 
         function padded_image = zero_padding(obj, paddingSize)
             % @paddingSize: [t b l r] an 1-D array
             % @image: a new imageStar after padding           

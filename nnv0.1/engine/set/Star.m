@@ -17,32 +17,51 @@ classdef Star
     methods
         
         % constructor
-        function obj = Star(V, C, d)
+        function obj = Star(varargin)
             % @V: bassic matrix
             % @C: constraint matrix
             % @d: constraint vector
             
-            [nV, mV] = size(V);
-            [nC, mC] = size(C);
-            [nd, md] = size(d);
-            
-            if mV ~= mC + 1
-                error('Inconsistency between basic matrix and constraint matrix');
+            switch nargin
+                case 3
+                    V = varargin{1};
+                    C = varargin{2};
+                    d = varargin{3};
+                    [nV, mV] = size(V);
+                    [nC, mC] = size(C);
+                    [nd, md] = size(d);
+
+                    if mV ~= mC + 1
+                        error('Inconsistency between basic matrix and constraint matrix');
+                    end
+
+                    if nC ~= nd
+                        error('Inconsistency between constraint matrix and constraint vector');
+                    end
+
+                    if md ~= 1
+                        error('constraint vector should have one column');
+                    end
+
+                    obj.V = V;
+                    obj.C = C; 
+                    obj.d = d;
+                    obj.dim = nV;
+                    obj.nVar = mC;
+                
+                case 0
+                    % create empty Star (for preallocation an array of star)
+                    obj.V = [];
+                    obj.C = [];
+                    obj.d = [];
+                    obj.dim = 0;
+                    obj.nVar = 0; 
+                    
+                otherwise
+                    
+                    error('Invalid number of input arguments (should be 0 or 3)');
             end
             
-            if nC ~= nd
-                error('Inconsistency between constraint matrix and constraint vector');
-            end
-            
-            if md ~= 1
-                error('constraint vector should have one column');
-            end
-            
-            obj.V = V;
-            obj.C = C; 
-            obj.d = d;
-            obj.dim = nV;
-            obj.nVar = mC;
             
         end
         

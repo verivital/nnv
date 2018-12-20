@@ -82,12 +82,15 @@ classdef Star2D
                     obj.width = o(2);
                     obj.nVar = m(2); 
 
-                otherwise
+                case 0
                     % create empty Star2D
                     obj.V = [];
                     obj.C = [];
                     obj.d = [];
                     obj.nVar = 0;
+                    
+                otherwise
+                    error('Invalid number of input arguments(should be 0 or 3)');
             end
             
             

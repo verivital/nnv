@@ -109,6 +109,42 @@ classdef Star2D
             
         end
         
+        % sum of two 2D stars with the same dimension and same constraints
+        function S = sum(obj, X)
+            % @X: a summed 2D star
+            % @S: a new 2D star
+            
+            % author: Dung Tran
+            % date: 12/20/2018
+            
+            if isempty(obj.V)
+                S = X;
+            else
+                
+                if obj.dim(1) ~= X.dim(1) || obj.dim(2) ~= X.dim(2)
+                    error('Inconsistent dimension between the current 2D star and the summed 2D star');
+                end
+                
+                if obj.nVar ~= X.nVar
+                    error('Two 2D stars do not have the same number of uncertain variable');
+                end
+                
+                if norm(obj.C - X.C) > 0.0001 || norm(obj.d - X.d) > 0.0001
+                    error('Two 2D stars do not have the same constraints C*a <= d, we can not sum them up');
+                end
+                
+                new_V = cell(1, obj.nVar + 1); 
+                for i=1:obj.nVar+1
+                    new_V{i} = obj.V{i} + X.V{i};
+                end
+                
+                S = Star2D(new_V, obj.C, obj.d);
+                
+            end
+            
+            
+        end
+        
         
     end
 end

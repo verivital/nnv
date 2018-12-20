@@ -348,6 +348,29 @@ classdef Star
             
         end
         
+        % convert to 2D Star set
+        function S = toStar2D(obj, height, width)
+            % @height: height of 2D Star set
+            % @width: width of 2D Star set
+            % @S: a 2D Star set, please see Star2D class
+            
+            % author: Dung Tran
+            % date: 12/20/2018
+            
+            if height * width ~= obj.dim
+                error('Height and Width of 2D Star should satisfy height * width = dimension of current 1D star set');
+            end
+            
+            new_V = cell(1, obj.nVar + 1);
+            for i=1:obj.nVar + 1
+                new_V{i} = transpose(reshape(obj.V(:,i), [height, width]));
+            end
+            
+            S = Star2D(new_V, obj.C, obj.d);
+            
+        end
+        
+        
         % plot star set
         function plot(obj)
             P = obj.toPolyhedron();

@@ -28,6 +28,8 @@ classdef Star2D
         C = []; % constraints matrix of Star2D
         d = []; % constraints vector of Star2D
         dim = []; % dimension of Star2D
+        height = 0; % height of Star2D
+        width = 0; % width of Star2D
         nVar = 0; 
     end
     
@@ -76,6 +78,8 @@ classdef Star2D
                     obj.C = C;
                     obj.d = d;
                     obj.dim = o; 
+                    obj.height = o(1);
+                    obj.width = o(2);
                     obj.nVar = m(2); 
 
                 otherwise
@@ -86,6 +90,19 @@ classdef Star2D
                     obj.nVar = 0;
             end
             
+            
+        end
+        
+        % flattening 2D star set to 1D star 
+        function S = toStar(obj)
+            % author: Dung Tran
+            % date: 12/20/2018
+            
+            new_V = zeros(obj.height * obj.width, obj.nVar + 1);
+            for i=1:obj.nVar + 1
+                new_V(:, i) = reshape(obj.V{i}', [obj.height * obj.width, 1]);
+            end
+            S = Star(new_V, obj.C, obj.d);
             
         end
         

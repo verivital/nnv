@@ -59,14 +59,10 @@ classdef ImageStar
         % 2D representation of an ImageStar
         % Convenient for reachability analysis
         Star2Ds = []; % an array of Star2D, number of stars = numChannel
-        
-        
-        
-        
-        
+            
         % 1D representation of an ImageStar
         % flattening image to a normal star set: S = c + V*a (see Star class)
-        Stars = []; % an array of stars, number of stars = numChannel
+        Star1Ds = []; % an array of stars, number of stars = numChannel
         
 
     end
@@ -151,6 +147,25 @@ classdef ImageStar
                     end
                     obj.Star2Ds = S;
                     
+                case 2
+                    
+                    S = varargin{1}; % 1D representation of the ImageStar
+                    imageSize = varargin{2}; % height and width of the image
+                    n = length(S);
+                    for i=1:n
+                        if ~isa(S(i), 'Star')
+                            error('Input set is not 1D Star');
+                        end
+                    end
+                    
+                    if length(imageSize) ~= 2 || imageSize(1) < 1 || imageSize(2) < 1
+                        error('Invalid image size');
+                    end
+                    
+                    
+                    
+                    
+                    
                 case 1
                     
                     S = varargin{1}; % 2D representation of an ImageStar
@@ -176,7 +191,7 @@ classdef ImageStar
                     obj.IM = [];
                     obj.LB = [];
                     obj.UB = [];
-                    obj.Star2Ds = []; 
+                    obj.Star2Ds = [];  
                     
             end
                         
@@ -256,27 +271,23 @@ classdef ImageStar
                 
                 n = length(obj.Star2Ds);
                  
-                new_Stars(n) = obj.Stars(1); % preallocating stars array (faster performance without preallocation)
+                new_Stars(n) = obj.Star2D(); % preallocating stars array (faster performance without preallocation)
+                h = obj.height + t + b; % height of new image
+                w = obj.width + l + r; % width of new image
+                
                 for i=1:n
-                   
-                    V = obj.Stars(i).V;
-                    m = size(V, 2);
-                    
-                    m1 = (t + b + obj.height) * (l + r + obj.width);
-                    V1 = zeros(m1, m);
-                    
-                    for j=1:m
-                        C1 = zeros(t + b + obj.height, l + r + obj.width); 
-                        C = V(:, j);
-                        C = reshape(C, [obj.height, obj.width]);
-                        C1(t+1:t+obj.height, l+1:l + obj.width) = C';
-                        V1(:, j) = reshape(C1', [m1, 1]);                       
+                    S = obj.Star2Ds(i);
+                    V = cell(1, S.nVar+1); % preallocate new basic cell V
+                    for j=1:S.nVar+1
+                        C = zeros(h,w);                        
+                        C(t+1:t+obj.height, l+1:l+obj.width) = S(:,j);
+                        V{j} = C;
                     end
-                    new_Stars(i) = Star(V1, obj.Stars(i).C, obj.Stars(i).d);
+                    new_Stars(i) = Star2D(V, S.C, S.d);
                     
                 end
                 
-                padded_image = ImageStar(new_Stars, [t + b + obj.height, l + r + obj.width]);
+                padded_image = ImageStar(new_Stars);
                 
                 
             else

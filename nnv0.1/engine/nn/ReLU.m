@@ -103,13 +103,13 @@ classdef ReLU
                 
                 % R1 = I && x[index] < 0 
                 c = I.V(index, 1);
-                V = I.V(index, 2:I.nVar + 1);
+                V = I.V(index, 2:I.nVar + 1); 
                 new_C = vertcat(I.C, V);
                 new_d = vertcat(I.d, -c);                
-                R1 = Star(I.V, new_C, new_d);
-                Im = eye(I.dim);
-                Im(index, index) = 0;
-                R1 = R1.affineMap(Im, []);
+                new_V = I.V;
+                new_V(index, :) = zeros(1, I.nVar + 1);
+                R1 = Star(new_V, new_C, new_d);
+                
                 % R2 = I && x[index] >= 0
                 new_C = vertcat(I.C, -V);
                 new_d = vertcat(I.d, c);

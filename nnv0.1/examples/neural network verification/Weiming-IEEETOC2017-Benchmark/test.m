@@ -1,24 +1,26 @@
 
-n = length(R); 
-
-R_bounded = [];
-R_unbounded = [];
-
-for i=1:n
-    fprintf('\nChecking R(%d)', i);
-    if ~R(i).isBounded
-        fprintf('\nR(%d) is not bounded', i);
-        R_unbounded = [R_unbounded R(i)];
-    else
-        R_bounded = [R_bounded R(i)];
-    end
+load NeuralNetwork7_3.mat;
+Layers = [];
+n = length(b);
+for i=1:n - 1
+    bi = cell2mat(b(i));
+    Wi = cell2mat(W(i));
+    Li = Layer(Wi, bi, 'ReLU');
+    Layers = [Layers Li];
 end
+bn = cell2mat(b(n));
+Wn = cell2mat(W(n));
+Ln = Layer(Wn, bn, 'Linear');
 
-B = [];
-m = length(R_bounded);
-for i=1:m
-    B = [B R_bounded(i).outerApprox];
-end
+Layers = [Layers Ln];
 
+F = FFNN(Layers);
+
+lb = [-1; -1; -1];
+ub = [1; 1; 1];
+
+I = Box(lb, ub);
+
+sim_range = F.estimate_ranges(I, 5000);
 
 

@@ -67,8 +67,17 @@ classdef Star
         
         % check is empty set
         function bool = isEmptySet(obj)
-            P = Polyhedron(obj.C, obj.d);
-            bool = P.isEmptySet();
+            
+            options = optimset('Display','none');
+            
+            [~, ~, exitflag, ~] = linprog([], obj.C, obj.d, [], [], [], [], [], options);
+            
+            if exitflag == 1
+                bool = 0;
+            else
+                bool = 1;
+            end 
+            
         end
         
         % check if a star set is a subset of other
@@ -187,12 +196,9 @@ classdef Star
             new_C = vertcat(obj.C, C1);
             new_d = vertcat(obj.d, d1);
             
-            P = Polyhedron('A', new_C, 'b', new_d);
-            
-            if P.isEmptySet
+            S = Star(obj.V, new_C, new_d);
+            if S.isEmptySet
                 S = [];
-            else    
-                S = Star(obj.V, new_C, new_d);
             end
             
         end

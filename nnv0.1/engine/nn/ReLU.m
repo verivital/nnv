@@ -114,18 +114,21 @@ classdef ReLU
                 new_C = vertcat(I.C, -V);
                 new_d = vertcat(I.d, c);
                 R2 = Star(I.V, new_C, new_d);
+                
+                a = R1.isEmptySet;
+                b = R2.isEmptySet;
                                              
-                if R1.isEmptySet && ~R2.isEmptySet
+                if a && ~b
                     R = R2;
                 end
-                if R1.isEmptySet && R2.isEmptySet
+                if a && b
                     R = [];
                 end
-                if ~R1.isEmptySet && R2.isEmptySet
+                if ~a && b
                     R = R1;
                 end
-                if ~R1.isEmptySet && ~R2.isEmptySet
-                    R = [R1 R2];
+                if ~a && ~b
+                 R = [R1 R2];
                 end
         
             end

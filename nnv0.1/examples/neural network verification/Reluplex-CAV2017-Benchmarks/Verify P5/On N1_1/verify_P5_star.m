@@ -67,5 +67,9 @@ B = Box(lb, ub);
 I = B.toStar;
 
 [R, t] = F.reach(I, 'exact', 44, []); % exact reach set
-save('F.mat', 'F', '-v7.3'); % save the verified network
 F.print('F.info'); % print all information to a file
+
+OutputReachSet = F.outputSet;
+
+save('OutputReachSet.mat', 'OutputReachSet', '-v7.3'); % save the verified network
+

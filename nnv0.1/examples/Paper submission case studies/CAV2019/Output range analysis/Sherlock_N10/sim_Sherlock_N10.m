@@ -12,7 +12,7 @@ lb = [-0.1; -0.1; -0.1];
 ub = [0.1; 0.1; 0.1];
 
 I = Box(lb, ub); % input set = Sherlock
-num_samples = 5000; % use 5000 simulations to estimate ranges of the output
+num_samples = 50; % use 5000 simulations to estimate ranges of the output
 
 t = tic;
 sim_range = F.estimate_ranges(I, num_samples); % using simulation to estimate output range

@@ -83,8 +83,8 @@ classdef Layer
                             R1 = I1;
                             rn1 = 0;
                         elseif strcmp(obj.f, 'ReLU')
-                            %[R1, rn1] = ReLU.reach(I1);
-                            [R1, rn1] = ReLU.reach_new(I1); % new method without solving optimization
+                            [R1, rn1] = ReLU.reach(I1);
+                            %[R1, rn1] = ReLU.reach_new(I1); % new method without solving optimization
 
                         else
                             error('Unsupported activation function, currently support ReLU and Linear')
@@ -108,8 +108,8 @@ classdef Layer
                         R1 = I1;
                         rn1 = 0;
                     elseif strcmp(obj.f, 'ReLU')
-                        %[R1, rn1] = ReLU.reach_parallel(I1);
-                        [R1, rn1] = ReLU.reach_parallel_new(I1);
+                        [R1, rn1] = ReLU.reach_parallel(I1);
+                        %[R1, rn1] = ReLU.reach_parallel_new(I1);
                     else
                         error('Unsupported activation function, currently support ReLU and Linear')
                     end
@@ -136,8 +136,8 @@ classdef Layer
                         R1 = I1;
                         rn1 = 0;
                     elseif strcmp(obj.f, 'ReLU')
-                        %[R1, rn1] = ReLU.reach(I1);
-                        [R1, rn1] = ReLU.reach_new(I1);
+                        [R1, rn1] = ReLU.reach(I1);
+                        %[R1, rn1] = ReLU.reach_new(I1);
 
                     else
                         error('Unsupported activation function, currently support ReLU and Linear')

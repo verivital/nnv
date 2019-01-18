@@ -109,6 +109,8 @@ else
     fprintf('\nThe property 4 does not hold for N2_9 -> unsafe');
 end 
 
-
+% compute range of the output
+B1 = Reduction.hypercubeHull(R1);
+B2 = Reduction.hypercubeHull(R2);
 
 

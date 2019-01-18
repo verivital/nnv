@@ -249,11 +249,15 @@ classdef Layer
                 if strcmp(obj.f, 'Linear')
                     
                     if ~isa(I(1), 'Box')
-                        I1 = Reduction.hypercubeHull(I);
-                        I1.outerApprox;
-                        I1 = Box(I1.Internal.lb, I1.Internal.ub);
+                        for i=1:length(I)
+                            R = [R I(i).affineMap(obj.W) + obj.b];
+                        end
+                        
                     else
-                        I1 = Box.boxHull(I);
+                        for i=1:length(I)
+                            R = [R I(i).affineMap(obj.W, obj.b)];
+                        end
+                        
                     end
                                         
                 elseif strcmp(obj.f, 'ReLU')
@@ -301,12 +305,16 @@ classdef Layer
                 if strcmp(obj.f, 'Linear')
                     
                     if ~isa(I(1), 'Box')
-                        I1 = Reduction.hypercubeHull(I);
-                        I1 = Box(I1.lb, I1.ub);
+                        for i=1:length(I)
+                            R = [R I(i).affineMap(obj.W) + obj.b];
+                        end
+                        
                     else
-                        I1 = Box.boxHull(I);
+                        for i=1:length(I)
+                            R = [R I(i).affineMap(obj.W, obj.b)];
+                        end
+                        
                     end
-                    R = I1.affineMap(obj.W, obj.b);
                     
                 elseif strcmp(obj.f, 'ReLU')
                     

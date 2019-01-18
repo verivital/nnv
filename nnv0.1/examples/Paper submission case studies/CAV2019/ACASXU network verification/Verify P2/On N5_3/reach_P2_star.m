@@ -34,7 +34,7 @@ B = Box(lb, ub);
 
 I = B.toStar;
 
-numCores = 90; % number of cores used in computation
+numCores = 4; % number of cores used in computation
 
 [R, t] = F.reach(I, 'exact', numCores, []); % exact reach set
 outputSet = F.outputSet;

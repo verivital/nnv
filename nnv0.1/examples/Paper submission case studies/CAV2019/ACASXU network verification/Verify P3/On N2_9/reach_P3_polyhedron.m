@@ -33,9 +33,16 @@ end
 
 I = Polyhedron('lb', lb, 'ub', ub);
 
-numCores = 90; % number of cores used in computation
+numCores = [4, 8, 12, 16, 20, 24, 28, 32]; % number of cores used in computation
+reachTime = zeros(1, length(numCores));
 
-[R, t] = F.reach(I, 'exact', numCores, []); % exact reach set
+for i=1:length(numCores)
+    [~, t] = F.reach(I, 'exact', numCores(i), []); % exact reach set
+    reachTime(i) = t;
+end
+
 outputSet = F.outputSet;
 save outputSet_polyhedron.mat outputSet; % save the verified network
+save reachTime.mat reachTime; % reach time versus number of cores
+save numCores.mat numCores; % save number of cores
 F.print('F_polyhedron.info'); % print all information to a file

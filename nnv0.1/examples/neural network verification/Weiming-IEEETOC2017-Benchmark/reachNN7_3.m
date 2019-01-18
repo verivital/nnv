@@ -14,9 +14,11 @@ Ln = Layer(Wn, bn, 'Linear');
 Layers = [Layers Ln];
 
 F = FFNN(Layers);
-C = [1 0 0; -1 0 0; 0 1 0; 0 -1 0; 0 0 1; 0 0 -1];
-d = [1; 1; 1; 1; 1; 1];
-I = Polyhedron(C, d);
+
+lb = [-1; -1; -1];
+ub = [1; 1; 1];
+
+I = Polyhedron('lb', lb, 'ub', ub);
 
 % select option for reachability algorithm
 

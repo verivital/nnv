@@ -42,7 +42,7 @@ B1 = Box(lb, ub);
 
 input_ref = B1.toStar();
 
-N = 100;  % takes 40 seconds
+N = 10;  % takes 40 seconds
 
 n_cores = 4; % number of cores 
 

@@ -821,6 +821,36 @@ classdef Star
             
         end
         
+        % convex hull of stars
+        function S = get_convex_hull(stars)
+            % @stars: an array of stars
+            % @S: a new star which is a convex hull of the input stars
+            
+            % author: Dung Tran
+            % date: 1/21/2019
+            
+            n = length(stars);
+            dim = stars(1).dim; 
+            
+            
+            for i=2:n
+                if ~isa(stars(i), 'Star')
+                    error('The %d th object is not a star', i);
+                end
+                if stars(i).dim ~= dim
+                    error('Inconsistent dimensions between stars');
+                end
+            end
+            
+            for i=1:n
+                X(i) = stars(i).toPolyhedron;
+            end
+            
+            U = PolyUnion(X);
+            S = U.convexHull;
+            
+        end
+        
         % concatenate many stars
         
         function S = concatenateStars(stars)

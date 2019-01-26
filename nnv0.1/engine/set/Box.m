@@ -41,6 +41,10 @@ classdef Box
                     obj.generators = [obj.generators gen];
                 end                
             end
+            
+            if norm(vec) == 0
+                obj.generators = zeros(obj.dim, 1);
+            end
                 
         end
         

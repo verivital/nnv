@@ -220,10 +220,10 @@ classdef NNCS < handle
                  fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                  input_set = obj.nextInputSetStar(fb_I{1});
                  [U,~] = obj.controller.reach(input_set, 'exact', n_cores, []); % control set at step i
-                 U1 = Star.get_hypercube_hull(U);
+                 U1 = Star.get_hypercube_hull(U);   
                  
                  % reachability analysis for plant
-                 U1 = U1.toStar();                 
+                 U1 = U1.toStar();
                  R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
                  obj.reachSetTree.addReachSet(R, i);                 
              end
@@ -454,11 +454,7 @@ classdef NNCS < handle
                     fb_inputSet = [fb_inputSet fb_I(i).affineMap(obj.plant.C, [])];
                 end
             end           
-            
-            if ~isa(obj.ref_I, 'Star')
-                error('Reference input is not a star');
-            end
-            
+                        
             n = size(obj.feedbackMap, 1);          
             
             if isempty(obj.ref_I) && isempty(fb_inputSet)
@@ -499,7 +495,7 @@ classdef NNCS < handle
             if isempty(obj.ref_I) && ~isempty(fb_inputSet)
                 
                 l = length(fb_inputSet);
-                nA = size(fb_inputSet(1).A,2);
+                nA = fb_inputSet(1).dim;
                 I2 = [];
                 for i=1:n
 

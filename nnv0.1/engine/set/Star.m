@@ -48,6 +48,21 @@ classdef Star
                     obj.d = d;
                     obj.dim = nV;
                     obj.nVar = mC;
+                    
+                case 2
+                    
+                    % construct star from lower bound and upper bound
+                    % vector
+                    lb = varargin{1};
+                    ub = varargin{2};
+                    
+                    B = Box(lb,ub);
+                    S = B.toStar;
+                    obj.V = S.V;
+                    obj.C = S.C;
+                    obj.d = S.d;
+                    obj.dim = S.dim;
+                    obj.nVar = S.nVar;
                 
                 case 0
                     % create empty Star (for preallocation an array of star)
@@ -408,25 +423,34 @@ classdef Star
             lb = zeros(obj.dim, 1);
             ub = zeros(obj.dim, 1); 
             
-            options = optimset('Display','none');
-            
-            for i=1:obj.dim
-                f = obj.V(i, 2:obj.nVar + 1);
-                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                if exitflag > 0
-                    lb(i) = fval + obj.V(i, 1);
-                else
-                    error('Cannot find an optimal solution');
-                end
-                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                                
-                if exitflag > 0
-                    ub(i) = -fval + obj.V(i, 1);
-                else
-                    error('Cannot find an optimal solution');
-                end
+            if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
+                lb = obj.V(:, 1);
+                ub = obj.V(:, 1);
                 
-            end           
+            else % star set is a set
+                
+                options = optimset('Display','none');
+            
+                for i=1:obj.dim
+                    f = obj.V(i, 2:obj.nVar + 1);
+                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                    if exitflag > 0
+                        lb(i) = fval + obj.V(i, 1);
+                    else
+                        error('Cannot find an optimal solution');
+                    end
+                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+
+                    if exitflag > 0
+                        ub(i) = -fval + obj.V(i, 1);
+                    else
+                        error('Cannot find an optimal solution');
+                    end
+
+                end
+            
+            end         
+                
             B = Box(lb, ub);           
         end
         

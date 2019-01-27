@@ -47,4 +47,4 @@ The methods implemented in this toolbox are based upon the following papers.
 
 # acknowledgements
 
-This work is supported in part by the [DARPA Assured Autonomy](https://darpa.mil/program/assured-autonomy) program.
+This work is supported in part by the [DARPA Assured Autonomy](https://www.darpa.mil/program/assured-autonomy) program.

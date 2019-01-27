@@ -40,3 +40,7 @@ The methods implemented in this toolbox are based upon the following papers.
 4. Reachability Analysis and Safety Verification for Neural Network Control Systems, Weiming Xiang, Taylor T. Johnson [https://arxiv.org/abs/1805.09944]
 
 5. Specification-Guided Safety Verification for Feedforward Neural Networks, Weiming Xiang, Hoang-Dung Tran, Taylor T. Johnson [https://arxiv.org/abs/1812.06161]
+
+# acknowledgements
+
+This work is supported in part by the [DARPA Assured Autonomy](https://darpa.mil/program/assured-autonomy) program.

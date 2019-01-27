@@ -3,6 +3,10 @@ Matlab Toolbox For Neural Network Verification
 
 This toolbox implements reachability methods for analyzing neural networks, particularly with a focus on closed-loop controllers in autonomous cyber-physical systems (CPS).
 
+# related tools and software
+
+This toolbox makes use of the neural network model transformation tool ([nnmt](https://github.com/verivital/nnmt)) and for closed-loop systems analysis, the hybrid systems model transformation and translation tool ([HyST](https://github.com/verivital/hyst)).
+
 # installation:
     1) install matlab mpt toobox and submodules
        Look at: www.tbxmanager.com.

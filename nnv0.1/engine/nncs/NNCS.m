@@ -599,7 +599,7 @@ classdef NNCS < handle
         end
         
         % simulate (evaluate) the nncs with specific input and initial state of the plant
-        function [t, y] = evaluate(obj, step, n_steps, x0, ref_input)
+        function simTrace = evaluate(obj, step, n_steps, x0, ref_input)
             % @step: control step size
             % @N: number of control steps
             % @x0: initial state of the plant
@@ -623,22 +623,46 @@ classdef NNCS < handle
                 error('Invalid reference input vector');
             end
             
-            obj.simTrace(n_steps) = zeros(obj.plant.dim, 1); % pre-allocate simTrace
-            
             [~,y1] = obj.plant.evaluate([0 step], x0, 0); % first step simulation
             n = size(y1, 1);
-            obj.simTrace(1) = y1(n, :)'; 
-            
+            obj.simTrace = [obj.simTrace y1(n, :)']; 
+      
             if n_steps >= 2
                 
                 for i=2:n_steps
                     
+                    % construct input to the controller
+                    l = size(obj.simTrace, 2);
+                    m = size(obj.feedbackMap, 1);
+                    I = [];
+              
+                    for j=1:m
+              
+                        if l - obj.feedbackMap(j) <= 0
+                            I1 = zeros(obj.plant.nO, 1); 
+                            I = [I; I1];
+                        else
+                            I2 = obj.plant.C * obj.simTrace(:, l - obj.feedbackMap(j));
+                            I = [I; I2];
+
+                        end 
+
+                    end
                     
+                    I = [ref_input; I];
+
+                    % compute control signal
+                    u = obj.controller.evaluate(I);
+                    % compute states of the plant                  
+                    [~,y1] = obj.plant.evaluate([0 step], obj.simTrace(:, i-1), u); % first step simulation
+                    n = size(y1, 1);
+                    obj.simTrace = [obj.simTrace y1(n, :)']; % store computed states to simTrace                    
                     
                 end
-                
-                
+                               
             end
+            
+            simTrace = obj.simTrace;
             
         end
        

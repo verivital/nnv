@@ -1,4 +1,4 @@
-load controller_5_20.mat;
+load controller_7_20.mat;
 weights = network.weights;
 bias = network.bias;
 n = length(weights);
@@ -27,8 +27,8 @@ ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 
 % x = [x_lead v_lead x_internal_lead x_ego v_ego x_internal_ego]'
 
-lb = [86; 32; 0; 10; 30; 0];
-ub = [88; 32.2; 0; 10; 30.2; 0];
+lb = [94; 32; 0; 10; 30; 0];
+ub = [96; 32.2; 0; 10; 30.2; 0];
 
 init_set = Star(lb, ub);
 

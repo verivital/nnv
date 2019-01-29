@@ -588,9 +588,9 @@ classdef NNCS < handle
             end
             
             if j >= 1
-                safe = false;
+                safe = 0;
             else
-                safe = true;
+                safe = 1;
             end
             
             checkingTime = toc(t);

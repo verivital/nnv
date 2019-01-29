@@ -1,5 +1,7 @@
 load controller_5_20.mat;
 
+weights = network.weights;
+bias = network.bias;
 n = length(weights);
 Layers = [];
 for i=1:n - 1

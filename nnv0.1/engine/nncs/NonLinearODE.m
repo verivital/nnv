@@ -314,6 +314,21 @@ classdef NonLinearODE < handle
             % the last zonotope in the reach set is returned
             
         end
+        
+        
+        % evaluate (simulate) the plant with specific input and state
+        % using ode45 solver
+        function [t, y] = evaluate(obj, tspan, x0, u)
+            % @x0: initial state
+            % @u: control input
+            % @tspan: time points
+            
+            % author: Dung Tran
+            % date: 1/29/2019
+            
+            [t, y] = ode45(@(t,x) obj.dynamics_func(t, x, u), tspan, x0);          
+            
+        end
 
         
     end

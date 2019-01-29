@@ -126,11 +126,11 @@
             if numOfCores > 1
                 poolobj = gcp('nocreate'); % If no pool, do not create new one.
                 if isempty(poolobj)
-                    poolobj = parpool('local', numOfCores); 
+                    parpool('local', numOfCores); 
                 else
                     if poolobj.NumWorkers ~= numOfCores
                         delete(poolobj); % delete the old poolobj
-                        poolobj = parpool('local', numOfCores); % start the new one with new number of cores
+                        parpool('local', numOfCores); % start the new one with new number of cores
                     end                    
                 end
             end            

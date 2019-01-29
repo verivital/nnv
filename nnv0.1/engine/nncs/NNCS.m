@@ -44,6 +44,7 @@ classdef NNCS < handle
         reachSetTree = []; % reachable set tree
         totalNumOfReachSet = 0; % total number of reachable sets
         reachTime = 0; % reachable set computation time
+        controlSet = []; % control signal of the controller over time
     end
     
     methods
@@ -213,7 +214,7 @@ classdef NNCS < handle
              obj.init_set = init_set;
              obj.ref_I = ref_inputSet;
              obj.reachSetTree.addReachSet(init_set, 1); % add the init_set to the reachSetTree
-
+             
              for i=2:n_steps + 1
                  
                  % reachability analysis for  controller
@@ -224,6 +225,7 @@ classdef NNCS < handle
                  
                  % reachability analysis for plant
                  U1 = U1.toStar();
+                 obj.controlSet = [obj.controlSet U1];
                  R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
                  obj.reachSetTree.addReachSet(R, i);                 
              end
@@ -521,9 +523,81 @@ classdef NNCS < handle
             
             
         end
-       
-                              
         
+        
+        % verify safety after doing reachability analysis
+        % unsafe region defined by: unsafe_mat * x <= unsafe_vec
+        function [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
+            % @unsafe_mat: unsafe region matrix
+            % @unsafe_vec: unsafe region vector
+            % @numOfCores: number of cores using for checking safety
+            % @safe: = 1: safe, 0: unsafe or unknown
+            
+            % author: Dung Tran
+            % date: 1/18/2019
+            
+            t = tic;
+            
+            [n1, m1] = size(unsafe_mat); 
+            [n2, m2] = size(unsafe_vec);
+            
+            if n1 ~= n2
+                error('Inconsistent dimension between unsafe matrix and unsafe vector');
+            end
+            
+            if m1 ~= obj.plant.dim
+                error('Inconsistent dimension between unsafe matrix and plant');
+            end
+            if m2 ~= 1
+                error('Invalid unsafe vector');
+            end
+            
+            S = obj.plant.intermediate_reachSet;
+            N = length(S);
+            j = 0; 
+             % set up parallel computing with number of cores (workers)
+            if numOfCores > 1
+                poolobj = gcp('nocreate'); % If no pool, do not create new one.
+                if isempty(poolobj)
+                    parpool('local', numOfCores); 
+                else
+                    if poolobj.NumWorkers ~= numOfCores
+                        delete(poolobj); % delete the old poolobj
+                        parpool('local', numOfCores); % start the new one with new number of cores
+                    end                    
+                end                   
+                             
+                parfor i=1:N
+                    L = S(i).intersectHalfSpace(unsafe_mat, unsafe_vec);                 
+                    if ~isempty(L)
+                        fprintf('\nThe %d^th reach set reach unsafe region', i);
+                        j = j + 1; 
+                    end
+                end
+                
+            else
+                
+                for i=1:N
+                    L = S(i).intersectHalfSpace(unsafe_mat, unsafe_vec);                 
+                    if ~isempty(L)
+                        fprintf('\nThe %d^th reach set reach unsafe region', i);
+                        j = j + 1; 
+                    end
+                end
+                
+            end
+            
+            if j >= 1
+                safe = false;
+            else
+                safe = true;
+            end
+            
+            checkingTime = toc(t);
+            
+        end
+       
+                                  
     end
     
     

@@ -41,13 +41,13 @@ x_lead{8, 1} = [84 86];
 x_lead{9, 1} = [82 84];
 x_lead{10, 1} = [80 82];
 % initial condition of v_lead
-v_lead = [25 25.2];
+v_lead = [32 32.2];
 % initial condition of x_internal_lead
 internal_acc_lead = [0 0];
 % initial condition of x_ego
 x_ego = [10 11]; 
 % initial condition of v_ego
-v_ego = [20 20.2];
+v_ego = [30 30.2];
 % initial condition of x_internal_ego
 internal_acc_ego = [0 0];
 

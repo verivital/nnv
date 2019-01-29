@@ -91,7 +91,7 @@ safe = zeros(1, n); % safety status
 reachTime = zeros(1, n); % reach Time
 safetyCheckingTime = zeros(1,n); % safety checking Time
 verificationTime = zeros(1, n); % verification tim = reach time + safety checking time
-for i=1:1
+for i=1:n
     [~, reachTime(i)] = ncs.reach('approx-star', init_set(i), input_ref, n_cores, N);
     [safe(i), safetyCheckingTime(i)] = ncs.check_safety(unsafe_mat, unsafe_vec, n_cores);
     verificationTime(i) = reachTime(i) + safetyCheckingTime(i);

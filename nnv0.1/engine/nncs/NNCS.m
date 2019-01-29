@@ -45,6 +45,7 @@ classdef NNCS < handle
         totalNumOfReachSet = 0; % total number of reachable sets
         reachTime = 0; % reachable set computation time
         controlSet = []; % control signal of the controller over time
+        simTrace = []; % simulation trace
     end
     
     methods
@@ -594,6 +595,50 @@ classdef NNCS < handle
             end
             
             checkingTime = toc(t);
+            
+        end
+        
+        % simulate (evaluate) the nncs with specific input and initial state of the plant
+        function [t, y] = evaluate(obj, step, n_steps, x0, ref_input)
+            % @step: control step size
+            % @N: number of control steps
+            % @x0: initial state of the plant
+            
+            % author: Dung Tran
+            % date: 1/29/2019
+            
+            if step <= 0
+                error('Invalid control step size');
+            end
+            
+            if n_steps < 1
+                error('Invalid number of steps');
+            end
+            
+            if ~isempty(ref_input) && size(ref_input, 1) ~= obj.nI_ref
+                error('Inconsistent dimension between reference input vector and number of reference inputs');
+            end
+            
+            if ~isempty(ref_input) && size(ref_input, 2) ~= 1
+                error('Invalid reference input vector');
+            end
+            
+            obj.simTrace(n_steps) = zeros(obj.plant.dim, 1); % pre-allocate simTrace
+            
+            [~,y1] = obj.plant.evaluate([0 step], x0, 0); % first step simulation
+            n = size(y1, 1);
+            obj.simTrace(1) = y1(n, :)'; 
+            
+            if n_steps >= 2
+                
+                for i=2:n_steps
+                    
+                    
+                    
+                end
+                
+                
+            end
             
         end
        

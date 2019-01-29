@@ -31,12 +31,13 @@ x_lead = cell(10, 1);
 x_lead{1, 1} = [55 60];
 x_lead{2, 1} = [60 65];
 x_lead{3, 1} = [65 70];
-x_lead{5, 1} = [70 75];
-x_lead{6, 1} = [75 80];
-x_lead{7, 1} = [80 85];
-x_lead{8, 1} = [85 90];
-x_lead{9, 1} = [90 95];
-x_lead{10, 1} = [95 100];
+x_lead{4, 1} = [70 75];
+x_lead{5, 1} = [75 80];
+x_lead{6, 1} = [80 85];
+x_lead{7, 1} = [85 90];
+x_lead{8, 1} = [90 95];
+x_lead{9, 1} = [95 100];
+x_lead{10, 1} = [100 105];
 % initial condition of v_lead
 v_lead = [25 25.2];
 % initial condition of x_internal_lead

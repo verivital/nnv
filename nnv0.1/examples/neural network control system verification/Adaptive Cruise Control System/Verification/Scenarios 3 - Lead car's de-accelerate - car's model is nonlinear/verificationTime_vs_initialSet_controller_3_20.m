@@ -28,16 +28,16 @@ ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 
 % initial condition of x_lead
 x_lead = cell(10, 1);
-x_lead{1, 1} = [98 100];
-x_lead{2, 1} = [96 98];
-x_lead{3, 1} = [94 96];
-x_lead{4, 1} = [92 94];
-x_lead{5, 1} = [90 92];
-x_lead{6, 1} = [88 90];
-x_lead{7, 1} = [86 88];
-x_lead{8, 1} = [84 86];
-x_lead{9, 1} = [82 84];
-x_lead{10, 1} = [80 82];
+x_lead{1, 1} = [110 108];
+x_lead{2, 1} = [108 106];
+x_lead{3, 1} = [106 104];
+x_lead{4, 1} = [104 102];
+x_lead{5, 1} = [102 100];
+x_lead{6, 1} = [100 98];
+x_lead{7, 1} = [98 96];
+x_lead{8, 1} = [96 94];
+x_lead{9, 1} = [94 92];
+x_lead{10, 1} = [92 90];
 % initial condition of v_lead
 v_lead = [32 32.2];
 % initial condition of x_internal_lead

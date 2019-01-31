@@ -666,7 +666,7 @@ classdef NNCS < handle
                 end
                                
             end
-            
+            obj.simTrace = [x0 obj.simTrace]; % add initial state to simtrace            
             simTrace = obj.simTrace;
             controlTrace = obj.controlTrace;
             
@@ -745,29 +745,82 @@ classdef NNCS < handle
         end
         
         
-        % automatically falsify nncs using random simulation
-        function [falsify_time, counter_inputs, counter_traces] = falsify(obj, step, n_steps, init_set, ref_input_set, unsafe_mat, unsafe_vec, n_simulations)
+        % automatically falsify nncs using random simulations
+        function [falsify_time, counter_sim_traces, conuter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, step, n_steps, init_set, ref_input_set, unsafe_mat, unsafe_vec, n_simulations)
             % @step: control step size
             % @n_steps: number of control steps
-            % @init_set: initial set of the plant
-            % @ref_input_set: reference input set
+            % @init_set: initial set of the plant, should be a box
+            % @ref_input_set: reference input set, should be a box
             % @unsafe_mat: unsafe matrix
             % @unsafe_vec: unsafe vector
             % @n_simulations: number of simulations used for falsification
             
+            % @falsify_time: falsification time
+            % @counter_sim_traces: counter simulation traces
+            % @counter_control_traces: counter control traces correpsonding
+            % to counter simulation traces
+            % @counter_init_states: counter initial states of plant
+            % @counter_ref_inputs: counter reference inputs
+                        
+            
             % author: Dung Tran
-            % date: 1/29/2019
+            % date: 1/31/2019
             
             
             
             
         end
+        
+        
        
                                   
     end
     
     
     methods(Static)
+        
+         
+        % check if a trace violates safety specification
+        function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
+            % @simTrace: a single simulation trace
+            % @unsafe_mat: unsafe matrix to specify unsafe region
+            % @unsafe_vec: unsafe vector to specify unsafe region:
+            % unsafe_mat * x <= unsafe_vec
+            % @violate: =1: trace reaches unsafe region
+            %           =0: trace does not reach unsafe region
+            
+            [n, m] = size(simTrace);
+            [n1, m1] = size(unsafe_mat);
+            [n2, m2] = size(unsafe_vec);
+             
+            if n ~= m1
+                error('Inconsistent dimension between simTrace and unsafe matrix');
+            end
+            
+            if n1 ~= n2
+                error('Inconsistent dimension between unsafe matrix and unsafe vector');
+            end
+            
+            if m2 ~= 1
+                error('Invalid unsafe vector, it should have one column');
+            end
+            
+            A = unsafe_mat * simTrace - unsafe_vec; 
+            display(A);
+            k = 0;
+            for i=1:m
+                for j=1:n1
+                    if A(j, i) > 0
+                        k = 1;
+                        break;
+                    end
+                end
+            end           
+            
+            violate = k;
+            
+        end
+       
         
     end
     

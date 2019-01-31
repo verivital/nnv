@@ -519,10 +519,7 @@ classdef NNCS < handle
                 I1 = Polyhedron('lb', lb, 'ub', ub);
                 I = Star.concatenateStars([Conversion.toStar(I1) I2]);
                 
-            end
-            
-            
-            
+            end         
             
         end
         
@@ -727,6 +724,7 @@ classdef NNCS < handle
             
             sampled_init_states = V;
             sampled_ref_inputs = Z;
+            
             sim_traces = cell(1, n_samples);
             control_traces = cell(1, n_samples);
             
@@ -746,15 +744,17 @@ classdef NNCS < handle
         
         
         % automatically falsify nncs using random simulations
-        function [falsify_time, counter_sim_traces, conuter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, step, n_steps, init_set, ref_input_set, unsafe_mat, unsafe_vec, n_simulations)
+        function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, step, n_steps, init_set, ref_input_set, unsafe_mat, unsafe_vec, n_samples)
             % @step: control step size
             % @n_steps: number of control steps
             % @init_set: initial set of the plant, should be a box
             % @ref_input_set: reference input set, should be a box
             % @unsafe_mat: unsafe matrix
             % @unsafe_vec: unsafe vector
-            % @n_simulations: number of simulations used for falsification
+            % @n_samples: number of simulations used for falsification
             
+            % @falsify_result: = 1: counter example exist, = 0: counter
+            % example does not exit, -> increase number of samples
             % @falsify_time: falsification time
             % @counter_sim_traces: counter simulation traces
             % @counter_control_traces: counter control traces correpsonding
@@ -766,9 +766,42 @@ classdef NNCS < handle
             % author: Dung Tran
             % date: 1/31/2019
             
+            t = tic; 
+            [~, sim_traces, control_traces, sampled_init_states, sampled_ref_inputs] = obj.sample(step, n_steps, init_set, ref_input_set, n_samples);
             
+            n = size(sim_traces, 2);
+            violate_trace_indexes = [];
+            for i=1:n
+                violate = NNCS.check_trace(sim_traces{1, i}, unsafe_mat, unsafe_vec);
+                if violate
+                    violate_trace_indexes = [violate_trace_indexes i];
+                end
+            end
             
+            if isempty(violate_trace_indexes)
+                fprintf('Cannot find counter examples, please consider increasing number of samples for falsification');
+                falsify_result = 0;
+            else
+                fprintf('Counter examples are found, %d traces in %d simluation traces violate safety property', length(violate_trace_indexes), n_samples);
+                falsify_result = 1;
+            end
             
+            n = length(violate_trace_indexes);
+            counter_sim_traces = cell(1, n);
+            counter_control_traces = cell(1,n);
+            counter_init_states = cell(1,n);
+            counter_ref_inputs = cell(1,n);
+            
+            for i=1:n
+                
+                counter_sim_traces{1, i} = sim_traces(:, violate_trace_indexes(i));
+                counter_control_traces{1, i} = control_traces(:, violate_trace_indexes(i));
+                counter_init_states{1, i} = sampled_init_states(:, violate_trace_indexes(i));
+                counter_ref_inputs{1, i} = sampled_ref_inputs(:, violate_trace_indexes(i));
+            end
+            
+            falsify_time = toc(t);
+           
         end
         
         

@@ -806,18 +806,26 @@ classdef NNCS < handle
             end
             
             A = unsafe_mat * simTrace - unsafe_vec; 
-            display(A);
+
             k = 0;
             for i=1:m
                 for j=1:n1
-                    if A(j, i) > 0
-                        k = 1;
-                        break;
+                    if A(j, i) <= 0
+                        k = k + 1;
                     end
                 end
-            end           
-            
-            violate = k;
+                if k == n1
+                    break;
+                else
+                    k = 0;
+                end
+            end 
+        
+            if k == n1
+                violate = 1;
+            else
+                violate = 0;
+            end
             
         end
        

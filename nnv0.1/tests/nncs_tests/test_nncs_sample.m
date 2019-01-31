@@ -25,8 +25,16 @@ feedbackMap = [0]; % feedback map, y[k]
 
 ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 
-x0 = [98; 32; 0; 10; 30; 0];
-ref_input = [30; 1.4];
 
-N = 50;
-[simTrace, controlTrace] = ncs.evaluate(Ts, N, x0, ref_input);
+lb = [98; 32; 0; 10; 30; 0];
+ub = [100; 32.2; 0; 11; 30.2; 0];
+
+init_set = Box(lb, ub);
+ref_input_set = Box([30; 30], [1.4; 1.4]);
+
+n_steps = 50;
+n_samples = 50; 
+
+[sim_time, sim_traces, control_traces, sampled_init_states, sampled_ref_inputs] = ncs.sample(Ts, n_steps, init_set, ref_input_set, n_samples);
+
+

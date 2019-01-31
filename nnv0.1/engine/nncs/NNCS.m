@@ -46,6 +46,7 @@ classdef NNCS < handle
         reachTime = 0; % reachable set computation time
         controlSet = []; % control signal of the controller over time
         simTrace = []; % simulation trace
+        controlTrace = []; % control trace
     end
     
     methods
@@ -599,10 +600,13 @@ classdef NNCS < handle
         end
         
         % simulate (evaluate) the nncs with specific input and initial state of the plant
-        function simTrace = evaluate(obj, step, n_steps, x0, ref_input)
+        function [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input)
             % @step: control step size
             % @N: number of control steps
             % @x0: initial state of the plant
+            % @simTrace: simulation trace
+            % @controlTrace: control signal correpsonding to simulation
+            % trace
             
             % author: Dung Tran
             % date: 1/29/2019
@@ -625,7 +629,8 @@ classdef NNCS < handle
             
             [~,y1] = obj.plant.evaluate([0 step], x0, 0); % first step simulation
             n = size(y1, 1);
-            obj.simTrace = [obj.simTrace y1(n, :)']; 
+            obj.simTrace = [obj.simTrace y1(n, :)'];
+            obj.controlTrace = zeros(obj.controller.nO, 1); % control signal of the first step is zero
       
             if n_steps >= 2
                 
@@ -657,12 +662,104 @@ classdef NNCS < handle
                     [~,y1] = obj.plant.evaluate([0 step], obj.simTrace(:, i-1), u); % first step simulation
                     n = size(y1, 1);
                     obj.simTrace = [obj.simTrace y1(n, :)']; % store computed states to simTrace                    
-                    
+                    obj.controlTrace = [obj.controlTrace u]; % store control input to controlTrace
                 end
                                
             end
             
             simTrace = obj.simTrace;
+            controlTrace = obj.controlTrace;
+            
+        end
+        
+        % randomly simulate nncs
+        function [sim_time, sim_traces, control_traces, sampled_init_states, sampled_ref_inputs] = sample(obj, step, n_steps, init_set, ref_input_set, n_samples)
+            % @step: control step
+            % @n_steps: number of control steps
+            % @init_set: initial state of plant, needed to be a box
+            % @ref_input_set: reference input set, needed to be a box
+            % @n_samples: number of samples
+            % @sim_time: simulation time for n_samples
+            % @sim_traces: a cell of simulation traces
+            % @control_traces: a cell of control traces
+            
+            % author: Dung Tran
+            % date: 1/31/2019
+            
+            t = tic; 
+            
+            if ~isa(init_set, 'Box')
+                error('Initial states of the plant should be a box');
+            end
+            if init_set.dim ~= obj.plant.dim
+                error('Inconsistent dimension between initial set of state and plant');
+            end
+            
+            if ~isa(ref_input_set, 'Box')
+                error('Reference input set should be a box');
+            end
+            if ref_input_set.dim ~= obj.nI_ref
+                error('Inconsitence between reference input set and number of reference inputs in nncs object');
+            end
+            
+            if n_samples < 1
+                error('Number of samples shoule be >= 1');
+            end
+            
+            % sampling the network with n_samples of input vector           
+            % get sampled input vectors
+            X = cell(1, obj.plant.dim);
+            V = []; % initial input vectors
+            for i=1:obj.plant.dim
+                X{1, i} = (init_set.ub(i) - init_set.lb(i)).*rand(n_samples, 1) + init_set.lb(i);
+                V = vertcat(V, X{1, i}');
+            end
+            
+            Z = []; % reference input vectors
+            
+            if ~isempty(ref_input_set)
+                Y = cell(1, obj.nI_ref);
+                for i=1:obj.nI_ref
+                    Y{1, i} = (ref_input_set.ub(i) - ref_input_set.lb(i)).*rand(n_samples, 1) + ref_input_set.lb(i);
+                    Z = vertcat(Z, Y{1, i}');
+                end                
+            end           
+            
+            sampled_init_states = V;
+            sampled_ref_inputs = Z;
+            sim_traces = cell(1, n_samples);
+            control_traces = cell(1, n_samples);
+            
+            for i=1:n_samples
+                
+                if isempty(Z) % no reference input
+                     [sim_traces{1, i}, control_traces{1, i}] = obj.evaluate(step, n_steps, V(:, i), []);
+                else
+                    [sim_traces{1, i}, control_traces{1, i}] = obj.evaluate(step, n_steps, V(:, i), Z(:, i));
+                end
+                
+            end
+            
+            sim_time = toc(t);
+            
+        end
+        
+        
+        % automatically falsify nncs using random simulation
+        function [falsify_time, counter_inputs, counter_traces] = falsify(obj, step, n_steps, init_set, ref_input_set, unsafe_mat, unsafe_vec, n_simulations)
+            % @step: control step size
+            % @n_steps: number of control steps
+            % @init_set: initial set of the plant
+            % @ref_input_set: reference input set
+            % @unsafe_mat: unsafe matrix
+            % @unsafe_vec: unsafe vector
+            % @n_simulations: number of simulations used for falsification
+            
+            % author: Dung Tran
+            % date: 1/29/2019
+            
+            
+            
             
         end
        

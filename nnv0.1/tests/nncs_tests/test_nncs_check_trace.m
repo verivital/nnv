@@ -33,7 +33,7 @@ N = 50;
 
 % unsafe region: dis = x1 - x2 <= 80
 unsafe_mat = [1 0 0 -1 0 0];
-unsafe_vec = [80]; 
+unsafe_vec = [78]; 
 
 violate = NNCS.check_trace(simTrace, unsafe_mat, unsafe_vec);
 

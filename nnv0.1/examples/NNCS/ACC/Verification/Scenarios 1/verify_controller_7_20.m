@@ -1,4 +1,4 @@
-load controller_10_20.mat;
+load controller_7_20.mat;
 
 weights = network.weights;
 bias = network.bias;
@@ -99,6 +99,6 @@ for i=1:n
     verificationTime(i) = reachTime(i) + safetyCheckingTime(i);
 end
 
-save VT_controller_10_20.mat verificationTime;
-save safety_controller_10_20.mat safe;
+save verify_controller_7_20.mat safe verificationTime;
+
 

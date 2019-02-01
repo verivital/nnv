@@ -97,6 +97,6 @@ for i=1:n
     verificationTime(i) = reachTime(i) + safetyCheckingTime(i);
 end
 
-save VT_controller_3_20.mat verificationTime;
-save safety_controller_3_20.mat safe;
+save verify_controller_3_20.mat safe verificationTime;
+
 

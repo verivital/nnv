@@ -58,8 +58,8 @@ n_samples = 10;
 if falsify_result == 1
     
     for i=1:length(counter_sim_traces)
-        simTrace = cell2mat(counter_sim_traces{1, 1});
-        controlTrace = cell2mat(counter_control_traces{1, 1});
+        simTrace = cell2mat(counter_sim_traces{1, i});
+        controlTrace = cell2mat(counter_control_traces{1, i});
         dis = [1 0 0 -1 0 0] * simTrace; 
         safe_dis = [0 0 0 0 t_gap 0] * simTrace + D_default;
         times = 0:0.1:0.1*N;

@@ -626,6 +626,8 @@ classdef NNCS < handle
             
             [~,y1] = obj.plant.evaluate([0 step], x0, 0); % first step simulation
             n = size(y1, 1);
+            obj.simTrace = [];
+            obj.controlTrace = [];
             obj.simTrace = [obj.simTrace y1(n, :)'];
             obj.controlTrace = zeros(obj.controller.nO, 1); % control signal of the first step is zero
       
@@ -652,7 +654,7 @@ classdef NNCS < handle
                     end
                     
                     I = [ref_input; I];
-
+                   
                     % compute control signal
                     u = obj.controller.evaluate(I);
                     % compute states of the plant                  
@@ -711,7 +713,7 @@ classdef NNCS < handle
                 X{1, i} = (init_set.ub(i) - init_set.lb(i)).*rand(n_samples, 1) + init_set.lb(i);
                 V = vertcat(V, X{1, i}');
             end
-            
+            display(V);
             Z = []; % reference input vectors
             
             if ~isempty(ref_input_set)
@@ -721,7 +723,7 @@ classdef NNCS < handle
                     Z = vertcat(Z, Y{1, i}');
                 end                
             end           
-            
+            display(Z);
             sampled_init_states = V;
             sampled_ref_inputs = Z;
             
@@ -777,7 +779,7 @@ classdef NNCS < handle
                     violate_trace_indexes = [violate_trace_indexes i];
                 end
             end
-            
+            display(violate_trace_indexes);
             if isempty(violate_trace_indexes)
                 fprintf('Cannot find counter examples, please consider increasing number of samples for falsification');
                 falsify_result = 0;

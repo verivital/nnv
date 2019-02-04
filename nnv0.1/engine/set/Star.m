@@ -419,7 +419,7 @@ classdef Star
         
         % find a box bounding a star
         function B = getBox(obj)
-            
+                        
             lb = zeros(obj.dim, 1);
             ub = zeros(obj.dim, 1); 
             
@@ -437,21 +437,30 @@ classdef Star
                     if exitflag > 0
                         lb(i) = fval + obj.V(i, 1);
                     else
-                        error('Cannot find an optimal solution');
+                        lb = [];
+                        ub = [];
+                        break;
                     end
                     [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
 
                     if exitflag > 0
                         ub(i) = -fval + obj.V(i, 1);
                     else
-                        error('Cannot find an optimal solution');
+                        lb = [];
+                        ub = [];
+                        break;
                     end
 
                 end
             
             end         
-                
-            B = Box(lb, ub);           
+            
+            if isempty(lb) || isempty(ub)
+                B = [];
+            else
+                B = Box(lb, ub);           
+            end
+            
         end
         
         % find range of a state at specific position

@@ -351,23 +351,33 @@ classdef ReLU
                 ub = I.Internal.ub; % max-vec of x vector
             elseif isa(I, 'Star')
                 B = I.getBox;
-                lb = B.lb;
-                ub = B.ub;
+                if ~isempty(B)
+                    lb = B.lb;
+                    ub = B.ub;
+                else
+                    lb = [];
+                    ub = [];
+                end
             else
                 error('Input set is not a Polyhedron or Star');
             end
             
-            map = find(lb < 0); % computation map
-            m = size(map, 1); % number of stepReach operations needs to be executed
-            rn = size(lb, 1) - m;
-            
-            In = I;
-            for i=1:m
-                fprintf('\nPerforming ReLU_%d operation', i);
-                In = ReLU.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)));
-            end               
-            R = In;
-           
+            if isempty(lb) || isempty(ub)
+                R = [];
+                rn = 0;
+            else
+                map = find(lb < 0); % computation map
+                m = size(map, 1); % number of stepReach operations needs to be executed
+                rn = size(lb, 1) - m;
+
+                In = I;
+                for i=1:m
+                    fprintf('\nPerforming ReLU_%d operation', i);
+                    In = ReLU.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)));
+                end               
+                R = In;
+            end
+
         end
         
         % exact reach of ReLU(x), no optimization, it is slower than reach

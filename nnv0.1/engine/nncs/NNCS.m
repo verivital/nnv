@@ -616,13 +616,16 @@ classdef NNCS < handle
                 error('Invalid number of steps');
             end
             
-            if ~isempty(ref_input) && size(ref_input, 1) ~= obj.nI_ref
-                error('Inconsistent dimension between reference input vector and number of reference inputs');
+            if ~isempty(ref_input)
+                if size(ref_input, 1) ~= obj.nI_ref
+                    error('Inconsistent dimension between reference input vector and number of reference inputs');
+                end
+            
+                if size(ref_input, 2) ~= 1
+                    error('Invalid reference input vector');
+                end
             end
             
-            if ~isempty(ref_input) && size(ref_input, 2) ~= 1
-                error('Invalid reference input vector');
-            end
             
             [~,y1] = obj.plant.evaluate([0 step], x0, 0); % first step simulation
             n = size(y1, 1);
@@ -697,7 +700,7 @@ classdef NNCS < handle
             if ~isa(ref_input_set, 'Box')
                 error('Reference input set should be a box');
             end
-            if ref_input_set.dim ~= obj.nI_ref
+            if ~isempty(ref_input_set) && ref_input_set.dim ~= obj.nI_ref
                 error('Inconsitence between reference input set and number of reference inputs in nncs object');
             end
             

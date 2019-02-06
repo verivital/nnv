@@ -30,7 +30,7 @@
 ./nnet/ACASXU_run2a_4_6_batch_2000.nnet, UNSAT, 201174, 00:03:21, 21, 340
 ./nnet/ACASXU_run2a_4_7_batch_2000.nnet, UNSAT, 55062, 00:00:55, 15, 110
 ./nnet/ACASXU_run2a_4_8_batch_2000.nnet, UNSAT, 234810, 00:03:54, 18, 522
-./nnet/ACASXU_run2a_4_9_batch_2000.nnet, UNSAT, 489371, 00:08:09, 20, 982
+./nnet/ACASXU_run2a_4_9_batch_2000.nnet, UNSAT, 489371, 00:08:02, 20, 982
 ./nnet/ACASXU_run2a_5_1_batch_2000.nnet, UNSAT, 585446, 00:09:45, 19, 978
 ./nnet/ACASXU_run2a_5_2_batch_2000.nnet, UNSAT, 239729, 00:03:59, 26, 388
 ./nnet/ACASXU_run2a_5_3_batch_2000.nnet, UNSAT, 141372, 00:02:21, 15, 174

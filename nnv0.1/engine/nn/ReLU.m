@@ -72,8 +72,7 @@ classdef ReLU
                             R = [R1 R2];
                         end
                     end
-                end
-                
+                end               
                 
             end
             

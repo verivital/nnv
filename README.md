@@ -29,6 +29,7 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 * Patrick Musau
 * Diego Manzanas Lopez
 * Xiaodong Yang
+* [Luan Viet Nguyen](https://luanvietnguyen.github.io)
 * [Taylor T. Johnson](http://www.taylortjohnson.com)
 
 # references

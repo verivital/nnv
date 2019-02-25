@@ -1,4 +1,4 @@
-classdef ReLU
+  classdef ReLU
     % ReLU operator in NN
     % Dung Tran: 8/21/ 2018
     
@@ -182,55 +182,6 @@ classdef ReLU
             
         end
         
-        % stepReach with input as a Star set
-        function R = stepReach_Star_new(I, index)
-            % @I : input set, a polyhedron
-            % @i : index of current x[index] of current step
-            % @xmin: min of x[index]
-            % @xmax: max of x[index]
-            
-            % author: Dung Tran
-            % date: 11/7/2018
-            
-            if ~isa(I, 'Star')
-                error('Input is not a star');
-            end
-            
-                
-            % R1 = I && x[index] < 0 
-            c = I.V(index, 1);
-            V = I.V(index, 2:I.nVar + 1); 
-            new_C = vertcat(I.C, V);
-            new_d = vertcat(I.d, -c);                
-            new_V = I.V;
-            new_V(index, :) = zeros(1, I.nVar + 1);
-            R1 = Star(new_V, new_C, new_d);
-
-            % R2 = I && x[index] >= 0
-            new_C = vertcat(I.C, -V);
-            new_d = vertcat(I.d, c);
-            R2 = Star(I.V, new_C, new_d);
-
-            a = R1.isEmptySet;
-            b = R2.isEmptySet;
-
-            if a && ~b
-                R = R2;
-            end
-            if a && b
-                R = [];
-            end
-            if ~a && b
-                R = R1;
-            end
-            if ~a && ~b
-             R = [R1 R2];
-            end
-          
-        end
-        
-        
-        
         
         % stepReach for multiple Input Sets
         
@@ -257,30 +208,6 @@ classdef ReLU
                      
         end
         
-        % stepReach for multiple Input Sets
-        % no optimization
-        function R = stepReachMultipleInputs_new(I_array, index)
-            % @I: an array of input sets which are polyhedra
-            % @index: index of current x[index] of current step
-            % @xmin: min value of x[index]
-            % @xmax: max value of x[index]
-            % @option: = 'exact' -> compute an exact reach set
-            %          = 'approx' -> compute an over-approximate reach set
-            
-            p = length(I_array);
-            R = [];
-            
-            for i=1:p
-                if isa(I_array(i), 'Polyhedron')                    
-                    R =[R, ReLU.stepReach_new(I_array(i), index)];
-                elseif isa(I_array(i), 'Star')
-                    R =[R, ReLU.stepReach_Star_new(I_array(i), index)];
-                else
-                    error('Unknown set');
-                end
-            end
-                     
-        end
         
         % stepReach for multiple Input Sets use parallel computing        
         function R = stepReachMultipleInputs_parallel(I_array, index, xmin, xmax)
@@ -308,32 +235,6 @@ classdef ReLU
             
         end
         
-        % stepReach for multiple Input Sets use parallel computing
-        % no optimization
-        function R = stepReachMultipleInputs_parallel_new(I_array, index)
-            % @I: an array of input sets which are polyhedra
-            % @index: index of current x[index] of current step
-            % @xmin: min value of x[index]
-            % @xmax: max value of x[index]
-            % @option: = 'exact' -> compute an exact reach set
-            %          = 'approx' -> compute an over-approximate reach set
-            
-            p = length(I_array);
-            R = [];
-            
-            parfor i=1:p
-                
-                if isa(I_array(i), 'Polyhedron')                    
-                    R =[R, ReLU.stepReach_new(I_array(i), index)];
-                elseif isa(I_array(i), 'Star')
-                    R =[R, ReLU.stepReach_Star_new(I_array(i), index)];
-                else
-                    error('Unknown set');
-                end
-                
-            end            
-            
-        end
         
         % exact reach of ReLU(x)
         function [R, rn] = reach(I)
@@ -379,34 +280,6 @@ classdef ReLU
 
         end
         
-        % exact reach of ReLU(x), no optimization, it is slower than reach
-        % method with optimization 
-        function [R, rn] = reach_new(I)
-            % reachable set computation for ReLU(x)
-            % @I: input set which is a polyhedron
-            % @R : reachable set of ReLU(x), may be an array of polyhedra
-            % @rn: number of ReLU_i (stepReach) operations reduced
-            % @option: = 'exact' -> compute an exact reach set
-            %          = 'approx' -> compute an over-approximate reach set
-            
-            if isa(I, 'Polyhedron')            
-                m = I.Dim; % find bounds of I state vector
-            elseif isa(I, 'Star')
-                m = I.dim;
-            else
-                error('Input set is not a Polyhedron or Star');
-            end
-            
-            In = I;
-            for i=1:m
-                fprintf('\nPerforming ReLU_%d operation', i);
-                In = ReLU.stepReachMultipleInputs_new(In, i);
-            end               
-            R = In;
-            rn = 0;
-           
-        end
-        
         % exact reach of ReLU(x) in parallel
         function [R, rn] = reach_parallel(I)
             % reachable set computation for ReLU(x)
@@ -439,34 +312,6 @@ classdef ReLU
                 In = ReLU.stepReachMultipleInputs_parallel(In, map(i), lb(map(i)), ub(map(i)));
             end               
             R = In;
-           
-        end
-        
-        % exact reach of ReLU(x) in parallel
-        function [R, rn] = reach_parallel_new(I)
-            % reachable set computation for ReLU(x)
-            % @I: input set which is a polyhedron
-            % @R : reachable set of ReLU(x), may be an array of polyhedra
-            % @rn: number of ReLU_i (stepReach) operations reduced
-            % @option: = 'exact' -> compute an exact reach set
-            %          = 'approx' -> compute an over-approximate reach set
-            
-                        
-            if isa(I, 'Polyhedron')            
-                m = I.Dim; % find bounds of I state vector
-            elseif isa(I, 'Star')
-                m = I.dim;
-            else
-                error('Input set is not a Polyhedron or Star');
-            end
-            
-            In = I;
-            for i=1:m
-                fprintf('\nPerforming ReLU_%d operation', i);
-                In = ReLU.stepReachMultipleInputs_parallel_new(In, i);
-            end               
-            R = In;
-            rn = 0;
            
         end
         

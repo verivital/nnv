@@ -453,8 +453,7 @@ classdef Reduction
             
                   
         end
-        
-        
+         
         % merge boxes using box
         
         function P = merge_box2(I, nP, parallel)

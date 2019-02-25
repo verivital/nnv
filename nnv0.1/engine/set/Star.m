@@ -410,7 +410,6 @@ classdef Star
             
         end
         
-        
         % plot star set
         function plot(obj)
             P = obj.toPolyhedron();
@@ -584,7 +583,7 @@ classdef Star
         
     end
     
-    methods(Static)
+    methods(Static) % plot methods
         
         % plot an array of Star (plot exactly, this is time consuming)
         function plots(S)
@@ -912,6 +911,51 @@ classdef Star
            
         end
        
+        
+        % merge stars using boxes and overlapness
+        function S = merge_stars(I, nS)
+            % @I: array of stars
+            % @nP: number of stars of the output S
+            
+            % author: Dung Tran
+            % date: 2/25/2019
+            
+            n = length(I);
+            B = [];
+           
+            for i=1:n
+                B = [B I(i).getBox];
+            end
+
+            m = I(1).dim;
+
+            n = length(B);
+
+            C = zeros(n, 2*m);
+            for i=1:n
+                C(i, :) = [B(i).lb' B(i).ub'];
+            end
+
+            idx = kmeans(C, nS); % clustering boxes into nP groups
+
+            R = cell(nS, 1);
+
+            for i=1:nS
+                for j=1:n
+                    if idx(j) == i
+                        R{i, 1} = [R{i, 1} B(j)];
+                    end
+                end
+            end
+
+            S = [];
+            for i=1:nS
+                B = Box.boxHull(R{i, 1}); % return a box                    
+                S = [S B.toStar];
+            end
+       
+        end
+        
         
         
     end

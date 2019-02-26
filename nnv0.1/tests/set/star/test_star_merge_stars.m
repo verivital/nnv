@@ -21,7 +21,7 @@ I4 = Star(V', I4.A, I4.b); % star set 4
 
 I = [I1 I2 I3 I4];
 
-merge1 = Star.merge_stars(I, 2);
+merge1 = Star.merge_stars(I, 2, 'single');
 
 
 figure;

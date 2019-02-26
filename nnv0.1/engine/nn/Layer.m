@@ -396,6 +396,32 @@ classdef Layer
             
         end
         
+        
+        % reachable set computation with controlling number of stars
+        function [P, runtime] = reach_approx_star(obj, I, nS, parallel)
+            
+            % @I: input star
+            % @nS: maximum allowable total number of stars at output
+            % @parallel: = 'parallel' using parallel computing
+            %            = 'single' using single core computing
+            
+            % author: Dung Tran
+            % date: 2/25/2019
+            
+            t1 = tic; 
+            n = length(I);
+           
+            if length(I) < nS                        
+                P = obj.reach_exact(I, parallel);
+            else
+                S = Star.merge_stars(I, nS, parallel);
+                P = obj.reach_exact(S, parallel);
+            end
+           
+            runtime = toc(t1);
+            
+        end
+        
         % evaluate the value of the layer output with all vertices of input set
         function Y = sample(obj, V)
   

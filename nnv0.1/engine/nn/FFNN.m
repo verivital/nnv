@@ -169,7 +169,11 @@
 
                     elseif strcmp(scheme, 'mix')
 
-                        [In, t1] = obj.Layers(i).reach_mix(In, max_nP, parallel);                        
+                        [In, t1] = obj.Layers(i).reach_mix(In, max_nP, parallel);
+                        
+                    elseif strcmp(scheme, 'approx-star')
+
+                        [In, t1] = obj.Layers(i).reach_approx_star(In, max_nP, parallel);  
 
                     else      
                         error('Unknown scheme');

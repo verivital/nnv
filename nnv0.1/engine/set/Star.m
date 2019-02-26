@@ -913,7 +913,7 @@ classdef Star
        
         
         % merge stars using boxes and overlapness
-        function S = merge_stars(I, nS)
+        function S = merge_stars(I, nS, parallel)
             % @I: array of stars
             % @nP: number of stars of the output S
             
@@ -922,38 +922,76 @@ classdef Star
             
             n = length(I);
             B = [];
-           
-            for i=1:n
-                B = [B I(i).getBox];
-            end
+            if strcmp(parallel, 'single')             
+                
+                for i=1:n
+                    B = [B I(i).getBox];
+                end
 
-            m = I(1).dim;
+                m = I(1).dim;
 
-            n = length(B);
+                n = length(B);
 
-            C = zeros(n, 2*m);
-            for i=1:n
-                C(i, :) = [B(i).lb' B(i).ub'];
-            end
+                C = zeros(n, 2*m);
+                for i=1:n
+                    C(i, :) = [B(i).lb' B(i).ub'];
+                end
 
-            idx = kmeans(C, nS); % clustering boxes into nP groups
+                idx = kmeans(C, nS); % clustering boxes into nP groups
 
-            R = cell(nS, 1);
+                R = cell(nS, 1);
 
-            for i=1:nS
-                for j=1:n
-                    if idx(j) == i
-                        R{i, 1} = [R{i, 1} B(j)];
+                for i=1:nS
+                    for j=1:n
+                        if idx(j) == i
+                            R{i, 1} = [R{i, 1} B(j)];
+                        end
                     end
                 end
+
+                S = [];
+                for i=1:nS
+                    B = Box.boxHull(R{i, 1}); % return a box                    
+                    S = [S B.toStar];
+                end
+                
+            elseif strcmp(parallel, 'parallel')
+                
+                parfor i=1:n
+                    B = [B I(i).getBox];
+                end
+
+                m = I(1).dim;
+
+                n = length(B);
+
+                C = zeros(n, 2*m);
+                for i=1:n
+                    C(i, :) = [B(i).lb' B(i).ub'];
+                end
+
+                idx = kmeans(C, nS); % clustering boxes into nP groups
+
+                R = cell(nS, 1);
+
+                for i=1:nS
+                    for j=1:n
+                        if idx(j) == i
+                            R{i, 1} = [R{i, 1} B(j)];
+                        end
+                    end
+                end
+
+                S = [];
+                parfor i=1:nS
+                    B = Box.boxHull(R{i, 1}); % return a box                    
+                    S = [S B.toStar];
+                end
+                
+            else
+                error('Unknown parallel option');
             end
 
-            S = [];
-            for i=1:nS
-                B = Box.boxHull(R{i, 1}); % return a box                    
-                S = [S B.toStar];
-            end
-       
         end
         
         

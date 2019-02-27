@@ -8,30 +8,13 @@ classdef SatLin
         
     end
     
-    methods(Static)
-        
+    methods(Static) % evaluate method and reachability analysis with stars    
         
         % evaluation
         function y = evaluate(x)
-            n = size(x, 1);
-            if size(x, 2) ~= 1
-                error('x is not a vector')
-            end
-            y = zeros(n, 1);
-            for i=1:n
-                if x(i) < 0
-                    y(i) = 0;
-                elseif x(i) >= 0 && x(i) <= 1
-                    y(i) = x(i);
-                elseif x(i) > 1
-                    y(i) = 1;
-                end
-            end
-
+            y = satlin(x);
         end
-        
-        
-        
+            
         % stepSatLin method, compute reachable set for a single step
         function S = stepReach(I, index)
             % @I: single star set input
@@ -83,6 +66,55 @@ classdef SatLin
         end
         
         
+        % stepReach with multiple inputs
+        function S = stepReachMultipleInputs(varargin)
+            % @I: an array of stars
+            % @index: index where stepReach is performed
+            % @option: = 'parallel' use parallel computing
+            %          = not declare -> don't use parallel computing
+            
+            % author: Dung Tran
+            % date: 27/2/2019
+            
+            switch nargin
+                case 3
+                    I = varargin{1};
+                    index = varargin{2};
+                    option = varargin{3};
+                case 2
+                    I = varargin{1};
+                    index = varargin{2};
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 2 or 3)');
+            end
+            
+            
+            
+            p = length(I_array);
+            S = [];
+            
+            if isempty(option)
+                
+                for i=1:p
+                    S =[S, SatLin.stepReach(I(i), index)];
+                end
+                
+            elseif strcmp(option, 'parallel')
+                
+                parfor i=1:p
+                    S =[S, SatLin.stepReach(I(i), index)];
+                end
+                
+            else
+                error('Unknown option');
+            end
+            
+            
+        end
+       
+        
+        
         % function reachability analysis using Star
         function S = reach(varargin)
             % @I: an array of star input sets
@@ -100,38 +132,36 @@ classdef SatLin
                     I = varargin{1};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 0 or 3)');
+                    error('Invalid number of input arguments (should be 1 or 2)');
             end
             
             
             if isempty(I)
                 S = [];
-            else
-                
-                n = length(I);
-                dim = I(1).dim;
-                
-                if isempty(option)
-                                        
-                    
-                elseif strcmp(option, 'parallel')
-                    
-                else
-                    error('Unknown option');
-                end
-                
-                
-                
+            else         
+                dim = I(1).dim;                                        
+                for i=1:dim
+                    S = [S SatLin.stepReachMultipleInputs(I, i, option)];
+                end             
             end
             
-            
-            
-            
-            
-        end
-        
-        
+              
+        end    
         
     end
+    
+    
+    methods(Static) % reachability analysis using abstract-domain
+        
+        % future supporting method
+        
+    end
+    
+    methods(Static) % reachability analysis method using face-latice
+        
+        % future supporting method
+        
+    end
+    
 end
 

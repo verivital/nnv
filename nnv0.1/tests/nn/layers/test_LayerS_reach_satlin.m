@@ -14,10 +14,15 @@ I.plot;
 figure;
 I1.plot;
 
-
+tic;
 S = L.reach(I, 'star'); % new Layer class
+toc;
+
 figure;
 Star.plots(S);
 
+tic;
+S1 = L.reach(I, 'star', 'parallel');
+toc;
 
 

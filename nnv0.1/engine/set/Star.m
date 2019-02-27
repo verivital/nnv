@@ -83,8 +83,7 @@ classdef Star
         % check is empty set
         function bool = isEmptySet(obj)
             
-            options = optimset('Display','none');
-            
+            options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
             f = ones(1, obj.nVar);
             
             [~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);

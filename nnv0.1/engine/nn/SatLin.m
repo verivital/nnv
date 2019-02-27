@@ -15,7 +15,7 @@ classdef SatLin
             y = satlin(x);
         end
             
-        % stepSatLin method, compute reachable set for a single step
+        % stepReach method, compute reachable set for a single step
         function S = stepReach(I, index)
             % @I: single star set input
             % @index: index of the neural performing stepSatLin

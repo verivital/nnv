@@ -91,7 +91,7 @@ classdef SatLin
             
             
             
-            p = length(I_array);
+            p = length(I);
             S = [];
             
             if isempty(option)
@@ -135,14 +135,17 @@ classdef SatLin
                     error('Invalid number of input arguments (should be 1 or 2)');
             end
             
-            
-            if isempty(I)
-                S = [];
-            else         
-                dim = I(1).dim;                                        
+            if ~isempty(I)       
+                dim = I(1).dim;
+                In = I;
                 for i=1:dim
-                    S = [S SatLin.stepReachMultipleInputs(I, i, option)];
+                    fprintf('\nPerforming SatLin_%d operation', i);
+                    In = SatLin.stepReachMultipleInputs(In, i, option);
                 end             
+                
+                S = In;
+            else
+                S = [];
             end
             
               

@@ -83,7 +83,7 @@ classdef PosLin
             
             
             
-            p = length(I_array);
+            p = length(I);
             S = [];
             
             if isempty(option)
@@ -126,20 +126,36 @@ classdef PosLin
                     error('Invalid number of input arguments (should be 1 or 2)');
             end
             
-            
-            if isempty(I)
-                S = [];
-            else         
-                dim = I(1).dim;                                        
+            if ~isempty(I)
+                dim = I(1).dim;
+                In = I;
                 for i=1:dim
-                    S = [S PosLin.stepReachMultipleInputs(I, i, option)];
+                    fprintf('\nPerforming PosLin_%d operation', i);
+                    In = PosLin.stepReachMultipleInputs(In, i, option);
                 end             
+                S = In;
+            else
+                S = [];
             end
             
               
         end 
+         
+    end
+    
+    
+    methods(Static) % reachability analysis using abstract-domain
         
+        % future supporting method
         
     end
+    
+    methods(Static) % reachability analysis method using face-latice
+        
+        % future supporting method
+        
+    end
+    
+    
 end
 

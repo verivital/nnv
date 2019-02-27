@@ -36,23 +36,18 @@ classdef LayerS
             if size(x, 1) ~= size(obj.W, 2) || size(x, 2) ~= 1
                 error('Invalid or inconsistent input vector')
             end
-            y1 = obj.W * x + obj.b;
-            y = zeros(obj.N, 1);
-            for i = 1:obj.N
-                if strcmp(obj.f, 'ReLU')
-                    if y1(i, 1) >= 0
-                        y(i, 1) = y1(i, 1);
-                    else
-                        y(i, 1) = 0;
-                    end
-                elseif strcmp(obj.f, 'Linear')
-                    y(i, 1) = y1(i, 1);
-                elseif strcmp(obj.f, 'Tanh')
-                    y(i, 1) = tanh(y1(i, 1));
-                elseif strcmp(obj.f, 'SatLin')
-                    y(i, 1) = satlin(y1(i, 1));             
-                end 
-            end
+            y1 = obj.W * x + obj.b;            
+
+            if strcmp(obj.f, 'poslin')
+                y = poslin(y1);
+            elseif strcmp(obj.f, 'purelin')
+                y = y1;
+            elseif strcmp(obj.f, 'satlin')
+                y = satlin(y1);             
+            elseif strcmp(obj.f, 'Tanh')
+                y = tanh(y1);
+            end 
+
         end
         
         % evaluate the value of the layer output with a set of vertices

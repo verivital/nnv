@@ -1,4 +1,4 @@
-  classdef ReLU
+ classdef ReLU
     % ReLU operator in NN
     % Dung Tran: 8/21/ 2018
     
@@ -78,51 +78,6 @@
             
         end
         
-         % step reach set y = ReLU(x)
-        function R = stepReach_new(I, index)
-            % @I : input set, a polyhedron
-            % @i : index of current x[index] of current step
-            % @xmin: min of x[index]
-            % @xmax: max of x[index]
-           
-            I.normalize;
-            dim = I.Dim;  % dimension of input space
-
-                
-            Z1 = zeros(1, dim);
-            Z1(1, index) = 1;
-            Z2 = zeros(1, dim);
-            Z2(1, index) = -1;
-
-            A1 = vertcat(I.A, Z1);
-            A2 = vertcat(I.A, Z2);
-            b  = vertcat(I.b, [0]);
-            R1 = Polyhedron('A', A1, 'b', b, 'Ae', I.Ae, 'be', I.be);
-            R2 = Polyhedron('A', A2, 'b', b, 'Ae', I.Ae, 'be', I.be);
-
-            Im = eye(dim);
-            Im(index, index) = 0;
-            R1 = R1.affineMap(Im, 'vrep');
-            if R1.isEmptySet 
-                if R2.isEmptySet
-                    R = [];
-                else
-
-                    R = R2;
-                end
-            else
-                if R2.isEmptySet
-                    R = R1;
-                else
-                    if R1 <= R2
-                        R = R2;
-                    else
-                        R = [R1 R2];
-                    end
-                end
-            end
-                      
-        end
         
         % stepReach with input as a Star set
         function R = stepReach_Star(I, index, xmin, xmax)
@@ -286,8 +241,6 @@
             % @I: input set which is a polyhedron
             % @R : reachable set of ReLU(x), may be an array of polyhedra
             % @rn: number of ReLU_i (stepReach) operations reduced
-            % @option: = 'exact' -> compute an exact reach set
-            %          = 'approx' -> compute an over-approximate reach set
             
                         
             if isa(I, 'Polyhedron')            
@@ -313,6 +266,95 @@
             end               
             R = In;
            
+        end
+        
+        % approximate reachability using stars
+        function [R, rn] = reach_approx(I, parallel)
+            % @I: is a star input
+            % @R: is a singule star output
+            % @rn: number of ReLU_i (stepReLu) neglected
+            
+            % author: Dung Tran
+            % date: 26/2/2019
+            
+            if ~isa(I, 'Star')
+                error('Input set is not a Star');
+            else
+                B = I.getBox;
+                if ~isempty(B)
+                    lb = B.lb;
+                    ub = B.ub;
+                else
+                    lb = [];
+                    ub = [];
+                end
+            end
+            
+            if isempty(lb) || isempty(ub)
+                R = [];
+                rn = 0;
+            else
+                map = find(lb < 0); % computation map
+                m = size(map, 1); % number of stepReach operations needs to be executed
+                rn = size(lb, 1) - m;
+                
+                V = I.V;
+                nVar = I.nVar;
+                C = [];
+                d = [];
+                
+                if (strcmp(parallel, 'single'))
+                    
+                    for i=1:m
+                        
+                        j = map(i);
+                        
+                        if ub(j) <= 0
+                            vj = zeros(1, nVar + 1);
+                        else
+                            vj = (ub(j)/(ub(j) - lb(j)))* I.V(j,:);
+                            vj(1,1) = vj(1,1) - ub(j) * lb(j)/(ub(j) - lb(j));
+                        end
+                        
+                        V(j, :) = vj;
+                        
+                        new_C = [I.V(j, 2:nVar + 1); -I.V(j, 2:nVar + 1)];
+                        new_d = [ub(j) - I.V(j,1); -lb(j) + I.V(j, 1)];
+                        C = vertcat(C, new_C);
+                        d = vertcat(d, new_d);
+                        
+                    end
+                    
+                elseif (strcmp(parallel, 'parallel'))
+                    V1 = zeros(m, nVar + 1);
+                    parfor i=1:m
+                        
+                         j = map(i);
+                        
+                        if ub(j) <= 0
+                            vj = zeros(1, nVar + 1);
+                        else
+                            vj = (ub(j)/(ub(j) - lb(j)))* I.V(j,:);
+                            vj(1,1) = vj(1,1) - ub(j) * lb(j)/(ub(j) - lb(j));
+                        end
+                        
+                        V1(i, :) = vj;
+                        
+                    end
+                    for i=1:m
+                        V(map(i), :) = V1(i,:);
+                    end
+                    
+                else
+                    error('Unknown parallel option');
+                end
+                
+                C = vertcat(I.C, C);
+                d = vertcat(I.d, d);
+                R = Star(V, C, d);
+                
+            end
+            
         end
         
     end

@@ -6,22 +6,22 @@ Number of inputs: 3
 Number of outputs: 2
 
 Reach Set Information
-Reachability scheme: exact
-Number of cores used in computation: 4
-Layer 1 reach set consists of 20 polyhedrons that are computed in 0.44673 seconds
+Reachability scheme: approx-star
+Number of cores used in computation: 1
+Layer 1 reach set consists of 1 polyhedrons that are computed in 0.09258 seconds
 Number of ReLU_i stepReach operations neglected for layer 1: 1
-Layer 2 reach set consists of 89 polyhedrons that are computed in 1.32910 seconds
-Number of ReLU_i stepReach operations neglected for layer 2: 59
-Layer 3 reach set consists of 245 polyhedrons that are computed in 3.17698 seconds
-Number of ReLU_i stepReach operations neglected for layer 3: 255
-Layer 4 reach set consists of 365 polyhedrons that are computed in 6.53626 seconds
-Number of ReLU_i stepReach operations neglected for layer 4: 844
-Layer 5 reach set consists of 507 polyhedrons that are computed in 9.39621 seconds
-Number of ReLU_i stepReach operations neglected for layer 5: 1274
-Layer 6 reach set consists of 932 polyhedrons that are computed in 14.47057 seconds
-Number of ReLU_i stepReach operations neglected for layer 6: 1535
-Layer 7 reach set consists of 1250 polyhedrons that are computed in 24.26006 seconds
-Number of ReLU_i stepReach operations neglected for layer 7: 3697
-Output Layer reach set consists of 1250 polyhedrons that are computed in 0.27921 seconds
-Total reachable set computation time: 59.89513
-Total number of ReLU_i stepReach operations neglected: 7665
+Layer 2 reach set consists of 1 polyhedrons that are computed in 0.07220 seconds
+Number of ReLU_i stepReach operations neglected for layer 2: 2
+Layer 3 reach set consists of 1 polyhedrons that are computed in 0.07752 seconds
+Number of ReLU_i stepReach operations neglected for layer 3: 3
+Layer 4 reach set consists of 1 polyhedrons that are computed in 0.07056 seconds
+Number of ReLU_i stepReach operations neglected for layer 4: 3
+Layer 5 reach set consists of 1 polyhedrons that are computed in 0.07323 seconds
+Number of ReLU_i stepReach operations neglected for layer 5: 3
+Layer 6 reach set consists of 1 polyhedrons that are computed in 0.09134 seconds
+Number of ReLU_i stepReach operations neglected for layer 6: 2
+Layer 7 reach set consists of 1 polyhedrons that are computed in 0.07429 seconds
+Number of ReLU_i stepReach operations neglected for layer 7: 5
+Output Layer reach set consists of 1 polyhedrons that are computed in 0.00009 seconds
+Total reachable set computation time: 0.55181
+Total number of ReLU_i stepReach operations neglected: 19

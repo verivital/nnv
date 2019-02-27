@@ -84,8 +84,6 @@ classdef Layer
                             rn1 = 0;
                         elseif strcmp(obj.f, 'ReLU')
                             [R1, rn1] = ReLU.reach(I1);
-                            %[R1, rn1] = ReLU.reach_new(I1); % new method without solving optimization
-
                         else
                             error('Unsupported activation function, currently support ReLU and Linear')
                         end
@@ -151,84 +149,6 @@ classdef Layer
             end
             
             t = toc(t1);              
-        end
-        
-        
-        
-        % over-approximate reach set using polyhedron 
-        function [R, runtime] = reach_approx_polyhedron(obj, I, nP, nC, parallel)
-            % @I : input set, a polyhedron
-            % @R: over-approximate reach set (a polyhedron)
-            % @t: computation time
-            % @nP: number of clusters for clustering output polyhedra
-            % @nC: number of constraints in each polyhedron of the output R
-            %      @nC: is used to control the number of constraints of the
-            %      polyhedra of the output, make it always ~nC.
-            % @parallel: = 'parallel' -> using parallel computing
-            %            = 'single' -> using single core for computing
-            
-            % *** This approach only works for layers with small number of
-            % neurons.
-            
-            startTime = tic;
-            
-            for i=1:length(I)
-                if I(i).isEmptySet
-                    error('Input %d is an empty set', i);
-                end
-                if size(obj.W, 2) ~= size(I(i).A, 2)
-                    error('Inconsistent dimensions between input set %d and weights matrix', i);
-                end
-                if ~I(i).isBounded
-                    error('Input set is not bounded')
-                end
-            end
-            
-            if strcmp(obj.f, 'Linear')
-                R = [];
-                for i=1:length(I)
-                    R = [R I(i).affineMap(obj.W) + obj.b];
-                end                
-            elseif strcmp(obj.f, 'ReLU')                
-                
-                % compute the exact reach set
-                fprintf('\nComputing the exact reach set of the current layer...')
-                [R, ~, t] = obj.reach_exact(I, parallel);
-                fprintf('\nReach set computation is done in %.5f seconds', t);
-                
-                
-                % clustering output reach set into nP groups based on their overlapness
-                
-                fprintf('\nCluster reach set (%d polyhedra) into %d groups based on their overlapness...', length(R), nP);
-                t1 = tic;
-                clustered_set = Reduction.clusterByOverlapness(R, nP); 
-                display(clustered_set); 
-                
-                
-                fprintf('\nCluster polyhedra in the groups into smaller groups based on dependent variables and merging them to one and reducing the number of constraints');
-                R = [];
-                for j=1:nP
-                    P1 = Reduction.clusterByDependentVariables(clustered_set{j, 1});
-                    fprintf('\nCluster polyhedra in the group %d into %d smaller groups', j, length(P1));
-                    
-                    for k=1:length(P1)
-                        fprintf('\nMerge polyhedra in the small group %d into one polyhedron and reduce the number of constraints of the merged polyhedron', k);
-                        P2 = Reduction.recursiveMerge(P1{k, 1}, 1, parallel);
-                        fprintf('\n');
-                        R = [R Reduction.reduceConstraints(P2, nC, parallel)];
-                    end                
-                  
-                end
-                
-                t2 = toc(t1);
-                fprintf('\nFinish clustering, merging and reducing constraints in %.5f seconds', t2);                                
-                
-            else
-                error('Unsupported activiation function');
-            end
-            
-            runtime = toc(startTime);                                          
-            
         end
                 
         
@@ -398,10 +318,9 @@ classdef Layer
         
         
         % reachable set computation with controlling number of stars
-        function [P, runtime] = reach_approx_star(obj, I, nS, parallel)
+        function [P, rn, runtime] = reach_approx_star(obj, I, parallel)
             
             % @I: input star
-            % @nS: maximum allowable total number of stars at output
             % @parallel: = 'parallel' using parallel computing
             %            = 'single' using single core computing
             
@@ -411,11 +330,21 @@ classdef Layer
             t1 = tic; 
             n = length(I);
            
-            if length(I) < nS                        
-                P = obj.reach_exact(I, parallel);
+            if ~isa(I, 'Star')
+                error('Input is not a Star');
             else
-                S = Star.merge_stars(I, nS, parallel);
-                P = obj.reach_exact(S, parallel);
+                
+                I1 = I.affineMap(obj.W, obj.b);
+                if strcmp(obj.f, 'Linear')
+                    P = I1;
+                    rn = 0;
+                elseif strcmp(obj.f, 'ReLU')
+                    [P, rn] = ReLU.reach_approx(I1, parallel);
+                else
+                    error('Unsupported activation function, currently support ReLU and Linear')
+                end
+                                
+                
             end
            
             runtime = toc(t1);

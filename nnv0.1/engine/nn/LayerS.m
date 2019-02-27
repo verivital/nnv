@@ -43,7 +43,9 @@ classdef LayerS
             elseif strcmp(obj.f, 'purelin')
                 y = y1;
             elseif strcmp(obj.f, 'satlin')
-                y = satlin(y1);             
+                y = satlin(y1);
+            elseif strcmp(obj.f, 'satlins')
+                y = satlins(y1);
             elseif strcmp(obj.f, 'Tanh')
                 y = tanh(y1);
             end 
@@ -116,8 +118,10 @@ classdef LayerS
                             S = [S I1];
                         elseif strcmp(obj.f, 'poslin')
                             S = [S PosLin.reach(I1)];
-                         elseif strcmp(obj.f, 'satlin')
+                        elseif strcmp(obj.f, 'satlin')
                             S = [S SatLin.reach(I1)];
+                        elseif strcmp(obj.f, 'satlins')
+                            S = [S SatLins.reach(I1)];
                         else
                             error('Unsupported activation function, currently support pureline, posline, satlin')
                         end
@@ -140,8 +144,10 @@ classdef LayerS
                             S = [S I1];
                         elseif strcmp(obj.f, 'poslin')
                             S = [S PosLin.reach(I1)];
-                         elseif strcmp(obj.f, 'satlin')
+                        elseif strcmp(obj.f, 'satlin')
                             S = [S SatLin.reach(I1)];
+                        elseif strcmp(obj.f, 'satlins')
+                            S = [S SatLins.reach(I1)];
                         else
                             error('Unsupported activation function, currently support pureline, posline, satlin')
                         end

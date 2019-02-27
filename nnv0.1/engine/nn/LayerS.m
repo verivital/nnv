@@ -96,33 +96,62 @@ classdef LayerS
             
             S = [];
             
-            % do reachability analysis
             if strcmp(method, 'star') % reachability analysis using star set
                 
                 n = length(I);
-                for i=1:n
-                    
-                    % affine mapping y = Wx + b;
-                    if isa(I(i), 'Star')
-                        I1 = I(i).affineMap(obj.W, obj.b);
-                    else
-                        error('%d^th input is not a star', i);
-                    end
-                    % apply activation function: y' = ReLU(y) or y' = 
-                    
-                    if strcmp(obj.f, 'purelin')
-                        S = [S I1];
-                    elseif strcmp(obj.f, 'poslin')
-                        S = [S PosLin.reach(I1, option)];
-                     elseif strcmp(obj.f, 'satlin')
-                        S = [S SatLin.reach(I1, option)];
-                    else
-                        error('Unsupported activation function, currently support pureline, posline, satlin')
-                    end
-                    
-                    
-                end
                 
+                if strcmp(option, 'parallel')
+                    
+                    parfor i=1:n
+                    
+                        % affine mapping y = Wx + b;
+                        if isa(I(i), 'Star')
+                            I1 = I(i).affineMap(obj.W, obj.b);
+                        else
+                            error('%d^th input is not a star', i);
+                        end
+                        % apply activation function: y' = ReLU(y) or y' = 
+
+                        if strcmp(obj.f, 'purelin')
+                            S = [S I1];
+                        elseif strcmp(obj.f, 'poslin')
+                            S = [S PosLin.reach(I1)];
+                         elseif strcmp(obj.f, 'satlin')
+                            S = [S SatLin.reach(I1)];
+                        else
+                            error('Unsupported activation function, currently support pureline, posline, satlin')
+                        end
+                 
+                    end
+                    
+                elseif isempty(option)
+                    
+                    for i=1:n
+                    
+                        % affine mapping y = Wx + b;
+                        if isa(I(i), 'Star')
+                            I1 = I(i).affineMap(obj.W, obj.b);
+                        else
+                            error('%d^th input is not a star', i);
+                        end
+                        % apply activation function: y' = ReLU(y) or y' = 
+
+                        if strcmp(obj.f, 'purelin')
+                            S = [S I1];
+                        elseif strcmp(obj.f, 'poslin')
+                            S = [S PosLin.reach(I1)];
+                         elseif strcmp(obj.f, 'satlin')
+                            S = [S SatLin.reach(I1)];
+                        else
+                            error('Unsupported activation function, currently support pureline, posline, satlin')
+                        end
+                 
+                    end
+                
+                else 
+                    error('Unknown option');
+                end
+                     
                 
             elseif strcmp(method, 'abs-dom') % reachability analysis using abstract-domain
                 

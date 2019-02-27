@@ -85,7 +85,9 @@ classdef Star
             
             options = optimset('Display','none');
             
-            [~, ~, exitflag, ~] = linprog([], obj.C, obj.d, [], [], [], [], [], options);
+            f = ones(1, obj.nVar);
+            
+            [~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
             
             if exitflag == 1
                 bool = 0;

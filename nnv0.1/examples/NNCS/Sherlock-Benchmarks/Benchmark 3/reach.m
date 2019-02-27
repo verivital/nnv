@@ -41,9 +41,11 @@ input_ref = [];
 
 [simTrace, controlTrace] = ncs.evaluate(0.2, N, lb, []);
 
-[P, reachTime] = ncs.reach('approx-star', init_set, input_ref, n_cores, N);
+%[P, reachTime] = ncs.reach('approx-star', init_set, input_ref, n_cores, N);
 
-fig = figure;
-Star.plotBoxes_2D_noFill(P, 1, 2, 'blue');
-saveas(fig, 'reachSet.pdf');
-save result.mat reachTime ncs;
+%fig = figure;
+%Star.plotBoxes_2D_noFill(P, 1, 2, 'blue');
+%saveas(fig, 'reachSet.pdf');
+%save result.mat reachTime ncs;
+
+plot(simTrace(1, :), simTrace(2, :));

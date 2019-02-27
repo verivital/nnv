@@ -171,10 +171,11 @@
 
                         [In, t1] = obj.Layers(i).reach_mix(In, max_nP, parallel);
                         
-                    elseif strcmp(scheme, 'approx-star')
+                    %elseif strcmp(scheme, 'approx-star')
 
-                        [In, t1] = obj.Layers(i).reach_approx_star(In, max_nP, parallel);  
-
+                    %    [In, rn1, t1] = obj.Layers(i).reach_approx_star(In, parallel);  
+                    %    obj.n_ReLU_reduced = [obj.n_ReLU_reduced rn1];
+                        
                     else      
                         error('Unknown scheme');
                     end

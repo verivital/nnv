@@ -9,7 +9,7 @@ for i=1:n - 1
 end
 bn = cell2mat(b(n));
 Wn = cell2mat(W(n));
-Ln = LayerS(Wn, bn, 'satlins');
+Ln = LayerS(Wn, bn, 'purelin');
 
 Layers = [Layers Ln];
 

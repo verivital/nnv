@@ -114,6 +114,27 @@ classdef Star
             
         end
         
+        % check if a star set contain a point
+        function bool = contains(obj, s)
+            % @s: a star point
+            % @bool: = 1 star set contains s, else no
+            
+            % author: Dung Tran
+            % date: 1/3/2019
+            
+            
+            if size(s,1) ~= obj.dim
+                error('Dimension mismatch');
+            end
+            if size(s,2) ~= 1
+                error('Invalid star point');
+            end
+                       
+            P = obj.toPolyhedron;
+            bool = P.contains(s);
+                     
+        end
+        
         % affine mapping of star set S = Wx + b;
         function S = affineMap(obj, W, b)
             % @W: mapping matrix

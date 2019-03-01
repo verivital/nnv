@@ -17,6 +17,24 @@ classdef LogSig
         end
         
         
+        % step reachability
+        function S = stepReach(I, index)
+            % @I: input star
+            % @S: output star
+            
+            % author: Dung Tran
+            % date: 1/3/2019
+            
+            if ~isa(I, 'Star')
+                error('Input set is not a star');
+            end
+            
+            [lb, ub] = I.getRange(index);
+            
+            
+            
+        end
+        
         % reachability analysis with star
         function S = reach_star(I)
             % @I: input star
@@ -47,7 +65,7 @@ classdef LogSig
                 S1 = I.affineMap(gamma_mat, mu1);
                 n = I.dim;
                 new_V = diag(mu2);
-                new_C = [ones(n); -ones(n)];
+                new_C = [eye(n); -eye(n)];
                 new_d = ones(2*n, 1);
                 
                 V = [S1.V new_V];
@@ -57,9 +75,11 @@ classdef LogSig
                 S = Star(V, C, d);
                             
             end
-            
-            
+                  
         end
+        
+        
+        
         
          
         

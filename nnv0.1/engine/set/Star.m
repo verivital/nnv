@@ -135,6 +135,51 @@ classdef Star
                      
         end
         
+        % sampling a star set
+        function V = sample(obj, N)
+            % @N: number of points in the samples
+            % @V: a set of at most N sampled points in the star set 
+            
+            % author: Dung Tran
+            % date: 1/3/2019
+            
+            if N < 1
+                error('Invalid number of samples');
+            end
+            
+            B = obj.getBox;
+            if isempty(B)
+                V = [];
+            else
+                lb = B.lb;
+                ub = B.ub;
+                
+                X = cell(1, obj.dim);
+                V1 = [];
+                for i=1:obj.dim
+                    X{1, i} = (ub(i) - lb(i)).*rand(2*N, 1) + lb(i);
+                    V1 = vertcat(V1, X{1, i}');
+                end
+                
+                V = [];
+                for i=1:2*N
+                    if obj.contains(V1(:, i))
+                        V = [V V1(:, i)];
+                    end
+                end
+                
+                if size(V, 2) > N
+                    V = V(:, 1:N);
+                end             
+                
+            end
+            
+            
+            
+            
+            
+        end
+        
         % affine mapping of star set S = Wx + b;
         function S = affineMap(obj, W, b)
             % @W: mapping matrix

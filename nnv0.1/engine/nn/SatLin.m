@@ -149,8 +149,146 @@ classdef SatLin
             end
             
               
-        end    
+        end
         
+        
+        % step over-approximate reachability analysis using Star
+        function S = stepReachStarApprox(I, index)
+            % @I: star input set
+            % @index: index of the neuron where we perform step Reach
+            % @S: Star output set 
+            
+            % author: Dung Tran
+            % date: 4/3/2019
+            
+            if ~isa(I, 'Star')
+                error('Input is not a star');
+            end
+            
+            [lb, ub] = I.getRange(index);
+            
+            if ub <= 0
+                V = I.V;
+                V(index, :) = zeros(1, I.nVar + 1);
+                S = Star(V, I.C, I.d);
+            end
+            if lb >= 1
+                V = I.V;
+                V(index, :) = zeros(1, I.nVar + 1);
+                V(index, 1) = 1;
+                S = Star(V, I.C, I.d);                
+            end
+            if (1 > lb) && (lb > 0) && ub > 1
+                % constraint 1: y(index) <= x[index]
+                C1 = [-I.V(index, 2:I.nVar + 1) 1];
+                d1 = I.V(index, 1);
+                % constraint 2: y[index] <= 1
+                C2 = zeros(1, I.nVar + 1);
+                C2(I.nVar + 1) = 1;
+                d2 = 1;
+                % constraint 3: y[index] >= (1-lb)x/(ub-lb) + lb*(ub-1)/(ub-lb)
+                C3 = [((1-lb)/(ub-lb))*I.V(index, 2:I.nVar+1) -1];
+                d3 = -lb*(ub-1)/(ub-lb) - (1-lb)*I.V(index,1)/(ub-lb);
+                
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_C = [C0; C1; C2; C3];
+                new_d = [d0; d1; d2; d3];
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, I.nVar+2);
+                new_V(index, I.nVar+2) = 1;
+
+                S = Star(new_V, new_C, new_d);
+            end
+            
+            if lb >= 0 && ub <= 1
+                S = Star(I.V, I.C, I.d);
+            end
+            if lb < 0 && (0 < ub) && (ub <= 1)
+                
+                n = I.nVar + 1;
+                % over-approximation constraints 
+                % constraint 1: y[index] = >= 0
+                C1 = zeros(1, n);
+                C1(n) = -1; 
+                d1 = 0;
+                % constraint 2: y[index] >= x[index]
+                C2 = [I.V(index, 2:n) -1];
+                d2 = -I.V(index, 1);
+                % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
+                C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
+                d3 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
+
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_C = [C0; C1; C2; C3];
+                new_d = [d0; d1; d2; d3];
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, n+1);
+                new_V(index, n+1) = 1;
+
+                S = Star(new_V, new_C, new_d);               
+            end
+            
+            if lb < 0 && ub > 1
+                % constraint 1: y[index] >= 0
+                n = I.nVar + 1;
+                C1 = zeros(1, n);
+                C1(n) = -1; 
+                d1 = 0;
+                % constraint 2: y[index] <= 1
+                C2 = zeros(1, n);
+                C2(n) = 1;
+                d2 = 1;
+                % constraint 3: y[index] <= x/(1 -lb) - lb/(1-lb)
+                C3 = [(-1/(1-lb))*I.V(index, 2:n) 1];
+                d3 = (1/(1-lb))*I.V(index, 1) - lb/(1-lb);
+                % constraint 4: y[index] >=  x/ub
+                C4 = [(1/ub)*I.V(index, 2:n) -1];
+                d4 = -(1/ub)*I.V(index, 1);
+                
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_C = [C0; C1; C2; C3; C4];
+                new_d = [d0; d1; d2; d3; d4];
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, n+1);
+                new_V(index, n+1) = 1;
+
+                S = Star(new_V, new_C, new_d); 
+                
+            end
+                 
+        end
+        
+        % over-approximate reachability analysis using star
+        function S = reach_star_approx(I)
+            % @I: star input set
+            % @S: star output set
+            
+            % author: Dung Tran
+            % date: 4/3/2019
+            
+            if ~isa(I, 'Star')
+                error('Input is not a star');
+            end
+
+            if isEmptySet(I)
+                S = [];
+            else
+                In = I;
+                for i=1:I.dim
+                    fprintf('\nPerforming SatLin_%d operation', i);
+                    In = SatLin.stepReachStarApprox(In, i);
+                end
+                S = In;
+            end
+        end
+        
+             
     end
     
     

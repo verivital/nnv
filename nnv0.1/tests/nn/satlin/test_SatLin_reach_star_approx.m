@@ -9,10 +9,10 @@ I.plot;
 hold on;
 plot(X(1, :), X(2, :), 'ob'); % sampled inputs
 
-S = PosLin.reach_star_approx(I); % over-approximate reach set
-S1 = PosLin.reach(I); % exach reach set
+S = SatLin.reach_star_approx(I); % over-approximate reach set
+S1 = SatLin.reach(I); % exach reach set
 
-Y = PosLin.evaluate(X);
+Y = SatLin.evaluate(X);
 
 figure;
 S.plot;

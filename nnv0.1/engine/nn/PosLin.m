@@ -175,7 +175,7 @@ classdef PosLin
             d2 = -I.V(index, 1);
             % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
             C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-            d3 = -ub*lb/(ub-lb) + I.V(index, 1);
+            d3 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
             
             m = size(I.C, 1);
             C0 = [I.C zeros(m, 1)];
@@ -205,19 +205,18 @@ classdef PosLin
         if ~isa(I, 'Star')
             error('Input is not a star');
         end
-        
-        B = I.getBox;
-        if isempty(B)
+       
+        if isEmptySet(I)
             S = [];
         else
             In = I;
             for i=1:I.dim
+                fprintf('\nPerforming PosLin_%d operation', i);
                 In = PosLin.stepReachStarApprox(In, i);
             end
             S = In;
         end
-        
-         
+              
     end
    
         

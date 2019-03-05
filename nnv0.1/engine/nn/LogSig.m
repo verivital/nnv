@@ -66,6 +66,32 @@ classdef LogSig
     methods(Static) % over-approximate reachability analysis using Zonotope
         
         function Z = reach_zono_approx(I)
+            % @I: zonotope input set
+            % @Z: zonotope output set
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+            
+            % reference: Fast and Effective Robustness Certification,
+            % Gagandeep Singh, NIPS, 2018
+            
+            if ~isa(I, 'Zono')
+                error('Input set is not a Zonotope');
+            end
+            
+            B = I.getBox;
+            
+            lb = B.lb;
+            ub = B.ub;
+            G = [logsig('dn', lb) logsig('dn', ub)];
+            gamma_opt = min(G, [], 2);
+            gamma_mat = diag(gamma_opt);
+            mu1 = 0.5 * (logsig(ub) + logsig(lb) - gamma_mat * (ub + lb));
+            mu2 = 0.5 * (logsig(ub) - logsig(lb) - gamma_mat * (ub - lb));
+            Z1 = I.affineMap(gamma_mat, mu1);
+            new_V = diag(mu2);
+            V = [Z1.V new_V];
+            Z = Zono(Z1.c, V);
             
         end
         

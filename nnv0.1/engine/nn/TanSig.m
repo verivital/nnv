@@ -7,7 +7,7 @@ classdef TanSig
     properties
     end
     
-    methods(Static) % evaluate method and reachability analysis with stars
+    methods(Static) % evaluate method and over-approximate reachability analysis with stars
     
         % evaluation
         function y = evaluate(x)
@@ -55,6 +55,45 @@ classdef TanSig
                 S = Star(V, C, d);
                             
             end
+                  
+        end
+        
+    end
+    
+    
+    methods(Static) % over-approximate reachability analysis with zonotope
+        
+        
+        % reachability analysis with zonotope
+        function Z = reach_zono_approx(I)
+            % @I: input star
+            % @Z: output star
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+            
+            % method: approximate sigmoid function by a zonotope
+            % reference: Fast and Effective Robustness Certification,
+            % Gagandeep Singh, NIPS, 2018
+            
+            if ~isa(I, 'Zono')
+                error('Input set is not a Zonotope');
+            end
+            
+            B = I.getBox;
+            
+            lb = B.lb;
+            ub = B.ub;
+            G = [tansig('dn', lb) tansig('dn', ub)];
+            gamma_opt = min(G, [], 2);
+            gamma_mat = diag(gamma_opt);
+            mu1 = 0.5 * (tansig(ub) + tansig(lb) - gamma_mat * (ub + lb));
+            mu2 = 0.5 * (tansig(ub) - tansig(lb) - gamma_mat * (ub - lb));
+            Z1 = I.affineMap(gamma_mat, mu1);
+            new_V = diag(mu2);
+            
+            V = [Z1.V new_V];
+            Z = Zono(Z1.c, V);
                   
         end
         

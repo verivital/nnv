@@ -224,6 +224,83 @@ classdef PosLin
     end
     
     
+    methods(Static) % over-approximate reachability analysis use zonotope
+        
+        % step over-approximate reachability analysis using zonotope
+        function Z = stepReachZonoApprox(I, index)
+            % @I: zonotope input set
+            % @index: index of neuron performing stepReach
+            % @Z: zonotope output set
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+        
+            % reference: Fast and Effective Robustness Ceritification,
+            % Gagandeep Singh, NIPS 2018
+           
+            if ~isa(I, 'Zono')
+                error('Input is not a Zonotope');
+            end
+               
+            [lb, ub] = I.getRange(index);
+            
+            if lb >= 0
+                Z = Zono(I.c, I.V);
+            elseif ub <= 0
+                c = I.c;
+                c(index) = 0;
+                V = I.V;
+                V(index, :) = zeros(1, size(I.V, 2));
+                Z = Zono(c, V);
+            elseif lb < 0 && ub > 0
+                
+                lamda = ub/(ub -lb);
+                mu = -0.5*ub*lb/(ub - lb);               
+                
+                c = I.c; 
+                c(index) = lamda * c(index) + mu;
+                V = I.V;
+                I1 = zeros(I.dim,1);
+                I1(index) = mu;
+                V = [V I1];
+                
+                Z = Zono(c, V);               
+                
+            end
+            
+            
+        end
+            
+            
+        % over-approximate reachability analysis use zonotope
+        function Z = reach_zono_approx(I)
+            % @I: zonotope input
+            % @Z: zonotope output
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+            
+            % reference: Fast and Effective Robustness Ceritification,
+            % Gagandeep Singh, NIPS 2018
+            
+            if ~isa(I, 'Zono')
+                error('Input is not a Zonotope');
+            end
+                      
+            In = I;
+            for i=1:I.dim
+                fprintf('\nPerforming PosLin_%d operation', i);
+                In = PosLin.stepReachZonoApprox(In, i);
+            end
+            Z = In;
+            
+        end
+        
+        
+    end
+    
+    
+    
     methods(Static) % reachability analysis using abstract-domain
         
         % future supporting method

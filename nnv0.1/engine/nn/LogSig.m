@@ -9,7 +9,7 @@ classdef LogSig
         
     end
     
-    methods(Static)  % evaluate method and reachability analysis with stars
+    methods(Static)  % evaluate method and over-approximate reachability analysis with stars
         
         % evaluation
         function y = evaluate(x)
@@ -59,13 +59,14 @@ classdef LogSig
             end
                   
         end
-        
-        
-        
-        
-         
-        
+          
+    end
+    
+    
+    methods(Static) % over-approximate reachability analysis using Zonotope
         
     end
+    
+    
 end
 

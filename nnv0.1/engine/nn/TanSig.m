@@ -16,7 +16,7 @@ classdef TanSig
         
                 
         % reachability analysis with star
-        function S = reach_star(I)
+        function S = reach_star_approx(I)
             % @I: input star
             % @S: output star
             

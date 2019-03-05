@@ -3,7 +3,7 @@ I = ExamplePoly.randVrep;
 V = [0 0; 1 0; 0 1];
 I = Star(V', I.A, I.b); % input star
 
-S = LogSig.reach_star(I);
+S = LogSig.reach_star_approx(I);
 X = I.sample(10);
 Y = LogSig.evaluate(X);
 

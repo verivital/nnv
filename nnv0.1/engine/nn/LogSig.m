@@ -18,7 +18,7 @@ classdef LogSig
         
                 
         % reachability analysis with star
-        function S = reach_star(I)
+        function S = reach_star_approx(I)
             % @I: input star
             % @S: output star
             
@@ -64,6 +64,10 @@ classdef LogSig
     
     
     methods(Static) % over-approximate reachability analysis using Zonotope
+        
+        function Z = reach_zono_approx(I)
+            
+        end
         
     end
     

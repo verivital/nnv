@@ -314,6 +314,24 @@ classdef Zono
             
         end
         
+        % get range of a zonotope at specific index
+        function [lb, ub] = getRange(obj, index)
+            % @index: index of the state x[index] 
+            % @lb: lower bound of x[index]
+            % @ub: upper bound of x[index]
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+            
+            
+            if index <= 0 || index > obj.dim
+                error('Invalid index');
+            end
+            
+            lb = obj.c(index) - norm(obj.V(index, :), 1);
+            ub = obj.c(index) + norm(obj.V(index, :), 1);
+        end
+        
         % get an oriented rectangular hull enclosing a zonotope
         function Z = getOrientedBox(obj)
             % this code is from MATTISE of Prof. Girard, in 2005. 

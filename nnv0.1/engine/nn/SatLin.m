@@ -308,15 +308,12 @@ classdef SatLin
             end
             
             [lb, ub] = I.getRange(index);
-            
-            display(lb);
-            display(ub);
-            
+              
             if ub <= 0
                 V = I.V;
                 V(index, :) = zeros(1, size(V, 2));
                 c = I.c;
-                c(index) = -1;
+                c(index) = 0;
                 Z = Zono(c, V);
             end
             if lb >= 1

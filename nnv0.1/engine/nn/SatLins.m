@@ -294,10 +294,108 @@ classdef SatLins
                 S = In;
             end
         end
+            
+    end
+    
+    
+    methods(Static) % over-approximate reachability analysis using zonotope
         
+        % step reachability analysis using zonotope
+        function Z = stepReachZonoApprox(I, index)
+            % @I: zonotope input set
+            % @index: index of the neuron performing step reach
+            % @Z: zonotope output set
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+            
+            if ~isa(I, 'Zono')
+                error('Input set is not a Zonotope');
+            end
+            
+            [lb, ub] = I.getRange(index);
+              
+            if ub <= -1
+                V = I.V;
+                V(index, :) = zeros(1, size(V, 2));
+                c = I.c;
+                c(index) = -1;
+                Z = Zono(c, V);
+            end
+            if lb >= 1
+                V = I.V;
+                V(index, :) = zeros(1, size(V,2));
+                c = I.c;
+                c(index) = 1;
+                Z = Zono(c, V);                
+            end
+            
+            if lb >= -1 && ub <= 1
+                Z = Zono(I.c, I.V);
+            end
+            
+            if (1 > lb) && (lb >= -1) && ub > 1
+                % x + 1 -ub <= y <= x, lb <= x <= ub
+                c = I.c;
+                c(index) = c(index) + (1-ub)/2;
+                V = zeros(I.dim, 1);
+                V(index) = (1-ub)/2;
+                V = [I.V V];
+                Z = Zono(c, V);
+            end
+            
+            if lb < -1 && (0 < ub) && (ub <= 1)
+                % lamda * x + lamda - 1 <= y <= lamda * x + ub*(1-lamda)
+                % lamda_opt = ub/(ub - lb);
+                c = I.c;
+                lamda_opt = ub/(ub - lb);
+                mu = (ub + 1)*(1 - lamda_opt)/2;
+                c(index) = lamda_opt * c(index) + (lamda_opt - 1) + mu;
+                V = zeros(I.dim, 1);
+                V(index) = mu;
+                V = [I.V V];
+                Z = Zono(c, V);
+                     
+            end
+            
+            if lb < -1 && ub > 1
+                % x + 1 -ub <= y <= x -1 - lb, lb <= x <= ub
+                c = I.c;
+                mu = (ub - lb - 2)/2;
+                c(index) = c(index) + 1 - ub + mu;
+                V = zeros(I.dim, 1);
+                V(index) = mu;
+                V = [I.V V];
+                Z = Zono(c, V);
+                
+            end
+                      
+        end
         
-        
-        
+        % over-approximate reachability analysis use zonotope
+        function Z = reach_zono_approx(I)
+            % @I: zonotope input
+            % @Z: zonotope output
+            
+            % author: Dung Tran
+            % date: 6/3/2019
+            
+            % reference: Fast and Effective Robustness Ceritification,
+            % Gagandeep Singh, NIPS 2018
+            
+            if ~isa(I, 'Zono')
+                error('Input is not a Zonotope');
+            end
+                      
+            In = I;
+            for i=1:I.dim
+                fprintf('\nPerforming SatLins_%d operation', i);
+                In = SatLins.stepReachZonoApprox(In, i);
+            end
+            Z = In;
+            
+        end
+
         
     end
     

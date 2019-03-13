@@ -4,7 +4,7 @@ n = length(b);
 for i=1:n - 1
     bi = cell2mat(b(i));
     Wi = cell2mat(W(i));
-    Li = LayerS(Wi, bi, 'poslin');
+    Li = LayerS(Wi, bi, 'satlin');
     Layers = [Layers Li];
 end
 bn = cell2mat(b(n));

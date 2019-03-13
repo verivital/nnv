@@ -37,49 +37,93 @@ plant = DLinearODE(A, B, C, D, Ts);
 % step 2: compute brake output of rl_controller
 % step 3: compose brake output and normalized speed
 % step 4: compute transformer output
-% step 5: scale control output
-% step 6: compute reachable set of the plant with the new control input and
+% step 5: get control output
+% step 6: scale control output
+% step 7: compute reachable set of the plant with the new control input and
 % initial state
-% step 7: go back to step 1, ...
+% step 8: go back to step 1, ...
 
 
 lb = [97; 25.2; -3.5];
 ub = [97.5; 25.5; -3.0];
 init_set = Star(lb, ub); % initial condition of the plant
 
-N = 3; % number of control steps
-numCores = 4;
+N = 50; % number of control steps
 
 X0 = init_set; % step 0: initial state of plant
 S = X0;
 
-speed_brakes = [];
+
 tf_outs = [];
 for i=1:N
     % step 1: normalizing state
     norm_X = X0.affineMap(norm_mat, []); % normalized state
     % step 2: compute brake output of rl_controller
     brake = rl_controller.reach(norm_X);
-    brake = Star.get_hypercube_hull(brake);
     % step 3: compose brake output and speed
-    [speed_lb, speed_ub] = norm_X.getRange(2);
-    speed_brake = Star([speed_lb; brake.lb], [speed_ub; brake.ub]);
-    speed_brakes = [speed_brakes speed_brake.getBox];
+    speed_brakes = get_speed_brakes(brake, norm_X);
     % step 4: compute transformer output
-    tf_out = transformer.reach(speed_brake);
-    tf_out = Star.get_hypercube_hull(tf_out);
-    tf_outs = [tf_outs tf_out];
-    % step 5: scale control output
-    control = Star([speed_lb; tf_out.lb], [speed_ub; tf_out.ub]); 
-    control = control.affineMap(scale_mat, []);   
-    % step 6: compute reachable set of the plant with the new control input and
+    tf_outs = get_tf_outs(transformer, speed_brakes);
+    % step 5: get control output
+    controls = get_controls(tf_outs, norm_X);
+    % step 6: scale control output
+    scaled_controls = scale_controls(controls, scale_mat);
+    new_control = Star.get_hypercube_hull(scaled_controls);
+    % step 7: compute reachable set of the plant with the new control input and
     % initial state
-    X0 = plant.stepReachStar(X0, control);  
+    X0 = plant.stepReachStar(X0, new_control.toStar);  
     S = [S X0];
 end
 
-figure;
+
+% plot reachable set
+subplot(1,2,1);
 Star.plotBoxes_2D_noFill(S, 1, 2, 'b');
 xlabel('distance');
 ylabel('speed');
+title('Speed vs. Distance');
+subplot(1,2,2);
+Star.plotBoxes_2D_noFill(S, 2, 3, 'b');
+xlabel('speed');
+ylabel('acceleration');
+title('Acceleration vs. Speed');
+saveas(gcf, 'reachSet.pdf');
+% save reachable set for computing TTC
+save reachSet.mat S;
 
+function speed_brakes = get_speed_brakes(brake, norm_X)
+    n = length(brake);
+    speed_brakes = [];
+    
+    for i=1:n
+        V = [norm_X.V(2, :);brake(i).V];
+        speed_brakes = [speed_brakes Star(V, brake(i).C, brake(i).d)];
+        
+    end 
+end
+
+function tf_outs = get_tf_outs(transformer, speed_brakes)
+    n = length(speed_brakes);
+    tf_outs = [];
+    parfor i=1:n
+        tf_out = transformer.reach(speed_brakes(i));
+        tf_outs = [tf_outs tf_out];
+    end
+end
+
+function controls = get_controls(tf_outs, norm_X)
+    n = length(tf_outs);
+    controls = [];
+    for i=1:n
+        V = [norm_X.V(2, :);tf_outs(i).V];
+        controls = [controls Star(V, tf_outs(i).C, tf_outs(i).d)];        
+    end
+end
+
+function scaled_controls = scale_controls(controls, scale_mat)
+    n = length(controls);
+    scaled_controls = [];
+    for i=1:n
+        scaled_controls = [scaled_controls controls(i).affineMap(scale_mat, [])];
+    end
+end

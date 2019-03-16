@@ -556,7 +556,7 @@ classdef SatLin
                 In = I;
                 for i=1:I.dim
                     fprintf('\nPerforming PosLin_%d operation', i);
-                    In = PosLin.stepReachAbstractDomain(In, i);
+                    In = SatLin.stepReachAbstractDomain(In, i);
                 end
                 S = In;
             end

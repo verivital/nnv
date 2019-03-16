@@ -174,7 +174,7 @@ classdef LayerS
                     elseif strcmp(obj.f, 'poslin')
                         S = [S PosLin.reach(I1, 'approx-star')];
                     elseif strcmp(obj.f, 'satlin')
-                        S = [S SatLin.reach(I1)];
+                        S = [S SatLin.reach(I1, 'approx-star')];
                     elseif strcmp(obj.f, 'satlins')
                         S = [S SatLins.reach(I1)];
                     else

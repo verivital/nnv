@@ -394,7 +394,7 @@ classdef SatLin
             % set
             
             % author: Dung Tran
-            % date: 5/3/2019
+            % date: 16/3/2019
         
             % reference: An Abstract Domain for Certifying Neural Networks,
             % Gagandeep Singh, POPL 2019
@@ -543,7 +543,7 @@ classdef SatLin
             % @S: star output set
 
             % author: Dung Tran
-            % date: 4/3/2019
+            % date: 16/3/2019
 
 
             if ~isa(I, 'Star')

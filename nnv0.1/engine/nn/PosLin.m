@@ -289,7 +289,112 @@ classdef PosLin
     
     methods(Static) % reachability analysis using abstract-domain
         
-        % future supporting method
+        % step over-approximate reachability analysis using abstract-domain
+        % we use star set to represent abstract-domain
+        function S = stepReachAbstractDomain(I, index)
+            % @I: star-input set
+            % @index: index of neuron performing stepReach
+            % @S: star output set represent abstract-domain of the output
+            % set
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+        
+            % reference: An Abstract Domain for Certifying Neural Networks,
+            % Gagandeep Singh, POPL 2019
+           
+            if ~isa(I, 'Star')
+                error('Input is not a Star');
+            end
+               
+            [lb, ub] = I.getRange(index);
+            
+            if lb >= 0
+                S = Star(I.V, I.C, I.d);
+            elseif ub <= 0
+                V = I.V;
+                V(index, :) = zeros(1, I.nVar + 1);
+                S = Star(V, I.C, I.d);
+            elseif lb < 0 && ub > 0
+                
+                S1 = ub*(ub-lb)/2; % area of the first candidate abstract-domain
+                S2 = -lb*(ub-lb)/2; % area of the second candidate abstract-domain
+                
+                n = I.nVar + 1;
+                if S1 < S2
+                    % choose the first cadidate as the abstract-domain                  
+                    % over-approximation constraints 
+                    % constraint 1: y[index] = ReLU(x[index]) >= 0
+                    C1 = zeros(1, n);
+                    C1(n) = -1; 
+                    d1 = 0;
+                    % constraint 2: y[index] <= ub(x[index] -lb)/(ub - lb)
+                    C2 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
+                    d2 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
+                    
+                    m = size(I.C, 1);
+                    C0 = [I.C zeros(m, 1)];
+                    d0 = I.d;
+                    new_C = [C0; C1; C2];
+                    new_d = [d0; d1; d2];
+                    new_V = [I.V zeros(I.dim, 1)];
+                    new_V(index, :) = zeros(1, n+1);
+                    new_V(index, n+1) = 1;
+
+                    S = Star(new_V, new_C, new_d);
+                    
+                else
+                    % choose the second candidate as the abstract-domain                   
+                    % over-approximation constraints 
+                    % constraint 1: y[index] = ReLU(x[index]) >= x[index]
+                    C1 = [I.V(index, 2:n) -1];
+                    d1 = -I.V(index, 1);
+                    % constraint 2: y[index] <= ub(x[index] -lb)/(ub - lb)
+                    C2 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
+                    d2 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
+                    m = size(I.C, 1);
+                    C0 = [I.C zeros(m, 1)];
+                    d0 = I.d;
+                    new_C = [C0; C1; C2];
+                    new_d = [d0; d1; d2];
+                    new_V = [I.V zeros(I.dim, 1)];
+                    new_V(index, :) = zeros(1, n+1);
+                    new_V(index, n+1) = 1;
+
+                    S = Star(new_V, new_C, new_d);
+                                      
+                end
+                
+            end
+                       
+        end
+        
+        
+        % over-approximate reachability analysis using abstract-domain
+        function S = reach_abstract_domain(I)
+            % @I: star input set
+            % @S: star output set
+
+            % author: Dung Tran
+            % date: 4/3/2019
+
+
+            if ~isa(I, 'Star')
+                error('Input is not a star');
+            end
+
+            if isEmptySet(I)
+                S = [];
+            else
+                In = I;
+                for i=1:I.dim
+                    fprintf('\nPerforming PosLin_%d operation', i);
+                    In = PosLin.stepReachAbstractDomain(In, i);
+                end
+                S = In;
+            end
+
+        end     
         
     end
     
@@ -346,7 +451,9 @@ classdef PosLin
                 R = PosLin.reach_zono_approx(I);
                 
             elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
-                fprintf('\nNNV have not yet support Abstract-Domain Method');
+                
+                R = PosLin.reach_abstract_domain(I);
+                
             elseif strcmp(method, 'exact-face-latice') % exact analysis using face-latice
                 fprintf('\nNNV have not yet support Exact Face-Latice Method');
             elseif strcmp(method, 'approx-face-latice') % over-approximate analysis using face-latice

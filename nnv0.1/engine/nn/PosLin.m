@@ -106,27 +106,16 @@ classdef PosLin
         end
         
         
-        % function reachability analysis using Star
-        function S = reach(varargin)
-            % @I: an array of star input sets
-            % @option: = 'parallel' use parallel option
-            %          = '' do use parallel option
+        % exact reachability analysis using star
+        function S = reach_star_exact(I, option)
+            % @I: star input sets
+            % @option: = 'parallel' using parallel computing
+            %          = ''    do not use parallel computing
             
             % author: Dung Tran
-            % date: 27/2/2019
+            % date: 3/16/2019
             
-            switch nargin
-                case 2
-                    I = varargin{1};
-                    option = varargin{2};
-                case 1
-                    I = varargin{1};
-                    option = [];
-                otherwise
-                    error('Invalid number of input arguments (should be 1 or 2)');
-            end
-            
-            if ~isempty(I)
+             if ~isempty(I)
                 dim = I(1).dim;
                 In = I;
                 for i=1:dim
@@ -137,93 +126,91 @@ classdef PosLin
             else
                 S = [];
             end
-            
+        end
+        
               
-        end
-        
-      
-    % step reach approximation using star
-    function S = stepReachStarApprox(I, index)
-        % @I: star set input
-        % @index: index of the neuron performing stepReach
-        % @S: star output
-        
-        % author: Dung Tran
-        % date: 4/3/2019
-        
-        if ~isa(I, 'Star')
-            error('Input is not a star');
-        end
-        
-        [lb, ub] = I.getRange(index);
-        
-        if lb >= 0
-            S = Star(I.V, I.C, I.d);
-        elseif ub <= 0
-            V = I.V;
-            V(index, :) = zeros(1, I.nVar + 1);
-            S = Star(V, I.C, I.d);
-        elseif lb < 0 && ub > 0
-            n = I.nVar + 1;
-            % over-approximation constraints 
-            % constraint 1: y[index] = ReLU(x[index]) >= 0
-            C1 = zeros(1, n);
-            C1(n) = -1; 
-            d1 = 0;
-            % constraint 2: y[index] >= x[index]
-            C2 = [I.V(index, 2:n) -1];
-            d2 = -I.V(index, 1);
-            % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
-            C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-            d3 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
-            
-            m = size(I.C, 1);
-            C0 = [I.C zeros(m, 1)];
-            d0 = I.d;
-            new_C = [C0; C1; C2; C3];
-            new_d = [d0; d1; d2; d3];
-            new_V = [I.V zeros(I.dim, 1)];
-            new_V(index, :) = zeros(1, n+1);
-            new_V(index, n+1) = 1;
-            
-            S = Star(new_V, new_C, new_d);
-       
-        end
-        
-    end
-    
-    
-    % over-approximate reachability analysis using Star
-    function S = reach_star_approx(I)
-        % @I: star input set
-        % @S: star output set
-        
-        % author: Dung Tran
-        % date: 4/3/2019
-        
-        
-        if ~isa(I, 'Star')
-            error('Input is not a star');
-        end
-       
-        if isEmptySet(I)
-            S = [];
-        else
-            In = I;
-            for i=1:I.dim
-                fprintf('\nPerforming PosLin_%d operation', i);
-                In = PosLin.stepReachStarApprox(In, i);
+        % step reach approximation using star
+        function S = stepReachStarApprox(I, index)
+            % @I: star set input
+            % @index: index of the neuron performing stepReach
+            % @S: star output
+
+            % author: Dung Tran
+            % date: 4/3/2019
+
+            if ~isa(I, 'Star')
+                error('Input is not a star');
             end
-            S = In;
+
+            [lb, ub] = I.getRange(index);
+
+            if lb >= 0
+                S = Star(I.V, I.C, I.d);
+            elseif ub <= 0
+                V = I.V;
+                V(index, :) = zeros(1, I.nVar + 1);
+                S = Star(V, I.C, I.d);
+            elseif lb < 0 && ub > 0
+                n = I.nVar + 1;
+                % over-approximation constraints 
+                % constraint 1: y[index] = ReLU(x[index]) >= 0
+                C1 = zeros(1, n);
+                C1(n) = -1; 
+                d1 = 0;
+                % constraint 2: y[index] >= x[index]
+                C2 = [I.V(index, 2:n) -1];
+                d2 = -I.V(index, 1);
+                % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
+                C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
+                d3 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
+
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_C = [C0; C1; C2; C3];
+                new_d = [d0; d1; d2; d3];
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, n+1);
+                new_V(index, n+1) = 1;
+
+                S = Star(new_V, new_C, new_d);
+
+            end
+
         end
-              
+
+
+        % over-approximate reachability analysis using Star
+        function S = reach_star_approx(I)
+            % @I: star input set
+            % @S: star output set
+
+            % author: Dung Tran
+            % date: 4/3/2019
+
+
+            if ~isa(I, 'Star')
+                error('Input is not a star');
+            end
+
+            if isEmptySet(I)
+                S = [];
+            else
+                In = I;
+                for i=1:I.dim
+                    fprintf('\nPerforming PosLin_%d operation', i);
+                    In = PosLin.stepReachStarApprox(In, i);
+                end
+                S = In;
+            end
+
+        end
+
+
+
     end
-   
-        
-        
-    end
-    
-    
+
+
     methods(Static) % over-approximate reachability analysis use zonotope
         
         % step over-approximate reachability analysis using zonotope
@@ -300,7 +287,6 @@ classdef PosLin
     end
     
     
-    
     methods(Static) % reachability analysis using abstract-domain
         
         % future supporting method
@@ -310,6 +296,69 @@ classdef PosLin
     methods(Static) % reachability analysis method using face-latice
         
         % future supporting method
+        
+    end
+    
+    
+    methods(Static) % main reach method
+        
+        % main function for reachability analysis
+        function R = reach(varargin)
+            % @I: an array of star input sets
+            % @method: 'exact-star' or 'approx-star' or 'approx-zono' or
+            % 'abs-dom' or 'face-latice'
+            % @option: = 'parallel' use parallel option
+            %          = '' do use parallel option
+            
+            % author: Dung Tran
+            % date: 27/2/2019
+            
+            switch nargin
+                
+                case 3
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = varargin{3};
+                
+                case 2
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = [];
+                case 1
+                    I = varargin{1};
+                    method = 'exact-star';
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+            end
+            
+            
+            if strcmp(method, 'exact-star') % exact analysis using star
+                
+                R = PosLin.reach_star_exact(I, option);
+                
+            elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
+                
+                R = PosLin.reach_star_approx(I);
+                
+            elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
+                
+                R = PosLin.reach_zono_approx(I);
+                
+            elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
+                fprintf('\nNNV have not yet support Abstract-Domain Method');
+            elseif strcmp(method, 'exact-face-latice') % exact analysis using face-latice
+                fprintf('\nNNV have not yet support Exact Face-Latice Method');
+            elseif strcmp(method, 'approx-face-latice') % over-approximate analysis using face-latice
+                fprintf('\nNNV have not yet support Approximate Face-Latice Method');
+            end
+            
+            
+            
+            
+              
+        end
+        
         
     end
     

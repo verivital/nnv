@@ -70,7 +70,7 @@ classdef LayerS
         
         function S = reach(varargin)
             % @I: an array of inputs
-            % @method: 'star' or 'abs-dom', i.e., abstract domain (support
+            % @method: 'exact-star' or 'approx-star' or 'approx-zono' or 'abs-dom', i.e., abstract domain (support
             % later) or 'face-latice', i.e., face latice (support later)
             % @option:  'parallel' use parallel computing
             %           '[]' or not declared -> don't use parallel

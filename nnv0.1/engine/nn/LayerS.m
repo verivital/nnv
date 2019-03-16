@@ -98,7 +98,7 @@ classdef LayerS
             
             S = [];
             
-            if strcmp(method, 'star') % reachability analysis using star set
+            if strcmp(method, 'exact-star') % reachability analysis using star set
                 
                 n = length(I);
                 
@@ -158,6 +158,32 @@ classdef LayerS
                     error('Unknown option');
                 end
                      
+            elseif strcmp(method, 'approx-star')
+                
+                n = length(I); % allow multiple input sets to combine with input partitions
+                for i=1:n
+                    if isa(I(i), 'Star')
+                        I1 = I(i).affineMap(obj.W, obj.b);
+                    else
+                        error('%d^th input is not a star', i);
+                    end
+                    % apply activation function: y' = ReLU(y) or y' = 
+
+                    if strcmp(obj.f, 'purelin')
+                        S = [S I1];
+                    elseif strcmp(obj.f, 'poslin')
+                        S = [S PosLin.reach(I1, 'approx-star')];
+                    elseif strcmp(obj.f, 'satlin')
+                        S = [S SatLin.reach(I1)];
+                    elseif strcmp(obj.f, 'satlins')
+                        S = [S SatLins.reach(I1)];
+                    else
+                        error('Unsupported activation function, currently support pureline, posline, satlin')
+                    end
+                
+                end
+                
+            elseif strcmp(method, 'approx-zono')
                 
             elseif strcmp(method, 'abs-dom') % reachability analysis using abstract-domain
                 

@@ -173,6 +173,7 @@ classdef FFNNS < handle
                 case 2
                     obj = varargin{1};
                     obj.inputSet = varargin{2};
+                    obj.reachMethod = 'exact-star';
                     obj.numCores = 1;
                     
                 otherwise

@@ -1,4 +1,4 @@
-load outputSetStar.mat;
+load outputSetZono.mat;
 load ACASXU_run2a_2_9_batch_2000.mat;
 
 R = outputSet;

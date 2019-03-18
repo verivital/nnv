@@ -119,7 +119,7 @@ classdef PosLin
                 dim = I(1).dim;
                 In = I;
                 for i=1:dim
-                    fprintf('\nPerforming PosLin_%d operation', i);
+                    fprintf('\nPerforming exact PosLin_%d operation using Star', i);
                     In = PosLin.stepReachMultipleInputs(In, i, option);
                 end             
                 S = In;
@@ -162,7 +162,7 @@ classdef PosLin
                 d2 = -I.V(index, 1);
                 % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
                 C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-                d3 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
+                d3 = -ub*lb/(ub-lb) +  ub*I.V(index, 1)/(ub-lb);
 
                 m = size(I.C, 1);
                 C0 = [I.C zeros(m, 1)];
@@ -198,7 +198,7 @@ classdef PosLin
             else
                 In = I;
                 for i=1:I.dim
-                    fprintf('\nPerforming PosLin_%d operation', i);
+                    fprintf('\nPerforming approximate PosLin_%d operation using Star', i);
                     In = PosLin.stepReachStarApprox(In, i);
                 end
                 S = In;
@@ -233,12 +233,14 @@ classdef PosLin
             
             if lb >= 0
                 Z = Zono(I.c, I.V);
+                
             elseif ub <= 0
                 c = I.c;
                 c(index) = 0;
                 V = I.V;
                 V(index, :) = zeros(1, size(I.V, 2));
                 Z = Zono(c, V);
+                
             elseif lb < 0 && ub > 0
                 
                 lamda = ub/(ub -lb);
@@ -247,14 +249,13 @@ classdef PosLin
                 c = I.c; 
                 c(index) = lamda * c(index) + mu;
                 V = I.V;
+                V(index, :) = lamda * V(index, :);
                 I1 = zeros(I.dim,1);
                 I1(index) = mu;
                 V = [V I1];
                 
-                Z = Zono(c, V);               
-                
+                Z = Zono(c, V);                
             end
-            
             
         end
             
@@ -276,11 +277,11 @@ classdef PosLin
                       
             In = I;
             for i=1:I.dim
-                fprintf('\nPerforming PosLin_%d operation', i);
+                fprintf('\nPerforming approximate PosLin_%d operation using Zonotope', i);
                 In = PosLin.stepReachZonoApprox(In, i);
             end
             Z = In;
-            
+                       
         end
         
         
@@ -388,7 +389,7 @@ classdef PosLin
             else
                 In = I;
                 for i=1:I.dim
-                    fprintf('\nPerforming PosLin_%d operation', i);
+                    fprintf('\nPerforming approximate PosLin_%d operation using abstract domain', i);
                     In = PosLin.stepReachAbstractDomain(In, i);
                 end
                 S = In;

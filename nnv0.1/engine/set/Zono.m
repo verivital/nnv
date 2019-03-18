@@ -272,15 +272,12 @@ classdef Zono
         
         
         % convert to polyhedron
-        function P = toPolyhedron(obj)
-            
+        function P = toPolyhedron(obj)            
             n = size(obj.V, 2);           
-            lb = -ones(n, 1);
-            ub = ones(n, 1);                    
-            B = Box(lb, ub);
-            Vs = B.getVertices(); % get all vertices of a box
-            Pa = Polyhedron('V', Vs');
-            P = Pa.affineMap(obj.V, 'vrep') + obj.c;
+            C =[eye(n); -eye(n)];
+            d = ones(2*n, 1);
+            Pa = Polyhedron(C, d);
+            P = Pa.affineMap(obj.V) + obj.c;
         end
         
         % convert to Star

@@ -1,4 +1,4 @@
-load reachSet.mat;
+load reachSet2.mat;
 n = length(S); % number of stars in the reachable set
 
 B = [];
@@ -84,7 +84,8 @@ for i=1:n
     inv_TTC_v = [inv_TTC_v Star(lb, ub)];
 end
 
-times = 1:1:51;
+N = length(S);
+times = 1:1:N;
 
 subplot(3,1,1);
 Star.plotBoxes_2D_noFill(inv_TTC_acc, 1, 2, 'b');

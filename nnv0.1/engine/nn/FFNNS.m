@@ -166,10 +166,13 @@ classdef FFNNS < handle
                     obj.inputSet = varargin{2}; % input set
                     obj.reachMethod = varargin{3}; % reachability analysis method
                     obj.numCores = varargin{4}; % number of cores used in computation
+                    
                 case 3
                     obj = varargin{1};
                     obj.inputSet = varargin{2};
-                    obj.numCores = varargin{3};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = 1;
+                    
                 case 2
                     obj = varargin{1};
                     obj.inputSet = varargin{2};
@@ -177,7 +180,7 @@ classdef FFNNS < handle
                     obj.numCores = 1;
                     
                 otherwise
-                    error('Invalid number of input arguments (should be 2 or 4)');
+                    error('Invalid number of input arguments (should be 1, 2 or 3)');
             end
             
             

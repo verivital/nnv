@@ -657,11 +657,11 @@ classdef Star
             % @S: an array of Stars
             
             n = length(S);
-            for i=1:n-1
-                S(i).plot;
-                hold on;
+            P = [];
+            for i=1:n
+                P = [P S(i).toPolyhedron];
             end
-            S(n).plot;
+            P.plot;
             
         end
         

@@ -331,7 +331,7 @@ classdef PosLin
                     d1 = 0;
                     % constraint 2: y[index] <= ub(x[index] -lb)/(ub - lb)
                     C2 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-                    d2 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
+                    d2 = -(ub*lb/(ub-lb)) + ub*I.V(index, 1)/(ub-lb);
                     
                     m = size(I.C, 1);
                     C0 = [I.C zeros(m, 1)];
@@ -352,7 +352,7 @@ classdef PosLin
                     d1 = -I.V(index, 1);
                     % constraint 2: y[index] <= ub(x[index] -lb)/(ub - lb)
                     C2 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-                    d2 = -(ub*lb/(ub-lb))*(1 - I.V(index, 1));
+                    d2 = -(ub*lb/(ub-lb)) + ub*I.V(index, 1)/(ub-lb);
                     m = size(I.C, 1);
                     C0 = [I.C zeros(m, 1)];
                     d0 = I.d;

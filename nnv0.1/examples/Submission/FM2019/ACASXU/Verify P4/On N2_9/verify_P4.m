@@ -1,4 +1,4 @@
-load outputSetZono.mat;
+load outputSet.mat;
 load ACASXU_run2a_2_9_batch_2000.mat;
 
 tic; 
@@ -27,8 +27,7 @@ unsafe_vec = [0; 0; 0; 0];
 
 safe = 0;
 parfor i=1:n
-    R1 = R(i).toStar;
-    S = R1.intersectHalfSpace(unsafe_mat, unsafe_vec);
+    S = R(i).intersectHalfSpace(unsafe_mat, unsafe_vec);
     if isempty(S)
         fprintf('\nThe %d^th output set does not reaches the unsafe region, P4 holds', i);
     else

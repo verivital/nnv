@@ -32,9 +32,9 @@ end
 
 I = Star(lb, ub);
 
-numCores = 1; % number of cores used in computation
+numCores = 4; 
 
-[R1, ~] = F.reach(I, 'exact-star', 4); % exact reach set
+[R1, ~] = F.reach(I, 'exact-star', numCores); % exact reach set
 F.print('F_exact_star.info'); % print all information to a file
 
 [R2, ~] = F.reach(I, 'approx-star'); % approximate reach set using star

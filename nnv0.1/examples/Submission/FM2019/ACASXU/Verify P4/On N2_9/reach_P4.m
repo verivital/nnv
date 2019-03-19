@@ -32,9 +32,12 @@ end
 
 I = Star(lb, ub);
 
-numCores = 90; 
+numCores = 90;
 
-[R1, ~] = F.reach(I, 'exact-star', numCores); % exact reach set
+[R0, ~] = F.reach(I.toPolyhedron, 'exact-polyhedron', numCores); % exact reach set using polyhedron
+F.print('F_exact_polyhedron.info'); % print all information to a file
+
+[R1, ~] = F.reach(I, 'exact-star', numCores); % exact reach set using polyhdedron
 F.print('F_exact_star.info'); % print all information to a file
 
 [R2, ~] = F.reach(I, 'approx-star'); % approximate reach set using star

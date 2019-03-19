@@ -138,8 +138,7 @@
         end
         
         
-        % stepReach for multiple Input Sets
-        
+        % stepReach for multiple Input Sets 
         function R = stepReachMultipleInputs(I_array, index, xmin, xmax)
             % @I: an array of input sets which are polyhedra
             % @index: index of current x[index] of current step

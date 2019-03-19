@@ -159,6 +159,7 @@ classdef PosLin
             else
                 S = [];
             end
+            
         end
         
               
@@ -241,6 +242,152 @@ classdef PosLin
 
 
 
+    end
+    
+    
+    methods(Static) % reachability analysis using Polyhedron
+        
+        % step reach set y = ReLU(x)
+        function R = stepReach_Polyhedron(I, index, xmin, xmax)
+            % @I : input set, a polyhedron
+            % @i : index of current x[index] of current step
+            % @xmin: min of x[index]
+            % @xmax: max of x[index]
+           
+            I.normalize;
+            dim = I.Dim;
+            if xmin >= 0
+                R = I; 
+            elseif xmax < 0 
+                Im = eye(dim);
+                Im(index, index) = 0;
+                R = I.affineMap(Im, 'vrep');
+            elseif xmin < 0 && xmax >= 0
+                
+                Z1 = zeros(1, dim);
+                Z1(1, index) = 1;
+                Z2 = zeros(1, dim);
+                Z2(1, index) = -1;
+
+                A1 = vertcat(I.A, Z1);
+                A2 = vertcat(I.A, Z2);
+                b  = vertcat(I.b, [0]);
+                R1 = Polyhedron('A', A1, 'b', b, 'Ae', I.Ae, 'be', I.be);
+                R2 = Polyhedron('A', A2, 'b', b, 'Ae', I.Ae, 'be', I.be);
+                
+                Im = eye(dim);
+                Im(index, index) = 0;
+                R1 = R1.affineMap(Im, 'vrep');
+                if R1.isEmptySet 
+                    if R2.isEmptySet
+                        R = [];
+                    else
+                        
+                        R = R2;
+                    end
+                else
+                    if R2.isEmptySet
+                        R = R1;
+                    else
+                        if R1 <= R2
+                            R = R2;
+                        else
+                            R = [R1 R2];
+                        end
+                    end
+                end               
+                
+            end
+            
+        end
+        
+        
+        % stepReach for multiple Input Sets 
+        function R = stepReachMultipleInputs_Polyhedron(varargin)
+            % @I: an array of input sets which are polyhedra
+            % @index: index of current x[index] of current step
+            % @xmin: min value of x[index]
+            % @xmax: max value of x[index]
+            % @option: = 'exact' -> compute an exact reach set
+            %          = 'approx' -> compute an over-approximate reach set
+            
+            switch nargin
+                
+                case 5
+                    I = varargin{1};
+                    index = varargin{2};
+                    xmin = varargin{3};
+                    xmax = varargin{4};
+                    option = varargin{5};
+                
+                otherwise
+                    error('Invalid number of input arguments (should be 5)');
+            end
+            
+            
+            
+            p = length(I);
+            R = [];
+            
+            if isempty(option)
+                
+                for i=1:p
+                    R =[R, PosLin.stepReach_Polyhedron(I(i), index, xmin, xmax)];
+                end
+                
+            elseif strcmp(option, 'parallel')
+                
+                parfor i=1:p
+                    R =[R, PosLin.stepReach_Polyhedron(I(i), index, xmin, xmax)];
+                end
+                
+            else
+                error('Unknown option');
+            end
+            
+            
+                     
+        end
+        
+        
+        % exact reachability analysis using Polyhedron
+        function R = reach_polyhedron_exact(I, option)
+            
+                        % @I: star input sets
+            % @option: = 'parallel' using parallel computing
+            %          = ''    do not use parallel computing
+            
+            % author: Dung Tran
+            % date: 3/16/2019
+            
+             if ~isempty(I)
+                if isa(I, 'Polyhedron')            
+                    I.outerApprox; % find bounds of I state vector
+                    lb = I.Internal.lb; % min-vec of x vector
+                    ub = I.Internal.ub; % max-vec of x vector
+                else
+                    error('Input set is not a Polyhedron');
+                end
+                
+                if isempty(lb) || isempty(ub)
+                    R = [];
+                else
+                    map = find(lb < 0); % computation map
+                    m = size(map, 1); % number of stepReach operations needs to be executed
+                    In = I;
+                    for i=1:m
+                        fprintf('\nPerforming exact PosLin_%d operation using Polyhedron', map(i));
+                        In = PosLin.stepReachMultipleInputs_Polyhedron(In, map(i), lb(map(i)), ub(map(i)), option);
+                    end               
+                    R = In;
+                end
+                
+            else
+                R = [];
+            end
+                 
+        end
+             
     end
 
 
@@ -475,6 +622,10 @@ classdef PosLin
             if strcmp(method, 'exact-star') % exact analysis using star
                 
                 R = PosLin.reach_star_exact(I, option);
+                
+            elseif strcmp(method, 'exact-polyhedron') % exact analysis using polyhedron
+                
+                R = PosLin.reach_polyhedron_exact(I, option);
                 
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 

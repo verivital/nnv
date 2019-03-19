@@ -98,7 +98,7 @@ classdef LayerS
             
             S = [];
             
-            if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom')
+            if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom') && ~strcmp(method, 'exact-polyhedron')
                 error('Unknown reachability analysis method');
             end
             
@@ -111,8 +111,10 @@ classdef LayerS
                     % affine mapping y = Wx + b;
                     if isa(I(i), 'Star')
                         I1 = I(i).affineMap(obj.W, obj.b);
+                    elseif isa(I(i), 'Polyhedron')
+                        I1 = I(i).affineMap(obj.W) + obj.b;
                     else
-                        error('%d^th input is not a star', i);
+                        error('%d^th input is not a star or polyhedron', i);
                     end
                     % apply activation function: y' = ReLU(y) or y' = 
 
@@ -135,9 +137,14 @@ classdef LayerS
 
                 for i=1:n
 
-                    % affine mapping y = Wx + b;                   
-                    I1 = I(i).affineMap(obj.W, obj.b);    
-
+                    % affine mapping y = Wx + b; 
+                    
+                    if isa(I(i), 'Polyhedron')
+                        I1 = I(i).affineMap(obj.W) + obj.b;
+                    else                        
+                        I1 = I(i).affineMap(obj.W, obj.b);    
+                    end
+                        
                     if strcmp(obj.f, 'purelin')
                         S = [S I1];
                     elseif strcmp(obj.f, 'poslin')

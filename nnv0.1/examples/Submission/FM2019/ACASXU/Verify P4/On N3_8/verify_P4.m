@@ -1,37 +1,99 @@
+load outputSet.mat;
 load ACASXU_run2a_3_8_batch_2000.mat;
-Layers = [];
-n = length(b);
-for i=1:n - 1
-    bi = cell2mat(b(i));
-    Wi = cell2mat(W(i));
-    Li = Layer(Wi, bi, 'ReLU');
-    Layers = [Layers Li];
-end
-bn = cell2mat(b(n));
-Wn = cell2mat(W(n));
-Ln = Layer(Wn, bn, 'Linear');
 
-Layers = [Layers Ln];
-F = FFNN(Layers);
 
-% Input Constraints
-% 1500 <= i1(\rho) <= 1800,
-% -0.06 <= i2 (\theta) <= 0.06,
-% 3.1 <= i3 (\shi) <= 3.14
-% 1000 <= i4 (\v_own) <= 1200, 
-% 700 <= i5 (\v_in) <= 800
+t = tic;
 
-lb = [1500; -0.06; 3.1; 1000; 700];
-ub = [1800; 0.06; 3.14; 1200; 800];
+normalized_mat = range_for_scaling(6) * eye(5);
+normalized_vec = means_for_scaling(6) * ones(5,1);
 
-% normalize input
-for i=1:5
-    lb(i) = (lb(i) - means_for_scaling(i))/range_for_scaling(i);
-    ub(i) = (ub(i) - means_for_scaling(i))/range_for_scaling(i);   
+% normalize output set
+
+fprintf('\nNormalize output set');
+
+n = length(R1);
+R1_norm = [];
+parfor i=1:n
+    fprintf('\nNormalize %d^th exact star reach set', i);
+    R1_norm = [R1_norm  R1(i).affineMap(normalized_mat, normalized_vec)]; % exact normalized reach set
 end
 
-I = Polyhedron('lb', lb, 'ub', ub);
+normalized_time = toc(t);
 
-[R, t] = F.reach(I, 'exact', 4, []); % exact reach set
-save result.mat; % save the verified network
-F.print('F.info'); % print all information to a file
+% output: [x1 = COC; x2 = Weak Left; x3 = Weak Right; x4 = Strong Left; x5 = Strong Right]
+% safety property: COC is not the minimal score
+% unsafe region: COC is the minimal score: x1 <= x2; x1 <= x3; x1 <= x4, x1
+% <= x5
+
+unsafe_mat = [1 -1 0 0 0; 1 0 -1 0 0; 1 0 0 -1 0; 1 0 0 0 -1];
+unsafe_vec = [0; 0; 0; 0];
+
+
+t = tic;
+fprintf('\nVerifying exact star reach set...');
+safe = 0;
+for i=1:n
+    S = R1_norm(i).intersectHalfSpace(unsafe_mat, unsafe_vec);
+    if isempty(S)
+        fprintf('\nThe %d^th output set does not reaches the unsafe region, P4 holds', i);
+    else
+        fprintf('\nThe %d^th output set reaches the unsafe region, P4 is violated', i);
+        safe = safe + 1;
+    end
+end
+
+if safe >= 1
+    fprintf('\nP4 is violated on N3_8');
+else
+    fprintf('\nP4 holds on N3_8');
+end
+
+exact_star_safety_checking_time = toc(t) + normalized_time;
+fprintf('\nFinish verifying exact star reach set in %.4f seconds.', exact_star_safety_checking_time);
+
+t = tic;
+fprintf('\nVerifying over-approximate star reach set...');
+R2_norm = R2.affineMap(normalized_mat, normalized_vec); % over-approximate normalized reach set using star
+S = R2_norm.intersectHalfSpace(unsafe_mat, unsafe_vec);
+if isempty(S)
+    fprintf('\nThe over-approximate star reach set does not reaches the unsafe region, P4 holds on N3_8');
+else
+    fprintf('\nThe over-approximate star reach set reaches the unsafe region, safety is unknown, P4 may be violated on N3_8');
+end
+
+approx_star_safety_checking_time = toc(t);
+
+fprintf('\nFinish verifying over-approximate star reach set in %.4f seconds.', approx_star_safety_checking_time);
+
+
+t = tic;
+fprintf('\nVerifying over-approximate zonotope reach set...');
+R3_norm = R3.affineMap(normalized_mat, normalized_vec); % over-approximate normalized reach set using zonotope
+R = R3_norm.toStar;
+S = R.intersectHalfSpace(unsafe_mat, unsafe_vec);
+if isempty(S)
+    fprintf('\nThe over-approximate zonotope reach set does not reaches the unsafe region, P4 holds on N3_8');
+else
+    fprintf('\nThe over-approximate zonotope reach set reaches the unsafe region, safety is unknown, P4 may be violated on N3_8');
+end
+
+approx_zono_safety_checking_time = toc(t);
+
+fprintf('\nFinish verifying over-approximate zonotope reach set in %.4f seconds.', approx_zono_safety_checking_time);
+
+
+t = tic;
+fprintf('\nVerifying over-approximate abstract-domain reach set...');
+R4_norm = R4.affineMap(normalized_mat, normalized_vec); % over-approximate normalized reach set using abstract domain
+S = R4_norm.intersectHalfSpace(unsafe_mat, unsafe_vec);
+if isempty(S)
+    fprintf('\nThe over-approximate abstract-domain reach set does not reaches the unsafe region, P4 holds on N3_8');
+else
+    fprintf('\nThe over-approximate abstract-domain reach set reaches the unsafe region, safety is unknown, P4 may be violated on N3_8');
+end
+
+approx_abs_dom_safety_checking_time = toc(t);
+
+fprintf('\nFinish verifying over-approximate abstract-domain reach set in %.4f seconds.', approx_abs_dom_safety_checking_time);
+
+save safety_checking_time.mat exact_star_safety_checking_time approx_star_safety_checking_time approx_zono_safety_checking_time approx_abs_dom_safety_checking_time

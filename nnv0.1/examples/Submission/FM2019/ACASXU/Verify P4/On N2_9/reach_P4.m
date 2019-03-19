@@ -32,7 +32,7 @@ end
 
 I = Star(lb, ub);
 
-numCores = 4; 
+numCores = 90; 
 
 [R1, ~] = F.reach(I, 'exact-star', numCores); % exact reach set
 F.print('F_exact_star.info'); % print all information to a file

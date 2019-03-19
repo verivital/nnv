@@ -19,45 +19,62 @@ classdef PosLin
         end
         
         % stepReach method, compute reachable set for a single step
-        function S = stepReach(I, index)
+        function S = stepReach(I, index, xmin, xmax)
             % @I: single star set input
-            % @index: index of the neural performing stepSatLin
+            % @index: index of the neuron performing stepPosLin
+            % @xmin: minimum of x[index]
+            % @xmax: maximum of x[index]
             % @S: star output set
             
             % author: Dung Tran
             % date: 27/2/2019
             
-            
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
-            
-            % case 1: x(index) <= 0, SatLin(x(index)) = 0
-            C0 = I.V(index, 2:I.nVar + 1);
-            d0 = I.V(index, 1);
-            C1 = [I.C; C0];
-            d1 = [I.d; -d0];
-            V1 = I.V;
-            V1(index, :) = zeros(1, I.nVar + 1);
-            S1 = Star(V1, C1, d1);
-            if S1.isEmptySet
-                S1 = [];
-            end
-            
-            % case 2: 0 <= x(index), SatLin(x(index)) = x(index)            
-            V2 = I.V;
-            C2 = [I.C; -C0];
-            d2 = [I.d; d0];
-            S2 = Star(V2, C2, d2);
-            if S2.isEmptySet
-                S2 = [];
+                       
+            if xmin >= 0
+                S = I; 
+            elseif xmax < 0 
+                Im = eye(I.dim);
+                Im(index, index) = 0;
+                S = I.affineMap(Im, []);
+            elseif xmin < 0 && xmax >= 0
+                
+                % S1 = I && x[index] < 0 
+                c = I.V(index, 1);
+                V = I.V(index, 2:I.nVar + 1); 
+                new_C = vertcat(I.C, V);
+                new_d = vertcat(I.d, -c);                
+                new_V = I.V;
+                new_V(index, :) = zeros(1, I.nVar + 1);
+                S1 = Star(new_V, new_C, new_d);
+                
+                % S2 = I && x[index] >= 0
+                new_C = vertcat(I.C, -V);
+                new_d = vertcat(I.d, c);
+                S2 = Star(I.V, new_C, new_d);
+                
+                a = S1.isEmptySet;
+                b = S2.isEmptySet;
+                                             
+                if a && ~b
+                    S = S2;
+                end
+                if a && b
+                    S = [];
+                end
+                if ~a && b
+                    S = S1;
+                end
+                if ~a && ~b
+                 S = [S1 S2];
+                end
+        
             end
                         
-            S = [S1 S2];
-                     
         end
-        
-        
+              
         % stepReach with multiple inputs
         function S = stepReachMultipleInputs(varargin)
             % @I: an array of stars
@@ -69,16 +86,16 @@ classdef PosLin
             % date: 27/2/2019
             
             switch nargin
-                case 3
+                
+                case 5
                     I = varargin{1};
                     index = varargin{2};
-                    option = varargin{3};
-                case 2
-                    I = varargin{1};
-                    index = varargin{2};
-                    option = [];
+                    xmin = varargin{3};
+                    xmax = varargin{4};
+                    option = varargin{5};
+                
                 otherwise
-                    error('Invalid number of input arguments (should be 2 or 3)');
+                    error('Invalid number of input arguments (should be 5)');
             end
             
             
@@ -89,13 +106,13 @@ classdef PosLin
             if isempty(option)
                 
                 for i=1:p
-                    S =[S, PosLin.stepReach(I(i), index)];
+                    S =[S, PosLin.stepReach(I(i), index, xmin, xmax)];
                 end
                 
             elseif strcmp(option, 'parallel')
                 
                 parfor i=1:p
-                    S =[S, PosLin.stepReach(I(i), index)];
+                    S =[S, PosLin.stepReach(I(i), index, xmin, xmax)];
                 end
                 
             else
@@ -116,13 +133,29 @@ classdef PosLin
             % date: 3/16/2019
             
              if ~isempty(I)
-                dim = I(1).dim;
-                In = I;
-                for i=1:dim
-                    fprintf('\nPerforming exact PosLin_%d operation using Star', i);
-                    In = PosLin.stepReachMultipleInputs(In, i, option);
-                end             
-                S = In;
+                B = I.getBox;
+                if ~isempty(B)
+                    lb = B.lb;
+                    ub = B.ub;
+                else
+                    lb = [];
+                    ub = [];
+                end
+                
+                
+                if isempty(lb) || isempty(ub)
+                    S = [];
+                else
+                    map = find(lb < 0); % computation map
+                    m = size(map, 1); % number of stepReach operations needs to be executed
+                    In = I;
+                    for i=1:m
+                        fprintf('\nPerforming exact PosLin_%d operation using Star', map(i));
+                        In = PosLin.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)), option);
+                    end               
+                    S = In;
+                end
+                
             else
                 S = [];
             end

@@ -34,7 +34,18 @@ I = Star(lb, ub);
 
 numCores = 1; % number of cores used in computation
 
-[R, t] = F.reach(I.getZono, 'approx-zono'); % approx reach set
-outputSet = F.outputSet;
-save outputSetZono.mat outputSet; % save the verified network
-F.print('F.info'); % print all information to a file
+[R1, ~] = F.reach(I, 'exact-star', 4); % exact reach set
+F.print('F_exact_star.info'); % print all information to a file
+
+[R2, ~] = F.reach(I, 'approx-star'); % approximate reach set using star
+F.print('F_approx_star.info'); % print all information to a file
+
+[R3, ~] = F.reach(I.getZono, 'approx-zono'); % approximate reach set using zonotope
+F.print('F_approx_zono.info'); % print all information to a file
+
+[R4, ~] = F.reach(I, 'abs-dom'); % approximate reach set using abstract domain
+F.print('F_abs_dom.info'); % print all information to a file
+
+save outputSet.mat R1 R2 R3 R4;
+
+

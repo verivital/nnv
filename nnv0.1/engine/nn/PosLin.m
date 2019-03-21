@@ -499,52 +499,41 @@ classdef PosLin
             elseif lb < 0 && ub > 0
                 
                 S1 = ub*(ub-lb)/2; % area of the first candidate abstract-domain
-                S2 = -lb*(ub-lb)/2; % area of the second candidate abstract-domain
-                
+                S2 = -lb*(ub-lb)/2; % area of the second candidate abstract-domain              
                 n = I.nVar + 1;
-                if S1 < S2
-                    % choose the first cadidate as the abstract-domain                  
-                    % over-approximation constraints 
-                    % constraint 1: y[index] = ReLU(x[index]) >= 0
-                    C1 = zeros(1, n);
-                    C1(n) = -1; 
-                    d1 = 0;
-                    % constraint 2: y[index] <= ub(x[index] -lb)/(ub - lb)
-                    C2 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-                    d2 = -(ub*lb/(ub-lb)) + ub*I.V(index, 1)/(ub-lb);
+                                
+                % constraint 1: y[index] = ReLU(x[index]) >= 0
+                C1 = zeros(1, n);
+                C1(n) = -1; 
+                d1 = 0;
+                % constraint 2: y[index] = ReLU(x[index]) >= x[index]
+                C2 = [I.V(index, 2:n) -1];
+                d2 = -I.V(index, 1);
                     
-                    m = size(I.C, 1);
-                    C0 = [I.C zeros(m, 1)];
-                    d0 = I.d;
-                    new_C = [C0; C1; C2];
-                    new_d = [d0; d1; d2];
-                    new_V = [I.V zeros(I.dim, 1)];
-                    new_V(index, :) = zeros(1, n+1);
-                    new_V(index, n+1) = 1;
-
-                    S = Star(new_V, new_C, new_d);
+                % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
+                C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
+                d3 = -(ub*lb/(ub-lb)) + ub*I.V(index, 1)/(ub-lb);
+                
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, n+1);
+                new_V(index, n+1) = 1;
+                
+                if S1 < S2
+                    % get first cadidate as resulted abstract-domain                    
+                    new_C = [C0; C1; C3];
+                    new_d = [d0; d1; d3];
                     
                 else
-                    % choose the second candidate as the abstract-domain                   
-                    % over-approximation constraints 
-                    % constraint 1: y[index] = ReLU(x[index]) >= x[index]
-                    C1 = [I.V(index, 2:n) -1];
-                    d1 = -I.V(index, 1);
-                    % constraint 2: y[index] <= ub(x[index] -lb)/(ub - lb)
-                    C2 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-                    d2 = -(ub*lb/(ub-lb)) + ub*I.V(index, 1)/(ub-lb);
-                    m = size(I.C, 1);
-                    C0 = [I.C zeros(m, 1)];
-                    d0 = I.d;
-                    new_C = [C0; C1; C2];
-                    new_d = [d0; d1; d2];
-                    new_V = [I.V zeros(I.dim, 1)];
-                    new_V(index, :) = zeros(1, n+1);
-                    new_V(index, n+1) = 1;
-
-                    S = Star(new_V, new_C, new_d);
-                                      
+                    % choose the second candidate as the abstract-domain                                      
+                    new_C = [C0; C2; C3];
+                    new_d = [d0; d2; d3];
+                                        
                 end
+                
+                S = Star(new_V, new_C, new_d);
                 
             end
                        

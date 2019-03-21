@@ -550,7 +550,7 @@ classdef Star
             if exitflag > 0
                 xmin = fval + obj.V(index, 1);
             else
-                error('Cannot find an optimal solution');
+                error('Cannot find an optimal solution, exitflag = %d', exitflag);
             end          
             
             [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);

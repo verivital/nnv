@@ -49,6 +49,6 @@ F.print('F_approx_zono.info'); % print all information to a file
 [R4, ~] = F.reach(I, 'abs-dom'); % approximate reach set using abstract domain
 F.print('F_abs_dom.info'); % print all information to a file
 
-save outputSet.mat R1 R2 R3 R4;
+save outputSet.mat R0 R1 R2 R3 R4;
 
 

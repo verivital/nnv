@@ -164,19 +164,37 @@ classdef PosLin
         
               
         % step reach approximation using star
-        function S = stepReachStarApprox(I, index)
+        function S = stepReachStarApprox(varargin)
             % @I: star set input
             % @index: index of the neuron performing stepReach
             % @S: star output
 
             % author: Dung Tran
             % date: 4/3/2019
-
+            
+            
+             switch nargin
+                
+                case 4
+                    
+                    I = varargin{1};
+                    index = varargin{2};
+                    lb = varargin{3};
+                    ub = varargin{4};
+                
+                case 2
+                    I = varargin{1};
+                    index = varargin{2};
+                    [lb, ub] = I.getRange(index);
+                
+                otherwise
+                    error('Invalid number of input arguments (should be 2 or 4)');
+             end
+            
+            
             if ~isa(I, 'Star')
                 error('Input is not a star');
-            end
-
-            [lb, ub] = I.getRange(index);
+            end         
 
             if lb >= 0
                 S = Star(I.V, I.C, I.d);
@@ -231,9 +249,11 @@ classdef PosLin
                 S = [];
             else
                 In = I;
+                B = I.getBox;
+                
                 for i=1:I.dim
                     fprintf('\nPerforming approximate PosLin_%d operation using Star', i);
-                    In = PosLin.stepReachStarApprox(In, i);
+                    In = PosLin.stepReachStarApprox(In, i, B.lb(i), B.ub(i));
                 end
                 S = In;
             end
@@ -472,7 +492,7 @@ classdef PosLin
         
         % step over-approximate reachability analysis using abstract-domain
         % we use star set to represent abstract-domain
-        function S = stepReachAbstractDomain(I, index)
+        function S = stepReachAbstractDomain(varargin)
             % @I: star-input set
             % @index: index of neuron performing stepReach
             % @S: star output set represent abstract-domain of the output
@@ -483,13 +503,30 @@ classdef PosLin
         
             % reference: An Abstract Domain for Certifying Neural Networks,
             % Gagandeep Singh, POPL 2019
-           
+            
+            
+            switch nargin
+                
+                case 4
+                    
+                    I = varargin{1};
+                    index = varargin{2};
+                    lb = varargin{3};
+                    ub = varargin{4};
+                
+                case 2
+                    I = varargin{1};
+                    index = varargin{2};
+                    [lb, ub] = I.getRange(index);
+                
+                otherwise
+                    error('Invalid number of input arguments (should be 2 or 4)');
+            end
+            
             if ~isa(I, 'Star')
                 error('Input is not a Star');
             end
-               
-            [lb, ub] = I.getRange(index);
-            
+                          
             if lb >= 0
                 S = Star(I.V, I.C, I.d);
             elseif ub <= 0
@@ -499,7 +536,8 @@ classdef PosLin
             elseif lb < 0 && ub > 0
                 
                 S1 = ub*(ub-lb)/2; % area of the first candidate abstract-domain
-                S2 = -lb*(ub-lb)/2; % area of the second candidate abstract-domain              
+                S2 = -lb*(ub-lb)/2; % area of the second candidate abstract-domain  
+                
                 n = I.nVar + 1;
                                 
                 % constraint 1: y[index] = ReLU(x[index]) >= 0
@@ -513,7 +551,7 @@ classdef PosLin
                 % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
                 C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
                 d3 = -(ub*lb/(ub-lb)) + ub*I.V(index, 1)/(ub-lb);
-                
+                               
                 m = size(I.C, 1);
                 C0 = [I.C zeros(m, 1)];
                 d0 = I.d;
@@ -522,7 +560,7 @@ classdef PosLin
                 new_V(index, n+1) = 1;
                 
                 if S1 < S2
-                    % get first cadidate as resulted abstract-domain                    
+                    % get first cadidate as resulted abstract-domain
                     new_C = [C0; C1; C3];
                     new_d = [d0; d1; d3];
                     
@@ -557,9 +595,10 @@ classdef PosLin
                 S = [];
             else
                 In = I;
+                B = I.getBox;
                 for i=1:I.dim
                     fprintf('\nPerforming approximate PosLin_%d operation using abstract domain', i);
-                    In = PosLin.stepReachAbstractDomain(In, i);
+                    In = PosLin.stepReachAbstractDomain(In, i, B.lb(i), B.ub(i));
                 end
                 S = In;
             end

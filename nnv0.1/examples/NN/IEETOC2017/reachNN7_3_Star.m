@@ -4,16 +4,16 @@ n = length(b);
 for i=1:n - 1
     bi = cell2mat(b(i));
     Wi = cell2mat(W(i));
-    Li = Layer(Wi, bi, 'ReLU');
+    Li = LayerS(Wi, bi, 'poslin');
     Layers = [Layers Li];
 end
 bn = cell2mat(b(n));
 Wn = cell2mat(W(n));
-Ln = Layer(Wn, bn, 'Linear');
+Ln = LayerS(Wn, bn, 'purelin');
 
 Layers = [Layers Ln];
 
-F = FFNN(Layers);
+F = FFNNS(Layers);
 C = [1 0 0; -1 0 0; 0 1 0; 0 -1 0; 0 0 1; 0 0 -1];
 d = [1; 1; 1; 1; 1; 1];
 
@@ -22,7 +22,7 @@ I = Star(V', C, d); % input set as a Star set
 
 % select option for reachability algorithm
 
-[R, t] = F.reach(I, 'exact', 4, []); % exact reach set using stars
+[R, t] = F.reach(I, 'exact-star', 4); % exact reach set using stars
 save F.mat F; % save the verified network
 F.print('F.info'); % print all information to a file
 

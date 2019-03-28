@@ -59,6 +59,14 @@ classdef HalfSpace
         
         end
         
+        % plot half-space
+        function plot(obj)
+            % plot half-space
+            
+            P = Polyhedron('A', obj.G, 'b', obj.g);
+            P.plot;
+        end
+        
     end
 end
 

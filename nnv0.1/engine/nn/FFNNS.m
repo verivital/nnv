@@ -79,12 +79,11 @@ classdef FFNNS < handle
             % @V : array of vertices to evaluate
             % @Y : output which is a cell array
         
-            Y = cell(1, obj.nL);
             In = V;
             for i=1:obj.nL
                 In = obj.Layers(i).sample(In);
-                Y{1, i} = In;
-            end
+            end          
+            Y = In;
         end
         
         
@@ -165,7 +164,12 @@ classdef FFNNS < handle
                     obj = varargin{1}; % FFNNS object
                     obj.inputSet = varargin{2}; % input set
                     obj.reachMethod = varargin{3}; % reachability analysis method
-                    obj.numCores = varargin{4}; % number of cores used in computation
+                    if strcmp(obj.reachMethod, 'approx-zono') || strcmp(obj.reachMethod, 'abs-dom')
+                        fprintf('For approx-zono and abs-dom methods, we use only 1 core for the computation');
+                        obj.numCores = 1;
+                    else
+                        obj.numCores = varargin{4}; % number of cores used in computation
+                    end
                     
                 case 3
                     obj = varargin{1};
@@ -245,6 +249,344 @@ classdef FFNNS < handle
         
         
     end
+    
+    
+    methods % checking safety method or falsify safety property
+        
+        function [safe, t, counter_inputs] = isSafe(varargin)
+            % @I: input set
+            % @U: unsafe region, define by a Half-Space
+            % @method: = 'star' -> compute reach set using stars
+            %            'abs-dom' -> compute reach set using abstract
+            %            domain (support in the future)
+            %            'face-latice' -> compute reach set using
+            %            face-latice (support in the future)
+            % @numOfCores: number of cores you want to run the reachable
+            % set computation, @numOfCores >= 1, maximum is the number of
+            % cores in your computer.
+            
+            % @safe: = 1 -> safe, = 0 -> unsafe, = 2 -> uncertain 
+            % @t : verification time 
+            % @counter_inputs
+            
+            % author: Dung Tran
+            % date: 3/27/2019
+            
+            % parse inputs 
+            switch nargin
+                case 5
+                    obj = varargin{1}; % FFNNS object
+                    I = varargin{2};
+                    U = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5};
+                    
+                    if strcmp(method, 'approx-zono') || strcmp(method, 'abs-dom')
+                        fprintf('For approx-zono and abs-dom methods, we use only 1 core for the computation');
+                        numOfCores = 1;
+                    end
+                    
+                case 4
+                    obj = varargin{1}; % FFNNS object
+                    I = varargin{2};
+                    U = varargin{3};
+                    method = varargin{4};
+                    numOfCores = 1;
+     
+                case 3
+                    obj = varargin{1}; % FFNNS object
+                    I = varargin{2};
+                    U = varargin{3};
+                    method = 'exact-star';
+                    numOfCores = 1;
+                    
+                otherwise
+                    error('Invalid number of input arguments (should be 3, 4 or 5)');
+            end
+            
+            
+             
+            start = tic;
+            
+            if isempty(U)
+                error('Please specify unsafe region using Half-space class');
+            end
+            
+            
+            % performing reachability analysis
+            [R, ~] = obj.reach(I, method, numOfCores);        
+            
+            % check safety
+            n = length(R);
+            for i=1:n
+                if isa(R(i), 'Zono')
+                    R(i) = R(i).toStar; % transform to star sets;
+                end
+            end
+                                    
+            violate_inputs = [];            
+            
+            if numOfCores == 1
+
+                for i=1:n
+
+                    S = R(i).intersectHalfSpace(U.G, U.g);
+
+                    if ~isempty(S)
+                        violate_inputs = [violate_inputs S];
+                    end
+
+                end
+
+            elseif numOfCores > 1
+
+                parfor i=1:n % if there is only one unsafe region, we do parallel computing for outner loop
+
+                    for j=1:m
+
+                        S = R(i).intersectHalfSpace(U.G, U.g);
+
+                        if ~isempty(S)
+                            violate_inputs = [violate_inputs S];
+                        end
+
+                    end
+
+                end
+
+
+            end
+            
+            
+            if isempty(violate_inputs)
+                safe = 1;  
+                counter_inputs = []; 
+            else
+
+                if strcmp(method, 'exact-star')
+                    safe = 0;  
+                    counter_inputs = violate_inputs; % exact-method return complete counter input set
+
+                else
+                    ;
+
+                end
+
+
+            end
+
+           
+            
+
+
+            
+            
+            t = toc(start);
+             
+            
+        end
+                
+        
+        % falsify safety property using random simulation        
+        function counter_inputs = falsify(obj, I, U, n_samples)
+            % @input: star set input
+            % @U: unsafe region, defined by half-space class
+            % @n_samples: number of samples used in falsification
+            % @counter_inputs: counter inputs that falsify the property
+            
+            % author: Dung Tran
+            % date: 3/27/2019
+            
+            counter_inputs = [];
+            
+            if ~isa(I, 'Star')
+                error('Input set is not a star set');
+            end
+            
+            if ~isa(U, 'HalfSpace')
+                error('Unsafe region is not a HalfSpace');
+            end
+            
+            if n_samples < 1
+                error('Invalid number of samples');
+            end
+            
+            V = I.sample(n_samples);
+            
+            n = size(V, 2); % number of samples 
+           
+            for i=1:n
+                
+                y = obj.evaluate(V(:, i));
+                
+                if U.contains(y)
+                    counter_inputs = [counter_inputs V(:, i)];
+                end               
+                
+            end
+            
+            
+        end
+        
+         
+    end
+    
+    
+    methods % checking robustness and get robustness bound of feedforward networks
+        
+        
+        % Problem description:
+        % checking robustness of FFNN corresponding to an input and
+        % L_infinity norm bound disturbance
+        
+        % x is input, x' is a disturbed input such that ||x'- x|| <= e
+        % y = FFNN(x), and y' = FFNN(x')
+        % FFNN is called robust if y' is in a robust region RB(y') defined by user
+        % for example, let F is image classification network
+        % inputs of F is an 28x28 = 784 pixel images, F has one output with
+        % range between 0 to 9 to reconize 10 digits, 0, 1, 2 ..., 9
+        
+        % let consider digit one as an input x, we disturb digit one with
+        % some bounded disturabnce e, we have ||x' - x|| <= e
+        
+        % to be called robust, F need produce the output sastify 0.5 <= y' <= 1.5
+        % If output is violated this specification, F may misclasify digit
+        % one. Thefore the un-robust regions in this case is S1 = y' < 0.5 and S2 = y'> 1.5
+        
+        % If robustness is not guaranteed, the method search for some
+        % adverserial examples, i.e., find some x' that makes F violate the
+        % robustness property.
+        
+        function [robust, adv_inputs] = isRobust(varargin)
+            % @input_vec: input vector x
+            % @dis_bound: disturbance bound
+            % @un_robust_reg: un-robust-region, a set of stars
+            % @method: = 'exact-star' or 'approx-star' or 'approx-zono' or 'abs-dom'
+            % @lb_allowable: allowable lower bound of disturbed input:    lb_allowable(i) <= x'[i]
+            % @ub_allowable: allowable upper bound of disturbed output:    ub_allowable(i) >= x'[i] 
+            % x' is the disturbed vector by disturbance bound, |x' - x| <= dis_bound
+            % x'[i] >= lb_allowable, x'[i] <= ub_allowable[i]
+            % @numCores:  number of cores used in computation
+            
+            
+            % @robust: = 1-> robust
+            %        : = 0 -> unrobust
+            %        : = 2 -> uncertain, cannot find counter example
+            % @adv_inputs: adverserial inputs
+            
+            % author: Dung Tran
+            % date: 3/27/2019
+            
+            % parse inputs 
+            switch nargin
+                case 8
+                    obj = varargin{1}; % FFNNS object
+                    input_vec = varargin{2}; % input vec
+                    dis_bound = varargin{3}; % disturbance bound
+                    un_robust_reg = varargin{4}; % un-robust region
+                    method = varargin{5}; % reachability analysis method
+                    lb_allowable = varargin{6}; % allowable lower bound on disturbed inputs
+                    ub_allowable = varargin{7}; % allowable upper bound on disturbed inputs
+                    num_cores = varargin{8}; % number of cores used in computation
+                    
+                    % check consistency
+                    if (length(lb_allowable) ~= length(ub_allowable)) || (length(lb_allowable) ~= length(input_vec))
+                        error('Inconsistent dimensions between allowable lower-, upper- bound vectors and input vector');
+                    end
+                    
+                case 6
+                    
+                    obj = varargin{1}; % FFNNS object
+                    input_vec = varargin{2}; % input vec
+                    dis_bound = varargin{3}; % disturbance bound
+                    un_robust_reg = varargin{4}; % un-robust region
+                    method = varargin{5}; % reachability analysis method
+                    lb_allowable = varargin{6}; % allowable lower bound on disturbed inputs
+                    ub_allowable = varargin{7}; % allowable upper bound on disturbed inputs
+                    num_cores = 1; % number of cores used in computation
+                    
+                case 4
+                    
+                    obj = varargin{1}; % FFNNS object
+                    input_vec = varargin{2}; % input vec
+                    dis_bound = varargin{3}; % disturbance bound
+                    un_robust_reg = varargin{4}; % un-robust region
+                    method = varargin{5}; % reachability analysis method
+                    lb_allowable =[]; % allowable lower bound on disturbed inputs
+                    ub_allowable = []; % allowable upper bound on disturbed inputs
+                    num_cores = 1; % number of cores used in computation
+                    
+                otherwise
+                    error('Invalid number of input arguments (should be 4 or 6 or 7)');
+            end
+            
+            
+            % construct input set
+            n = length(input_vec);
+            lb = input_vec;
+            ub = input_vec;
+            
+            if nargin == 8
+                
+                for i=1:n
+                    
+                    if lb(i) - dis_bound > lb_allowable(i)
+                        lb(i) = lb(i) - dis_bound;
+                    else
+                        lb(i) = lb_allowable(i);
+                    end
+                    if ub(i) + dis_bound < ub_allowable(i)
+                        ub(i) = ub(i) + dis_bound;
+                    else
+                        ub(i) = ub_allowable(i);
+                    end  
+                    
+                end
+                
+            else    
+                for i=1:n    
+                    lb(i) = lb(i) - dis_bound;
+                    ub(i) = ub(i) + dis_bound;
+                end
+            end
+                
+            I = Star(lb, ub); % input set to check robustness
+                
+            % do reachability analysis
+            if strcmp(method, 'approx-zono')
+                [R,~] = obj.reach(I.toZono, method);
+            else
+                [R, ~] = obj.reach(I, method, num_cores);
+            end
+
+            % check robustness               
+            N = length(R);
+            M = length(un_robust_reg);
+
+            k = [];
+            for i=1:N
+
+               if num_cores > 1                   
+                   parfor j=1:M
+                   end
+               else
+                   for j=1:M
+                   end
+               end
+
+            end
+
+                
+            
+            
+            
+        end
+        
+        
+        
+         
+    end
+    
     
     
 end

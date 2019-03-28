@@ -274,23 +274,44 @@ classdef FFNNS < handle
             
             % parse inputs 
             switch nargin
-                case 5
+                case 6
                     obj = varargin{1}; % FFNNS object
                     I = varargin{2};
                     U = varargin{3};
                     method = varargin{4};
-                    numOfCores = varargin{5};
+                    n_samples = varargin{5}; % number of simulations used for falsification if method used in an over-approximation
+                    
+                    numOfCores = varargin{6};
                     
                     if strcmp(method, 'approx-zono') || strcmp(method, 'abs-dom')
                         fprintf('For approx-zono and abs-dom methods, we use only 1 core for the computation');
                         numOfCores = 1;
                     end
                     
-                case 4
+                 case 5
+                    
                     obj = varargin{1}; % FFNNS object
                     I = varargin{2};
                     U = varargin{3};
                     method = varargin{4};
+                    if strcmp(method, 'exact-star')
+                        n_samples = 0; 
+                    else
+                        n_samples = varargin{5}; 
+                    end
+                    numOfCores = 1;
+                                                    
+                case 4
+                    
+                    obj = varargin{1}; % FFNNS object
+                    I = varargin{2};
+                    U = varargin{3};
+                    method = varargin{4};
+                    if ~strcmp(method, 'exact-star')
+                        n_samples = 1000; % using 1000 samples
+                    else
+                        n_samples = 0; 
+                    end
                     numOfCores = 1;
      
                 case 3
@@ -298,10 +319,11 @@ classdef FFNNS < handle
                     I = varargin{2};
                     U = varargin{3};
                     method = 'exact-star';
+                    n_samples = 0; % construct complete counter inputs in this case
                     numOfCores = 1;
                     
                 otherwise
-                    error('Invalid number of input arguments (should be 3, 4 or 5)');
+                    error('Invalid number of input arguments (should be 3, 4, 5 or 6)');
             end
             
             
@@ -318,9 +340,10 @@ classdef FFNNS < handle
             
             % check safety
             n = length(R);
+            R1 = [];
             for i=1:n
                 if isa(R(i), 'Zono')
-                    R(i) = R(i).toStar; % transform to star sets;
+                    R1 = [R1 R(i).toStar]; % transform to star sets;
                 end
             end
                                     
@@ -330,9 +353,12 @@ classdef FFNNS < handle
 
                 for i=1:n
 
-                    S = R(i).intersectHalfSpace(U.G, U.g);
+                    S = R1(i).intersectHalfSpace(U.G, U.g);
 
-                    if ~isempty(S)
+                    if ~isempty(S) && strcmp(method, 'exact-star')
+                        I1 = Star(I.V, S.C, S.d); % violate input set
+                        violate_inputs = [violate_inputs I1];
+                    else
                         violate_inputs = [violate_inputs S];
                     end
 
@@ -344,12 +370,14 @@ classdef FFNNS < handle
 
                     for j=1:m
 
-                        S = R(i).intersectHalfSpace(U.G, U.g);
+                        S = R1(i).intersectHalfSpace(U.G, U.g);
 
-                        if ~isempty(S)
+                        if ~isempty(S) && strcmp(method, 'exact-star')
+                            I1 = Star(I.V, S.C, S.d); % violate input set
+                            violate_inputs = [violate_inputs I1];
+                        else
                             violate_inputs = [violate_inputs S];
                         end
-
                     end
 
                 end
@@ -359,28 +387,41 @@ classdef FFNNS < handle
             
             
             if isempty(violate_inputs)
+                
                 safe = 1;  
                 counter_inputs = []; 
+                fprintf('\nThe network is safe');
+                
             else
 
                 if strcmp(method, 'exact-star')
+                    
                     safe = 0;  
                     counter_inputs = violate_inputs; % exact-method return complete counter input set
-
+                    fprintf('\nThe network is unsafe, counter inputs contains %d stars', length(counter_inputs));
+                    
                 else
-                    ;
+                    
+                    if ~isa(I, 'Star')
+                        I = I.toStar;
+                    end
+                    
+                    counter_inputs = obj.falsify(I, U, n_samples);
+                    
+                    if isempty(counter_inputs)
+                        safe = 2;
+                        fprintf('\nSafety is uncertain under using %d samples to falsify the network', n_samples);
+                        fprintf('\nYou can try to increase the samples for finding counter inputs');
+                    else
+                        safe = 0;
+                        fprintf('\nThe network is unsafe, %d counter inputs are found using %d simulations', length(counter_inputs), n_samples);
+                    end
 
                 end
 
 
             end
 
-           
-            
-
-
-            
-            
             t = toc(start);
              
             

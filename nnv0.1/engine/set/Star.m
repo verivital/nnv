@@ -12,6 +12,11 @@ classdef Star
         d = []; % constraint vector
         dim = 0; % dimension of star set
         nVar = 0; % number of variable in the constraints
+        
+        lb = []; % lower bound vector
+        ub = []; % upper bound vector
+        Z = []; % over-approximate zonotope contain the star set
+        
     end
     
     methods
@@ -23,6 +28,49 @@ classdef Star
             % @d: constraint vector
             
             switch nargin
+                
+                case 4
+                    
+                    V = varargin{1};
+                    C = varargin{2};
+                    d = varargin{3};
+                    Z = varargin{4}; 
+                    
+                    [nV, mV] = size(V);
+                    [nC, mC] = size(C);
+                    [nd, md] = size(d);
+
+                    if mV ~= mC + 1
+                        error('Inconsistency between basic matrix and constraint matrix');
+                    end
+
+                    if nC ~= nd
+                        error('Inconsistency between constraint matrix and constraint vector');
+                    end
+
+                    if md ~= 1
+                        error('constraint vector should have one column');
+                    end
+                    
+                    if ~isa(Z, 'Zono')
+                        error('The last input should be a zonotope');
+                    end
+                    
+                    if Z.dim ~= nV
+                        error('Inconsistent between the outer zonotope and the exact star set');
+                    end
+                    
+                    obj.V = V;
+                    obj.C = C; 
+                    obj.d = d;
+                    obj.dim = nV;
+                    obj.nVar = mC;
+                    obj.Z = Z;
+                    B = Z.getBox;
+                    obj.lb = B.lb;
+                    obj.ub = B.ub;
+                    
+                
                 case 3
                     V = varargin{1};
                     C = varargin{2};
@@ -63,6 +111,9 @@ classdef Star
                     obj.d = S.d;
                     obj.dim = S.dim;
                     obj.nVar = S.nVar;
+                    obj.lb = lb;
+                    obj.ub = ub;
+                    obj.Z = B.toZono;
                 
                 case 0
                     % create empty Star (for preallocation an array of star)
@@ -70,7 +121,10 @@ classdef Star
                     obj.C = [];
                     obj.d = [];
                     obj.dim = 0;
-                    obj.nVar = 0; 
+                    obj.nVar = 0;
+                    obj.lb = [];
+                    obj.ub = [];
+                    obj.Z = [];
                     
                 otherwise
                     
@@ -129,9 +183,15 @@ classdef Star
             if size(s,2) ~= 1
                 error('Invalid star point');
             end
-                       
-            P = obj.toPolyhedron;
-            bool = P.contains(s);
+            
+            A = obj.C;
+            b = obj.d;
+            Ae = obj.V(:, 2:obj.nVar+1);
+            be = s - obj.V(:,1);
+            
+            P = Polyhedron('A', A, 'b', b, 'Ae', Ae, 'be', be);
+            
+            bool = ~P.isEmptySet;
                      
         end
         
@@ -204,7 +264,16 @@ classdef Star
             else
                 newV = W * obj.V;
             end
-            S = Star(newV, obj.C, obj.d);            
+            
+            if ~isempty(obj.Z)
+                new_Z = obj.Z.affineMap(W, b);
+                S = Star(newV, obj.C, obj.d, new_Z); 
+            else
+                S = Star(newV, obj.C, obj.d);
+            end
+            
+            
+                       
         end
         
         % Minkowski Sum
@@ -485,41 +554,52 @@ classdef Star
         
         % find a box bounding a star
         function B = getBox(obj)
-                        
-            lb = zeros(obj.dim, 1);
-            ub = zeros(obj.dim, 1); 
             
-            if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
-                lb = obj.V(:, 1);
-                ub = obj.V(:, 1);
+            if ~isempty(obj.lb) && ~isempty(obj.ub)
+               
+                lb = obj.lb;
+                ub = obj.ub;
                 
-            else % star set is a set
+            else
                 
-                options = optimset('Display','none');
+                lb = zeros(obj.dim, 1);
+                ub = zeros(obj.dim, 1); 
             
-                for i=1:obj.dim
-                    f = obj.V(i, 2:obj.nVar + 1);
-                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                    if exitflag > 0
-                        lb(i) = fval + obj.V(i, 1);
-                    else
-                        lb = [];
-                        ub = [];
-                        break;
-                    end
-                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
+                    lb = obj.V(:, 1);
+                    ub = obj.V(:, 1);
 
-                    if exitflag > 0
-                        ub(i) = -fval + obj.V(i, 1);
-                    else
-                        lb = [];
-                        ub = [];
-                        break;
-                    end
+                else % star set is a set
 
-                end
+                    options = optimset('Display','none');
+
+                    for i=1:obj.dim
+                        f = obj.V(i, 2:obj.nVar + 1);
+                        [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                        if exitflag > 0
+                            lb(i) = fval + obj.V(i, 1);
+                        else
+                            obj.lb = [];
+                            ub = [];
+                            break;
+                        end
+                        [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+
+                        if exitflag > 0
+                            ub(i) = -fval + obj.V(i, 1);
+                        else
+                            lb = [];
+                            ub = [];
+                            break;
+                        end
+
+                    end
             
-            end         
+                end         
+                
+            end
+            
+            
             
             if isempty(lb) || isempty(ub)
                 B = [];
@@ -568,7 +648,7 @@ classdef Star
             % author: Dung Tran
             % date: 11/8/2018
             
-            [Q, Z, P] = svd(obj.V(:, 2:obj.nVar + 1));
+            [Q, obj.Z, P] = svd(obj.V(:, 2:obj.nVar + 1));
             S = Z * P';
             lb = zeros(obj.dim, 1);
             ub = zeros(obj.dim, 1);
@@ -612,8 +692,11 @@ classdef Star
             % date: 10/25/2018
             
             B = obj.getBox;
-            
-            Z = B.toZono;
+            if ~isempty(B)
+                Z = B.toZono;
+            else
+                Z = [];
+            end
                         
         end
         

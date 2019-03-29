@@ -5,25 +5,27 @@ L = LayerS(W, b, 'poslin');
 Layers = [L];
 
 
-F = FFNNS(Layers);
+F = FFNNS(Layers); % network
 
 lb = [-1; -1];
 ub = [1; 1];
 
-I = Star(lb, ub);
+I = Star(lb, ub); % input set
 
-[R, ~] = F.reach(I);
+[R, ~] = F.reach(I, 'exact-star');
 
 G = [-1 0];
 g = [-1.5];
 
-U = HalfSpace(G, g);
+U = HalfSpace(G, g); % unsafe region
 
-n_samples = 500;
+n_samples = 100;
 
 
 %[safe, t, counter_inputs] = F.isSafe(I, U, 'exact-star');
-[safe, t, counter_inputs] = F.isSafe(I.getZono, U, 'approx-zono', n_samples);
+[safe, t, counter_inputs] = F.isSafe(I, U, 'approx-zono', n_samples);
+%[safe, t, counter_inputs] = F.isSafe(I, U, 'approx-star', n_samples);
+%[safe, t, counter_inputs] = F.isSafe(I, U, 'abs-dom', n_samples);
 counter_outputs = F.sample(counter_inputs);
 
 figure;

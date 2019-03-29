@@ -139,7 +139,7 @@ classdef FFNNS < handle
     methods % reachability analysis method
         
         function [S, t] = reach(varargin)            
-            % @I: input set          
+            % @I: input set, a star set          
             % @method: = 'star' -> compute reach set using stars
             %            'abs-dom' -> compute reach set using abstract
             %            domain (support in the future)
@@ -164,12 +164,7 @@ classdef FFNNS < handle
                     obj = varargin{1}; % FFNNS object
                     obj.inputSet = varargin{2}; % input set
                     obj.reachMethod = varargin{3}; % reachability analysis method
-                    if strcmp(obj.reachMethod, 'approx-zono') || strcmp(obj.reachMethod, 'abs-dom')
-                        fprintf('For approx-zono and abs-dom methods, we use only 1 core for the computation');
-                        obj.numCores = 1;
-                    else
-                        obj.numCores = varargin{4}; % number of cores used in computation
-                    end
+                    obj.numCores = varargin{4}; % number of cores used in computation
                     
                 case 3
                     obj = varargin{1};
@@ -188,9 +183,18 @@ classdef FFNNS < handle
             end
             
             
-            if obj.numCores < 1
-                error('Number of cores should be at least one');
-            elseif obj.numCores == 1
+            % if reachability analysis method is an over-approximate
+            % method, we use 1 core for computation
+            if ~strcmp(obj.reachMethod, 'exact-star')
+                obj.numCores = 1;
+            end
+            
+            % Zonotope method accepts both star and zonotope input set
+            if strcmp(obj.reachMethod, 'approx-zono') && isa(varargin{2}, 'Star')
+                obj.inputSet = varargin{2}.getZono;
+            end
+            
+            if obj.numCores == 1
                 obj.reachOption = []; % don't use parallel computing
             else
                 obj.reachOption = 'parallel';
@@ -274,19 +278,15 @@ classdef FFNNS < handle
             
             % parse inputs 
             switch nargin
+                
                 case 6
+                    
                     obj = varargin{1}; % FFNNS object
                     I = varargin{2};
                     U = varargin{3};
                     method = varargin{4};
                     n_samples = varargin{5}; % number of simulations used for falsification if method used in an over-approximation
-                    
                     numOfCores = varargin{6};
-                    
-                    if strcmp(method, 'approx-zono') || strcmp(method, 'abs-dom')
-                        fprintf('For approx-zono and abs-dom methods, we use only 1 core for the computation');
-                        numOfCores = 1;
-                    end
                     
                  case 5
                     
@@ -294,11 +294,7 @@ classdef FFNNS < handle
                     I = varargin{2};
                     U = varargin{3};
                     method = varargin{4};
-                    if strcmp(method, 'exact-star')
-                        n_samples = 0; 
-                    else
-                        n_samples = varargin{5}; 
-                    end
+                    n_samples = varargin{5}; 
                     numOfCores = 1;
                                                     
                 case 4
@@ -307,14 +303,11 @@ classdef FFNNS < handle
                     I = varargin{2};
                     U = varargin{3};
                     method = varargin{4};
-                    if ~strcmp(method, 'exact-star')
-                        n_samples = 1000; % using 1000 samples
-                    else
-                        n_samples = 0; 
-                    end
+                    n_samples = 1000; % using 1000 samples
                     numOfCores = 1;
      
                 case 3
+                    
                     obj = varargin{1}; % FFNNS object
                     I = varargin{2};
                     U = varargin{3};
@@ -325,25 +318,29 @@ classdef FFNNS < handle
                 otherwise
                     error('Invalid number of input arguments (should be 3, 4, 5 or 6)');
             end
-            
-            
-             
+                              
             start = tic;
-            
+                        
             if isempty(U)
                 error('Please specify unsafe region using Half-space class');
             end
             
+            if strcmp(method, 'approx-zono') && isa(varargin{2}, 'Star')
+                I = varargin{2}.getZono;
+            end
             
             % performing reachability analysis
             [R, ~] = obj.reach(I, method, numOfCores);        
             
+            
             % check safety
-            n = length(R);
+            n = length(R);    
             R1 = [];
             for i=1:n
                 if isa(R(i), 'Zono')
                     R1 = [R1 R(i).toStar]; % transform to star sets;
+                else
+                    R1 = [R1 R(i)];
                 end
             end
                                     
@@ -368,16 +365,13 @@ classdef FFNNS < handle
 
                 parfor i=1:n % if there is only one unsafe region, we do parallel computing for outner loop
 
-                    for j=1:m
+                    S = R1(i).intersectHalfSpace(U.G, U.g);
 
-                        S = R1(i).intersectHalfSpace(U.G, U.g);
-
-                        if ~isempty(S) && strcmp(method, 'exact-star')
-                            I1 = Star(I.V, S.C, S.d); % violate input set
-                            violate_inputs = [violate_inputs I1];
-                        else
-                            violate_inputs = [violate_inputs S];
-                        end
+                    if ~isempty(S) && strcmp(method, 'exact-star')
+                        I1 = Star(I.V, S.C, S.d); % violate input set
+                        violate_inputs = [violate_inputs I1];
+                    else
+                        violate_inputs = [violate_inputs S];
                     end
 
                 end
@@ -498,15 +492,17 @@ classdef FFNNS < handle
         % adverserial examples, i.e., find some x' that makes F violate the
         % robustness property.
         
-        function [robust, adv_inputs] = isRobust(varargin)
+        function [robust, t, adv_inputs] = isRobust(varargin)
             % @input_vec: input vector x
             % @dis_bound: disturbance bound
-            % @un_robust_reg: un-robust-region, a set of stars
+            % @un_robust_reg: un-robust-region, a star
             % @method: = 'exact-star' or 'approx-star' or 'approx-zono' or 'abs-dom'
             % @lb_allowable: allowable lower bound of disturbed input:    lb_allowable(i) <= x'[i]
             % @ub_allowable: allowable upper bound of disturbed output:    ub_allowable(i) >= x'[i] 
             % x' is the disturbed vector by disturbance bound, |x' - x| <= dis_bound
             % x'[i] >= lb_allowable, x'[i] <= ub_allowable[i]
+            % @n_samples: number of samples used to find counter examples
+            % if using over-approximate reachability analysis methods
             % @numCores:  number of cores used in computation
             
             
@@ -518,9 +514,11 @@ classdef FFNNS < handle
             % author: Dung Tran
             % date: 3/27/2019
             
-            % parse inputs 
+            
+            start = tic; 
+            % parse inputs
             switch nargin
-                case 8
+                case 9
                     obj = varargin{1}; % FFNNS object
                     input_vec = varargin{2}; % input vec
                     dis_bound = varargin{3}; % disturbance bound
@@ -528,12 +526,25 @@ classdef FFNNS < handle
                     method = varargin{5}; % reachability analysis method
                     lb_allowable = varargin{6}; % allowable lower bound on disturbed inputs
                     ub_allowable = varargin{7}; % allowable upper bound on disturbed inputs
-                    num_cores = varargin{8}; % number of cores used in computation
+                    n_samples = varargin{8}; % number of samples used for finding counter examples
+                    num_cores = varargin{9}; % number of cores used in computation
                     
                     % check consistency
                     if (length(lb_allowable) ~= length(ub_allowable)) || (length(lb_allowable) ~= length(input_vec))
                         error('Inconsistent dimensions between allowable lower-, upper- bound vectors and input vector');
                     end
+                    
+                case 8
+                    
+                    obj = varargin{1}; % FFNNS object
+                    input_vec = varargin{2}; % input vec
+                    dis_bound = varargin{3}; % disturbance bound
+                    un_robust_reg = varargin{4}; % un-robust region
+                    method = varargin{5}; % reachability analysis method
+                    lb_allowable = varargin{6}; % allowable lower bound on disturbed inputs
+                    ub_allowable = varargin{7}; % allowable upper bound on disturbed inputs
+                    n_samples = varargin{8}; % number of samples used for finding counter examples
+                    num_cores = 1; % number of cores used in computation
                     
                 case 6
                     
@@ -542,11 +553,12 @@ classdef FFNNS < handle
                     dis_bound = varargin{3}; % disturbance bound
                     un_robust_reg = varargin{4}; % un-robust region
                     method = varargin{5}; % reachability analysis method
-                    lb_allowable = varargin{6}; % allowable lower bound on disturbed inputs
-                    ub_allowable = varargin{7}; % allowable upper bound on disturbed inputs
+                    lb_allowable =[]; % allowable lower bound on disturbed inputs
+                    ub_allowable = []; % allowable upper bound on disturbed inputs
+                    n_samples = varargin{6}; % number of samples used for finding counter examples
                     num_cores = 1; % number of cores used in computation
                     
-                case 4
+                case 5
                     
                     obj = varargin{1}; % FFNNS object
                     input_vec = varargin{2}; % input vec
@@ -555,10 +567,12 @@ classdef FFNNS < handle
                     method = varargin{5}; % reachability analysis method
                     lb_allowable =[]; % allowable lower bound on disturbed inputs
                     ub_allowable = []; % allowable upper bound on disturbed inputs
+                    n_samples = 1000; % use 1000 number of samples used for finding counter examples
                     num_cores = 1; % number of cores used in computation
                     
+                    
                 otherwise
-                    error('Invalid number of input arguments (should be 4 or 6 or 7)');
+                    error('Invalid number of input arguments (should be 4 or 5 or 8)');
             end
             
             
@@ -590,42 +604,25 @@ classdef FFNNS < handle
                     ub(i) = ub(i) + dis_bound;
                 end
             end
-                
-            I = Star(lb, ub); % input set to check robustness
-                
-            % do reachability analysis
-            if strcmp(method, 'approx-zono')
-                [R,~] = obj.reach(I.toZono, method);
-            else
-                [R, ~] = obj.reach(I, method, num_cores);
+            
+            
+            % input set to check robustness
+            I = Star(lb, ub); 
+            [robust, ~, adv_inputs] = obj.isSafe(I, un_robust_reg, method, n_samples, num_cores);
+            
+            if robust == 1
+                fprintf('\nThe network is robust with the disturbance dis_bound = %.5f', dis_bound);
+            elseif robust == 0
+                fprintf('\nThe network is not robust with the disturbance dis_bound = %.5f, counter examples are found', dis_bound);
+            elseif robust == 2
+                fprintf('\nThe robustness of the network is uncertain, we cannot find counter examples, you can try again with a larger number of samples');
             end
-
-            % check robustness               
-            N = length(R);
-            M = length(un_robust_reg);
-
-            k = [];
-            for i=1:N
-
-               if num_cores > 1                   
-                   parfor j=1:M
-                   end
-               else
-                   for j=1:M
-                   end
-               end
-
-            end
-
-                
-            
-            
-            
+                            
+            t = toc(start);
+                       
         end
         
-        
-        
-         
+               
     end
     
     

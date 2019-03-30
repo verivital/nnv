@@ -19,8 +19,8 @@ F = FFNNS(Layers);
 input_vec = one_digits(1, :)';
 n  = length(input_vec);
 
-init_dis_bound = 0.006; % initial bound of disturbance
-tol = 0.0002; % accuracy in finding the maximum bound
+init_dis_bound = 0.0054; % initial bound of disturbance
+tol = 0.0001; % accuracy in finding the maximum bound
 max_steps = 100; % maximum number of searching step
 
 lb_allowable = zeros(n, 1);

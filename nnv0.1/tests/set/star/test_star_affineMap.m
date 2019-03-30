@@ -15,6 +15,12 @@ b = [0.5; 0.5];
 S1 = S.affineMap(W, b);
 
 figure;
+Z.plot;
+hold on;
+S.plot;
+
+
+figure;
 S1.Z.plot;
 hold on;
 S1.plot;

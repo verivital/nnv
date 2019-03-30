@@ -52,11 +52,11 @@ classdef Star
                         error('constraint vector should have one column');
                     end
                     
-                    if ~isa(Z, 'Zono')
+                    if ~isempty(Z) && ~isa(Z, 'Zono')
                         error('The last input should be a zonotope');
                     end
                     
-                    if Z.dim ~= nV
+                    if ~isempty(Z) && Z.dim ~= nV
                         error('Inconsistent between the outer zonotope and the exact star set');
                     end
                     
@@ -66,10 +66,11 @@ classdef Star
                     obj.dim = nV;
                     obj.nVar = mC;
                     obj.Z = Z;
-                    B = Z.getBox;
-                    obj.lb = B.lb;
-                    obj.ub = B.ub;
-                    
+                    if ~isempty(Z)
+                        B = Z.getBox;
+                        obj.lb = B.lb;
+                        obj.ub = B.ub;
+                    end
                 
                 case 3
                     V = varargin{1};

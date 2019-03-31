@@ -6,10 +6,10 @@
 norm_mat = [1/250 0 0; 0 3.6/120 0; 0 0 1/20]; % normalized matrix
 
 % reinforcement learning controller
-load controller.mat; 
+load controller.mat; % controller with saturation activation function at the output
 rl_layer1 = LayerS(W{1, 1}, b{1, 1}', 'poslin');
 rl_layer2 = LayerS(W{1, 2}, b{1, 2}', 'poslin');
-rl_layer3 = LayerS(W{1, 3}, b{1, 3}', 'poslin');
+rl_layer3 = LayerS(W{1, 3}, b{1, 3}', 'satlin');
 rl_controller = FFNNS([rl_layer1 rl_layer2 rl_layer3]); 
 
 % transformation 
@@ -53,7 +53,7 @@ N = 50; % number of control steps
 X0 = init_set; % step 0: initial state of plant
 S = X0;
 
-
+start = tic; 
 tf_outs = [];
 for i=1:N
     % step 1: normalizing state
@@ -68,14 +68,13 @@ for i=1:N
     controls = get_controls(tf_outs, norm_X);
     % step 6: scale control output
     scaled_controls = scale_controls(controls, scale_mat);
-    new_control = Star.get_hypercube_hull(scaled_controls);
     % step 7: compute reachable set of the plant with the new control input and
     % initial state
-    X0 = plant.stepReachStar(X0, new_control.toStar);  
+    X0 = stepReachPlant(A, B, X0, scaled_controls);  
     S = [S X0];
 end
 
-
+reachTime = toc(start);
 % plot reachable set
 subplot(1,2,1);
 Star.plotBoxes_2D_noFill(S, 1, 2, 'b');
@@ -87,8 +86,8 @@ Star.plotBoxes_2D_noFill(S, 2, 3, 'b');
 xlabel('speed');
 ylabel('acceleration');
 title('Acceleration vs. Speed');
-saveas(gcf, 'reachSet.pdf');
-% save reachable set for computing TTC
+saveas(gcf, 'reachSet_approx_improve.pdf');
+%save reachable set for computing TTC
 save reachSet.mat S;
 
 function speed_brakes = get_speed_brakes(brake, norm_X)
@@ -126,4 +125,24 @@ function scaled_controls = scale_controls(controls, scale_mat)
     for i=1:n
         scaled_controls = [scaled_controls controls(i).affineMap(scale_mat, [])];
     end
+end
+
+function X = stepReachPlant(A, B, X0, scaled_controls)
+    
+    n = length(scaled_controls);
+    X = X0.affineMap(A, []);
+    U = [];
+    for i=1:n
+        U = [U scaled_controls(i).affineMap(B, [])];
+    end
+    
+    next_X = [];
+    for i=1:n
+        V = X.V + U(i).V;
+        next_X = [next_X Star(V, U(i).C, U(i).d)];
+    end
+    
+    X = Star.get_hypercube_hull(next_X);
+    X = X.toStar;
+    
 end

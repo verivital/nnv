@@ -250,12 +250,15 @@ classdef PosLin
             else
                 In = I;
                 B = I.getBox;
-                
-                for i=1:I.dim
-                    fprintf('\nPerforming approximate PosLin_%d operation using Star', i);
-                    In = PosLin.stepReachStarApprox(In, i, B.lb(i), B.ub(i));
-                end
+                if ~isempty(B)
+                    for i=1:I.dim
+                        fprintf('\nPerforming approximate PosLin_%d operation using Star', i);
+                        In = PosLin.stepReachStarApprox(In, i, B.lb(i), B.ub(i));
+                    end
                 S = In;
+                else
+                    S = [];
+                end
             end
 
         end

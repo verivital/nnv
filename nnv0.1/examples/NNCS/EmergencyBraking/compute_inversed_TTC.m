@@ -84,7 +84,9 @@ for i=1:n
     inv_TTC_v = [inv_TTC_v Star(lb, ub)];
 end
 
-times = 1:1:51;
+N = length(inv_TTC_v);
+
+times = 1:1:N;
 
 subplot(3,1,1);
 Star.plotBoxes_2D_noFill(inv_TTC_acc, 1, 2, 'b');
@@ -103,7 +105,7 @@ Star.plotRanges_2D(inv_TTC_acc, 1, times, 'b');
 xlabel('time steps');
 ylabel('$$TTC^{-1}$$', 'interpreter', 'latex');
 title('$$TTC^{-1}$$ over time', 'interpreter', 'latex');
-%saveas(gcf, 'inv_TTC_reachSet.pdf');
+saveas(gcf, 'inv_TTC_reachSet.pdf');
 
 
 function [c, ceq] = feasiblecon(x)

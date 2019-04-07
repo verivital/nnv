@@ -72,13 +72,23 @@ end
 
 reachTime = toc(start);
 
+start = tic;
+N = length(X_cell);
 S = [];
 for i=1:N
-    S = [S Star.get_hypercube_hull(X_cell{1, i})];
+    fprintf('\nget hypercube hull of the %d^th step reach sets', i);
+    B = Star.get_hypercube_hull(X_cell{1, i});
+    if isempty(B)
+        fprintf('\ni = %d -> empty hull', i);
+    else
+        S = [S Star.get_hypercube_hull(X_cell{1, i})];
+    end
 end
-
+save exactReachSet.mat S;
+get_ranges_time = toc(start); 
 
 % plot reachable set
+figure;
 subplot(1,2,1);
 Box.plotBoxes_2D_noFill(S, 1, 2, 'b');
 xlabel('Distance (m)');
@@ -89,11 +99,10 @@ subplot(1,2,2);
 Box.plotBoxes_2D_noFill(S, 2, 3, 'b');
 xlabel('Velocity (m/s)');
 ylabel('Acceleration (m/s^2)');
-set(gca,'FontSize',16)
+set(gca,'FontSize',16);
 %title('Acceleration vs. Speed');
-saveas(gcf, 'exactReachSet.pdf');
 % save reachable set for computing TTC
-save exactReachSet.mat S;
+
 
 % plot number of stars of the reachable set over time
 numOfStar = zeros(N+1, 1);

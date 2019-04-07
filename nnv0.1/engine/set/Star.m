@@ -622,25 +622,30 @@ classdef Star
                 error('Invalid index');
             end
             
-            options = optimset('Display','none');
-            
-            f = obj.V(index, 2:obj.nVar + 1);
-           
-            [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-            
-            if exitflag > 0
-                xmin = fval + obj.V(index, 1);
+            if ~isempty(obj.lb) && ~isempty(obj.ub)
+                xmin = obj.lb(index);
+                xmax = obj.ub(index);
             else
-                error('Cannot find an optimal solution, exitflag = %d', exitflag);
-            end          
+                options = optimset('Display','none');
             
-            [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-            if exitflag > 0
-                xmax = -fval + obj.V(index, 1);
-            else
-                error('Cannot find an optimal solution');
-            end
+                f = obj.V(index, 2:obj.nVar + 1);
+
+                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+
+                if exitflag > 0
+                    xmin = fval + obj.V(index, 1);
+                else
+                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                end          
+
+                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                if exitflag > 0
+                    xmax = -fval + obj.V(index, 1);
+                else
+                    error('Cannot find an optimal solution');
+                end
            
+            end   
             
         end
         

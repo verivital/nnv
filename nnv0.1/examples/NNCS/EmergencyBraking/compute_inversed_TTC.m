@@ -1,7 +1,8 @@
-load reachSet.mat;
-%load exactReachSet.mat;
+%load reachSet.mat;
+load exactReachSet.mat;
 n = length(S); % number of stars in the reachable set
 
+start = tic;
 B = [];
 for i=1:n
     if isa(S(i), 'Star')
@@ -83,10 +84,13 @@ end
 
 
 % plot TTC^-1 reachable set
+inv_TTC_d = [];
 inv_TTC_acc = [];
 inv_TTC_v = [];
 for i=1:n
-    fprintf('\ni=%d', i);
+    lb = [inv_TTC_min(i); B(i).lb(1)];
+    ub = [inv_TTC_max(i); B(i).ub(1)];
+    inv_TTC_d = [inv_TTC_d Star(lb, ub)];
     lb = [inv_TTC_min(i); B(i).lb(3)];
     ub = [inv_TTC_max(i); B(i).ub(3)];
     inv_TTC_acc = [inv_TTC_acc Star(lb, ub)];
@@ -95,28 +99,57 @@ for i=1:n
     inv_TTC_v = [inv_TTC_v Star(lb, ub)];
 end
 
+get_inv_TTC_time = toc(start);
+
 N = length(inv_TTC_v);
 
 times = 1:1:N;
+figure; 
+subplot(4,1,1);
+Star.plotBoxes_2D_noFill(inv_TTC_d, 1, 2, 'b');
+xlabel('$$TTC^{-1}$$', 'interpreter', 'latex');
+ylabel('Distance');
+title('$$TTC^{-1}$$ vs. Distance', 'interpreter', 'latex');
+set(gca,'FontSize',16);
 
-subplot(3,1,1);
+subplot(4,1,2);
 Star.plotBoxes_2D_noFill(inv_TTC_acc, 1, 2, 'b');
 xlabel('$$TTC^{-1}$$', 'interpreter', 'latex');
-ylabel('acceleration');
+ylabel('Acceleration');
 title('$$TTC^{-1}$$ vs. Acceleration', 'interpreter', 'latex');
+set(gca,'FontSize',16);
 
-subplot(3,1,2);
+subplot(4,1,3);
 Star.plotBoxes_2D_noFill(inv_TTC_v, 1, 2, 'b');
 xlabel('$$TTC^{-1}$$', 'interpreter', 'latex');
 ylabel('velocity');
 title('$$TTC^{-1}$$ vs. velocity', 'interpreter', 'latex');
+set(gca,'FontSize',16);
 
-subplot(3,1,3);
+subplot(4,1,4);
+inv_tau = 0.5 * ones(N, 1); % worst case full braking time
+plot(times, inv_tau, 'red');
+hold on;
 Star.plotRanges_2D(inv_TTC_acc, 1, times, 'b');
 xlabel('time steps');
 ylabel('$$TTC^{-1}$$', 'interpreter', 'latex');
 title('$$TTC^{-1}$$ over time', 'interpreter', 'latex');
 saveas(gcf, 'inv_TTC_reachSet.pdf');
+set(gca,'FontSize',16);
+
+
+figure; 
+inv_tau = 0.5 * ones(N, 1); % worst case full braking time
+plot(times, inv_tau, 'red');
+hold on;
+Star.plotRanges_2D(inv_TTC_acc, 1, times, 'b');
+xlabel('Time steps');
+ylabel('$$TTC^{-1}$$', 'interpreter', 'latex');
+ylim([0 0.6]);
+xlim([0 51]);
+title('$$TTC^{-1}$$ over time', 'interpreter', 'latex');
+saveas(gcf, 'inv_TTC_reachSet.pdf');
+set(gca,'FontSize',16);
 
 
 function [c, ceq] = feasiblecon(x)

@@ -44,8 +44,8 @@ plant = DLinearODE(A, B, C, D, Ts);
 % step 8: go back to step 1, ...
 
 
-lb = [97; 25.2; -3.5];
-ub = [97.5; 25.5; -3.0];
+lb = [97; 25.2; 0];
+ub = [97.5; 25.5; 0];
 init_set = Star(lb, ub); % initial condition of the plant
 
 N = 50; % number of control steps
@@ -76,17 +76,19 @@ end
 
 reachTime = toc(start);
 % plot reachable set
+% plot reachable set
 subplot(1,2,1);
 Star.plotBoxes_2D_noFill(S, 1, 2, 'b');
-xlabel('distance');
-ylabel('speed');
-title('Speed vs. Distance');
+xlabel('Distance (m)');
+ylabel('Velocity (m/s)');
+set(gca,'FontSize',16)
+%title('Speed vs. Distance');
 subplot(1,2,2);
 Star.plotBoxes_2D_noFill(S, 2, 3, 'b');
-xlabel('speed');
-ylabel('acceleration');
-title('Acceleration vs. Speed');
-saveas(gcf, 'reachSet_approx_improve.pdf');
+xlabel('Velocity (m/s)');
+ylabel('Acceleration (m/s^2)');
+set(gca,'FontSize',16)
+saveas(gcf, 'reachSet_approx.pdf');
 %save reachable set for computing TTC
 save reachSet.mat S;
 

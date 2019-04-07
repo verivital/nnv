@@ -1,9 +1,14 @@
 load reachSet.mat;
+%load exactReachSet.mat;
 n = length(S); % number of stars in the reachable set
 
 B = [];
 for i=1:n
-    B = [B S(i).getBox]; % get box bounds the star set
+    if isa(S(i), 'Star')
+        B = [B S(i).getBox]; % get box bounds the star set
+    else
+        B = [B S(i)];
+    end
 end
 
 % Estimate minimum value of the function g = v^2 + 2ad
@@ -29,22 +34,27 @@ inv_TTC_max = zeros(n,1);
 
 for i=1:n
     
-    if g_max(i) < 0
+    if g_max(i) <= 0
         
         inv_TTC_min(i) = 0;
         inv_TTC_max(i) = 0;
         
-    elseif g_min(i) > 0
-        
+    elseif g_min(i) >= 0
+              
         fun_min = @(x)(-x(3)/(x(2) - sqrt(x(2)^2 + 2*x(1)*x(3))));
         fun_max = @(x)(x(3)/(x(2) - sqrt(x(2)^2 + 2*x(1)*x(3))));
         lb = B(i).lb;
         ub = B(i).ub;
-        x0 = lb;   
-        [~,fval] = fmincon(fun_min,x0,[],[],[],[],lb,ub);
-        inv_TTC_min(i) = fval;
-        [~,fval] = fmincon(fun_max,x0,[],[],[],[],lb,ub);
-        inv_TTC_max(i) = -fval;
+        x0 = lb; 
+        if lb(3) == 0 && ub(3) == 0
+            inv_TTC_min(i) = 0;
+            inv_TTC_max(i) = 0;
+        else
+            [~,fval] = fmincon(fun_min,x0,[],[],[],[],lb,ub);
+            inv_TTC_min(i) = fval;
+            [~,fval] = fmincon(fun_max,x0,[],[],[],[],lb,ub);
+            inv_TTC_max(i) = -fval;
+        end
 
     elseif g_min(i) < 0 && g_max(i) > 0
         
@@ -76,6 +86,7 @@ end
 inv_TTC_acc = [];
 inv_TTC_v = [];
 for i=1:n
+    fprintf('\ni=%d', i);
     lb = [inv_TTC_min(i); B(i).lb(3)];
     ub = [inv_TTC_max(i); B(i).ub(3)];
     inv_TTC_acc = [inv_TTC_acc Star(lb, ub)];

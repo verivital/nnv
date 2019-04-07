@@ -9,9 +9,9 @@ norm_mat = [1/250 0 0; 0 3.6/120 0; 0 0 1/20]; % normalized matrix
 % reinforcement learning controller
 %load ControllerSat.mat;
 load controller.mat; 
-rl_layer1 = LayerS(controller.W{1, 1}, controller.b{1, 1}', 'poslin');
-rl_layer2 = LayerS(controller.W{1, 2}, controller.b{1, 2}', 'poslin');
-rl_layer3 = LayerS(controller.W{1, 3}, controller.b{1, 3}', 'satlin');
+rl_layer1 = LayerS(W{1, 1}, b{1, 1}', 'poslin');
+rl_layer2 = LayerS(W{1, 2}, b{1, 2}', 'poslin');
+rl_layer3 = LayerS(W{1, 3}, b{1, 3}', 'satlin');
 rl_controller = FFNNS([rl_layer1 rl_layer2 rl_layer3]); 
 
 % transformation 
@@ -46,11 +46,11 @@ plant = DLinearODE(A, B, C, D, Ts);
 % step 8: go back to step 1, ...
 
 
-lb = [97; 25.2; -3.5];
-ub = [97.5; 25.5; -3.0];
+lb = [97; 25.2; 0];
+ub = [97.5; 25.5; 0];
 init_set = Star(lb, ub); % initial condition of the plant
 
-N = 5; % number of control steps
+N = 50; % number of control steps, takes arround 800 seconds to compute
 
 X_cell = cell(1, N + 1);
 X_cell{1, 1} = init_set;
@@ -81,17 +81,32 @@ end
 % plot reachable set
 subplot(1,2,1);
 Box.plotBoxes_2D_noFill(S, 1, 2, 'b');
-xlabel('distance');
-ylabel('speed');
-title('Speed vs. Distance');
+xlabel('Distance (m)');
+ylabel('Velocity (m/s)');
+set(gca,'FontSize',16)
+%title('Speed vs. Distance');
 subplot(1,2,2);
 Box.plotBoxes_2D_noFill(S, 2, 3, 'b');
-xlabel('speed');
-ylabel('acceleration');
-title('Acceleration vs. Speed');
-%saveas(gcf, 'reachSet2.pdf');
+xlabel('Velocity (m/s)');
+ylabel('Acceleration (m/s^2)');
+set(gca,'FontSize',16)
+%title('Acceleration vs. Speed');
+saveas(gcf, 'exactReachSet.pdf');
 % save reachable set for computing TTC
-%save reachSet2.mat S;
+save exactReachSet.mat S;
+
+% plot number of stars of the reachable set over time
+numOfStar = zeros(N+1, 1);
+for i=1:N+1
+    numOfStar(i) = length(X_cell{1, i});
+end
+figure;
+T = 1:1:N+1;
+plot(T, numOfStar, '-x');
+xlabel('Time steps');
+ylabel('Number of stars');
+set(gca,'FontSize',16)
+saveas(gcf, 'numOfStar_exactMethod.pdf');
 
 
 function next_X = reach_exact_single_X0(rl_controller, transformer, A, B, X0, norm_mat, scale_mat)

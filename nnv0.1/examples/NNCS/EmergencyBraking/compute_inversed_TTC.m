@@ -1,7 +1,6 @@
-%load reachSet.mat;
+% load reachSet.mat;
 load exactReachSet.mat;
-n = length(S); % number of stars in the reachable set
-
+n = length(S);
 start = tic;
 B = [];
 for i=1:n
@@ -48,8 +47,8 @@ for i=1:n
         ub = B(i).ub;
         x0 = lb; 
         if lb(3) == 0 && ub(3) == 0
-            inv_TTC_min(i) = 0;
-            inv_TTC_max(i) = 0;
+            inv_TTC_min(i) = lb(2)/ub(1);
+            inv_TTC_max(i) = ub(2)/lb(1);
         else
             [~,fval] = fmincon(fun_min,x0,[],[],[],[],lb,ub);
             inv_TTC_min(i) = fval;
@@ -139,6 +138,14 @@ set(gca,'FontSize',16);
 
 
 figure; 
+
+subplot(2,1,1);
+Star.plotRanges_2D(inv_TTC_v, 2, times, 'b');
+xlabel('Time steps');
+ylabel('Velocity');
+set(gca,'FontSize',16);
+
+subplot(2,1,2);
 inv_tau = 0.5 * ones(N, 1); % worst case full braking time
 plot(times, inv_tau, 'red');
 hold on;
@@ -146,7 +153,7 @@ Star.plotRanges_2D(inv_TTC_acc, 1, times, 'b');
 xlabel('Time steps');
 ylabel('$$TTC^{-1}$$', 'interpreter', 'latex');
 ylim([0 0.6]);
-xlim([0 51]);
+xlim([0 N]);
 title('$$TTC^{-1}$$ over time', 'interpreter', 'latex');
 saveas(gcf, 'inv_TTC_reachSet.pdf');
 set(gca,'FontSize',16);

@@ -48,7 +48,7 @@ lb = [97; 25.2; 0];
 ub = [97.5; 25.5; 0];
 init_set = Star(lb, ub); % initial condition of the plant
 
-N = 50; % number of control steps
+N = 100; % number of control steps
 
 X0 = init_set; % step 0: initial state of plant
 S = X0;

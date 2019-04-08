@@ -105,12 +105,13 @@ set(gca,'FontSize',16);
 
 
 % plot number of stars of the reachable set over time
-numOfStar = zeros(N+1, 1);
-for i=1:N+1
+N = length(X_cell);
+numOfStar = zeros(N, 1);
+for i=1:N
     numOfStar(i) = length(X_cell{1, i});
 end
 figure;
-T = 1:1:N+1;
+T = 1:1:N;
 plot(T, numOfStar, '-x');
 xlabel('Time steps');
 ylabel('Number of stars');

@@ -73,6 +73,7 @@ for i=1:N
     X0 = stepReachPlant(A, B, X0, scaled_controls);  
     S = [S X0];
 end
+save reachSet.mat S;
 
 reachTime = toc(start);
 % plot reachable set

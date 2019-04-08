@@ -1,5 +1,5 @@
-% load reachSet.mat;
-load exactReachSet.mat;
+%load reachSet.mat;
+%load exactReachSet.mat;
 n = length(S);
 start = tic;
 B = [];
@@ -145,14 +145,17 @@ xlabel('Time steps');
 ylabel('Velocity');
 set(gca,'FontSize',16);
 
+inv_tau = zeros(N, 1);
+for i=1:N
+    tau = 2*(B(i).ub(2)/25);
+    inv_tau(i) = 1/tau;
+end
 subplot(2,1,2);
-inv_tau = 0.5 * ones(N, 1); % worst case full braking time
 plot(times, inv_tau, 'red');
 hold on;
 Star.plotRanges_2D(inv_TTC_acc, 1, times, 'b');
 xlabel('Time steps');
 ylabel('$$TTC^{-1}$$', 'interpreter', 'latex');
-ylim([0 0.6]);
 xlim([0 N]);
 title('$$TTC^{-1}$$ over time', 'interpreter', 'latex');
 saveas(gcf, 'inv_TTC_reachSet.pdf');

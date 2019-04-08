@@ -45,30 +45,30 @@ plant = DLinearODE(A, B, C, D, Ts);
 
 
 
-v0_max = 35;
-d0_min = 97;
-d0_max = 97.5;
+v0_max = 25.5;
+v0_min = 25.2;
+d0_max = 55;
 a0_min = 0;
 a0_max = 0;
 
-dv0 = 0.5; 
+d0 = 1; 
 
-l_max = 4; % maximum number of searching 
+l_max = 2; % maximum number of searching 
 l = 1;
 critical_v0 = [];
 while(l < l_max)
-    v0_min = v0_max - dv0;
-    v0_max = v0_max + dv0;
-    critical_v0 = v0_max;
-    inv_tau = 2*v0_max/25; % worst case full braking time
-    num_steps = ceil(inv_tau*15); % minimum number of time steps require for analysis
+    d0_max = d0_max - d0;
+    d0_min = d0_max - d0;
+    critical_d0 = d0_max;
+    inv_tau = 25/(2*v0_max); % worst case full braking time
+    num_steps = ceil(15/(inv_tau)) + 20; % minimum number of time steps require for analysis
     lb = [d0_min; v0_min; a0_min]; 
     ub = [d0_max; v0_max; a0_max];
     init_set = Star(lb, ub);
     S = get_reach_set(norm_mat, transformer, rl_controller, scale_mat, A, B, init_set, num_steps);
     inv_TTC_max = get_inv_TTC_max(S);
     if inv_TTC_max >= inv_tau
-        fprintf('\nsafety critical intial condition for v_0 is found at l = %d', l);
+        fprintf('\nsafety critical intial condition for d_0 = %.5f is found at l = %d', critical_d0, l);
         break;
     end 
 end

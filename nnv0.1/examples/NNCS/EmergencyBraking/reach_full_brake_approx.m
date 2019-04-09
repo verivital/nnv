@@ -44,14 +44,11 @@ plant = DLinearODE(A, B, C, D, Ts);
 % step 8: go back to step 1, ...
 
 
-%lb = [97; 25.2; 0];
-%ub = [97.5; 25.5; 0];
-
-lb = [49; 30; 0];
-ub = [50; 31; 0];
+lb = [90; 30; 0];
+ub = [100; 40; 0];
 init_set = Star(lb, ub); % initial condition of the plant
 
-N = 15; % number of control steps
+N = 30; % number of control steps
 
 X0 = init_set; % step 0: initial state of plant
 S = X0;
@@ -61,10 +58,9 @@ tf_outs = [];
 for i=1:N
     % step 1: normalizing state
     norm_X = X0.affineMap(norm_mat, []); % normalized state
-    % step 2: compute brake output of rl_controller
-    brake = rl_controller.reach(norm_X);
+    % step 2: the full brake is always 1
     % step 3: compose brake output and speed
-    speed_brakes = get_speed_brakes(brake, norm_X);
+    speed_brakes = get_speed_full_brakes(norm_X);
     % step 4: compute transformer output
     tf_outs = get_tf_outs(transformer, speed_brakes);
     % step 5: get control output
@@ -76,7 +72,6 @@ for i=1:N
     X0 = stepReachPlant(A, B, X0, scaled_controls);  
     S = [S X0];
 end
-save reachSet.mat S;
 
 reachTime = toc(start);
 % plot reachable set
@@ -92,19 +87,17 @@ Star.plotBoxes_2D_noFill(S, 2, 3, 'b');
 xlabel('Velocity (m/s)');
 ylabel('Acceleration (m/s^2)');
 set(gca,'FontSize',16)
-saveas(gcf, 'reachSet_approx.pdf');
+%saveas(gcf, 'reachSet_fullbrake.pdf');
 %save reachable set for computing TTC
 save reachSet.mat S;
 
-function speed_brakes = get_speed_brakes(brake, norm_X)
-    n = length(brake);
-    speed_brakes = [];
+function speed_brakes = get_speed_full_brakes(norm_X) 
+
+    V1 = zeros(1, norm_X.nVar + 1);
+    V1(1,1) = 1;
+    new_V = [norm_X.V(2,:); V1];
+    speed_brakes = Star(new_V, norm_X.C, norm_X.d);
     
-    parfor i=1:n
-        V = [norm_X.V(2, :);brake(i).V];
-        speed_brakes = [speed_brakes Star(V, brake(i).C, brake(i).d)];
-        
-    end 
 end
 
 function tf_outs = get_tf_outs(transformer, speed_brakes)
@@ -119,7 +112,7 @@ end
 function controls = get_controls(tf_outs, norm_X)
     n = length(tf_outs);
     controls = [];
-    parfor i=1:n
+    for i=1:n
         V = [norm_X.V(2, :);tf_outs(i).V];
         controls = [controls Star(V, tf_outs(i).C, tf_outs(i).d)];        
     end
@@ -128,7 +121,7 @@ end
 function scaled_controls = scale_controls(controls, scale_mat)
     n = length(controls);
     scaled_controls = [];
-    parfor i=1:n
+    for i=1:n
         scaled_controls = [scaled_controls controls(i).affineMap(scale_mat, [])];
     end
 end
@@ -138,12 +131,12 @@ function X = stepReachPlant(A, B, X0, scaled_controls)
     n = length(scaled_controls);
     X = X0.affineMap(A, []);
     U = [];
-    parfor i=1:n
+    for i=1:n
         U = [U scaled_controls(i).affineMap(B, [])];
     end
     
     next_X = [];
-    parfor i=1:n
+    for i=1:n
         V = X.V + U(i).V;
         next_X = [next_X Star(V, U(i).C, U(i).d)];
     end

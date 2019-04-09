@@ -1,5 +1,5 @@
 figure;
-fplot(@(v) v^2/12.5, [0, 35], 'r');
+fplot(@(v) v^2/25, [0, 35], 'r');
 xlabel('Velocity');
 ylabel('Distance');
 xlim([0 35]);

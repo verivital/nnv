@@ -22,7 +22,7 @@ tf_layer3 = LayerS(W{1, 3}, b{1, 3}', 'purelin');
 transformer = FFNNS([tf_layer1 tf_layer2 tf_layer3]);
 
 % control signal scale
-scale_mat = [-15*120/3.6 15*10];
+scale_mat = [-15*120/3.6 15*120/3.6];
 
 % plant matrices
 A = [1 -1/15 0; 0 1 0; 0 0 0];

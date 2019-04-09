@@ -143,6 +143,7 @@ subplot(2,1,1);
 Star.plotRanges_2D(inv_TTC_v, 2, times, 'b');
 xlabel('Time steps');
 ylabel('Velocity');
+xlim([0 N]);
 set(gca,'FontSize',16);
 
 inv_tau = zeros(N, 1);

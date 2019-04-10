@@ -1,9 +1,11 @@
 
-load 2000model.mat;
+load 2000_model_1layer.mat;
+%load 2000model.mat;
 load one_digits.mat;
 
+N = length(W);
 Layers = [];
-for i=1:11
+for i=1:N
     L = LayerS(W{1,i}, b{1,i}', 'poslin');
     Layers = [Layers L];
 end
@@ -17,7 +19,7 @@ F = FFNNS(Layers);
 input_vec = one_digits(1, :)';
 n  = length(input_vec);
 
-init_dis_bound = 0.007; % initial bound of disturbance
+init_dis_bound = 0.0015; % initial bound of disturbance
 tol = 0.0001; % accuracy in finding the maximum bound
 max_steps = 100; % maximum number of searching step
 
@@ -38,5 +40,5 @@ method = 'approx-star';
 n_samples = 0; % do not search for falsified inputs
 n_cores = 1;
 
-%robustness_bound, t] = F.get_robustness_bound(input_vec, init_dis_bound, tol, max_steps, lb_allowable, ub_allowable, un_robust_reg, method, n_samples, n_cores);
+%[robustness_bound, t] = F.get_robustness_bound(input_vec, init_dis_bound, tol, max_steps, lb_allowable, ub_allowable, un_robust_reg, method, n_samples, n_cores);
 [robust, t, counter_inputs] = F.isRobust(input_vec, init_dis_bound, un_robust_reg, method, lb_allowable, ub_allowable, n_samples, n_cores);

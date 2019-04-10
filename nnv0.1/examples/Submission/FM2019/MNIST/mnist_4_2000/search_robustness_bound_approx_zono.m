@@ -1,12 +1,14 @@
-
-load 2000model.mat;
+load 2000_model_1layer.mat;
+%load 2000model.mat;
 load one_digits.mat;
 
+N = length(W);
 Layers = [];
-for i=1:11
+for i=1:N
     L = LayerS(W{1,i}, b{1,i}', 'poslin');
     Layers = [Layers L];
 end
+
 
 F = FFNNS(Layers);
 
@@ -17,7 +19,7 @@ F = FFNNS(Layers);
 input_vec = one_digits(1, :)';
 n  = length(input_vec);
 
-init_dis_bound = 0.005; % initial bound of disturbance
+init_dis_bound = 0.002; % initial bound of disturbance
 tol = 0.0001; % accuracy in finding the maximum bound
 max_steps = 100; % maximum number of searching step
 

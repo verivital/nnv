@@ -47,11 +47,12 @@ plant = DLinearODE(A, B, C, D, Ts);
 %lb = [97; 25.2; 0];
 %ub = [97.5; 25.5; 0];
 
-lb = [49; 30; 0];
-ub = [50; 31; 0];
+vmax = 4;
+lb = [10; vmax; 0];
+ub = [20; vmax; 0];
 init_set = Star(lb, ub); % initial condition of the plant
 
-N = 15; % number of control steps
+N = 50; % number of control steps
 
 X0 = init_set; % step 0: initial state of plant
 S = X0;

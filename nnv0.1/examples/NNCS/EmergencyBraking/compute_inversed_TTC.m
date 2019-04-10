@@ -101,41 +101,7 @@ end
 get_inv_TTC_time = toc(start);
 
 N = length(inv_TTC_v);
-
 times = 1:1:N;
-figure; 
-subplot(4,1,1);
-Star.plotBoxes_2D_noFill(inv_TTC_d, 1, 2, 'b');
-xlabel('$$TTC^{-1}$$', 'interpreter', 'latex');
-ylabel('Distance');
-title('$$TTC^{-1}$$ vs. Distance', 'interpreter', 'latex');
-set(gca,'FontSize',16);
-
-subplot(4,1,2);
-Star.plotBoxes_2D_noFill(inv_TTC_acc, 1, 2, 'b');
-xlabel('$$TTC^{-1}$$', 'interpreter', 'latex');
-ylabel('Acceleration');
-title('$$TTC^{-1}$$ vs. Acceleration', 'interpreter', 'latex');
-set(gca,'FontSize',16);
-
-subplot(4,1,3);
-Star.plotBoxes_2D_noFill(inv_TTC_v, 1, 2, 'b');
-xlabel('$$TTC^{-1}$$', 'interpreter', 'latex');
-ylabel('velocity');
-title('$$TTC^{-1}$$ vs. velocity', 'interpreter', 'latex');
-set(gca,'FontSize',16);
-
-subplot(4,1,4);
-inv_tau = 0.5 * ones(N, 1); % worst case full braking time
-plot(times, inv_tau, 'red');
-hold on;
-Star.plotRanges_2D(inv_TTC_acc, 1, times, 'b');
-xlabel('time steps');
-ylabel('$$TTC^{-1}$$', 'interpreter', 'latex');
-title('$$TTC^{-1}$$ over time', 'interpreter', 'latex');
-saveas(gcf, 'inv_TTC_reachSet.pdf');
-set(gca,'FontSize',16);
-
 
 figure; 
 
@@ -143,7 +109,7 @@ subplot(2,1,1);
 Star.plotRanges_2D(inv_TTC_v, 2, times, 'b');
 xlabel('Time steps');
 ylabel('Velocity');
-xlim([0 N]);
+xlim([1 N]);
 set(gca,'FontSize',16);
 
 inv_tau = zeros(N, 1);
@@ -154,10 +120,10 @@ end
 subplot(2,1,2);
 plot(times, inv_tau, 'red');
 hold on;
-Star.plotRanges_2D(inv_TTC_acc, 1, times, 'b');
+Star.plotRanges_2D(inv_TTC_v, 1, times, 'b');
 xlabel('Time steps');
 ylabel('$$TTC^{-1}$$', 'interpreter', 'latex');
-xlim([0 N]);
+xlim([1 N]);
 title('$$TTC^{-1}$$ over time', 'interpreter', 'latex');
 saveas(gcf, 'inv_TTC_reachSet.pdf');
 set(gca,'FontSize',16);

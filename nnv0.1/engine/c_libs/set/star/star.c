@@ -49,50 +49,71 @@ typedef struct Star{
 
 } Star;
 
-extern Star star(double *lb, double *ub);
+void test_create_star();
 
 int main() {
 
-    double lb[2] = {1, 1.5};
-    double ub[1] = {2};
 
-    Star S = star(lb, ub);
-
-    int l = sizeof(lb)/sizeof(lb[0]);
-
-    printf("Dimension of the star S is: %d\n", S.dim);
-    printf("Lower bound vector S is: %lf\n", S.lb[1]);
-    printf("Upper bound vector S is: %lf\n", S.ub[1]);
-    printf("Length of lower bound vector is: %d\n", l);
+    test_create_star();
 
     return 0;
 
 }
 
 
-extern Star star(double *lb, double *ub){
-    /*
-       star constructor
-    */
+void test_create_star() {
 
-    Star S;
+    double lb[3] = {1, 1.5, 2};
+    double ub[1] = {2};
 
-    int n1 = sizeof(lb)/sizeof(lb[0]);
-    int n2 = sizeof(ub)/sizeof(ub[0]);
-
-    printf("n1 = %d\n", n1);
-    printf("n2 = %d\n", n2);
-
-    if (n1 != n2) {
+    int l = sizeof(lb)/sizeof(lb[0]);
+    int l1 = sizeof(lb);
+    int l2 = sizeof(lb[0]);
+    int u1 = sizeof(ub);
+    int u2 = sizeof(ub[0]);
 
 
-        perror("Inconsistent dimension");
+    printf("l1 = %d\n", l1);
+    printf("l2 = %d\n", l2);
+    printf("u1 = %d\n", u1);
+    printf("u2 = %d\n", u2);
 
-    }
+    printf("Address of lb %p\n", &lb);
 
-    S.lb = lb;
-    S.ub = ub;
 
-    return S;
+    Star S1;
+    Star S2;
+
+    S1.dim = l;
+    S1.lb = lb;
+    S1.ub = ub;
+
+    double lb2[2] = {2, 1.5};
+    double ub2[2] = {2, 2};
+
+    S2.dim = sizeof(lb2)/sizeof(lb2[0]);
+    S2.lb = lb2;
+    S2.ub = ub2;
+
+    printf("Dimension of S1 is: %d\n", S1.dim);
+    printf("Lower bound vector S1 is: %lf\n", S1.lb[2]);
+    printf("3 element of the lower bound vector S1 is: %lf\n", S1.lb[3]);
+    printf("Upper bound vector S1 is: %lf\n", S1.ub[0]);
+
+    int N=100;
+    Star *RS[N];
+
+    RS[1] = &S1;
+    RS[2] = &S2;
+
+    printf("The first star dimension is: %d\n",RS[1]->dim);
+    printf("The first star lower bound vector is: %lf\n", RS[1]->lb[0]);
+
+    lb[0] = 0;
+    l = 0;
+    printf("The first star dimension is: %d\n",RS[1]->dim);
+    printf("The first star lower bound vector is: %lf\n", RS[1]->lb[0]);
+
+    printf("************What we should do*********** pass by value or pass by reference\n");
 
 }

@@ -66,8 +66,8 @@ classdef NNCS < handle
                 error('The controller is not a feedforward neural network');
             end
             
-            if ~isa(plant, 'LinearODE') && ~isa(plant, 'DLinearODE') && ~isa(plant, 'NonLinearODE')
-                error('The plant is not a linear ode system or a discrete linear ode system');
+            if ~isa(plant, 'LinearODE') && ~isa(plant, 'DLinearODE') && ~isa(plant, 'NonLinearODE') && ~isa(plant, 'DNonLinearODE')
+                error('The plant is not a linear or nonlinear ode system in discrete or continuous time');
             end            
                         
             [nO, nI] = size(feedbackMap);
@@ -196,8 +196,8 @@ classdef NNCS < handle
              % date: 11/16/2018
              
              start_time = tic; 
-             if ~isa(obj.plant, 'DLinearODE') && ~isa(obj.plant, 'NonLinearODE')
-                 error('Reachability analysis of NNCS using Star only supports for DLinearODE or NonLinearODE plant');
+             if ~isa(obj.plant, 'DLinearODE') && ~isa(obj.plant, 'NonLinearODE') && ~isa(obj.plant, 'DNonLinearODE')
+                 error('Reachability analysis of NNCS using Star only supports for DLinearODE or NonLinearODE or DNonLinearODE plant');
              end
 
              if ~isa(init_set, 'Star')
@@ -220,12 +220,14 @@ classdef NNCS < handle
              for i=2:n_steps + 1
                  
                  % reachability analysis for  controller
+                 fprintf('Reachability analysis for the controller \n');
                  fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                  input_set = obj.nextInputSetStar(fb_I{1});
                  [U,~] = obj.controller.reach(input_set, 'exact', n_cores, []); % control set at step i
                  U1 = Star.get_hypercube_hull(U);   
                  
                  % reachability analysis for plant
+                 fprintf('\nReachability analysis for the plant \n');
                  U1 = U1.toStar();
                  obj.controlSet = [obj.controlSet U1];
                  R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
@@ -258,7 +260,7 @@ classdef NNCS < handle
              start_time = tic; 
              
              if ~isa(obj.plant, 'DLinearODE')
-                 error('Reachability analysis of NNCS using Polyhedron only supports for Discrete linear ODE plant');
+                 error('Reachability analysis of NNCS using Polyhedron is only supported for Discrete linear ODE plant');
              end
 
              if ~isa(init_set, 'Polyhedron')

@@ -50,11 +50,14 @@ typedef struct Star{
 } Star;
 
 void test_create_star();
+void test_multiple_indirection();
+
 
 int main() {
 
 
-    test_create_star();
+    //test_create_star();
+    test_multiple_indirection();
 
     return 0;
 
@@ -115,5 +118,20 @@ void test_create_star() {
     printf("The first star lower bound vector is: %lf\n", RS[1]->lb[0]);
 
     printf("************What we should do*********** pass by value or pass by reference\n");
+
+}
+
+void test_multiple_indirection() {
+
+    int a = 3;
+    int *b;
+    b = &a;
+    int **c = &b;
+    int ***d = &c;
+
+    printf("a = %d \n", a);
+    printf("*b = %d \n", *b);
+    printf("**c = %d \n", **c);
+    printf("***d = %d \n", ***d);
 
 }

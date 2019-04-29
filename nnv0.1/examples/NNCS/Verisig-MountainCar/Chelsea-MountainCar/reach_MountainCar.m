@@ -16,7 +16,7 @@ L = Layer(W{1, n}, b{1, n}, 'Linear');
 
 Layers = [Layers L];
 
-Ts = 0.5; 
+Ts = 0.1; 
 Controller = FFNN(Layers); % feedforward neural network controller
 Plant = DNonLinearODE(2, 1, @discrete_car_dynamics, Ts); % two states and one input
 output_mat = [1 0; 0 1];

@@ -44,7 +44,7 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
 3) NNV can compute and visualize the over-approximate reachable sets of feedforward neural networks with Tanh, Sigmoid activation functions.
 
-![Reachable set of a network with Sigmoid activation functions]images/sigmoidReachSet.png)
+![Reachable set of a network with Sigmoid activation functions](images/sigmoidReachSet.png)
 
 4) NNV can compute and visualize the reachable sets of neural network control systems, i.e., systems with plant + neural network controllers which can be used to verify or falsify safety properties of the systems.
 

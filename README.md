@@ -27,7 +27,7 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
     1) NNV can compute and visualize the exact reachable sets of feedforward nerual networks with ReLU/Saturation activation functions.
 
-        ![ACAS Xu networks](/nnv0.1/examples/Figures/ACASXu.png)
+        ![ACAS Xu networks](https://raw.githubusercontent.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/ACASXu.png)
 
 
         ![The Exact Reachable Set of a ACAS Xu network](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/reachSet_P4_on_N2_8.pdf)

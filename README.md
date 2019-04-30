@@ -83,8 +83,8 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
 * [Hoang-Dung Tran](https://scholar.google.com/citations?user=_RzS3uMAAAAJ&hl=en)
 * [Weiming Xiang](https://scholar.google.com/citations?user=Vm_7JP8AAAAJ&hl=en)
-* Patrick Musau
-* Diego Manzanas Lopez
+* [Patrick Musau](https://scholar.google.com/citations?user=C2RS3i8AAAAJ&hl=en)
+* [Diego Manzanas Lopez](https://scholar.google.com/citations?user=kgpZCIAAAAAJ&hl=en)
 * Xiaodong Yang
 * [Luan Viet Nguyen](https://luanvietnguyen.github.io)
 * [Taylor T. Johnson](http://www.taylortjohnson.com)

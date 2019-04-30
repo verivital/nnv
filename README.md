@@ -25,41 +25,40 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
 # novel features
 
-    1) NNV can compute and visualize the exact reachable sets of feedforward nerual networks with ReLU/Saturation activation functions.
-
-        <img src="Images/ACASXu.png", width="800" /> ![](Images/ACASXu.png)
-
-        ![ACAS Xu networks](ACASXu.png)
+1) NNV can compute and visualize the exact reachable sets of feedforward nerual networks with ReLU/Saturation activation functions.
 
 
-        ![The Exact Reachable Set of a ACAS Xu network](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/reachSet_P4_on_N2_8.pdf)
+![ACAS Xu networks](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/ACASXu.png)
 
 
-        ![Reachable set of a ACAS Xu network with different methods](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/reachSet_P4_on_N5_7.pdf)
+![The Exact Reachable Set of a ACAS Xu network](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/reachSet_P4_on_N2_8.pdf)
 
 
-    2) NNV can construct and visualize the complete counter inputs of feedforward neural networks with ReLU/Saturation activation functions.
-
-        ![An Complete Set of Counter Inputs](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/counterInputSet_on_N2_8.pdf)
+![Reachable set of a ACAS Xu network with different methods](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/reachSet_P4_on_N5_7.pdf)
 
 
-    3) NNV can compute and visualize the over-approximate reachable sets of feedforward neural networks with Tanh, Sigmoid activation functions.
+2) NNV can construct and visualize the complete counter inputs of feedforward neural networks with ReLU/Saturation activation functions.
 
-        ![Reachable set of a network with Sigmoid activation functions](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/sigmoid_reachSet.pdf)
+![An Complete Set of Counter Inputs](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/counterInputSet_on_N2_8.pdf)
 
-    4) NNV can compute and visualize the reachable sets of neural network control systems, i.e., systems with plant + neural network controllers which can be used to verify or falsify safety properties of the systems.
 
-        ![Neural Network Adaptive Cruise Control System](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/ACC.pdf)
+3) NNV can compute and visualize the over-approximate reachable sets of feedforward neural networks with Tanh, Sigmoid activation functions.
 
-        ![Reachable set of the neural network adaptive cruise control system](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/safe_dis_vs_rel_dis.pdf)
+![Reachable set of a network with Sigmoid activation functions](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/sigmoid_reachSet.pdf)
 
-        ![fasification trace of the neural network adaptive cruise control system](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/falsifyTrace.pdf)
+4) NNV can compute and visualize the reachable sets of neural network control systems, i.e., systems with plant + neural network controllers which can be used to verify or falsify safety properties of the systems.
 
-        ![Advaced Emergency Braking System with Reinforcement Controller](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/EBS.png)
+![Neural Network Adaptive Cruise Control System](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/ACC.pdf)
 
-        ![Reachable set of the advanced emergency braking system with reinforcement controller](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/inv_TTC_over_time.pdf)
+![Reachable set of the neural network adaptive cruise control system](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/safe_dis_vs_rel_dis.pdf)
 
-        ![Safe initial condition of the advanced emergency braking system with reinforcement controller](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/safe_initial_condition.pdf)
+![fasification trace of the neural network adaptive cruise control system](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/falsifyTrace.pdf)
+
+![Advaced Emergency Braking System with Reinforcement Controller](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/EBS.png)
+
+![Reachable set of the advanced emergency braking system with reinforcement controller](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/inv_TTC_over_time.pdf)
+
+![Safe initial condition of the advanced emergency braking system with reinforcement controller](https://github.com/verivital/nnv/tree/master/nnv0.1/examples/Figures/safe_initial_condition.pdf)
 
 
 # contributors

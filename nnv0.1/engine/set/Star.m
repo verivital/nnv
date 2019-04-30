@@ -654,7 +654,7 @@ classdef Star
             % author: Dung Tran
             % date: 11/8/2018
             
-            [Q, obj.Z, P] = svd(obj.V(:, 2:obj.nVar + 1));
+            [Q, Z, P] = svd(obj.V(:, 2:obj.nVar + 1));
             S = Z * P';
             lb = zeros(obj.dim, 1);
             ub = zeros(obj.dim, 1);

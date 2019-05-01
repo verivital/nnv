@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<sspaceex xmlns="http://www-verimag.imag.fr/xml-namespaces/sspaceex" math="SpaceEx" version="0.2">
+   <component id="Acrobot_sys">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="theta1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="theta2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="omega1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="omega2" type="real"/>
+      <location id="1" name="Acrobot">
+         <flow>theta1' == omega1 &amp;
+ theta2' == omega2 &amp;
+ omega1' == -(49.0 * cos(theta1 + theta2 - pi / 2.0) / 10.0 + 147.0 * cos(theta1 - pi / 2.0) / 10.0 + omega2 * (cos(theta2) + 3.5) - omega2 ^ 2.0 * sin(theta2) / 2.0 - omega1 * omega2 * sin(theta2)) / (cos(theta2) + 3.5) &amp;
+ omega2' == -(u - 49.0 * cos(theta1 + theta2 - pi / 2.0) / 10.0 + (cos(theta2) / 2.0 + 1.25) * (49.0 * cos(theta1 + theta2 - pi / 2.0) / 10.0 + 147.0 * cos(theta1 - pi / 2.0) / 10.0 - omega2 ^ 2.0 * sin(theta2) / 2.0 - omega1 * omega2 * sin(theta2)) / (cos(theta2) + 3.5)) / ((cos(theta2) / 2.0 + 1.25) ^ 2.0 / (cos(theta2) + 3.5) - 1.25)</flow>
+      </location>
+   </component>
+   <component id="Acrobot_net">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="theta1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="theta2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="omega1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="omega2" type="real"/>
+      <bind as="Acrobot" component="Acrobot_sys">
+         <map key="theta1">theta1</map>
+         <map key="theta2">theta2</map>
+         <map key="omega1">omega1</map>
+         <map key="omega2">omega2</map>
+      </bind>
+   </component>
+</sspaceex>

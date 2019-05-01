@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<sspaceex xmlns="http://www-verimag.imag.fr/xml-namespaces/sspaceex" math="SpaceEx" version="0.2">
+   <component id="ACC_sys">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x5" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x6" type="real"/>
+      <location id="1" name="ACC">
+         <flow>x1' == x2 &amp;
+ x2' == x3 &amp;
+ x3' == -2.0 * x3 - x2 ^ 2.0 / 10000.0 - 4.0 &amp;
+ x4' == x5 &amp;
+ x5' == x6 &amp;
+ x6' == 2.0 * a_ego - 2.0 * x6 - x5 ^ 2.0 / 10000.0</flow>
+      </location>
+   </component>
+   <component id="ACC_net">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x5" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x6" type="real"/>
+      <bind as="ACC" component="ACC_sys">
+         <map key="x1">x1</map>
+         <map key="x2">x2</map>
+         <map key="x3">x3</map>
+         <map key="x4">x4</map>
+         <map key="x5">x5</map>
+         <map key="x6">x6</map>
+      </bind>
+   </component>
+</sspaceex>

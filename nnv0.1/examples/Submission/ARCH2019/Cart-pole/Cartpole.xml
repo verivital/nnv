@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<sspaceex xmlns="http://www-verimag.imag.fr/xml-namespaces/sspaceex" math="SpaceEx" version="0.2">
+   <component id="Cartpole_sys">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <location id="1" name="CP">
+         <flow>x1' == x2 &amp;
+ x2' == 10.0 * u / 11.0 + x4 ^ 2.0 * sin(x3) / 22.0 + 10.0 * cos(x3) * (49.0 * sin(x3) / 100.0 - cos(x3) * (10.0 * u / 11.0 + x4 ^ 2.0 * sin(x3) / 22.0) / 20.0) / (11.0 * (cos(x3) ^ 2.0 / 22.0 - 0.6666666666666666)) &amp;
+ x3' == x4 &amp;
+ x4' == -(49.0 * sin(x3) / 5.0 - cos(x3) * (10.0 * u / 11.0 + x4 ^ 2.0 * sin(x3) / 22.0)) / (cos(x3) ^ 2.0 / 22.0 - 0.6666666666666666)</flow>
+      </location>
+   </component>
+   <component id="Cartpole_net">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <bind as="Cartpole" component="Cartpole_sys">
+         <map key="x1">x1</map>
+         <map key="x2">x2</map>
+         <map key="x3">x3</map>
+         <map key="x4">x4</map>
+      </bind>
+   </component>
+</sspaceex>

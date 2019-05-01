@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<sspaceex xmlns="http://www-verimag.imag.fr/xml-namespaces/sspaceex" math="SpaceEx" version="0.2">
+   <component id="IP_sys">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <location id="1" name="IP">
+         <flow>x1' == x2 &amp;
+ x2' == 533263139471.0 * u / 274877906944.0 - 188119567565.0 * x2 / 17179869184.0 - 11.0 * x3 / 4.0 + 75646399991.0 * x4 / 17592186044416.0 &amp;
+ x3' == x4 &amp;
+ x4' == 428122340065.0 * x2 / 17179869184.0 - 76278619177.0 * u / 17179869184.0 + 491000661279.0 * x3 / 17179869184.0 - 387028092977.0 * x4 / 8796093022208.0</flow>
+      </location>
+   </component>
+   <component id="IP_net">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <bind as="IP" component="IP_sys">
+         <map key="x1">x1</map>
+         <map key="x2">x2</map>
+         <map key="x3">x3</map>
+         <map key="x4">x4</map>
+      </bind>
+   </component>
+</sspaceex>

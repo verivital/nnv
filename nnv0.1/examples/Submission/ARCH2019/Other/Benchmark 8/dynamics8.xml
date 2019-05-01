@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<sspaceex xmlns="http://www-verimag.imag.fr/xml-namespaces/sspaceex" math="SpaceEx" version="0.2">
+   <component id="dynamics8_sys">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <location id="1" name="Dyanamics8">
+         <flow>x1' == x2 &amp;
+ x2' == x1 * x4 ^ 2.0 - 49.0 * x3 / 5.0 + 8.0 * x3 ^ 3.0 / 5.0 &amp;
+ x3' == x4 &amp;
+ x4' == u</flow>
+      </location>
+   </component>
+   <component id="dynamics8_net">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <bind as="dynamics8" component="dynamics8_sys">
+         <map key="x1">x1</map>
+         <map key="x2">x2</map>
+         <map key="x3">x3</map>
+         <map key="x4">x4</map>
+      </bind>
+   </component>
+</sspaceex>

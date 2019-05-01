@@ -25,7 +25,7 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
 # novel features
 
-1) NNV can compute and visualize the exact reachable sets of feedforward nerual networks with ReLU/Saturation activation functions.
+1) NNV can compute and visualize the exact reachable sets of feedforward nerual networks with ReLU/Saturation activation functions. The computation can be accelerated using parallel computing in Matlab.
 
 <figure>
     <img src="images/ACASXu.png"> <figcaption>Vertical view of a generic example of the ACAS Xu benchmark set</figcaption>
@@ -33,6 +33,10 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
 <figure>
     <img src="images/reachSetP4.png" width="600" height="400"> <figcaption>Exact reachable set of a ACAS Xu network</figcaption>
+</figure>
+
+<figure>
+    <img src="images/verificationTime.png" width="600" height="400"> <figcaption>Reachable set computation time is reduced by increasing the number of cores</figcaption>
 </figure>
 
 <figure>

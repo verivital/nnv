@@ -22,7 +22,7 @@ fprintf('\nInstalling dependencies is done!');
 % adding nnv to the path
 fprintf('\nAdding NNV to Matlab path...');
 mydir  = pwd;
-idcs   = strfind(mydir,'/');
+idcs   = strfind(mydir,filesep);
 newdir = mydir(1:idcs(end)-1);
 p = genpath(newdir); % generate a path that includes NNV folder and all folders below it
 addpath(p);

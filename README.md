@@ -36,7 +36,7 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 </figure>
 
 <figure>
-    <img src="images/verificationTime.png" width="600" height="400"> <figcaption>Reachable set computation time is reduced by increasing the number of cores</figcaption>
+    <img src="images/verificationTime.png" width="400" height="300"  > <figcaption>Verification time can be reduced by increasing the number of cores</figcaption>
 </figure>
 
 <figure>

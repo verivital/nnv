@@ -9,7 +9,7 @@ fprintf('\nmpt toolbox and dependencies have been removed');
 % clean nnv in Matlab Path
 fprintf('\nRemoving NNV from Matlab Path');
 mydir  = pwd;
-idcs   = strfind(mydir,'/');
+idcs   = strfind(mydir,filesep);
 newdir = mydir(1:idcs(end)-1);
 p = genpath(newdir); % generate a path that includes NNV folder and all folders below it
 rmpath(p); % remove all folders related to NNV

@@ -77,7 +77,7 @@ alp = 1;
 map1 = [0 0 0 alp*t_gap; 0 0 0 1]; % safe distance and velocity of ego car
 S1 = [];
 
-% figure created before hand as video recording is started
+% figure created before hand as video recording is started, see init file
 %figure;
 %hold on;
 figure(pReach);
@@ -98,10 +98,10 @@ tic(); % start timing
 for i=1:N+1
     start_time_i = toc();
     
-    if i == 1
-        [P1, reachTime1] = ncs.reach_star(init_set, input_ref, n_cores, 1);
+    if i == 1 % reach(obj, method, init_set, ref_inputSet, n_cores, n_steps)
+        [P1, reachTime1] = ncs.reach('approx-star', init_set, input_ref, n_cores, 1);
     else
-        [P1, reachTime1] = ncs.reach_star(P1, input_ref, n_cores, 1);
+        [P1, reachTime1] = ncs.reach('approx-star', P1, input_ref, n_cores, 1);
     end
     
     S = [S P1(i).affineMap(map, [])];

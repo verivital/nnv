@@ -12,11 +12,11 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
     2) clone or download nnv toolbox from https://github.com/trhoangdung/nnv
 
-    3) open matlab, then go to ../nnv0.1/ run install.m script
+    3) open matlab, then go to ../nnv/ run install.m script
 
 # uninstallation:
 
-    1) open matlab, then go to ../nnv0.1/ run uninstall.m script
+    1) open matlab, then go to ../nnv/ run uninstall.m script
 
 # running tests and examples
 

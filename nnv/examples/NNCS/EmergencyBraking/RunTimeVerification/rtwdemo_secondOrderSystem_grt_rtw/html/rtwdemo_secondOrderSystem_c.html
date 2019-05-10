@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="./js/coder_app.js"></script>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<script type="text/javascript" src="./rtwreport_utils.js"></script>
+<script type="text/javascript" src="./rtwannotate.js"></script>
+<link rel="stylesheet" type="text/css" href="./css/coder_app.css"/>
+</head>
+<body onload="srcFileOnload();">
+<pre id="code">
+<table class="code" id="codeTbl">
+<tr name="1" id="1">
+<td><a id="l1" class='ln'>1</a></td><td><span class="ct">/*</span></td></tr>
+<tr name="2" id="2">
+<td><a id="l2" class='ln'>2</a></td><td><span class="ct"> * rtwdemo_secondOrderSystem.c</span></td></tr>
+<tr name="3" id="3">
+<td><a id="l3" class='ln'>3</a></td><td><span class="ct"> *</span></td></tr>
+<tr name="4" id="4">
+<td><a id="l4" class='ln'>4</a></td><td><span class="ct"> * Academic License - for use in teaching, academic research, and meeting</span></td></tr>
+<tr name="5" id="5">
+<td><a id="l5" class='ln'>5</a></td><td><span class="ct"> * course requirements at degree granting institutions only.  Not for</span></td></tr>
+<tr name="6" id="6">
+<td><a id="l6" class='ln'>6</a></td><td><span class="ct"> * government, commercial, or other organizational use.</span></td></tr>
+<tr name="7" id="7">
+<td><a id="l7" class='ln'>7</a></td><td><span class="ct"> *</span></td></tr>
+<tr name="8" id="8">
+<td><a id="l8" class='ln'>8</a></td><td><span class="ct"> * Code generation for model "rtwdemo_secondOrderSystem".</span></td></tr>
+<tr name="9" id="9">
+<td><a id="l9" class='ln'>9</a></td><td><span class="ct"> *</span></td></tr>
+<tr name="10" id="10">
+<td><a id="l10" class='ln'>10</a></td><td><span class="ct"> * Model version              : 1.48</span></td></tr>
+<tr name="11" id="11">
+<td><a id="l11" class='ln'>11</a></td><td><span class="ct"> * Simulink Coder version : 9.0 (R2018b) 24-May-2018</span></td></tr>
+<tr name="12" id="12">
+<td><a id="l12" class='ln'>12</a></td><td><span class="ct"> * C source code generated on : Tue Apr 23 14:31:17 2019</span></td></tr>
+<tr name="13" id="13">
+<td><a id="l13" class='ln'>13</a></td><td><span class="ct"> *</span></td></tr>
+<tr name="14" id="14">
+<td><a id="l14" class='ln'>14</a></td><td><span class="ct"> * Target selection: grt.tlc</span></td></tr>
+<tr name="15" id="15">
+<td><a id="l15" class='ln'>15</a></td><td><span class="ct"> * Note: GRT includes extra infrastructure and instrumentation for prototyping</span></td></tr>
+<tr name="16" id="16">
+<td><a id="l16" class='ln'>16</a></td><td><span class="ct"> * Embedded hardware selection: Intel-&gt;x86-64 (Windows64)</span></td></tr>
+<tr name="17" id="17">
+<td><a id="l17" class='ln'>17</a></td><td><span class="ct"> * Code generation objective: Execution efficiency</span></td></tr>
+<tr name="18" id="18">
+<td><a id="l18" class='ln'>18</a></td><td><span class="ct"> * Validation result: Passed (10), Warnings (2), Error (0)</span></td></tr>
+<tr name="19" id="19">
+<td><a id="l19" class='ln'>19</a></td><td><span class="ct"> */</span></td></tr>
+<tr name="20" id="20">
+<td><a id="l20" class='ln'>20</a></td><td></td></tr>
+<tr name="21" id="21">
+<td><a id="l21" class='ln'>21</a></td><td><span class="pp">#include "rtwdemo_secondOrderSystem.h"</span></td></tr>
+<tr name="22" id="22">
+<td><a id="l22" class='ln'>22</a></td><td><span class="pp">#include "rtwdemo_secondOrderSystem_private.h"</span></td></tr>
+<tr name="23" id="23">
+<td><a id="l23" class='ln'>23</a></td><td><span class="pp">#include "rtwdemo_secondOrderSystem_dt.h"</span></td></tr>
+<tr name="24" id="24">
+<td><a id="l24" class='ln'>24</a></td><td></td></tr>
+<tr name="25" id="25">
+<td><a id="l25" class='ln'>25</a></td><td><span class="ct">/* Block signals (default storage) */</span></td></tr>
+<tr name="26" id="26">
+<td><a id="l26" class='ln'>26</a></td><td><a id="26c1" class="tk">B_rtwdemo_secondOrderSystem_T</a> <a id="26c31" class="tk">rtwdemo_secondOrderSystem_B</a>;</td></tr>
+<tr name="27" id="27">
+<td><a id="l27" class='ln'>27</a></td><td></td></tr>
+<tr name="28" id="28">
+<td><a id="l28" class='ln'>28</a></td><td><span class="ct">/* Continuous states */</span></td></tr>
+<tr name="29" id="29">
+<td><a id="l29" class='ln'>29</a></td><td><a id="29c1" class="tk">X_rtwdemo_secondOrderSystem_T</a> <a id="29c31" class="tk">rtwdemo_secondOrderSystem_X</a>;</td></tr>
+<tr name="30" id="30">
+<td><a id="l30" class='ln'>30</a></td><td></td></tr>
+<tr name="31" id="31">
+<td><a id="l31" class='ln'>31</a></td><td><span class="ct">/* Block states (default storage) */</span></td></tr>
+<tr name="32" id="32">
+<td><a id="l32" class='ln'>32</a></td><td><a id="32c1" class="tk">DW_rtwdemo_secondOrderSystem_T</a> <a id="32c32" class="tk">rtwdemo_secondOrderSystem_DW</a>;</td></tr>
+<tr name="33" id="33">
+<td><a id="l33" class='ln'>33</a></td><td></td></tr>
+<tr name="34" id="34">
+<td><a id="l34" class='ln'>34</a></td><td><span class="ct">/* External outputs (root outports fed by signals with default storage) */</span></td></tr>
+<tr name="35" id="35">
+<td><a id="l35" class='ln'>35</a></td><td><a id="35c1" class="tk">ExtY_rtwdemo_secondOrderSyste_T</a> <a id="35c33" class="tk">rtwdemo_secondOrderSystem_Y</a>;</td></tr>
+<tr name="36" id="36">
+<td><a id="l36" class='ln'>36</a></td><td></td></tr>
+<tr name="37" id="37">
+<td><a id="l37" class='ln'>37</a></td><td><span class="ct">/* Real-time model */</span></td></tr>
+<tr name="38" id="38">
+<td><a id="l38" class='ln'>38</a></td><td><a id="38c1" class="tk">RT_MODEL_rtwdemo_secondOrderS_T</a> <a id="38c33" class="tk">rtwdemo_secondOrderSystem_M_</a>;</td></tr>
+<tr name="39" id="39">
+<td><a id="l39" class='ln'>39</a></td><td><a id="39c1" class="tk">RT_MODEL_rtwdemo_secondOrderS_T</a> <a id="39c33" class="tk">*</a><span class="kw">const</span> <a id="39c40" class="tk">rtwdemo_secondOrderSystem_M</a> =</td></tr>
+<tr name="40" id="40">
+<td><a id="l40" class='ln'>40</a></td><td>  <a id="40c3" class="tk">&amp;</a><a id="40c4" class="tk">rtwdemo_secondOrderSystem_M_</a>;</td></tr>
+<tr name="41" id="41">
+<td><a id="l41" class='ln'>41</a></td><td></td></tr>
+<tr name="42" id="42">
+<td><a id="l42" class='ln'>42</a></td><td><span class="ct">/*</span></td></tr>
+<tr name="43" id="43">
+<td><a id="l43" class='ln'>43</a></td><td><span class="ct"> * This function updates continuous states using the ODE3 fixed-step</span></td></tr>
+<tr name="44" id="44">
+<td><a id="l44" class='ln'>44</a></td><td><span class="ct"> * solver algorithm</span></td></tr>
+<tr name="45" id="45">
+<td><a id="l45" class='ln'>45</a></td><td><span class="ct"> */</span></td></tr>
+<tr name="46" id="46">
+<td><a id="l46" class='ln'>46</a></td><td><span class="kw">static</span> <span class="kw">void</span> <a id="46c13" class="tk">rt_ertODEUpdateContinuousStates</a>(<a id="46c45" class="tk">RTWSolverInfo</a> <a id="46c59" class="tk">*</a><a id="46c60" class="tk">si</a> )</td></tr>
+<tr name="47" id="47">
+<td><a id="l47" class='ln'>47</a></td><td><span class="br">{</span></td></tr>
+<tr name="48" id="48">
+<td><a id="l48" class='ln'>48</a></td><td>  <span class="ct">/* Solver Matrices */</span></td></tr>
+<tr name="49" id="49">
+<td><a id="l49" class='ln'>49</a></td><td>  <span class="kw">static</span> <span class="kw">const</span> <a id="49c16" class="tk">real_T</a> <a id="49c23" class="tk">rt_ODE3_A</a>[3] = <span class="br">{</span></td></tr>
+<tr name="50" id="50">
+<td><a id="l50" class='ln'>50</a></td><td>    1.0<a id="50c8" class="tk">/</a>2.0, 3.0<a id="50c17" class="tk">/</a>4.0, 1.0</td></tr>
+<tr name="51" id="51">
+<td><a id="l51" class='ln'>51</a></td><td>  <span class="br">}</span>;</td></tr>
+<tr name="52" id="52">
+<td><a id="l52" class='ln'>52</a></td><td></td></tr>
+<tr name="53" id="53">
+<td><a id="l53" class='ln'>53</a></td><td>  <span class="kw">static</span> <span class="kw">const</span> <a id="53c16" class="tk">real_T</a> <a id="53c23" class="tk">rt_ODE3_B</a>[3][3] = <span class="br">{</span></td></tr>
+<tr name="54" id="54">
+<td><a id="l54" class='ln'>54</a></td><td>    <span class="br">{</span> 1.0<a id="54c10" class="tk">/</a>2.0, 0.0, 0.0 <span class="br">}</span>,</td></tr>
+<tr name="55" id="55">
+<td><a id="l55" class='ln'>55</a></td><td></td></tr>
+<tr name="56" id="56">
+<td><a id="l56" class='ln'>56</a></td><td>    <span class="br">{</span> 0.0, 3.0<a id="56c15" class="tk">/</a>4.0, 0.0 <span class="br">}</span>,</td></tr>
+<tr name="57" id="57">
+<td><a id="l57" class='ln'>57</a></td><td></td></tr>
+<tr name="58" id="58">
+<td><a id="l58" class='ln'>58</a></td><td>    <span class="br">{</span> 2.0<a id="58c10" class="tk">/</a>9.0, 1.0<a id="58c19" class="tk">/</a>3.0, 4.0<a id="58c28" class="tk">/</a>9.0 <span class="br">}</span></td></tr>
+<tr name="59" id="59">
+<td><a id="l59" class='ln'>59</a></td><td>  <span class="br">}</span>;</td></tr>
+<tr name="60" id="60">
+<td><a id="l60" class='ln'>60</a></td><td></td></tr>
+<tr name="61" id="61">
+<td><a id="l61" class='ln'>61</a></td><td>  <a id="61c3" class="tk">time_T</a> <a id="61c10" class="tk">t</a> = <a id="61c14" class="tk">rtsiGetT</a>(<a id="61c23" class="tk">si</a>);</td></tr>
+<tr name="62" id="62">
+<td><a id="l62" class='ln'>62</a></td><td>  <a id="62c3" class="tk">time_T</a> <a id="62c10" class="tk">tnew</a> = <a id="62c17" class="tk">rtsiGetSolverStopTime</a>(<a id="62c39" class="tk">si</a>);</td></tr>
+<tr name="63" id="63">
+<td><a id="l63" class='ln'>63</a></td><td>  <a id="63c3" class="tk">time_T</a> <a id="63c10" class="tk">h</a> = <a id="63c14" class="tk">rtsiGetStepSize</a>(<a id="63c30" class="tk">si</a>);</td></tr>
+<tr name="64" id="64">
+<td><a id="l64" class='ln'>64</a></td><td>  <a id="64c3" class="tk">real_T</a> <a id="64c10" class="tk">*</a><a id="64c11" class="tk">x</a> = <a id="64c15" class="tk">rtsiGetContStates</a>(<a id="64c33" class="tk">si</a>);</td></tr>
+<tr name="65" id="65">
+<td><a id="l65" class='ln'>65</a></td><td>  <a id="65c3" class="tk">ODE3_IntgData</a> <a id="65c17" class="tk">*</a><a id="65c18" class="tk">id</a> = (<a id="65c24" class="tk">ODE3_IntgData</a> <a id="65c38" class="tk">*</a>)<a id="65c40" class="tk">rtsiGetSolverData</a>(<a id="65c58" class="tk">si</a>);</td></tr>
+<tr name="66" id="66">
+<td><a id="l66" class='ln'>66</a></td><td>  <a id="66c3" class="tk">real_T</a> <a id="66c10" class="tk">*</a><a id="66c11" class="tk">y</a> = <a id="66c15" class="tk">id</a>-&gt;<a id="66c19" class="tk">y</a>;</td></tr>
+<tr name="67" id="67">
+<td><a id="l67" class='ln'>67</a></td><td>  <a id="67c3" class="tk">real_T</a> <a id="67c10" class="tk">*</a><a id="67c11" class="tk">f0</a> = <a id="67c16" class="tk">id</a>-&gt;<a id="67c20" class="tk">f</a>[0];</td></tr>
+<tr name="68" id="68">
+<td><a id="l68" class='ln'>68</a></td><td>  <a id="68c3" class="tk">real_T</a> <a id="68c10" class="tk">*</a><a id="68c11" class="tk">f1</a> = <a id="68c16" class="tk">id</a>-&gt;<a id="68c20" class="tk">f</a>[1];</td></tr>
+<tr name="69" id="69">
+<td><a id="l69" class='ln'>69</a></td><td>  <a id="69c3" class="tk">real_T</a> <a id="69c10" class="tk">*</a><a id="69c11" class="tk">f2</a> = <a id="69c16" class="tk">id</a>-&gt;<a id="69c20" class="tk">f</a>[2];</td></tr>
+<tr name="70" id="70">
+<td><a id="l70" class='ln'>70</a></td><td>  <a id="70c3" class="tk">real_T</a> <a id="70c10" class="tk">hB</a>[3];</td></tr>
+<tr name="71" id="71">
+<td><a id="l71" class='ln'>71</a></td><td>  <a id="71c3" class="tk">int_T</a> <a id="71c9" class="tk">i</a>;</td></tr>
+<tr name="72" id="72">
+<td><a id="l72" class='ln'>72</a></td><td>  <a id="72c3" class="tk">int_T</a> <a id="72c9" class="tk">nXc</a> = 2;</td></tr>
+<tr name="73" id="73">
+<td><a id="l73" class='ln'>73</a></td><td>  <a id="73c3" class="tk">rtsiSetSimTimeStep</a>(<a id="73c22" class="tk">si</a>,<a id="73c25" class="tk">MINOR_TIME_STEP</a>);</td></tr>
+<tr name="74" id="74">
+<td><a id="l74" class='ln'>74</a></td><td></td></tr>
+<tr name="75" id="75">
+<td><a id="l75" class='ln'>75</a></td><td>  <span class="ct">/* Save the state values at time t in y, we'll use x as ynew. */</span></td></tr>
+<tr name="76" id="76">
+<td><a id="l76" class='ln'>76</a></td><td>  (<span class="kw">void</span>) <a id="76c10" class="tk">memcpy</a>(<a id="76c17" class="tk">y</a>, <a id="76c20" class="tk">x</a>,</td></tr>
+<tr name="77" id="77">
+<td><a id="l77" class='ln'>77</a></td><td>                (<a id="77c18" class="tk">uint_T</a>)<a id="77c25" class="tk">nXc</a><a id="77c28" class="tk">*</a><span class="kw">sizeof</span>(<a id="77c36" class="tk">real_T</a>));</td></tr>
+<tr name="78" id="78">
+<td><a id="l78" class='ln'>78</a></td><td></td></tr>
+<tr name="79" id="79">
+<td><a id="l79" class='ln'>79</a></td><td>  <span class="ct">/* Assumes that rtsiSetT and ModelOutputs are up-to-date */</span></td></tr>
+<tr name="80" id="80">
+<td><a id="l80" class='ln'>80</a></td><td>  <span class="ct">/* f0 = f(t,y) */</span></td></tr>
+<tr name="81" id="81">
+<td><a id="l81" class='ln'>81</a></td><td>  <a id="81c3" class="tk">rtsiSetdX</a>(<a id="81c13" class="tk">si</a>, <a id="81c17" class="tk">f0</a>);</td></tr>
+<tr name="82" id="82">
+<td><a id="l82" class='ln'>82</a></td><td>  <a id="82c3" class="tk">rtwdemo_secondOrderSystem_derivatives</a>();</td></tr>
+<tr name="83" id="83">
+<td><a id="l83" class='ln'>83</a></td><td></td></tr>
+<tr name="84" id="84">
+<td><a id="l84" class='ln'>84</a></td><td>  <span class="ct">/* f(:,2) = feval(odefile, t + hA(1), y + f*hB(:,1), args(:)(*)); */</span></td></tr>
+<tr name="85" id="85">
+<td><a id="l85" class='ln'>85</a></td><td>  <a id="85c3" class="tk">hB</a>[0] = <a id="85c11" class="tk">h</a> <a id="85c13" class="tk">*</a> <a id="85c15" class="tk">rt_ODE3_B</a>[0][0];</td></tr>
+<tr name="86" id="86">
+<td><a id="l86" class='ln'>86</a></td><td>  <span class="kw">for</span> (<a id="86c8" class="tk">i</a> = 0; <a id="86c15" class="tk">i</a> <a id="86c17" class="tk">&lt;</a> <a id="86c19" class="tk">nXc</a>; <a id="86c24" class="tk">i</a><a id="86c25" class="tk">++</a>) <span class="br">{</span></td></tr>
+<tr name="87" id="87">
+<td><a id="l87" class='ln'>87</a></td><td>    <a id="87c5" class="tk">x</a>[<a id="87c7" class="tk">i</a>] = <a id="87c12" class="tk">y</a>[<a id="87c14" class="tk">i</a>] <a id="87c17" class="tk">+</a> (<a id="87c20" class="tk">f0</a>[<a id="87c23" class="tk">i</a>]<a id="87c25" class="tk">*</a><a id="87c26" class="tk">hB</a>[0]);</td></tr>
+<tr name="88" id="88">
+<td><a id="l88" class='ln'>88</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="89" id="89">
+<td><a id="l89" class='ln'>89</a></td><td></td></tr>
+<tr name="90" id="90">
+<td><a id="l90" class='ln'>90</a></td><td>  <a id="90c3" class="tk">rtsiSetT</a>(<a id="90c12" class="tk">si</a>, <a id="90c16" class="tk">t</a> <a id="90c18" class="tk">+</a> <a id="90c20" class="tk">h</a><a id="90c21" class="tk">*</a><a id="90c22" class="tk">rt_ODE3_A</a>[0]);</td></tr>
+<tr name="91" id="91">
+<td><a id="l91" class='ln'>91</a></td><td>  <a id="91c3" class="tk">rtsiSetdX</a>(<a id="91c13" class="tk">si</a>, <a id="91c17" class="tk">f1</a>);</td></tr>
+<tr name="92" id="92">
+<td><a id="l92" class='ln'>92</a></td><td>  <a id="92c3" class="tk">rtwdemo_secondOrderSystem_step</a>();</td></tr>
+<tr name="93" id="93">
+<td><a id="l93" class='ln'>93</a></td><td>  <a id="93c3" class="tk">rtwdemo_secondOrderSystem_derivatives</a>();</td></tr>
+<tr name="94" id="94">
+<td><a id="l94" class='ln'>94</a></td><td></td></tr>
+<tr name="95" id="95">
+<td><a id="l95" class='ln'>95</a></td><td>  <span class="ct">/* f(:,3) = feval(odefile, t + hA(2), y + f*hB(:,2), args(:)(*)); */</span></td></tr>
+<tr name="96" id="96">
+<td><a id="l96" class='ln'>96</a></td><td>  <span class="kw">for</span> (<a id="96c8" class="tk">i</a> = 0; <a id="96c15" class="tk">i</a> <a id="96c17" class="tk">&lt;=</a> 1; <a id="96c23" class="tk">i</a><a id="96c24" class="tk">++</a>) <span class="br">{</span></td></tr>
+<tr name="97" id="97">
+<td><a id="l97" class='ln'>97</a></td><td>    <a id="97c5" class="tk">hB</a>[<a id="97c8" class="tk">i</a>] = <a id="97c13" class="tk">h</a> <a id="97c15" class="tk">*</a> <a id="97c17" class="tk">rt_ODE3_B</a>[1][<a id="97c30" class="tk">i</a>];</td></tr>
+<tr name="98" id="98">
+<td><a id="l98" class='ln'>98</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="99" id="99">
+<td><a id="l99" class='ln'>99</a></td><td></td></tr>
+<tr name="100" id="100">
+<td><a id="l100" class='ln'>100</a></td><td>  <span class="kw">for</span> (<a id="100c8" class="tk">i</a> = 0; <a id="100c15" class="tk">i</a> <a id="100c17" class="tk">&lt;</a> <a id="100c19" class="tk">nXc</a>; <a id="100c24" class="tk">i</a><a id="100c25" class="tk">++</a>) <span class="br">{</span></td></tr>
+<tr name="101" id="101">
+<td><a id="l101" class='ln'>101</a></td><td>    <a id="101c5" class="tk">x</a>[<a id="101c7" class="tk">i</a>] = <a id="101c12" class="tk">y</a>[<a id="101c14" class="tk">i</a>] <a id="101c17" class="tk">+</a> (<a id="101c20" class="tk">f0</a>[<a id="101c23" class="tk">i</a>]<a id="101c25" class="tk">*</a><a id="101c26" class="tk">hB</a>[0] <a id="101c32" class="tk">+</a> <a id="101c34" class="tk">f1</a>[<a id="101c37" class="tk">i</a>]<a id="101c39" class="tk">*</a><a id="101c40" class="tk">hB</a>[1]);</td></tr>
+<tr name="102" id="102">
+<td><a id="l102" class='ln'>102</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="103" id="103">
+<td><a id="l103" class='ln'>103</a></td><td></td></tr>
+<tr name="104" id="104">
+<td><a id="l104" class='ln'>104</a></td><td>  <a id="104c3" class="tk">rtsiSetT</a>(<a id="104c12" class="tk">si</a>, <a id="104c16" class="tk">t</a> <a id="104c18" class="tk">+</a> <a id="104c20" class="tk">h</a><a id="104c21" class="tk">*</a><a id="104c22" class="tk">rt_ODE3_A</a>[1]);</td></tr>
+<tr name="105" id="105">
+<td><a id="l105" class='ln'>105</a></td><td>  <a id="105c3" class="tk">rtsiSetdX</a>(<a id="105c13" class="tk">si</a>, <a id="105c17" class="tk">f2</a>);</td></tr>
+<tr name="106" id="106">
+<td><a id="l106" class='ln'>106</a></td><td>  <a id="106c3" class="tk">rtwdemo_secondOrderSystem_step</a>();</td></tr>
+<tr name="107" id="107">
+<td><a id="l107" class='ln'>107</a></td><td>  <a id="107c3" class="tk">rtwdemo_secondOrderSystem_derivatives</a>();</td></tr>
+<tr name="108" id="108">
+<td><a id="l108" class='ln'>108</a></td><td></td></tr>
+<tr name="109" id="109">
+<td><a id="l109" class='ln'>109</a></td><td>  <span class="ct">/* tnew = t + hA(3);</span></td></tr>
+<tr name="110" id="110">
+<td><a id="l110" class='ln'>110</a></td><td><span class="ct">     ynew = y + f*hB(:,3); */</span></td></tr>
+<tr name="111" id="111">
+<td><a id="l111" class='ln'>111</a></td><td>  <span class="kw">for</span> (<a id="111c8" class="tk">i</a> = 0; <a id="111c15" class="tk">i</a> <a id="111c17" class="tk">&lt;=</a> 2; <a id="111c23" class="tk">i</a><a id="111c24" class="tk">++</a>) <span class="br">{</span></td></tr>
+<tr name="112" id="112">
+<td><a id="l112" class='ln'>112</a></td><td>    <a id="112c5" class="tk">hB</a>[<a id="112c8" class="tk">i</a>] = <a id="112c13" class="tk">h</a> <a id="112c15" class="tk">*</a> <a id="112c17" class="tk">rt_ODE3_B</a>[2][<a id="112c30" class="tk">i</a>];</td></tr>
+<tr name="113" id="113">
+<td><a id="l113" class='ln'>113</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="114" id="114">
+<td><a id="l114" class='ln'>114</a></td><td></td></tr>
+<tr name="115" id="115">
+<td><a id="l115" class='ln'>115</a></td><td>  <span class="kw">for</span> (<a id="115c8" class="tk">i</a> = 0; <a id="115c15" class="tk">i</a> <a id="115c17" class="tk">&lt;</a> <a id="115c19" class="tk">nXc</a>; <a id="115c24" class="tk">i</a><a id="115c25" class="tk">++</a>) <span class="br">{</span></td></tr>
+<tr name="116" id="116">
+<td><a id="l116" class='ln'>116</a></td><td>    <a id="116c5" class="tk">x</a>[<a id="116c7" class="tk">i</a>] = <a id="116c12" class="tk">y</a>[<a id="116c14" class="tk">i</a>] <a id="116c17" class="tk">+</a> (<a id="116c20" class="tk">f0</a>[<a id="116c23" class="tk">i</a>]<a id="116c25" class="tk">*</a><a id="116c26" class="tk">hB</a>[0] <a id="116c32" class="tk">+</a> <a id="116c34" class="tk">f1</a>[<a id="116c37" class="tk">i</a>]<a id="116c39" class="tk">*</a><a id="116c40" class="tk">hB</a>[1] <a id="116c46" class="tk">+</a> <a id="116c48" class="tk">f2</a>[<a id="116c51" class="tk">i</a>]<a id="116c53" class="tk">*</a><a id="116c54" class="tk">hB</a>[2]);</td></tr>
+<tr name="117" id="117">
+<td><a id="l117" class='ln'>117</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="118" id="118">
+<td><a id="l118" class='ln'>118</a></td><td></td></tr>
+<tr name="119" id="119">
+<td><a id="l119" class='ln'>119</a></td><td>  <a id="119c3" class="tk">rtsiSetT</a>(<a id="119c12" class="tk">si</a>, <a id="119c16" class="tk">tnew</a>);</td></tr>
+<tr name="120" id="120">
+<td><a id="l120" class='ln'>120</a></td><td>  <a id="120c3" class="tk">rtsiSetSimTimeStep</a>(<a id="120c22" class="tk">si</a>,<a id="120c25" class="tk">MAJOR_TIME_STEP</a>);</td></tr>
+<tr name="121" id="121">
+<td><a id="l121" class='ln'>121</a></td><td><span class="br">}</span></td></tr>
+<tr name="122" id="122">
+<td><a id="l122" class='ln'>122</a></td><td></td></tr>
+<tr name="123" id="123">
+<td><a id="l123" class='ln'>123</a></td><td><span class="ct">/* Model step function */</span></td></tr>
+<tr name="124" id="124">
+<td><a id="l124" class='ln'>124</a></td><td><span class="kw">void</span> <a id="124c6" class="tk">rtwdemo_secondOrderSystem_step</a>(<span class="kw">void</span>)</td></tr>
+<tr name="125" id="125">
+<td><a id="l125" class='ln'>125</a></td><td><span class="br">{</span></td></tr>
+<tr name="126" id="126">
+<td><a id="l126" class='ln'>126</a></td><td>  <a id="126c3" class="tk">real_T</a> <a id="126c10" class="tk">temp</a>;</td></tr>
+<tr name="127" id="127">
+<td><a id="l127" class='ln'>127</a></td><td>  <span class="kw">if</span> (<a id="127c7" class="tk">rtmIsMajorTimeStep</a>(<a id="127c26" class="tk">rtwdemo_secondOrderSystem_M</a>)) <span class="br">{</span></td></tr>
+<tr name="128" id="128">
+<td><a id="l128" class='ln'>128</a></td><td>    <span class="ct">/* set solver stop time */</span></td></tr>
+<tr name="129" id="129">
+<td><a id="l129" class='ln'>129</a></td><td>    <span class="kw">if</span> (<a id="129c9" class="tk">!</a>(<a id="129c11" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="129c40" class="tk">Timing</a>.<a id="129c47" class="tk">clockTick0</a><a id="129c57" class="tk">+</a>1)) <span class="br">{</span></td></tr>
+<tr name="130" id="130">
+<td><a id="l130" class='ln'>130</a></td><td>      <a id="130c7" class="tk">rtsiSetSolverStopTime</a>(<a id="130c29" class="tk">&amp;</a><a id="130c30" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="130c59" class="tk">solverInfo</a>,</td></tr>
+<tr name="131" id="131">
+<td><a id="l131" class='ln'>131</a></td><td>                            ((<a id="131c31" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="131c60" class="tk">Timing</a>.<a id="131c67" class="tk">clockTickH0</a> <a id="131c79" class="tk">+</a></td></tr>
+<tr name="132" id="132">
+<td><a id="l132" class='ln'>132</a></td><td>        1) <a id="132c12" class="tk">*</a> <a id="132c14" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="132c43" class="tk">Timing</a>.<a id="132c50" class="tk">stepSize0</a> <a id="132c60" class="tk">*</a> 4294967296.0));</td></tr>
+<tr name="133" id="133">
+<td><a id="l133" class='ln'>133</a></td><td>    <span class="br">}</span> <span class="kw">else</span> <span class="br">{</span></td></tr>
+<tr name="134" id="134">
+<td><a id="l134" class='ln'>134</a></td><td>      <a id="134c7" class="tk">rtsiSetSolverStopTime</a>(<a id="134c29" class="tk">&amp;</a><a id="134c30" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="134c59" class="tk">solverInfo</a>,</td></tr>
+<tr name="135" id="135">
+<td><a id="l135" class='ln'>135</a></td><td>                            ((<a id="135c31" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="135c60" class="tk">Timing</a>.<a id="135c67" class="tk">clockTick0</a> <a id="135c78" class="tk">+</a> 1)</td></tr>
+<tr name="136" id="136">
+<td><a id="l136" class='ln'>136</a></td><td>        <a id="136c9" class="tk">*</a> <a id="136c11" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="136c40" class="tk">Timing</a>.<a id="136c47" class="tk">stepSize0</a> <a id="136c57" class="tk">+</a></td></tr>
+<tr name="137" id="137">
+<td><a id="l137" class='ln'>137</a></td><td>        <a id="137c9" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="137c38" class="tk">Timing</a>.<a id="137c45" class="tk">clockTickH0</a> <a id="137c57" class="tk">*</a></td></tr>
+<tr name="138" id="138">
+<td><a id="l138" class='ln'>138</a></td><td>        <a id="138c9" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="138c38" class="tk">Timing</a>.<a id="138c45" class="tk">stepSize0</a> <a id="138c55" class="tk">*</a> 4294967296.0));</td></tr>
+<tr name="139" id="139">
+<td><a id="l139" class='ln'>139</a></td><td>    <span class="br">}</span></td></tr>
+<tr name="140" id="140">
+<td><a id="l140" class='ln'>140</a></td><td>  <span class="br">}</span>                                    <span class="ct">/* end MajorTimeStep */</span></td></tr>
+<tr name="141" id="141">
+<td><a id="l141" class='ln'>141</a></td><td></td></tr>
+<tr name="142" id="142">
+<td><a id="l142" class='ln'>142</a></td><td>  <span class="ct">/* Update absolute time of base rate at minor time step */</span></td></tr>
+<tr name="143" id="143">
+<td><a id="l143" class='ln'>143</a></td><td>  <span class="kw">if</span> (<a id="143c7" class="tk">rtmIsMinorTimeStep</a>(<a id="143c26" class="tk">rtwdemo_secondOrderSystem_M</a>)) <span class="br">{</span></td></tr>
+<tr name="144" id="144">
+<td><a id="l144" class='ln'>144</a></td><td>    <a id="144c5" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="144c34" class="tk">Timing</a>.<a id="144c41" class="tk">t</a>[0] = <a id="144c48" class="tk">rtsiGetT</a></td></tr>
+<tr name="145" id="145">
+<td><a id="l145" class='ln'>145</a></td><td>      (<a id="145c8" class="tk">&amp;</a><a id="145c9" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="145c38" class="tk">solverInfo</a>);</td></tr>
+<tr name="146" id="146">
+<td><a id="l146" class='ln'>146</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="147" id="147">
+<td><a id="l147" class='ln'>147</a></td><td></td></tr>
+<tr name="148" id="148">
+<td><a id="l148" class='ln'>148</a></td><td>  <span class="ct">/* Integrator: '&lt;Root&gt;/Integrator2' */</span></td></tr>
+<tr name="149" id="149">
+<td><a id="l149" class='ln'>149</a></td><td>  <a id="149c3" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="149c31" class="tk">X</a> = <a id="149c35" class="tk">rtwdemo_secondOrderSystem_X</a>.<a id="149c63" class="tk">Integrator2_CSTATE</a>;</td></tr>
+<tr name="150" id="150">
+<td><a id="l150" class='ln'>150</a></td><td></td></tr>
+<tr name="151" id="151">
+<td><a id="l151" class='ln'>151</a></td><td>  <span class="ct">/* SignalGenerator: '&lt;Root&gt;/Force: f(t)' */</span></td></tr>
+<tr name="152" id="152">
+<td><a id="l152" class='ln'>152</a></td><td>  <a id="152c3" class="tk">temp</a> = 20.0 <a id="152c15" class="tk">*</a> <a id="152c17" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="152c46" class="tk">Timing</a>.<a id="152c53" class="tk">t</a>[0];</td></tr>
+<tr name="153" id="153">
+<td><a id="l153" class='ln'>153</a></td><td>  <span class="kw">if</span> (<a id="153c7" class="tk">temp</a> <a id="153c12" class="tk">-</a> <a id="153c14" class="tk">floor</a>(<a id="153c20" class="tk">temp</a>) <a id="153c26" class="tk">&gt;=</a> 0.5) <span class="br">{</span></td></tr>
+<tr name="154" id="154">
+<td><a id="l154" class='ln'>154</a></td><td>    <a id="154c5" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="154c33" class="tk">Forceft</a> = 4.0;</td></tr>
+<tr name="155" id="155">
+<td><a id="l155" class='ln'>155</a></td><td>  <span class="br">}</span> <span class="kw">else</span> <span class="br">{</span></td></tr>
+<tr name="156" id="156">
+<td><a id="l156" class='ln'>156</a></td><td>    <a id="156c5" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="156c33" class="tk">Forceft</a> = <a id="156c43" class="tk">-</a>4.0;</td></tr>
+<tr name="157" id="157">
+<td><a id="l157" class='ln'>157</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="158" id="158">
+<td><a id="l158" class='ln'>158</a></td><td></td></tr>
+<tr name="159" id="159">
+<td><a id="l159" class='ln'>159</a></td><td>  <span class="ct">/* End of SignalGenerator: '&lt;Root&gt;/Force: f(t)' */</span></td></tr>
+<tr name="160" id="160">
+<td><a id="l160" class='ln'>160</a></td><td></td></tr>
+<tr name="161" id="161">
+<td><a id="l161" class='ln'>161</a></td><td>  <span class="ct">/* Outport: '&lt;Root&gt;/Outport' */</span></td></tr>
+<tr name="162" id="162">
+<td><a id="l162" class='ln'>162</a></td><td>  <a id="162c3" class="tk">rtwdemo_secondOrderSystem_Y</a>.<a id="162c31" class="tk">Outport</a>[0] = <a id="162c44" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="162c72" class="tk">X</a>;</td></tr>
+<tr name="163" id="163">
+<td><a id="l163" class='ln'>163</a></td><td>  <a id="163c3" class="tk">rtwdemo_secondOrderSystem_Y</a>.<a id="163c31" class="tk">Outport</a>[1] = <a id="163c44" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="163c72" class="tk">Forceft</a>;</td></tr>
+<tr name="164" id="164">
+<td><a id="l164" class='ln'>164</a></td><td>  <span class="kw">if</span> (<a id="164c7" class="tk">rtmIsMajorTimeStep</a>(<a id="164c26" class="tk">rtwdemo_secondOrderSystem_M</a>)) <span class="br">{</span></td></tr>
+<tr name="165" id="165">
+<td><a id="l165" class='ln'>165</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="166" id="166">
+<td><a id="l166" class='ln'>166</a></td><td></td></tr>
+<tr name="167" id="167">
+<td><a id="l167" class='ln'>167</a></td><td>  <span class="ct">/* Integrator: '&lt;Root&gt;/Integrator1' */</span></td></tr>
+<tr name="168" id="168">
+<td><a id="l168" class='ln'>168</a></td><td>  <a id="168c3" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="168c31" class="tk">X_h</a> =</td></tr>
+<tr name="169" id="169">
+<td><a id="l169" class='ln'>169</a></td><td>    <a id="169c5" class="tk">rtwdemo_secondOrderSystem_X</a>.<a id="169c33" class="tk">Integrator1_CSTATE</a>;</td></tr>
+<tr name="170" id="170">
+<td><a id="l170" class='ln'>170</a></td><td></td></tr>
+<tr name="171" id="171">
+<td><a id="l171" class='ln'>171</a></td><td>  <span class="ct">/* Sum: '&lt;Root&gt;/Sum' incorporates:</span></td></tr>
+<tr name="172" id="172">
+<td><a id="l172" class='ln'>172</a></td><td><span class="ct">   *  Gain: '&lt;Root&gt;/1//m'</span></td></tr>
+<tr name="173" id="173">
+<td><a id="l173" class='ln'>173</a></td><td><span class="ct">   *  Gain: '&lt;Root&gt;/Damping: c//m'</span></td></tr>
+<tr name="174" id="174">
+<td><a id="l174" class='ln'>174</a></td><td><span class="ct">   *  Gain: '&lt;Root&gt;/Stiffness: k//m'</span></td></tr>
+<tr name="175" id="175">
+<td><a id="l175" class='ln'>175</a></td><td><span class="ct">   */</span></td></tr>
+<tr name="176" id="176">
+<td><a id="l176" class='ln'>176</a></td><td>  <a id="176c3" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="176c31" class="tk">X_p</a> = (1.0E+6 <a id="176c45" class="tk">*</a></td></tr>
+<tr name="177" id="177">
+<td><a id="l177" class='ln'>177</a></td><td>    <a id="177c5" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="177c33" class="tk">Forceft</a> <a id="177c41" class="tk">-</a> 1.0E+6 <a id="177c50" class="tk">*</a> <a id="177c52" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="177c80" class="tk">X</a>)</td></tr>
+<tr name="178" id="178">
+<td><a id="l178" class='ln'>178</a></td><td>    <a id="178c5" class="tk">-</a> 400.0 <a id="178c13" class="tk">*</a> <a id="178c15" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="178c43" class="tk">X_h</a>;</td></tr>
+<tr name="179" id="179">
+<td><a id="l179" class='ln'>179</a></td><td>  <span class="kw">if</span> (<a id="179c7" class="tk">rtmIsMajorTimeStep</a>(<a id="179c26" class="tk">rtwdemo_secondOrderSystem_M</a>)) <span class="br">{</span></td></tr>
+<tr name="180" id="180">
+<td><a id="l180" class='ln'>180</a></td><td>    <span class="ct">/* External mode */</span></td></tr>
+<tr name="181" id="181">
+<td><a id="l181" class='ln'>181</a></td><td>    <a id="181c5" class="tk">rtExtModeUploadCheckTrigger</a>(2);</td></tr>
+<tr name="182" id="182">
+<td><a id="l182" class='ln'>182</a></td><td></td></tr>
+<tr name="183" id="183">
+<td><a id="l183" class='ln'>183</a></td><td>    <span class="br">{</span>                                  <span class="ct">/* Sample time: [0.0s, 0.0s] */</span></td></tr>
+<tr name="184" id="184">
+<td><a id="l184" class='ln'>184</a></td><td>      <a id="184c7" class="tk">rtExtModeUpload</a>(0, (<a id="184c27" class="tk">real_T</a>)<a id="184c34" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="184c63" class="tk">Timing</a>.<a id="184c70" class="tk">t</a>[0]);</td></tr>
+<tr name="185" id="185">
+<td><a id="l185" class='ln'>185</a></td><td>    <span class="br">}</span></td></tr>
+<tr name="186" id="186">
+<td><a id="l186" class='ln'>186</a></td><td></td></tr>
+<tr name="187" id="187">
+<td><a id="l187" class='ln'>187</a></td><td>    <span class="kw">if</span> (<a id="187c9" class="tk">rtmIsMajorTimeStep</a>(<a id="187c28" class="tk">rtwdemo_secondOrderSystem_M</a>)) <span class="br">{</span><span class="ct">/* Sample time: [0.001s, 0.0s] */</span></td></tr>
+<tr name="188" id="188">
+<td><a id="l188" class='ln'>188</a></td><td>      <a id="188c7" class="tk">rtExtModeUpload</a>(1, (<a id="188c27" class="tk">real_T</a>)</td></tr>
+<tr name="189" id="189">
+<td><a id="l189" class='ln'>189</a></td><td>                      (((<a id="189c26" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="189c55" class="tk">Timing</a>.<a id="189c62" class="tk">clockTick1</a><a id="189c72" class="tk">+</a></td></tr>
+<tr name="190" id="190">
+<td><a id="l190" class='ln'>190</a></td><td>                         <a id="190c26" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="190c55" class="tk">Timing</a>.<a id="190c62" class="tk">clockTickH1</a><a id="190c73" class="tk">*</a></td></tr>
+<tr name="191" id="191">
+<td><a id="l191" class='ln'>191</a></td><td>                         4294967296.0)) <a id="191c41" class="tk">*</a> 0.001));</td></tr>
+<tr name="192" id="192">
+<td><a id="l192" class='ln'>192</a></td><td>    <span class="br">}</span></td></tr>
+<tr name="193" id="193">
+<td><a id="l193" class='ln'>193</a></td><td>  <span class="br">}</span>                                    <span class="ct">/* end MajorTimeStep */</span></td></tr>
+<tr name="194" id="194">
+<td><a id="l194" class='ln'>194</a></td><td></td></tr>
+<tr name="195" id="195">
+<td><a id="l195" class='ln'>195</a></td><td>  <span class="kw">if</span> (<a id="195c7" class="tk">rtmIsMajorTimeStep</a>(<a id="195c26" class="tk">rtwdemo_secondOrderSystem_M</a>)) <span class="br">{</span></td></tr>
+<tr name="196" id="196">
+<td><a id="l196" class='ln'>196</a></td><td>    <span class="ct">/* signal main to stop simulation */</span></td></tr>
+<tr name="197" id="197">
+<td><a id="l197" class='ln'>197</a></td><td>    <span class="br">{</span>                                  <span class="ct">/* Sample time: [0.0s, 0.0s] */</span></td></tr>
+<tr name="198" id="198">
+<td><a id="l198" class='ln'>198</a></td><td>      <span class="kw">if</span> ((<a id="198c12" class="tk">rtmGetTFinal</a>(<a id="198c25" class="tk">rtwdemo_secondOrderSystem_M</a>)<a id="198c53" class="tk">!=</a><a id="198c55" class="tk">-</a>1) <a id="198c59" class="tk">&amp;&amp;</a></td></tr>
+<tr name="199" id="199">
+<td><a id="l199" class='ln'>199</a></td><td>          <a id="199c11" class="tk">!</a>((<a id="199c14" class="tk">rtmGetTFinal</a>(<a id="199c27" class="tk">rtwdemo_secondOrderSystem_M</a>)<a id="199c55" class="tk">-</a></td></tr>
+<tr name="200" id="200">
+<td><a id="l200" class='ln'>200</a></td><td>             (((<a id="200c17" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="200c46" class="tk">Timing</a>.<a id="200c53" class="tk">clockTick1</a><a id="200c63" class="tk">+</a></td></tr>
+<tr name="201" id="201">
+<td><a id="l201" class='ln'>201</a></td><td>                <a id="201c17" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="201c46" class="tk">Timing</a>.<a id="201c53" class="tk">clockTickH1</a><a id="201c64" class="tk">*</a> 4294967296.0)) <a id="201c81" class="tk">*</a></td></tr>
+<tr name="202" id="202">
+<td><a id="l202" class='ln'>202</a></td><td>              0.001)) <a id="202c23" class="tk">&gt;</a> (((<a id="202c28" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="202c57" class="tk">Timing</a>.<a id="202c64" class="tk">clockTick1</a><a id="202c74" class="tk">+</a></td></tr>
+<tr name="203" id="203">
+<td><a id="l203" class='ln'>203</a></td><td>                           <a id="203c28" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="203c57" class="tk">Timing</a>.<a id="203c64" class="tk">clockTickH1</a><a id="203c75" class="tk">*</a></td></tr>
+<tr name="204" id="204">
+<td><a id="l204" class='ln'>204</a></td><td>                           4294967296.0)) <a id="204c43" class="tk">*</a> 0.001) <a id="204c52" class="tk">*</a> (<a id="204c55" class="tk">DBL_EPSILON</a>))) <span class="br">{</span></td></tr>
+<tr name="205" id="205">
+<td><a id="l205" class='ln'>205</a></td><td>        <a id="205c9" class="tk">rtmSetErrorStatus</a>(<a id="205c27" class="tk">rtwdemo_secondOrderSystem_M</a>, "Simulation finished");</td></tr>
+<tr name="206" id="206">
+<td><a id="l206" class='ln'>206</a></td><td>      <span class="br">}</span></td></tr>
+<tr name="207" id="207">
+<td><a id="l207" class='ln'>207</a></td><td></td></tr>
+<tr name="208" id="208">
+<td><a id="l208" class='ln'>208</a></td><td>      <span class="kw">if</span> (<a id="208c11" class="tk">rtmGetStopRequested</a>(<a id="208c31" class="tk">rtwdemo_secondOrderSystem_M</a>)) <span class="br">{</span></td></tr>
+<tr name="209" id="209">
+<td><a id="l209" class='ln'>209</a></td><td>        <a id="209c9" class="tk">rtmSetErrorStatus</a>(<a id="209c27" class="tk">rtwdemo_secondOrderSystem_M</a>, "Simulation finished");</td></tr>
+<tr name="210" id="210">
+<td><a id="l210" class='ln'>210</a></td><td>      <span class="br">}</span></td></tr>
+<tr name="211" id="211">
+<td><a id="l211" class='ln'>211</a></td><td>    <span class="br">}</span></td></tr>
+<tr name="212" id="212">
+<td><a id="l212" class='ln'>212</a></td><td></td></tr>
+<tr name="213" id="213">
+<td><a id="l213" class='ln'>213</a></td><td>    <a id="213c5" class="tk">rt_ertODEUpdateContinuousStates</a>(<a id="213c37" class="tk">&amp;</a><a id="213c38" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="213c67" class="tk">solverInfo</a>);</td></tr>
+<tr name="214" id="214">
+<td><a id="l214" class='ln'>214</a></td><td></td></tr>
+<tr name="215" id="215">
+<td><a id="l215" class='ln'>215</a></td><td>    <span class="ct">/* Update absolute time for base rate */</span></td></tr>
+<tr name="216" id="216">
+<td><a id="l216" class='ln'>216</a></td><td>    <span class="ct">/* The "clockTick0" counts the number of times the code of this task has</span></td></tr>
+<tr name="217" id="217">
+<td><a id="l217" class='ln'>217</a></td><td><span class="ct">     * been executed. The absolute time is the multiplication of "clockTick0"</span></td></tr>
+<tr name="218" id="218">
+<td><a id="l218" class='ln'>218</a></td><td><span class="ct">     * and "Timing.stepSize0". Size of "clockTick0" ensures timer will not</span></td></tr>
+<tr name="219" id="219">
+<td><a id="l219" class='ln'>219</a></td><td><span class="ct">     * overflow during the application lifespan selected.</span></td></tr>
+<tr name="220" id="220">
+<td><a id="l220" class='ln'>220</a></td><td><span class="ct">     * Timer of this task consists of two 32 bit unsigned integers.</span></td></tr>
+<tr name="221" id="221">
+<td><a id="l221" class='ln'>221</a></td><td><span class="ct">     * The two integers represent the low bits Timing.clockTick0 and the high bits</span></td></tr>
+<tr name="222" id="222">
+<td><a id="l222" class='ln'>222</a></td><td><span class="ct">     * Timing.clockTickH0. When the low bit overflows to 0, the high bits increment.</span></td></tr>
+<tr name="223" id="223">
+<td><a id="l223" class='ln'>223</a></td><td><span class="ct">     */</span></td></tr>
+<tr name="224" id="224">
+<td><a id="l224" class='ln'>224</a></td><td>    <span class="kw">if</span> (<a id="224c9" class="tk">!</a>(<a id="224c11" class="tk">++</a><a id="224c13" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="224c42" class="tk">Timing</a>.<a id="224c49" class="tk">clockTick0</a>)) <span class="br">{</span></td></tr>
+<tr name="225" id="225">
+<td><a id="l225" class='ln'>225</a></td><td>      <a id="225c7" class="tk">++</a><a id="225c9" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="225c38" class="tk">Timing</a>.<a id="225c45" class="tk">clockTickH0</a>;</td></tr>
+<tr name="226" id="226">
+<td><a id="l226" class='ln'>226</a></td><td>    <span class="br">}</span></td></tr>
+<tr name="227" id="227">
+<td><a id="l227" class='ln'>227</a></td><td></td></tr>
+<tr name="228" id="228">
+<td><a id="l228" class='ln'>228</a></td><td>    <a id="228c5" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="228c34" class="tk">Timing</a>.<a id="228c41" class="tk">t</a>[0] = <a id="228c48" class="tk">rtsiGetSolverStopTime</a></td></tr>
+<tr name="229" id="229">
+<td><a id="l229" class='ln'>229</a></td><td>      (<a id="229c8" class="tk">&amp;</a><a id="229c9" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="229c38" class="tk">solverInfo</a>);</td></tr>
+<tr name="230" id="230">
+<td><a id="l230" class='ln'>230</a></td><td></td></tr>
+<tr name="231" id="231">
+<td><a id="l231" class='ln'>231</a></td><td>    <span class="br">{</span></td></tr>
+<tr name="232" id="232">
+<td><a id="l232" class='ln'>232</a></td><td>      <span class="ct">/* Update absolute timer for sample time: [0.001s, 0.0s] */</span></td></tr>
+<tr name="233" id="233">
+<td><a id="l233" class='ln'>233</a></td><td>      <span class="ct">/* The "clockTick1" counts the number of times the code of this task has</span></td></tr>
+<tr name="234" id="234">
+<td><a id="l234" class='ln'>234</a></td><td><span class="ct">       * been executed. The resolution of this integer timer is 0.001, which is the step size</span></td></tr>
+<tr name="235" id="235">
+<td><a id="l235" class='ln'>235</a></td><td><span class="ct">       * of the task. Size of "clockTick1" ensures timer will not overflow during the</span></td></tr>
+<tr name="236" id="236">
+<td><a id="l236" class='ln'>236</a></td><td><span class="ct">       * application lifespan selected.</span></td></tr>
+<tr name="237" id="237">
+<td><a id="l237" class='ln'>237</a></td><td><span class="ct">       * Timer of this task consists of two 32 bit unsigned integers.</span></td></tr>
+<tr name="238" id="238">
+<td><a id="l238" class='ln'>238</a></td><td><span class="ct">       * The two integers represent the low bits Timing.clockTick1 and the high bits</span></td></tr>
+<tr name="239" id="239">
+<td><a id="l239" class='ln'>239</a></td><td><span class="ct">       * Timing.clockTickH1. When the low bit overflows to 0, the high bits increment.</span></td></tr>
+<tr name="240" id="240">
+<td><a id="l240" class='ln'>240</a></td><td><span class="ct">       */</span></td></tr>
+<tr name="241" id="241">
+<td><a id="l241" class='ln'>241</a></td><td>      <a id="241c7" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="241c36" class="tk">Timing</a>.<a id="241c43" class="tk">clockTick1</a><a id="241c53" class="tk">++</a>;</td></tr>
+<tr name="242" id="242">
+<td><a id="l242" class='ln'>242</a></td><td>      <span class="kw">if</span> (<a id="242c11" class="tk">!</a><a id="242c12" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="242c41" class="tk">Timing</a>.<a id="242c48" class="tk">clockTick1</a>) <span class="br">{</span></td></tr>
+<tr name="243" id="243">
+<td><a id="l243" class='ln'>243</a></td><td>        <a id="243c9" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="243c38" class="tk">Timing</a>.<a id="243c45" class="tk">clockTickH1</a><a id="243c56" class="tk">++</a>;</td></tr>
+<tr name="244" id="244">
+<td><a id="l244" class='ln'>244</a></td><td>      <span class="br">}</span></td></tr>
+<tr name="245" id="245">
+<td><a id="l245" class='ln'>245</a></td><td>    <span class="br">}</span></td></tr>
+<tr name="246" id="246">
+<td><a id="l246" class='ln'>246</a></td><td>  <span class="br">}</span>                                    <span class="ct">/* end MajorTimeStep */</span></td></tr>
+<tr name="247" id="247">
+<td><a id="l247" class='ln'>247</a></td><td><span class="br">}</span></td></tr>
+<tr name="248" id="248">
+<td><a id="l248" class='ln'>248</a></td><td></td></tr>
+<tr name="249" id="249">
+<td><a id="l249" class='ln'>249</a></td><td><span class="ct">/* Derivatives for root system: '&lt;Root&gt;' */</span></td></tr>
+<tr name="250" id="250">
+<td><a id="l250" class='ln'>250</a></td><td><span class="kw">void</span> <a id="250c6" class="tk">rtwdemo_secondOrderSystem_derivatives</a>(<span class="kw">void</span>)</td></tr>
+<tr name="251" id="251">
+<td><a id="l251" class='ln'>251</a></td><td><span class="br">{</span></td></tr>
+<tr name="252" id="252">
+<td><a id="l252" class='ln'>252</a></td><td>  <a id="252c3" class="tk">XDot_rtwdemo_secondOrderSyste_T</a> <a id="252c35" class="tk">*</a><a id="252c36" class="tk">_rtXdot</a>;</td></tr>
+<tr name="253" id="253">
+<td><a id="l253" class='ln'>253</a></td><td>  <a id="253c3" class="tk">_rtXdot</a> = ((<a id="253c15" class="tk">XDot_rtwdemo_secondOrderSyste_T</a> <a id="253c47" class="tk">*</a>)</td></tr>
+<tr name="254" id="254">
+<td><a id="l254" class='ln'>254</a></td><td>             <a id="254c14" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="254c43" class="tk">derivs</a>);</td></tr>
+<tr name="255" id="255">
+<td><a id="l255" class='ln'>255</a></td><td></td></tr>
+<tr name="256" id="256">
+<td><a id="l256" class='ln'>256</a></td><td>  <span class="ct">/* Derivatives for Integrator: '&lt;Root&gt;/Integrator2' */</span></td></tr>
+<tr name="257" id="257">
+<td><a id="l257" class='ln'>257</a></td><td>  <a id="257c3" class="tk">_rtXdot</a>-&gt;<a id="257c12" class="tk">Integrator2_CSTATE</a> = <a id="257c33" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="257c61" class="tk">X_h</a>;</td></tr>
+<tr name="258" id="258">
+<td><a id="l258" class='ln'>258</a></td><td></td></tr>
+<tr name="259" id="259">
+<td><a id="l259" class='ln'>259</a></td><td>  <span class="ct">/* Derivatives for Integrator: '&lt;Root&gt;/Integrator1' */</span></td></tr>
+<tr name="260" id="260">
+<td><a id="l260" class='ln'>260</a></td><td>  <a id="260c3" class="tk">_rtXdot</a>-&gt;<a id="260c12" class="tk">Integrator1_CSTATE</a> = <a id="260c33" class="tk">rtwdemo_secondOrderSystem_B</a>.<a id="260c61" class="tk">X_p</a>;</td></tr>
+<tr name="261" id="261">
+<td><a id="l261" class='ln'>261</a></td><td><span class="br">}</span></td></tr>
+<tr name="262" id="262">
+<td><a id="l262" class='ln'>262</a></td><td></td></tr>
+<tr name="263" id="263">
+<td><a id="l263" class='ln'>263</a></td><td><span class="ct">/* Model initialize function */</span></td></tr>
+<tr name="264" id="264">
+<td><a id="l264" class='ln'>264</a></td><td><span class="kw">void</span> <a id="264c6" class="tk">rtwdemo_secondOrderSystem_initialize</a>(<span class="kw">void</span>)</td></tr>
+<tr name="265" id="265">
+<td><a id="l265" class='ln'>265</a></td><td><span class="br">{</span></td></tr>
+<tr name="266" id="266">
+<td><a id="l266" class='ln'>266</a></td><td>  <span class="ct">/* Registration code */</span></td></tr>
+<tr name="267" id="267">
+<td><a id="l267" class='ln'>267</a></td><td></td></tr>
+<tr name="268" id="268">
+<td><a id="l268" class='ln'>268</a></td><td>  <span class="ct">/* initialize real-time model */</span></td></tr>
+<tr name="269" id="269">
+<td><a id="l269" class='ln'>269</a></td><td>  (<span class="kw">void</span>) <a id="269c10" class="tk">memset</a>((<span class="kw">void</span> <a id="269c23" class="tk">*</a>)<a id="269c25" class="tk">rtwdemo_secondOrderSystem_M</a>, 0,</td></tr>
+<tr name="270" id="270">
+<td><a id="l270" class='ln'>270</a></td><td>                <span class="kw">sizeof</span>(<a id="270c24" class="tk">RT_MODEL_rtwdemo_secondOrderS_T</a>));</td></tr>
+<tr name="271" id="271">
+<td><a id="l271" class='ln'>271</a></td><td></td></tr>
+<tr name="272" id="272">
+<td><a id="l272" class='ln'>272</a></td><td>  <span class="br">{</span></td></tr>
+<tr name="273" id="273">
+<td><a id="l273" class='ln'>273</a></td><td>    <span class="ct">/* Setup solver object */</span></td></tr>
+<tr name="274" id="274">
+<td><a id="l274" class='ln'>274</a></td><td>    <a id="274c5" class="tk">rtsiSetSimTimeStepPtr</a>(<a id="274c27" class="tk">&amp;</a><a id="274c28" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="274c57" class="tk">solverInfo</a>,</td></tr>
+<tr name="275" id="275">
+<td><a id="l275" class='ln'>275</a></td><td>                          <a id="275c27" class="tk">&amp;</a><a id="275c28" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="275c57" class="tk">Timing</a>.<a id="275c64" class="tk">simTimeStep</a>);</td></tr>
+<tr name="276" id="276">
+<td><a id="l276" class='ln'>276</a></td><td>    <a id="276c5" class="tk">rtsiSetTPtr</a>(<a id="276c17" class="tk">&amp;</a><a id="276c18" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="276c47" class="tk">solverInfo</a>, <a id="276c59" class="tk">&amp;</a><a id="276c60" class="tk">rtmGetTPtr</a></td></tr>
+<tr name="277" id="277">
+<td><a id="l277" class='ln'>277</a></td><td>                (<a id="277c18" class="tk">rtwdemo_secondOrderSystem_M</a>));</td></tr>
+<tr name="278" id="278">
+<td><a id="l278" class='ln'>278</a></td><td>    <a id="278c5" class="tk">rtsiSetStepSizePtr</a>(<a id="278c24" class="tk">&amp;</a><a id="278c25" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="278c54" class="tk">solverInfo</a>,</td></tr>
+<tr name="279" id="279">
+<td><a id="l279" class='ln'>279</a></td><td>                       <a id="279c24" class="tk">&amp;</a><a id="279c25" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="279c54" class="tk">Timing</a>.<a id="279c61" class="tk">stepSize0</a>);</td></tr>
+<tr name="280" id="280">
+<td><a id="l280" class='ln'>280</a></td><td>    <a id="280c5" class="tk">rtsiSetdXPtr</a>(<a id="280c18" class="tk">&amp;</a><a id="280c19" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="280c48" class="tk">solverInfo</a>,</td></tr>
+<tr name="281" id="281">
+<td><a id="l281" class='ln'>281</a></td><td>                 <a id="281c18" class="tk">&amp;</a><a id="281c19" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="281c48" class="tk">derivs</a>);</td></tr>
+<tr name="282" id="282">
+<td><a id="l282" class='ln'>282</a></td><td>    <a id="282c5" class="tk">rtsiSetContStatesPtr</a>(<a id="282c26" class="tk">&amp;</a><a id="282c27" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="282c56" class="tk">solverInfo</a>, (<a id="282c69" class="tk">real_T</a> <a id="282c76" class="tk">*</a><a id="282c77" class="tk">*</a>)</td></tr>
+<tr name="283" id="283">
+<td><a id="l283" class='ln'>283</a></td><td>                         <a id="283c26" class="tk">&amp;</a><a id="283c27" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="283c56" class="tk">contStates</a>);</td></tr>
+<tr name="284" id="284">
+<td><a id="l284" class='ln'>284</a></td><td>    <a id="284c5" class="tk">rtsiSetNumContStatesPtr</a>(<a id="284c29" class="tk">&amp;</a><a id="284c30" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="284c59" class="tk">solverInfo</a>,</td></tr>
+<tr name="285" id="285">
+<td><a id="l285" class='ln'>285</a></td><td>      <a id="285c7" class="tk">&amp;</a><a id="285c8" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="285c37" class="tk">Sizes</a>.<a id="285c43" class="tk">numContStates</a>);</td></tr>
+<tr name="286" id="286">
+<td><a id="l286" class='ln'>286</a></td><td>    <a id="286c5" class="tk">rtsiSetNumPeriodicContStatesPtr</a>(<a id="286c37" class="tk">&amp;</a><a id="286c38" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="286c67" class="tk">solverInfo</a>,</td></tr>
+<tr name="287" id="287">
+<td><a id="l287" class='ln'>287</a></td><td>      <a id="287c7" class="tk">&amp;</a><a id="287c8" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="287c37" class="tk">Sizes</a>.<a id="287c43" class="tk">numPeriodicContStates</a>);</td></tr>
+<tr name="288" id="288">
+<td><a id="l288" class='ln'>288</a></td><td>    <a id="288c5" class="tk">rtsiSetPeriodicContStateIndicesPtr</a>(<a id="288c40" class="tk">&amp;</a><a id="288c41" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="288c70" class="tk">solverInfo</a>,</td></tr>
+<tr name="289" id="289">
+<td><a id="l289" class='ln'>289</a></td><td>      <a id="289c7" class="tk">&amp;</a><a id="289c8" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="289c37" class="tk">periodicContStateIndices</a>);</td></tr>
+<tr name="290" id="290">
+<td><a id="l290" class='ln'>290</a></td><td>    <a id="290c5" class="tk">rtsiSetPeriodicContStateRangesPtr</a>(<a id="290c39" class="tk">&amp;</a><a id="290c40" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="290c69" class="tk">solverInfo</a>,</td></tr>
+<tr name="291" id="291">
+<td><a id="l291" class='ln'>291</a></td><td>      <a id="291c7" class="tk">&amp;</a><a id="291c8" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="291c37" class="tk">periodicContStateRanges</a>);</td></tr>
+<tr name="292" id="292">
+<td><a id="l292" class='ln'>292</a></td><td>    <a id="292c5" class="tk">rtsiSetErrorStatusPtr</a>(<a id="292c27" class="tk">&amp;</a><a id="292c28" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="292c57" class="tk">solverInfo</a>,</td></tr>
+<tr name="293" id="293">
+<td><a id="l293" class='ln'>293</a></td><td>                          (<a id="293c28" class="tk">&amp;</a><a id="293c29" class="tk">rtmGetErrorStatus</a>(<a id="293c47" class="tk">rtwdemo_secondOrderSystem_M</a>)));</td></tr>
+<tr name="294" id="294">
+<td><a id="l294" class='ln'>294</a></td><td>    <a id="294c5" class="tk">rtsiSetRTModelPtr</a>(<a id="294c23" class="tk">&amp;</a><a id="294c24" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="294c53" class="tk">solverInfo</a>,</td></tr>
+<tr name="295" id="295">
+<td><a id="l295" class='ln'>295</a></td><td>                      <a id="295c23" class="tk">rtwdemo_secondOrderSystem_M</a>);</td></tr>
+<tr name="296" id="296">
+<td><a id="l296" class='ln'>296</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="297" id="297">
+<td><a id="l297" class='ln'>297</a></td><td></td></tr>
+<tr name="298" id="298">
+<td><a id="l298" class='ln'>298</a></td><td>  <a id="298c3" class="tk">rtsiSetSimTimeStep</a>(<a id="298c22" class="tk">&amp;</a><a id="298c23" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="298c52" class="tk">solverInfo</a>, <a id="298c64" class="tk">MAJOR_TIME_STEP</a>);</td></tr>
+<tr name="299" id="299">
+<td><a id="l299" class='ln'>299</a></td><td>  <a id="299c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="299c32" class="tk">intgData</a>.<a id="299c41" class="tk">y</a> = <a id="299c45" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="299c74" class="tk">odeY</a>;</td></tr>
+<tr name="300" id="300">
+<td><a id="l300" class='ln'>300</a></td><td>  <a id="300c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="300c32" class="tk">intgData</a>.<a id="300c41" class="tk">f</a>[0] = <a id="300c48" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;</td></tr>
+<tr name="301" id="301">
+<td><a id="l301" class='ln'>301</a></td><td>    <a id="301c5" class="tk">odeF</a>[0];</td></tr>
+<tr name="302" id="302">
+<td><a id="l302" class='ln'>302</a></td><td>  <a id="302c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="302c32" class="tk">intgData</a>.<a id="302c41" class="tk">f</a>[1] = <a id="302c48" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;</td></tr>
+<tr name="303" id="303">
+<td><a id="l303" class='ln'>303</a></td><td>    <a id="303c5" class="tk">odeF</a>[1];</td></tr>
+<tr name="304" id="304">
+<td><a id="l304" class='ln'>304</a></td><td>  <a id="304c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="304c32" class="tk">intgData</a>.<a id="304c41" class="tk">f</a>[2] = <a id="304c48" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;</td></tr>
+<tr name="305" id="305">
+<td><a id="l305" class='ln'>305</a></td><td>    <a id="305c5" class="tk">odeF</a>[2];</td></tr>
+<tr name="306" id="306">
+<td><a id="l306" class='ln'>306</a></td><td>  <a id="306c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="306c32" class="tk">contStates</a> = ((<a id="306c47" class="tk">X_rtwdemo_secondOrderSystem_T</a> <a id="306c77" class="tk">*</a>)</td></tr>
+<tr name="307" id="307">
+<td><a id="l307" class='ln'>307</a></td><td>    <a id="307c5" class="tk">&amp;</a><a id="307c6" class="tk">rtwdemo_secondOrderSystem_X</a>);</td></tr>
+<tr name="308" id="308">
+<td><a id="l308" class='ln'>308</a></td><td>  <a id="308c3" class="tk">rtsiSetSolverData</a>(<a id="308c21" class="tk">&amp;</a><a id="308c22" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="308c51" class="tk">solverInfo</a>, (<span class="kw">void</span> <a id="308c69" class="tk">*</a>)</td></tr>
+<tr name="309" id="309">
+<td><a id="l309" class='ln'>309</a></td><td>                    <a id="309c21" class="tk">&amp;</a><a id="309c22" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="309c51" class="tk">intgData</a>);</td></tr>
+<tr name="310" id="310">
+<td><a id="l310" class='ln'>310</a></td><td>  <a id="310c3" class="tk">rtsiSetSolverName</a>(<a id="310c21" class="tk">&amp;</a><a id="310c22" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="310c51" class="tk">solverInfo</a>,"ode3");</td></tr>
+<tr name="311" id="311">
+<td><a id="l311" class='ln'>311</a></td><td>  <a id="311c3" class="tk">rtmSetTPtr</a>(<a id="311c14" class="tk">rtwdemo_secondOrderSystem_M</a>,</td></tr>
+<tr name="312" id="312">
+<td><a id="l312" class='ln'>312</a></td><td>             <a id="312c14" class="tk">&amp;</a><a id="312c15" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="312c44" class="tk">Timing</a>.<a id="312c51" class="tk">tArray</a>[0]);</td></tr>
+<tr name="313" id="313">
+<td><a id="l313" class='ln'>313</a></td><td>  <a id="313c3" class="tk">rtmSetTFinal</a>(<a id="313c16" class="tk">rtwdemo_secondOrderSystem_M</a>, 0.2);</td></tr>
+<tr name="314" id="314">
+<td><a id="l314" class='ln'>314</a></td><td>  <a id="314c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="314c32" class="tk">Timing</a>.<a id="314c39" class="tk">stepSize0</a> = 0.001;</td></tr>
+<tr name="315" id="315">
+<td><a id="l315" class='ln'>315</a></td><td></td></tr>
+<tr name="316" id="316">
+<td><a id="l316" class='ln'>316</a></td><td>  <span class="ct">/* External mode info */</span></td></tr>
+<tr name="317" id="317">
+<td><a id="l317" class='ln'>317</a></td><td>  <a id="317c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="317c32" class="tk">Sizes</a>.<a id="317c38" class="tk">checksums</a>[0] = (2251539732U);</td></tr>
+<tr name="318" id="318">
+<td><a id="l318" class='ln'>318</a></td><td>  <a id="318c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="318c32" class="tk">Sizes</a>.<a id="318c38" class="tk">checksums</a>[1] = (1478030022U);</td></tr>
+<tr name="319" id="319">
+<td><a id="l319" class='ln'>319</a></td><td>  <a id="319c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="319c32" class="tk">Sizes</a>.<a id="319c38" class="tk">checksums</a>[2] = (2129957986U);</td></tr>
+<tr name="320" id="320">
+<td><a id="l320" class='ln'>320</a></td><td>  <a id="320c3" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="320c32" class="tk">Sizes</a>.<a id="320c38" class="tk">checksums</a>[3] = (664363546U);</td></tr>
+<tr name="321" id="321">
+<td><a id="l321" class='ln'>321</a></td><td></td></tr>
+<tr name="322" id="322">
+<td><a id="l322" class='ln'>322</a></td><td>  <span class="br">{</span></td></tr>
+<tr name="323" id="323">
+<td><a id="l323" class='ln'>323</a></td><td>    <span class="kw">static</span> <span class="kw">const</span> <a id="323c18" class="tk">sysRanDType</a> <a id="323c30" class="tk">rtAlwaysEnabled</a> = <a id="323c48" class="tk">SUBSYS_RAN_BC_ENABLE</a>;</td></tr>
+<tr name="324" id="324">
+<td><a id="l324" class='ln'>324</a></td><td>    <span class="kw">static</span> <a id="324c12" class="tk">RTWExtModeInfo</a> <a id="324c27" class="tk">rt_ExtModeInfo</a>;</td></tr>
+<tr name="325" id="325">
+<td><a id="l325" class='ln'>325</a></td><td>    <span class="kw">static</span> <span class="kw">const</span> <a id="325c18" class="tk">sysRanDType</a> <a id="325c30" class="tk">*</a><a id="325c31" class="tk">systemRan</a>[1];</td></tr>
+<tr name="326" id="326">
+<td><a id="l326" class='ln'>326</a></td><td>    <a id="326c5" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="326c34" class="tk">extModeInfo</a> = (<a id="326c49" class="tk">&amp;</a><a id="326c50" class="tk">rt_ExtModeInfo</a>);</td></tr>
+<tr name="327" id="327">
+<td><a id="l327" class='ln'>327</a></td><td>    <a id="327c5" class="tk">rteiSetSubSystemActiveVectorAddresses</a>(<a id="327c43" class="tk">&amp;</a><a id="327c44" class="tk">rt_ExtModeInfo</a>, <a id="327c60" class="tk">systemRan</a>);</td></tr>
+<tr name="328" id="328">
+<td><a id="l328" class='ln'>328</a></td><td>    <a id="328c5" class="tk">systemRan</a>[0] = <a id="328c20" class="tk">&amp;</a><a id="328c21" class="tk">rtAlwaysEnabled</a>;</td></tr>
+<tr name="329" id="329">
+<td><a id="l329" class='ln'>329</a></td><td>    <a id="329c5" class="tk">rteiSetModelMappingInfoPtr</a>(<a id="329c32" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="329c61" class="tk">extModeInfo</a>,</td></tr>
+<tr name="330" id="330">
+<td><a id="l330" class='ln'>330</a></td><td>      <a id="330c7" class="tk">&amp;</a><a id="330c8" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="330c37" class="tk">SpecialInfo</a>.<a id="330c49" class="tk">mappingInfo</a>);</td></tr>
+<tr name="331" id="331">
+<td><a id="l331" class='ln'>331</a></td><td>    <a id="331c5" class="tk">rteiSetChecksumsPtr</a>(<a id="331c25" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="331c54" class="tk">extModeInfo</a>,</td></tr>
+<tr name="332" id="332">
+<td><a id="l332" class='ln'>332</a></td><td>                        <a id="332c25" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="332c54" class="tk">Sizes</a>.<a id="332c60" class="tk">checksums</a>);</td></tr>
+<tr name="333" id="333">
+<td><a id="l333" class='ln'>333</a></td><td>    <a id="333c5" class="tk">rteiSetTPtr</a>(<a id="333c17" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="333c46" class="tk">extModeInfo</a>, <a id="333c59" class="tk">rtmGetTPtr</a></td></tr>
+<tr name="334" id="334">
+<td><a id="l334" class='ln'>334</a></td><td>                (<a id="334c18" class="tk">rtwdemo_secondOrderSystem_M</a>));</td></tr>
+<tr name="335" id="335">
+<td><a id="l335" class='ln'>335</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="336" id="336">
+<td><a id="l336" class='ln'>336</a></td><td></td></tr>
+<tr name="337" id="337">
+<td><a id="l337" class='ln'>337</a></td><td>  <span class="ct">/* block I/O */</span></td></tr>
+<tr name="338" id="338">
+<td><a id="l338" class='ln'>338</a></td><td>  (<span class="kw">void</span>) <a id="338c10" class="tk">memset</a>(((<span class="kw">void</span> <a id="338c24" class="tk">*</a>) <a id="338c27" class="tk">&amp;</a><a id="338c28" class="tk">rtwdemo_secondOrderSystem_B</a>), 0,</td></tr>
+<tr name="339" id="339">
+<td><a id="l339" class='ln'>339</a></td><td>                <span class="kw">sizeof</span>(<a id="339c24" class="tk">B_rtwdemo_secondOrderSystem_T</a>));</td></tr>
+<tr name="340" id="340">
+<td><a id="l340" class='ln'>340</a></td><td></td></tr>
+<tr name="341" id="341">
+<td><a id="l341" class='ln'>341</a></td><td>  <span class="ct">/* states (continuous) */</span></td></tr>
+<tr name="342" id="342">
+<td><a id="l342" class='ln'>342</a></td><td>  <span class="br">{</span></td></tr>
+<tr name="343" id="343">
+<td><a id="l343" class='ln'>343</a></td><td>    (<span class="kw">void</span>) <a id="343c12" class="tk">memset</a>((<span class="kw">void</span> <a id="343c25" class="tk">*</a>)<a id="343c27" class="tk">&amp;</a><a id="343c28" class="tk">rtwdemo_secondOrderSystem_X</a>, 0,</td></tr>
+<tr name="344" id="344">
+<td><a id="l344" class='ln'>344</a></td><td>                  <span class="kw">sizeof</span>(<a id="344c26" class="tk">X_rtwdemo_secondOrderSystem_T</a>));</td></tr>
+<tr name="345" id="345">
+<td><a id="l345" class='ln'>345</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="346" id="346">
+<td><a id="l346" class='ln'>346</a></td><td></td></tr>
+<tr name="347" id="347">
+<td><a id="l347" class='ln'>347</a></td><td>  <span class="ct">/* states (dwork) */</span></td></tr>
+<tr name="348" id="348">
+<td><a id="l348" class='ln'>348</a></td><td>  (<span class="kw">void</span>) <a id="348c10" class="tk">memset</a>((<span class="kw">void</span> <a id="348c23" class="tk">*</a>)<a id="348c25" class="tk">&amp;</a><a id="348c26" class="tk">rtwdemo_secondOrderSystem_DW</a>, 0,</td></tr>
+<tr name="349" id="349">
+<td><a id="l349" class='ln'>349</a></td><td>                <span class="kw">sizeof</span>(<a id="349c24" class="tk">DW_rtwdemo_secondOrderSystem_T</a>));</td></tr>
+<tr name="350" id="350">
+<td><a id="l350" class='ln'>350</a></td><td></td></tr>
+<tr name="351" id="351">
+<td><a id="l351" class='ln'>351</a></td><td>  <span class="ct">/* external outputs */</span></td></tr>
+<tr name="352" id="352">
+<td><a id="l352" class='ln'>352</a></td><td>  (<span class="kw">void</span>) <a id="352c10" class="tk">memset</a>(<a id="352c17" class="tk">&amp;</a><a id="352c18" class="tk">rtwdemo_secondOrderSystem_Y</a>.<a id="352c46" class="tk">Outport</a>[0], 0,</td></tr>
+<tr name="353" id="353">
+<td><a id="l353" class='ln'>353</a></td><td>                2U<a id="353c19" class="tk">*</a><span class="kw">sizeof</span>(<a id="353c27" class="tk">real_T</a>));</td></tr>
+<tr name="354" id="354">
+<td><a id="l354" class='ln'>354</a></td><td></td></tr>
+<tr name="355" id="355">
+<td><a id="l355" class='ln'>355</a></td><td>  <span class="ct">/* data type transition information */</span></td></tr>
+<tr name="356" id="356">
+<td><a id="l356" class='ln'>356</a></td><td>  <span class="br">{</span></td></tr>
+<tr name="357" id="357">
+<td><a id="l357" class='ln'>357</a></td><td>    <span class="kw">static</span> <a id="357c12" class="tk">DataTypeTransInfo</a> <a id="357c30" class="tk">dtInfo</a>;</td></tr>
+<tr name="358" id="358">
+<td><a id="l358" class='ln'>358</a></td><td>    (<span class="kw">void</span>) <a id="358c12" class="tk">memset</a>((<a id="358c20" class="tk">char_T</a> <a id="358c27" class="tk">*</a>) <a id="358c30" class="tk">&amp;</a><a id="358c31" class="tk">dtInfo</a>, 0,</td></tr>
+<tr name="359" id="359">
+<td><a id="l359" class='ln'>359</a></td><td>                  <span class="kw">sizeof</span>(<a id="359c26" class="tk">dtInfo</a>));</td></tr>
+<tr name="360" id="360">
+<td><a id="l360" class='ln'>360</a></td><td>    <a id="360c5" class="tk">rtwdemo_secondOrderSystem_M</a>-&gt;<a id="360c34" class="tk">SpecialInfo</a>.<a id="360c46" class="tk">mappingInfo</a> = (<a id="360c61" class="tk">&amp;</a><a id="360c62" class="tk">dtInfo</a>);</td></tr>
+<tr name="361" id="361">
+<td><a id="l361" class='ln'>361</a></td><td>    <a id="361c5" class="tk">dtInfo</a>.<a id="361c12" class="tk">numDataTypes</a> = 14;</td></tr>
+<tr name="362" id="362">
+<td><a id="l362" class='ln'>362</a></td><td>    <a id="362c5" class="tk">dtInfo</a>.<a id="362c12" class="tk">dataTypeSizes</a> = <a id="362c28" class="tk">&amp;</a><a id="362c29" class="tk">rtDataTypeSizes</a>[0];</td></tr>
+<tr name="363" id="363">
+<td><a id="l363" class='ln'>363</a></td><td>    <a id="363c5" class="tk">dtInfo</a>.<a id="363c12" class="tk">dataTypeNames</a> = <a id="363c28" class="tk">&amp;</a><a id="363c29" class="tk">rtDataTypeNames</a>[0];</td></tr>
+<tr name="364" id="364">
+<td><a id="l364" class='ln'>364</a></td><td></td></tr>
+<tr name="365" id="365">
+<td><a id="l365" class='ln'>365</a></td><td>    <span class="ct">/* Block I/O transition table */</span></td></tr>
+<tr name="366" id="366">
+<td><a id="l366" class='ln'>366</a></td><td>    <a id="366c5" class="tk">dtInfo</a>.<a id="366c12" class="tk">BTransTable</a> = <a id="366c26" class="tk">&amp;</a><a id="366c27" class="tk">rtBTransTable</a>;</td></tr>
+<tr name="367" id="367">
+<td><a id="l367" class='ln'>367</a></td><td>  <span class="br">}</span></td></tr>
+<tr name="368" id="368">
+<td><a id="l368" class='ln'>368</a></td><td></td></tr>
+<tr name="369" id="369">
+<td><a id="l369" class='ln'>369</a></td><td>  <span class="ct">/* InitializeConditions for Integrator: '&lt;Root&gt;/Integrator2' */</span></td></tr>
+<tr name="370" id="370">
+<td><a id="l370" class='ln'>370</a></td><td>  <a id="370c3" class="tk">rtwdemo_secondOrderSystem_X</a>.<a id="370c31" class="tk">Integrator2_CSTATE</a> = 0.0;</td></tr>
+<tr name="371" id="371">
+<td><a id="l371" class='ln'>371</a></td><td></td></tr>
+<tr name="372" id="372">
+<td><a id="l372" class='ln'>372</a></td><td>  <span class="ct">/* InitializeConditions for Integrator: '&lt;Root&gt;/Integrator1' */</span></td></tr>
+<tr name="373" id="373">
+<td><a id="l373" class='ln'>373</a></td><td>  <a id="373c3" class="tk">rtwdemo_secondOrderSystem_X</a>.<a id="373c31" class="tk">Integrator1_CSTATE</a> = 0.0;</td></tr>
+<tr name="374" id="374">
+<td><a id="l374" class='ln'>374</a></td><td><span class="br">}</span></td></tr>
+<tr name="375" id="375">
+<td><a id="l375" class='ln'>375</a></td><td></td></tr>
+<tr name="376" id="376">
+<td><a id="l376" class='ln'>376</a></td><td><span class="ct">/* Model terminate function */</span></td></tr>
+<tr name="377" id="377">
+<td><a id="l377" class='ln'>377</a></td><td><span class="kw">void</span> <a id="377c6" class="tk">rtwdemo_secondOrderSystem_terminate</a>(<span class="kw">void</span>)</td></tr>
+<tr name="378" id="378">
+<td><a id="l378" class='ln'>378</a></td><td><span class="br">{</span></td></tr>
+<tr name="379" id="379">
+<td><a id="l379" class='ln'>379</a></td><td>  <span class="ct">/* (no terminate code required) */</span></td></tr>
+<tr name="380" id="380">
+<td><a id="l380" class='ln'>380</a></td><td><span class="br">}</span></td></tr>
+<tr name="381" id="381">
+<td><a id="l381" class='ln'>381</a></td><td></td></tr>
+</table>
+</pre>
+</body>
+</html>

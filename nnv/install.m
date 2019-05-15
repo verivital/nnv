@@ -2,7 +2,7 @@ fprintf('\nINSTALLING NNV....')
 fprintf('\nIntalling tbxmanager (requires Matlab R2009a or later) ...');
 tbxmanager_folder = 'tbxmanager';
 list = dir;
-if ~exist(tbxmanager_folder)
+if exist(tbxmanager_folder)~=7
     mkdir(tbxmanager_folder);
 end
 

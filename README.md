@@ -1,5 +1,5 @@
 # nnv
-Matlab Toolbox For Neural Network Verification
+Matlab Toolbox for Neural Network Verification
 
 This toolbox implements reachability methods for analyzing neural networks, particularly with a focus on closed-loop controllers in autonomous cyber-physical systems (CPS).
 
@@ -8,19 +8,19 @@ This toolbox implements reachability methods for analyzing neural networks, part
 This toolbox makes use of the neural network model transformation tool ([nnmt](https://github.com/verivital/nnmt)) and for closed-loop systems analysis, the hybrid systems model transformation and translation tool ([HyST](https://github.com/verivital/hyst)).
 
 # installation:
-    1) install matlab
+    1) Install Matlab
 
-    2) clone or download nnv toolbox from https://github.com/trhoangdung/nnv
+    2) Clone or download the nnv toolbox from [https://github.com/verivital/nnv]
 
-    3) open matlab, then go to ../nnv/ run install.m script
+    3) Open matlab, then go to the directory where nnv exists on your machine, then run the `install.m` script located at /nnv/
 
 # uninstallation:
 
-    1) open matlab, then go to ../nnv/ run uninstall.m script
+    1) Open matlab, then go to `/nnv/` and execute the `uninstall.m` script
 
 # running tests and examples
 
-    go into tests/examples folders to run the scripts for testing/analyzing examples.
+    Go into the `tests/examples` folders to execute the scripts for testing/analyzing examples.
 
 
 # novel features
@@ -95,7 +95,7 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
 # references
 
-The methods implemented in this toolbox are based upon the following papers.
+The methods implemented in nnv are based upon the following papers.
 
 1. Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "Star-Based Reachability Analsysis for Deep Neural Networks", Submitted to The 23rd International Symposisum on Formal Methods (3rd World Congress on Formal Methods, FM2019).
 
@@ -110,6 +110,8 @@ The methods implemented in this toolbox are based upon the following papers.
 6. Weiming Xiang, Diego Manzanas Lopez, Patrick Musau, Taylor T. Johnson, "Reachable Set Estimation and Verification for Neural Network Models of Nonlinear Dynamic Systems", In Unmanned System Technologies: Safe, Autonomous and Intelligent Vehicles, Springer, 2018, September. [http://www.taylortjohnson.com/research/xiang2018ust.pdf]
 
 7. Reachability Analysis and Safety Verification for Neural Network Control Systems, Weiming Xiang, Taylor T. Johnson [https://arxiv.org/abs/1805.09944]
+
+8. Weiming Xiang, Patrick Musau, Ayana A. Wild, Diego Manzanas Lopez, Nathaniel Hamilton, Xiaodong Yang, Joel Rosenfeld, Taylor T. Johnson, "Verification for Machine Learning, Autonomy, and Neural Networks Survey," October 2018, [https://arxiv.org/abs/1810.01989]
 
 8. Specification-Guided Safety Verification for Feedforward Neural Networks, Weiming Xiang, Hoang-Dung Tran, Taylor T. Johnson [https://arxiv.org/abs/1812.06161]
 

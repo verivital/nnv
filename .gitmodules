@@ -1,0 +1,3 @@
+[submodule "nnv/engine/cora"]
+	path = nnv/engine/cora
+	url = https://github.com/TUMcps/CORA.git

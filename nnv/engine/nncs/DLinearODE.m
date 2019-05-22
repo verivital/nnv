@@ -226,7 +226,7 @@ classdef DLinearODE
             if ~isempty(I) && ~isa(I, 'Zono')
                 error('Set of initial condition is not a zonotope');
             end
-            if ~isempty(u) && ~isa(U, 'Zono')
+            if ~isempty(U) && ~isa(U, 'Zono')
                 error('Set of control input is not a zonotope');
             end
             

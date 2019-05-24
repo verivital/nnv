@@ -24,8 +24,18 @@ function run_all_tests_inDir(dirname)
             end
         end
         pause(t_pause);
-    end
+        
+        % save all figures to files
+        figHandles = findall(groot, 'Type', 'figure');
 
+        for i_fh = 1 : length(figHandles)
+            fh = figHandles(i_fh);
+            filename = strcat('results_fig', f, num2str(i_fh), '.png');
+            saveas(fh, filename);
+        end
+        close all;
+    end
+    
     close all ; clear all;
     cd('..');
 end

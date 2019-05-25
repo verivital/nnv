@@ -50,19 +50,15 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
         
         % save all figures to files
         figHandles = findall(groot, 'Type', 'figure');
-        figHandles
 
         for i_fh = 1 : length(figHandles)
             fh = figHandles(i_fh);
             filename = strcat(outputDirname, 'results_fig_', f, num2str(i_fh), '.png');
-            filename
-            % saveas(fh, filename); % todo: doesn't work on codeocean due to fighandles getting not working
+            saveas(fh, filename);
             fprintf('saving results in %s\n', filename);
         end
         
-        filename = strcat(outputDirname, 'results_fig_', f, num2str(1), '.png');
-        fprintf('saving results in %s\n', filename);
-        saveas(gcf, filename);
+        %saveas(gcf, filename);
         %print(strcat(filename, '.pdf'), '-dpdf');
         close all;
     end

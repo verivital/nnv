@@ -18,9 +18,9 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
     % to manually get all files in reasonable format for setting up tests
     % fprintf("%s\n",strtrim(strrep(strrep(string(ls),'"',''),'.m','')))
 
-%    test_files = strtrim(strsplit(strrep(strrep(string(ls),'"',''),'.m','')));
+    test_files = strtrim(strsplit(strrep(strrep(string(ls),'"',''),'.m','')));
 
-    test_files = strtrim(strsplit(strrep(string(ls),'"','')));
+    %test_files = strtrim(strsplit(strrep(string(ls),'"','')));
  
     test_files
 
@@ -29,16 +29,22 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
         close all ; clearAllExceptVars({t_pause,test_files,i_f,disabledTests,i_d}); % save a few variables between tests, otherwise clear
         f = test_files(i_f);
         
+        fprintf('\n\n***CHECKING*** test %s\n\n', f);
+        
         if (strncmpi(f, 'test_',5) == 1 || strncmpi(reverse(f), reverse('_test'),5) == 1) && ~contains(f,'.') && sum(contains(offTests, f)) == 0
             fprintf('running test %s\n', f);
             try
-                run(f);
+                f_full = strcat(pwd, filesep, f, '.m');
+                run(f_full);
+                fprintf('\nDONE EXECUTING %s\n\n', f_full);
             catch e
                 fprintf('\n\nERROR running test: %s\n', f);
                 disabledTests{i_d} = f; % add to list of test names that should be disabled (for codeocean)
                 e % show error message
-                i_d = i_d + 1;
+                i_d = i_d + 1; % TODO: must rename, causes a name clash with i_d in run_all tests due to global/recusion
             end
+        else
+            continue;
         end
         pause(t_pause);
         
@@ -48,15 +54,16 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
 
         for i_fh = 1 : length(figHandles)
             fh = figHandles(i_fh);
-            filename = strcat(outputDirname, 'results_fig', f, num2str(i_fh), '.png');
+            filename = strcat(outputDirname, 'results_fig_', f, num2str(i_fh), '.png');
             filename
             % saveas(fh, filename); % todo: doesn't work on codeocean due to fighandles getting not working
             fprintf('saving results in %s\n', filename);
         end
         
-        filename = strcat(outputDirname, 'results_fig', f, num2str(1), '.png');
+        filename = strcat(outputDirname, 'results_fig_', f, num2str(1), '.png');
         fprintf('saving results in %s\n', filename);
         saveas(gcf, filename);
+        %print(strcat(filename, '.pdf'), '-dpdf');
         close all;
     end
     

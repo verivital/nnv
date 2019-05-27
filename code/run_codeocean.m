@@ -2,16 +2,19 @@ ls
 
 cd nnv;
 
+cd '/code/nnv/examples/NNCS/ACC/Verification/Scenarios 2'
+
+pwd
+
+cd /code/nnv;
+
+pwd
+
 install;
 
 %dir_root = pwd; % note that install does a clear, must be defined here
 
 'test after install'
-
-cd examples;
-
-cd NN;
-
 
 cd /code/nnv
 
@@ -62,6 +65,21 @@ pwd
 % try all test run
 run_all_tests(dir_results, disabledTests, i_d) % add directory for results input and use dir_root/results
 
-% run all tests doesn't work, I'm guessing what is happening is because some tests throw exceptions, even though they are handled, codeocean must be interpreting this as a failure and stopping the run, so we need to run only those that do not throw exceptions, or fix the ones with exceptions
-
 'after all tests run'
+
+'start nncs tests'
+cd examples;
+cd NNCS;
+cd InvertedPendulum;
+reach_inverted_pendulum_control_sys;
+saveas(gcf, '/results/results_nncs_ip_fig1.png')
+
+cd '/code/nnv/examples/NNCS/ACC/Verification/Scenarios 1'
+verify_controller_3_20
+saveas(gcf, '/results/results_nncs_acc_s1_fig1.png')
+
+cd '/code/nnv/examples/NNCS/ACC/Verification/Scenarios 2'
+reach_nncACCsystem;
+saveas(gcf, '/results/results_nncs_acc_s2_fig1.png')
+
+'after nncs tests'

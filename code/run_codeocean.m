@@ -72,6 +72,9 @@ cd /code/nnv/examples/NNCS/InvertedPendulum;
 reach_inverted_pendulum_control_sys;
 saveas(gcf, '/results/results_nncs_ip_fig1.png')
 
+return;
+
+% some bugs in next, not sure if it's due to cora submodule and we need to upload, or what
 cd '/code/nnv/examples/NNCS/ACC/Verification/Scenarios 1'
 verify_controller_3_20;
 saveas(gcf, '/results/results_nncs_acc_s1_fig1.png')

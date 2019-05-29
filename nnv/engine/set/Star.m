@@ -53,12 +53,7 @@ classdef Star
                     obj.d = d;
                     obj.dim = nV;
                     obj.nVar = mC;
-                    
-                    P = Polyhedron('A', C, 'b', d);
-                    P.outerApprox;
-                    obj.predicate_lb = P.Internal.lb;
-                    obj.predicate_ub = P.Internal.ub;
-                    
+                                        
                 case 2
                     
                     % construct star from lower bound and upper bound
@@ -551,13 +546,35 @@ classdef Star
             
         end
         
-        function B = getBox2(obj)
-            B = [];
-            lb = zeros(obj.dim, 1);
-            ub = zeros(obj.dim, 1); 
+        % estimates ranges of state vector quickly
+        % these ranges are not the exact range, it is an
+        % over-approximation of the exact ranges
+        function B = getBoxFast(obj)
             
+            % author: Dung Tran
+            % date: 5/29/2019
             
-            
+            if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
+                lb = obj.V(:, 1);
+                ub = obj.V(:, 1);
+                B = Box(lb, ub);
+            else
+                
+                if isempty(obj.predicate_lb) || isempty(obj.predicate_ub)
+                    P = Polyhedron('A', obj.C, 'b', obj.d);
+                    P.outerApprox;
+                    pred_lb = P.Internal.lb;
+                    pred_ub = P.Internal.ub;
+                else
+                    pred_lb = obj.predicate_lb;
+                    pred_ub = obj.predicate_ub;
+                end               
+                B1 = Box(pred_lb, pred_ub);
+                Z = B1.toZono;
+                Z = Z.affineMap(obj.V(:,2:obj.nVar + 1), obj.V(:,1));
+                B = Z.getBox;
+            end
+                         
         end
         
         % find range of a state at specific position

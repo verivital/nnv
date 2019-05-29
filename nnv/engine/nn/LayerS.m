@@ -102,6 +102,11 @@ classdef LayerS
                 error('Unknown reachability analysis method');
             end
             
+            if strcmp(method, 'exact-star') && (~strcmp(obj.f, 'poslin') || ~strcmp(obj.f, 'satlin') || ~strcmp(obj.f, 'satlins'))
+                method = 'approx-star';
+                fprintf('\nThe current layer has %s activation function -> cannot compute exact reachable set for the current layer, we use approx-star method instead', obj.f);
+            end
+            
             n = length(I);
             
             if strcmp(option, 'parallel') % reachability analysis using star set
@@ -126,8 +131,12 @@ classdef LayerS
                         S = [S SatLin.reach(I1, method)];
                     elseif strcmp(obj.f, 'satlins')
                         S = [S SatLins.reach(I1, method)];
+                    elseif strcmp(obj.f, 'logsig')
+                        S = [S LogSig.reach_star_approx(I1)];
+                    elseif strcmp(obj.f, 'tansig')
+                        S = [S TanSig.reach_star_approx(I1)];
                     else
-                        error('Unsupported activation function, currently support pureline, posline, satlin')
+                        error('Unsupported activation function, currently support purelin, poslin(ReLU), satlin, logsig, tansig');
                     end
                  
                 end

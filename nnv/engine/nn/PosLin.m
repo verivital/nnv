@@ -197,11 +197,11 @@ classdef PosLin
             end         
 
             if lb >= 0
-                S = Star(I.V, I.C, I.d);
+                S = Star(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub);
             elseif ub <= 0
                 V = I.V;
                 V(index, :) = zeros(1, I.nVar + 1);
-                S = Star(V, I.C, I.d);
+                S = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
             elseif lb < 0 && ub > 0
                 n = I.nVar + 1;
                 % over-approximation constraints 
@@ -225,7 +225,11 @@ classdef PosLin
                 new_V(index, :) = zeros(1, n+1);
                 new_V(index, n+1) = 1;
 
-                S = Star(new_V, new_C, new_d);
+                new_predicate_lb = [I.predicate_lb; 0];
+                new_predicate_ub = [I.predicate_ub; ub];
+
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+
 
             end
 
@@ -264,7 +268,7 @@ classdef PosLin
         end
         
         
-        % over-approximate reachability analysis using Star
+        % fast over-approximate reachability analysis using Star
         function S = reach_star_approx_fast(I)
             % @I: star input set
             % @S: star output set
@@ -284,7 +288,7 @@ classdef PosLin
                 B = I.getBoxFast;
                 if ~isempty(B)
                     for i=1:I.dim
-                        fprintf('\nPerforming approximate PosLin_%d operation using Star', i);
+                        fprintf('\nPerforming fast approximate PosLin_%d operation using Star', i);
                         In = PosLin.stepReachStarApprox(In, i, B.lb(i), B.ub(i));
                     end
                 S = In;

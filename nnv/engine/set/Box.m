@@ -123,7 +123,7 @@ classdef Box
             d = ones(2*n, 1);
            
             V = horzcat(c, V);
-            S = Star(V, C, d);       
+            S = Star(V, C, d, -ones(n,1), ones(n,1));       
         end
         
         % transform box to zonotope

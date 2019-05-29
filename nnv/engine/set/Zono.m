@@ -287,7 +287,7 @@ classdef Zono
             ub = ones(n, 1);                    
             Pa = Polyhedron('lb', lb, 'ub', ub);
             
-            S = Star([obj.c obj.V], Pa.A, Pa.b);            
+            S = Star([obj.c obj.V], Pa.A, Pa.b, lb, ub);            
         end
         
         % plot a zonotope

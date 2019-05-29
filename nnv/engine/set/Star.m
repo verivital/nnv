@@ -28,6 +28,48 @@ classdef Star
             
             switch nargin
                 
+                case 5
+                    
+                    V = varargin{1};
+                    C = varargin{2};
+                    d = varargin{3};
+                    pred_lb = varargin{4};
+                    pred_ub = varargin{5};
+                    
+                    [nV, mV] = size(V);
+                    [nC, mC] = size(C);
+                    [nd, md] = size(d);
+                    [n1, m1] = size(pred_lb);
+                    [n2, m2] = size(pred_ub);
+                    
+                    if mV ~= mC + 1
+                        error('Inconsistency between basic matrix and constraint matrix');
+                    end
+
+                    if nC ~= nd
+                        error('Inconsistency between constraint matrix and constraint vector');
+                    end
+
+                    if md ~= 1
+                        error('constraint vector should have one column');
+                    end
+                    
+                    if m1 ~=1 || m2 ~=1 
+                        error('predicate lower- or upper-bounds vector should have one column');
+                    end
+                    
+                    if n1 ~= n2 || n1 ~= mC
+                        error('Inconsistency between number of predicate variables and predicate lower- or upper-bounds vector');
+                    end
+
+                    obj.V = V;
+                    obj.C = C; 
+                    obj.d = d;
+                    obj.dim = nV;
+                    obj.nVar = mC;
+                    obj.predicate_lb = pred_lb;
+                    obj.predicate_ub = pred_ub;
+                
                 case 3
                     V = varargin{1};
                     C = varargin{2};
@@ -82,7 +124,7 @@ classdef Star
                     
                 otherwise
                     
-                    error('Invalid number of input arguments (should be 0 or 3)');
+                    error('Invalid number of input arguments (should be 0 or 2 or 3 or 5)');
             end
             
             
@@ -220,7 +262,7 @@ classdef Star
             end
             
 
-            S = Star(newV, obj.C, obj.d);
+            S = Star(newV, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
            
         end
         
@@ -294,8 +336,8 @@ classdef Star
             
             new_C = vertcat(obj.C, C1);
             new_d = vertcat(obj.d, d1);
-            
-            S = Star(obj.V, new_C, new_d);
+                       
+            S = Star(obj.V, new_C, new_d, obj.predicate_lb, obj.predicate_ub);
             if S.isEmptySet
                 S = [];
             end

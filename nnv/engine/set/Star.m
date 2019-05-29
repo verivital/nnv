@@ -13,10 +13,9 @@ classdef Star
         dim = 0; % dimension of star set
         nVar = 0; % number of variable in the constraints
         
-        lb = []; % lower bound vector
-        ub = []; % upper bound vector
-        Z = []; % over-approximate zonotope contain the star set
-        
+        predicate_lb = []; % lower bound vector of predicate variable
+        predicate_ub = []; % upper bound vector of predicate variable
+                
     end
     
     methods
@@ -28,49 +27,6 @@ classdef Star
             % @d: constraint vector
             
             switch nargin
-                
-                case 4
-                    
-                    V = varargin{1};
-                    C = varargin{2};
-                    d = varargin{3};
-                    Z = varargin{4}; 
-                    
-                    [nV, mV] = size(V);
-                    [nC, mC] = size(C);
-                    [nd, md] = size(d);
-
-                    if mV ~= mC + 1
-                        error('Inconsistency between basic matrix and constraint matrix');
-                    end
-
-                    if nC ~= nd
-                        error('Inconsistency between constraint matrix and constraint vector');
-                    end
-
-                    if md ~= 1
-                        error('constraint vector should have one column');
-                    end
-                    
-                    if ~isempty(Z) && ~isa(Z, 'Zono')
-                        error('The last input should be a zonotope');
-                    end
-                    
-                    if ~isempty(Z) && Z.dim ~= nV
-                        error('Inconsistent between the outer zonotope and the exact star set');
-                    end
-                    
-                    obj.V = V;
-                    obj.C = C; 
-                    obj.d = d;
-                    obj.dim = nV;
-                    obj.nVar = mC;
-                    obj.Z = Z;
-                    if ~isempty(Z)
-                        B = Z.getBox;
-                        obj.lb = B.lb;
-                        obj.ub = B.ub;
-                    end
                 
                 case 3
                     V = varargin{1};
@@ -98,6 +54,11 @@ classdef Star
                     obj.dim = nV;
                     obj.nVar = mC;
                     
+                    P = Polyhedron('A', C, 'b', d);
+                    P.outerApprox;
+                    obj.predicate_lb = P.Internal.lb;
+                    obj.predicate_ub = P.Internal.ub;
+                    
                 case 2
                     
                     % construct star from lower bound and upper bound
@@ -112,9 +73,9 @@ classdef Star
                     obj.d = S.d;
                     obj.dim = S.dim;
                     obj.nVar = S.nVar;
-                    obj.lb = lb;
-                    obj.ub = ub;
-                    obj.Z = B.toZono;
+                    obj.predicate_lb = -ones(S.nVar, 1);
+                    obj.predicate_ub = ones(S.nVar, 1);
+                    
                 
                 case 0
                     % create empty Star (for preallocation an array of star)
@@ -123,9 +84,6 @@ classdef Star
                     obj.d = [];
                     obj.dim = 0;
                     obj.nVar = 0;
-                    obj.lb = [];
-                    obj.ub = [];
-                    obj.Z = [];
                     
                 otherwise
                     
@@ -266,15 +224,9 @@ classdef Star
                 newV = W * obj.V;
             end
             
-            if ~isempty(obj.Z)
-                new_Z = obj.Z.affineMap(W, b);
-                S = Star(newV, obj.C, obj.d, new_Z); 
-            else
-                S = Star(newV, obj.C, obj.d);
-            end
-            
-            
-                       
+
+            S = Star(newV, obj.C, obj.d);
+           
         end
         
         % Minkowski Sum
@@ -556,57 +508,55 @@ classdef Star
         % find a box bounding a star
         function B = getBox(obj)
             
-            if ~isempty(obj.lb) && ~isempty(obj.ub)
-               
-                lb = obj.lb;
-                ub = obj.ub;
-                
-            else
-                
-                lb = zeros(obj.dim, 1);
-                ub = zeros(obj.dim, 1); 
-            
-                if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
-                    lb = obj.V(:, 1);
-                    ub = obj.V(:, 1);
+            lb = zeros(obj.dim, 1);
+            ub = zeros(obj.dim, 1); 
 
-                else % star set is a set
+            if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
+                lb = obj.V(:, 1);
+                ub = obj.V(:, 1);
 
-                    options = optimset('Display','none');
+            else % star set is a set
 
-                    for i=1:obj.dim
-                        f = obj.V(i, 2:obj.nVar + 1);
-                        [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                        if exitflag > 0
-                            lb(i) = fval + obj.V(i, 1);
-                        else
-                            obj.lb = [];
-                            ub = [];
-                            break;
-                        end
-                        [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                options = optimset('Display','none');
 
-                        if exitflag > 0
-                            ub(i) = -fval + obj.V(i, 1);
-                        else
-                            lb = [];
-                            ub = [];
-                            break;
-                        end
-
+                for i=1:obj.dim
+                    f = obj.V(i, 2:obj.nVar + 1);
+                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                    if exitflag > 0
+                        lb(i) = fval + obj.V(i, 1);
+                    else
+                        lb = [];
+                        ub = [];
+                        break;
                     end
-            
-                end         
-                
-            end
-            
-            
+                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+
+                    if exitflag > 0
+                        ub(i) = -fval + obj.V(i, 1);
+                    else
+                        lb = [];
+                        ub = [];
+                        break;
+                    end
+
+                end
+
+            end         
             
             if isempty(lb) || isempty(ub)
                 B = [];
             else
                 B = Box(lb, ub);           
             end
+            
+        end
+        
+        function B = getBox2(obj)
+            B = [];
+            lb = zeros(obj.dim, 1);
+            ub = zeros(obj.dim, 1); 
+            
+            
             
         end
         
@@ -622,30 +572,24 @@ classdef Star
                 error('Invalid index');
             end
             
-            if ~isempty(obj.lb) && ~isempty(obj.ub)
-                xmin = obj.lb(index);
-                xmax = obj.ub(index);
+            options = optimset('Display','none');
+
+            f = obj.V(index, 2:obj.nVar + 1);
+
+            [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+
+            if exitflag > 0
+                xmin = fval + obj.V(index, 1);
             else
-                options = optimset('Display','none');
-            
-                f = obj.V(index, 2:obj.nVar + 1);
+                error('Cannot find an optimal solution, exitflag = %d', exitflag);
+            end          
 
-                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-
-                if exitflag > 0
-                    xmin = fval + obj.V(index, 1);
-                else
-                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
-                end          
-
-                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                if exitflag > 0
-                    xmax = -fval + obj.V(index, 1);
-                else
-                    error('Cannot find an optimal solution');
-                end
-           
-            end   
+            [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+            if exitflag > 0
+                xmax = -fval + obj.V(index, 1);
+            else
+                error('Cannot find an optimal solution');
+            end
             
         end
         

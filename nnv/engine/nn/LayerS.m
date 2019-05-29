@@ -162,8 +162,12 @@ classdef LayerS
                         S = [S SatLin.reach(I1, method)];
                     elseif strcmp(obj.f, 'satlins')
                         S = [S SatLins.reach(I1, method)];
+                    elseif strcmp(obj.f, 'logsig')
+                        S = [S LogSig.reach_star_approx(I1)];
+                    elseif strcmp(obj.f, 'tansig')
+                        S = [S TanSig.reach_star_approx(I1)];
                     else
-                        error('Unsupported activation function, currently support pureline, posline, satlin');
+                        error('Unsupported activation function, currently support purelin, poslin(ReLU), satlin, logsig, tansig');
                     end
 
                 end

@@ -335,8 +335,7 @@ classdef FFNNS < handle
             
             % performing reachability analysis
             [R, ~] = obj.reach(I, method, numOfCores);        
-            
-            
+                      
             % check safety
             n = length(R);
             m = length(U); 

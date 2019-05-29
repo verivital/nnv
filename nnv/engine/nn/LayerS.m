@@ -102,7 +102,7 @@ classdef LayerS
                 error('Unknown reachability analysis method');
             end
             
-            if strcmp(method, 'exact-star') && (~strcmp(obj.f, 'poslin') || ~strcmp(obj.f, 'satlin') || ~strcmp(obj.f, 'satlins'))
+            if strcmp(method, 'exact-star') && (~strcmp(obj.f, 'purelin') && ~strcmp(obj.f, 'poslin') && ~strcmp(obj.f, 'satlin') && ~strcmp(obj.f, 'satlins'))
                 method = 'approx-star';
                 fprintf('\nThe current layer has %s activation function -> cannot compute exact reachable set for the current layer, we use approx-star method instead', obj.f);
             end

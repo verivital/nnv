@@ -262,6 +262,38 @@ classdef PosLin
             end
 
         end
+        
+        
+        % over-approximate reachability analysis using Star
+        function S = reach_star_approx_fast(I)
+            % @I: star input set
+            % @S: star output set
+
+            % author: Dung Tran
+            % date: 4/3/2019
+
+
+            if ~isa(I, 'Star')
+                error('Input is not a star');
+            end
+
+            if isEmptySet(I)
+                S = [];
+            else
+                In = I;
+                B = I.getBoxFast;
+                if ~isempty(B)
+                    for i=1:I.dim
+                        fprintf('\nPerforming approximate PosLin_%d operation using Star', i);
+                        In = PosLin.stepReachStarApprox(In, i, B.lb(i), B.ub(i));
+                    end
+                S = In;
+                else
+                    S = [];
+                end
+            end
+
+        end
 
 
 
@@ -661,6 +693,10 @@ classdef PosLin
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 
                 R = PosLin.reach_star_approx(I);
+                
+            elseif strcmp(method, 'approx-star-fast')  % over-approximate analysis using star
+                
+                R = PosLin.reach_star_approx_fast(I);
                 
             elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
                 

@@ -2,5 +2,6 @@
 set -ex
 
 mkdir deps && cd deps
-mv /environment/install.m ./
+mv /root/capsule/environment/install.m ./
 matlab -nodisplay -r "install; cd ..; addpath(genpath('/deps')); savepath"
+

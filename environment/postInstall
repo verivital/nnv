@@ -19,6 +19,7 @@ matlab -nodisplay -r "fprintf('\nINSTALLING NNV....') \
   tbxmanager install mpt mptdoc; \
   tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi; \
   fprintf('\nInstalling dependencies is done!'); \
-  startup; \
-  cd .. ; \
-  addpath(genpath('deps')); savepath"
+  startup"
+  
+cd ..
+matlab -nodisplay -r "addpath(genpath('./deps')) savepath; "

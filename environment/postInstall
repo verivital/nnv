@@ -1,2 +1,34 @@
 #!/usr/bin/env bash
 set -e
+
+mkdir deps && cd deps
+YALMIP_RELEASE=R20171121
+
+curl -sL https://github.com/yalmip/YALMIP/archive/$YALMIP_RELEASE.tar.gz | tar xz
+
+matlab -nodisplay -r " \
+  fprintf('\nINSTALLING NNV....') \
+  fprintf('\nIntalling tbxmanager (requires Matlab R2009a or later) ...'); \
+  tbxmanager_folder = 'tbxmanager'; \
+  list = dir; \
+  if ~isfolder(tbxmanager_folder) \
+      mkdir(tbxmanager_folder); \
+  end \
+  \ 
+  % install mpt toobox and other dependencies \
+  cd(tbxmanager_folder); \
+  urlwrite('https://raw.githubusercontent.com/verivital/tbxmanager/master/tbxmanager.m', 'tbxmanager.m'); \
+  %urlwrite('http://www.tbxmanager.com/tbxmanager.m', 'tbxmanager.m');
+  tbxmanager \
+  savepath \
+  fprintf('\nInstalling tbxmanager toolbox is done!'); \
+  \ 
+  fprintf('\nIntalling mpt toolbox and other dependencies...\n'); \
+  tbxmanager install mpt mptdoc; \
+  tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi; \
+  fprintf('\nInstalling dependencies is done!'); \
+  
+  startup; % adding dependencies and nnv to the path \
+"
+cd ..
+matlab -nodisplay -r "savepath('deps')"

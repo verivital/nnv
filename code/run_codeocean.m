@@ -1,20 +1,20 @@
-ls
+% ls
 
-cd nnv;
+% cd nnv;
 
-cd '/code/nnv/examples/NNCS/ACC/Verification/Scenarios 2'
+% cd '/code/nnv/examples/NNCS/ACC/Verification/Scenarios 2'
 
-pwd
+% pwd
 
-cd /code/nnv;
+% cd /code/nnv;
 
-pwd
+% pwd
 
-install;
+% install;
 
-%dir_root = pwd; % note that install does a clear, must be defined here
+% %dir_root = pwd; % note that install does a clear, must be defined here
 
-'test after install'
+% 'test after install'
 
 cd /code/nnv
 

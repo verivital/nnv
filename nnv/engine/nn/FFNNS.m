@@ -605,7 +605,7 @@ classdef FFNNS < handle
             lb = input_vec;
             ub = input_vec;
             
-            if nargin == 8
+            if nargin == 8 || nargin == 9
                 
                 for i=1:n
                     
@@ -632,7 +632,7 @@ classdef FFNNS < handle
             
             % input set to check robustness
             I = Star(lb, ub);
-                        
+                                   
             [robust, ~, adv_inputs] = obj.isSafe(I, un_robust_reg, method, n_samples, num_cores);
             
             if robust == 1

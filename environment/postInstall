@@ -13,13 +13,12 @@ matlab -nodisplay -r "fprintf('\nINSTALLING NNV....') \
   list = dir; \
   cd(tbxmanager_folder); \
   urlwrite('https://raw.githubusercontent.com/verivital/tbxmanager/master/tbxmanager.m', 'tbxmanager.m'); \
-  tbxmanager ;\
+  tbxmanager; \
   fprintf('\nInstalling tbxmanager toolbox is done!'); \
   fprintf('\nIntalling mpt toolbox and other dependencies...\n'); \
   tbxmanager install mpt mptdoc; \
   tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi; \
   fprintf('\nInstalling dependencies is done!'); \
-  startup"
-  
-cd ..
-matlab -nodisplay -r "addpath(genpath('./deps')) savepath; "
+  startup; \
+  cd ..; \
+  addpath(genpath('./deps')) savepath;"

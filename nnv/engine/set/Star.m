@@ -95,7 +95,7 @@ classdef Star
                     obj.d = d;
                     obj.dim = nV;
                     obj.nVar = mC;
-                                        
+                                                            
                 case 2
                     
                     % construct star from lower bound and upper bound
@@ -262,7 +262,7 @@ classdef Star
             end
             
 
-            S = Star(newV, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+            S = Star(newV, obj.C, obj.d);
            
         end
         
@@ -337,7 +337,7 @@ classdef Star
             new_C = vertcat(obj.C, C1);
             new_d = vertcat(obj.d, d1);
                        
-            S = Star(obj.V, new_C, new_d, obj.predicate_lb, obj.predicate_ub);
+            S = Star(obj.V, new_C, new_d);
             if S.isEmptySet
                 S = [];
             end

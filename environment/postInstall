@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -ex
 
 mkdir deps && cd deps
 YALMIP_RELEASE=R20171121
@@ -19,6 +19,6 @@ matlab -nodisplay -r "fprintf('\nINSTALLING NNV....') \
   tbxmanager install mpt mptdoc; \
   tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi; \
   fprintf('\nInstalling dependencies is done!'); \
-  startup; % adding dependencies and nnv to the path \
+  startup; \
   cd .. ; \
   addpath(genpath('deps')); savepath"

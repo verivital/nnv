@@ -33,4 +33,4 @@ fprintf('\nPlease go to examples or test folders to run case studies and test ex
 fprintf('\nTHANK YOU FOR TRYING NNV. PLEASE EMAIL trhoangdung@gmail.com FOR ANY CONCERNS OR SUGESSTIONS\n\n');
 " >> install.m
 
-matlab -nodisplay -r "install; cd ..; addpath(genpath('./deps'))"
+matlab -nodisplay -r "install; cd ..; addpath(genpath('/deps')); savepath"

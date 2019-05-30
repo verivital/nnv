@@ -19,8 +19,7 @@ matlab -nodisplay -r " \
   cd(tbxmanager_folder); \
   urlwrite('https://raw.githubusercontent.com/verivital/tbxmanager/master/tbxmanager.m', 'tbxmanager.m'); \
   %urlwrite('http://www.tbxmanager.com/tbxmanager.m', 'tbxmanager.m');
-  tbxmanager \
-  savepath \
+  tbxmanager ;\
   fprintf('\nInstalling tbxmanager toolbox is done!'); \
   \ 
   fprintf('\nIntalling mpt toolbox and other dependencies...\n'); \
@@ -29,6 +28,5 @@ matlab -nodisplay -r " \
   fprintf('\nInstalling dependencies is done!'); \
   
   startup; % adding dependencies and nnv to the path \
-"
-cd ..
-matlab -nodisplay -r "savepath('deps')"
+  cd .. ; \
+  addpath(genpath('deps')); savepath"

@@ -12,9 +12,9 @@
 
 % install;
 
-% %dir_root = pwd; % note that install does a clear, must be defined here
+%dir_root = pwd; % note that install does a clear, must be defined here
 
-% 'test after install'
+'test after install'
 
 cd /code/nnv
 

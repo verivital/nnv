@@ -7,8 +7,7 @@ YALMIP_RELEASE=R20171121
 curl -sL https://github.com/yalmip/YALMIP/archive/$YALMIP_RELEASE.tar.gz | tar xz
 mkdir tbxmanager_folder
 
-matlab -nodisplay -r " \
-  fprintf('\nINSTALLING NNV....') \
+matlab -nodisplay -r "fprintf('\nINSTALLING NNV....') \
   fprintf('\nIntalling tbxmanager (requires Matlab R2009a or later) ...'); \
   tbxmanager_folder = 'tbxmanager'; \
   list = dir; \

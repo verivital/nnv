@@ -260,8 +260,76 @@ classdef PosLin
             end
 
         end
-        
-        
+               
+        % fast step reach approximation using star
+        function S = stepReachStarApproxFast(varargin)
+            % @I: star set input
+            % @index: index of the neuron performing stepReach
+            % @S: star output
+
+            % author: Dung Tran
+            % date: 5/30/2019
+            
+            
+             switch nargin
+                
+                case 4
+                    
+                    I = varargin{1};
+                    index = varargin{2};
+                    lb = varargin{3};
+                    ub = varargin{4};
+                
+                case 2
+                    I = varargin{1};
+                    index = varargin{2};
+                    [lb, ub] = I.getRange(index);
+                
+                otherwise
+                    error('Invalid number of input arguments (should be 2 or 4)');
+             end
+            
+            
+            if ~isa(I, 'Star')
+                error('Input is not a star');
+            end         
+           
+            if lb >= 0
+                S = Star(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub);
+            elseif ub <= 0
+                V = I.V;
+                V(index, :) = zeros(1, I.nVar + 1);
+                S = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
+            elseif lb < 0 && ub > 0
+                n = I.nVar + 1;
+                % over-approximation constraints 
+                % constraint 1: y[index] = ReLU(x[index]) >= 0
+                C1 = zeros(1, n);
+                C1(n) = -1; 
+                d1 = 0;
+                % constraint 2: y[index] >= x[index]
+                C2 = [I.V(index, 2:n) -1];
+                d2 = -I.V(index, 1);
+                % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
+                C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
+                d3 = -ub*lb/(ub-lb) +  ub*I.V(index, 1)/(ub-lb);
+
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_C = [C0; C1; C2; C3];
+                new_d = [d0; d1; d2; d3];
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, n+1);
+                new_V(index, n+1) = 1;
+                new_predicate_lb = [I.predicate_lb; 0];
+                new_predicate_ub = [I.predicate_ub; ub];
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+            end
+
+        end
+
+
         % fast over-approximate reachability analysis using Star
         function S = reach_star_approx_fast(I)
             % @I: star input set
@@ -278,12 +346,13 @@ classdef PosLin
             if isEmptySet(I)
                 S = [];
             else
-                In = I;
                 B = I.getBoxFast;
+                [pred_lb, pred_ub] = I.getPredicateBounds;
+                In = Star(I.V, I.C, I.d, pred_lb, pred_ub);          
                 if ~isempty(B)
                     for i=1:I.dim
                         fprintf('\nPerforming fast approximate PosLin_%d operation using Star', i);
-                        In = PosLin.stepReachStarApprox(In, i, B.lb(i), B.ub(i));
+                        In = PosLin.stepReachStarApproxFast(In, i, B.lb(i), B.ub(i));
                     end
                 S = In;
                 else

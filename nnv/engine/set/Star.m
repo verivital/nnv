@@ -229,11 +229,7 @@ classdef Star
                 end             
                 
             end
-            
-            
-            
-            
-            
+                     
         end
         
         % affine mapping of star set S = Wx + b;
@@ -261,8 +257,11 @@ classdef Star
                 newV = W * obj.V;
             end
             
-
-            S = Star(newV, obj.C, obj.d);
+            if ~isempty(obj.predicate_lb)
+                S = Star(newV, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+            else
+                S = Star(newV, obj.C, obj.d);
+            end
            
         end
         
@@ -338,6 +337,7 @@ classdef Star
             new_d = vertcat(obj.d, d1);
                        
             S = Star(obj.V, new_C, new_d);
+            
             if S.isEmptySet
                 S = [];
             end
@@ -600,17 +600,8 @@ classdef Star
                 lb = obj.V(:, 1);
                 ub = obj.V(:, 1);
                 B = Box(lb, ub);
-            else
-                
-                if isempty(obj.predicate_lb) || isempty(obj.predicate_ub)
-                    P = Polyhedron('A', obj.C, 'b', obj.d);
-                    P.outerApprox;
-                    pred_lb = P.Internal.lb;
-                    pred_ub = P.Internal.ub;
-                else
-                    pred_lb = obj.predicate_lb;
-                    pred_ub = obj.predicate_ub;
-                end               
+            else      
+                [pred_lb, pred_ub] = obj.getPredicateBounds;         
                 B1 = Box(pred_lb, pred_ub);
                 Z = B1.toZono;
                 Z = Z.affineMap(obj.V(:,2:obj.nVar + 1), obj.V(:,1));
@@ -618,6 +609,24 @@ classdef Star
             end
                          
         end
+        
+        % get bounds of predicate variables
+        function [pred_lb, pred_ub] = getPredicateBounds(obj)
+            % author: Dung Tran
+            % date: 5/30/2019
+            
+            if isempty(obj.predicate_lb) || isempty(obj.predicate_ub)
+                P = Polyhedron('A', obj.C, 'b', obj.d);
+                P.outerApprox;
+                pred_lb = P.Internal.lb;
+                pred_ub = P.Internal.ub;
+            else
+                pred_lb = obj.predicate_lb;
+                pred_ub = obj.predicate_ub;
+            end  
+            
+        end
+        
         
         % find range of a state at specific position
         function [xmin, xmax] = getRange(obj, index)
@@ -1152,9 +1161,7 @@ classdef Star
             end
 
         end
-        
-        
-        
+           
     end
     
 end

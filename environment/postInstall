@@ -13,4 +13,4 @@ tbxmanager install yalmip; % todo: error due to license, need to force acceptanc
 startup; % adding dependencies and nnv to the path
 " > install.m
 
-matlab -nodisplay -r "install; cd ..; addpath(genpath('./tbxmanager')); savepath"
+matlab -nodisplay -r "install; addpath(genpath('../tbxmanager')); savepath"

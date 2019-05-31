@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -ex
 
+mkdir deps && cd deps
+
+curl -LO https://tumcps.github.io/CORA/data/CORA_2018.zip
+unzip CORA_2018.zip && rm CORA_2018.zip
+
 mkdir tbxmanager && cd tbxmanager
 
 echo "
@@ -13,4 +18,4 @@ tbxmanager install yalmip; % todo: error due to license, need to force acceptanc
 startup; % adding dependencies and nnv to the path
 " > install.m
 
-matlab -nodisplay -r "install; addpath(genpath('../tbxmanager')); savepath"
+matlab -nodisplay -r "install; addpath(genpath('../../deps')); savepath"

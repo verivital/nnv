@@ -11,7 +11,6 @@ mkdir tbxmanager && cd tbxmanager
 echo "
 urlwrite('https://raw.githubusercontent.com/verivital/tbxmanager/master/tbxmanager.m', 'tbxmanager.m');
 tbxmanager
-savepath
 tbxmanager install mpt mptdoc;
 tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi;
 tbxmanager install yalmip; % todo: error due to license, need to force acceptance

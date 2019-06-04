@@ -128,7 +128,7 @@ classdef SatLin
                 dim = I(1).dim;
                 In = I;
                 for i=1:dim
-                    fprintf('\nPerforming SatLin_%d operation', i);
+                    fprintf('\nPerforming exact SatLin_%d operation using Star', i);
                     In = SatLin.stepReachMultipleInputs(In, i, option);
                 end             
                 
@@ -270,7 +270,7 @@ classdef SatLin
             else
                 In = I;
                 for i=1:I.dim
-                    fprintf('\nPerforming SatLin_%d operation', i);
+                    fprintf('\nPerforming exact SatLin_%d operation using star', i);
                     In = SatLin.stepReachStarApprox(In, i);
                 end
                 S = In;
@@ -348,7 +348,79 @@ classdef SatLin
                               
         end
         
+        % stepReachPolyhedron with multiple inputs
+        function P = stepReachPolyhedronMultipleInputs(varargin)
+            % @I: an array of stars
+            % @index: index where stepReach is performed
+            % @option: = 'parallel' use parallel computing
+            %          = not declare -> don't use parallel computing
             
+            % author: Dung Tran
+            % date: 6/4/2019
+            
+            switch nargin
+                case 3
+                    I = varargin{1};
+                    index = varargin{2};
+                    option = varargin{3};
+                case 2
+                    I = varargin{1};
+                    index = varargin{2};
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 2 or 3)');
+            end
+            
+            
+            
+            p = length(I);
+            P = [];
+            
+            if isempty(option)
+                
+                for i=1:p
+                    P =[P, SatLin.stepReachPolyhedronExact(I(i), index)];
+                end
+                
+            elseif strcmp(option, 'parallel')
+                
+                parfor i=1:p
+                    P =[P, SatLin.stepReachPolyhedronExact(I(i), index)];
+                end
+                
+            else
+                error('Unknown option');
+            end
+            
+            
+        end
+        
+        
+        % exact reachability analysis using polyhedorn
+        function S = reach_polyhedron_exact(I, option)
+            % @I: an array of star input sets
+            % @option: = 'parallel' use parallel option
+            %          = '' do use parallel option
+            
+            % author: Dung Tran
+            % date: 6/4/2019
+            
+            if ~isempty(I)       
+                dim = I(1).Dim;
+                In = I;
+                for i=1:dim
+                    fprintf('\nPerforming exact SatLin_%d operation using Polyhedron', i);
+                    In = SatLin.stepReachPolyhedronMultipleInputs(In, i, option);
+                end             
+                
+                S = In;
+            else
+                S = [];
+            end
+            
+              
+        end
+           
     end
 
     
@@ -442,7 +514,7 @@ classdef SatLin
                       
             In = I;
             for i=1:I.dim
-                fprintf('\nPerforming SatLin_%d operation', i);
+                fprintf('\nPerforming approximate SatLin_%d operation using Zonotope', i);
                 In = SatLin.stepReachZonoApprox(In, i);
             end
             Z = In;
@@ -626,7 +698,7 @@ classdef SatLin
             else
                 In = I;
                 for i=1:I.dim
-                    fprintf('\nPerforming PosLin_%d operation', i);
+                    fprintf('\nPerforming approximate SatLin_%d operation using Abstract-Domain', i);
                     In = SatLin.stepReachAbstractDomain(In, i);
                 end
                 S = In;
@@ -680,6 +752,10 @@ classdef SatLin
             if strcmp(method, 'exact-star') % exact analysis using star
                 
                 R = SatLin.reach_star_exact(I, option);
+                
+            elseif strcmp(method, 'exact-polyhedron') % exact analysis using star
+                
+                R = SatLin.reach_polyhedron_exact(I, option);
                 
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 

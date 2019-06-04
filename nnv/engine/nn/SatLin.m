@@ -280,6 +280,77 @@ classdef SatLin
              
     end
     
+    % exact analysis using polyhedron
+    methods(Static)
+        
+        % step reachability analysis using polyhedron
+        function P = stepReachPolyhedronExact(I, index)
+            % @I: polyhedron input set
+            % @index: index of the neuron performing step reach
+            % @P: polyhedron output set 
+            
+            % author: Dung Tran
+            % date: 6/4/2019
+            
+            
+            if ~isa(I, 'Polyhedron')
+                error('Input is not a polyhedron');
+            end
+            
+            dim = I.Dim;
+            
+            
+            
+            Im = eye(dim);
+            Im(index, index) = 0;
+            % case 1: x(index) <= 0, SatLin(x(index)) = 0
+            Z = zeros(1, dim);
+            Z(1, index) = 1;
+            A = vertcat(I.A, Z);
+            b = [I.b; 0];
+            R1 = Polyhedron('A', A, 'b', b, 'Ae', I.Ae, 'be', I.be);
+            R1 = R1.affineMap(Im, 'vrep');
+            
+            if R1.isEmptySet
+                R1 = [];
+            end
+            
+            % case 2: x[index] > 0 , x[index] < 1 -> SatLin(x[index]) = x[index]          
+            Z = [zeros(1, dim); zeros(1, dim)];
+            Z(1, index) = -1;
+            Z(2, index) = 1; 
+            A = vertcat(I.A, Z);
+            b = [I.b; 0; 1];
+            R2 = Polyhedron('A', A, 'b', b, 'Ae', I.Ae, 'be', I.be);
+            
+            if R2.isEmptySet
+               R2 = [];
+            end
+
+            % case 3: x[index] >= 1
+            Z = zeros(1, dim);
+            Z(1, index) = -1;
+            A = vertcat(I.A, Z);
+            b = [I.b; -1];
+            R3 = Polyhedron('A', A, 'b', b, 'Ae', I.Ae, 'be', I.be);
+            R3 = R3.affineMap(Im, 'vrep');
+            z = zeros(dim, 1);
+            z(index) = 1;
+            
+            if ~R3.isEmptySet
+                R3 = R3 + z;
+            else
+                R3 = [];
+            end
+            
+            P = [R1 R2 R3];
+            
+                              
+        end
+        
+            
+    end
+
     
     methods(Static) % over-approximate reachability analysis using zonotope
         

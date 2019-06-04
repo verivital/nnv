@@ -587,6 +587,74 @@ classdef PosLin
         end
         
         
+        % a new step over-approximate reachability analysis using zonotope
+        function Z = stepReachZonoApprox2(I, index)
+            % @I: zonotope input set
+            % @index: index of neuron performing stepReach
+            % @Z: zonotope output set
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+        
+            % reference: Fast and Effective Robustness Ceritification,
+            % Gagandeep Singh, NIPS 2018
+           
+            if ~isa(I, 'Zono')
+                error('Input is not a Zonotope');
+            end
+               
+            [lb, ub] = I.getRange(index);
+            
+            if lb >= 0
+                Z = Zono(I.c, I.V);
+                
+            elseif ub <= 0
+                c = I.c;
+                c(index) = 0;
+                V = I.V;
+                V(index, :) = zeros(1, size(I.V, 2));
+                Z = Zono(c, V);
+                
+            elseif lb < 0 && ub > 0
+                
+                lamda = lb/2;
+                c = I.c; 
+                c(index) = c(index) - lamda;
+                V = I.V;
+                I1 = zeros(I.dim,1);
+                I1(index) = lamda;
+                V = [V I1];
+                
+                Z = Zono(c, V);                
+            end
+            
+        end
+        
+        % over-approximate reachability analysis use new zonotope method
+        function Z = reach_zono_approx2(I)
+            % @I: zonotope input
+            % @Z: zonotope output
+            
+            % author: Dung Tran
+            % date: 5/3/2019
+            
+            % reference: Fast and Effective Robustness Ceritification,
+            % Gagandeep Singh, NIPS 2018
+            
+            if ~isa(I, 'Zono')
+                error('Input is not a Zonotope');
+            end
+                      
+            In = I;
+            for i=1:I.dim
+                fprintf('\nPerforming approximate PosLin_%d operation using new Zonotope method', i);
+                In = PosLin.stepReachZonoApprox2(In, i);
+            end
+            Z = In;
+                       
+        end
+        
+        
     end
     
     
@@ -768,6 +836,10 @@ classdef PosLin
             elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
                 
                 R = PosLin.reach_zono_approx(I);
+                
+            elseif strcmp(method, 'approx-zono-new')  % over-approximate analysis using new zonotope method
+                
+                R = PosLin.reach_zono_approx2(I);
                 
             elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
                 

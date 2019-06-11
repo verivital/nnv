@@ -2,9 +2,10 @@
 % this convolution layer is from the link: 
 % http://cs231n.github.io/convolutional-networks/
 
-L = Conv2DLayer(3, 1);
+L = Conv2DLayer(3, 2);
 L.set_name('Test_Convolutional_Layer');
 
+% filter has a size of 3 x 3
 % filter 1 weight matrix with 3 channels
 W(:,:, 1, 1) = [0 1 0; -1 1 -1; 1 1 1]; % channel 1
 W(:, :, 2, 1) = [-1 -1 -1; 1 1 0; 0 0 1]; % channel 2

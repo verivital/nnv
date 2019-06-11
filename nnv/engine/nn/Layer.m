@@ -31,6 +31,8 @@ classdef Layer
         % Evaluation method
         function y = evaluate(obj, x)  % evaluation of this layer with a specific vector
             if size(x, 1) ~= size(obj.W, 2) || size(x, 2) ~= 1
+                display(x);
+                display(obj.W);
                 error('Invalid or inconsistent input vector')
             end
             y1 = obj.W * x + obj.b;

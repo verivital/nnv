@@ -33,33 +33,163 @@ classdef Conv2DLayer < handle
     methods
         
         % constructor of the class
-        function obj = Conv2DLayer(filterSize, numFilters)
-            % @filterSize: height and width of filters
-            % @numFilters: number of filters
-            
+        function obj = Conv2DLayer(varargin)           
             % author: Dung Tran
             % date: 12/5/2018    
             % update: 
             
-            [n, m] = size(filterSize);
-            
-            if n ~= 1
-                error('Filter size should has one row');
+            switch nargin
+                
+                case 6
+                    
+                    layer_name = varargin{1}; 
+                    filter_weights = varargin{2};
+                    filter_bias = varargin{3};
+                    padding_mat = varargin{4};
+                    stride_mat = varargin{5};
+                    dilation_mat = varargin{6};
+                    
+                    if ischar(layer_name)
+                        obj.Name = layer_name;
+                    else
+                        error('Layer name should be a char array');
+                    end
+                    
+                    
+                    w = size(filter_weights);
+                    b = size(filter_bias);
+                    
+                    if length(w) ~= 4
+                        error('Invalid weights array');
+                    end
+                    if length(b) ~= 3
+                        error('Invalid biases array');
+                    end
+
+                    if w(4) ~= b(3)
+                        error('Inconsistency between filter weights and filter biases');
+                    end
+                    
+                    obj.NumFilters = w(4);
+                    obj.NumChannels = w(3);
+                    obj.FilterSize = [w(1) w(2)];
+                    obj.Weights = filter_weights;
+                    obj.Bias = filter_bias;
+                                        
+                    p = size(padding_mat);
+                   
+                    if  length(p) ~= 2 || p(2) ~= 4|| p(1) ~= 1
+                        error('Invalid padding matrix');
+                    end
+                    obj.PaddingSize = padding_mat;
+                    
+                    s = size(stride_mat);
+                    if length(s) ~= 2 || s(1) ~= 1
+                        error('Invalid stride matrix');
+                    end
+                    obj.Stride = stride_mat;
+                    
+                    d = size(dilation_mat);
+                    if length(d) ~= 2 || d(1) ~= 1
+                        error('Invalid dilation matrix');
+                    end                
+                    obj.DilationFactor = dilation_mat;
+                    
+                    
+                
+                case 5
+                    
+                    filter_weights = varargin{1};
+                    filter_bias = varargin{2};
+                    padding_mat = varargin{3};
+                    stride_mat = varargin{4};
+                    dilation_mat = varargin{5};
+                    
+                    obj.Name = 'convolutional_layer';                   
+                    
+                    w = size(filter_weights);
+                    b = size(filter_bias);
+                    
+                    if length(w) ~= 4
+                        error('Invalid weights array');
+                    end
+                    if length(b) ~= 3
+                        error('Invalid biases array');
+                    end
+
+                    if w(4) ~= b(3)
+                        error('Inconsistency between filter weights and filter biases');
+                    end
+                    
+                    obj.NumFilters = w(4);
+                    obj.NumChannels = w(3);
+                    obj.FilterSize = [w(1) w(2)];
+                    obj.Weights = filter_weights;
+                    obj.Bias = filter_bias;
+                    
+                    p = size(padding_mat);
+                    if length(p) ~= 4 || p(1) ~= 1
+                        error('Invalid padding matrix');
+                    end
+                    obj.PaddingSize = padding_mat;
+                                               
+                    s = size(stride_mat);
+                    if length(s) ~= 2 || s(1) ~= 1
+                        error('Invalid stride matrix');
+                    end
+                    obj.Stride = stride_mat;
+                    
+                    d = size(dilation_mat);
+                    if length(d) ~= 2 || d(1) ~= 1
+                        error('Invalid dilation matrix');
+                    end                
+                    obj.DilationFactor = dilation_mat;                   
+                    
+                    
+                case 2
+                    
+                    filter_weights = varargin{1};
+                    filter_bias = varargin{2};
+                                        
+                    obj.Name = 'convolutional_layer';                   
+                    
+                    w = size(filter_weights);
+                    b = size(filter_bias);
+                    
+                    if length(w) ~= 4
+                        error('Invalid weights array');
+                    end
+                    if length(b) ~= 3
+                        error('Invalid biases array');
+                    end
+
+                    if w(4) ~= b(3)
+                        error('Inconsistency between filter weights and filter biases');
+                    end
+                    
+                    obj.NumFilters = w(4);
+                    obj.NumChannels = w(3);
+                    obj.FilterSize = [w(1) w(2)];
+                    obj.Weights = filter_weights;
+                    obj.Bias = filter_bias;
+                    
+                    % use default setting for Stride, Padding and Dilation
+                    obj.Stride = [1 1]; % step size for traversing input
+                    obj.DilationFactor = [1 1]; % factor for dilated convolution
+                    obj.PaddingMode = 'manual';
+                    obj.PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
+        
+                                    
+                otherwise
+                    error('Invalid number of inputs (should be 2, 5, or 6)');
+                                 
             end
+                    
+                
             
-            if m == 1
-                obj.FilterSize = [filterSize filterSize];
-            elseif m == 2
-                obj.FilterSize = [filterSize(1) filterSize(2)];
-            elseif m ~= 1 && m ~=2
-                error('Invalid filter size');
-            end
             
-            if numFilters < 1
-                error('Number of Filters is at least one');
-            end
             
-            obj.NumFilters = numFilters;
+            
              
         end
         
@@ -201,16 +331,14 @@ classdef Conv2DLayer < handle
                 error('Inconsistency between weights/biases and input');
             end
             
-            I = obj.get_input(input, obj.PaddingSize); % construct input with padding          
-            
             y = zeros(w(1),w(2), w(4)); % preallocate 3D matrix
             for i=1:w(4) % number of filters
                 y(:, :, i) = obj.Bias(:, :, i) * ones(w(1), w(2)); % initialize output by bias matrix
                 % compute feature map with i^th filter 
                 for j=1:w(3) % filter for j^th channel of input 
                     W1 = obj.Weights(:,:,j, i);   
-                    I1 = I(:, :, j); % the j^th input channel              
-                    y(:, :, i) = y(:, :, i) + obj.compute_featureMap(I1, W1, obj.Stride, obj.DilationFactor);
+                    I1 = input(:, :, j); % the j^th input channel              
+                    y(:, :, i) = y(:, :, i) + Conv2DLayer.compute_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);
                 end
                                 
             end
@@ -232,52 +360,11 @@ classdef Conv2DLayer < handle
             
         end
         
-        % reachability analysis method using Stars
-        % a star represent a set of images (2D matrix of h x w)
-        function S = reach_star(obj, inputs, height, width, option)
-            % @inputs: an array of stars
-            % @height: height of an image
-            % @width: width of an image
-            % @option: = 'single' single core for computation
-            %          = 'parallel' multiple cores for parallel computation
-            % @S: an array of stars output set
-            
-            % author: Dung Tran
-            % date: 12/16/2018
-            
-            n = length(inputs);
-            for i=1:n
-                if isa(inputs(i), 'Star')
-                    error('The %d^th input is not a star set');
-                end
-                
-                if inputs(i).dim ~= height * width
-                    error('Inconsistency between star set and height * width of an image');
-                end
-                
-            end
-            
-            if strcmp(option, 'single')
-                for i=1:n
-                    I = inputs(i);
-                    % Do reachable set  computation                                      
-                end
-            elseif strcmp(option, 'parallel')
-                parfor i=1:n
-                    I = inputs(i);
-                end
-            else
-                error('Unknown computation option');
-            end
-            
-            
-        end
-        
     end
     
     
     
-    methods(Static)
+    methods(Static) % parsing, get zero input pading, compute feature maps
         
         % parse a trained convolutional2dLayer from matlab
         function L = parse(conv2dLayer)
@@ -312,16 +399,16 @@ classdef Conv2DLayer < handle
             % author: Dung Tran
             % date: 12/10/2018
             
-            n = size(input);
-            m = size(paddingSize);
-            if length(m)~= 2 || m(1) ~= 1 || m(2) ~= 4
-                error('Invalid PaddingSize');
-            else
-                t = paddingSize(1);
-                b = paddingSize(2);
-                l = paddingSize(3);
-                r = paddingSize(4);
+            n = size(input);        
+            if length(paddingSize) ~= 4
+                error("\Invalid padding size");
             end
+            
+            t = paddingSize(1);
+            b = paddingSize(2);
+            l = paddingSize(3);
+            r = paddingSize(4);
+ 
             
             if length(n) == 2 
                 % input volume has only one channel                
@@ -450,6 +537,41 @@ classdef Conv2DLayer < handle
         end
 
         
+    end
+    
+    
+    
+    % reachability analysis using star set
+    
+    methods(Static)
+        % reachability analysis method using Stars
+        % a star represent a set of images (2D matrix of h x w)
+        function S = reach_star_exact(obj, image_star_inputs)
+            % @image_star_inputs: an array of ImageStar input sets
+            % @option: = 'single' single core for computation
+            %          = 'parallel' multiple cores for parallel computation
+            % @S: an array of stars output set
+            
+            % author: Dung Tran
+            % date: 6/11/2019
+            
+            n = length(image_star_inputs);
+            for i=1:n
+                if isa(inputs(i), 'ImageStar')
+                    error('The %d^th input is not an ImageStar set');
+                end
+            end
+            
+            for i=1:n
+                I = image_star_inputs(i);
+                
+                
+                
+                
+            end
+            
+            
+        end
     end
     
 end

@@ -125,9 +125,7 @@ classdef NNCS < handle
             end
             
         end
-        
-        
-        
+            
          % reachability analysis of NNCS using polyhedron
          % main limitation: the number of vertices in the reachable set
          % increase quickly which affects the scalability of this approach

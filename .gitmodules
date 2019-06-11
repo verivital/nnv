@@ -1,3 +1,6 @@
 [submodule "nnv/engine/cora"]
-	path = nnv/engine/cora
-	url = https://github.com/TUMcps/CORA.git
+    path = nnv/engine/cora
+    url = https://github.com/verivital/CORA.git
+[submodule "nnv/engine/hyst"]
+	path = nnv/engine/hyst
+	url = https://github.com/verivital/hyst.git

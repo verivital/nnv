@@ -198,7 +198,7 @@ classdef ImageStar
                     
                     
                     obj.numChannel = size(V1, 1);
-                    [obj.height, obj.width] = size(V1{1, 1});
+                    [obj.height, obj.width] = size(V1{1}{1});
                     obj.V = cell(obj.numChannel, 1);
                     
                     for i=1:obj.numChannel                        

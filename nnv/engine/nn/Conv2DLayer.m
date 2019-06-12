@@ -561,43 +561,35 @@ classdef Conv2DLayer < handle
             % date: 6/11/2019
             
             if ~isa(input, 'ImageStar')
-                error('The input of the channel %d is not an ImageStar object', i);
+                error('The input is not an ImageStar object');
             end
             
             if input.numChannel ~= obj.NumChannels
                 error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannel);
             end
             
-            % compute output sets
-            I = input.extract_channel{1};
-            h = input.height;
-            w = input.width;
-            m = I.Star2Ds(1).nVar + 1; % total number of basis matrices in the image star for each channel 
-            n = obj.NumChannels; % number of channels
-            Y = cell(1, m); % contain convolved outputs of the imagestar input set
-            I1(:,:,n) = zeros(h, w); % pre-allocate memory 
-            for i=1:m           
-                for j=1:n
-                    I = input.extract_channel(j);
-                    I1(:, :, j) = I.Star2Ds(i);
-                end              
-                Y{i} = obj.evaluate(I1);                
+            % compute output sets           
+            Y = cell(obj.NumFilters, 1); % output basis matrices
+            for i=1:obj.NumFilters
+                Y{i} = cell(1, input.numPred + 1);
             end
             
-            % construct imagestar output sets                       
-            Z = cell(obj.NumFilters, m);
-            for i = 1:obj.NumFilters
-                for j=1:m
-                    Z{i, j} = Y{j}(:,:,i);
+            I(:, :, input.numChannel) = zeros(input.height, input.width); % pre-allocate memory
+            for i=1:input.numPred + 1
+                for j=1:input.numChannel
+                    I(:,:,j) = input.V{j}{i};
                 end
+                
+                Z = obj.evaluate(I);
+                
+                for k=1:obj.NumFilters
+                    Y{k}{i} = Z(:, :, k);
+                end
+                
             end
             
-            
-            
-            
-            
-            
-            
+            S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+                    
         end
     end
     

@@ -337,10 +337,15 @@ classdef Conv2DLayer < handle
                 % compute feature map with i^th filter 
                 for j=1:w(3) % filter for j^th channel of input 
                     W1 = obj.Weights(:,:,j, i);   
-                    I1 = input(:, :, j); % the j^th input channel              
-                    y(:, :, i) = y(:, :, i) + Conv2DLayer.compute_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);
+                    I1 = input(:, :, j); % the j^th input channel
+                    if j==1
+                        y(:, :, i) = Conv2DLayer.compute_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);
+                    else
+                        y(:, :, i) = y(:, :, i) + Conv2DLayer.compute_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);
+                    end                    
                 end
-                                
+                [ny, my] = size(y(:, :, i));
+                y(:, :, i) = y(:, :, i) + obj.Bias(:, :, i) * ones(ny, my);                               
             end
                    
         end
@@ -543,32 +548,54 @@ classdef Conv2DLayer < handle
     
     % reachability analysis using star set
     
-    methods(Static)
+    methods
         % reachability analysis method using Stars
         % a star represent a set of images (2D matrix of h x w)
-        function S = reach_star_exact(obj, image_star_inputs)
-            % @image_star_inputs: an array of ImageStar input sets
+        function S = reach_star_single_input(obj, input)
+            % @inputs: an ImageStar input set
             % @option: = 'single' single core for computation
             %          = 'parallel' multiple cores for parallel computation
-            % @S: an array of stars output set
+            % @S: an imagestar with number of channels = obj.NumFilters
             
             % author: Dung Tran
             % date: 6/11/2019
             
-            n = length(image_star_inputs);
-            for i=1:n
-                if isa(inputs(i), 'ImageStar')
-                    error('The %d^th input is not an ImageStar set');
+            if ~isa(input, 'ImageStar')
+                error('The input of the channel %d is not an ImageStar object', i);
+            end
+            
+            if input.numChannel ~= obj.NumChannels
+                error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannel);
+            end
+            
+            % compute output sets
+            I = input.extract_channel{1};
+            h = input.height;
+            w = input.width;
+            m = I.Star2Ds(1).nVar + 1; % total number of basis matrices in the image star for each channel 
+            n = obj.NumChannels; % number of channels
+            Y = cell(1, m); % contain convolved outputs of the imagestar input set
+            I1(:,:,n) = zeros(h, w); % pre-allocate memory 
+            for i=1:m           
+                for j=1:n
+                    I = input.extract_channel(j);
+                    I1(:, :, j) = I.Star2Ds(i);
+                end              
+                Y{i} = obj.evaluate(I1);                
+            end
+            
+            % construct imagestar output sets                       
+            Z = cell(obj.NumFilters, m);
+            for i = 1:obj.NumFilters
+                for j=1:m
+                    Z{i, j} = Y{j}(:,:,i);
                 end
             end
             
-            for i=1:n
-                I = image_star_inputs(i);
-                
-                
-                
-                
-            end
+            
+            
+            
+            
             
             
         end

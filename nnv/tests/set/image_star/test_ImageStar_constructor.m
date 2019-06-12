@@ -14,8 +14,6 @@ UB(:,:,3) = UB(:,:,2);
 image = ImageStar(IM, LB, UB);
 
 % constructing an imageStar using Star2D
-
-
 Center = [1 0 0; 1 1 0; 1 0 1]; % center matrix
 Basis = [1 0 0; 0 0 0; 0 0 0]; % basic matrix
 
@@ -26,7 +24,9 @@ V{2} = Basis;
 % constraint: -1<= a <= 1
 Constr_mat = [1; -1];
 Constr_vec = [1; 1]; 
+pred_lb = -1;
+pred_ub = 1; 
 
-S = Star2D(V, Constr_mat, Constr_vec);
+image1 = ImageStar(V, Constr_mat, Constr_vec, pred_lb, pred_ub);
 
-image1 = ImageStar(S);
+

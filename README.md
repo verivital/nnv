@@ -97,7 +97,7 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
 The methods implemented in nnv are based upon the following papers.
 
-1. Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "Star-Based Reachability Analsysis for Deep Neural Networks", Submitted to The 23rd International Symposisum on Formal Methods (3rd World Congress on Formal Methods, FM2019). [http://taylortjohnson.com/research/tran2019fm.pdf]
+1. Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "Star-Based Reachability Analsysis for Deep Neural Networks", The 23rd International Symposisum on Formal Methods (3rd World Congress on Formal Methods, FM2019, to appear). [http://taylortjohnson.com/research/tran2019fm.pdf]
 
 2. Hoang-Dung Tran, Feiyang Cei, Diego Manzanas Lopez, Taylor T.Johnson, Xenofon Koutsoukos, "Safety Verification of Cyber-Physical Systems with Reinforcement Learning Control", under review. [http://taylortjohnson.com/research/tran2019emsoft.pdf]
 

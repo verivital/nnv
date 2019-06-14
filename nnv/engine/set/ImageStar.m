@@ -198,7 +198,12 @@ classdef ImageStar
                     
                     
                     obj.numChannel = size(V1, 1);
-                    [obj.height, obj.width] = size(V1{1}{1});
+                    if obj.numChannel > 1
+                        V2 = V1{1}{1};
+                    else
+                        V2 = V1{1};
+                    end
+                    [obj.height, obj.width] = size(V2);
                     obj.V = cell(obj.numChannel, 1);
                     
                     for i=1:obj.numChannel                        
@@ -253,7 +258,98 @@ classdef ImageStar
         end
         
         
+        % randomly show images sampled from image star
+        function show(obj, N)
+            % @N: number of sampled images 
+
+            % author: Dung Tran
+            % date: 6/14/2019
+            
+            
+            if isempty(obj.V)
+                error('The imagestar is an empty set');
+            end
+            
+     
+        end
+        
+        % randomly generate a set of images from an imagestar set
+        function images = sample(obj, N)
+            % @N: number of images 
+            
+            % author: Dung Tran
+            % date: 6/14/2019
+            
+            if isempty(obj.V)
+                error('The imagestar is an empty set');
+            end
+            
+            if isempty(obj.C) || isempty(obj.d)
+                images = obj.IM;
+            else
+                V1 = [zeros(obj.numPred, 1) eye(obj.numPred)];
+                S = Star(V1, obj.C, obj.d);                
+                pred_samples = S.sample(N); 
+                
+                M = length(pred_samples);
+                
+                ;
+                
+                
+            end
+            
+            
+            
+            
+        end
+        
+        
+        % evaluate an image star with specific values of predicates
+        function image = evaluate(obj, pred_val)
+            % @pred_val: valued vector of predicate variables
+            
+            % author: Dung Tran
+            % date: 6/14/2019
+            
+            if isempty(obj.V)
+                error('The imagestar is an empty set');
+            end
+            
+            if size(pred_val, 2) ~= 1
+                error('Invalid predicate vector');
+            end
+            
+            if size(pred_val, 1) ~= obj.numPred
+                error('Inconsistency between the size of the predicate vector and the number of predicates in the imagestar');
+            end
+            
+            image(:, :, obj.numChannel) = zeros(obj.height, obj.width);
+            
+            for i=1:obj.numChannel
+                
+                image(:, :, i) = obj.V{i}{1};
+                
+                for j=2:obj.numPred + 1
+                    
+                    image(:, :, i) = image(:, :, i) + pred_val(j-1) * obj.V{i}{j};
+                
+                end
+                
+            end
+            
+            
+            
+            
+        end
+        
+        
+        
+        
     end
+    
+    
+    
+   
         
        
 end

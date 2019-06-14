@@ -156,7 +156,7 @@ classdef ImageStar
                     obj.d = [];
                     obj.pred_lb = [];
                     obj.pred_ub = [];
-                    obj.V = cell(obj.numChannel, 1);
+                    
                     for i=1:obj.numChannel
                         c = reshape(obj.IM(:,:,i)', [obj.height * obj.width,1]);
                         lb = reshape(obj.LB(:,:,i)', [obj.height * obj.width,1]);
@@ -183,7 +183,9 @@ classdef ImageStar
                         obj.pred_lb = [obj.pred_lb; X.predicate_lb];
                         obj.pred_ub = [obj.pred_ub; X.predicate_ub];                                                     
                     end
-                                        
+                    
+                    obj.V = cell(obj.numChannel, obj.numPred + 1);
+                    
                     for i=1:obj.numChannel
                         obj.V{i} = [center2{i}, gens];                        
                     end
@@ -196,20 +198,7 @@ classdef ImageStar
                     lb1 = varargin{4}; % predicate lower bound
                     ub1 = varargin{5}; % predicate upper bound
                     
-                    
-                    obj.numChannel = size(V1, 1);
-                    if obj.numChannel > 1
-                        V2 = V1{1}{1};
-                    else
-                        V2 = V1{1};
-                    end
-                    [obj.height, obj.width] = size(V2);
-                    obj.V = cell(obj.numChannel, 1);
-                    
-                    for i=1:obj.numChannel                        
-                        obj.V{i} = V1(i,:);
-                    end
-                    
+                                        
                     if size(C1, 1) ~= size(d1, 1)
                         error('Inconsistent dimension between constraint matrix and constraint vector');
                     end
@@ -232,8 +221,18 @@ classdef ImageStar
                     
                     obj.pred_lb = lb1;
                     obj.pred_ub = ub1;
-                
-                                 
+                    
+                    
+                    obj.numChannel = size(V1, 1);
+                    
+                    obj.V = cell(obj.numChannel, 1);
+
+                    for i=1:obj.numChannel
+                        obj.V{i} = V1(i, :);
+                    end
+                   
+                    [obj.height, obj.width] = size(obj.V{1}{1});
+                                                   
                 case 0 % create an empty ImageStar
 
                     obj.numChannel = 0; 
@@ -287,20 +286,19 @@ classdef ImageStar
             if isempty(obj.C) || isempty(obj.d)
                 images = obj.IM;
             else
+                
                 V1 = [zeros(obj.numPred, 1) eye(obj.numPred)];
                 S = Star(V1, obj.C, obj.d);                
                 pred_samples = S.sample(N); 
                 
                 M = length(pred_samples);
-                
-                ;
-                
+                images = cell(1, M);
+                for i=1:M
+                    images{i} = obj.evaluate(pred_samples(:, i));
+                end
                 
             end
-            
-            
-            
-            
+              
         end
         
         
@@ -327,6 +325,7 @@ classdef ImageStar
             
             for i=1:obj.numChannel
                 
+                display(obj.V{i});
                 image(:, :, i) = obj.V{i}{1};
                 
                 for j=2:obj.numPred + 1

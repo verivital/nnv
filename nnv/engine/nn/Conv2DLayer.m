@@ -110,22 +110,35 @@ classdef Conv2DLayer < handle
                     w = size(filter_weights);
                     b = size(filter_bias);
                     
-                    if length(w) ~= 4
-                        error('Invalid weights array');
-                    end
-                    if length(b) ~= 3
-                        error('Invalid biases array');
-                    end
-
-                    if w(4) ~= b(3)
-                        error('Inconsistency between filter weights and filter biases');
+                    if length(w) == 2
+                        obj.NumFilters = 1;
+                        obj.NumChannels = 1;
+                        obj.FilterSize = [w(1) w(2)];
+                        obj.Weights = filter_weights;
+                        
+                    elseif length(w) == 3
+                        obj.NumFilters = 1;
+                        obj.NumChannels = w(3);
+                        obj.FilterSize = [w(1) w(2)];
+                        obj.Weights = filter_weights;
+                    elseif length(w) == 4
+                        obj.NumFilters = w(4);
+                        obj.NumChannels = w(3);
+                        obj.FilterSize = [w(1) w(2)];
+                        obj.Weights = filter_weights;
+                    else
+                        error('Invalid weight matrix');
                     end
                     
-                    obj.NumFilters = w(4);
-                    obj.NumChannels = w(3);
-                    obj.FilterSize = [w(1) w(2)];
-                    obj.Weights = filter_weights;
-                    obj.Bias = filter_bias;
+                    if length(b) ~= 3
+                        error('Invalid biases array');
+                    else
+                        obj.Bias = filter_bias;
+                    end
+
+                    if length(w) == 4 && w(4) ~= b(3)
+                        error('Inconsistency between filter weights and filter biases');
+                    end
                     
                     p = size(padding_mat);
                     if length(p) ~= 4 || p(1) ~= 1
@@ -156,23 +169,32 @@ classdef Conv2DLayer < handle
                     w = size(filter_weights);
                     b = size(filter_bias);
                     
-                    if length(w) ~= 4
-                        error('Invalid weights array');
-                    end
-                    if length(b) ~= 3
-                        error('Invalid biases array');
-                    end
+                    if length(w) == 2
+                        obj.NumFilters = 1;
+                        obj.NumChannels = 1;
+                        obj.FilterSize = [w(1) w(2)];
+                        obj.Weights = filter_weights;
+                        
+                    elseif length(w) == 3
+                        obj.NumFilters = 1;
+                        obj.NumChannels = w(3);
+                        obj.FilterSize = [w(1) w(2)];
+                        obj.Weights = filter_weights;
+                    elseif length(w) == 4
+                        obj.NumFilters = w(4);
+                        obj.NumChannels = w(3);
+                        obj.FilterSize = [w(1) w(2)];
+                        obj.Weights = filter_weights;
+                    else
+                        error('Invalid weight matrix');
+                    end                  
 
-                    if w(4) ~= b(3)
+                    obj.Bias = filter_bias;
+
+                    if length(w) == 4 && w(4) ~= b(3)
                         error('Inconsistency between filter weights and filter biases');
                     end
-                    
-                    obj.NumFilters = w(4);
-                    obj.NumChannels = w(3);
-                    obj.FilterSize = [w(1) w(2)];
-                    obj.Weights = filter_weights;
-                    obj.Bias = filter_bias;
-                    
+                                        
                     % use default setting for Stride, Padding and Dilation
                     obj.Stride = [1 1]; % step size for traversing input
                     obj.DilationFactor = [1 1]; % factor for dilated convolution
@@ -319,23 +341,14 @@ classdef Conv2DLayer < handle
             % author: Dung Tran
             % date: 12/10/2018
             
-            
-            n = size(input);
-            w = size(obj.Weights);
-            
-            if length(n) ~= 3
-                error('Input should be a 3-dimensional array');
-            end
-            
-            if w(3) ~= n(3) % number of channels need to be consistent
-                error('Inconsistency between weights/biases and input');
-            end
-            
-            y = zeros(w(1),w(2), w(4)); % preallocate 3D matrix
-            for i=1:w(4) % number of filters
-                y(:, :, i) = obj.Bias(:, :, i) * ones(w(1), w(2)); % initialize output by bias matrix
+            I1 = input(:,:,1);
+            W1 = obj.Weights(:,:,1,1);
+            [h, w] = Conv2DLayer.get_size_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);   
+            y(:,:, obj.NumFilters) = zeros(h, w); % preallocate 3D matrix
+            for i=1:obj.NumFilters % number of filters
+                y(:, :, i) = obj.Bias(:, :, i) * ones(h, w); % initialize output by bias matrix
                 % compute feature map with i^th filter 
-                for j=1:w(3) % filter for j^th channel of input 
+                for j=1:obj.NumChannels % filter for j^th channel of input 
                     W1 = obj.Weights(:,:,j, i);   
                     I1 = input(:, :, j); % the j^th input channel
                     if j==1
@@ -540,12 +553,39 @@ classdef Conv2DLayer < handle
             featureMap = featureMap.';
 
         end
+        
+        
+        % precompute height and width of feature map
+        function [h, w] = get_size_featureMap(input, W, padding, stride, dilation)
+            % @input: is input 
+            % @W: is a weight matrix (filter)
+            % @padding: zero-padding size
+            % @stride: step size for traversing input
+            % @dilation: factor for dilated convolution     
+            % @[h, w]: height and width of feature map
+                    
+            % author: Dung Tran
+            % date: 6/14/2019
+            
+            I = Conv2DLayer.get_zero_padding_input(input, padding);
+            n = size(I); % n(1) is height and n(2) is width of input
+            m = size(W); % m(1) is height and m(2) is width of the filter
+            
+            % I, W is 2D matrix
+            % I is assumed to be the input after zero padding
+            % output size: 
+            % (InputSize - (FilterSize - 1)*Dilation + 1)/Stride
+            
+            h = floor((n(1) - (m(1) - 1) * dilation(1) - 1) / stride(1) + 1);  % height of feature map
+            w = floor((n(2) - (m(2) - 1) * dilation(2) - 1) / stride(2) + 1);  % width of feature map
+
+            
+        end
+        
 
         
     end
-    
-    
-    
+       
     % reachability analysis using star set
     
     methods
@@ -565,7 +605,7 @@ classdef Conv2DLayer < handle
             end
             
             if input.numChannel ~= obj.NumChannels
-                error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannel);
+                error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannels);
             end
             
             % compute output sets           
@@ -581,15 +621,18 @@ classdef Conv2DLayer < handle
                 end
                 
                 Z = obj.evaluate(I);
-                
+                                                
                 for k=1:obj.NumFilters
                     Y{k}{i} = Z(:, :, k);
                 end
-                
+                                
             end
             
-            S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
-                    
+            if obj.NumFilters == 1
+                S = ImageStar(Y{1}, input.C, input.d, input.pred_lb, input.pred_ub);
+            else
+                S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+            end       
         end
     end
     

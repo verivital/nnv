@@ -325,7 +325,6 @@ classdef ImageStar
             
             for i=1:obj.numChannel
                 
-                display(obj.V{i});
                 image(:, :, i) = obj.V{i}{1};
                 
                 for j=2:obj.numPred + 1

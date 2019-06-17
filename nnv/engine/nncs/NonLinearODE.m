@@ -16,7 +16,7 @@ classdef NonLinearODE < handle
     
     methods
         
-        % constructor
+        % constructor from a matlab function reference in dynamics_func
         function obj = NonLinearODE(dim, nI, dynamics_func)
             % construct nonLinearODE plant
             % @dim: dimension of the plant
@@ -28,6 +28,15 @@ classdef NonLinearODE < handle
             % date: 11/19/2018
             
             % Note: we construct a nonLinearODE plant with default option
+            
+            % 
+            % if 1 argument, use hyst model to instantiate components,
+            % else, pull in from remaining arguments
+            %if nargin > 1
+            %    %obj.
+            %else
+            %    obj. = 1;
+            %end
             
             if dim < 1
                 error('Dimension should be >=1');
@@ -41,6 +50,22 @@ classdef NonLinearODE < handle
             obj.nI = nI;
             obj.dynamics_func = dynamics_func;
             
+            obj.NonLinearODE_init();
+        end
+        
+        function obj = NonLinearODE_hyst(hyst_ha)
+            
+            
+            
+            % pull arguments from hyst ha
+            obj = NonLinearODE();
+            
+            obj.ha = hyst_ha;
+            
+        end
+        
+        % set default parameters
+        function NonLinearODE_init(obj)
             % default option
             option.tStart = 0;
             option.tFinal = 0.1; % we provide method to change the option
@@ -55,13 +80,12 @@ classdef NonLinearODE < handle
             option.errorOrder = 1;
             option.polytopeOrder = 2; % polytope order
             option.reductionInterval = 1e3;
-            option.maxError = 0.5*ones(dim, 1);
+            option.maxError = 0.5*ones(obj.dim, 1);
             option.advancedLinErrorComp = 0;
             option.tensorOrder=2;
             option.uTrans = 0;
             
             obj.options = option; % default option
-            
         end
         
         % set taylor terms

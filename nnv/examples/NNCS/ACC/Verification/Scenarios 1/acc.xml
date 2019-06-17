@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<sspaceex xmlns="http://www-verimag.imag.fr/xml-namespaces/sspaceex" math="SpaceEx" version="0.2">
+   <component id="acc_sys">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x5" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x6" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="const" local="false" name="a_lead" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="a_ego" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="const" local="false" name="mu" type="real"/>
+      <location id="1" name="loc1">
+         <flow>x1' == x2  &amp;
+x2' == x3  &amp;
+x3' == -2 * x3 + 2 * a_lead - mu * x2^2  &amp;
+x4' == x5  &amp;
+x5' == x6  &amp;
+x6' == -2 * x6 + 2 * a_ego - mu * x5^2 </flow>
+      </location>
+   </component>
+   <component id="acc_net">
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x1" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x2" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x3" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x4" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x5" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="x6" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="const" local="false" name="a_lead" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="any" local="false" name="a_ego" type="real"/>
+      <param controlled="true" d1="1" d2="1" dynamics="const" local="false" name="mu" type="real"/>
+      <bind as="acc" component="acc_sys">
+         <map key="x1">x1</map>
+         <map key="x2">x2</map>
+         <map key="x3">x3</map>
+         <map key="x4">x4</map>
+         <map key="x5">x5</map>
+         <map key="x6">x6</map>
+         <map key="a_lead">a_lead</map>
+         <map key="a_ego">a_ego</map>
+         <map key="mu">mu</map>
+      </bind>
+   </component>
+</sspaceex>
+
+
+
+
+

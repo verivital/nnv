@@ -7,5 +7,9 @@ inputVol(:, :, 3) = [1 2 2 1 0; 2 0 0 2 0; 0 0 1 0 1; 1 2 0 2 0; 1 0 2 1 0]; % c
 
 % construct input with padding operation
 paddingSize = [1 1 1 1];
-I = Conv2DLayer.get_zero_padding_input(inputVol, paddingSize);
+
+L = AveragePooling2DLayer();
+L.set_padding(paddingSize);
+
+I = L.get_zero_padding_input(inputVol);
 

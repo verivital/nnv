@@ -18,18 +18,7 @@ tbxmanager install mpt mptdoc;
 tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi yalmip;
 fprintf('\nInstalling dependencies is done!');
 
-%startup; % adding dependencies and nnv to the path
-fprintf('\nAdding dependencies to Matlab path...\n');
-tbxmanager restorepath
-
-fprintf('\nAdding NNV to Matlab path...\n');
-mydir  = pwd;
-idcs   = strfind(mydir,filesep);
-newdir = mydir(1:idcs(end)-1);
-p = genpath(newdir); % generate a path that includes NNV folder and all folders below it
-addpath(p);
-cd(newdir);
-clear;
+startup_nnv; % adding dependencies and nnv to the path
 
 fprintf('\nInstalling NNV is done, it is ready to use.');
 fprintf('\nPlease go to examples or test folders to run case studies and test examples.');

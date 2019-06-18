@@ -3,9 +3,8 @@ load one_image.mat
 Center = one_image; % center matrix
 Basis = rand(28,28); % basic matrix
 
-V = cell(1, 2);
-V{1} = Center;
-V{2} = Basis;
+V(:,:,1) = Center;
+V(:,:,2) = Basis;
 
 % constraint: -1<= a <= 1
 Constr_mat = [1; -1];
@@ -24,7 +23,7 @@ sampled_images = output_image.sample(2);
 
 figure;
 subplot(1,3,1);
-imshow(input_image.V{1}{1}); % center image
+imshow(input_image.V(:,:,1)); % center image
 title('28x28 input image');
 subplot(1,3,2);
 imshow(sampled_images{1, 1}); % the first sampled image from imagestar

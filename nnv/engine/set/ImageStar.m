@@ -114,7 +114,7 @@ classdef ImageStar
                                   % n(3) is number of channels
                     l = size(LB1);
                     u = size(UB1);
-
+                    
                     if n(1) ~= l(1) || n(1) ~= u(1) || n(2) ~= l(2) || n(2) ~= u(2) 
                         error('Inconsistency between center image and attack bound matrices');
                     end
@@ -150,13 +150,27 @@ classdef ImageStar
                     end
 
                     % converting box ImageStar to an array of 2D Stars
-
+                    
                     obj.numPred = 0;
                     C = [];
                     obj.d = [];
                     obj.pred_lb = [];
                     obj.pred_ub = [];
                     
+                    % get number of predicate variables
+                    for k=1:obj.numChannel
+                        for i=1:obj.height
+                            for j=1:obj.width
+                                if obj.LB(i,j,k) < obj.UB(i, j, k)
+                                    obj.numPred = obj.numPred + 1;
+                                end
+                            end
+                        end
+                    end
+                    
+                    V1(:, :, obj.numPred, obj.numChannel) = zeros(obj.height, obj.width);
+                    
+                    pred_count = 0;
                     for i=1:obj.numChannel
                         c = reshape(obj.IM(:,:,i)', [obj.height * obj.width,1]);
                         lb = reshape(obj.LB(:,:,i)', [obj.height * obj.width,1]);
@@ -164,32 +178,26 @@ classdef ImageStar
                         lb = lb + c;
                         ub = ub + c;
                         B = Box(lb, ub);
-                        X = B.toStar;
-                        V1 = cell(1, X.nVar + 1);
-                        for j=1:X.nVar + 1
+                        X = B.toStar;                  
+                                                                       
+                        for j=1:X.nVar + 1    
                             A = reshape(X.V(:,j), [obj.height, obj.width]);
-                            V1{j} = A';
+                            if j==1
+                                V1(:,:,1, i) = A';
+                            else
+                                V1(:, :, j+pred_count, i) = A';
+                            end
                         end 
-                        center2{i} = V1{1};
-                        if i==1
-                            gens = V1(2:X.nVar+1);
-                        else
-                            gens = [gens, V1(2:X.nVar + 1)];
-                        end
-                        
+                        pred_count = pred_count + X.nVar;
+
                         obj.C = blkdiag(obj.C, X.C);
                         obj.d = [obj.d; X.d];
-                        obj.numPred = obj.numPred + X.nVar;
                         obj.pred_lb = [obj.pred_lb; X.predicate_lb];
                         obj.pred_ub = [obj.pred_ub; X.predicate_ub];                                                     
                     end
                     
-                    obj.V = cell(obj.numChannel, obj.numPred + 1);
-                    
-                    for i=1:obj.numChannel
-                        obj.V{i} = [center2{i}, gens];                        
-                    end
-                     
+                    obj.V = V1;
+                                         
                 case 5 % 
                     
                     V1 = varargin{1};  % basis matrices
@@ -222,16 +230,18 @@ classdef ImageStar
                     obj.pred_lb = lb1;
                     obj.pred_ub = ub1;
                     
-                    
-                    obj.numChannel = size(V1, 1);
-                    
-                    obj.V = cell(obj.numChannel, 1);
-
-                    for i=1:obj.numChannel
-                        obj.V{i} = V1(i, :);
+                    n = size(V1);
+                    if length(n) == 3
+                        obj.numChannel = 1;
+                    elseif length(n) == 4
+                        obj.numChannel = n(4);
+                    else
+                        error('Invalid basis matrix');
                     end
-                   
-                    [obj.height, obj.width] = size(obj.V{1}{1});
+                                            
+                    obj.V = V1;
+                    obj.height = n(1);
+                    obj.width = n(2);
                                                    
                 case 0 % create an empty ImageStar
 
@@ -325,21 +335,113 @@ classdef ImageStar
             
             for i=1:obj.numChannel
                 
-                image(:, :, i) = obj.V{i}{1};
+                image(:, :, i) = obj.V(:,:,1,i);
                 
                 for j=2:obj.numPred + 1
                     
-                    image(:, :, i) = image(:, :, i) + pred_val(j-1) * obj.V{i}{j};
+                    image(:, :, i) = image(:, :, i) + pred_val(j-1) * obj.V(:,:,j,i);
                 
                 end
                 
             end
-            
-            
-            
-            
+                      
         end
         
+        
+        % get ranges of a state at specific position
+        function [xmin, xmax] = getRange(varargin)
+            % @vert_ind: vectical index
+            % @horiz_ind: horizontal index
+            % @xmin: min of x(vert_ind,horiz_ind)
+            % @xmax: max of x(vert_ind,horiz_ind)
+            % @option: = 'parallel' use parallel computing
+            
+            % author: Dung Tran
+            % date: 6/18/2019
+            
+            switch nargin
+                case 4
+                    obj = varargin{1};
+                    vert_ind = varargin{2};
+                    horiz_ind = varargin{3};
+                    option = varargin{4};
+                    
+                    if strcmp(option, 'parallel')
+                        error('Unknown option for computation');
+                    end
+                
+                case 3
+                    obj = varargin{1};
+                    vert_ind = varargin{2};
+                    horiz_ind = varargin{3};
+                    option = [];
+                    
+                otherwise
+                    error('Invalid number of arguments, should be 2, or 3');
+            end
+            
+            
+            if isempty(obj.C) || isempty(obj.d)
+                error('The imagestar is empty');
+            end
+            
+            if vert_ind < 1 || vert_ind > obj.height
+                error('Invalid veritical index');
+            end
+            
+            if horiz_ind < 1 || horiz_ind > obj.width
+                error('Invalid horizonal index');
+            end
+            
+            options = optimset('Display','none');
+            
+            xmin = zeros(obj.numChannel,1);
+            xmax = zeros(obj.numChannel,1);
+
+            if strcmp(option, 'parallel')
+                
+                parfor i=1:obj.numChannel
+                
+                    f = obj.V(vert_index, horiz_ind, 2:obj.numPred + 1, i);
+                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                    if exitflag > 0
+                        xmin(i) = fval + obj.V(vert_ind, horiz_ind, 1, i);
+                    else
+                        error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                    end          
+
+                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                    if exitflag > 0
+                        xmax(i) = -fval + obj.V(vert_ind, horiz_ind, 1, i);
+                    else
+                        error('Cannot find an optimal solution exitflag = %d', exitflag);
+                    end
+                             
+                end
+                
+            else
+                
+                for i=1:obj.numChannel
+                    f = obj.V(vert_ind, horiz_ind, 2:obj.numPred + 1, i);
+                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                    if exitflag > 0
+                        xmin(i) = fval + obj.V(vert_ind, horiz_ind, 1, i);
+                    else
+                        error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                    end          
+
+                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                    if exitflag > 0
+                        xmax(i) = -fval + obj.V(vert_ind, horiz_ind, 1, i);
+                    else
+                        error('Cannot find an optimal solution exitflag = %d', exitflag);
+                    end
+
+                end
+                
+            end    
+            
+        end
         
         
         

@@ -417,31 +417,23 @@ classdef AveragePooling2DLayer < handle
             end
             
                        
-            % compute output sets           
-            Y = cell(input.numChannel, 1); % output basis matrices
-            for i=1:input.numChannel
-                Y{i} = cell(1, input.numPred + 1);
-            end
-            
+            % compute output sets
+            [h, w] = obj.get_size_averageMap(input.V(:,:,1,1));
+            Y(:,:,input.numPred + 1, input.numChannel) = zeros(h, w); % output basis matrices            
             I(:, :, input.numChannel) = zeros(input.height, input.width); % pre-allocate memory
             for i=1:input.numPred + 1
                 for j=1:input.numChannel
-                    I(:,:,j) = input.V{j}{i};
+                    I(:,:,j) = input.V(:,:, i, j);
                 end
                 
                 Z = obj.evaluate(I);
                                                 
                 for k=1:input.numChannel
-                    Y{k}{i} = Z(:, :, k);
+                    Y(:,:,i, k) = Z(:, :, k);
                 end
                                 
-            end
-            
-            if input.numChannel == 1
-                S = ImageStar(Y{1}, input.C, input.d, input.pred_lb, input.pred_ub);
-            else
-                S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
-            end       
+            end 
+            S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
         end
     end
     

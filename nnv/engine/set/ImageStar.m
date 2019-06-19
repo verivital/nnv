@@ -366,7 +366,7 @@ classdef ImageStar
                     horiz_ind = varargin{3};
                     option = varargin{4};
                     
-                    if strcmp(option, 'parallel')
+                    if ~strcmp(option, 'parallel')
                         error('Unknown option for computation');
                     end
                 
@@ -402,7 +402,7 @@ classdef ImageStar
                 
                 parfor i=1:obj.numChannel
                 
-                    f = obj.V(vert_index, horiz_ind, 2:obj.numPred + 1, i);
+                    f = obj.V(vert_ind, horiz_ind, 2:obj.numPred + 1, i);
                     [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
                     if exitflag > 0
                         xmin(i) = fval + obj.V(vert_ind, horiz_ind, 1, i);

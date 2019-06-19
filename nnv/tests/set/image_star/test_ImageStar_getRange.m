@@ -12,8 +12,11 @@ UB(:,:,2) = [0.1 0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
 UB(:,:,3) = UB(:,:,2);
 
 image = ImageStar(IM, LB, UB);
-
+tic;
 [xmin, xmax] = image.getRange(1,1);
-
+toc;
+tic;
+[xmin1, xmax1] = image.getRange(1,1,'parallel');
+toc;
 display(xmin);
 display(xmax);

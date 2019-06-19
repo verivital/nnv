@@ -558,7 +558,8 @@ classdef Star
 
                 for i=1:obj.dim
                     f = obj.V(i, 2:obj.nVar + 1);
-                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                    %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                    [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
                     if exitflag > 0
                         lb(i) = fval + obj.V(i, 1);
                     else
@@ -566,8 +567,8 @@ classdef Star
                         ub = [];
                         break;
                     end
-                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-
+                    %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                    [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
                     if exitflag > 0
                         ub(i) = -fval + obj.V(i, 1);
                     else
@@ -587,6 +588,7 @@ classdef Star
             end
             
         end
+        
         
         % estimates ranges of state vector quickly
         % these ranges are not the exact range, it is an
@@ -644,15 +646,16 @@ classdef Star
 
             f = obj.V(index, 2:obj.nVar + 1);
 
-            [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-
+            %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+            [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
             if exitflag > 0
                 xmin = fval + obj.V(index, 1);
             else
                 error('Cannot find an optimal solution, exitflag = %d', exitflag);
             end          
 
-            [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+            %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+            [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
             if exitflag > 0
                 xmax = -fval + obj.V(index, 1);
             else
@@ -675,7 +678,8 @@ classdef Star
             
             for i=1:obj.dim
                 f = S(i, :);
-                [~,fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                %[~,fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                [~,fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
                 
                 if exitflag > 0
                     lb(i) = fval;
@@ -684,8 +688,8 @@ classdef Star
                 end
                 
                 
-                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                
+                %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                [~,fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
                 if exitflag > 0
                     ub(i) = -fval;
                 else

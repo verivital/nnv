@@ -5,5 +5,10 @@ B1 = Box(lb, ub);
 
 init_set = B1.toStar();
 
+tic;
 B2 = init_set.getBox();
+toc;
 
+tic;
+B3 = init_set.getBox_glpk(); % glpk is much faster than the linprog of matlab
+toc;

@@ -1,5 +1,6 @@
 metadata_version: 1
-name: nnv-2019-05-27
+name: nnv - Neural Network Verification Software Tool -  Output Reachable Set Estimation
+  and Verification for Multilayer Neural Networks
 description: "nnv - Neural Network Verification Software Tool\nHoang-Dung Tran, Patrick
   Musau, Diego Manzanas Lopez, Xiaodong Yang, Weiming Xiang, Taylor T. Johnson (http://www.taylortjohnson.com/)\nVeriVITAL
   - The Verification and Validation for Intelligent and Trustworthy Autonomy Laboratory

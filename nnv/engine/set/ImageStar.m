@@ -85,6 +85,10 @@ classdef ImageStar
         numPred = 0; % number of predicate variables
         pred_lb = []; % lower bound vector of the predicate
         pred_ub = []; % upper bound vector of the predicate
+        
+        % used to store max points in max pooling analysis
+        % a single max_point = [height_position; width_position; channel_index] 
+        max_points = [];        
 
     end
     
@@ -242,6 +246,58 @@ classdef ImageStar
                     obj.V = V1;
                     obj.height = n(1);
                     obj.width = n(2);
+                    
+                case 6 % 
+                    
+                    V1 = varargin{1};  % basis matrices
+                    C1 = varargin{2};  % predicate constraint matrix 
+                    d1 = varargin{3};  % predicate constraint vector
+                    lb1 = varargin{4}; % predicate lower bound
+                    ub1 = varargin{5}; % predicate upper bound
+                    mp = varargin{6}; % maxpoints
+                    
+                                        
+                    if size(C1, 1) ~= size(d1, 1)
+                        error('Inconsistent dimension between constraint matrix and constraint vector');
+                    end
+                    
+                    if size(d1, 2) ~= 1
+                        error('Invalid constraint vector, vector should have one column');
+                    end
+                                        
+                    obj.numPred = size(C1, 2);
+                    obj.C = C1;
+                    obj.d = d1; 
+                    
+                    if size(C1, 2) ~= size(lb1, 1) || size(C1, 2) ~= size(ub1, 1)
+                        error('Number of predicates is different from the size of the lower bound or upper bound predicate vector');
+                    end
+                    
+                    if size(lb1, 2) ~= 1 || size(ub1, 2) ~= 1
+                        error('Invalid lower/upper bound predicate vector, vector should have one column');
+                    end
+                    
+                    obj.pred_lb = lb1;
+                    obj.pred_ub = ub1;
+                    
+                    n = size(V1);
+                    if length(n) == 3
+                        obj.numChannel = 1;
+                    elseif length(n) == 4
+                        obj.numChannel = n(4);
+                    else
+                        error('Invalid basis matrix');
+                    end
+                                            
+                    obj.V = V1;
+                    obj.height = n(1);
+                    obj.width = n(2);
+                    
+                    if ~isempty(mp) && size(mp, 1) ~= 3
+                        error('Invalid max_points matrix');
+                    else
+                        obj.max_points = mp;
+                    end
                                                    
                 case 0 % create an empty ImageStar
 
@@ -260,10 +316,39 @@ classdef ImageStar
                                       
                 otherwise
                     
-                    error('Invalid number of input arguments, (should be from 0, 3, or 5)');
+                    error('Invalid number of input arguments, (should be from 0, 3, 5 , 6)');
                     
             end
                         
+        end
+        
+        
+        % add max points
+        function obj = add_maxPoint(obj, height_pos, width_pos, channel_ind)
+            % @height_pos: height position of the max point
+            % @width_pos: width position of the max point
+            % @channel_ind: index of the channel that tha max point belongs
+            % to 
+            
+            % author: Dung Tran
+            % date: 6/20/2019
+            
+            
+            if height_pos < 1 || height_pos > obj.height
+                error('Invalid height position');
+            end
+            
+            if width_pos < 1 || width_pos > obj.width
+                error('Invalid width position');
+            end
+            
+            if channel_ind < 1 || channel_ind > obj.numChannel
+                error('Invalid channel index');
+            end
+            
+            new_point = [height_pos; width_pos; channel_ind];
+            obj.max_points = [obj.max_points new_point];
+            
         end
         
         
@@ -528,7 +613,8 @@ classdef ImageStar
             [~,~,status,~] = glpk(f, C1, d1);
             
             if status == 5 % feasible solution exist
-                image = ImageStar(obj.V, C1, d1, obj.pred_lb, obj.pred_ub);
+                image = ImageStar(obj.V, C1, d1, obj.pred_lb, obj.pred_ub, obj.max_points);
+                image = image.add_maxPoint(center(1), center(2), channel_ind);
             else
                 image = [];
             end

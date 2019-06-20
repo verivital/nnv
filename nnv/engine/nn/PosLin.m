@@ -238,7 +238,6 @@ classdef PosLin
             % author: Dung Tran
             % date: 4/3/2019
 
-
             if ~isa(I, 'Star')
                 error('Input is not a star');
             end
@@ -248,6 +247,7 @@ classdef PosLin
             else
                 In = I;
                 B = I.getBox;
+                %B = I.getBox_parallel;
                 if ~isempty(B)
                     for i=1:I.dim
                         fprintf('\nPerforming approximate PosLin_%d operation using Star', i);

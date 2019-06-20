@@ -589,6 +589,46 @@ classdef Star
             
         end
         
+        % find a box bounding a star
+        function B = getBox_parallel(obj)          
+
+            if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
+                lb = obj.V(:, 1);
+                ub = obj.V(:, 1);
+
+            else % star set is a set
+                lb = zeros(obj.dim,1);
+                ub = zeros(obj.dim,1); 
+                options = optimset('Display','none');
+                parfor i=1:obj.dim
+                   
+                    f = obj.V(i, 2:obj.nVar + 1);
+                    %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                    [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
+                    if exitflag > 0        
+                        lb(i) = fval + obj.V(i,1);
+                    else
+                        lb(i) = -Inf;                         
+                    end
+                    %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                    [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
+                    if exitflag > 0
+                        ub(i) = -fval + obj.V(i, 1);
+                    else
+                        ub(i) = Inf;
+                    end
+
+                end
+
+            end         
+            
+            if isempty(lb) || isempty(ub)
+                B = [];
+            else
+                B = Box(lb, ub);           
+            end
+            
+        end
         
         % estimates ranges of state vector quickly
         % these ranges are not the exact range, it is an

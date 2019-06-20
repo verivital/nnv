@@ -393,8 +393,6 @@ classdef ImageStar
                 error('Invalid horizonal index');
             end
             
-            options = optimset('Display','none');
-            
             xmin = zeros(obj.numChannel,1);
             xmax = zeros(obj.numChannel,1);
 
@@ -403,14 +401,14 @@ classdef ImageStar
                 parfor i=1:obj.numChannel
                 
                     f = obj.V(vert_ind, horiz_ind, 2:obj.numPred + 1, i);
-                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                    if exitflag > 0
+                    [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d);
+                    if exitflag == 5
                         xmin(i) = fval + obj.V(vert_ind, horiz_ind, 1, i);
                     else
                         error('Cannot find an optimal solution, exitflag = %d', exitflag);
                     end          
 
-                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                    [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d);
                     if exitflag > 0
                         xmax(i) = -fval + obj.V(vert_ind, horiz_ind, 1, i);
                     else
@@ -423,15 +421,15 @@ classdef ImageStar
                 
                 for i=1:obj.numChannel
                     f = obj.V(vert_ind, horiz_ind, 2:obj.numPred + 1, i);
-                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                    if exitflag > 0
+                    [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d);
+                    if exitflag == 5
                         xmin(i) = fval + obj.V(vert_ind, horiz_ind, 1, i);
                     else
                         error('Cannot find an optimal solution, exitflag = %d', exitflag);
                     end          
 
-                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                    if exitflag > 0
+                    [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d);
+                    if exitflag == 5
                         xmax(i) = -fval + obj.V(vert_ind, horiz_ind, 1, i);
                     else
                         error('Cannot find an optimal solution exitflag = %d', exitflag);
@@ -440,6 +438,100 @@ classdef ImageStar
                 end
                 
             end    
+            
+        end
+        
+        
+        % get lowew bound and upper bound images of an imagestar
+        function [image_lb, image_ub] = getBox(obj)
+            % @image_lb: lower bound image
+            % @image_ub: upper bound image
+            
+            % author: Dung Tran
+            % date: 6/20/2019
+            
+            image_lb = zeros(obj.height, obj.width, obj.numChannel);
+            image_ub = zeros(obj.height, obj.width, obj.numChannel);
+            
+            for i=1:obj.height
+                for j=1:obj.width
+                    [xmin, xmax] = obj.getRange(i,j);
+                    %[xmin, xmax] = obj.getRange(i,j, 'parallel');
+                    image_lb(i, j, :) = xmin';
+                    image_ub(i,j,:) = xmax';
+                end
+            end
+            
+            
+        end
+        
+        
+        
+        
+                
+        % check if a pixel value is the maximum value compared with others
+        % this is core step for exactly perform maxpooling operation on an
+        % imagestar set
+        function image = isMax(obj, center, others, channel_ind)
+            % @center: is the center pixel position we want to check
+            %          center = [i; j]
+            % @others: is the other pixel position we want to compare with
+            % the center one
+            %          others = [i1 i2 ... in, j1 j2 ... jn]
+            %          others(:, i) is the position of i^th pixel
+            % @channel_ind: the index of current channel
+            % @image: = [], the pixel value cannot be the maximum one
+            %         = imagestar object, the pixel value can be the
+            %         maximum one with some updates in the predicate
+            %         constraints
+            
+            % author: Dung Tran
+            % date: 6/20/2019
+            
+            
+            if length(center) ~= 2 || center(1) > obj.height || center(1) < 1 || center(2) > obj.width || center(2) < 1
+                error('Invalid center point');
+            end
+            
+            if channel_ind > obj.numChannel || channel_ind < 1
+                error('Invalid channel index');
+            end
+            
+            if size(others, 1) ~= 2
+                error('Invalid position matrix');
+            end
+            
+            n = size(others, 2);
+            
+            new_C = zeros(n, obj.numPred);
+            new_d = zeros(n, 1);
+         
+            for i=1:n                
+                % add new constraint
+                % compare point (i,j) with point (i1, j1)
+                % p[i,j] = c[i,j] + \Sigma (V^k[i,j]*a_k), k=1:numPred
+                % p[i1,j1] = c[i1, j1] + \Sigma ((V^k[i1,j1]*a_k), k=1:numPred)
+                
+                % p[i,j] >= p[i1, j1] <=> 
+                % <=> \Sigma (V^k[i1, j1] - V^k[i,j])*a[k] <= c[i,j] - c[i1,j1]
+                
+                new_d(i) = obj.V(center(1),center(2), 1, channel_ind) - obj.V(others(1,i), others(2,i), 1, channel_ind);
+                for j=1:obj.numPred                    
+                    new_C(i,j) = obj.V(center(1),center(2), j+1, channel_ind) - obj.V(others(1,i), others(2,i), j+1, channel_ind);
+                end           
+            end
+            
+            C1 = [obj.C; new_C];
+            d1 = [obj.d; new_d];            
+            f = zeros(1, obj.numPred);
+            
+            [~,~,status,~] = glpk(f, C1, d1);
+            
+            if status == 5 % feasible solution exist
+                image = ImageStar(obj.V, C1, d1, obj.pred_lb, obj.pred_ub);
+            else
+                image = [];
+            end
             
         end
         

@@ -16,9 +16,6 @@ image = ImageStar(IM, LB, UB);
 
 L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
 
-[image_lb, image_ub] = image.getBox;
-
-display(image_lb(:,:,1));
-display(image_ub(:,:,1));
+tic;
 images = L.stepMaxPooling_exact_singleInput(image, [1;1], 1);
-
+toc;

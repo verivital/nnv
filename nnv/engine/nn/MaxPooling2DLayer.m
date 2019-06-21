@@ -411,9 +411,46 @@ classdef MaxPooling2DLayer < handle
             
         end
         
+        % construct an ImageStar mapMap after performing reachability analysis
+        function image = construct_maxImage(obj, input)
+            % @input: an input image with max_points information
+            % @image: a max-ImageStar set
+            
+            % author: Dung Tran
+            % date: 6/21/2019
+            
+            if ~isa(input, 'ImageStar')
+                error('Input is not an ImageStar');
+            end
+            
+            [h, w] = obj.get_size_maxMap(input.V(:,:,1,1));
+            new_V(:,:,input.numPred+1,input.numChannel) = zeros(h,w);
+            
+            % get max points for each channel
+            channel_maxPoints(:,:,input.numChannel) = zeros(3, h*w);
+            for i=1:input.numChannel
+                channel_maxPoints(:,:,i) = input.max_points(:, (i-1)*h*w + 1:i*h*w);
+            end
+            
+            for p=1:input.numPred+1
+                for k=1:input.numChannel
+                    for i=1:h
+                        for j=1:w
+                            ind = (i-1)*w + j;
+                            max_ind = channel_maxPoints(:,ind,k);
+                            new_V(:,:,p,k) = input.V(max_ind(1), max_ind(2), p, k);
+                        end
+                    end
+                end
+            end
+                        
+            image = ImageStar(new_V, input.C, input.d, input.pred_lb, input.pred_ub);
+            
+        end
+        
     end
         
-    % reachability analysis using star set
+    % exact reachability analysis using star set
     methods
         % reachability analysis method using Stars
         % a star represent a set of images (2D matrix of h x w)
@@ -461,11 +498,14 @@ classdef MaxPooling2DLayer < handle
             end
             
             images = [];
+            % optimize code here
+            % number of feasibility problem needs to check is N
+            % is there a best way to reduce this?
             for i=1:N
                 center = ind_mat(:,i);
                 others = ind_mat;
                 others(:, i) = [];
-                image1 = image.isMax(center, others, channel_ind);
+                image1 = image.isMax(center, others, channel_ind); % optimize the isMax function
                 images = [images image1];
             end          
             
@@ -542,16 +582,21 @@ classdef MaxPooling2DLayer < handle
             for k=1:input.numChannel
                 for i=1:h
                     for j=1:w
+                        fprintf('\nPerforming the %d^th exact stepMaxPooling on channel %d', (i-1)*w + j, k);
                         image = obj.stepMaxPooling_exact_multipleInputs(image, startPoints{i,j}', k); 
                     end
                 end
             end
             
-                        
-            images = image;
-            
-            
-                           
+            N = length(image);
+            images(1, N) = ImageStar;
+            % use parallel computing for constructing the max images
+            fprintf("\nConstructing the maxImage reachable sets");
+            for i=1:N
+                images(i) = obj.construct_maxImage(image(i));
+            end
+            fprintf("\nTotal number of the reachable sets after max pooling operation is %d\n", N);
+                                          
         end
     end
     

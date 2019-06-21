@@ -24,7 +24,7 @@ image1 = image.isMax(center, others, channel_ind); % check if x[1,1] >= x[1,3]
 toc;
 
 tic;
-image2 = image.isMax(others, center, channel_ind); % check if x[1,3] >= x[1,1]
+image2 = image.isMax(others, center, channel_ind); % check iimaf x[1,3] >= x[1,1]
 toc;
 
 x2 = [2; 2];

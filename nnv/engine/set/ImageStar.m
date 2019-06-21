@@ -85,6 +85,8 @@ classdef ImageStar
         numPred = 0; % number of predicate variables
         pred_lb = []; % lower bound vector of the predicate
         pred_ub = []; % upper bound vector of the predicate
+        im_lb = []; % lower bound image of the ImageStar
+        im_ub = []; % upper bound image of the ImageStar
         
         % used to store max points in max pooling analysis
         % a single max_point = [height_position; width_position; channel_index] 
@@ -152,6 +154,9 @@ classdef ImageStar
                     else
                         error('Inconsistent number of channels between the center image and the bound matrices');
                     end
+                    
+                    obj.im_lb = IM1 + LB1; % lower bound image
+                    obj.im_ub = IM1 + UB1; % upper bound image
 
                     % converting box ImageStar to an array of 2D Stars
                     
@@ -247,14 +252,18 @@ classdef ImageStar
                     obj.height = n(1);
                     obj.width = n(2);
                     
-                case 6 % 
+                    
+                case 8 % 
                     
                     V1 = varargin{1};  % basis matrices
                     C1 = varargin{2};  % predicate constraint matrix 
                     d1 = varargin{3};  % predicate constraint vector
                     lb1 = varargin{4}; % predicate lower bound
                     ub1 = varargin{5}; % predicate upper bound
-                    mp = varargin{6}; % maxpoints
+                    im_lb1 = varargin{6}; % lower bound image
+                    im_ub1 = varargin{7}; % upper bound image
+                    mp = varargin{8}; % maxpoints
+                    
                     
                                         
                     if size(C1, 1) ~= size(d1, 1)
@@ -293,11 +302,26 @@ classdef ImageStar
                     obj.height = n(1);
                     obj.width = n(2);
                     
+                    if size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width
+                        error('Inconsistent dimension between lower bound image and the constructed imagestar');
+                    else
+                        obj.im_lb = im_lb1;
+                    end
+                    
+                    if size(im_ub1,1) ~= obj.height || size(im_ub1, 2) ~= obj.width
+                        error('Inconsistent dimension between upper bound image and the constructed imagestar');
+                    else
+                        obj.im_ub = im_ub1;
+                    end
+                    
                     if ~isempty(mp) && size(mp, 1) ~= 3
                         error('Invalid max_points matrix');
                     else
                         obj.max_points = mp;
                     end
+                    
+                    
+                    
                                                    
                 case 0 % create an empty ImageStar
 
@@ -313,10 +337,12 @@ classdef ImageStar
                     obj.numPred = 0;
                     obj.pred_lb = [];
                     obj.pred_ub = [];
+                    obj.im_lb = [];
+                    obj.im_ub = [];
                                       
                 otherwise
                     
-                    error('Invalid number of input arguments, (should be from 0, 3, 5 , 6)');
+                    error('Invalid number of input arguments, (should be from 0, 3, 5 , 8)');
                     
             end
                         
@@ -549,13 +575,10 @@ classdef ImageStar
             
             
         end
-        
-        
-        
-        
+             
                 
         % check if a pixel value is the maximum value compared with others
-        % this is core step for exactly perform maxpooling operation on an
+        % this is core step for exactly performing maxpooling operation on an
         % imagestar set
         function image = isMax(obj, center, others, channel_ind)
             % @center: is the center pixel position we want to check
@@ -586,37 +609,72 @@ classdef ImageStar
                 error('Invalid position matrix');
             end
             
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+                [obj.im_lb, obj.im_ub] = obj.getBox;
+            end
             n = size(others, 2);
-            
-            new_C = zeros(n, obj.numPred);
-            new_d = zeros(n, 1);
-         
-            for i=1:n                
-                % add new constraint
-                % compare point (i,j) with point (i1, j1)
-                % p[i,j] = c[i,j] + \Sigma (V^k[i,j]*a_k), k=1:numPred
-                % p[i1,j1] = c[i1, j1] + \Sigma ((V^k[i1,j1]*a_k), k=1:numPred)
-                
-                % p[i,j] >= p[i1, j1] <=> 
-                % <=> \Sigma (V^k[i1, j1] - V^k[i,j])*a[k] <= c[i,j] - c[i1,j1]
-                
-                new_d(i) = obj.V(center(1),center(2), 1, channel_ind) - obj.V(others(1,i), others(2,i), 1, channel_ind);
-                for j=1:obj.numPred                    
-                    new_C(i,j) = obj.V(center(1),center(2), j+1, channel_ind) - obj.V(others(1,i), others(2,i), j+1, channel_ind);
-                end           
+            min_center = obj.im_lb(center(1), center(2), channel_ind);
+            max_center = obj.im_ub(center(1), center(2), channel_ind);
+            max_count = 0;
+            min_count = 0;
+            for i=1:n
+                min_point_i = obj.im_lb(others(1,i), others(2,i), channel_ind);
+                max_point_i = obj.im_lb(others(1, i), others(2, i), channel_ind);
+                if min_center >= max_point_i
+                    max_count = max_count + 1;
+                end
+                if max_center <= min_point_i
+                    min_count = min_count + 1;
+                end
             end
             
-            C1 = [obj.C; new_C];
-            d1 = [obj.d; new_d];            
-            f = zeros(1, obj.numPred);
-            
-            [~,~,status,~] = glpk(f, C1, d1);
-            
-            if status == 5 % feasible solution exist
-                image = ImageStar(obj.V, C1, d1, obj.pred_lb, obj.pred_ub, obj.max_points);
+            if max_count == n % the center is the max point by only checking the bound
+                image = ImageStar(obj.V, obj.C, obj.d, obj.pred_lb, obj.pred_ub, obj.im_lb, obj.im_ub, obj.max_points);
                 image = image.add_maxPoint(center(1), center(2), channel_ind);
-            else
+            elseif min_count == n % the center is not the max point by only checking the bound
                 image = [];
+            else
+                % the center may be the max point with some extra
+                % constraints on the predicate variables
+                new_C = zeros(n, obj.numPred);
+                new_d = zeros(n, 1);
+
+                for i=1:n                
+                    % add new constraint
+                    % compare point (i,j) with point (i1, j1)
+                    % p[i,j] = c[i,j] + \Sigma (V^k[i,j]*a_k), k=1:numPred
+                    % p[i1,j1] = c[i1, j1] + \Sigma ((V^k[i1,j1]*a_k), k=1:numPred)
+
+                    % p[i,j] >= p[i1, j1] <=> 
+                    % <=> \Sigma (V^k[i1, j1] - V^k[i,j])*a[k] <= c[i,j] - c[i1,j1]
+
+                    new_d(i) = obj.V(center(1),center(2), 1, channel_ind) - obj.V(others(1,i), others(2,i), 1, channel_ind);
+                    for j=1:obj.numPred                    
+                        new_C(i,j) = obj.V(center(1),center(2), j+1, channel_ind) - obj.V(others(1,i), others(2,i), j+1, channel_ind);
+                    end           
+                end
+
+                C1 = [obj.C; new_C];
+                d1 = [obj.d; new_d];
+
+                % remove redundant constraints
+                E = [C1 d1];
+                E = unique(E, 'rows');
+
+                C1 = E(:, 1:obj.numPred);
+                d1 = E(:, obj.numPred + 1);
+
+                f = zeros(1, obj.numPred);
+
+                [~,~,status,~] = glpk(f, C1, d1);
+
+                if status == 5 % feasible solution exist
+                    image = ImageStar(obj.V, C1, d1, obj.pred_lb, obj.pred_ub, obj.im_lb, obj.im_ub, obj.max_points);
+                    image = image.add_maxPoint(center(1), center(2), channel_ind);
+                else
+                    image = [];
+                end
+                
             end
             
         end

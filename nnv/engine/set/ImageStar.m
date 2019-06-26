@@ -241,18 +241,39 @@ classdef ImageStar
                     
                     n = size(V1);
                     if length(n) == 3
+                        
                         obj.numChannel = 1;
+                        obj.V = V1;
+                        obj.height = n(1);
+                        obj.width = n(2);
+                        
                     elseif length(n) == 4
-                        obj.numChannel = n(4);
+                        
+                        if n(3) ~= obj.numPred + 1
+                            error('Inconsistency between the basis matrix and the number of predicate variables');
+                        else
+                            obj.numChannel = n(4);
+                            obj.V = V1;
+                            obj.height = n(1);
+                            obj.width = n(2);
+                        end
+                        
+                    elseif length(n) == 2
+                        
+                        if n(2) ~= obj.numPred + 1
+                            error('Inconsistency between the basis matrix and the number of predicate variables');
+                        else                  
+                            obj.numChannel = 1;
+                            obj.V = V1;
+                            obj.height = n(1);
+                            obj.width = 1;
+                        end
+
                     else
                         error('Invalid basis matrix');
                     end
                                             
-                    obj.V = V1;
-                    obj.height = n(1);
-                    obj.width = n(2);
-                    
-                    
+                      
                 case 8 % 
                     
                     V1 = varargin{1};  % basis matrices
@@ -290,16 +311,38 @@ classdef ImageStar
                     
                     n = size(V1);
                     if length(n) == 3
+                        
                         obj.numChannel = 1;
+                        obj.V = V1;
+                        obj.height = n(1);
+                        obj.width = n(2);
+                        
                     elseif length(n) == 4
-                        obj.numChannel = n(4);
+                        
+                        if n(3) ~= obj.numPred + 1
+                            error('Inconsistency between the basis matrix and the number of predicate variables');
+                        else
+                            obj.numChannel = n(4);
+                            obj.V = V1;
+                            obj.height = n(1);
+                            obj.width = n(2);
+                        end
+                        
+                    elseif length(n) == 2
+                        
+                        if n(2) ~= obj.numPred + 1
+                            error('Inconsistency between the basis matrix and the number of predicate variables');
+                        else                  
+                            obj.numChannel = 1;
+                            obj.V = V1;
+                            obj.height = n(1);
+                            obj.width = 1;
+                        end
+
                     else
                         error('Invalid basis matrix');
                     end
-                                            
-                    obj.V = V1;
-                    obj.height = n(1);
-                    obj.width = n(2);
+                       
                     
                     if size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width
                         error('Inconsistent dimension between lower bound image and the constructed imagestar');

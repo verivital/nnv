@@ -6,11 +6,12 @@ classdef AveragePooling2DLayer < handle
     %    https://ujjwalkarn.me/2016/08/11/intuitive-explanation-convnets/
     % 2) More detail about mathematical background of CNN
     %    http://cs231n.github.io/convolutional-networks/
-    % 3) Matlab implementation of Convolution2DLayer (for training and evaluating purpose)
+    % 3) Matlab implementation of Convolution2DLayer and AveragePooling2dLayer (for training and evaluating purpose)
     %    https://www.mathworks.com/help/deeplearning/ug/layers-of-a-convolutional-neural-network.html
     %    https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.convolution2dlayer.html
+    %    https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.averagepooling2dlayer.html
     
-    %   Dung Tran: 12/5/2018
+    %   Dung Tran: 6/15/2019
     
     properties
         Name = 'average_pooling_2d_layer';
@@ -244,7 +245,7 @@ classdef AveragePooling2DLayer < handle
             obj.PoolSize = average_Pooling_2d_Layer.PoolSize;
             obj.Stride = average_Pooling_2d_Layer.Stride;
             obj.PaddingSize = average_Pooling_2d_Layer.PaddingSize;
-            fprintf('Parsing a Matlab convolutional 2d layer is done successfully');
+            fprintf('Parsing a Matlab average pooling 2d layer is done successfully');
             
         end
         

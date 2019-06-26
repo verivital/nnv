@@ -1,16 +1,17 @@
 classdef MaxPooling2DLayer < handle
-    % The convolutional 2D layer class
+    % The MaxPooling 2D layer class in CNN
     %   Contain constructor and reachability analysis methods
     % Main references:
     % 1) An intuitive explanation of convolutional neural networks: 
     %    https://ujjwalkarn.me/2016/08/11/intuitive-explanation-convnets/
     % 2) More detail about mathematical background of CNN
     %    http://cs231n.github.io/convolutional-networks/
-    % 3) Matlab implementation of Convolution2DLayer (for training and evaluating purpose)
+    %    http://cs231n.github.io/convolutional-networks/#pool
+    % 3) Matlab implementation of Convolution2DLayer and MaxPooling (for training and evaluating purpose)
     %    https://www.mathworks.com/help/deeplearning/ug/layers-of-a-convolutional-neural-network.html
-    %    https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.convolution2dlayer.html
+    %    https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.maxpooling2dlayer.html
     
-    %   Dung Tran: 12/5/2018
+    %   Dung Tran: 6/20/2019
     
     properties
         Name = 'max_pooling_2d_layer';
@@ -246,7 +247,7 @@ classdef MaxPooling2DLayer < handle
             obj.PoolSize = max_Pooling_2d_Layer.PoolSize;
             obj.Stride = max_Pooling_2d_Layer.Stride;
             obj.PaddingSize = max_Pooling_2d_Layer.PaddingSize;
-            fprintf('Parsing a Matlab convolutional 2d layer is done successfully');
+            fprintf('Parsing a Matlab max pooling 2d layer is done successfully');
             
         end
         

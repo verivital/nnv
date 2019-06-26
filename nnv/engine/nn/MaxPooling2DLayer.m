@@ -20,6 +20,8 @@ classdef MaxPooling2DLayer < handle
         PaddingMode = 'manual'; 
         PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
         
+        NumSplits = 0; % total number of splits in the exact analysis
+        
     end
     
     
@@ -407,7 +409,8 @@ classdef MaxPooling2DLayer < handle
                     end
 
                 end
-            end
+            end            
+            
             
         end
         
@@ -507,8 +510,10 @@ classdef MaxPooling2DLayer < handle
                 others(:, i) = [];
                 image1 = image.isMax(center, others, channel_ind); % optimize the isMax function
                 images = [images image1];
-            end          
+            end
             
+            obj.NumSplits = obj.NumSplits + length(images) - 1;
+             
         end
         
         % exact stepMaxPooling with multiple inputs
@@ -578,12 +583,13 @@ classdef MaxPooling2DLayer < handle
             [h, w] = size(startPoints); % this is the size of the maxMap
             
             image = input;
+            obj.NumSplits = 0;
             
             for k=1:input.numChannel
                 for i=1:h
                     for j=1:w
                         fprintf('\nPerforming the %d^th exact stepMaxPooling on channel %d', (i-1)*w + j, k);
-                        image = obj.stepMaxPooling_exact_multipleInputs(image, startPoints{i,j}', k); 
+                        image = obj.stepMaxPooling_exact_multipleInputs(image, startPoints{i,j}', k);
                     end
                 end
             end
@@ -598,6 +604,132 @@ classdef MaxPooling2DLayer < handle
             fprintf("\nTotal number of the reachable sets after max pooling operation is %d\n", N);
                                           
         end
+    end
+    
+    
+    methods % Over approximate reachability analysis using imagestar
+                
+        % reach star approx
+        function image = reach_star_approx(obj, in_image)
+            % @in_image: input imageStar set
+            % @channel_id: channel index
+            % @image: output imagestar, an over-approximation of the exact
+            % output set
+            
+            % author: Dung Tran
+            % date: 6/24/2019
+            
+            
+            if ~isa(in_image, 'ImageStar')
+                error('Input image is not an imagestar');
+            end
+            
+            [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1)); 
+            startPoints = obj.get_startPoints(in_image.V(:,:,1,1));
+            max_index = cell(h, w, in_image.numChannel);
+            max_mat = cell(h, w, in_image.numChannel);
+            
+            % compute max_index when applying maxpooling operation
+            for k=1:in_image.numChannel
+                for i=1:h
+                    for j=1:w
+                        [max_index{i, j, k}, max_mat{i,j,k}] = in_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);
+                    end
+                end
+            end
+            
+            % construct an over-approximate imagestar reachable set
+            
+            % compute new number of predicate
+            np = in_image.numPred;
+            for k=1:in_image.numChannel
+                for i=1:h
+                    for j=1:w
+                        max_id = max_index{i,j,k};
+                        if isempty(max_id)
+                            np = np + 1;
+                        end                       
+                    end
+                end
+            end
+            
+            % update new basis matrix
+            new_V(:,:,np+1,in_image.numChannel) = zeros(h,w);
+            new_pred_index = 0;
+            for k=1:in_image.numChannel
+                for i=1:h
+                    for j=1:w
+                        max_id = max_index{i,j,k};
+                        if ~isempty(max_id)                            
+                            for p=1:in_image.numPred + 1
+                                new_V(i,j,p,k) = in_image.V(max_id(1),max_id(2),p,k);
+                            end
+                        else
+                            % adding new predicate variable
+                            new_V(i,j,1,k) = 0;
+                            new_pred_index = new_pred_index + 1;
+                            new_V(i,j,in_image.numPred+1+new_pred_index,k) = 1;                            
+                        end                       
+                    end
+                end
+            end
+            
+            %update constraint matrix C and constraint vector d
+            N = obj.PoolSize(1) * obj.PoolSize(2);            
+            new_C = zeros(new_pred_index*(N + 1), np);
+            new_d = zeros(new_pred_index*(N + 1), 1);
+            new_pred_lb = zeros(new_pred_index, 1); % update lower bound and upper bound of new predicate variables
+            new_pred_ub = zeros(new_pred_index, 1); 
+            new_pred_index = 0;
+            for k=1:in_image.numChannel
+                for i=1:h
+                    for j=1:w
+                        max_id = max_index{i,j,k};
+                        if isempty(max_id)
+                            % construct new set of constraints here
+                            new_pred_index = new_pred_index + 1;                           
+                            startpoint = startPoints{i,j};
+                            points = in_image.get_localPoints(startpoint, obj.PoolSize);
+                            C1 = zeros(1, np);
+                            C1(in_image.numPred + new_pred_index) = 1;
+                            [lb, ub] = in_image.get_localBound(startpoint, obj.PoolSize, k);
+                            new_pred_lb(new_pred_index) = lb;
+                            new_pred_ub(new_pred_index) = ub;
+                            d1 = ub;                           
+                            C2 = zeros(N, np);
+                            d2 = zeros(N, 1);
+                            for g=1:N
+                                point = points(g,:);
+                                % add new predicate constraint: xi - y <= 0
+                                display(points);
+                                display(point);
+                                C2(g, 1:in_image.numPred) = in_image.V(point(1), point(2),2:in_image.numPred+1, k);
+                                C2(g, in_image.numPred + new_pred_index) = -1;
+                                d2(g) = -in_image.V(point(1),point(2),1,k);                                
+                            end
+                            
+                            C = [C1; C2];
+                            d = [d1;d2];
+                            
+                            new_C((new_pred_index-1)*(N+1) + 1:new_pred_index*(N+1), :) = C;
+                            new_d((new_pred_index-1)*(N+1) + 1:new_pred_index*(N+1)) = d;
+                        end
+                    end
+                end
+            end
+            
+            n = size(in_image.C, 1);
+            C = [in_image.C zeros(n, new_pred_index)];
+            new_C = [C; new_C];
+            new_d = [in_image.d; new_d];
+            new_pred_lb = [in_image.pred_lb; new_pred_lb];
+            new_pred_ub = [in_image.pred_ub; new_pred_ub];
+            
+            image = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
+                       
+        end
+        
+        
     end
     
 end

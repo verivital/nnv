@@ -263,8 +263,7 @@ classdef ImageStar
                     im_lb1 = varargin{6}; % lower bound image
                     im_ub1 = varargin{7}; % upper bound image
                     mp = varargin{8}; % maxpoints
-                    
-                    
+                                      
                                         
                     if size(C1, 1) ~= size(d1, 1)
                         error('Inconsistent dimension between constraint matrix and constraint vector');
@@ -320,9 +319,7 @@ classdef ImageStar
                         obj.max_points = mp;
                     end
                     
-                    
-                    
-                                                   
+                                                                    
                 case 0 % create an empty ImageStar
 
                     obj.numChannel = 0; 
@@ -678,6 +675,148 @@ classdef ImageStar
             end
             
         end
+        
+        
+        % get local bound for Max Pooling operation
+        function [lb, ub] = get_localBound(obj, startpoint, PoolSize, channel_id)
+            % @startpoint: startpoint of the local(partial) image
+            %               startpoint = [x1 y1];
+            % @PoolSize: = [height width] the height and width of max pooling layer
+            % @channel_id: the index of the channel
+            % @lb, ub: the lower bound and upper bound of all points in the
+            % local region
+            
+            % author: Dung Tran
+            % date: 6/25/2019
+            
+            points = obj.get_localPoints(startpoint, PoolSize);
+            n = length(points);
+            % get lower bound and upper bound image
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+                [image_lb, image_ub] = obj.getBox;
+            else
+                image_lb = obj.im_lb;
+                image_ub = obj.im_ub;
+            end
+            
+            lb = image_lb(points(1,1), points(1,2), channel_id);
+            ub = image_ub(points(1,1), points(1,2), channel_id);
+            
+            for i=2:n
+                if image_lb(points(i,1), points(i,2), channel_id) < lb
+                    lb = image_lb(points(i,1), points(i,2), channel_id);
+                end
+                if image_ub(points(i,1), points(i,2), channel_id) > ub
+                    ub = image_ub(points(i,1), points(i,2), channel_id);
+                end
+            end
+            
+            
+        end
+        
+        % get all local points index for Max Pooling operation
+        function points = get_localPoints(obj, startpoint, PoolSize)
+            % @startpoint: startpoint of the local(partial) image
+            %               startpoint = [x1 y1];
+            % @PoolSize: = [height width] the height and width of max pooling layer
+            % @points: all indexes of all points for a single max
+            % pooling operation (including the startpoint)
+            
+            % author: Dung Tran
+            % date: 6/25/2019
+            
+            x0 = startpoint(1); % vertical index of the startpoint
+            y0 = startpoint(2); % horizontal index of the startpoint
+            h  = PoolSize(1);   % height of the MaxPooling layer
+            w  = PoolSize(2);   % width of the MaxPooling layer
+            
+            if x0 < 1 || y0 < 1 || x0 + h - 1 > obj.height || y0 + w - 1 > obj.width
+                error('Invalid startpoint or PoolSize');
+            end
+            points = zeros(h*w, 2);
+            for i=1:h
+                if i==1
+                    x1 = x0;
+                else
+                    x1 = x1 + 1;
+                end
+                
+                for j=1:w
+                    if j==1
+                        y1 = y0;
+                    else
+                        y1 = y1 + 1;
+                    end
+                    points((i-1)*w + j, :) = [x1 y1];
+                end
+            end
+                    
+        end
+            
+            
+        % get local max index, this medthod tries to find the maximum point
+        % of a local image, used in over-approximate reachability analysis
+        % of maxpooling operation
+        function [max_id, max_mat] = get_localMax_index(obj, startpoint, PoolSize, channel_id)
+            % @startpoint: startpoint of the local(partial) image
+            %               startpoint = [x1 y1];
+            % @PoolSize: = [height width] the height and width of max pooling layer
+            % @channel_id: the channel index
+            % @max_id: = []: we don't know which one has maximum value,
+            % i.e., the maximum values are overlap
+            %           = [xi yi]: the point that has maximum value
+            
+            % author: Dung Tran
+            % date: 6/24/2019
+            
+            points = obj.get_localPoints(startpoint, PoolSize);          
+            % get lower bound and upper bound image
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+                [image_lb, image_ub] = obj.getBox;
+            else
+                image_lb = obj.im_lb;
+                image_ub = obj.im_ub;
+            end
+            
+            h  = PoolSize(1);   % height of the MaxPooling layer
+            w  = PoolSize(2);   % width of the MaxPooling layer
+            n = h*w; 
+            max_mat = eye(n); % remember max poins matrix 
+            for i=1:n-1
+                point_i = points(i, :);
+                point_i_minVal = image_lb(point_i(1), point_i(2), channel_id);
+                point_i_maxVal = image_ub(point_i(1), point_i(2), channel_id);
+                for j=i+1:n
+                    point_j = points(j, :);
+                    point_j_maxVal = image_ub(point_j(1), point_j(2), channel_id);
+                    point_j_minVal = image_lb(point_j(1), point_j(2), channel_id);
+                    if point_i_minVal >= point_j_maxVal
+                        max_mat(i, j) = 1;
+                    elseif point_j_minVal >= point_i_maxVal
+                        max_mat(j, i) = 1; 
+                    end 
+                end
+            end
+            
+            S = sum(max_mat, 2);
+            max_id = [];
+            for i=1:n
+                if S(i) == n
+                    max_id = points(i, :);
+                end
+            end
+               
+               
+        end
+       
+     
+        
+        
+    end
+    
+    
+    
+    methods(Static)
         
         
         

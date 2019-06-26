@@ -16,8 +16,6 @@ image = ImageStar(IM, LB, UB);
 
 L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
 
-[image_lb, image_ub] = image.getBox;
-
 tic;
 images = L.reach_star_exact(image);
 toc;

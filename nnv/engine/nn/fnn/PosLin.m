@@ -40,7 +40,7 @@ classdef PosLin
                 Im(index, index) = 0;
                 S = I.affineMap(Im, []);
             elseif xmin < 0 && xmax >= 0
-                fprintf('\nSplit at neuron %d', index);
+                %fprintf('\nSplit at neuron %d', index);
                 % S1 = I && x[index] < 0 
                 c = I.V(index, 1);
                 V = I.V(index, 2:I.nVar + 1); 
@@ -48,12 +48,12 @@ classdef PosLin
                 new_d = vertcat(I.d, -c);                
                 new_V = I.V;
                 new_V(index, :) = zeros(1, I.nVar + 1);
-                S1 = Star(new_V, new_C, new_d);
+                S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub);
                 
                 % S2 = I && x[index] >= 0
                 new_C = vertcat(I.C, -V);
                 new_d = vertcat(I.d, c);
-                S2 = Star(I.V, new_C, new_d);
+                S2 = Star(I.V, new_C, new_d, I.predicate_lb, I.predicate_ub);
                 
                 a = S1.isEmptySet;
                 b = S2.isEmptySet;
@@ -197,11 +197,11 @@ classdef PosLin
             end         
            
             if lb >= 0
-                S = Star(I.V, I.C, I.d);
+                S = Star(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub);
             elseif ub <= 0
                 V = I.V;
                 V(index, :) = zeros(1, I.nVar + 1);
-                S = Star(V, I.C, I.d);
+                S = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
             elseif lb < 0 && ub > 0
                 n = I.nVar + 1;
                 % over-approximation constraints 
@@ -223,8 +223,10 @@ classdef PosLin
                 new_d = [d0; d1; d2; d3];
                 new_V = [I.V zeros(I.dim, 1)];
                 new_V(index, :) = zeros(1, n+1);
-                new_V(index, n+1) = 1;
-                S = Star(new_V, new_C, new_d);
+                new_V(index, n+1) = 1;              
+                new_predicate_lb = [I.predicate_lb; 0];                
+                new_predicate_ub = [I.predicate_ub; ub];
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
             end
 
         end

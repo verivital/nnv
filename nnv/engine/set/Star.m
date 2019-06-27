@@ -554,28 +554,33 @@ classdef Star
 
             else % star set is a set
 
-                options = optimset('Display','none');
-
                 for i=1:obj.dim
                     f = obj.V(i, 2:obj.nVar + 1);
-                    %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                    [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
-                    if exitflag > 0
-                        lb(i) = fval + obj.V(i, 1);
+                    if all(f(:)==0)
+                        lb(i) = obj.V(i,1);
+                        ub(i) = obj.V(i,1);
                     else
-                        lb = [];
-                        ub = [];
-                        break;
+                        %options = optimset('Display','none');
+                        %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                        [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                        if exitflag > 0
+                            lb(i) = fval + obj.V(i, 1);
+                        else
+                            lb = [];
+                            ub = [];
+                            break;
+                        end
+                        %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                        [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                        if exitflag > 0
+                            ub(i) = -fval + obj.V(i, 1);
+                        else
+                            lb = [];
+                            ub = [];
+                            break;
+                        end
                     end
-                    %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                    [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
-                    if exitflag > 0
-                        ub(i) = -fval + obj.V(i, 1);
-                    else
-                        lb = [];
-                        ub = [];
-                        break;
-                    end
+                    
 
                 end
 
@@ -603,21 +608,28 @@ classdef Star
                 parfor i=1:obj.dim
                    
                     f = obj.V(i, 2:obj.nVar + 1);
-                    %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                    [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
-                    if exitflag > 0        
-                        lb(i) = fval + obj.V(i,1);
+                    
+                    if all(f(:)==0)
+                        lb(i) = obj.V(i,1);
+                        ub(i) = obj.V(i,1);
                     else
-                        lb(i) = -Inf;                         
-                    end
-                    %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                    [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
-                    if exitflag > 0
-                        ub(i) = -fval + obj.V(i, 1);
-                    else
-                        ub(i) = Inf;
-                    end
+                        %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                        [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
+                        if exitflag > 0        
+                            lb(i) = fval + obj.V(i,1);
+                        else
+                            lb(i) = -Inf;                         
+                        end
+                        %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                        [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
+                        if exitflag > 0
+                            ub(i) = -fval + obj.V(i, 1);
+                        else
+                            ub(i) = Inf;
+                        end
 
+                    end
+                                    
                 end
 
             end         
@@ -682,25 +694,31 @@ classdef Star
                 error('Invalid index');
             end
             
-            options = optimset('Display','none');
-
+            
             f = obj.V(index, 2:obj.nVar + 1);
-
-            %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-            [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
-            if exitflag > 0
-                xmin = fval + obj.V(index, 1);
+            if all(f(:)==0)
+                xmin = obj.V(index,1);
+                xmax = obj.V(index,1);
             else
-                error('Cannot find an optimal solution, exitflag = %d', exitflag);
-            end          
+                %options = optimset('Display','none');
+                %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                if exitflag > 0
+                    xmin = fval + obj.V(index, 1);
+                else
+                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                end          
 
-            %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-            [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
-            if exitflag > 0
-                xmax = -fval + obj.V(index, 1);
-            else
-                error('Cannot find an optimal solution');
+                %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                if exitflag > 0
+                    xmax = -fval + obj.V(index, 1);
+                else
+                    error('Cannot find an optimal solution');
+                end
+
             end
+            
             
         end
         
@@ -719,7 +737,7 @@ classdef Star
             for i=1:obj.dim
                 f = S(i, :);
                 %[~,fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                [~,fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
+                [~,fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                 
                 if exitflag > 0
                     lb(i) = fval;
@@ -729,7 +747,7 @@ classdef Star
                 
                 
                 %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                [~,fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
+                [~,fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                 if exitflag > 0
                     ub(i) = -fval;
                 else

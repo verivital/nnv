@@ -1,0 +1,18 @@
+Feedforward Neural Network Information
+
+Number of layers: 7
+Number of neurons: 305
+Number of inputs: 5
+Number of outputs: 5
+
+Reach Set Information
+Reachability method: abs-dom
+Number of cores used in computation: 1
+Layer 1 reach set consists of 1 sets that are computed in 0.70479 seconds
+Layer 2 reach set consists of 1 sets that are computed in 0.70099 seconds
+Layer 3 reach set consists of 1 sets that are computed in 0.70027 seconds
+Layer 4 reach set consists of 1 sets that are computed in 0.79586 seconds
+Layer 5 reach set consists of 1 sets that are computed in 0.77033 seconds
+Layer 6 reach set consists of 1 sets that are computed in 0.74115 seconds
+Output Layer reach set consists of 1 sets that are computed in 0.00032 seconds
+Total reachable set computation time: 4.41372

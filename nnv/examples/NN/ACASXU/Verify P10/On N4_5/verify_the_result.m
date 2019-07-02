@@ -1,18 +1,18 @@
-load F.mat;
+%load F.mat;
 load ACASXU_run2a_4_5_batch_2000.mat;
 
-R = F.outputSet;
-n = length(R); 
+%R = F.outputSet;
+%n = length(R); 
 
 % plot sample and reach set
 
-lb = [36000; 0.7; -3.141592; 900; 600];
-ub = [60760; 3.141592; -3.141592 + 0.01; 1200; 1200];
+lb1 = [36000; 0.7; -3.141592; 900; 600];
+ub1 = [60760; 3.141592; -3.141592 + 0.01; 1200; 1200];
 
 % normalize input
 for i=1:5
-    lb(i) = (lb(i) - means_for_scaling(i))/range_for_scaling(i);
-    ub(i) = (ub(i) - means_for_scaling(i))/range_for_scaling(i);   
+    lb1(i) = (lb1(i) - means_for_scaling(i))/range_for_scaling(i);
+    ub1(i) = (ub1(i) - means_for_scaling(i))/range_for_scaling(i);   
 end
 
 n=5000;
@@ -30,13 +30,13 @@ output = Y{1, 7};
 maps = [1 0 0 0 0; 0 0 1 0 0; 0 0 0 0 1]; % map to COC, Strong Right, Strong Left
 output_mapped = maps*output;
 
-R1 = [];
-for i=1:length(R)
-    R1 = [R1 R(i).affineMap(maps)];   
-end
+%R1 = [];
+%for i=1:length(R)
+%    R1 = [R1 R(i).affineMap(maps)];   
+%end
 
 fig = figure;
-R1.plot;
+%R1.plot;
 xlabel('COC');
 ylabel('Strong-Right');
 zlabel('Strong-Left');

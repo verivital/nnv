@@ -7,12 +7,12 @@ Number of outputs: 5
 
 Reach Set Information
 Reachability method: exact-star
-Number of cores used in computation: 90
-Layer 1 reach set consists of 1 sets that are computed in 0.83823 seconds
-Layer 2 reach set consists of 14 sets that are computed in 1.31733 seconds
-Layer 3 reach set consists of 176 sets that are computed in 1.92302 seconds
-Layer 4 reach set consists of 465 sets that are computed in 4.51441 seconds
-Layer 5 reach set consists of 1064 sets that are computed in 10.42048 seconds
-Layer 6 reach set consists of 2678 sets that are computed in 23.52743 seconds
-Output Layer reach set consists of 2678 sets that are computed in 3.67483 seconds
-Total reachable set computation time: 46.21573
+Number of cores used in computation: 6
+Layer 1 reach set consists of 6 sets that are computed in 0.30438 seconds
+Layer 2 reach set consists of 75 sets that are computed in 0.92251 seconds
+Layer 3 reach set consists of 272 sets that are computed in 5.58287 seconds
+Layer 4 reach set consists of 441 sets that are computed in 15.23481 seconds
+Layer 5 reach set consists of 1547 sets that are computed in 31.34148 seconds
+Layer 6 reach set consists of 5203 sets that are computed in 122.81028 seconds
+Output Layer reach set consists of 5203 sets that are computed in 1.32228 seconds
+Total reachable set computation time: 177.51861

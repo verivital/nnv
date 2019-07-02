@@ -1,0 +1,18 @@
+Feedforward Neural Network Information
+
+Number of layers: 7
+Number of neurons: 305
+Number of inputs: 5
+Number of outputs: 5
+
+Reach Set Information
+Reachability method: approx-zono
+Number of cores used in computation: 1
+Layer 1 reach set consists of 1 sets that are computed in 0.00288 seconds
+Layer 2 reach set consists of 1 sets that are computed in 0.00334 seconds
+Layer 3 reach set consists of 1 sets that are computed in 0.00298 seconds
+Layer 4 reach set consists of 1 sets that are computed in 0.00257 seconds
+Layer 5 reach set consists of 1 sets that are computed in 0.00285 seconds
+Layer 6 reach set consists of 1 sets that are computed in 0.00312 seconds
+Output Layer reach set consists of 1 sets that are computed in 0.00026 seconds
+Total reachable set computation time: 0.01800

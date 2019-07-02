@@ -8,11 +8,11 @@ Number of outputs: 5
 Reach Set Information
 Reachability method: approx-zono
 Number of cores used in computation: 1
-Layer 1 reach set consists of 1 sets that are computed in 0.01332 seconds
-Layer 2 reach set consists of 1 sets that are computed in 0.01484 seconds
-Layer 3 reach set consists of 1 sets that are computed in 0.00790 seconds
-Layer 4 reach set consists of 1 sets that are computed in 0.00735 seconds
-Layer 5 reach set consists of 1 sets that are computed in 0.00620 seconds
-Layer 6 reach set consists of 1 sets that are computed in 0.00674 seconds
-Output Layer reach set consists of 1 sets that are computed in 0.00093 seconds
-Total reachable set computation time: 0.05729
+Layer 1 reach set consists of 1 sets that are computed in 0.00461 seconds
+Layer 2 reach set consists of 1 sets that are computed in 0.00443 seconds
+Layer 3 reach set consists of 1 sets that are computed in 0.00501 seconds
+Layer 4 reach set consists of 1 sets that are computed in 0.00280 seconds
+Layer 5 reach set consists of 1 sets that are computed in 0.00326 seconds
+Layer 6 reach set consists of 1 sets that are computed in 0.00485 seconds
+Output Layer reach set consists of 1 sets that are computed in 0.00026 seconds
+Total reachable set computation time: 0.02521

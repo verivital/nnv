@@ -8,11 +8,11 @@ Number of outputs: 5
 Reach Set Information
 Reachability method: abs-dom
 Number of cores used in computation: 1
-Layer 1 reach set consists of 1 sets that are computed in 1.00873 seconds
-Layer 2 reach set consists of 1 sets that are computed in 1.01122 seconds
-Layer 3 reach set consists of 1 sets that are computed in 0.99836 seconds
-Layer 4 reach set consists of 1 sets that are computed in 0.90923 seconds
-Layer 5 reach set consists of 1 sets that are computed in 0.93047 seconds
-Layer 6 reach set consists of 1 sets that are computed in 1.01768 seconds
-Output Layer reach set consists of 1 sets that are computed in 0.00427 seconds
-Total reachable set computation time: 5.87997
+Layer 1 reach set consists of 1 sets that are computed in 0.62903 seconds
+Layer 2 reach set consists of 1 sets that are computed in 0.65222 seconds
+Layer 3 reach set consists of 1 sets that are computed in 0.67085 seconds
+Layer 4 reach set consists of 1 sets that are computed in 0.73886 seconds
+Layer 5 reach set consists of 1 sets that are computed in 0.80420 seconds
+Layer 6 reach set consists of 1 sets that are computed in 0.77577 seconds
+Output Layer reach set consists of 1 sets that are computed in 0.00030 seconds
+Total reachable set computation time: 4.27123

@@ -18,7 +18,7 @@ F = FFNNS(Layers);
 input_vec = one_digits(1, :)';
 n  = length(input_vec);
 
-init_dis_bound = 0.003; % initial bound of disturbance
+init_dis_bound = 0.0058; % initial bound of disturbance
 tol = 0.0001; % accuracy in finding the maximum bound
 max_steps = 20; % maximum number of searching step
 
@@ -37,7 +37,7 @@ un_robust_reg = [U1 U2]; % unrobust region is y < 0.5 or y > 1.5
 
 method = 'exact-star';
 n_samples = 0; % do not search for falsified inputs
-n_cores = 4;
+n_cores = 6;
 
 %[robustness_bound, ~] = F.get_robustness_bound(input_vec, init_dis_bound, tol, max_steps, lb_allowable, ub_allowable, un_robust_reg, method, n_samples, n_cores);
 

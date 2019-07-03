@@ -613,14 +613,14 @@ classdef Star
                         ub(i) = obj.V(i,1);
                     else
                         %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                        [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, [], [], [], [], [], options);
+                        [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                         if exitflag > 0        
                             lb(i) = fval + obj.V(i,1);
                         else
                             lb(i) = -Inf;                         
                         end
                         %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                        [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, [], [], [], [], [], options);
+                        [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                         if exitflag > 0
                             ub(i) = -fval + obj.V(i, 1);
                         else

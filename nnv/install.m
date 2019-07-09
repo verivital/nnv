@@ -1,4 +1,7 @@
 fprintf('\nINSTALLING NNV....')
+
+root_folder = pwd;
+
 fprintf('\nIntalling tbxmanager (requires Matlab R2009a or later) ...');
 tbxmanager_folder = 'tbxmanager';
 list = dir;
@@ -17,6 +20,8 @@ fprintf('\nIntalling mpt toolbox and other dependencies...\n');
 tbxmanager install mpt mptdoc;
 tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi yalmip;
 fprintf('\nInstalling dependencies is done!');
+
+cd(root_folder);
 
 startup_nnv; % adding dependencies and nnv to the path
 

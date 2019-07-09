@@ -1,4 +1,5 @@
 fprintf('\nAdding dependencies to Matlab path...\n');
+
 tbxmanager restorepath
 
 fprintf('\nAdding NNV to Matlab path...\n');

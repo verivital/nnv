@@ -30,7 +30,7 @@ commandPy = [PyPath sh 'python ' nnmtPath sh 'nnvmt.py -i ' input ' -o ' output 
 
 % Check if the nn was converted
 if status == 0
-    disp('Neural Netowrk converted succesfully');
+    disp('Neural Network converted succesfully');
 else
     error(cmdout);
 end
@@ -39,6 +39,8 @@ name = split(input,sh);
 name = name(end);
 name = [sh name{1}];
 net_info = load([output name '.mat']);
+disp('Neural network loaded');
+
 
 % Create the NN object for nnv
 W = net_info.W; % weights
@@ -46,19 +48,15 @@ b = net_info.b; % bias
 n = length(b); % number of layers
 acf = net_info.activation_fcns;
 
-acf = ActFunctionMatlab(acf); %need to write this function to convert the "typical" name from other frameworks into matlab's names
-
 Layers = [];
 for i=1:n 
-    L = Layer(W{1, i}, b{i, 1}, acf{i});
+    L = Layer(W{i}, b{i}, ActFunction(acf(i,:)));
     Layers = [Layers L];
 end
 
-%L = Layer(W{1, n}, b{n, 1}, 'Linear');
-
-Layers = [Layers L];
 
 Controller = FFNN(Layers); % feedforward neural network controller
+disp('NN Controller created');
 
 end
 

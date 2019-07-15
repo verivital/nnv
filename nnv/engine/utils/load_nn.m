@@ -40,5 +40,25 @@ name = name(end);
 name = [sh name{1}];
 net_info = load([output name '.mat']);
 
+% Create the NN object for nnv
+W = net_info.W; % weights
+b = net_info.b; % bias
+n = length(b); % number of layers
+acf = net_info.activation_fcns;
+
+acf = ActFunctionMatlab(acf); %need to write this function to convert the "typical" name from other frameworks into matlab's names
+
+Layers = [];
+for i=1:n 
+    L = Layer(W{1, i}, b{i, 1}, acf{i});
+    Layers = [Layers L];
+end
+
+%L = Layer(W{1, n}, b{n, 1}, 'Linear');
+
+Layers = [Layers L];
+
+Controller = FFNN(Layers); % feedforward neural network controller
+
 end
 

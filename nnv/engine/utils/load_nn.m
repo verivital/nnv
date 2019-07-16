@@ -34,8 +34,8 @@ if status == 0
 else
     error(cmdout);
 end
-
-name = split(input,sh);
+name = split(input,'.');
+name = split(name{1},sh);
 name = name(end);
 name = [sh name{1}];
 net_info = load([output name '.mat']);

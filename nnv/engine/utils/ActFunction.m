@@ -5,19 +5,19 @@ function new_act = ActFunction(act)
 
 act = strtrim(act);
 % Remove empty white spaces and change name
-if act == 'relu'
-    new_act = 'ReLU';
-elseif act == 'linear'
-    new_act = 'Linear';
-elseif act == 'relu1'
+if contains(act,'relu1')
     new_act = 'SatLin';
-elseif act == 'relu2'
+elseif contains(act,'linear')
+    new_act = 'Linear';
+elseif contains(act,'relu2')
     new_act = 'SatLins';
-elseif act == 'tanh'
+elseif contains(act,'relu')
+    new_act = 'ReLU';
+elseif contains(act,'tanh')
     new_act = 'TanSig';
-elseif act == 'sigmoid'
+elseif contains(act,'sigmoid')
     new_act = 'LogSig';   
 end
-
+    
 end
 

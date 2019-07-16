@@ -1,4 +1,4 @@
-function [status,net_info] = load_nn(PyPath,nnmtPath,input,output,formatin)
+function [Controller] = load_nn(PyPath,nnmtPath,input,output,formatin)
 %% This function loads a neural network and transforms it into a mat file using the nnmt tool
 % % OUTPUTS
 % status = 1 or 0, 1 if we run into an error, 0 if run was succesful
@@ -46,14 +46,20 @@ disp('Neural network loaded');
 W = net_info.W; % weights
 b = net_info.b; % bias
 n = length(b); % number of layers
-acf = net_info.activation_fcns;
+acf = net_info.act_fcns;
 
 Layers = [];
-for i=1:n 
-    L = Layer(W{i}, b{i}, ActFunction(acf(i,:)));
-    Layers = [Layers L];
+if contains(formatin,'eras')
+    for i=1:n 
+        L = Layer(W{i}, b{i}', ActFunction(acf(i,:)));
+        Layers = [Layers L];
+    end
+else
+    for i=1:n 
+        L = Layer(W{i}, b{i}, ActFunction(acf(i,:)));
+        Layers = [Layers L];
+    end
 end
-
 
 Controller = FFNN(Layers); % feedforward neural network controller
 disp('NN Controller created');

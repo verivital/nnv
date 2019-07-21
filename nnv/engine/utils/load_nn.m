@@ -15,11 +15,11 @@ function [Controller] = load_nn(PyPath,nnmtPath,input,output,formatin,opt_mat)
 % EXAMPLE 
 %load_nn('...\envs\DL1','...\nnmt','...\nnmt\testing\neural_network_information_13','...\nnmt\examples','Sherlock');
 
-% If the is a mat file, no need to parse it through nnmt
-if ~isempty(opt_mat):
+% If the is a mat file, no need to parse it through nnmt  
+if ~isempty(opt_mat)
     net_info = load(opt_mat);
     disp('Neural network loaded');
-else:
+else
         % Check OS running on
     osc = computer;
     if contains(osc,'WIN')

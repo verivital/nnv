@@ -1,4 +1,4 @@
-function [Controller] = load_nn(PyPath,nnmtPath,input,output,formatin,opt_mat)
+function [Controller] = load_nn(PyPath,nnmtPath,input,output,formatin,opt)
 %% This function loads a neural network and transforms it into a mat file using the nnmt tool
 % % OUTPUTS
 % status = 1 or 0, 1 if we run into an error, 0 if run was succesful
@@ -7,17 +7,23 @@ function [Controller] = load_nn(PyPath,nnmtPath,input,output,formatin,opt_mat)
 % % INPUTS
 % PyPath = path to the python environment to use
 % nnmtPath = path to the nnmt folder
-% input = path to the neural network we want to transform (includes everything except for the 
+% input = path to the neural network we want to transform 
 % output = path to the folder we want to store the mat file at
 % formatin = format of neural network to transform
-% opt_mat = input path to nn in mat format (optional)
+% opt = corresponds to the path for the extra inputs necessary for the
+%       nnmt tool such as the (optional) json file (Keras), the path to
+%       checkpoint file for tensorflow, or if we have a mat file
+%       already, we can input it here and load it without using nnmt
+% For more info about the nnmt tool go to:
+%       https://github.com/verivital/nnmt
 %
 % EXAMPLE 
 %load_nn('...\envs\DL1','...\nnmt','...\nnmt\testing\neural_network_information_13','...\nnmt\examples','Sherlock');
+%cont = load_nn('...\envs\DL1','...\nnmt','...\model.ckpt-558138.meta','...\MATLAB','Tensorflow','...\UUV-LEC1-558138')
 
 % If the is a mat file, no need to parse it through nnmt  
-if ~isempty(opt_mat)
-    net_info = load(opt_mat);
+if ~isempty(opt) && contains(opt,'.mat')
+    net_info = load(opt);
     disp('Neural network loaded');
 else
         % Check OS running on
@@ -29,7 +35,7 @@ else
     end
 
     % Generate the command to run in the terminal
-    commandPy = [PyPath sh 'python ' nnmtPath sh 'nnvmt.py -i ' input ' -o ' output ' -t ' formatin];
+    commandPy = [PyPath sh 'python ' nnmtPath sh 'nnvmt.py -i ' input ' -o ' output ' -t ' formatin ' -j ' opt];
     % Run the command in the terminal and convert the nn
     [status,cmdout] = system(commandPy);
 
@@ -39,40 +45,14 @@ else
     else
         error(cmdout);
     end
-    name = split(input,'.');
-    name = split(name{1},sh);
+    name = split(input,sh);
     name = name(end);
-    name = [sh name{1}];
+    name = split(name,'.');
+    name = name(1:end-1);
+    name = [sh strjoin(name,'.')];
     net_info = load([output name '.mat']);
     disp('Neural network loaded');
 end
-
-% % Check OS running on
-% osc = computer;
-% if contains(osc,'WIN')
-%     sh = '\'; % windows
-% else 
-%     sh = '/'; % mac and linux
-% end
-% 
-% % Generate the command to run in the terminal
-% commandPy = [PyPath sh 'python ' nnmtPath sh 'nnvmt.py -i ' input ' -o ' output ' -t ' formatin];
-% % Run the command in the terminal and convert the nn
-% [status,cmdout] = system(commandPy);
-% 
-% % Check if the nn was converted
-% if status == 0
-%     disp('Neural Network converted succesfully');
-% else
-%     error(cmdout);
-% end
-% name = split(input,'.');
-% name = split(name{1},sh);
-% name = name(end);
-% name = [sh name{1}];
-% net_info = load([output name '.mat']);
-% disp('Neural network loaded');
-
 
 % Create the NN object for nnv
 W = net_info.W; % weights
@@ -81,7 +61,7 @@ n = length(b); % number of layers
 acf = net_info.act_fcns;
 
 Layers = [];
-if contains(formatin,'eras')
+if contains(formatin,'eras') || contains(formatin,'ensorfl')
     for i=1:n 
         L = Layer(W{i}, b{i}', ActFunction(acf(i,:)));
         Layers = [Layers L];

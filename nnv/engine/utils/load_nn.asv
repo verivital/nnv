@@ -51,10 +51,9 @@ else
     name = split(input,sh);
     name = name(end);
     name = split(name,'.');
-    if length(name) ~= 1
-        name = name(1:end-1);
-    end
-    name = [sh strjoin(name,'.')];
+    if len(name) != 1
+    name = name(1:end-1)
+    name = [sh strjoin(name,'.')]
     net_info = load([output name '.mat']);
     disp('Neural network loaded');
 end

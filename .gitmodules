@@ -4,3 +4,9 @@
 [submodule "nnv/engine/hyst"]
 	path = nnv/engine/hyst
 	url = https://github.com/verivital/hyst.git
+[submodule "engine"]
+	path = engine
+	url = https://github.com/verivital/nnmt
+[submodule "nnv/engine/nnmt"]
+	path = nnv/engine/nnmt
+	url = https://github.com/verivital/nnmt

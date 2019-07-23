@@ -1,0 +1,10 @@
+mpt:3.2.1:all
+mptdoc:3.0.4:all
+yalmip:R20190425:all
+lcp:1.0.3:glnxa64
+hysdel:2.0.6:glnxa64
+cddmex:1.0.1:glnxa64
+clpmex:1.0:glnxa64
+glpkmex:1.0:glnxa64
+fourier:1.0:glnxa64
+sedumi:1.3:glnxa64

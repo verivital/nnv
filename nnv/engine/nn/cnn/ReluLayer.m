@@ -84,8 +84,72 @@ classdef ReluLayer < handle
         
                 
         
-        % parse a trained relu Layer from matlab
-        function parse(obj, relu_layer)
+       
+        
+    end
+        
+    % exact reachability analysis using star set
+    methods
+        
+        function images = reach(varargin)
+            % @in_image: an input imagestar
+            % @image: output set
+            % @option: = 'single' or 'parallel' 
+            
+            % author: Dung Tran
+            % date: 6/26/2019
+             
+            switch nargin
+                
+                case 4
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                
+                case 3
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = [];
+                case 2
+                    in_images = varargin{2};
+                    method = 'approx-star';
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+            end
+            
+            
+            n = length(in_images);
+            In(n) = Star; % preallocation
+            h = in_images(1).height;
+            w = in_images(1).width;
+            c = in_images(1).numChannel;
+            for i=1:n
+                
+                if ~isa(in_images(i), 'ImageStar')
+                    error('Input %d is not an imagestar', i);
+                end
+                
+                In(i) = in_images(i).toStar;
+                
+            end
+            
+            Y = PosLin.reach(In, method, option); % reachable set computation with ReLU
+            n = length(Y);
+            images(n) = ImageStar;
+            % transform back to ImageStar
+            for i=1:n
+                images(i) = Y(i).toImageStar(h,w,c);
+            end
+           
+        end
+                 
+    end
+    
+    
+    methods(Static)
+         % parse a trained relu Layer from matlab
+        function L = parse(relu_layer)
             % @relu_layer: a average pooling 2d layer from matlab deep
             % neural network tool box
                         
@@ -93,90 +157,16 @@ classdef ReluLayer < handle
             % date: 6/17/2019
             
             
-            if ~isa(relu_Layer, 'reluLayer')
-                error('Input is not a Matlab reluLayer class');
+            if ~isa(relu_layer, 'nnet.cnn.layer.ReLULayer')
+                error('Input is not a Matlab nnet.cnn.layer.ReLULayer class');
             end
             
-            obj.Name = relu_layer.Name;
+            L = ReluLayer(relu_layer.Name);
             fprintf('\nParsing a Matlab relu layer is done successfully');
             
         end
         
-        
     end
-        
-    % exact reachability analysis using star set
-    methods
-        
-        function images = reach_star_exact(~,in_image)
-            % @in_image: an input imagestar
-            % @image: output set
-            
-            % author: Dung Tran
-            % date: 6/26/2019
-             
-            if ~isa(in_image, 'ImageStar')
-                error('Input is not an imagestar');
-            end
-            
-            
-            nc = in_image.numChannel;
-            h = in_image.height;
-            w = in_image.width;
-            np = in_image.numPred;
-            
-            N = h*w*nc; % total number of pixels in the input image         
-            V(:, np+1) = zeros(N, 1);
-            
-            for i=1:np+1
-                V(:,i) = reshape(in_image.V(:,:,i, :), N, 1);
-            end
-            
-            I = Star(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
-            
-            Y = PosLin.reach_star_exact(I,[]);
-            n = length(Y);
-            images(n) = ImageStar;
-            for i=1:n
-                images(i) = ImageStar(reshape(Y(i).V, [h, w, np+1, nc]), Y(i).C, Y(i).d, Y(i).predicate_lb, Y(i).predicate_ub);
-            end
-           
-        end
-        
-        % reachability analysis for reluLayer using approximate imagestar
-        function image = reach_star_approx(~,in_image)
-            % @in_image: an input imagestar
-            % @image: output set
-            
-            % author: Dung Tran
-            % date: 6/27/2019
-            
-            if ~isa(in_image, 'ImageStar')
-                error('Input is not an imagestar');
-            end
-            
-            
-            nc = in_image.numChannel;
-            h = in_image.height;
-            w = in_image.width;
-            np = in_image.numPred;
-            
-            N = h*w*nc; % total number of pixels in the input image         
-            V(:, np+1) = zeros(N, 1);
-            
-            for i=1:np+1
-                V(:,i) = reshape(in_image.V(:,:,i, :), N, 1);
-            end
-            
-            I = Star(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
-            Y = PosLin.reach_star_approx(I);
-            image = ImageStar(reshape(Y.V, [h, w, Y.nVar+1, nc]), Y.C, Y.d, Y.predicate_lb, Y.predicate_ub);   
-
-        end
-        
-            
-    end
-    
     
     
     

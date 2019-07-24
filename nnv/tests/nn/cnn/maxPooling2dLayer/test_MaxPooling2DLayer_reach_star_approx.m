@@ -14,6 +14,9 @@ UB(:,:,3) = UB(:,:,2);
 image = ImageStar(IM, LB, UB);
 
 L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
-tic;
-output = L.reach_star_approx(image)
-toc;
+
+output = L.reach_star_approx(image);
+
+profile on;
+exact_output = L.reach_star_exact(image);
+profile viewer;

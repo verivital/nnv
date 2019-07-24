@@ -291,22 +291,18 @@ classdef Conv2DLayer < handle
             w = size(weights);
             b = size(biases);
             
-            if length(w) ~= 4
+            if length(w) == 2
+                obj.NumFilters = 1;
+                obj.NumChannels = 1;
+            elseif length(w) == 3
+                obj.NumFilters = 1;
+                obj.NumChannels = n(3);
+            elseif length(w) == 4
+                obj.NumFilters = n(4);
+                obj.NumChannels = n(3);
+            else
                 error('Invalid weights array');
             end
-            if length(b) ~= 3
-                error('Invalid biases array');
-            end
-            
-            if w(4) ~= b(3)
-                error('Inconsistency between weights and biases');
-            end
-            
-            if w(4) ~= obj.NumFilters
-                fprintf('\nInconsistency between weights and biases and number of filters parameter');
-                fprintf('\nNumber of filters is updated from %d to %d', obj.NumFilters, w(4));
-            end
-            obj.NumFilters = w(4);
             
             obj.Weights = weights;
             obj.Bias = biases;
@@ -334,19 +330,29 @@ classdef Conv2DLayer < handle
     % evaluation method
     methods
         
-        function y = evaluate(obj, input)
+        function y = evaluate(obj, input, option)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
+            % @option = 'single'
             
             % author: Dung Tran
             % date: 12/10/2018
             
             I1 = input(:,:,1);
             W1 = obj.Weights(:,:,1,1);
+            if strcmp(option, 'single') && ~strcmp(option, 'double')
+                obj.Weights = single(obj.Weights);
+                obj.Bias = single(obj.Bias);
+            elseif strcmp(option, 'double')
+                obj.Weights = double(obj.Weights);
+                obj.Bias = double(obj.Bias);
+            else
+                error('Unknown precison option');               
+            end
             [h, w] = Conv2DLayer.get_size_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);   
-            y(:,:, obj.NumFilters) = zeros(h, w); % preallocate 3D matrix
-            for i=1:obj.NumFilters % number of filters
-                y(:, :, i) = obj.Bias(:, :, i) * ones(h, w); % initialize output by bias matrix
+            y(:,:, obj.NumFilters) = zeros(h, w, option); % preallocate 3D matrix
+            for i=1:obj.NumFilters % number of filters                   
+                y(:, :, i) = obj.Bias(:, :, i)* ones(h, w, option); % initialize output by bias matrix    
                 % compute feature map with i^th filter 
                 for j=1:obj.NumChannels % filter for j^th channel of input 
                     W1 = obj.Weights(:,:,j, i);   
@@ -358,25 +364,36 @@ classdef Conv2DLayer < handle
                     end                    
                 end
                 [ny, my] = size(y(:, :, i));
-                y(:, :, i) = y(:, :, i) + obj.Bias(:, :, i) * ones(ny, my);                               
+                y(:, :, i) = y(:, :, i) + double(obj.Bias(:, :, i)) * ones(ny, my, option);                               
             end
                    
         end
         
-        % parallel evaluation on an array of inputs
-        function y = evaluate_parallel(obj, inputs)
-            % @inputs: an array of inputs
-            % @y: an array of outputs 
+        % evaluate using matconvnet
+        function y = evaluate2(obj, input, option)
+            % @input: 3-dimensional array, for example, input(:, :, :)
+            % @y: high-dimensional array (output volume), depth of output = number of filters
+            % @option: 'single' or 'double' or empty precision of
+            % computation
+            
             
             % author: Dung Tran
-            % date: 12/16/2018
-            y = [];
-            parfor i=1:length(inputs)
-                y = [y obj.evaluate(inputs(i))];               
+            % date: 7/18/2019
+            
+            if strcmp(option, 'single')
+                obj.Weights = single(obj.Weights);
+                obj.Bias = single(obj.Bias);
+            elseif strcmp(option, 'double')
+                obj.Weights = double(obj.Weights);
+                obj.Bias = double(obj.Bias);
+            else
+                error('Unknown precision option');
             end
             
-            
+            y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
         end
+                    
+
         
     end
     
@@ -394,17 +411,21 @@ classdef Conv2DLayer < handle
             % date: 12/5/2018
             
             
-            if ~isa(cov2dLayer, 'convolution2dLayer')
-                error('Input is not a Matlab convolution2dLayer class');
+            if ~isa(conv2dLayer, 'nnet.cnn.layer.Convolution2DLayer')
+                error('Input is not a Matlab nnet.cnn.layer.Convolution2DLayer class');
             end
             
-            L = Conv2DLayer(conv2dLayer.FilterSize, conv2dLayer.NumFilters);
-            L.set_stride(conv2dLayer.Stride);
-            L.set_dilation(conv2dLayer.DilationFactor);
-            L.set_padding(conv2dLayer.PaddingSize);
-            L.set_weights_biases(conv2dLayer.Weights, conv2dLayer.Bias);
             
-            fprintf('Parsing a Matlab convolutional 2d layer is done successfully');
+            layer_name = conv2dLayer.Name; 
+            filter_weights = conv2dLayer.Weights;
+            filter_bias = conv2dLayer.Bias;
+            padding_mat = conv2dLayer.PaddingSize;
+            stride_mat = conv2dLayer.Stride;
+            dilation_mat = conv2dLayer.DilationFactor;
+            
+            L = Conv2DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat);
+                        
+            fprintf('\nParsing a Matlab convolutional 2d layer is done successfully');
             
         end
         
@@ -608,32 +629,51 @@ classdef Conv2DLayer < handle
                 error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannels);
             end
             
-            % compute output sets           
-            Y = cell(obj.NumFilters, 1); % output basis matrices
-            for i=1:obj.NumFilters
-                Y{i} = cell(1, input.numPred + 1);
-            end
-            
-            I(:, :, input.numChannel) = zeros(input.height, input.width); % pre-allocate memory
+            % compute output sets 
+            z = obj.evaluate2(input.V(:,:,:,1), 'double'); 
+            Y(:,:,obj.NumFilters, input.numPred + 1) = zeros(size(z,1), size(z,2), 'double');
             for i=1:input.numPred + 1
-                for j=1:input.numChannel
-                    I(:,:,j) = input.V{j}{i};
-                end
-                
-                Z = obj.evaluate(I);
-                                                
-                for k=1:obj.NumFilters
-                    Y{k}{i} = Z(:, :, k);
-                end
-                                
+                Y(:,:,:,i) = obj.evaluate2(input.V(:,:,:,i), 'double');
+            end           
+            S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+                  
+        end
+        
+        
+        % reach star with multiple inputs
+        function S = reach(varargin)
+            % @inputs: an array of ImageStar input set
+            % @S: an array of ImageStar output set
+                        
+            % author: Dung Tran
+            % date: 7/16/2019
+            
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    inputs = varargin{2};
+                case 3
+                    obj = varargin{1};
+                    inputs = varargin{2}; % don't care the third input
+                case 4
+                    obj = varargin{1};
+                    inputs = varargin{2}; % don't care the rest inputs
+                otherwise
+                    error('Invalid number of input arguments, should be 1, 2 or 3');
+            end
+         
+            % do not care about the third inputs if it has
+            
+            n = length(inputs);            
+            S(n) = ImageStar;
+            for i=1:n
+                S(i) = obj.reach_star_single_input(inputs(i));
             end
             
-            if obj.NumFilters == 1
-                S = ImageStar(Y{1}, input.C, input.d, input.pred_lb, input.pred_ub);
-            else
-                S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
-            end       
+            
         end
+        
+        
     end
     
 end

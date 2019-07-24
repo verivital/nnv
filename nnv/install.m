@@ -40,6 +40,7 @@ fprintf('\nInstalling dependencies is done!');
 %mex -setup C++;
 %run matlab/vl_compilenn;
 
+
 startup_nnv; % adding dependencies and nnv to the path
 
 fprintf('\nInstalling NNV is done, it is ready to use.');

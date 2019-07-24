@@ -48,14 +48,15 @@ else
     else
         error(cmdout);
     end
-    name = split(input,sh);
+    name = split(string(input),sh);
     name = name(end);
     name = split(name,'.');
     if length(name) ~= 1
         name = name(1:end-1);
     end
-    name = [sh strjoin(name,'.')];
-    net_info = load([output name '.mat']);
+    name = strjoin(name,'.');
+    %ouch = strcat(output,sh,name,'.mat');
+    net_info = load(strcat(output,sh,name,'.mat'));
     disp('Neural network loaded');
 end
 

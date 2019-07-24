@@ -36,10 +36,10 @@ cont5 = load_nn(pypath,[fp sh 'engine' sh 'nnmt'],[fp sh 'engine' sh 'nnmt' sh '
 disp('Coverting neural network 6')
 cont6 = load_nn(pypath,[fp sh 'engine' sh 'nnmt'],[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'CartPole_Controller.h5'],[fp sh 'engine' sh 'nnmt' sh 'translated_networks'],'Keras',[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'CartPole_Controller.json']);
 disp('Coverting neural network 7')
-cont7 = load_nn(pypath,[fp sh 'engine' sh 'nnmt'],[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'example2' sh 'example2.meta'],[fp sh 'engine' sh 'nnmt' sh 'translated_networks'],'Tensorflow',[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'example2']);
+cont7 = load_nn(pypath,[fp sh 'engine' sh 'nnmt'],[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'example1' sh 'example1.meta'],[fp sh 'engine' sh 'nnmt' sh 'translated_networks'],'Tensorflow',[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'example1']);
 
 
 
 %% At the end, delete all variables except for the controllers created
 cd tests
-clearvars -except cont1 cont2 cont3 cont4 cont5 cont6
+clearvars -except cont1 cont2 cont3 cont4 cont5 cont6 cont7

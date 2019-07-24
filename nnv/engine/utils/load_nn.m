@@ -66,7 +66,7 @@ W = net_info.W; % weights
 b = net_info.b; % bias
 n = length(b); % number of layers
 acf = net_info.act_fcns;
-disp(acf);
+%disp(acf);
 
 Layers = [];
 if contains(formatin,'eras') || contains(formatin,'ensorfl')

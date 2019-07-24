@@ -35,11 +35,12 @@ else
     end
     if ~isempty(opt)
         % Generate the command to run in the terminal
-        commandPy = [PyPath sh 'python ' nnmtPath sh 'nnvmt.py -i ' input ' -o ' output ' -t ' formatin ' -j ' opt];
+        commandPy = strcat(PyPath,sh,'python ',[' ' nnmtPath],sh,'nnvmt.py -i ',[' ' input],' -o ',[' ' output],' -t ',[' ' formatin],' -j ',[' ' opt]);
     else
-        commandPy = [PyPath sh 'python ' nnmtPath sh 'nnvmt.py -i ' input ' -o ' output ' -t ' formatin];
+        commandPy = strcat(PyPath,sh,'python ',[' ' nnmtPath],sh,'nnvmt.py -i ',[' ' input],' -o ',[' ' output],' -t ',[' ' formatin]);
     end
     % Run the command in the terminal and convert the nn
+    %disp(commandPy);
     [status,cmdout] = system(commandPy);
 
     % Check if the nn was converted

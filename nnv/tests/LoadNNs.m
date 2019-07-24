@@ -38,6 +38,7 @@ cont6 = load_nn(pypath,[fp sh 'engine' sh 'nnmt'],[fp sh 'engine' sh 'nnmt' sh '
 disp('Coverting neural network 7')
 cont7 = load_nn(pypath,[fp sh 'engine' sh 'nnmt'],[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'example2' sh 'example2.meta'],[fp sh 'engine' sh 'nnmt' sh 'translated_networks'],'Tensorflow',[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'example2']);
 
+disp('We have succesfully converted all the neural networks!');
 
 
 %% At the end, delete all variables except for the controllers created

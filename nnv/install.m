@@ -18,14 +18,14 @@ tbxmanager install mpt mptdoc;
 tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi yalmip;
 fprintf('\nInstalling dependencies is done!');
 
-fprintf('\nInstalling MatConvNet....');
-mydir  = pwd;
-idcs   = strfind(mydir,filesep);
-newdir = mydir(1:idcs(end)-1);
-cd(newdir);
-cd('engine');
-cd('matconvnet');
-cd('matconvnet-1.0-beta25');
+%fprintf('\nInstalling MatConvNet....');
+%mydir  = pwd;
+%idcs   = strfind(mydir,filesep);
+%newdir = mydir(1:idcs(end)-1);
+%cd(newdir);
+%cd('engine');
+%cd('matconvnet');
+%cd('matconvnet-1.0-beta25');
 % installing required compiler
 % see here: https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk
 % some error may occur: 
@@ -37,8 +37,8 @@ cd('matconvnet-1.0-beta25');
 % probem may occur after installing windows 10 sdk
 % cl.exe problem: see here: https://social.msdn.microsoft.com/Forums/vstudio/en-US/2ebc59de-dc8e-426f-b1ca-885c2709df5f/visual-c-installed-but-cannot-find-clexe?forum=vcgeneral
 
-mex -setup C++;
-run matlab/vl_compilenn;
+%mex -setup C++;
+%run matlab/vl_compilenn;
 
 startup_nnv; % adding dependencies and nnv to the path
 

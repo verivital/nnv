@@ -16,6 +16,6 @@ image = ImageStar(IM, LB, UB);
 
 L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
 
-tic;
+profile on;
 images = L.reach_star_exact(image);
-toc;
+profile viewer;

@@ -1,4 +1,4 @@
-classdef ImageStar
+classdef ImageStar < handle
     % Class for representing set of images using Star set
     % An image can be attacked by bounded noise. An attacked image can
     % be represented using an ImageStar Set
@@ -79,7 +79,7 @@ classdef ImageStar
         % 
         % ====================================================================%
         % The 2D representation of ImageStar is convenient for reachability analysis
-        V = []; % a cell (size = numChannel) of 2-d basis matrices 
+        V = []; % a cell (size = numPred)
         C = []; % a constraints matrix of the predicate
         d = []; % a constraints vector of the predicate
         numPred = 0; % number of predicate variables
@@ -160,52 +160,16 @@ classdef ImageStar
 
                     % converting box ImageStar to an array of 2D Stars
                     
-                    obj.numPred = 0;
-                    C = [];
-                    obj.d = [];
-                    obj.pred_lb = [];
-                    obj.pred_ub = [];
+                    n = size(obj.im_lb);
+                    I = Star(reshape(obj.im_lb, [n(1)*n(2)*n(3), 1]),reshape(obj.im_ub, [n(1)*n(2)*n(3), 1]));
                     
-                    % get number of predicate variables
-                    for k=1:obj.numChannel
-                        for i=1:obj.height
-                            for j=1:obj.width
-                                if obj.LB(i,j,k) < obj.UB(i, j, k)
-                                    obj.numPred = obj.numPred + 1;
-                                end
-                            end
-                        end
-                    end
-                    
-                    V1(:, :, obj.numPred, obj.numChannel) = zeros(obj.height, obj.width);
-                    
-                    pred_count = 0;
-                    for i=1:obj.numChannel
-                        c = reshape(obj.IM(:,:,i)', [obj.height * obj.width,1]);
-                        lb = reshape(obj.LB(:,:,i)', [obj.height * obj.width,1]);
-                        ub = reshape(obj.UB(:,:,i)', [obj.height * obj.width,1]);
-                        lb = lb + c;
-                        ub = ub + c;
-                        B = Box(lb, ub);
-                        X = B.toStar;                  
-                                                                       
-                        for j=1:X.nVar + 1    
-                            A = reshape(X.V(:,j), [obj.height, obj.width]);
-                            if j==1
-                                V1(:,:,1, i) = A';
-                            else
-                                V1(:, :, j+pred_count, i) = A';
-                            end
-                        end 
-                        pred_count = pred_count + X.nVar;
-
-                        obj.C = blkdiag(obj.C, X.C);
-                        obj.d = [obj.d; X.d];
-                        obj.pred_lb = [obj.pred_lb; X.predicate_lb];
-                        obj.pred_ub = [obj.pred_ub; X.predicate_ub];                                                     
-                    end
-                    
-                    obj.V = V1;
+                    obj.V = reshape(I.V,[n(1), n(2), n(3), I.nVar + 1]);
+                    obj.C = I.C;
+                    obj.d = I.d;
+                    obj.pred_lb = I.predicate_lb;
+                    obj.pred_ub = I.predicate_ub;
+                    obj.numPred = I.nVar;
+ 
                                          
                 case 5 % 
                     
@@ -240,35 +204,29 @@ classdef ImageStar
                     obj.pred_ub = ub1;
                     
                     n = size(V1);
+                    
                     if length(n) == 3
-                        
-                        obj.numChannel = 1;
                         obj.V = V1;
                         obj.height = n(1);
                         obj.width = n(2);
+                        obj.numChannel = n(3);
                         
                     elseif length(n) == 4
                         
-                        if n(3) ~= obj.numPred + 1
+                        if n(4) ~= obj.numPred + 1
                             error('Inconsistency between the basis matrix and the number of predicate variables');
                         else
-                            obj.numChannel = n(4);
+                            obj.numChannel = n(3);
                             obj.V = V1;
                             obj.height = n(1);
                             obj.width = n(2);
                         end
                         
                     elseif length(n) == 2
-                        
-                        if n(2) ~= obj.numPred + 1
-                            error('Inconsistency between the basis matrix and the number of predicate variables');
-                        else                  
                             obj.numChannel = 1;
                             obj.V = V1;
                             obj.height = n(1);
-                            obj.width = 1;
-                        end
-
+                            obj.width = n(2);
                     else
                         error('Invalid basis matrix');
                     end
@@ -308,41 +266,37 @@ classdef ImageStar
                     
                     obj.pred_lb = lb1;
                     obj.pred_ub = ub1;
-                    
+                 
                     n = size(V1);
+                    
                     if length(n) == 3
                         
-                        obj.numChannel = 1;
+                        obj.numPred = 0;
                         obj.V = V1;
                         obj.height = n(1);
                         obj.width = n(2);
+                        obj.numChannel = n(3);
                         
                     elseif length(n) == 4
                         
-                        if n(3) ~= obj.numPred + 1
+                        if n(4) ~= obj.numPred + 1
                             error('Inconsistency between the basis matrix and the number of predicate variables');
                         else
-                            obj.numChannel = n(4);
+                            obj.numChannel = n(3);
                             obj.V = V1;
                             obj.height = n(1);
                             obj.width = n(2);
                         end
                         
                     elseif length(n) == 2
-                        
-                        if n(2) ~= obj.numPred + 1
-                            error('Inconsistency between the basis matrix and the number of predicate variables');
-                        else                  
                             obj.numChannel = 1;
+                            obj.numPred = 0;
                             obj.V = V1;
                             obj.height = n(1);
-                            obj.width = 1;
-                        end
-
+                            obj.width = n(2);
                     else
                         error('Invalid basis matrix');
-                    end
-                       
+                    end   
                     
                     if size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width
                         error('Inconsistent dimension between lower bound image and the constructed imagestar');
@@ -360,6 +314,83 @@ classdef ImageStar
                         error('Invalid max_points matrix');
                     else
                         obj.max_points = mp;
+                    end
+                
+                case 7 % 
+                    
+                    V1 = varargin{1};  % basis matrices
+                    C1 = varargin{2};  % predicate constraint matrix 
+                    d1 = varargin{3};  % predicate constraint vector
+                    lb1 = varargin{4}; % predicate lower bound
+                    ub1 = varargin{5}; % predicate upper bound
+                    im_lb1 = varargin{6}; % lower bound image
+                    im_ub1 = varargin{7}; % upper bound image
+                                                          
+                                        
+                    if size(C1, 1) ~= size(d1, 1)
+                        error('Inconsistent dimension between constraint matrix and constraint vector');
+                    end
+                    
+                    if size(d1, 2) ~= 1
+                        error('Invalid constraint vector, vector should have one column');
+                    end
+                                        
+                    obj.numPred = size(C1, 2);
+                    obj.C = C1;
+                    obj.d = d1; 
+                    
+                    if size(C1, 2) ~= size(lb1, 1) || size(C1, 2) ~= size(ub1, 1)
+                        error('Number of predicates is different from the size of the lower bound or upper bound predicate vector');
+                    end
+                    
+                    if size(lb1, 2) ~= 1 || size(ub1, 2) ~= 1
+                        error('Invalid lower/upper bound predicate vector, vector should have one column');
+                    end
+                    
+                    obj.pred_lb = lb1;
+                    obj.pred_ub = ub1;
+                 
+                    n = size(V1);
+                    
+                    if length(n) == 3
+                        
+                        obj.numPred = 0;
+                        obj.V = V1;
+                        obj.height = n(1);
+                        obj.width = n(2);
+                        obj.numChannel = n(3);
+                        
+                    elseif length(n) == 4
+                        
+                        if n(4) ~= obj.numPred + 1
+                            error('Inconsistency between the basis matrix and the number of predicate variables');
+                        else
+                            obj.numChannel = n(3);
+                            obj.V = V1;
+                            obj.height = n(1);
+                            obj.width = n(2);
+                        end
+                        
+                    elseif length(n) == 2
+                            obj.numChannel = 1;
+                            obj.numPred = 0;
+                            obj.V = V1;
+                            obj.height = n(1);
+                            obj.width = n(2);
+                    else
+                        error('Invalid basis matrix');
+                    end   
+                    
+                    if size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width
+                        error('Inconsistent dimension between lower bound image and the constructed imagestar');
+                    else
+                        obj.im_lb = im_lb1;
+                    end
+                    
+                    if size(im_ub1,1) ~= obj.height || size(im_ub1, 2) ~= obj.width
+                        error('Inconsistent dimension between upper bound image and the constructed imagestar');
+                    else
+                        obj.im_ub = im_ub1;
                     end
                     
                                                                     
@@ -382,7 +413,7 @@ classdef ImageStar
                                       
                 otherwise
                     
-                    error('Invalid number of input arguments, (should be from 0, 3, 5 , 8)');
+                    error('Invalid number of input arguments, (should be from 0, 3, 5 , 7, or 8)');
                     
             end
                         
@@ -417,21 +448,6 @@ classdef ImageStar
             
         end
         
-        
-        % randomly show images sampled from image star
-        function show(obj, N)
-            % @N: number of sampled images 
-
-            % author: Dung Tran
-            % date: 6/14/2019
-            
-            
-            if isempty(obj.V)
-                error('The imagestar is an empty set');
-            end
-            
-     
-        end
         
         % randomly generate a set of images from an imagestar set
         function images = sample(obj, N)
@@ -499,38 +515,45 @@ classdef ImageStar
         end
         
         
+        % transform to Star
+        function S = toStar(obj)
+            
+            % author: Dung Tran
+            % date: 7/19/2019
+            
+            nc = obj.numChannel;
+            h = obj.height;
+            w = obj.width;
+            np = obj.numPred;
+            
+            N = h*w*nc; % total number of pixels in the input image         
+            V1(:, np+1) = zeros(N, 1);
+            for j=1:np+1
+                V1(:,j) = reshape(obj.V(:,:,:, j), N, 1);
+            end       
+            if ~isempty(obj.im_lb) && ~isempty(obj.im_ub)
+                state_lb = reshape(obj.im_lb, N, 1);
+                state_ub = reshape(obj.im_ub, N, 1);
+                S = Star(V1, obj.C, obj.d, obj.pred_lb, obj.pred_ub, state_lb, state_ub);
+            else
+                S = Star(V1, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+            end
+            
+        end
+        
+        
         % get ranges of a state at specific position
-        function [xmin, xmax] = getRange(varargin)
+        function [xmin, xmax] = getRange(obj, vert_ind, horiz_ind, chan_ind)
             % @vert_ind: vectical index
             % @horiz_ind: horizontal index
-            % @xmin: min of x(vert_ind,horiz_ind)
-            % @xmax: max of x(vert_ind,horiz_ind)
-            % @option: = 'parallel' use parallel computing
+            % @chan_ind : channel index
+            % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
+            % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
+            
             
             % author: Dung Tran
             % date: 6/18/2019
-            
-            switch nargin
-                case 4
-                    obj = varargin{1};
-                    vert_ind = varargin{2};
-                    horiz_ind = varargin{3};
-                    option = varargin{4};
-                    
-                    if ~strcmp(option, 'parallel')
-                        error('Unknown option for computation');
-                    end
-                
-                case 3
-                    obj = varargin{1};
-                    vert_ind = varargin{2};
-                    horiz_ind = varargin{3};
-                    option = [];
-                    
-                otherwise
-                    error('Invalid number of arguments, should be 2, or 3');
-            end
-            
+                                  
             
             if isempty(obj.C) || isempty(obj.d)
                 error('The imagestar is empty');
@@ -544,57 +567,121 @@ classdef ImageStar
                 error('Invalid horizonal index');
             end
             
-            xmin = zeros(obj.numChannel,1);
-            xmax = zeros(obj.numChannel,1);
-
-            if strcmp(option, 'parallel')
-                
-                parfor i=1:obj.numChannel
-                
-                    f = obj.V(vert_ind, horiz_ind, 2:obj.numPred + 1, i);
-                    [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d);
-                    if exitflag == 5
-                        xmin(i) = fval + obj.V(vert_ind, horiz_ind, 1, i);
-                    else
-                        error('Cannot find an optimal solution, exitflag = %d', exitflag);
-                    end          
-
-                    [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d);
-                    if exitflag > 0
-                        xmax(i) = -fval + obj.V(vert_ind, horiz_ind, 1, i);
-                    else
-                        error('Cannot find an optimal solution exitflag = %d', exitflag);
-                    end
-                             
-                end
-                
+            if chan_ind < 1 || chan_ind > obj.numChannel
+                error('Invalid channel index');
+            end
+            
+               
+            f = obj.V(vert_ind, horiz_ind, chan_ind, 2:obj.numPred + 1);
+            [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+            if exitflag == 5
+                xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
             else
-                
-                for i=1:obj.numChannel
-                    f = obj.V(vert_ind, horiz_ind, 2:obj.numPred + 1, i);
-                    [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d);
-                    if exitflag == 5
-                        xmin(i) = fval + obj.V(vert_ind, horiz_ind, 1, i);
-                    else
-                        error('Cannot find an optimal solution, exitflag = %d', exitflag);
-                    end          
+                error('Cannot find an optimal solution, exitflag = %d', exitflag);
+            end          
 
-                    [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d);
-                    if exitflag == 5
-                        xmax(i) = -fval + obj.V(vert_ind, horiz_ind, 1, i);
-                    else
-                        error('Cannot find an optimal solution exitflag = %d', exitflag);
-                    end
-
+            [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+            if exitflag == 5
+                xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+            else
+                error('Cannot find an optimal solution exitflag = %d', exitflag);
+            end
+            
+            obj.im_lb(vert_ind, horiz_ind, chan_ind) = xmin;
+            obj.im_ub(vert_ind, horiz_ind, chan_ind) = xmax;
+                   
+        end
+        
+        
+        % estimate range quickly using only predicate bound information
+        function [xmin, xmax] = estimageRange(obj, h, w, c)
+            % @h: height index
+            % @w: width index
+            % @c: channel index
+            % @xmin: min of x[h, w, c]
+            % @xmax: max of x[h, w, c]
+            
+            % author: Dung Tran
+            % date: 7/22/2019
+            
+            if isempty(obj.C) || isempty(obj.d)
+                error('The imagestar is empty');
+            end
+            
+            if h < 1 || h > obj.height
+                error('Invalid veritical index');
+            end
+            
+            if w < 1 || w > obj.width
+                error('Invalid horizonal index');
+            end
+            
+            if c < 1 || c > obj.numChannel
+                error('Invalid channel index');
+            end
+            
+            f = obj.V(h, w, c, 1:obj.numPred + 1);
+            xmin = f(1);
+            xmax = f(1);
+            
+            for i=2:obj.numPred+1
+                if f(i) >= 0
+                    xmin = xmin + f(i) * obj.pred_lb(i-1);
+                    xmax = xmax + f(i) * obj.pred_ub(i-1);
+                else
+                    xmin = xmin + f(i) * obj.pred_ub(i-1);
+                    xmax = xmax + f(i) * obj.pred_lb(i-1);
                 end
                 
-            end    
+            end
+            
             
         end
         
         
+        % estimate ranges quickly using only predicate bound information
+        function [image_lb, image_ub] = estimateRanges(obj)
+            % @h: height index
+            % @w: width index
+            % @c: channel index
+            % @image_lb: lower bound image
+            % @image_ub: upper bound image
+            
+            % author: Dung Tran
+            % date: 7/22/2019
+            
+            if isempty(obj.C) || isempty(obj.d)
+                error('The imagestar is empty');
+            end
+            
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+                         
+                image_lb = zeros(obj.height, obj.width, obj.numChannel);
+                image_ub = zeros(obj.height, obj.width, obj.numChannel);
+
+                for i=1:obj.height
+                    for j=1:obj.width
+                        for k=1:obj.numChannel                     
+                            [image_lb(i, j, k), image_ub(i, j, k)] = obj.estimateRange(i,j,k);
+                        end
+                    end
+                end
+
+                obj.im_lb = image_lb;
+                obj.im_ub = image_ub;
+                
+            else
+                
+                image_lb = obj.im_lb;
+                image_ub = obj.im_ub;
+                
+            end
+         
+        end
+        
+        
         % get lowew bound and upper bound images of an imagestar
-        function [image_lb, image_ub] = getBox(obj)
+        function [image_lb, image_ub] = getRanges(obj)
             % @image_lb: lower bound image
             % @image_ub: upper bound image
             
@@ -606,15 +693,64 @@ classdef ImageStar
             
             for i=1:obj.height
                 for j=1:obj.width
-                    [xmin, xmax] = obj.getRange(i,j);
-                    %[xmin, xmax] = obj.getRange(i,j, 'parallel');
-                    image_lb(i, j, :) = xmin';
-                    image_ub(i,j,:) = xmax';
+                    for k=1:obj.numChannel                     
+                        [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k);
+                    end
                 end
             end
             
+            obj.im_lb = image_lb;
+            obj.im_ub = image_ub;
+                   
+        end
+        
+        
+        % quickly estimate range
+        function [xmin, xmax] = estimateRange(obj, vert_ind, horiz_ind, chan_ind)
+            % @vert_ind: vectical index
+            % @horiz_ind: horizontal index
+            % @chan_ind : channel index
+            % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
+            % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
+            
+            
+            % author: Dung Tran
+            % date: 7/19/2019
+                                  
+            
+            if isempty(obj.C) || isempty(obj.d)
+                error('The imagestar is empty');
+            end
+            
+            if vert_ind < 1 || vert_ind > obj.height
+                error('Invalid veritical index');
+            end
+            
+            if horiz_ind < 1 || horiz_ind > obj.width
+                error('Invalid horizonal index');
+            end
+            
+            if chan_ind < 1 || chan_ind > obj.numChannel
+                error('Invalid channel index');
+            end
+            
+               
+            f = obj.V(vert_ind, horiz_ind, chan_ind, 1:obj.numPred + 1);
+            xmin = f(1);
+            xmax = f(1);
+            
+            for i=2:obj.numPred + 1
+                if f(i) >= 0
+                    xmin = xmin + f(i) * obj.pred_lb(i-1);
+                    xmax = xmax + f(i) * obj.pred_ub(i-1);
+                else
+                    xmin = xmin + f(i) * obj.pred_ub(i-1);
+                    xmax = xmax + f(i) * obj.pred_lb(i-1);
+                end
+            end
             
         end
+        
              
                 
         % check if a pixel value is the maximum value compared with others
@@ -650,7 +786,7 @@ classdef ImageStar
             end
             
             if isempty(obj.im_lb) || isempty(obj.im_ub)
-                [obj.im_lb, obj.im_ub] = obj.getBox;
+                obj.estimateRanges;
             end
             n = size(others, 2);
             min_center = obj.im_lb(center(1), center(2), channel_ind);
@@ -688,9 +824,9 @@ classdef ImageStar
                     % p[i,j] >= p[i1, j1] <=> 
                     % <=> \Sigma (V^k[i1, j1] - V^k[i,j])*a[k] <= c[i,j] - c[i1,j1]
 
-                    new_d(i) = obj.V(center(1),center(2), 1, channel_ind) - obj.V(others(1,i), others(2,i), 1, channel_ind);
+                    new_d(i) = obj.V(center(1),center(2), channel_ind, 1) - obj.V(others(1,i), others(2,i), channel_ind, 1);
                     for j=1:obj.numPred                    
-                        new_C(i,j) = obj.V(center(1),center(2), j+1, channel_ind) - obj.V(others(1,i), others(2,i), j+1, channel_ind);
+                        new_C(i,j) = obj.V(center(1),center(2), channel_ind, j+1) - obj.V(others(1,i), others(2,i), channel_ind, j+1);
                     end           
                 end
 
@@ -716,6 +852,23 @@ classdef ImageStar
                 end
                 
             end
+            
+        end
+        
+        
+        % update local ranges for Max Pooling operation
+        function updateRanges(obj, points)
+            % @points: local points = [x1 y1 c1; x2 y2 c2; ...]
+            
+            % author: Dung Tran
+            % date: 6/25/2019
+            
+
+            n = size(points, 1);
+            for i=1:n
+                fprintf('\nUpdate range at point: [h = %d, w = %d, c = %d]', points(i, 1), points(i,2), points(i, 3));
+                obj.getRange(points(i, 1), points(i,2), points(i, 3));
+            end        
             
         end
         
@@ -806,7 +959,8 @@ classdef ImageStar
             % @PoolSize: = [height width] the height and width of max pooling layer
             % @channel_id: the channel index
             % @max_id: = []: we don't know which one has maximum value,
-            % i.e., the maximum values are overlap
+            % i.e., the maximum values may be the intersection between of
+            % several pixel valutes.
             %           = [xi yi]: the point that has maximum value
             
             % author: Dung Tran
@@ -815,7 +969,7 @@ classdef ImageStar
             points = obj.get_localPoints(startpoint, PoolSize);          
             % get lower bound and upper bound image
             if isempty(obj.im_lb) || isempty(obj.im_ub)
-                [image_lb, image_ub] = obj.getBox;
+                [image_lb, image_ub] = obj.estimateRanges;
             else
                 image_lb = obj.im_lb;
                 image_ub = obj.im_ub;
@@ -845,16 +999,155 @@ classdef ImageStar
             max_id = [];
             for i=1:n
                 if S(i) == n
-                    max_id = points(i, :);
+                    max_id = points(i, :);                                                 
                 end
-            end
-               
+            end          
                
         end
-       
-     
         
         
+        
+        % get local max index, this medthod tries to find the maximum point
+        % of a local image, used in over-approximate reachability analysis
+        % of maxpooling operation
+        function max_id = get_localMax_index2(obj, startpoint, PoolSize, channel_id)
+            % @startpoint: startpoint of the local(partial) image
+            %               startpoint = [x1 y1];
+            % @PoolSize: = [height width] the height and width of max pooling layer
+            % @channel_id: the channel index
+            % @max_id: = []: we don't know which one has maximum value,
+            % i.e., the maximum values may be the intersection between of
+            % several pixel valutes.
+            %           = [xi yi]: the point that has maximum value
+            
+            % author: Dung Tran
+            % date: 6/24/2019
+            
+            points = obj.get_localPoints(startpoint, PoolSize);          
+            % get lower bound and upper bound image
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+                obj.estimateRanges;
+            end
+            
+            h  = PoolSize(1);   % height of the MaxPooling layer
+            w  = PoolSize(2);   % width of the MaxPooling layer
+            n = h*w;
+            
+            lb = zeros(1, n);
+            ub = zeros(1,n);
+            
+            for i=1:n
+                point_i = points(i, :);
+                lb(:, i) = obj.im_lb(point_i(1), point_i(2), channel_id);
+                ub(:, i) = obj.im_ub(point_i(1), point_i(2), channel_id);   
+            end
+            
+            [max_lb_val, max_lb_idx] = max(lb, [], 2);
+            
+            candidates = find(ub - max_lb_val > 0);
+            
+            candidates(candidates == max_lb_idx) = [];
+            
+            if isempty(candidates)              
+                max_id = points(max_lb_idx, :);
+            else
+                
+                % update local ranges               
+                m = length(candidates);
+                new_points = zeros(m, 3);
+                for i=1:m
+                    p = points(candidates(i), :);
+                    new_points = [p channel_id];
+                end
+                obj.updateRanges(new_points);
+                                
+                lb = zeros(1, m);
+                ub = zeros(1, m);
+
+                for i=1:m
+                    point_i = points(candidates(i), :);
+                    lb(:, i) = obj.im_lb(point_i(1), point_i(2), channel_id);
+                    ub(:, i) = obj.im_ub(point_i(1), point_i(2), channel_id);   
+                end
+
+                [max_lb_val, max_lb_idx] = max(lb, [], 2);
+
+                candidates = find(ub - max_lb_val > 0);
+
+                candidates(candidates == max_lb_idx) = [];
+                
+                if isempty(candidates)
+                    max_id = points(max_lb_idx, :);
+                else
+                    
+                    max_id = points(max_lb_idx, :);
+                    
+                    m = length(candidates);
+                    for j=1:m
+                        p1 = points(candidates(j), :);
+                        
+                        if obj.is_p1_larger_p2([p1(1) p1(2) channel_id], [max_id(1) max_id(2) channel_id])
+                            max_id = [];
+                            fprintf('\nApproximate max pooling introduces a new predicate variable for the local image.');
+                            break;
+                        end
+          
+                    end
+                    
+                    
+                end
+                
+                
+                
+            end
+                
+   
+                          
+               
+        end
+        
+        
+        % compare between two specific points in the image
+        % check if p1 > p2 is feasible or not
+        % useful for max pooling operation
+        function b = is_p1_larger_p2(obj, p1, p2)
+            % @p1: the first point = [h1, w1, c1]
+            % @p2: the second point = [h2, w2, c2]
+            % h: height, w: width, c: channel index
+            
+            % @b = 1 -> p1 > p2 is feasible
+            %    = 0 -> p1 > p2 is not feasible
+            
+            % author: Dung Tran
+            % date: 7/23/2019
+            
+            % a*(V2 - V1) <= c1 - c2
+            
+            C1 = zeros(1, obj.numPred);
+            for i=2:obj.numPred+1
+                C1(i-1) = obj.V(p2(1),p2(2),p2(3), i) - obj.V(p1(1), p1(2), p1(3), i);
+            end
+            
+            d1 = obj.V(p1(1), p1(2), p1(3), 1) - obj.V(p2(1), p2(2), p2(3)); 
+            
+            new_C = [obj.C; C1];
+            new_d = [obj.d; d1];
+           
+            f = zeros(1, obj.numPred);
+
+                [~,~,status,~] = glpk(f, new_C, new_d);
+
+                if status == 5 % feasible solution exist
+                    b = 1;
+                else
+                    b = 0;
+                end
+            
+        end
+        
+        
+              
+         
     end
     
     

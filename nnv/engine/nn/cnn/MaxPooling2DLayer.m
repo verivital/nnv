@@ -19,8 +19,7 @@ classdef MaxPooling2DLayer < handle
         PoolSize = [2 2];
         Stride = [1 1]; % step size for traversing input
         PaddingMode = 'manual'; 
-        PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
-        
+        PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers       
         NumSplits = 0; % total number of splits in the exact analysis
         
     end
@@ -229,28 +228,6 @@ classdef MaxPooling2DLayer < handle
         
         
         
-        % parse a trained averagePooling2dLayer from matlab
-        function parse(obj, max_Pooling_2d_Layer)
-            % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep
-            % neural network tool box
-            % @L : a AveragePooling2DLayer obj for reachability analysis purpose
-            
-            % author: Dung Tran
-            % date: 6/17/2019
-            
-            
-            if ~isa(max_Pooling_2d_Layer, 'maxPooling2dLayer')
-                error('Input is not a Matlab maxPooling2dLayer class');
-            end
-            
-            obj.Name = max_Pooling_2d_Layer.Name;
-            obj.PoolSize = max_Pooling_2d_Layer.PoolSize;
-            obj.Stride = max_Pooling_2d_Layer.Stride;
-            obj.PaddingSize = max_Pooling_2d_Layer.PaddingSize;
-            fprintf('Parsing a Matlab max pooling 2d layer is done successfully');
-            
-        end
-        
         % parse input image with padding
         function padded_I = get_zero_padding_input(obj, input)
             % @input: an array of input image
@@ -428,7 +405,7 @@ classdef MaxPooling2DLayer < handle
             end
             
             [h, w] = obj.get_size_maxMap(input.V(:,:,1,1));
-            new_V(:,:,input.numPred+1,input.numChannel) = zeros(h,w);
+            new_V(:,:,input.numChannel, input.numPred+1) = zeros(h,w);
             
             % get max points for each channel
             channel_maxPoints(:,:,input.numChannel) = zeros(3, h*w);
@@ -442,7 +419,7 @@ classdef MaxPooling2DLayer < handle
                         for j=1:w
                             ind = (i-1)*w + j;
                             max_ind = channel_maxPoints(:,ind,k);
-                            new_V(:,:,p,k) = input.V(max_ind(1), max_ind(2), p, k);
+                            new_V(:,:,k,p) = input.V(max_ind(1), max_ind(2), k, p);
                         end
                     end
                 end
@@ -605,6 +582,40 @@ classdef MaxPooling2DLayer < handle
             fprintf("\nTotal number of the reachable sets after max pooling operation is %d\n", N);
                                           
         end
+        
+        
+        % reach exact star multiple inputs
+        function IS = reach_exact_star_multipleInputs(obj, in_images, option)
+            % @in_images: an array of imagestar input sets
+            % images: an array of imagestar output sets
+            % option: '[]' or 'parallel'
+            
+            % author: Dung Tran
+            % date: 7/24/2019
+            
+            
+            n = length(in_images);
+            IS(n) = ImageStar;
+            if strcmp(option, 'parallel')
+                
+                parfor i=1:n
+                    IS(i) = obj.reach_star_exact(in_images(i));
+                end
+                
+            elseif isempty(option) || strcmp(option, 'single')
+                for i=1:n
+                    IS(i) = obj.reach_star_exact(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+            end
+            
+            
+        end
+        
+        
+        
+        
     end
     
     
@@ -628,13 +639,12 @@ classdef MaxPooling2DLayer < handle
             [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1)); 
             startPoints = obj.get_startPoints(in_image.V(:,:,1,1));
             max_index = cell(h, w, in_image.numChannel);
-            max_mat = cell(h, w, in_image.numChannel);
-            
+                        
             % compute max_index when applying maxpooling operation
             for k=1:in_image.numChannel
                 for i=1:h
                     for j=1:w
-                        [max_index{i, j, k}, max_mat{i,j,k}] = in_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);
+                        max_index{i, j, k}  = in_image.get_localMax_index2(startPoints{i,j},obj.PoolSize, k);     
                     end
                 end
             end
@@ -643,19 +653,23 @@ classdef MaxPooling2DLayer < handle
             
             % compute new number of predicate
             np = in_image.numPred;
+            l = 0;
             for k=1:in_image.numChannel
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
                         if isempty(max_id)
                             np = np + 1;
+                            l  = l + 1;
                         end                       
                     end
                 end
             end
             
+            fprintf('\n%d new variables are introduced', l);
+                                   
             % update new basis matrix
-            new_V(:,:,np+1,in_image.numChannel) = zeros(h,w);
+            new_V(:,:,in_image.numChannel,np+1) = zeros(h,w);
             new_pred_index = 0;
             for k=1:in_image.numChannel
                 for i=1:h
@@ -663,13 +677,13 @@ classdef MaxPooling2DLayer < handle
                         max_id = max_index{i,j,k};
                         if ~isempty(max_id)                            
                             for p=1:in_image.numPred + 1
-                                new_V(i,j,p,k) = in_image.V(max_id(1),max_id(2),p,k);
+                                new_V(i,j,k, p) = in_image.V(max_id(1),max_id(2),k, p);
                             end
                         else
                             % adding new predicate variable
-                            new_V(i,j,1,k) = 0;
+                            new_V(i,j,k,1) = 0;
                             new_pred_index = new_pred_index + 1;
-                            new_V(i,j,in_image.numPred+1+new_pred_index,k) = 1;                            
+                            new_V(i,j,k,in_image.numPred+1+new_pred_index) = 1;                            
                         end                       
                     end
                 end
@@ -702,15 +716,13 @@ classdef MaxPooling2DLayer < handle
                             for g=1:N
                                 point = points(g,:);
                                 % add new predicate constraint: xi - y <= 0
-                                display(points);
-                                display(point);
-                                C2(g, 1:in_image.numPred) = in_image.V(point(1), point(2),2:in_image.numPred+1, k);
+                                C2(g, 1:in_image.numPred) = in_image.V(point(1), point(2),k, 2:in_image.numPred+1);
                                 C2(g, in_image.numPred + new_pred_index) = -1;
-                                d2(g) = -in_image.V(point(1),point(2),1,k);                                
+                                d2(g) = -in_image.V(point(1),point(2),k,1);                                
                             end
                             
                             C = [C1; C2];
-                            d = [d1;d2];
+                            d = [d1; d2];
                             
                             new_C((new_pred_index-1)*(N+1) + 1:new_pred_index*(N+1), :) = C;
                             new_d((new_pred_index-1)*(N+1) + 1:new_pred_index*(N+1)) = d;
@@ -730,8 +742,110 @@ classdef MaxPooling2DLayer < handle
                        
         end
         
+        % reach approx-star with multiple inputs
+        function IS = reach_star_approx_multipleInputs(obj, in_images, option)
+            % @in_images: an array of imagestar input sets
+            % images: an array of imagestar output sets
+            % option: '[]' or 'parallel'
+            
+            % author: Dung Tran
+            % date: 7/24/2019
+            
+            
+            n = length(in_images);
+            IS(n) = ImageStar;
+            if strcmp(option, 'parallel')
+                
+                parfor i=1:n
+                    IS(i) = obj.reach_star_approx(in_images(i));
+                end
+                
+            elseif isempty(option) || strcmp(option, 'single')
+                for i=1:n
+                    IS(i) = obj.reach_star_approx(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+            end
+            
+            
+        end
+        
+        
+        % general functio for reachability analysis
+        function IS = reach(varargin)
+            % @in_image: an input imagestar
+            % @image: output set
+            % @option: = 'single' or 'parallel' 
+            
+            % author: Dung Tran
+            % date: 6/26/2019
+             
+            switch nargin
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = [];
+                case 2
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = 'approx-star';
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+            end
+            
+            if strcmp(method, 'approx-star')
+                IS = obj.reach_star_approx_multipleInputs(in_images, option);
+            elseif strcmp(method, 'exact-star')
+                IS = obj.reach_star_exact_multiInputs(in_images, option);
+            elseif strcmp(method, 'abs-domain')
+                error('NNV have not yet support abstract-domain method for CNN');
+            elseif strcmp(method, 'zono')
+                error('NNV have not yet support zonotope method for CNN');
+            end
+   
+            
+        end
+        
         
     end
+    
+    
+    methods(Static)
+       
+        
+        
+        % parse a trained averagePooling2dLayer from matlab
+        function L = parse(max_Pooling_2d_Layer)
+            % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep
+            % neural network tool box
+            % @L : a AveragePooling2DLayer obj for reachability analysis purpose
+            
+            % author: Dung Tran
+            % date: 6/17/2019
+            
+            
+            if ~isa(max_Pooling_2d_Layer, 'nnet.cnn.layer.MaxPooling2DLayer')
+                error('Input is not a Matlab nnet.cnn.layer.MaxPooling2DLayer class');
+            end
+            
+            L = MaxPooling2DLayer(max_Pooling_2d_Layer.Name, max_Pooling_2d_Layer.PoolSize, max_Pooling_2d_Layer.Stride, max_Pooling_2d_Layer.PaddingSize);
+            fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
+            
+        end
+        
+    end
+    
+    
     
 end
 

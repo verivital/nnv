@@ -122,34 +122,8 @@ classdef FullyConnectedLayer < handle
             I = reshape(input, N, 1);
             y = obj.Weights*I + obj.Bias;
              
-        end
-        
-        
-        
-        
-        % parse a trained averagePooling2dLayer from matlab
-        function parse(obj, fully_connected_layer)
-            % @fully_connecteted_Layer: a fully connected layer from matlab deep
-            % neural network tool box
-            % @L : a FullyConnectedLayer obj for reachability analysis purpose
-            
-            % author: Dung Tran
-            % date: 6/26/2019
-            
-            
-            if ~isa(fully_connected_layer, 'fullyConnectedLayer')
-                error('Input is not a Matlab fullyConnectedLayer class');
-            end
-            
-            obj.Name = fullyConnectedLayer.Name;
-            obj.InputSize = fullyConnectedLayer.InputSize;
-            obj.OutputSize = fullyConnectedLayer.OutputSize;
-            obj.Weights = fullyConnectedLayer.Weights;
-            obj.Bias = fullyConnectedLayer.Bias;
-            fprintf('Parsing a Matlab fully connected layer is done successfully');
-            
-        end
-        
+        end 
+       
     end   
      
     methods %(reachability analysis using imagestar)
@@ -172,18 +146,98 @@ classdef FullyConnectedLayer < handle
             end
                        
             n = in_image.numPred;
-            V(:,in_image.numPred + 1) = zeros(obj.OutputSize,1);
+            V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1);        
             for i=1:n+1
-                I = in_image.V(:,:,i,:);
+                I = in_image.V(:,:,:,i);
                 I = reshape(I,N,1);
-                V(:,i) = obj.Weights*I + obj.Bias;
+                V(1, 1,:,i) = obj.Weights*I + obj.Bias;
             end
-            display(V);
+            
             image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
             
         end
         
+        
+        % reachability analysis with multiple inputs
+        function IS = reach(varargin)
+            % @in_image: an input imagestar
+            % @image: output set
+            % @option: = 'single' or 'parallel' 
+            
+            % author: Dung Tran
+            % date: 6/26/2019
+             
+            switch nargin
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2}; % don't care the third inputs 
+                    option = varargin{4}; % computation option
+
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2}; % don't care the rest inputs
+                    option = [];
+                case 2
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = [];
+
+                otherwise
+                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+            end
+            
+            
+            n = length(in_images);
+            IS(n) = ImageStar;
+
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    IS(i) = obj.reach_star_exact(in_images(i));
+                end
+                
+            elseif isempty(option) || strcmp(option, 'single')
+                for i=1:n
+                    IS(i) = obj.reach_star_exact(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+            end
+            
+            
+            
+        end
+        
     end
+    
+    
+    methods(Static)
+        
+         
+        % parse a trained averagePooling2dLayer from matlab
+        function L = parse(fully_connected_layer)
+            % @fully_connecteted_Layer: a fully connected layer from matlab deep
+            % neural network tool box
+            % @L : a FullyConnectedLayer obj for reachability analysis purpose
+            
+            % author: Dung Tran
+            % date: 6/26/2019
+            
+            
+            if ~isa(fully_connected_layer, 'nnet.cnn.layer.FullyConnectedLayer')
+                error('Input is not a Matlab nnet.cnn.layer.FullyConnectedLayer class');
+            end
+                        
+            L = FullyConnectedLayer(fully_connected_layer.Name, fully_connected_layer.Weights, fully_connected_layer.Bias);         
+            fprintf('\nParsing a Matlab fully connected layer is done successfully');
+            
+        end
+        
+        
+    end
+    
+    
+    
     
 end
 

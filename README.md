@@ -7,10 +7,13 @@ This toolbox implements reachability methods for analyzing neural networks, part
 
 This toolbox makes use of the neural network model transformation tool ([nnmt](https://github.com/verivital/nnmt)) and for closed-loop systems analysis, the hybrid systems model transformation and translation tool ([HyST](https://github.com/verivital/hyst)).
 
+# execution without installation:
+nnv can be executed online without installing Matlab or other dependencies through [CodeOcean](https://www.codeocean.com) via the CodeOcean capsule DOI 10.24433/CO.1314285.v1: (https://doi.org/10.24433/CO.1314285.v1)
+
 # installation:
     1) Install Matlab
 
-    2) Clone or download the nnv toolbox from [https://github.com/verivital/nnv]
+    2) Clone or download the nnv toolbox from (https://github.com/verivital/nnv)
 
     3) Open matlab, then go to the directory where nnv exists on your machine, then run the `install.m` script located at /nnv/
 
@@ -99,7 +102,7 @@ The methods implemented in nnv are based upon the following papers.
 
 1. Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "Star-Based Reachability Analsysis for Deep Neural Networks", The 23rd International Symposisum on Formal Methods (3rd World Congress on Formal Methods, FM2019, to appear). [http://taylortjohnson.com/research/tran2019fm.pdf]
 
-2. Hoang-Dung Tran, Feiyang Cei, Diego Manzanas Lopez, Taylor T.Johnson, Xenofon Koutsoukos, "Safety Verification of Cyber-Physical Systems with Reinforcement Learning Control", under review. [http://taylortjohnson.com/research/tran2019emsoft.pdf]
+2. Hoang-Dung Tran, Feiyang Cei, Diego Manzanas Lopez, Taylor T.Johnson, Xenofon Koutsoukos, "Safety Verification of Cyber-Physical Systems with Reinforcement Learning Control", to appear at EMSOFT'19. [http://taylortjohnson.com/research/tran2019emsoft.pdf]
 
 3. Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "Parallelzable Reachability Analsysis Algorithms for FeedForward Neural Networks", In 7th International Conference on Formal Methods in Software Engineering (FormaLISE), 27, May, 2019 in Montreal, Canada [http://taylortjohnson.com/research/tran2019formalise.pdf]
 

@@ -7,6 +7,7 @@ classdef Star
     %   Dung Tran: 10/22/2018
     
     properties
+        
         V = []; % basic matrix
         C = []; % constraint matrix
         d = []; % constraint vector
@@ -15,7 +16,9 @@ classdef Star
         
         predicate_lb = []; % lower bound vector of predicate variable
         predicate_ub = []; % upper bound vector of predicate variable
-                
+        
+        state_lb = []; % lower bound of state variables
+        state_ub = []; % upper bound of state variables       
     end
     
     methods
@@ -27,6 +30,63 @@ classdef Star
             % @d: constraint vector
             
             switch nargin
+                
+                case 7
+                    
+                    V = varargin{1};
+                    C = varargin{2};
+                    d = varargin{3};
+                    pred_lb = varargin{4};
+                    pred_ub = varargin{5};
+                    state_lb = varargin{6};
+                    state_ub = varargin{7};
+                    
+                    [nV, mV] = size(V);
+                    [nC, mC] = size(C);
+                    [nd, md] = size(d);
+                    [n1, m1] = size(pred_lb);
+                    [n2, m2] = size(pred_ub);
+                    [n3, m3] = size(state_lb);
+                    [n4, m4] = size(state_ub);
+                    
+                    if mV ~= mC + 1
+                        error('Inconsistency between basic matrix and constraint matrix');
+                    end
+
+                    if nC ~= nd
+                        error('Inconsistency between constraint matrix and constraint vector');
+                    end
+
+                    if md ~= 1
+                        error('constraint vector should have one column');
+                    end
+                    
+                    if m1 ~=1 || m2 ~=1 
+                        error('predicate lower- or upper-bounds vector should have one column');
+                    end
+                    
+                    if n1 ~= n2 || n1 ~= mC
+                        error('Inconsistency between number of predicate variables and predicate lower- or upper-bounds vector');
+                    end
+                    
+                    if n3 ~= nV || n4 ~= nV
+                        error('Inconsistent dimension between lower bound and upper bound vector of state variables and matrix V');
+                    end
+                    
+                    if m3 ~= 1 || m4 ~= 1
+                        error('Invalid lower bound or upper bound vector of state variables');
+                    end
+                        
+
+                    obj.V = V;
+                    obj.C = C; 
+                    obj.d = d;
+                    obj.dim = nV;
+                    obj.nVar = mC;
+                    obj.predicate_lb = pred_lb;
+                    obj.predicate_ub = pred_ub;
+                    obj.state_lb = state_lb;
+                    obj.state_ub = state_ub;
                 
                 case 5
                     
@@ -41,7 +101,7 @@ classdef Star
                     [nd, md] = size(d);
                     [n1, m1] = size(pred_lb);
                     [n2, m2] = size(pred_ub);
-                    
+
                     if mV ~= mC + 1
                         error('Inconsistency between basic matrix and constraint matrix');
                     end
@@ -77,7 +137,8 @@ classdef Star
                     [nV, mV] = size(V);
                     [nC, mC] = size(C);
                     [nd, md] = size(d);
-
+                    
+                    
                     if mV ~= mC + 1
                         error('Inconsistency between basic matrix and constraint matrix');
                     end
@@ -95,6 +156,10 @@ classdef Star
                     obj.d = d;
                     obj.dim = nV;
                     obj.nVar = mC;
+                    P = Polyhedron('A', obj.C, 'b', obj.d);
+                    P.outerApprox;
+                    obj.predicate_lb = P.Internal.lb;
+                    obj.predicate_ub = P.Internal.ub;
                                                             
                 case 2
                     
@@ -110,6 +175,8 @@ classdef Star
                     obj.d = S.d;
                     obj.dim = S.dim;
                     obj.nVar = S.nVar;
+                    obj.state_lb = lb;
+                    obj.state_ub = ub;
                     obj.predicate_lb = -ones(S.nVar, 1);
                     obj.predicate_ub = ones(S.nVar, 1);
                     
@@ -122,6 +189,7 @@ classdef Star
                     obj.dim = 0;
                     obj.nVar = 0;
                     
+                               
                 otherwise
                     
                     error('Invalid number of input arguments (should be 0 or 2 or 3 or 5)');
@@ -133,12 +201,12 @@ classdef Star
         % check is empty set
         function bool = isEmptySet(obj)
             
-            options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
+            %options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
             f = ones(1, obj.nVar);
             
-            [~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-            
-            if exitflag == 1
+            %[~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+            [~, ~, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+            if exitflag == 5 % use 1 for linprog
                 bool = 0;
             else
                 bool = 1;
@@ -513,26 +581,21 @@ classdef Star
             P = Pa.affineMap(W) + b;
         end
         
-        % convert to 2D Star set
-        function S = toStar2D(obj, height, width)
-            % @height: height of 2D Star set
-            % @width: width of 2D Star set
-            % @S: a 2D Star set, please see Star2D class
+        % convert to ImageStar set
+        function IS = toImageStar(obj, height, width, numChannel)
+            % @height: height of ImageStar
+            % @width: width of ImageStar
+            % @numChannel: number of channels in ImageStar
             
             % author: Dung Tran
-            % date: 12/20/2018
+            % date: 7/19/2019
             
-            if height * width ~= obj.dim
-                error('Height and Width of 2D Star should satisfy height * width = dimension of current 1D star set');
+            if obj.dim ~= height*width*numChannel
+                error('Inconsistent dimension in the ImageStar and the original Star set');
             end
             
-            new_V = cell(1, obj.nVar + 1);
-            for i=1:obj.nVar + 1
-                new_V{i} = transpose(reshape(obj.V(:,i), [height, width]));
-            end
-            
-            S = Star2D(new_V, obj.C, obj.d);
-            
+            IS = ImageStar(reshape(obj.V, [height, width, numChannel,  obj.nVar + 1]), obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                
         end
         
         % plot star set
@@ -544,102 +607,62 @@ classdef Star
         % find a box bounding a star
         function B = getBox(obj)
             
-            lb = zeros(obj.dim, 1);
-            ub = zeros(obj.dim, 1); 
-
             if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
                 lb = obj.V(:, 1);
                 ub = obj.V(:, 1);
 
             else % star set is a set
+                
+                if ~isempty(obj.state_lb) && ~isempty(obj.state_ub)
+                    B = Box(obj.state_lb, obj.state_ub);
+                else
+                    
+                    lb = zeros(obj.dim, 1);
+                    ub = zeros(obj.dim, 1);
+                    
+                    for i=1:obj.dim
+                        f = obj.V(i, 2:obj.nVar + 1);
+                        if all(f(:)==0)
+                            lb(i) = obj.V(i,1);
+                            ub(i) = obj.V(i,1);
+                        else
+                            %options = optimset('Display','none');
+                            %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                            [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                            if exitflag > 0
+                                lb(i) = fval + obj.V(i, 1);
+                            else
+                                lb = [];
+                                ub = [];
+                                break;
+                            end
+                            %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
+                            [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                            if exitflag > 0
+                                ub(i) = -fval + obj.V(i, 1);
+                            else
+                                lb = [];
+                                ub = [];
+                                break;
+                            end
+                        end
 
-                for i=1:obj.dim
-                    f = obj.V(i, 2:obj.nVar + 1);
-                    if all(f(:)==0)
-                        lb(i) = obj.V(i,1);
-                        ub(i) = obj.V(i,1);
-                    else
-                        %options = optimset('Display','none');
-                        %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                        [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-                        if exitflag > 0
-                            lb(i) = fval + obj.V(i, 1);
-                        else
-                            lb = [];
-                            ub = [];
-                            break;
-                        end
-                        %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                        [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-                        if exitflag > 0
-                            ub(i) = -fval + obj.V(i, 1);
-                        else
-                            lb = [];
-                            ub = [];
-                            break;
-                        end
+
                     end
                     
-
+                    if isempty(lb) || isempty(ub)
+                        B = [];
+                    else
+                        B = Box(lb, ub);           
+                    end
+                      
                 end
-
+                
             end         
-            
-            if isempty(lb) || isempty(ub)
-                B = [];
-            else
-                B = Box(lb, ub);           
-            end
-            
+              
         end
         
-        % find a box bounding a star
-        function B = getBox_parallel(obj)          
-
-            if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
-                lb = obj.V(:, 1);
-                ub = obj.V(:, 1);
-
-            else % star set is a set
-                lb = zeros(obj.dim,1);
-                ub = zeros(obj.dim,1); 
-                options = optimset('Display','none');
-                parfor i=1:obj.dim
-                   
-                    f = obj.V(i, 2:obj.nVar + 1);
-                    
-                    if all(f(:)==0)
-                        lb(i) = obj.V(i,1);
-                        ub(i) = obj.V(i,1);
-                    else
-                        %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-                        [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-                        if exitflag > 0        
-                            lb(i) = fval + obj.V(i,1);
-                        else
-                            lb(i) = -Inf;                         
-                        end
-                        %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], [], [], [], options);
-                        [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-                        if exitflag > 0
-                            ub(i) = -fval + obj.V(i, 1);
-                        else
-                            ub(i) = Inf;
-                        end
-
-                    end
-                                    
-                end
-
-            end         
-            
-            if isempty(lb) || isempty(ub)
-                B = [];
-            else
-                B = Box(lb, ub);           
-            end
-            
-        end
+        
         
         % estimates ranges of state vector quickly
         % these ranges are not the exact range, it is an
@@ -719,6 +742,75 @@ classdef Star
             end
             
             
+        end
+        
+        % get lower bound and upper bound vector of the state variables
+        function [lb, ub] = getRanges(obj)
+            
+            % author: Dung Tran
+            % date: 7/19/2019
+            
+            if ~obj.isEmptySet            
+                n = obj.dim;
+                lb = zeros(n,1);
+                ub = zeros(n,1);
+                for i=1:n
+                    fprintf('\nGet range at index %d', i);
+                    [lb(i), ub(i)] = obj.getRange(i);
+                end
+            else
+                lb = [];
+                ub = [];
+            end
+
+        end
+        
+        % find range of a state at specific position
+        function [xmin, xmax] = estimateRange(obj, index)
+            % @index: position of the state
+            % range: min and max values of x[index]
+            
+            % author: Dung Tran
+            % date: 7/19/2019
+            
+            if index < 1 || index > obj.dim
+                error('Invalid index');
+            end
+            
+            f = obj.V(index, 1:obj.nVar+1);
+            xmin = f(1);
+            xmax = f(1);
+                        
+            for i=2:obj.nVar+1
+                if f(i) >= 0
+                    xmin = xmin + f(i) * obj.predicate_lb(i-1);
+                    xmax = xmax + f(i) * obj.predicate_ub(i-1);
+                else
+                    xmin = xmin + f(i) * obj.predicate_ub(i-1);
+                    xmax = xmax + f(i) * obj.predicate_lb(i-1);
+                end
+                
+            end
+            
+            
+        end
+        
+        
+        % quickly estimate lower bound and upper bound vector of state
+        % variables
+        function [lb, ub] = estimateRanges(obj)
+            
+            % author: Dung Tran
+            % date: 7/19/2019
+            
+            n = obj.dim;
+            lb = zeros(n,1);
+            ub = zeros(n,1);
+            
+            for i=1:n
+                [lb(i), ub(i)] = obj.estimateRange(i);
+            end
+
         end
         
         % find a oriented box bounding a star

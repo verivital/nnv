@@ -18,7 +18,9 @@ C = [1 0 0; -1 0 0; 0 1 0; 0 -1 0; 0 0 1; 0 0 -1];
 d = [1; 1; 1; 1; 1; 1];
 
 V = [0 0 0; 1 0 0; 0 1 0; 0 0 1];
-I = Star(V', C, d); % input set as a Star set
+pred_lb = [-1;-1;-1];
+pred_ub = [1;1;1];
+I = Star(V', C, d, pred_lb, pred_ub); % input set as a Star set
 
 % select option for reachability algorithm
 

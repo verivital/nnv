@@ -69,7 +69,7 @@ acf = net_info.act_fcns;
 %disp(acf);
 
 Layers = [];
-if contains(formatin,'eras') || contains(formatin,'ensorfl')
+if contains(formatin,'eras') %|| contains(formatin,'ensorfl')
     for i=1:n 
         L = Layer(W{i}, b{i}', ActFunction(acf(i,:)));
         Layers = [Layers L];

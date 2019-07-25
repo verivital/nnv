@@ -773,7 +773,7 @@ classdef Star
             % author: Dung Tran
             % date: 7/19/2019
             
-            if index < 1 || index > obj.dim
+            if (index < 1) || (index > obj.dim)
                 error('Invalid index');
             end
             

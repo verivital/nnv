@@ -66,20 +66,13 @@ W = net_info.W; % weights
 b = net_info.b; % bias
 n = length(b); % number of layers
 acf = net_info.act_fcns;
-%disp(acf);
 
 Layers = [];
-if contains(formatin,'eras') %|| contains(formatin,'ensorfl')
-    for i=1:n 
-        L = Layer(W{i}, b{i}', ActFunction(acf(i,:)));
-        Layers = [Layers L];
-    end
-else
-    for i=1:n 
-        L = Layer(W{i}, b{i}, ActFunction(acf(i,:)));
-        Layers = [Layers L];
-    end
+for i=1:n 
+    L = Layer(W{i}, b{i}, ActFunction(acf(i,:)));
+    Layers = [Layers L];
 end
+
 
 Controller = FFNN(Layers); % feedforward neural network controller
 disp('NN Controller created');

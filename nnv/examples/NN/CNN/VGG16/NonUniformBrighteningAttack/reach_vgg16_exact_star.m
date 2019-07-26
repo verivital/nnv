@@ -36,7 +36,7 @@ center = reshape(I4, [n(1), n(2), n(3)]); % center image matrix
 basis_mat = reshape(I5, [n(1), n(2), n(3)]); % basis image matrix
 
 C = [1;-1];   % 0% <= alpha <= bv percentage of brightening attack
-bv = 0.0000002;
+bv = 0.0000005;
 d = [bv; 0];
 pred_lb = 0;
 pred_ub = bv;
@@ -58,7 +58,10 @@ fprintf('\n========= PARSE VGG16 FOR REACHABILITY ANALYSIS ============\n');
 
 net = CNN.parse(net, 'VGG16');
 
-fprintf('\n======= DO REACHABILITY ANLAYSIS WITH APPROX-STAR METHOD ======\n');
+fprintf('\n======= DO REACHABILITY ANLAYSIS WITH EXACT-STAR METHOD ======\n');
 
-net.reach(IS, 'approx-star');
+numCores = 2;
+net.reach(IS, 'exact-star', numCores);
+
+
 

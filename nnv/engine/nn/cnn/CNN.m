@@ -146,10 +146,10 @@ classdef CNN < handle
             
             
             if  obj.numCores > 1
-                obj.star_pool;
-                computation_option = 'parallel';
+                obj.start_pool;
+                obj.reachOption = 'parallel';
             else
-                computation_option = [];
+                obj.reachOption = [];
             end
             
             obj.reachSet = cell(1, obj.numLayers+1);
@@ -159,12 +159,16 @@ classdef CNN < handle
             for i=2:obj.numLayers+1
                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 start_time = tic;
-                obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, computation_option);
+                obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, obj.reachOption);
                 obj.reachTime(i-1) = toc(start_time);
                 fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
+                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(obj.reachSet{i}));
             end
             fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
-            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet{obj.numLayers+1}));            
+            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet{obj.numLayers+1}));
+            obj.totalReachTime = sum(obj.reachTime);
+            IS = obj.reachSet{obj.numLayers+1};
+            reachTime = obj.totalReachTime;
         end
         
         
@@ -218,6 +222,8 @@ classdef CNN < handle
                         Li = ReluLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
                         Li = MaxPooling2DLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')
+                        Li = AveragePooling2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
                         Li = FullyConnectedLayer.parse(L);
                     else                     

@@ -179,8 +179,8 @@ classdef MaxPooling2DLayer < handle
     methods
         
         function y = evaluate(obj, input)
-            % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
-            % @y: 2 or 3-dimensional array, for example, y(:, :, :)
+            % @input: high-dimensional array, for example, input(:, :, :), 
+            % @y: output
             
             % author: Dung Tran
             % date: 6/17/2019
@@ -189,24 +189,9 @@ classdef MaxPooling2DLayer < handle
             
             % author: Dung Tran
             % date: 12/10/2018
-            
-            
-            n = size(input);
-            if length(n) == 3
-                NumChannels = n(3);
-            elseif length(n) == 2
-                NumChannels = 1;
-            else
-                error('Invalid input');
-            end
-            
-            [h, w] = obj.get_size_maxMap(input(:,:,1));   
-            y(:,:,NumChannels) = zeros(h, w); % preallocate 3D matrix
-            for i=1:NumChannels % number of channels
-                % compute average map with i^th channels 
-                y(:, :, i) = obj.compute_maxMap(input(:,:,i));
-            end
-            
+            % update: 7/26/2019
+           
+            y = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');         
                    
         end
         

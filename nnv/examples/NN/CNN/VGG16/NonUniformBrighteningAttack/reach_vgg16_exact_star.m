@@ -60,7 +60,8 @@ net = CNN.parse(net, 'VGG16');
 
 fprintf('\n======= DO REACHABILITY ANLAYSIS WITH EXACT-STAR METHOD ======\n');
 
-net.reach(IS, 'exact-star');
+numCores = 2;
+net.reach(IS, 'exact-star', numCores);
 
 
 

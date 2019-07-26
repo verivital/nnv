@@ -146,7 +146,7 @@ classdef CNN < handle
             
             
             if  obj.numCores > 1
-                obj.star_pool;
+                obj.start_pool;
                 obj.reachOption = 'parallel';
             else
                 obj.reachOption = [];
@@ -222,6 +222,8 @@ classdef CNN < handle
                         Li = ReluLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
                         Li = MaxPooling2DLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')
+                        Li = AveragePooling2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
                         Li = FullyConnectedLayer.parse(L);
                     else                     

@@ -69,12 +69,12 @@ acf = net_info.act_fcns;
 
 Layers = [];
 for i=1:n 
-    L = Layer(W{i}, b{i}, ActFunction(acf(i,:)));
+    L = LayerS(W{i}, b{i}, ActFunction(acf(i,:)));
     Layers = [Layers L];
 end
 
 
-Controller = FFNN(Layers); % feedforward neural network controller
+Controller = FFNNS(Layers); % feedforward neural network controller
 disp('NN Controller created');
 
 end

@@ -76,7 +76,6 @@ classdef ReluLayer < handle
             end
             
             I = reshape(input, [N 1]);
-            
             y = PosLin.evaluate(I);
             y = reshape(y, n);
                    

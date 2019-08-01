@@ -1,15 +1,10 @@
-
-clc;
-clear;
-
-
-fprintf('\n\n=============================LOAD VGG19 ======================\n');
-
 % Load the trained model 
-net = vgg19();
+net = vgg16();
+L1 = ImageInputLayer.parse(net.Layers(1));
 
+% See details of the architecture 
+net.Layers
 
-fprintf('\n\n=========CONSTRUCT INPUT SET (AN IMAGESTAR SET) =============\n');
 % Read the image to classify 
 I0 = imread('peppers.png');
 
@@ -41,21 +36,17 @@ d = [bv; 0];
 pred_lb = 0;
 pred_ub = bv;
 
+% normalized ImageStar Input Set using InputLayer of the VGG16
+% note***: the InputImageLayer of VGG16 substract an image with the mean of
+% images in the training set. This information is hidden, we do not know.
+% Therefore, we need to use the InputImageLayer of VGG16 to compute the
+% normalized ImageStar Input Set
 
-V(:,:,:,1) = center;
-V(:,:,:,2) = basis_mat;
+V(:,:,:,1) = activations(net, center, 1);
+V(:,:,:,2) = cast(basis_mat, 'single');
+V = double(V); % use double precison for analysis
 
 IS = ImageStar(V, C, d, pred_lb, pred_ub);
 
 
-fprintf('\n\n========= PARSE VGG19 FOR REACHABILITY ANALYSIS ============\n');
-
-net = CNN.parse(net, 'VGG19');
-
-fprintf('\n\n======= DO REACHABILITY ANLAYSIS WITH EXACT-STAR METHOD ======\n');
-
-numCores = 2;
-net.reach(IS, 'exact-star', numCores);
-
-
-
+IS1 = L1.reach(IS);

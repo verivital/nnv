@@ -293,13 +293,13 @@ classdef ImageStar < handle
                         error('Invalid basis matrix');
                     end   
                     
-                    if size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width
+                    if ~isempty(im_lb1) && (size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width)
                         error('Inconsistent dimension between lower bound image and the constructed imagestar');
                     else
                         obj.im_lb = im_lb1;
                     end
                     
-                    if size(im_ub1,1) ~= obj.height || size(im_ub1, 2) ~= obj.width
+                    if ~isempty(im_ub1) && (size(im_ub1,1) ~= obj.height || size(im_ub1, 2) ~= obj.width)
                         error('Inconsistent dimension between upper bound image and the constructed imagestar');
                     else
                         obj.im_ub = im_ub1;

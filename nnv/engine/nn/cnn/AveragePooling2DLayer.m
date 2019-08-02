@@ -179,8 +179,8 @@ classdef AveragePooling2DLayer < handle
     methods
         
         function y = evaluate(obj, input)
-            % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
-            % @y: 2 or 3-dimensional array, for example, y(:, :, :)
+            % @input: high-dimensional array, for example, input(:, :, :), 
+            % @y: output
             
             % author: Dung Tran
             % date: 6/17/2019
@@ -189,26 +189,12 @@ classdef AveragePooling2DLayer < handle
             
             % author: Dung Tran
             % date: 12/10/2018
-            
-            
-            n = size(input);
-            if length(n) == 3
-                NumChannels = n(3);
-            elseif length(n) == 2
-                NumChannels = 1;
-            else
-                error('Invalid input');
-            end
-            
-            [h, w] = obj.get_size_averageMap(input(:,:,1));   
-            y(:,:,NumChannels) = zeros(h, w); % preallocate 3D matrix
-            for i=1:NumChannels % number of channels
-                % compute average map with i^th channels 
-                y(:, :, i) = obj.compute_averageMap(input(:,:,i));
-            end
-            
+            % update: 7/26/2019
+           
+            y = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'avg');         
                    
         end
+        
         
         % parallel evaluation on an array of inputs
         function y = evaluate_parallel(obj, inputs)
@@ -225,29 +211,6 @@ classdef AveragePooling2DLayer < handle
             
         end
         
-        
-        
-        % parse a trained averagePooling2dLayer from matlab
-        function parse(obj, average_Pooling_2d_Layer)
-            % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep
-            % neural network tool box
-            % @L : a AveragePooling2DLayer obj for reachability analysis purpose
-            
-            % author: Dung Tran
-            % date: 6/17/2019
-            
-            
-            if ~isa(average_Pooling_2d_Layer, 'averagePooling2dLayer')
-                error('Input is not a Matlab averagePooling2dLayer class');
-            end
-            
-            obj.Name = average_Pooling_2d_Layer.Name;
-            obj.PoolSize = average_Pooling_2d_Layer.PoolSize;
-            obj.Stride = average_Pooling_2d_Layer.Stride;
-            obj.PaddingSize = average_Pooling_2d_Layer.PaddingSize;
-            fprintf('Parsing a Matlab average pooling 2d layer is done successfully');
-            
-        end
         
         % parse input image with padding
         function padded_I = get_zero_padding_input(obj, input)
@@ -416,27 +379,87 @@ classdef AveragePooling2DLayer < handle
             if ~isa(input, 'ImageStar')
                 error('The input is not an ImageStar object');
             end
-            
-                       
-            % compute output sets
-            [h, w] = obj.get_size_averageMap(input.V(:,:,1,1));
-            Y(:,:,input.numPred + 1, input.numChannel) = zeros(h, w); % output basis matrices            
-            I(:, :, input.numChannel) = zeros(input.height, input.width); % pre-allocate memory
-            for i=1:input.numPred + 1
-                for j=1:input.numChannel
-                    I(:,:,j) = input.V(:,:, i, j);
-                end
-                
-                Z = obj.evaluate(I);
-                                                
-                for k=1:input.numChannel
-                    Y(:,:,i, k) = Z(:, :, k);
-                end
-                                
-            end 
+            Y = obj.evaluate(input.V);                       
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
         end
+        
+        
+        % general functio for reachability analysis
+        function IS = reach(varargin)
+            % @in_image: an input imagestar
+            % @image: output set
+            % @option: = 'single' or 'parallel' 
+            
+            % author: Dung Tran
+            % date: 6/26/2019
+             
+            switch nargin
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = varargin{4};
+                
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                   
+                    option = [];
+                case 2
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+            end
+            
+            
+            n = length(in_images);
+            IS(n) = ImageStar;
+            
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    IS(i) = obj.reach_star_single_input(in_images(i));
+                end
+            elseif isempty(option) || strcmp(option, 'single')
+                for i=1:n
+                    IS(i) = obj.reach_star_single_input(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+            end
+   
+            
+        end
+        
     end
+    
+
+    methods(Static)
+
+
+
+        % parse a trained averagePooling2dLayer from matlab
+        function L = parse(average_Pooling_2d_Layer)
+            % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep
+            % neural network tool box
+            % @L : a AveragePooling2DLayer obj for reachability analysis purpose
+
+            % author: Dung Tran
+            % date: 7/26/2019
+
+
+            if ~isa(average_Pooling_2d_Layer, 'nnet.cnn.layer.AveragePooling2DLayer')
+                error('Input is not a Matlab nnet.cnn.layer.AveragePooling2DLayer class');
+            end
+
+            L = MaxPooling2DLayer(average_Pooling_2d_Layer.Name, average_Pooling_2d_Layer.PoolSize, average_Pooling_2d_Layer.Stride, average_Pooling_2d_Layer.PaddingSize);
+            fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
+
+        end
+        
+    end
+    
     
 end
 

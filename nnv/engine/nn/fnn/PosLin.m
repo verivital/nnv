@@ -88,40 +88,51 @@ classdef PosLin
             
             if ~isa(I, 'Star')
                 error('Input is not a star set');
-            end           
-
-            %fprintf('\nSplit at neuron %d', index);
-            % S1 = I && x[index] < 0 
-            c = I.V(index, 1);
-            V = I.V(index, 2:I.nVar + 1); 
-            new_C = vertcat(I.C, V);
-            new_d = vertcat(I.d, -c);                
-            new_V = I.V;
-            new_V(index, :) = 0;
-            S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub);
-
-            % S2 = I && x[index] >= 0
-            new_C = vertcat(I.C, -V);
-            new_d = vertcat(I.d, c);
-            S2 = Star(I.V, new_C, new_d, I.predicate_lb, I.predicate_ub);
-
-            a = S1.isEmptySet;
-            b = S2.isEmptySet;
-
-            if a && ~b
-                S = S2;
             end
-            if a && b
-                S = [];
+            
+            [xmin, xmax] = I.getRange(index);
+            
+            if xmin >= 0
+                S = I; 
+            elseif xmax < 0 
+                V1 = I.V;
+                V1(index, :) = 0;
+                S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub);
+            elseif xmin < 0 && xmax >= 0
+                %fprintf('\nSplit at neuron %d', index);
+                % S1 = I && x[index] < 0 
+                c = I.V(index, 1);
+                V = I.V(index, 2:I.nVar + 1); 
+                new_C = vertcat(I.C, V);
+                new_d = vertcat(I.d, -c);                
+                new_V = I.V;
+                new_V(index, :) = zeros(1, I.nVar + 1);
+                S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub);
+                
+                % S2 = I && x[index] >= 0
+                new_C = vertcat(I.C, -V);
+                new_d = vertcat(I.d, c);
+                S2 = Star(I.V, new_C, new_d, I.predicate_lb, I.predicate_ub);
+                
+                a = S1.isEmptySet;
+                b = S2.isEmptySet;
+                                             
+                if a && ~b
+                    S = S2;
+                end
+                if a && b
+                    S = [];
+                end
+                if ~a && b
+                    S = S1;
+                end
+                if ~a && ~b
+                 S = [S1 S2];
+                end
+        
             end
-            if ~a && b
-                S = S1;
-            end
-            if ~a && ~b
-             S = [S1 S2];
-            end
- 
-                        
+            
+        
         end
               
         % stepReach with multiple inputs
@@ -243,10 +254,11 @@ classdef PosLin
         function S = reach_star_exact2(I, option)
             % @I: star input sets
             % @option: = 'parallel' using parallel computing
-            %          = ''    do not use parallel computing
+            %          = '[]'    do not use parallel computing
             
             % author: Dung Tran
             % date: 3/16/2019
+            
             
              if ~isempty(I)
                             
@@ -275,7 +287,30 @@ classdef PosLin
             
         end
         
-        
+                % exact reachability analysis using star
+        function S = reach_star_exact_multipleInputs(In, option)
+            % @In: star input sets
+            % @option: = 'parallel' using parallel computing
+            %          = '[]'    do not use parallel computing
+            
+            % author: Dung Tran
+            % date: 7/25/2019
+            
+            
+             n = length(In);
+             S = [];
+             if strcmp(option, 'parallel')
+                 parfor i=1:n
+                     S = [S PosLin.reach_star_exact2(In(i), [])];
+                 end
+             elseif isempty(option) || strcmp(option, 'single')
+                 for i=1:n
+                     S = [S PosLin.reach_star_exact2(In(i), [])];
+                 end
+             else
+                 error('Unknown computation option');
+             end
+        end
               
         % step reach approximation using star
         function S = stepReachStarApprox(varargin)
@@ -1024,7 +1059,7 @@ classdef PosLin
             
             if strcmp(method, 'exact-star') % exact analysis using star
                 
-                R = PosLin.reach_star_exact2(I, option);
+                R = PosLin.reach_star_exact_multipleInputs(I, option);
                 
             elseif strcmp(method, 'exact-polyhedron') % exact analysis using polyhedron
                 

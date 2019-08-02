@@ -36,29 +36,24 @@ center = reshape(I4, [n(1), n(2), n(3)]); % center image matrix
 basis_mat = reshape(I5, [n(1), n(2), n(3)]); % basis image matrix
 
 C = [1;-1];   % 0% <= alpha <= bv percentage of brightening attack
-bv = 0.0000002;
+bv = 0.0000005;
 d = [bv; 0];
 pred_lb = 0;
 pred_ub = bv;
 
-% normalized ImageStar Input Set using InputLayer of the VGG16
-% note***: the InputImageLayer of VGG16 substract an image with the mean of
-% images in the training set. This information is hidden, we do not know.
-% Therefore, we need to use the InputImageLayer of VGG16 to compute the
-% normalized ImageStar Input Set
-
-V(:,:,:,1) = activations(net, center, 1);
-V(:,:,:,2) = cast(basis_mat, 'single');
-V = double(V); % use double precison for analysis
+V(:,:,:,1) = center;
+V(:,:,:,2) = basis_mat;
 
 IS = ImageStar(V, C, d, pred_lb, pred_ub);
-
 
 fprintf('\n========= PARSE VGG16 FOR REACHABILITY ANALYSIS ============\n');
 
 net = CNN.parse(net, 'VGG16');
 
-fprintf('\n======= DO REACHABILITY ANLAYSIS WITH APPROX-STAR METHOD ======\n');
+fprintf('\n======= DO REACHABILITY ANLAYSIS WITH EXACT-STAR METHOD ======\n');
 
-net.reach(IS, 'approx-star');
+numCores = 2;
+net.reach(IS, 'exact-star', numCores);
+
+
 

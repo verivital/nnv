@@ -330,7 +330,7 @@ classdef Conv2DLayer < handle
     % evaluation method
     methods
         
-        function y = evaluate(obj, input, option)
+        function y = evaluate2(obj, input, option)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
             % @option = 'single'
@@ -370,7 +370,7 @@ classdef Conv2DLayer < handle
         end
         
         % evaluate using matconvnet
-        function y = evaluate2(obj, input, option)
+        function y = evaluate(varargin)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
             % @option: 'single' or 'double' or empty precision of
@@ -379,6 +379,23 @@ classdef Conv2DLayer < handle
             
             % author: Dung Tran
             % date: 7/18/2019
+            
+            switch nargin
+                
+                case 2
+                    obj = varargin{1};
+                    input = varargin{2};
+                    option = 'double';
+                    input = double(input);
+                case 3
+                    obj = varargin{1};
+                    input = varargin{2};
+                    option = varargin{3};
+                    
+                otherwise 
+                    error('Invalid number of inputs, should be 1 or 2');
+                
+            end
             
             if strcmp(option, 'single')
                 obj.Weights = single(obj.Weights);
@@ -630,11 +647,7 @@ classdef Conv2DLayer < handle
             end
             
             % compute output sets 
-            z = obj.evaluate2(input.V(:,:,:,1), 'double'); 
-            Y(:,:,obj.NumFilters, input.numPred + 1) = zeros(size(z,1), size(z,2), 'double');
-            for i=1:input.numPred + 1
-                Y(:,:,:,i) = obj.evaluate2(input.V(:,:,:,i), 'double');
-            end           
+            Y = vl_nnconv(double(input.V), double(obj.Weights), double(obj.Bias), 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   
         end
@@ -652,24 +665,35 @@ classdef Conv2DLayer < handle
                 case 2
                     obj = varargin{1};
                     inputs = varargin{2};
+                    option = [];
                 case 3
                     obj = varargin{1};
-                    inputs = varargin{2}; % don't care the third input
+                    inputs = varargin{2}; 
+                    option = [];
                 case 4
                     obj = varargin{1};
-                    inputs = varargin{2}; % don't care the rest inputs
+                    inputs = varargin{2}; % don't care the third option
+                    option = varargin{4}; 
                 otherwise
                     error('Invalid number of input arguments, should be 1, 2 or 3');
             end
          
-            % do not care about the third inputs if it has
             
             n = length(inputs);            
             S(n) = ImageStar;
-            for i=1:n
-                S(i) = obj.reach_star_single_input(inputs(i));
-            end
             
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    S(i) = obj.reach_star_single_input(inputs(i));
+                end
+            elseif isempty(option) || strcmp(option, 'single')
+                for i=1:n
+                    S(i) = obj.reach_star_single_input(inputs(i));
+                end
+            else
+                error('Unknown computation option');
+            end
+
             
         end
         

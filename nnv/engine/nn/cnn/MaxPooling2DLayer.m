@@ -20,8 +20,7 @@ classdef MaxPooling2DLayer < handle
         Stride = [1 1]; % step size for traversing input
         PaddingMode = 'manual'; 
         PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers       
-        NumSplits = 0; % total number of splits in the exact analysis
-        
+                
     end
     
     
@@ -180,8 +179,8 @@ classdef MaxPooling2DLayer < handle
     methods
         
         function y = evaluate(obj, input)
-            % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
-            % @y: 2 or 3-dimensional array, for example, y(:, :, :)
+            % @input: high-dimensional array, for example, input(:, :, :), 
+            % @y: output
             
             % author: Dung Tran
             % date: 6/17/2019
@@ -190,24 +189,9 @@ classdef MaxPooling2DLayer < handle
             
             % author: Dung Tran
             % date: 12/10/2018
-            
-            
-            n = size(input);
-            if length(n) == 3
-                NumChannels = n(3);
-            elseif length(n) == 2
-                NumChannels = 1;
-            else
-                error('Invalid input');
-            end
-            
-            [h, w] = obj.get_size_maxMap(input(:,:,1));   
-            y(:,:,NumChannels) = zeros(h, w); % preallocate 3D matrix
-            for i=1:NumChannels % number of channels
-                % compute average map with i^th channels 
-                y(:, :, i) = obj.compute_maxMap(input(:,:,i));
-            end
-            
+            % update: 7/26/2019
+           
+            y = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');         
                    
         end
         
@@ -434,158 +418,59 @@ classdef MaxPooling2DLayer < handle
     % exact reachability analysis using star set
     methods
         % reachability analysis method using Stars
-        % a star represent a set of images (2D matrix of h x w)
+        % a star represent a set of images (2D matrix of h x w)           
         
-        % stepMaxPooling_exact
-        % compute exact imagestar of a single maxpooling step
-        
-        function images = stepMaxPooling_exact_singleInput(obj, image, start_point, channel_ind)
-            % @image: input image, an imagestar set
-            % @start_point: the top left-corner point being filter by
-            % maxpooling operation
-            % @channel_ind: channel index 
-            
-            % @images: output images after a single stepMaxPooling
-            % note***: one stepMaxPooling in the worst case produces N =
-            % obj.height * obj.width new images, analysis complexity is O(N)
-            % number of constraints in the resulted images is O(n0 + N -
-            % 1); n0 is the number of constraints of the input image
-            
-            % author: Dung Tran
-            % date: 6/20/2019
-            
-            if ~isa(image, 'ImageStar')
-                error('Input image is not an ImageStar');
-            end
-            
-            
-            if size(start_point, 1) ~= 2 || size(start_point, 2) ~= 1 || start_point(1) > image.height || start_point(1) < 1 || start_point(2) > image.width || start_point(2) < 1
-                error('Invalid start point');
-            end
-            
-            if channel_ind < 1 || channel_ind > image.numChannel
-                error('Invalid channel index');
-            end
-            
-            N = obj.PoolSize(1) * obj.PoolSize(2); 
-            
-            ind_mat = zeros(2, N);
-                     
-            for i=1:obj.PoolSize(1) % height of the max pool
-                for j=1:obj.PoolSize(2) % width of the max pool
-                    ind = (i-1)*obj.PoolSize(2) + j;
-                    ind_mat(:, ind) = [start_point(1) + i-1; start_point(2) + j - 1];
-                end
-            end
-            
-            images = [];
-            % optimize code here
-            % number of feasibility problem needs to check is N
-            % is there a best way to reduce this?
-            for i=1:N
-                center = ind_mat(:,i);
-                others = ind_mat;
-                others(:, i) = [];
-                image1 = image.isMax(center, others, channel_ind); % optimize the isMax function
-                images = [images image1];
-            end
-            
-            obj.NumSplits = obj.NumSplits + length(images) - 1;
-             
-        end
-        
-        % exact stepMaxPooling with multiple inputs
-        function images = stepMaxPooling_exact_multipleInputs(varargin)
-            % @in_images: an array of input images (an array of ImageStar)
-            % @start_points: the top left-corner point being filter by
-            % maxpooling operation
-            % @channel_ind: channel index
-            % @option: = 'parallel', use parallel computation
-            %          = '[]', don't use parallel computation
-            
-            switch nargin
-                case 4
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    start_point = varargin{3};
-                    channel_ind = varargin{4};
-                    option = [];
-                    
-                case 5
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    start_point = varargin{3};
-                    channel_ind = varargin{4};
-                    option = varargin{5};
-                    if ~strcmp(option, 'parallel')
-                        error('Unknow computation option');
-                    end
-                    
-                otherwise
-                    error('Invalid number of input argument, should be 4 or 5');
-                
-            end
-            
-            % do stepMaxPooling with multiple inputs
-            N = length(in_images);
-            images = [];
-            if ~isempty(option)
-                parfor i=1:N % use parallel computing
-                    image1 = obj.stepMaxPooling_exact_singleInput(in_images(i), start_point, channel_ind);
-                    images = [images image1];
-                end
-            else
-                for i=1:N
-                    image1 = obj.stepMaxPooling_exact_singleInput(in_images(i), start_point, channel_ind);
-                    images = [images image1];
-                end
-            end
-                    
-        end
-        
-        
-        function images = reach_star_exact(obj, input)
-            % @inputs: an ImageStar input set
+        function images = reach_star_exact(obj, in_image)
+            % @in_image: an ImageStar input set
             % @option: = 'single' single core for computation
             %          = 'parallel' multiple cores for parallel computation
-            % @S: an imagestar with number of channels = obj.NumFilters
+            % @images: an set of imagestar with number of channels = obj.NumFilters
             
             % author: Dung Tran
             % date: 6/17/2019
+            % updates: 7/25/2019
             
-            if ~isa(input, 'ImageStar')
+            if ~isa(in_image, 'ImageStar')
                 error('The input is not an ImageStar object');
             end
             
-            startPoints = obj.get_startPoints(input.V(:,:,1,1));
-            [h, w] = size(startPoints); % this is the size of the maxMap
+            startPoints = obj.get_startPoints(in_image.V(:,:,1,1)); % get starpoints
+            [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1)); % size of maxMap           
+            image = in_image;   
+            % check max_id first           
+            max_index = cell(h, w, in_image.numChannel);
+            maxMap_basis_V(:,:,in_image.numChannel, in_image.numPred+1) = zeros(h,w); % pre-allocate basis matrix for the maxmap
+            split_pos = [];
             
-            image = input;
-            obj.NumSplits = 0;
-            
-            for k=1:input.numChannel
+            % compute max_index and split_index when applying maxpooling operation
+            for k=1:in_image.numChannel
                 for i=1:h
                     for j=1:w
-                        fprintf('\nPerforming the %d^th exact stepMaxPooling on channel %d', (i-1)*w + j, k);
-                        image = obj.stepMaxPooling_exact_multipleInputs(image, startPoints{i,j}', k);
+                        max_index{i, j, k}  = in_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);                       
+                        % construct the basis image for the maxMap
+                        if size(max_index{i, j, k}, 1) == 1
+                            maxMap_basis_V(i,j,k, :) = in_image.V(max_index{i, j, k}(1), max_index{i, j, k}(2), k, :);
+                        else
+                            split_pos = [split_pos; i j k];
+                        end
                     end
                 end
             end
             
-            N = length(image);
-            images(1, N) = ImageStar;
-            % use parallel computing for constructing the max images
-            fprintf("\nConstructing the maxImage reachable sets");
-            for i=1:N
-                images(i) = obj.construct_maxImage(image(i));
+            
+            n = size(split_pos, 1);
+            fprintf('\nThere are %d local splits to compute the exact max maps', n);
+            images = ImageStar(maxMap_basis_V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+            if n > 0         
+                for i=1:n
+                    images = ImageStar.stepSplitMultipleInputs(images, in_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)});
+                end
             end
-            fprintf("\nTotal number of the reachable sets after max pooling operation is %d\n", N);
                                           
         end
         
-        
         % reach exact star multiple inputs
-        function IS = reach_exact_star_multipleInputs(obj, in_images, option)
+        function IS = reach_star_exact_multipleInputs(obj, in_images, option)
             % @in_images: an array of imagestar input sets
             % images: an array of imagestar output sets
             % option: '[]' or 'parallel'
@@ -644,7 +529,7 @@ classdef MaxPooling2DLayer < handle
             for k=1:in_image.numChannel
                 for i=1:h
                     for j=1:w
-                        max_index{i, j, k}  = in_image.get_localMax_index2(startPoints{i,j},obj.PoolSize, k);     
+                        max_index{i, j, k}  = in_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);     
                     end
                 end
             end
@@ -658,7 +543,7 @@ classdef MaxPooling2DLayer < handle
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
-                        if isempty(max_id)
+                        if size(max_id,1) > 1
                             np = np + 1;
                             l  = l + 1;
                         end                       
@@ -675,7 +560,7 @@ classdef MaxPooling2DLayer < handle
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
-                        if ~isempty(max_id)                            
+                        if size(max_id, 1) == 1                            
                             for p=1:in_image.numPred + 1
                                 new_V(i,j,k, p) = in_image.V(max_id(1),max_id(2),k, p);
                             end
@@ -700,7 +585,7 @@ classdef MaxPooling2DLayer < handle
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
-                        if isempty(max_id)
+                        if size(max_id,1) > 1
                             % construct new set of constraints here
                             new_pred_index = new_pred_index + 1;                           
                             startpoint = startPoints{i,j};
@@ -806,7 +691,7 @@ classdef MaxPooling2DLayer < handle
             if strcmp(method, 'approx-star')
                 IS = obj.reach_star_approx_multipleInputs(in_images, option);
             elseif strcmp(method, 'exact-star')
-                IS = obj.reach_star_exact_multiInputs(in_images, option);
+                IS = obj.reach_star_exact_multipleInputs(in_images, option);
             elseif strcmp(method, 'abs-domain')
                 error('NNV have not yet support abstract-domain method for CNN');
             elseif strcmp(method, 'zono')

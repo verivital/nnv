@@ -22,6 +22,8 @@ classdef CNN < handle
         reachTime = []; % computation time for each layers
         totalReachTime = 0; % total computation time
         
+        features = {}; % outputs of each layer in an evaluation
+        
     end
     
     
@@ -39,8 +41,8 @@ classdef CNN < handle
                     nL = length(Layers); % number of Layers
                     for i=1:nL
                         L = Layers{i};
-                        if ~isa(L, 'AveragePooling2DLayer') && ~isa(L, 'Conv2DLayer') && ~isa(L, 'FullyConnectedLayer') && ~isa(L, 'MaxPooling2DLayer') && ~isa(L, 'ReluLayer')
-                            fprintf('\nCurrent version of NNV supports AveragePooling2DLayer, Convolutional2DLayer, FullyConnectedLayer, MaxPooling2DLayer, AveragePooling2DLayer and ReluLayer');
+                        if ~isa(L, 'ImageInputLayer') && ~isa(L, 'AveragePooling2DLayer') && ~isa(L, 'Conv2DLayer') && ~isa(L, 'FullyConnectedLayer') && ~isa(L, 'MaxPooling2DLayer') && ~isa(L, 'ReluLayer')
+                            fprintf('\nCurrent version of NNV supports ImageInputLayer, AveragePooling2DLayer, Convolutional2DLayer, FullyConnectedLayer, MaxPooling2DLayer, AveragePooling2DLayer and ReluLayer');
                             error('Element %d of Layers is not among supported layers in NNV', i);
                         end
                     end
@@ -59,23 +61,25 @@ classdef CNN < handle
                     obj.OutputSize = 0;
                     
                 otherwise
-                    error('Invalid number of inputs, should be 0 or 1');
+                    error('Invalid number of inputs, should be 0 or 4');
             end
                       
         end
                 
         
-        % Evaluation of a FFNN
-        function y = evaluate(obj, x)
+        % Evaluation of a CNN
+        function [y, features] = evaluate(obj, x)
             % Evaluation of this FFNN
             % @x: input vector x
             % @y: output vector y
+            % @features: output of all layers
             
-            y = x; 
-            for i=1:obj.nL
-                y = obj.Layers(i).evaluate(y);
+            y = x;
+            for i=1:obj.numLayers
+                y = obj.Layers{i}.evaluate(y);
+                obj.features{i} = y;
             end
-        
+            features = obj.features;      
         end
         
         
@@ -146,10 +150,10 @@ classdef CNN < handle
             
             
             if  obj.numCores > 1
-                obj.star_pool;
-                computation_option = 'parallel';
+                obj.start_pool;
+                obj.reachOption = 'parallel';
             else
-                computation_option = [];
+                obj.reachOption = [];
             end
             
             obj.reachSet = cell(1, obj.numLayers+1);
@@ -159,12 +163,16 @@ classdef CNN < handle
             for i=2:obj.numLayers+1
                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 start_time = tic;
-                obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, computation_option);
+                obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, obj.reachOption);
                 obj.reachTime(i-1) = toc(start_time);
                 fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
+                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(obj.reachSet{i}));
             end
             fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
-            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet{obj.numLayers+1}));            
+            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet{obj.numLayers+1}));
+            obj.totalReachTime = sum(obj.reachTime);
+            IS = obj.reachSet{obj.numLayers+1};
+            reachTime = obj.totalReachTime;
         end
         
         
@@ -200,7 +208,7 @@ classdef CNN < handle
             j = 0; % counter of number of layers
             for i=1:n
                 L = net.Layers(i);
-                if isa(L, 'nnet.cnn.layer.ImageInputLayer') || isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                  
+                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                  
                     fprintf('\nLayer %d is a %s class which is neglected in the analysis phase', i, class(L));                   
                     if isa(L, 'nnet.cnn.layer.ImageInputLayer')
                         inputSize = L.InputSize;
@@ -211,13 +219,17 @@ classdef CNN < handle
                 else
                     
                     fprintf('\nParsing Layer %d...', i);
-                   
-                    if isa(L, 'nnet.cnn.layer.Convolution2DLayer') 
+                    
+                    if isa(L, 'nnet.cnn.layer.ImageInputLayer')
+                        Li = ImageInputLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.Convolution2DLayer') 
                         Li = Conv2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.ReLULayer')
                         Li = ReluLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
                         Li = MaxPooling2DLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')
+                        Li = AveragePooling2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
                         Li = FullyConnectedLayer.parse(L);
                     else                     

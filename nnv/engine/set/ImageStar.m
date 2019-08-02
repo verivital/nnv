@@ -86,11 +86,7 @@ classdef ImageStar < handle
         pred_lb = []; % lower bound vector of the predicate
         pred_ub = []; % upper bound vector of the predicate
         im_lb = []; % lower bound image of the ImageStar
-        im_ub = []; % upper bound image of the ImageStar
-        
-        % used to store max points in max pooling analysis
-        % a single max_point = [height_position; width_position; channel_index] 
-        max_points = [];        
+        im_ub = []; % upper bound image of the ImageStar   
 
     end
     
@@ -231,91 +227,7 @@ classdef ImageStar < handle
                         error('Invalid basis matrix');
                     end
                                             
-                      
-                case 8 % 
-                    
-                    V1 = varargin{1};  % basis matrices
-                    C1 = varargin{2};  % predicate constraint matrix 
-                    d1 = varargin{3};  % predicate constraint vector
-                    lb1 = varargin{4}; % predicate lower bound
-                    ub1 = varargin{5}; % predicate upper bound
-                    im_lb1 = varargin{6}; % lower bound image
-                    im_ub1 = varargin{7}; % upper bound image
-                    mp = varargin{8}; % maxpoints
-                                      
-                                        
-                    if size(C1, 1) ~= size(d1, 1)
-                        error('Inconsistent dimension between constraint matrix and constraint vector');
-                    end
-                    
-                    if size(d1, 2) ~= 1
-                        error('Invalid constraint vector, vector should have one column');
-                    end
-                                        
-                    obj.numPred = size(C1, 2);
-                    obj.C = C1;
-                    obj.d = d1; 
-                    
-                    if size(C1, 2) ~= size(lb1, 1) || size(C1, 2) ~= size(ub1, 1)
-                        error('Number of predicates is different from the size of the lower bound or upper bound predicate vector');
-                    end
-                    
-                    if size(lb1, 2) ~= 1 || size(ub1, 2) ~= 1
-                        error('Invalid lower/upper bound predicate vector, vector should have one column');
-                    end
-                    
-                    obj.pred_lb = lb1;
-                    obj.pred_ub = ub1;
-                 
-                    n = size(V1);
-                    
-                    if length(n) == 3
-                        
-                        obj.numPred = 0;
-                        obj.V = V1;
-                        obj.height = n(1);
-                        obj.width = n(2);
-                        obj.numChannel = n(3);
-                        
-                    elseif length(n) == 4
-                        
-                        if n(4) ~= obj.numPred + 1
-                            error('Inconsistency between the basis matrix and the number of predicate variables');
-                        else
-                            obj.numChannel = n(3);
-                            obj.V = V1;
-                            obj.height = n(1);
-                            obj.width = n(2);
-                        end
-                        
-                    elseif length(n) == 2
-                            obj.numChannel = 1;
-                            obj.numPred = 0;
-                            obj.V = V1;
-                            obj.height = n(1);
-                            obj.width = n(2);
-                    else
-                        error('Invalid basis matrix');
-                    end   
-                    
-                    if size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width
-                        error('Inconsistent dimension between lower bound image and the constructed imagestar');
-                    else
-                        obj.im_lb = im_lb1;
-                    end
-                    
-                    if size(im_ub1,1) ~= obj.height || size(im_ub1, 2) ~= obj.width
-                        error('Inconsistent dimension between upper bound image and the constructed imagestar');
-                    else
-                        obj.im_ub = im_ub1;
-                    end
-                    
-                    if ~isempty(mp) && size(mp, 1) ~= 3
-                        error('Invalid max_points matrix');
-                    else
-                        obj.max_points = mp;
-                    end
-                
+                     
                 case 7 % 
                     
                     V1 = varargin{1};  % basis matrices
@@ -381,13 +293,13 @@ classdef ImageStar < handle
                         error('Invalid basis matrix');
                     end   
                     
-                    if size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width
+                    if ~isempty(im_lb1) && (size(im_lb1,1) ~= obj.height || size(im_lb1, 2) ~= obj.width)
                         error('Inconsistent dimension between lower bound image and the constructed imagestar');
                     else
                         obj.im_lb = im_lb1;
                     end
                     
-                    if size(im_ub1,1) ~= obj.height || size(im_ub1, 2) ~= obj.width
+                    if ~isempty(im_ub1) && (size(im_ub1,1) ~= obj.height || size(im_ub1, 2) ~= obj.width)
                         error('Inconsistent dimension between upper bound image and the constructed imagestar');
                     else
                         obj.im_ub = im_ub1;
@@ -413,42 +325,12 @@ classdef ImageStar < handle
                                       
                 otherwise
                     
-                    error('Invalid number of input arguments, (should be from 0, 3, 5 , 7, or 8)');
+                    error('Invalid number of input arguments, (should be from 0, 3, 5 , or 7)');
                     
             end
                         
         end
-        
-        
-        % add max points
-        function obj = add_maxPoint(obj, height_pos, width_pos, channel_ind)
-            % @height_pos: height position of the max point
-            % @width_pos: width position of the max point
-            % @channel_ind: index of the channel that tha max point belongs
-            % to 
-            
-            % author: Dung Tran
-            % date: 6/20/2019
-            
-            
-            if height_pos < 1 || height_pos > obj.height
-                error('Invalid height position');
-            end
-            
-            if width_pos < 1 || width_pos > obj.width
-                error('Invalid width position');
-            end
-            
-            if channel_ind < 1 || channel_ind > obj.numChannel
-                error('Invalid channel index');
-            end
-            
-            new_point = [height_pos; width_pos; channel_ind];
-            obj.max_points = [obj.max_points new_point];
-            
-        end
-        
-        
+                
         % randomly generate a set of images from an imagestar set
         function images = sample(obj, N)
             % @N: number of images 
@@ -751,110 +633,6 @@ classdef ImageStar < handle
             
         end
         
-             
-                
-        % check if a pixel value is the maximum value compared with others
-        % this is core step for exactly performing maxpooling operation on an
-        % imagestar set
-        function image = isMax(obj, center, others, channel_ind)
-            % @center: is the center pixel position we want to check
-            %          center = [i; j]
-            % @others: is the other pixel position we want to compare with
-            % the center one
-            %          others = [i1 i2 ... in, j1 j2 ... jn]
-            %          others(:, i) is the position of i^th pixel
-            % @channel_ind: the index of current channel
-            % @image: = [], the pixel value cannot be the maximum one
-            %         = imagestar object, the pixel value can be the
-            %         maximum one with some updates in the predicate
-            %         constraints
-            
-            % author: Dung Tran
-            % date: 6/20/2019
-            
-            
-            if length(center) ~= 2 || center(1) > obj.height || center(1) < 1 || center(2) > obj.width || center(2) < 1
-                error('Invalid center point');
-            end
-            
-            if channel_ind > obj.numChannel || channel_ind < 1
-                error('Invalid channel index');
-            end
-            
-            if size(others, 1) ~= 2
-                error('Invalid position matrix');
-            end
-            
-            if isempty(obj.im_lb) || isempty(obj.im_ub)
-                obj.estimateRanges;
-            end
-            n = size(others, 2);
-            min_center = obj.im_lb(center(1), center(2), channel_ind);
-            max_center = obj.im_ub(center(1), center(2), channel_ind);
-            max_count = 0;
-            min_count = 0;
-            for i=1:n
-                min_point_i = obj.im_lb(others(1,i), others(2,i), channel_ind);
-                max_point_i = obj.im_lb(others(1, i), others(2, i), channel_ind);
-                if min_center >= max_point_i
-                    max_count = max_count + 1;
-                end
-                if max_center <= min_point_i
-                    min_count = min_count + 1;
-                end
-            end
-            
-            if max_count == n % the center is the max point by only checking the bound
-                image = ImageStar(obj.V, obj.C, obj.d, obj.pred_lb, obj.pred_ub, obj.im_lb, obj.im_ub, obj.max_points);
-                image = image.add_maxPoint(center(1), center(2), channel_ind);
-            elseif min_count == n % the center is not the max point by only checking the bound
-                image = [];
-            else
-                % the center may be the max point with some extra
-                % constraints on the predicate variables
-                new_C = zeros(n, obj.numPred);
-                new_d = zeros(n, 1);
-
-                for i=1:n                
-                    % add new constraint
-                    % compare point (i,j) with point (i1, j1)
-                    % p[i,j] = c[i,j] + \Sigma (V^k[i,j]*a_k), k=1:numPred
-                    % p[i1,j1] = c[i1, j1] + \Sigma ((V^k[i1,j1]*a_k), k=1:numPred)
-
-                    % p[i,j] >= p[i1, j1] <=> 
-                    % <=> \Sigma (V^k[i1, j1] - V^k[i,j])*a[k] <= c[i,j] - c[i1,j1]
-
-                    new_d(i) = obj.V(center(1),center(2), channel_ind, 1) - obj.V(others(1,i), others(2,i), channel_ind, 1);
-                    for j=1:obj.numPred                    
-                        new_C(i,j) = obj.V(center(1),center(2), channel_ind, j+1) - obj.V(others(1,i), others(2,i), channel_ind, j+1);
-                    end           
-                end
-
-                C1 = [obj.C; new_C];
-                d1 = [obj.d; new_d];
-
-                % remove redundant constraints
-                E = [C1 d1];
-                E = unique(E, 'rows');
-
-                C1 = E(:, 1:obj.numPred);
-                d1 = E(:, obj.numPred + 1);
-
-                f = zeros(1, obj.numPred);
-
-                [~,~,status,~] = glpk(f, C1, d1);
-
-                if status == 5 % feasible solution exist
-                    image = ImageStar(obj.V, C1, d1, obj.pred_lb, obj.pred_ub, obj.im_lb, obj.im_ub, obj.max_points);
-                    image = image.add_maxPoint(center(1), center(2), channel_ind);
-                else
-                    image = [];
-                end
-                
-            end
-            
-        end
-        
         
         % update local ranges for Max Pooling operation
         function updateRanges(obj, points)
@@ -949,68 +727,11 @@ classdef ImageStar < handle
                     
         end
             
-            
+                    
         % get local max index, this medthod tries to find the maximum point
         % of a local image, used in over-approximate reachability analysis
         % of maxpooling operation
-        function [max_id, max_mat] = get_localMax_index(obj, startpoint, PoolSize, channel_id)
-            % @startpoint: startpoint of the local(partial) image
-            %               startpoint = [x1 y1];
-            % @PoolSize: = [height width] the height and width of max pooling layer
-            % @channel_id: the channel index
-            % @max_id: = []: we don't know which one has maximum value,
-            % i.e., the maximum values may be the intersection between of
-            % several pixel valutes.
-            %           = [xi yi]: the point that has maximum value
-            
-            % author: Dung Tran
-            % date: 6/24/2019
-            
-            points = obj.get_localPoints(startpoint, PoolSize);          
-            % get lower bound and upper bound image
-            if isempty(obj.im_lb) || isempty(obj.im_ub)
-                [image_lb, image_ub] = obj.estimateRanges;
-            else
-                image_lb = obj.im_lb;
-                image_ub = obj.im_ub;
-            end
-            
-            h  = PoolSize(1);   % height of the MaxPooling layer
-            w  = PoolSize(2);   % width of the MaxPooling layer
-            n = h*w; 
-            max_mat = eye(n); % remember max poins matrix 
-            for i=1:n-1
-                point_i = points(i, :);
-                point_i_minVal = image_lb(point_i(1), point_i(2), channel_id);
-                point_i_maxVal = image_ub(point_i(1), point_i(2), channel_id);
-                for j=i+1:n
-                    point_j = points(j, :);
-                    point_j_maxVal = image_ub(point_j(1), point_j(2), channel_id);
-                    point_j_minVal = image_lb(point_j(1), point_j(2), channel_id);
-                    if point_i_minVal >= point_j_maxVal
-                        max_mat(i, j) = 1;
-                    elseif point_j_minVal >= point_i_maxVal
-                        max_mat(j, i) = 1; 
-                    end 
-                end
-            end
-            
-            S = sum(max_mat, 2);
-            max_id = [];
-            for i=1:n
-                if S(i) == n
-                    max_id = points(i, :);                                                 
-                end
-            end          
-               
-        end
-        
-        
-        
-        % get local max index, this medthod tries to find the maximum point
-        % of a local image, used in over-approximate reachability analysis
-        % of maxpooling operation
-        function max_id = get_localMax_index2(obj, startpoint, PoolSize, channel_id)
+        function max_id = get_localMax_index(obj, startpoint, PoolSize, channel_id)
             % @startpoint: startpoint of the local(partial) image
             %               startpoint = [x1 y1];
             % @PoolSize: = [height width] the height and width of max pooling layer
@@ -1081,28 +802,22 @@ classdef ImageStar < handle
                 else
                     
                     max_id = points(max_lb_idx, :);
-                    
+                                        
                     m = length(candidates);
+                    max_id1 = max_id;
                     for j=1:m
-                        p1 = points(candidates(j), :);
-                        
+                        p1 = points(candidates(j), :);         
                         if obj.is_p1_larger_p2([p1(1) p1(2) channel_id], [max_id(1) max_id(2) channel_id])
-                            max_id = [];
-                            fprintf('\nApproximate max pooling introduces a new predicate variable for the local image.');
-                            break;
+                            max_id1 = [max_id1; p1];
                         end
-          
-                    end
-                    
+                    end                
+                    max_id = max_id1; 
+                    fprintf('\nThe local image has %d max candidates.', size(max_id,1));
                     
                 end
-                
-                
-                
+
             end
-                
-   
-                          
+         
                
         end
         
@@ -1154,6 +869,150 @@ classdef ImageStar < handle
     
     methods(Static)
         
+        
+        % check if a pixel value is the maximum value compared with others
+        % this is core step for exactly performing maxpooling operation on an
+        % imagestar set
+        function [new_C, new_d] = isMax(maxMap, ori_image, center, others)
+            % @maxMap: the current maxMap ImageStar
+            % @ori_image: the original ImageStar to compute the maxMap 
+            % @center: is the center pixel position we want to check
+            %          center = [x1 y1 c1]
+            % @others: is the other pixel position we want to compare with
+            % the center one
+            %          others = [x2 y2 c2; x3 y3 c3]
+            % @out_image: = imagestar object = in_image with with some updates in the predicate
+            %         constraints
+            
+            % author: Dung Tran
+            % date: 6/20/2019
+            % update: 7/25/2019
+            
+            if maxMap.numPred ~= ori_image.numPred
+                error('Inconsistency between number of predicates in the current maxMap and the original image');
+            end
+            
+            n = size(others, 1);
+           
+            % the center may be the max point with some extra
+            % constraints on the predicate variables
+            new_C = zeros(n, maxMap.numPred);
+            new_d = zeros(n, 1);
+
+            for i=1:n                
+                % add new constraint
+                % compare point (i,j) with point (i1, j1)
+                % p[i,j] = c[i,j] + \Sigma (V^k[i,j]*a_k), k=1:numPred
+                % p[i1,j1] = c[i1, j1] + \Sigma ((V^k[i1,j1]*a_k), k=1:numPred)
+
+                % p[i,j] >= p[i1, j1] <=> 
+                % <=> \Sigma (V^k[i1, j1] - V^k[i,j])*a[k] <= c[i,j] - c[i1,j1]
+
+                new_d(i) = ori_image.V(center(1),center(2), center(3), 1) - ori_image.V(others(i,1), others(i,2), others(i,3), 1);
+                for j=1:maxMap.numPred                    
+                    new_C(i,j) = ori_image.V(center(1),center(2), center(3), j+1) - ori_image.V(others(i,1), others(i,2), others(i,3), j+1);
+                end           
+            end
+
+            C1 = [maxMap.C; new_C];
+            d1 = [maxMap.d; new_d];
+
+            % remove redundant constraints
+            E = [C1 d1];
+            E = unique(E, 'rows');
+
+            C1 = E(:, 1:obj.numPred);
+            d1 = E(:, obj.numPred + 1);
+
+            f = zeros(1, obj.numPred);
+
+            [~,~,status,~] = glpk(f, C1, d1, obj.pred_lb, obj.pred_ub);
+
+            if status == 5 % feasible solution exist
+                new_C = C1;
+                new_d = d1;
+            else
+                new_C = [];
+                new_d = [];
+            end
+
+        end
+        
+        % step split of an image star
+        % a single in_image can be splitted into several images in the
+        % exact max pooling operation
+        function images = stepSplit(in_image, ori_image, pos, split_index)
+            % @in_image: the current maxMap ImageStar
+            % @ori_image: the original ImageStar to compute the maxMap 
+            % @pos: local position of the maxMap where splits may occur
+            % @split_index: indexes of local pixels where splits occur
+            
+            % author: Dung Tran
+            % date: 7/25/2019
+            
+            
+            if ~isa(in_image, 'ImageStar')
+                error('input maxMap is not an ImageStar');
+            end
+            if ~isa(ori_image, 'ImageStar')
+                error('reference image is not an ImageStar');
+            end
+            
+            n = size(split_index);
+            if n(2) ~= 3 || n(1) < 1
+                error('Invalid split index, it should have 3 columns and at least 1 row');
+            end
+            
+            images = [];
+            for i=1:n(1)
+                
+                center = split_index(i, :);
+                others = split_index;
+                others(others==center) = [];
+                [new_C, new_d] = ImageStar.isMax(in_image, ori_image, center, others);                
+                if ~isempty(new_C) && ~isempty(new_d)                    
+                    V = in_image.V;
+                    V(pos(1), pos(2), pos(3), :) = ori_image.V(center(1), center(2), center(3), :);
+                    im = ImageStar(V, new_C, new_d, in_image.pred_lb, in_image.pred_ub, in_image.im_lb, in_image.im_ub);
+                    images = [images im];
+                end
+            end
+            fprintf('\nThe current maxMap splits into %d maxMaps at the local position pos = [h=%d, w=%d, c=%d]', length(images), pos(1), pos(2), pos(3));
+  
+        end
+        
+        
+        % step split for multiple image stars
+        % a single in_image can be splitted into several images in the
+        % exact max pooling operation
+        function images = stepSplitMultipleInputs(in_images, ori_image, pos, split_index, option)
+            % @in_image: the current maxMap ImageStar
+            % @ori_image: the original ImageStar to compute the maxMap 
+            % @pos: local position of the maxMap where splits may occur
+            % @split_index: indexes of local pixels where splits occur
+            % @option: = [] or 'parallel'
+            
+            % author: Dung Tran
+            % date: 7/25/2019
+            
+            
+            n = length(in_images);
+            images = [];
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images = ImageStar.stepSplit(in_images(i), ori_image, pos, split_index);
+                end
+            elseif isempty(option) || strcmp(option, 'single')
+                for i=1:n
+                    images = ImageStar.stepSplit(in_images(i), ori_image, pos, split_index);
+                end
+            else 
+                error('Unknown computation option');
+            end
+            
+            
+        end
+
         
         
     end

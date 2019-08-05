@@ -114,13 +114,13 @@ classdef FullyConnectedLayer < handle
             for i=1:length(n)
                 N = N*n(i);
             end
-            
             if N ~= obj.InputSize
                 error('Inconsistency between the input dimension and InputSize of the network');
             end
             
             I = reshape(input, N, 1);
-            y = obj.Weights*I + obj.Bias;
+            y = double(obj.Weights)*I + double(obj.Bias);
+            y = reshape(y, [1, 1, size(obj.Bias, 1)]);
              
         end 
        
@@ -150,7 +150,7 @@ classdef FullyConnectedLayer < handle
             for i=1:n+1
                 I = in_image.V(:,:,:,i);
                 I = reshape(I,N,1);
-                V(1, 1,:,i) = obj.Weights*I + obj.Bias;
+                V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
             end
             
             image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);

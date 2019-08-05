@@ -330,7 +330,7 @@ classdef Conv2DLayer < handle
     % evaluation method
     methods
         
-        function y = evaluate(obj, input, option)
+        function y = evaluate2(obj, input, option)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
             % @option = 'single'
@@ -370,7 +370,7 @@ classdef Conv2DLayer < handle
         end
         
         % evaluate using matconvnet
-        function y = evaluate2(obj, input, option)
+        function y = evaluate(varargin)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
             % @option: 'single' or 'double' or empty precision of
@@ -379,6 +379,23 @@ classdef Conv2DLayer < handle
             
             % author: Dung Tran
             % date: 7/18/2019
+            
+            switch nargin
+                
+                case 2
+                    obj = varargin{1};
+                    input = varargin{2};
+                    option = 'double';
+                    input = double(input);
+                case 3
+                    obj = varargin{1};
+                    input = varargin{2};
+                    option = varargin{3};
+                    
+                otherwise 
+                    error('Invalid number of inputs, should be 1 or 2');
+                
+            end
             
             if strcmp(option, 'single')
                 obj.Weights = single(obj.Weights);

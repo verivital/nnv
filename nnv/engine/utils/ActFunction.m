@@ -6,17 +6,17 @@ function new_act = ActFunction(act)
 act = strtrim(act);
 % Remove empty white spaces and change name
 if contains(act,'relu1')
-    new_act = 'SatLin';
+    new_act = 'satlin';
 elseif contains(act,'linear')
-    new_act = 'Linear';
+    new_act = 'purelin';
 elseif contains(act,'relu2')
-    new_act = 'SatLins';
+    new_act = 'satlins';
 elseif contains(act,'relu')
-    new_act = 'ReLU';
+    new_act = 'poslin';
 elseif contains(act,'tanh')
-    new_act = 'TanSig';
+    new_act = 'tansig';
 elseif contains(act,'igmoid')
-    new_act = 'LogSig';   
+    new_act = 'logsig';   
 end
     
 end

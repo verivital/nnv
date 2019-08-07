@@ -46,8 +46,10 @@ classdef LayerS
                 y = satlin(y1);
             elseif strcmp(obj.f, 'satlins')
                 y = satlins(y1);
-            elseif strcmp(obj.f, 'Tanh')
-                y = tanh(y1);
+            elseif strcmp(obj.f, 'tansig')
+                y = tansig(y1);
+            elseif strcmp(obj.f, 'logsig')
+                y = logsig(y1);
             end 
 
         end

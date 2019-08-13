@@ -48,6 +48,6 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
         close all;
     end
     
-    close all ; clearAllExceptVars({disabledTests,i_d});
+    close all ; clearAllExceptVars({t_pause,disabledTests,i_d});
     cd('..');
 end

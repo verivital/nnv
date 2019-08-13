@@ -1,3 +1,6 @@
+% example call:
+% close all ; clear all ; pReach = figure ; pRuntime = figure ; reach_nncACCsystem_video
+
 load controller.mat;
 load sysd.mat;
 

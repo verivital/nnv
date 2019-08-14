@@ -49,13 +49,21 @@ else
     else
         error(cmdout);
     end
-    name = split(string(input),sh);
-    name = name(end);
-    name = split(name,'.');
-    if length(name) ~= 1
-        name = name(1:end-1);
+    if contains(formatin,'ensorflow')
+        a = importdata(input);
+        a = a(1);
+        a = a{1};
+        a = split(string(a),'"');
+        name = a(2);
+    else
+        name = split(string(input),sh);
+        name = name(end);
+        name = split(name,'.');
+        if length(name) ~= 1
+            name = name(1:end-1);
+        end
+        name = strjoin(name,'.');
     end
-    name = strjoin(name,'.');
     %ouch = strcat(output,sh,name,'.mat');
     net_info = load(strcat(output,sh,name,'.mat'));
     disp('Neural network loaded');

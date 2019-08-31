@@ -2,13 +2,13 @@
 clc;
 clear;
 
-fprintf('\n\n=============================LOAD VGG19 ======================\n');
+fprintf('\n\n=============================LOAD VGG16 ======================\n');
 
 % Load the trained model 
-net = vgg19();
+net = vgg16();
 
-fprintf('\n\n======================== PARSING VGG19 =======================\n');
-nnvNet = CNN.parse(net, 'VGG19');
+fprintf('\n\n======================== PARSING VGG16 =======================\n');
+nnvNet = CNN.parse(net, 'VGG16');
 
 
 fprintf('\n\n=========CONSTRUCT INPUT SET (AN IMAGESTAR SET) =============\n');
@@ -55,7 +55,7 @@ for i=1:n
 end
 
 
-save verificationResult_2e_07.mat robust_exact VT_exact robust_approx VT_approx;
+save verificationResult_2e_07.mat l delta robust_exact VT_exact robust_approx VT_approx;
 
 
 

@@ -89,6 +89,21 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 </figure>
 
 
+5) New feature: Our nnv now supports robustness verification for very large convolutional neural networks such as VGG16, VGG19 under adversarial attacks (FGSM, DeepFoll, etc.)
+
+<figure>
+    <img src="images/vgg16.png" width="400" height="300"> <figcaption>VGG16 under adversarial attacks</figcaption>
+</figure>
+
+<figure>
+    <img src="images/vgg19_exact_range.png" width="400" height="300"> <figcaption>VGG19 exact output ranges corresponding to FGSM adversarial attack</figcaption>
+</figure>
+
+<figure>
+    <img src="images/vgg19_counter_example.png" width="400" height="300"> <figcaption>nnv generates counter examples for VGG19 corresponding to FGSM adversarial attack</figcaption>
+</figure>
+
+
 # contributors
 
 * [Hoang-Dung Tran](https://scholar.google.com/citations?user=_RzS3uMAAAAJ&hl=en)

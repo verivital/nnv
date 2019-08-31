@@ -296,10 +296,10 @@ classdef Conv2DLayer < handle
                 obj.NumChannels = 1;
             elseif length(w) == 3
                 obj.NumFilters = 1;
-                obj.NumChannels = n(3);
+                obj.NumChannels = w(3);
             elseif length(w) == 4
-                obj.NumFilters = n(4);
-                obj.NumChannels = n(3);
+                obj.NumFilters = w(4);
+                obj.NumChannels = w(3);
             else
                 error('Invalid weights array');
             end

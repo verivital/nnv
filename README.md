@@ -14,6 +14,12 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 
     3) Open matlab, then go to the directory where nnv exists on your machine, then run the `install.m` script located at /nnv/
 
+    4) To run verification for convolutional neural networks you may need additional packages installed
+
+       4-1) https://www.mathworks.com/matlabcentral/fileexchange/61733-deep-learning-toolbox-model-for-vgg-16-network  
+
+       4-2) https://www.mathworks.com/help/deeplearning/ref/vgg19.html
+
 # uninstallation:
 
     1) Open matlab, then go to `/nnv/` and execute the `uninstall.m` script

@@ -384,11 +384,11 @@ classdef ImageStar < handle
             
             for i=1:obj.numChannel
                 
-                image(:, :, i) = obj.V(:,:,1,i);
+                image(:, :, i) = obj.V(:,:,i, 1);
                 
                 for j=2:obj.numPred + 1
                     
-                    image(:, :, i) = image(:, :, i) + pred_val(j-1) * obj.V(:,:,j,i);
+                    image(:, :, i) = image(:, :, i) + pred_val(j-1) * obj.V(:,:,i, j);
                 
                 end
                 

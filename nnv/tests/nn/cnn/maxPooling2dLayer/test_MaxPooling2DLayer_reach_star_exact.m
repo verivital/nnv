@@ -1,21 +1,31 @@
-clear;
-clc;
-IM(:, :, 1) = [0 0 2 0; 1 2 0 2 ; 0 0 2 2; 0 2 2 2]; % channel 1 input matrix
-IM(:, :, 2) = [1 2 2 1; 2 1 2 0; 2 2 2 0; 1 1 1 0]; % channel 2 input matrix
-IM(:, :, 3) = [0 0 2 2; 0 2 1 1; 0 2 0 0; 0 2 1 0]; % channel 3 input matrix
+V(:, :, 1, 1) = [0 4 1 2; 2 3 2 3 ; 1  3 1 2; 2 1 3 2]; % channel 1 input matrix
+basis = zeros(4,4);
+basis(1, 2) = 1;
+basis(4,1) = 1;
+V(:, :, 1, 2) = basis;
 
-LB(:,:,1) = [-0.1 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; % attack on pixel (1,1) and (1,2)
-LB(:,:,2) = [0 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; 
-LB(:,:,3) = LB(:,:,2);
+C = [1; -1];
+d = [2; 2];
+pred_lb = -2;
+pred_ub = 2;
 
-UB(:,:,1) = [0.1 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,2) = [0 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,3) = UB(:,:,2);
-
-image = ImageStar(IM, LB, UB);
+in_image = ImageStar(V, C, d, pred_lb, pred_ub);
 
 L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
 
-profile on;
-images = L.reach_star_exact(image);
-profile viewer;
+images = L.reach_star_exact(in_image);
+
+fprintf('\nFirst ImageStar:\n');
+display(images(1).V)
+display(images(1).C)
+display(images(1).d)
+
+fprintf('\nSecond ImageStar:\n');
+display(images(2).V)
+display(images(2).C)
+display(images(2).d)
+
+fprintf('\nThird ImageStar:\n');
+display(images(1).V)
+display(images(1).C)
+display(images(1).d)

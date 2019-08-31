@@ -50,8 +50,8 @@ title("Uniformly 90% brightenning attacked image");
 %==== create image star representing the attack =========%
 
 % uniform brightening attack
-V(:,:,1,:) = I1; % center image matrix
-V(:,:,2,:) = ones(n(1),n(2),n(3))-I1; % basis image matrix
+V(:,:,:,1) = I1; % center image matrix
+V(:,:,:,2) = ones(n(1),n(2),n(3))-I1; % basis image matrix
 C = [1;-1];
 d = [1; 0];
 pred_lb = 0;

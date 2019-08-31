@@ -16,41 +16,29 @@ N = n(1)*n(2)*n(3);
 
 % FGSM attack
 I2 = reshape(I, [N,1]);
+I21 = double(I2);
 
 beta = 255;
-r = randi(beta,N,1, 'uint8');
+%r = beta*rand(N,1);
 del1 = 0.1;
-del2 = 0.2;
-del3 = 0.3;
+del2 = 0.1593543;
+del3 = 0.5;
 
-I31 = I2 + del1*r;
-I32 = I2 + del2*r;
-I33 = I2 + del3*r;
+I31 = I21 + del1*r;
+I32 = I21 + del2*r;
+I33 = I21 + del3*r;
 
 I31 = reshape(I31, [n(1), n(2), n(3)]);
 I32 = reshape(I32, [n(1), n(2), n(3)]);
 I33 = reshape(I33, [n(1), n(2), n(3)]);
 
-figure; 
-imshow(I31);
-title("FGSM attack with del = 0.1");
-
-figure; 
-imshow(I32);
-title("FGSM attack with del = 0.2");
-
-figure; 
-imshow(I33);
-title("FGSM attack with del = 0.3");
-
-
-% Classify the image using VGG-16 
-label = classify(net, I);
 
 % Show the image and the classification results 
 figure; 
-imshow(I) 
-text(10, 20, char(label),'Color','white')
+subplot(1,4,1);
+imshow(I);
+title('Original image');
+
 
 
 label1 = classify(net, I31);
@@ -58,17 +46,20 @@ label2 = classify(net, I32);
 label3 = classify(net, I33);
 
 % Show the image and the classification results 
-figure; 
-imshow(I31) 
-text(10, 20, char(label1),'Color','white')
+subplot(1,4,2); 
+imshow(uint8(I31)); 
+text(10, 20, char(label1),'Color','white');
+title('a = 10%');
 
 % Show the image and the classification results 
-figure; 
-imshow(I32) 
+subplot(1,4,3);
+imshow(uint8(I32)); 
 text(10, 20, char(label2),'Color','white')
+title('a = 20%');
+
 
 % Show the image and the classification results 
-figure; 
-imshow(I33) 
-text(10, 20, char(label3),'Color','white')
-
+subplot(1,4,4);
+imshow(uint8(I33)); 
+text(10, 20, char(label3),'Color','white');
+title('a = 30%');

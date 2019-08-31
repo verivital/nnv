@@ -451,7 +451,7 @@ classdef MaxPooling2DLayer < handle
                         if size(max_index{i, j, k}, 1) == 1
                             maxMap_basis_V(i,j,k, :) = in_image.V(max_index{i, j, k}(1), max_index{i, j, k}(2), k, :);
                         else
-                            split_pos = [split_pos; i j k];
+                            split_pos = [split_pos; [i j k]];
                         end
                     end
                 end
@@ -459,11 +459,14 @@ classdef MaxPooling2DLayer < handle
             
             
             n = size(split_pos, 1);
-            fprintf('\nThere are %d local splits to compute the exact max maps', n);
+            fprintf('\nThere are splits happened at %d local regions when computing the exact max maps', n);
             images = ImageStar(maxMap_basis_V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
             if n > 0         
                 for i=1:n
-                    images = ImageStar.stepSplitMultipleInputs(images, in_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)});
+                    m1 = length(images);           
+                    images = ImageStar.stepSplitMultipleInputs(images, in_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
+                    m2 = length(images);
+                    fprintf('\nSplit %d images into %d images', m1, m2);
                 end
             end
                                           
@@ -480,16 +483,16 @@ classdef MaxPooling2DLayer < handle
             
             
             n = length(in_images);
-            IS(n) = ImageStar;
+            IS = [];
             if strcmp(option, 'parallel')
                 
                 parfor i=1:n
-                    IS(i) = obj.reach_star_exact(in_images(i));
+                    IS = [IS obj.reach_star_exact(in_images(i))];
                 end
                 
             elseif isempty(option) || strcmp(option, 'single')
                 for i=1:n
-                    IS(i) = obj.reach_star_exact(in_images(i));
+                    IS = [IS obj.reach_star_exact(in_images(i))];
                 end
             else
                 error('Unknown computation option');

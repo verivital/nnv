@@ -423,6 +423,41 @@ classdef ImageStar < handle
             
         end
         
+        % projection of imagestar on specific 2d plane
+        function proj_star = project2D(obj, point1, point2)
+            % @point1: index of first dimension
+            % @point2: index of second dimension
+            % @proj_star: is a projected star set
+            
+            
+            % author: Dung Tran
+            % date: 8/28/2019
+            
+            
+            if (length(point1) ~= 3) || (length(point2) ~= 3)
+                error('Invalid input point');
+            end
+            
+            if ((point1(1) < 1) || (point1(1) > obj.height) || (point1(2) < 1) || (point1(2) > obj.width) || (point1(3) < 1) || (point1(3) > obj.numChannel))
+                error('The first input point is invalid');
+            end
+            
+            if ((point2(1) < 1) || (point2(1) > obj.height) || (point2(2) < 1) || (point2(2) > obj.width) || (point2(3) < 1) || (point2(3) > obj.numChannel))
+                error('The first input point is invalid');
+            end
+            
+            n = obj.numPred + 1; 
+            
+            new_V = zeros(2, n);
+            for i=1:n
+                new_V(1, i) = obj.V(point1(1), point1(2), point1(3), i);
+                new_V(2, i) = obj.V(point2(1), point2(2), point2(3), i);              
+            end     
+            
+            proj_star = Star(new_V, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+            
+        end
+        
         
         % get ranges of a state at specific position
         function [xmin, xmax] = getRange(obj, vert_ind, horiz_ind, chan_ind)
@@ -704,6 +739,7 @@ classdef ImageStar < handle
             h  = PoolSize(1);   % height of the MaxPooling layer
             w  = PoolSize(2);   % width of the MaxPooling layer
             
+
             if x0 < 1 || y0 < 1 || x0 + h - 1 > obj.height || y0 + w - 1 > obj.width
                 error('Invalid startpoint or PoolSize');
             end
@@ -765,20 +801,22 @@ classdef ImageStar < handle
             
             [max_lb_val, max_lb_idx] = max(lb, [], 2);
             
-            candidates = find(ub - max_lb_val > 0);
-            
-            candidates(candidates == max_lb_idx) = [];
-            
-            if isempty(candidates)              
+            a = find(ub - max_lb_val > 0);
+            a1 = find(ub - max_lb_val >= 0);
+            a(a==max_lb_idx) = [];
+                      
+            if isempty(a)              
                 max_id = points(max_lb_idx, :);
             else
-                
+                candidates = a1;
                 % update local ranges               
                 m = length(candidates);
                 new_points = zeros(m, 3);
+                new_points1 = zeros(m, 2);
                 for i=1:m
                     p = points(candidates(i), :);
                     new_points = [p channel_id];
+                    new_points1(i, :) = p;
                 end
                 obj.updateRanges(new_points);
                                 
@@ -793,20 +831,19 @@ classdef ImageStar < handle
 
                 [max_lb_val, max_lb_idx] = max(lb, [], 2);
 
-                candidates = find(ub - max_lb_val > 0);
-
-                candidates(candidates == max_lb_idx) = [];
-                
-                if isempty(candidates)
-                    max_id = points(max_lb_idx, :);
+                a = find(ub - max_lb_val > 0);
+                a(a==max_lb_idx) = [];
+                                               
+                if isempty(a) == 1
+                    max_id = new_points1(max_lb_idx, :);
                 else
-                    
-                    max_id = points(max_lb_idx, :);
-                                        
-                    m = length(candidates);
+                    candidates1 = find(ub - max_lb_val >= 0);
+                    max_id = new_points1(max_lb_idx, :);
+                    candidates1(candidates1 == max_lb_idx) = [];                    
+                    m = length(candidates1);
                     max_id1 = max_id;
                     for j=1:m
-                        p1 = points(candidates(j), :);         
+                        p1 = new_points1(candidates1(j), :);         
                         if obj.is_p1_larger_p2([p1(1) p1(2) channel_id], [max_id(1) max_id(2) channel_id])
                             max_id1 = [max_id1; p1];
                         end
@@ -815,11 +852,16 @@ classdef ImageStar < handle
                     fprintf('\nThe local image has %d max candidates.', size(max_id,1));
                     
                 end
+                
+                n = size(max_id, 1);
+                channels = channel_id*ones(n,1);
+                max_id = [max_id channels];
 
             end
          
-               
+         
         end
+        
         
         
         % compare between two specific points in the image
@@ -859,8 +901,7 @@ classdef ImageStar < handle
                 end
             
         end
-        
-        
+               
               
          
     end
@@ -898,7 +939,8 @@ classdef ImageStar < handle
             % constraints on the predicate variables
             new_C = zeros(n, maxMap.numPred);
             new_d = zeros(n, 1);
-
+            
+            
             for i=1:n                
                 % add new constraint
                 % compare point (i,j) with point (i1, j1)
@@ -910,10 +952,11 @@ classdef ImageStar < handle
 
                 new_d(i) = ori_image.V(center(1),center(2), center(3), 1) - ori_image.V(others(i,1), others(i,2), others(i,3), 1);
                 for j=1:maxMap.numPred                    
-                    new_C(i,j) = ori_image.V(center(1),center(2), center(3), j+1) - ori_image.V(others(i,1), others(i,2), others(i,3), j+1);
+                    new_C(i,j) = -ori_image.V(center(1),center(2), center(3), j+1) + ori_image.V(others(i,1), others(i,2), others(i,3), j+1);
                 end           
             end
-
+            
+            
             C1 = [maxMap.C; new_C];
             d1 = [maxMap.d; new_d];
 
@@ -921,12 +964,12 @@ classdef ImageStar < handle
             E = [C1 d1];
             E = unique(E, 'rows');
 
-            C1 = E(:, 1:obj.numPred);
-            d1 = E(:, obj.numPred + 1);
+            C1 = E(:, 1:ori_image.numPred);
+            d1 = E(:, ori_image.numPred + 1);
 
-            f = zeros(1, obj.numPred);
+            f = zeros(1, ori_image.numPred);
 
-            [~,~,status,~] = glpk(f, C1, d1, obj.pred_lb, obj.pred_ub);
+            [~,~,status,~] = glpk(f, C1, d1, ori_image.pred_lb, ori_image.pred_ub);
 
             if status == 5 % feasible solution exist
                 new_C = C1;
@@ -963,12 +1006,13 @@ classdef ImageStar < handle
                 error('Invalid split index, it should have 3 columns and at least 1 row');
             end
             
+                        
             images = [];
             for i=1:n(1)
                 
-                center = split_index(i, :);
+                center = split_index(i, :, :);
                 others = split_index;
-                others(others==center) = [];
+                others(i,:,:) = [];     
                 [new_C, new_d] = ImageStar.isMax(in_image, ori_image, center, others);                
                 if ~isempty(new_C) && ~isempty(new_d)                    
                     V = in_image.V;
@@ -977,8 +1021,7 @@ classdef ImageStar < handle
                     images = [images im];
                 end
             end
-            fprintf('\nThe current maxMap splits into %d maxMaps at the local position pos = [h=%d, w=%d, c=%d]', length(images), pos(1), pos(2), pos(3));
-  
+           
         end
         
         
@@ -1000,22 +1043,79 @@ classdef ImageStar < handle
             images = [];
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    images = ImageStar.stepSplit(in_images(i), ori_image, pos, split_index);
+                    images = [images ImageStar.stepSplit(in_images(i), ori_image, pos, split_index)];
                 end
             elseif isempty(option) || strcmp(option, 'single')
                 for i=1:n
-                    images = ImageStar.stepSplit(in_images(i), ori_image, pos, split_index);
+                    images = [images ImageStar.stepSplit(in_images(i), ori_image, pos, split_index)];
                 end
             else 
                 error('Unknown computation option');
-            end
-            
+            end       
             
         end
+        
+        
+        
+        
+        % reshape an ImageStar
+        function new_IS = reshape(in_IS, new_shape)
+            % @in_IS: input ImageStar
+            % @new_shape: new shape
+            % @new_IS: new ImageStar
+
+            % author: Dung Tran
+            % date: 8/21/2019
+
+            n = size(new_shape);
+
+            if n(2) ~= 3 || n(1) ~= 1
+                error('new shape should be 1x3 array');
+            end
+
+            if new_shape(1) * new_shape(2) * new_shape(3) ~= in_IS.height * in_IS.width * in_IS.numChannel
+                error('new shape is inconsistent with the current shape');
+            end
+            
+            new_V = reshape(in_IS.V, [new_shape in_IS.numPred + 1]);           
+            new_IS = ImageStar(new_V, in_IS.C, in_IS.d, in_IS.pred_lb, in_IS.pred_ub, in_IS.im_lb, in_IS.im_ub);
+     
+        end
+        
+        % add new constraint to predicate variables of an ImageStar
+        % used for finding counter examples
+        % we will add new constraint: p2 >= p1
+        function [new_C, new_d] = addConstraint(in_IS, p1, p2)
+            % @in_IS: input ImageStar
+            % @p1: first point position
+            % @p2: second point position
+            % @new_C: a new predicate constraint matrix C 
+            % @new_d: new predicate constraint vector
+            
+            % author: Dung Tran
+            % date: 8/21/2019
+            
+            
+            if ~isa(in_IS, 'ImageStar')
+                error('Input set is not an ImageStar');
+            end
+            
+            new_d = in_IS.V(p2(1), p2(2), p2(3), 1) - in_IS.V(p1(1), p1(2), p1(3), 1);
+            new_C = in_IS.V(p1(1), p1(2), p1(3), 2:in_IS.numPred + 1) - in_IS.V(p2(1), p2(2), p2(3), 2:in_IS.numPred + 1);
+            
+            new_C = [in_IS.C; new_C];
+            new_d = [in_IS.d; new_d];
+            
+        end
+
+
 
         
         
     end
+    
+    
+    
     
     
     

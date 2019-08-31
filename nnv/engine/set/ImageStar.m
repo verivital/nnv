@@ -928,7 +928,7 @@ classdef ImageStar < handle
             % author: Dung Tran
             % date: 6/20/2019
             % update: 7/25/2019
-            
+                       
             if maxMap.numPred ~= ori_image.numPred
                 error('Inconsistency between number of predicates in the current maxMap and the original image');
             end

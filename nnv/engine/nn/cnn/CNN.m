@@ -179,7 +179,185 @@ classdef CNN < handle
     end
     
     
+    methods % clasification and verification methods
+        
+        function label_id = classify(varargin)
+            % @in_image: an image or an imagestar
+            % @label_id: output index of classified object
+            
+            % author: Dung Tran
+            % date: 8/21/2019
+            
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    
+                case 3
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    method = varargin{3};
+                    numOfCores = 1;
+                    
+                case 4
+                    
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    method = varargin{3};
+                    numOfCores = varargin{4};
+                  
+                otherwise
+                    error('Invalid number of inputs, should be 1, 2, or 3');
+            end
+            
+                     
+            
+            if ~isa(in_image, 'ImageStar')
+                [y, ~] = obj.evaluate(in_image);
+                y = reshape(y, [obj.OutputSize, 1]);
+                [~, label_id] = max(y); 
+            else
+
+                if nargin == 2
+                    method = 'approx-star'; % default reachability method
+                    numOfCores = 1; 
+                end
+                fprintf('\n=============================================');
+                obj.reach(in_image, method, numOfCores);
+
+                RS = obj.reachSet{obj.numLayers + 1};
+                n = length(RS);
+                label_id = cell(n, 1);
+                for i=1:n
+                    rs = RS(i);                        
+                    new_rs  = ImageStar.reshape(rs, [obj.OutputSize 1 1]);                    
+                    max_id = new_rs.get_localMax_index([1 1], [obj.OutputSize 1], 1);
+                    label_id{i} = max_id(:, 1);
+                end
+
+            end
+ 
+        end
+        
+        
+        function [robust, counterExamples] = verifyRobustness(varargin)
+            % @robust: = 1: the network is robust
+            %          = 0: the network is notrobust
+            %          = 2: robustness is uncertain
+            % @counterExamples: a set of counter examples 
+            % 
+            % author: Dung Tran
+            % date: 8/21/2019
+            
+            switch nargin
+                
+                case 3
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = 'approx-star';
+                    numOfCores = 1;
+                    
+                case 4
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    numOfCores = 1; 
+                    
+                case 5
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5}; 
+                    
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, or 4');
+                     
+            end
+                        
+            label_id = obj.classify(in_image, method, numOfCores);      
+            n = length(label_id); 
+            % check the correctness of classifed label
+            counterExamples = [];
+            incorrect_id_list = []; 
+            for i=1:n
+                ids = label_id{i};
+                m = length(ids);
+                id1 = [];
+                for j=1:m
+                    if ids(j) ~= correct_id
+                       id1 = [id1 ids(j)];
+                    end
+                end
+                incorrect_id_list = [incorrect_id_list id1];             
+                
+                % construct counter example set
+                if ~isempty(id1)
+                    
+                    if ~isa(in_image, 'ImageStar')
+                        
+                        counterExamples = in_image; 
+                    
+                    elseif strcmp(method, 'exact-star')
+                        
+                        rs = obj.reachSet{obj.numLayers + 1}(i);
+                        L = length(id1); 
+                        for l=1:L                    
+                            [new_C, new_d] = ImageStar.addConstraint(rs, [1, 1, correct_id], [1, 1, id1(l)]);  
+                            counter_IS = ImageStar(in_image.V, new_C, new_d, in_image.pred_lb, in_image.pred_ub);
+                            counterExamples = [counterExamples counter_IS];
+                        end
+                        
+                    end
+   
+                end
       
+            end
+            
+            
+            if isempty(incorrect_id_list)
+                robust = 1;
+                fprintf('\n=============================================');
+                fprintf('\nTHE NETWORK IS ROBUST');
+                fprintf('\nClassified index: %d', correct_id);
+                
+            else
+                
+                if strcmp(method, 'exact-star')
+                    robust = 0;
+                    fprintf('\n=============================================');
+                    fprintf('\nTHE NETWORK IS NOT ROBUST');
+                    fprintf('\nLabel index: %d', correct_id);
+                    fprintf('\nClassified index:');
+                    
+                    n = length(incorrect_id_list);
+                    for i=1:n
+                        fprintf('%d ', incorrect_id_list(i));
+                    end
+                    
+                else
+                    robust = 2;
+                    fprintf('\n=============================================');
+                    fprintf('\nThe robustness of the network is UNCERTAIN due to the conservativeness of approximate analysis');
+                    fprintf('\nPossible classified index: ');
+                                       
+                    n = length(incorrect_id_list);
+                    for i=1:n
+                        fprintf('%d ', incorrect_id_list(i));
+                    end                   
+                    fprintf('\nPlease try to verify the robustness with exact-star (exact analysis) option');
+                end
+                
+            end
+            
+
+        end
+        
+        
+    end
+    
     
     methods(Static)
        

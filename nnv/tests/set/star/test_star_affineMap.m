@@ -6,21 +6,13 @@ V = [center V];
 C = P.A;
 d = P.b;
 
-S = Star(V, C, d);
-Z = S.getZono;
-S = Star(V, C, d, Z);
 
 W = [1 -1; 1 1];
 b = [0.5; 0.5];
 S1 = S.affineMap(W, b);
 
+
 figure;
-Z.plot;
-hold on;
 S.plot;
-
-
-figure;
-S1.Z.plot;
 hold on;
 S1.plot;

@@ -89,48 +89,41 @@ classdef PosLin
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
+           
+            %fprintf('\nSplit at neuron %d', index);
+            % S1 = I && x[index] < 0 
+            c = I.V(index, 1);
+            V = I.V(index, 2:I.nVar + 1); 
+            new_C = vertcat(I.C, V);
+            new_d = vertcat(I.d, -c);                
+            new_V = I.V;
+            new_V(index, :) = 0;
+            S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub);
+            %S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub);
+
             
-            [xmin, xmax] = I.getRange(index);
-            
-            if xmin >= 0
-                S = I; 
-            elseif xmax < 0 
-                V1 = I.V;
-                V1(index, :) = 0;
-                S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub);
-            elseif xmin < 0 && xmax >= 0
-                %fprintf('\nSplit at neuron %d', index);
-                % S1 = I && x[index] < 0 
-                c = I.V(index, 1);
-                V = I.V(index, 2:I.nVar + 1); 
-                new_C = vertcat(I.C, V);
-                new_d = vertcat(I.d, -c);                
-                new_V = I.V;
-                new_V(index, :) = zeros(1, I.nVar + 1);
-                S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub);
-                
-                % S2 = I && x[index] >= 0
-                new_C = vertcat(I.C, -V);
-                new_d = vertcat(I.d, c);
-                S2 = Star(I.V, new_C, new_d, I.predicate_lb, I.predicate_ub);
-                
-                a = S1.isEmptySet;
-                b = S2.isEmptySet;
-                                             
-                if a && ~b
-                    S = S2;
-                end
-                if a && b
-                    S = [];
-                end
-                if ~a && b
-                    S = S1;
-                end
-                if ~a && ~b
-                 S = [S1 S2];
-                end
-        
+            % S2 = I && x[index] >= 0
+            new_C = vertcat(I.C, -V);
+            new_d = vertcat(I.d, c);
+            S2 = Star(I.V, new_C, new_d, I.predicate_lb, I.predicate_ub);
+
+            a = S1.isEmptySet;
+            b = S2.isEmptySet;
+
+            if a && ~b
+                S = S2;
             end
+            if a && b
+                S = [];
+            end
+            if ~a && b
+                S = S1;
+            end
+            if ~a && ~b
+             S = [S1 S2];
+            end
+        
+ 
             
         
         end

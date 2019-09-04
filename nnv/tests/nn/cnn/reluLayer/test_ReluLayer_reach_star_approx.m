@@ -1,5 +1,5 @@
 % construct a FullyConnectedLayer object
-rl = ReluLayer();
+L = ReluLayer();
 % image input set
 IM(:,:,1) = [1 1 0 1; 0 0 1 1; 1 0 1 0; 1 1 1 1]; % center image channel 1
 IM(:,:,2) = [0 1 0 0; 1 0 0 1; 0 1 1 0; 0 0 0 1]; % center image channel 2
@@ -15,5 +15,5 @@ UB(:,:,3) = UB(:,:,2);
 
 image = ImageStar(IM, LB, UB);
 tic;
-Y = rl.reach_star_approx(image);
+images = L.reach(in_image, 'approx-star');
 toc;

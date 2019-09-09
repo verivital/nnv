@@ -296,10 +296,10 @@ classdef Conv2DLayer < handle
                 obj.NumChannels = 1;
             elseif length(w) == 3
                 obj.NumFilters = 1;
-                obj.NumChannels = n(3);
+                obj.NumChannels = w(3);
             elseif length(w) == 4
-                obj.NumFilters = n(4);
-                obj.NumChannels = n(3);
+                obj.NumFilters = w(4);
+                obj.NumChannels = w(3);
             else
                 error('Invalid weights array');
             end
@@ -387,11 +387,12 @@ classdef Conv2DLayer < handle
                     input = varargin{2};
                     option = 'double';
                     input = double(input);
+
                 case 3
                     obj = varargin{1};
                     input = varargin{2};
                     option = varargin{3};
-                    
+                                      
                 otherwise 
                     error('Invalid number of inputs, should be 1 or 2');
                 
@@ -408,6 +409,7 @@ classdef Conv2DLayer < handle
             end
             
             y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+
         end
                     
 
@@ -646,8 +648,10 @@ classdef Conv2DLayer < handle
                 error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannels);
             end
             
-            % compute output sets 
-            Y = vl_nnconv(double(input.V), double(obj.Weights), double(obj.Bias), 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
+            % compute output sets
+            c = vl_nnconv(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+            V = vl_nnconv(double(input.V(:,:,:,2:input.numPred + 1)), double(obj.Weights), [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
+            Y = cat(4, c, V);
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   
         end

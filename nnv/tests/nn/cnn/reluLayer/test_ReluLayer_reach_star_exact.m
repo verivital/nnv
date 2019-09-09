@@ -1,19 +1,16 @@
 % construct a FullyConnectedLayer object
-rl = ReluLayer();
-% image input set
-IM(:,:,1) = [1 1 0 1; 0 0 1 1; 1 0 1 0; 1 1 1 1]; % center image channel 1
-IM(:,:,2) = [0 1 0 0; 1 0 0 1; 0 1 1 0; 0 0 0 1]; % center image channel 2
-IM(:,:,3) = [1 1 1 1; 1 1 0 1; 0 1 1 0; 1 0 1 0]; % center image channel 3
+L = ReluLayer();
+V(:, :, 1, 1) = [-1 1; 0 2]; % channel 1 input matrix
+basis = zeros(2,2);
+basis(1, 1) = 1;
+basis(2, 1) = 1;
+V(:, :, 1, 2) = basis;
 
-LB(:,:,1) = [-0.1 -0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; % attack on pixel (1,1) and (1,2)
-LB(:,:,2) = [-0.1 -0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; 
-LB(:,:,3) = LB(:,:,2);
+C = [1; -1];
+d = [2; 2];
+pred_lb = -2;
+pred_ub = 2;
 
-UB(:,:,1) = [0.1 0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,2) = [0.1 0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,3) = UB(:,:,2);
+in_image = ImageStar(V, C, d, pred_lb, pred_ub);
 
-image = ImageStar(IM, LB, UB);
-tic;
-Y = rl.reach_star_exact(image);
-toc;
+images = L.reach(in_image, 'exact-star');

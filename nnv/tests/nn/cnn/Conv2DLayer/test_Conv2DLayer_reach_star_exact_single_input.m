@@ -4,6 +4,7 @@
 
 % filter has a size of 3 x 3
 % filter 1 weight matrix with 3 channels
+
 W(:,:, 1, 1) = [-1 0 0; 1 1 0; -1 0 -1]; % channel 1
 W(:, :, 2, 1) = [-1 0 -1; 1 -1 1; 1 1 0]; % channel 2
 W(:, :, 3, 1) = [-1 1 1; -1 -1 -1; 0 0 -1]; % channel 3

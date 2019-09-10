@@ -140,7 +140,7 @@ classdef FFNNS < handle
         
         function [S, t] = reach(varargin)            
             % @I: input set, a star set          
-            % @method: = 'star' -> compute reach set using stars
+            % @method: = 'exact-star' or 'approx-star' -> compute reach set using stars
             %            'abs-dom' -> compute reach set using abstract
             %            domain (support in the future)
             %            'face-latice' -> compute reach set using

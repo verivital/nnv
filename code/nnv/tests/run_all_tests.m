@@ -1,7 +1,7 @@
 % execute all tests recursively on subdirectories from this directory
 %
 % example run:
-% clear all ; disabledTests = {}; i_d = 1; global disabledTests i_d; close all ; clc ; run_all_tests(pwd, disabledTests, i_d)
+% clear all ; disabledTests = {}; i_d = 1; global disabledTests i_d; close all ; clc ; run_all_tests([pwd, filesep, '..', filesep, '..', filesep, '..', filesep, 'results', filesep], disabledTests, i_d)
 function run_all_tests(outputDirname, disabledTests, i_d)
     global disabledTests i_d;
 

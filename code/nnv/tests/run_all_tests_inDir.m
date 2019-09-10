@@ -3,7 +3,9 @@
 function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
     global disabledTests i_d;
 
-    cd(dirname);
+    dirname
+
+    cd(char(dirname)); % char necessary for linux/codeocean
     fprintf('\n\nEXECUTING TESTS IN: %s\n', pwd);
     t_pause = 0.1;
     
@@ -16,7 +18,12 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
     % to manually get all files in reasonable format for setting up tests
     % fprintf("%s\n",strtrim(strrep(strrep(string(ls),'"',''),'.m','')))
 
-    test_files = strtrim(strrep(strrep(string(ls),'"',''),'.m',''));
+    % windows
+    %test_files = strtrim(strrep(strrep(string(ls),'"',''),'.m',''));
+    % unix/codeocean
+    test_files = strtrim(strsplit(strrep(strrep(string(ls),'"',''),'.m','')));
+    
+    test_files
 
     % iterate over all file names starting with "test_" or ending with "_test" and execute them
     for i_f = 1:length(test_files)

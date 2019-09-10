@@ -42,7 +42,7 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
 
         for i_fh = 1 : length(figHandles)
             fh = figHandles(i_fh);
-            filename = strcat(outputDirname, 'results_fig', f, num2str(i_fh), '.png');
+            filename = strcat(outputDirname, 'results_fig_', f, num2str(i_fh), '.png');
             saveas(fh, filename);
         end
         close all;

@@ -19,9 +19,11 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
     % fprintf("%s\n",strtrim(strrep(strrep(string(ls),'"',''),'.m','')))
 
     % windows
-    %test_files = strtrim(strrep(strrep(string(ls),'"',''),'.m',''));
-    % unix/codeocean
-    test_files = strtrim(strsplit(strrep(strrep(string(ls),'"',''),'.m','')));
+    if ispc
+    	test_files = strtrim(strrep(strrep(string(ls),'"',''),'.m',''));
+    else % unix/codeocean
+    	test_files = strtrim(strsplit(strrep(strrep(string(ls),'"',''),'.m','')));
+    end
     
     test_files
 

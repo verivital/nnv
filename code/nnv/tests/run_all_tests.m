@@ -6,9 +6,11 @@ function run_all_tests(outputDirname, disabledTests, i_d)
     global disabledTests i_d;
 
     % windows
-    %dirNames = strtrim(strrep(string(ls),'"',''));
-    % linux/codeocean
-    dirNames = strtrim(strsplit(strrep(string(ls),'"','')));
+    if ispc
+    	dirNames = strtrim(strrep(string(ls),'"',''));
+    else % linux/codeocean
+    	dirNames = strtrim(strsplit(strrep(string(ls),'"','')));
+    end
     
     ls
     dirNames

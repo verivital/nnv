@@ -95,7 +95,7 @@ classdef LayerS
                     method = varargin{3};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 3 or 4)');
+                    error('Invalid number of input arguments (should be 2 or 3)');
             end
             
             S = [];

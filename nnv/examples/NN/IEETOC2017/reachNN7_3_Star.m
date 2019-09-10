@@ -24,7 +24,7 @@ I = Star(V', C, d, pred_lb, pred_ub); % input set as a Star set
 
 % select option for reachability algorithm
 
-[R, t] = F.reach(I, 'exact-star', 4); % exact reach set using stars
+[R, t] = F.reach(I, 'exact-star', 1); % exact reach set using stars
 save F.mat F; % save the verified network
 F.print('F.info'); % print all information to a file
 

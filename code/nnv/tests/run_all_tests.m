@@ -5,13 +5,21 @@
 function run_all_tests(outputDirname, disabledTests, i_d)
     global disabledTests i_d;
 
-    dirNames = strtrim(strrep(string(ls),'"',''));
+    % windows
+    %dirNames = strtrim(strrep(string(ls),'"',''));
+    % linux/codeocean
+    dirNames = strtrim(strsplit(strrep(string(ls),'"','')));
+    
+    ls
+    dirNames
+    
     for i_d = 1 : length(dirNames)
         d = dirNames(i_d);
         if isdir(d) && ~(strcmp(d,'.') || strcmp(d,'..'))
             run_all_tests_inDir(d, outputDirname);
             
-            cd(d);
+            d
+            cd(char(d)); % char necessary for linux/codeocean
             run_all_tests(outputDirname, disabledTests, i_d); % recursive call
             cd('..');
         end

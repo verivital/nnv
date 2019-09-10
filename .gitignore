@@ -1,3 +1,3 @@
-# Ignore al files in these folders
-nnv/UUV/
-nnv/tbxmanager
+# Ignore all files in these folders
+code/nnv/UUV/
+code/nnv/tbxmanager

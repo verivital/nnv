@@ -1,0 +1,21 @@
+
+% Simulink models used for training and testing
+
+1. The "buck_pid.slx" is the simulink model used to train the neural network controller.
+
+2. The "buck_nn.slx" is the simulink model where the PID controller is replaced by the trained neural network controller.
+
+3. The "test_buck_pid.slx" and "test_buck_nn.slx" are used to generate the performance comparison of the original PID controller and the trained neural network controller.
+
+
+% Run the scripts
+
+
+1. First run "buck_parameters.m" to load the Buck converter parameters, simulate pid model, and generate data for training
+
+2. To train the neural network controller, run script  "nnTrainController.m". This will also automatically generate the simulink block for the neural network controller
+
+3. If you want to see the performance of the new generated NN controller, replace the neural network controller block in "buck_nn.slx" with the new generated neural network controller block 
+
+4. To compare the neural network controller and the original PID controller, run "controller_comparison.m".
+

@@ -1,7 +1,8 @@
 classdef FFNNS < handle
     % FFNNS Class is a new feedforward network class used to replace the old
-    % FFNN in the future, FFNNS does not support polyhedron-based
-    % reachability analysis methods.
+    % FFNN in the future
+    % reachability analysis methods: 'exact-star', 'exact-polyhedron',
+    % 'approx-star', 'approx-zono' (zonotope), 'abs-dom' (abstract domain)
     % Author: Dung Tran
     % Date: 27/2/2019
     
@@ -14,7 +15,7 @@ classdef FFNNS < handle
         
         % properties for reach set computation
         
-        reachMethod = 'star';    % reachable set computation scheme, default - 'star'
+        reachMethod = 'exact-star';    % reachable set computation scheme, default - 'star'
         reachOption = []; % parallel option, default - non-parallel computing
         numCores = 0; % number of cores (workers) using in computation
         inputSet = [];  % input set
@@ -185,7 +186,7 @@ classdef FFNNS < handle
             
             % if reachability analysis method is an over-approximate
             % method, we use 1 core for computation
-            if ~strcmp(obj.reachMethod, 'exact-star')
+            if ~strcmp(obj.reachMethod, 'exact-star') && ~strcmp(obj.reachMethod, 'exact-polyhedron')
                 obj.numCores = 1;
             end
             
@@ -197,16 +198,15 @@ classdef FFNNS < handle
             if obj.numCores == 1
                 obj.reachOption = []; % don't use parallel computing
             else
+                obj.start_pool;       % start parallel pool in Matlab
                 obj.reachOption = 'parallel';
             end
             
             obj.reachSet = cell(1, obj.nL);
             obj.reachTime = [];
             
-            % start parallel pool in Matlab
-            if obj.numCores > 1
-                obj.start_pool;
-            end
+  
+
                         
             % compute reachable set
             In = obj.inputSet;

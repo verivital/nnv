@@ -25,12 +25,6 @@ tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi;
 tbxmanager install yalmip; % todo: error due to license, need to force acceptance
 fprintf('\nInstalling dependencies is done!');
 
-
-mydir  = pwd;
-idcs   = strfind(mydir,filesep);
-newdir = mydir(1:idcs(end)-1);
-cd(newdir);
-
 startup_nnv; % adding dependencies and nnv to the path
 
 fprintf('\nInstalling NNV is done, it is ready to use.');

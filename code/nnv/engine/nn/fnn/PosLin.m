@@ -931,11 +931,11 @@ classdef PosLin
             end
                           
             if lb >= 0
-                S = Star(I.V, I.C, I.d);
+                S = Star(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub);
             elseif ub <= 0
                 V = I.V;
                 V(index, :) = zeros(1, I.nVar + 1);
-                S = Star(V, I.C, I.d);
+                S = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
             elseif lb < 0 && ub > 0
                 
                 S1 = ub*(ub-lb)/2; % area of the first candidate abstract-domain
@@ -947,6 +947,8 @@ classdef PosLin
                 C1 = zeros(1, n);
                 C1(n) = -1; 
                 d1 = 0;
+                
+                
                 % constraint 2: y[index] = ReLU(x[index]) >= x[index]
                 C2 = [I.V(index, 2:n) -1];
                 d2 = -I.V(index, 1);
@@ -966,15 +968,19 @@ classdef PosLin
                     % get first cadidate as resulted abstract-domain
                     new_C = [C0; C1; C3];
                     new_d = [d0; d1; d3];
+                    new_pred_lb = [I.predicate_lb; 0];
+                    new_pred_ub = [I.predicate_ub; ub];
                     
                 else
                     % choose the second candidate as the abstract-domain                                      
                     new_C = [C0; C2; C3];
                     new_d = [d0; d2; d3];
+                    new_pred_lb = [I.predicate_lb; lb];
+                    new_pred_ub = [I.predicate_ub; ub];
                                         
                 end
                 
-                S = Star(new_V, new_C, new_d);
+                S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
                 
             end
                        
@@ -996,19 +1002,32 @@ classdef PosLin
 
             if isEmptySet(I)
                 S = [];
-            else
-                In = I;
-                B = I.getBox;
-                for i=1:I.dim
-                    fprintf('\nPerforming approximate PosLin_%d operation using abstract domain', i);
-                    In = PosLin.stepReachAbstractDomain(In, i, B.lb(i), B.ub(i));
+            else    
+                [lb, ub] = I.estimateRanges;
+                if isempty(lb) || isempty(ub)
+                    S = [];
+                else
+                    map = find(ub <= 0); % computation map
+                    V = I.V;
+                    V(map, :) = 0;
+                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);                    
+                    map = find(lb <0 & ub > 0);
+                    m = length(map); 
+                    for i=1:m
+                        fprintf('\nPerforming approximate PosLin_%d operation using Abstract Domain', map(i));
+                        In = PosLin.stepReachAbstractDomain(In, map(i));
+                    end
+                    S = In;
+             
                 end
-                S = In;
-            end
-
-        end     
+            
+            end     
+        
+        end
         
     end
+    
+    
     
     methods(Static) % reachability analysis method using face-latice
         

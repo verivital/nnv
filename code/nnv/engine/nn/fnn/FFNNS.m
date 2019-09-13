@@ -767,14 +767,61 @@ classdef FFNNS < handle
                 robustness_bound = bmax;
             end
             
-            
-            
             t = toc(start);
             
         end
         
         
                
+    end
+    
+    
+    methods(Static) % parse Matlab trained feedforward network
+        
+        function nnvNet = parse(MatlabNet)
+            % @MatlabNet: A feedforward network trained by Matlab
+            % @nnvNet: an NNV FFNNS object for reachability analysis and
+            % verification
+            
+            % author: Dung Tran
+            % date: 9/13/2019
+            
+            if ~isa(MatlabNet, 'network')
+                error('Input is not a matlab network');
+            end
+            
+            n = length(MatlabNet.b); % number of layers
+            
+            if sum(MatlabNet.layerConnect, 'all') ~= n-1
+                error('The network is not a feedfoward network');
+            end
+            
+            Layers = [];
+            for i=1:n
+                act_func = MatlabNet.layers{i}.transferFcn;
+                                              
+                if i==1
+                   
+                   W = MatlabNet.IW{1};
+                   b = MatlabNet.b{1};
+                   Layer = LayerS(W, b, act_func);
+                   
+                else
+                  
+                   W = MatlabNet.LW{i, i-1};
+                   b = MatlabNet.b{i};
+                   Layer = LayerS(W, b, act_func);
+                    
+                end
+                
+                Layers = [Layers Layer];
+                
+            end
+            
+            nnvNet = FFNNS(Layers);
+            
+        end
+        
     end
     
     

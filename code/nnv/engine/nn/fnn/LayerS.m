@@ -23,11 +23,7 @@ classdef LayerS
                 error('Inconsistent dimensions between Weights matrix and bias vector');
             end
                 
-            if ~ischar(f) && ~strcmp(f, 'ReLU') && ~strcmp(f, 'Linear') && ~strcmp(f, 'Tanh')
-                error('Invalid or Unsupported activation function');
-            else
-                obj.f = f;
-            end
+            obj.f = f;
                
         end
         
@@ -50,6 +46,8 @@ classdef LayerS
                 y = tansig(y1);
             elseif strcmp(obj.f, 'logsig')
                 y = logsig(y1);
+            elseif strcmp(obj.f, 'purelin')
+                y = y1;
             end 
 
         end

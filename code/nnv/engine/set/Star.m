@@ -404,7 +404,7 @@ classdef Star
             new_C = vertcat(obj.C, C1);
             new_d = vertcat(obj.d, d1);
                        
-            S = Star(obj.V, new_C, new_d);
+            S = Star(obj.V, new_C, new_d, obj.predicate_lb, obj.predicate_ub);
             
             if S.isEmptySet
                 S = [];

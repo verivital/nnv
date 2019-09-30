@@ -62,7 +62,7 @@ classdef NNCS < handle
             % date: 11/1/2018
             
             
-            if ~isa(controller, 'FFNN')
+            if ~isa(controller, 'FFNN') && ~isa(controller, 'FFNNS')
                 error('The controller is not a feedforward neural network');
             end
             
@@ -104,7 +104,7 @@ classdef NNCS < handle
             % author: Dung Tran
             % date: 11/20/2018
             
-            if ~strcmp(method, 'approx-polytope') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'exact-polytope')
+            if ~strcmp(method, 'approx-polytope') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'exact-polytope') && ~strcmp(method, 'exact-star')
                 error('Unknown reachability analysis method');
             end
             
@@ -124,7 +124,46 @@ classdef NNCS < handle
                 [R, reachTime] = obj.reachPolyhedron_exact(init_set, ref_inputSet, n_cores, n_steps);
             end
             
+            if strcmp(method, 'exact-star')
+                [R, reachTime] = obj.reach_star_exact(init_set, ref_inputSet, n_cores, n_steps);
+            end
+            
         end
+        
+        
+        % reachability analysis of NNCS using exact-star method
+        % require: Plant is Linear
+        % FFNN has linear activation functions
+        function [P, reachTime] = reach_star_exact(obj, init_set, ref_inputSet, n_cores, n_steps)
+            % @init_set: the initial set of condition for the plant
+             % @ref_inputSet: the reference input set applied to the controller
+             % @n_steps: number of steps 
+             % @P: the state reachable set of the plant
+             %     we get the output reachable set by mapping P on the
+             %     direction of interest plant.C
+
+             % author: Dung Tran
+             % date: 9/30/2019
+            
+             
+             if ~isa(obj.plant, 'DLinearODE') && ~isa(obj.plant, 'LinearODE')
+                 error('Reachability analysis of NNCS using exact-star only supports for Discrete linear ODE or Continuous ODE plant');
+             end
+
+             if ~isa(init_set, 'Star')
+                 error('Initial set of the plant is not a Star');
+             end
+
+             if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Star')
+                 error('The reference input set is not a Star');
+             end
+
+             % TODO: need to be generalized
+            
+        end
+        
+        
+        
             
          % reachability analysis of NNCS using polyhedron
          % main limitation: the number of vertices in the reachable set

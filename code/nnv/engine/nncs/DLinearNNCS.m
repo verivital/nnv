@@ -13,11 +13,12 @@ classdef DLinearNNCS < handle
                           
         % nerual network control system architecture
         %
-        %              ---> plant ---> y(t) ---sampling--->y(k) 
+        % disturbance  --->|
+        %              --->| plant ---> y(t) ---sampling--->y(k) 
         %             |                                       |
         %             |                                       |
-        %             u(k) <---- controller |<---- y(k)-----(output feedback) 
-        %                                   |<----- v(k)------(reference input)                                    
+        %             u(k) <---- controller |<---- v(k)-------|--- (reference inputs to the controller) 
+        %                                   |<----- y(k)------|(output feedback)                                    
         
         
         % the input to neural net controller is grouped into 2 group
@@ -33,9 +34,10 @@ classdef DLinearNNCS < handle
         %              the first layer, f is the activation function
         
         nO = 0; % number of output
-        nI = 0; % number of inputs = size(I1, 1) + size(I2, 1)
-        nI_ref = 0; % number of reference inputs
-        nI_fb = 0; % number of feedback inputs
+        nI = 0; % number of inputs = size(I1, 1) + size(I2, 1) to the controller
+        nI_ref = 0; % number of reference inputs to the controller
+        nI_fb = 0; % number of feedback inputs to the controller
+        nI_plant_db = 0; % number of disturbance inputs to the plant 
              
         
         % for reachability analysis
@@ -45,6 +47,7 @@ classdef DLinearNNCS < handle
         numCores = 1; % default setting, using single core for computation
         ref_I = []; % reference input set
         init_set = []; % initial set for the plant
+        plant_db_set = []; % plant disturbance input set
         reachTime = 0; 
         
     end
@@ -82,6 +85,7 @@ classdef DLinearNNCS < handle
             obj.nI = controller.nI; % number of input to the controller
             obj.nI_fb = plant.nO; % number of feedback inputs to the controller
             obj.nI_ref = controller.nI - obj.nI_fb; % number of reference inputs to the controller
+            obj.nI_plant_db = plant.nI - controller.nO; % number of disturbance inputs to the plant
             
         end
         
@@ -207,6 +211,42 @@ classdef DLinearNNCS < handle
                 end
                                 
             end
+        end
+        
+        
+        % get the input set to the plant
+        function U = getPlantInputSet(obj, k)
+            % @k: step
+            % @U: control set to the plant
+            
+            % author: Dung Tran
+            % date: 10/1/2019
+            
+            
+            U1 = obj.controllerReachSet{k-1};
+            
+            if obj.nI_plant_db == 0
+                U = U1;
+            else
+                
+                n = length(U1);
+                
+                for i=1:n
+                    
+                    if ~isempty(obj.plant_db_set) && ~isa(obj.plant_db_set, 'Star')
+                    
+                        
+                    
+                    end
+                    
+                end
+                
+                
+                
+                
+            end
+            
+            
         end
             
             

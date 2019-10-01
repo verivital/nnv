@@ -10,15 +10,19 @@ function cnn = load_cnn(tool,Input,varargin)
 %       - help importONNXNetwork
 %       - help importKerasNetwork
 %       - help importCaffeNetwork
+if ~isempty(varargin)
+    disp('varargin');
+    disp(varargin{1});
+    disp(varar
+end
 
-% Load the networks
 if contains('matlab',tool)
     nn = load(Input);
 elseif contains('onnx',tool)
     if length(varargin) == 1
-        nn = importONNXNetwork(Input,'OutputLayerType',varargin{1});
+        nn = importONNXNetwork(Input,'OutputLayerType',varargin);
     elseif length(varargin) == 2
-        nn = importONNXNetwork(Input,'OutputLayerType',varargin{1},'Classes',varargin{2});
+        nn = importONNXNetwork(Input,'OutputLayerType',varargin(1),'Classes',varargin(2));
     else
         error('Incorrect input arguments. Please, specify the name of the cnn,'...
         +' the OutputLayerType and (optionally), add a list of output classes');
@@ -27,30 +31,17 @@ elseif contains('keras',tool)
     if isempty(varargin)
         nn = importKerasNetwork(Input);
     elseif length(varargin) == 1
-        nn = importKerasNetwork(Input,'Classes',varargin{1});
+        nn = importKerasNetwork(Input,'Classes',classes);
     else
         error('Incorrect input arguments. Please, specify the name of the cnn, and (optionally), add a list of output classes');
     end
 elseif contains('caffe',tool)
-    nn = importCaffeNetwork(Input,varargin{1});
+    nn = importCaffeNetwork(Input,varargin);
 else
     error('The format of the cnn does not correspond to any of the current supported formats. Please, use our transformation tool (NNVMT) available at github.com/verivital/nnvmt to convert it to one the of supported formats');
 end
 
-% Parse the networks into nnv
-if string(class(nn)) == "struct"
-    if isempty(nn.net.Layers(1,1).AverageImage)
-        nn.net.Layers(1,1).Normalization = 'zerocenter';
-        nn.net.Layers(1,1).AverageImage = 0;
-    end
-    cnn = CNN.parse(nn.net,'CNN_c');
-else
-    if isempty(nn.Layers(1,1).AverageImage)
-        nn.Layers(1,1).Normalization = 'zerocenter';
-        nn.Layers(1,1).AverageImage = 0;
-    end
-    cnn = CNN.parse(nn,'CNN_c');
-end
+cnn = CNN.parse(nn.net,'CNN_c');
 
 end
 

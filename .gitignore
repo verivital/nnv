@@ -1,3 +1,4 @@
 # Ignore al files in these folders
 nnv/UUV/
 nnv/tbxmanager
+nnv/tests/io/models

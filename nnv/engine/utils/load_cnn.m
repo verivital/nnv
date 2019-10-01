@@ -40,14 +40,20 @@ end
 % Parse the networks into nnv
 if string(class(nn)) == "struct"
     if isempty(nn.net.Layers(1,1).AverageImage)
-        nn.net.Layers(1,1).Normalization = 'zerocenter';
-        nn.net.Layers(1,1).AverageImage = 0;
+        temp = nn.net.saveobj;
+        layer1 = imageInputLayer([nn.net.Layers(1,1).InputSize]);
+        layer1.AverageImage = zeros(layer1.InputSize);
+        temp.Layers(1,1) = layer1;
+        nn.net.loadobj(temp);
     end
     cnn = CNN.parse(nn.net,'CNN_c');
 else
     if isempty(nn.Layers(1,1).AverageImage)
-        nn.Layers(1,1).Normalization = 'zerocenter';
-        nn.Layers(1,1).AverageImage = 0;
+        temp = nn.saveobj;
+        layer1 = imageInputLayer([nn.Layers(1,1).InputSize]);
+        layer1.AverageImage = zeros(layer1.InputSize);
+        temp.Layers(1,1) = layer1;
+        nn.loadobj(temp);
     end
     cnn = CNN.parse(nn,'CNN_c');
 end

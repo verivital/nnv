@@ -898,9 +898,33 @@ classdef Star
             new_C = blkdiag(obj.C, X.C);
             new_d = vertcat(obj.d, X.d);
             
-            S = Star(new_V, new_C, new_d);            
+            new_predicate_lb = [obj.predicate_lb; X.predicate_lb];
+            new_predicate_ub = [obj.predicate_ub; X.predicate_ub];
+            
+            S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);            
             
         end
+        
+        
+        % concatenate a star with a vector
+        function S = concatenate_with_vector(obj, v)
+            % @v: a vector
+            % @S: output star after concatenation
+            
+            % author: Dung Tran
+            % date: 10/1/2019
+            
+            
+            if size(v, 2) ~= 1
+                error('Input is not a vector');
+            end
+            
+            new_c = [v; obj.V(:, 1)];
+            new_V = [zeros(size(v,1), obj.nVar); obj.V(:,2:obj.nVar + 1)];          
+            S = Star([new_c new_V], obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                        
+        end
+        
         
     end
     

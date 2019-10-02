@@ -48,7 +48,7 @@ classdef DLinearNNCS < handle
         
     end
     
-    methods
+    methods % CONTRUCTOR AND REACH METHOD
         
         %constructor
         function obj = DLinearNNCS(controller, plant)
@@ -334,13 +334,70 @@ classdef DLinearNNCS < handle
             
             
         end
+        
+        
+        
+        % get output reach set
+        
+        function Y = getOutputReachSet(obj, map_mat, map_vec)
+            % @map_mat: a mapping matrix
+            % @map_vec: mapping vector
+            % Y = map_mat * X + map_vec
+            % @Y: a cell of output reach sets
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            
+            if isempty(obj.plantReachSet )
+                error('Plant reach set is empty, please perform reachability analysis first');
+            end
+            
+            dim = size(obj.plant.A, 1); % dimension of the plant
+            
+            if size(map_mat, 2) ~= dim 
+                error('Inconsistency between map_mat and dimension of the plant, map_mat should have %d columns', dim);
+            end
+            
+            if size(map_mat, 1) > 3
+                error('Plot only <= 3 dimensional outputs, the maximum allowable number of rows in map_mat is 3');
+            end
+            
+            
+            if ~isempty(map_vec) && (size(map_vec, 2) ~= 1)
+                error('map vector should have one column');
+            end
+            
+            if ~isempty(map_vec) && (size(map_vec, 1) ~= size(map_mat, 1))
+                error('Inconsistent dimensions between map matrix and map vector');
+            end
+              
+            % get output reach sets
+          
+            n = length(obj.plantReachSet);
+            Y = cell(n, 1);
+            for i=1:n
+                
+                Xi = obj.plantReachSet{i};
+                m = length(Xi);
+                Y1 = [];
+                for j=1:m
+                    Xij = Xi(j);
+                    Y1 = [Y1 Xij.affineMap(map_mat, map_vec)];
+                end
+                
+                Y{i} = Y1;
+                
+            end
+            
+        end
                      
             
     end
         
     
-    methods
-        % Plotting Reach Sets
+    methods % PLOT REACHABLE SETS
+        
         
         function plotPlantReachSets(varargin)
             % @color: color
@@ -672,46 +729,9 @@ classdef DLinearNNCS < handle
             % date: 10/2/2019
             
             
-            if isempty(obj.plantReachSet )
-                error('Plant reach set is empty, please perform reachability analysis first');
-            end
+            Y = obj.getOutputReachSet(map_mat, map_vec);
             
-            dim = size(obj.plant.A, 1); % dimension of the plant
-            
-            if size(map_mat, 2) ~= dim 
-                error('Inconsistency between map_mat and dimension of the plant, map_mat should have %d columns', dim);
-            end
-            
-            if size(map_mat, 1) > 3
-                error('Plot only <= 3 dimensional outputs, the maximum allowable number of rows in map_mat is 3');
-            end
-            
-            
-            if ~isempty(map_vec) && (size(map_vec, 2) ~= 1)
-                error('map vector should have one column');
-            end
-            
-            if ~isempty(map_vec) && (size(map_vec, 1) ~= size(map_mat, 1))
-                error('Inconsistent dimensions between map matrix and map vector');
-            end
-              
-            % get output reach sets
-          
-            n = length(obj.plantReachSet);
-            Y = cell(n, 1);
-            for i=1:n
-                
-                Xi = obj.plantReachSet{i};
-                m = length(Xi);
-                Y1 = [];
-                for j=1:m
-                    Xij = Xi(j);
-                    Y1 = [Y1 Xij.affineMap(map_mat, map_vec)];
-                end
-                
-                Y{i} = Y1;
-                
-            end
+            n = length(Y);
             
             % plot output reach sets
             
@@ -745,10 +765,101 @@ classdef DLinearNNCS < handle
             
             
         end
+          
+        
+    end
+    
+    
+    
+    methods % VERIFICATION METHOD
         
         
-        
-        
+        function [safe, counterExamples] = verify(obj, unsafe_mat, unsafe_vec)
+            % @unsafe_mat: unsafe matrix
+            % @unsafe_vec: unsafe vector            
+            % Usafe region is defined by: x: unsafe_mat * x <= unsafe_vec
+            
+            % @safe: = 0: unsafe
+            %        = 1: safe
+            %        = 2: unknown (due to conservativeness)
+            % @counterExamples: an array of star set counterExamples
+            
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            
+            if isempty(obj.plantReachSet)
+                error('Plant reachable set is empty, please do reachability analysis first');
+            end
+            
+            dim = size(obj.plant.A, 1); 
+            
+            if (size(unsafe_mat, 2) ~= dim) 
+                error('Inconsistent dimensions between the unsafe matrix and the plant');
+            end
+            
+            if size(unsafe_vec, 2) ~= 1
+                error('Unsafe vector should have one column');
+            end
+            
+            if size(unsafe_vec, 1) ~= size(unsafe_mat, 1)
+                error('Inconsistent dimension between unsafe matrix and unsafe vector');
+            end
+            
+            X = obj.plantReachSet; 
+            n = length(X);
+            % flatten reach sets
+            Y = [];
+            for i=1:n
+                Y = [Y X{i}];
+            end
+            
+            % check safety
+            m = length(Y);
+            G = [];
+            for i=1:m
+                G1 = Y(i).intersectHalfSpace(unsafe_mat, unsafe_vec);
+                if ~G1.isEmptySet
+                    G = [G G1];
+                end
+            end
+            
+            if isempty(G)
+                safe = 1;
+            else
+                
+                if strcmp(obj.method, 'exact-star')
+                    safe = 0;
+                    % construct a set of counter examples                    
+                    n = length(G);
+                    counterExamples = [];
+                    for i=1:n
+                        C1 = Star(obj.init_set.V, G(i).C, G(i).d, G(i).predicate_lb, G(i).predicate_ub);
+                        counterExamples = [counterExamples C1];
+                    end
+                    
+                    
+                elseif strcmp(obj.method, 'approx-star')
+                    safe = 2; % unknown due to over-approximation error, we can try using simulation to falsify the property
+                    counterExamples = [];
+                end
+            
+            
+            end
+            
+            
+            if safe == 0
+                fprintf('\n\nThe neural network control system is unsafe, NNV produces %d star sets of counter-examples', n);
+            elseif safe == 1
+                fprintf('\n\nThe neural network control system is safe');
+            elseif safe == 2
+                fprintf('\n\n The safety of the neural network control system is unknown');
+                fprintf('\nYou can try falsification method using simulation to find counter-examples');
+            end
+            
+            
+        end
         
         
         

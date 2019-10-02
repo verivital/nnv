@@ -92,9 +92,11 @@ classdef DLinearNNCS < handle
         
         
         % reach
-        function [R, reachTime] = reach(obj, init_set, ref_input, method, numOfSteps, numCores)
+        function [R, reachTime] = reach(obj, init_set, ref_input, db_input, method, numOfSteps, numCores)
             % @init_set: initial set of state, a star set
             % @ref_input: reference input, may be a vector or a star set
+            % @db_input: disturbance input to the plant, set db_input = [] if no
+            % disturbance input to the plant
             % @method: 'exact-star' or 'approx-star'
             % @numOfSteps: number of steps
             % @numCores: number of cores used in computation
@@ -121,8 +123,12 @@ classdef DLinearNNCS < handle
             end
             
             
-            if ~isa(ref_input, 'Star') && size(ref_input, 2) ~= 1 && size(ref_input, 1) ~= obj.nI_ref
+            if ~isempty(ref_input) && ~isa(ref_input, 'Star') && size(ref_input, 2) ~= 1 && size(ref_input, 1) ~= obj.nI_ref
                 error('Invalid reference input vector');
+            end
+            
+            if ~isempty(db_input) && ~isa(dp_input, 'Star') && size(dp_input, 2) ~= 1 && size(dp_input, 1) ~= obj.nI_plant_db
+                error('Invalid disturbance vector to the plant');
             end
             
             obj.ref_input = ref_input;
@@ -223,27 +229,49 @@ classdef DLinearNNCS < handle
             % date: 10/1/2019
             
             
-            U1 = obj.controllerReachSet{k-1};
-            
-            if obj.nI_plant_db == 0
-                U = U1;
+            if k==1
+                U = []; % does not apply any input to the plant at the first step
             else
                 
-                n = length(U1);
-                
-                for i=1:n
-                    
-                    if ~isempty(obj.plant_db_set) && ~isa(obj.plant_db_set, 'Star')
-                    
-                        
-                    
+                U1 = obj.controllerReachSet{k-1};
+            
+                if obj.nI_plant_db == 0
+                    U = U1;
+                else
+
+                    n = length(U1);          
+                    U = []; 
+
+                    for i=1:n
+
+                        if isempty(obj.plant_db_set)
+                            % disturbance is empty == zero vector
+                            U2 = U1(i).concatenate_with_vector(zeros(obj.nI_plant_db, 1));
+
+                        else
+
+                            if ~isa(obj.plant_db_set, 'Star')
+
+                                % disturbance set is just a vector                        
+                                U2 = U1(i).concatenate_with_vector(obj.plant_db_set);    
+
+                            else
+
+                                % disturbance set is a star 
+
+
+
+                            end
+
+                        end                                    
+
+
+
                     end
-                    
+                
+                
                 end
-                
-                
-                
-                
+    
             end
             
             

@@ -13,7 +13,6 @@ classdef DLinearNNCS < handle
                           
         % nerual network control system architecture
         %
-        % disturbance  --->|
         %              --->| plant ---> y(t) ---sampling--->y(k) 
         %             |                                       |
         %             |                                       |
@@ -37,8 +36,6 @@ classdef DLinearNNCS < handle
         nI = 0; % number of inputs = size(I1, 1) + size(I2, 1) to the controller
         nI_ref = 0; % number of reference inputs to the controller
         nI_fb = 0; % number of feedback inputs to the controller
-        nI_plant_db = 0; % number of disturbance inputs to the plant 
-             
         
         % for reachability analysis
         method = 'exact-star'; % by default
@@ -47,7 +44,6 @@ classdef DLinearNNCS < handle
         numCores = 1; % default setting, using single core for computation
         ref_I = []; % reference input set
         init_set = []; % initial set for the plant
-        plant_db_set = []; % plant disturbance input set
         reachTime = 0; 
         
     end
@@ -78,6 +74,10 @@ classdef DLinearNNCS < handle
             if plant.nO > controller.nI
                 error('Inconsistency between number of feedback outputs and number of controller inputs');
             end
+            
+            if plant.nI ~= controller.nO
+                error('Inconsistency between the number of plant inputs and the number of controller outputs');
+            end
                         
             obj.controller = controller;
             obj.plant = plant;
@@ -85,36 +85,67 @@ classdef DLinearNNCS < handle
             obj.nI = controller.nI; % number of input to the controller
             obj.nI_fb = plant.nO; % number of feedback inputs to the controller
             obj.nI_ref = controller.nI - obj.nI_fb; % number of reference inputs to the controller
-            obj.nI_plant_db = plant.nI - controller.nO; % number of disturbance inputs to the plant
             
         end
         
         
         
         % reach
-        function [R, reachTime] = reach(obj, init_set, ref_input, db_input, method, numOfSteps, numCores)
+        function [R, reachTime] = reach(varargin)
             % @init_set: initial set of state, a star set
             % @ref_input: reference input, may be a vector or a star set
-            % @db_input: disturbance input to the plant, set db_input = [] if no
-            % disturbance input to the plant
-            % @method: 'exact-star' or 'approx-star'
             % @numOfSteps: number of steps
+            % @method: 'exact-star' or 'approx-star'
             % @numCores: number of cores used in computation
             
             % author: Dung Tran
             % date: 10/1/2019
             
+            
+            switch nargin
+                
+                case 4
+                    
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = 'exact-star';
+                    numCores1 = 1; 
+                    
+                case 5
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = 1;
+                    
+                case 6
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = varargin{6};
+                    
+                otherwise 
+                    error('Invalid number of inputs, should be 3, 4, or 5');
+            end
+                
+            
+            
             t = tic; 
             
-            if ~isa(init_set, 'Star')
+            if ~isa(init_set1, 'Star')
                 error('Initial set is not a star set');
             end
             
-            if numCores < 1
+            if numCores1 < 1
                 error('Invalid number of cores used in computation');
             end
             
-            if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star')
+            if ~strcmp(method1, 'exact-star') && ~strcmp(method1, 'approx-star')
                 error('Unknown reachability method, NNV currently supports exact-star and approx-star methods');
             end
             
@@ -123,18 +154,14 @@ classdef DLinearNNCS < handle
             end
             
             
-            if ~isempty(ref_input) && ~isa(ref_input, 'Star') && size(ref_input, 2) ~= 1 && size(ref_input, 1) ~= obj.nI_ref
+            if ~isempty(ref_input1) && ~isa(ref_input1, 'Star') && size(ref_input1, 2) ~= 1 && size(ref_input1, 1) ~= obj.nI_ref
                 error('Invalid reference input vector');
             end
             
-            if ~isempty(db_input) && ~isa(dp_input, 'Star') && size(dp_input, 2) ~= 1 && size(dp_input, 1) ~= obj.nI_plant_db
-                error('Invalid disturbance vector to the plant');
-            end
-            
-            obj.ref_input = ref_input;
-            obj.numCores = numCores;
-            obj.method = method; 
-            obj.init_set = init_set;
+            obj.ref_I = ref_input1;
+            obj.numCores = numCores1;
+            obj.method = method1; 
+            obj.init_set = init_set1;
             
             obj.plantReachSet = cell(numOfSteps, 1);
             obj.controllerReachSet = cell(numOfSteps, 1);
@@ -220,62 +247,6 @@ classdef DLinearNNCS < handle
         end
         
         
-        % get the input set to the plant
-        function U = getPlantInputSet(obj, k)
-            % @k: step
-            % @U: control set to the plant
-            
-            % author: Dung Tran
-            % date: 10/1/2019
-            
-            
-            if k==1
-                U = []; % does not apply any input to the plant at the first step
-            else
-                
-                U1 = obj.controllerReachSet{k-1};
-            
-                if obj.nI_plant_db == 0
-                    U = U1;
-                else
-
-                    n = length(U1);          
-                    U = []; 
-
-                    for i=1:n
-
-                        if isempty(obj.plant_db_set)
-                            % disturbance is empty == zero vector
-                            U2 = U1(i).concatenate_with_vector(zeros(obj.nI_plant_db, 1));
-
-                        else
-
-                            if ~isa(obj.plant_db_set, 'Star')
-
-                                % disturbance set is just a vector                        
-                                U2 = U1(i).concatenate_with_vector(obj.plant_db_set);    
-
-                            else
-
-                                % disturbance set is a star 
-
-
-
-                            end
-
-                        end                                    
-
-
-
-                    end
-                
-                
-                end
-    
-            end
-            
-            
-        end
             
             
         % controller step Reach for step k
@@ -309,7 +280,7 @@ classdef DLinearNNCS < handle
             n = length(X);
             Y = [];
             for i=1:n
-                Y = [Y X(i).affineMap(obj.plant.C)];
+                Y = [Y X(i).affineMap(obj.plant.C, [])];
             end
             
             if obj.nI_ref == 0
@@ -363,13 +334,425 @@ classdef DLinearNNCS < handle
             
             
         end
-                
-                
-           
-            
+                     
             
     end
         
+    
+    methods
+        % Plotting Reach Sets
+        
+        function plotPlantReachSets(varargin)
+            % @color: color
+            % @x_id: id of x state
+            % @y_id: id of y state
+            % @z_id: id of z state
+            
+            % if plot in 2D, set one of three ids = []
+            % if plot in 3D, three ids need to specified
+            % if plot in 1D, set two of three ids = []
+            % plot 1D: plot the ranges vs time steps
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+                       
+            switch nargin
+                
+                case 3
+                    obj = varargin{1};
+                    color = varargin{2};
+                    dim = size(obj.plant.A,1); % dimension of the plant
+                    x_id = varargin{3};
+                    
+                    if isempty(x_id) || x_id < 1 || x_id > dim
+                        error('Invalid x index');
+                    end
+                    
+                    option = 1; % plot range of the state with time steps 
+                    
+                case 4
+                    obj = varargin{1};
+                    color = varargin{2};
+                    dim = size(obj.plant.A,1); % dimension of the plant
+                    x_id = varargin{3};
+                    y_id = varargin{4};
+                    
+                    if isempty(x_id) || x_id < 1 || x_id > dim
+                        error('Invalid x index');
+                    end
+                    
+                    if isempty(y_id) || y_id < 1 || y_id > dim
+                        error('Invalid y index');
+                    end
+                    
+                    if y_id == x_id 
+                        error('x index and y index need to be different');
+                    end
+                    
+                    option = 2; % plot 2D reachable set of X = (x_id, y_id)
+                    
+                case 5
+                    obj = varargin{1};
+                    color = varargin{2};
+                    dim = size(obj.plant.A,1); % dimension of the plant
+                    x_id = varargin{3};
+                    y_id = varargin{4};
+                    z_id = varargin{5};
+                    
+                    if isempty(x_id) || x_id < 1 || x_id > dim
+                        error('Invalid x index');
+                    end
+                    
+                    if isempty(y_id) || y_id < 1 || y_id > dim
+                        error('Invalid y index');
+                    end
+                    
+                    if isempty(z_id) || z_id < 1 || z_id > dim
+                        error('Invalid z index');
+                    end
+                    
+                    if y_id == x_id 
+                        error('x index and y index need to be different');
+                    end
+                    
+                    if y_id == z_id 
+                        error('y index and z index need to be different');
+                    end
+                    
+                    if z_id == x_id 
+                        error('z index and x index need to be different');
+                    end
+                    
+                    option = 3; % plot 3D reachable sets of X = (x_id, y_id, z_id)
+            
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, or 4');
+            end
+            
+            
+            if isempty(obj.plantReachSet)
+                error('Plant Reach Set is empty, please perform reachability analysis first.');
+            end
+            
+            n = length(obj.plantReachSet); % number of steps
+                        
+            if option == 1 % plot ranges of specific state versus time steps
+                
+                X = obj.init_set;
+                for i=1:n
+                    X1 = Star.get_hypercube_hull(obj.plantReachSet{i});
+                    X1 = X1.toStar;
+                    X = [X X1];
+                end
+                T = 0:1:n;
+                Star.plotRanges_2D(X, x_id, T, color);
+                ax = gca; 
+                ax.XTick = T;
+                
+            end
+            
+            if option == 2 % plot 2D reach set               
+                
+                X = obj.init_set; 
+                for i=1:n
+                    X = [X obj.plantReachSet{i}];
+                end
+                
+                map = zeros(2, dim);
+                map(1, x_id) = 1;
+                map(2, y_id) = 1;
+                                
+                Y = [];
+                for i=1:n+1
+                    Y = [Y X(i).affineMap(map, [])]; 
+                end
+                
+                Star.plots(Y, color);
+                
+            end
+            
+            if option == 3 % plot 3D reach set               
+                
+                X = obj.init_set; 
+                for i=1:n
+                    X = [X obj.plantReachSet{i}];
+                end
+                
+                map = zeros(3, dim);
+                map(1, x_id) = 1;
+                map(2, y_id) = 1;
+                map(3, z_id) = 1;
+                
+                Y = [];
+                for i=1:n+1
+                    Y = [Y X(i).affineMap(map, [])]; 
+                end
+                
+                Star.plots(Y, color);
+                
+            end         
+            
+            
+            
+        end
+        
+        
+        % plot controller reach sets
+        function plotControllerReachSets(varargin)
+            % @color: color
+            % @x_id: id of first control input
+            % @y_id: id of second control input
+            % @z_id: id of third control input
+            
+            % if plot in 2D, set one of three ids = []
+            % if plot in 3D, three ids need to specified
+            % if plot in 1D, set two of three ids = []
+            % plot 1D: plot the ranges vs time steps
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+                       
+            switch nargin
+                
+                case 3
+                    obj = varargin{1};
+                    color = varargin{2};
+                    nU = size(obj.plant.B,2); % number of control inputs to the plant
+                    x_id = varargin{3};
+                    
+                    if isempty(x_id) || x_id < 1 || x_id > nU
+                        error('Invalid x index');
+                    end
+                    
+                    option = 1; % plot range of the state with time steps 
+                    
+                case 4
+                    obj = varargin{1};
+                    color = varargin{2};
+                    nU = size(obj.plant.B,2); % number of control inputs to the plant
+                    x_id = varargin{3};
+                    y_id = varargin{4};
+                    
+                    if isempty(x_id) || x_id < 1 || x_id > nU
+                        error('Invalid x index');
+                    end
+                    
+                    if isempty(y_id) || y_id < 1 || y_id > nU
+                        error('Invalid y index');
+                    end
+                    
+                    if y_id == x_id 
+                        error('x index and y index need to be different');
+                    end
+                    
+                    option = 2; % plot 2D reachable set of X = (x_id, y_id)
+                    
+                case 5
+                    obj = varargin{1};
+                    color = varargin{2};
+                    nU = size(obj.plant.B,2); % number of control inputs to the plant
+                    x_id = varargin{3};
+                    y_id = varargin{4};
+                    z_id = varargin{5};
+                    
+                    if isempty(x_id) || x_id < 1 || x_id > nU
+                        error('Invalid x index');
+                    end
+                    
+                    if isempty(y_id) || y_id < 1 || y_id > nU
+                        error('Invalid y index');
+                    end
+                    
+                    if isempty(z_id) || z_id < 1 || z_id > nU
+                        error('Invalid z index');
+                    end
+                    
+                    if y_id == x_id 
+                        error('x index and y index need to be different');
+                    end
+                    
+                    if y_id == z_id 
+                        error('y index and z index need to be different');
+                    end
+                    
+                    if z_id == x_id 
+                        error('z index and x index need to be different');
+                    end
+                    
+                    option = 3; % plot 3D reachable sets of X = (x_id, y_id, z_id)
+            
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, or 4');
+            end
+            
+            
+            if isempty(obj.controllerReachSet)
+                error('Controller Reach Set is empty, please perform reachability analysis first.');
+            end
+            
+            n = length(obj.controllerReachSet); % number of steps
+                        
+            if option == 1 % plot ranges of specific state versus time steps
+                
+                U = [];
+                for i=1:n
+                    
+                    U1 = Star.get_hypercube_hull(obj.controllerReachSet{i}{1});
+                    U1 = U1.toStar;
+                    U = [U U1];
+                end
+                T = 1:n;
+                Star.plotRanges_2D(U, x_id, T, color);
+                ax = gca; 
+                ax.XTick = T;
+                
+            end
+            
+            if option == 2 % plot 2D reach set               
+                
+                U = []; 
+                for i=1:n
+                    U = [U obj.controllerReachSet{i}{1}];
+                end
+                
+                map = zeros(2, dim);
+                map(1, x_id) = 1;
+                map(2, y_id) = 1;
+                
+                display(map);
+                
+                Y = [];
+                n = length(U);
+                for i=1:n
+                    Y = [Y U(i).affineMap(map, [])]; 
+                end
+                
+                Star.plots(Y, color);
+                
+            end
+            
+            if option == 3 % plot 3D reach set               
+                
+                U = [];
+                for i=1:n
+                    U = [U obj.controllerReachSet{i}{1}];
+                end
+                
+                map = zeros(3, dim);
+                map(1, x_id) = 1;
+                map(2, y_id) = 1;
+                map(3, z_id) = 1;
+                
+                Y = [];
+                n = length(U);
+                for i=1:n
+                    Y = [Y U(i).affineMap(map, [])]; 
+                end
+                
+                Star.plots(Y, color);
+                
+            end         
+              
+            
+        end
+        
+        
+        % plot output reach set
+        % output reach set is derived by mapping the state reach set by
+        % a maping matrix, M 
+        function plotOutputReachSets(obj, color, map_mat, map_vec)
+            % @map_mat: a mapping matrix
+            % @map_vec: mapping vector
+            % Y = map_mat * X + map_vec
+            % @color: color
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            
+            if isempty(obj.plantReachSet )
+                error('Plant reach set is empty, please perform reachability analysis first');
+            end
+            
+            dim = size(obj.plant.A, 1); % dimension of the plant
+            
+            if size(map_mat, 2) ~= dim 
+                error('Inconsistency between map_mat and dimension of the plant, map_mat should have %d columns', dim);
+            end
+            
+            if size(map_mat, 1) > 3
+                error('Plot only <= 3 dimensional outputs, the maximum allowable number of rows in map_mat is 3');
+            end
+            
+            
+            if ~isempty(map_vec) && (size(map_vec, 2) ~= 1)
+                error('map vector should have one column');
+            end
+            
+            if ~isempty(map_vec) && (size(map_vec, 1) ~= size(map_mat, 1))
+                error('Inconsistent dimensions between map matrix and map vector');
+            end
+              
+            % get output reach sets
+          
+            n = length(obj.plantReachSet);
+            Y = cell(n, 1);
+            for i=1:n
+                
+                Xi = obj.plantReachSet{i};
+                m = length(Xi);
+                Y1 = [];
+                for j=1:m
+                    Xij = Xi(j);
+                    Y1 = [Y1 Xij.affineMap(map_mat, map_vec)];
+                end
+                
+                Y{i} = Y1;
+                
+            end
+            
+            % plot output reach sets
+            
+            option = size(map_mat, 1);
+            
+            G = obj.init_set.affineMap(map_mat, map_vec);
+            
+            if option == 1 % plot 1D, output versus time steps        
+                                
+                for i=1:n
+                    G1 = Star.get_hypercube_hull(Y{i});
+                    G1 = G1.toStar;
+                    G = [G G1];
+                end
+                T = 0:1:n;
+                Star.plotRanges_2D(G, 1, T, color);
+                ax = gca; 
+                ax.XTick = T;
+                
+            end
+            
+            if option == 2 || option == 3 % plot 2D or 3D
+                
+                for i=1:n
+                    G = [G Y{i}];
+                end
+                
+                Star.plots(G, color);
+                
+            end  
+            
+            
+        end
+        
+        
+        
+        
+        
+        
+        
+    end
     
     
     

@@ -1,4 +1,4 @@
-% Reachability analysis for Linear ACC model
+% Reachability analysis for Discrete Linear ACC model
 % Dung Tran: 9/30/2019
 
 
@@ -23,20 +23,21 @@
 %dx(6,1) = -2 * x(6) + 2 * a_ego - mu*x(5)^2;
 
 
-A = [0 1 0 0 0 0; 0 0 1 0 0 0; 0 0 -2 0 0 0; 0 0 0 0 1 0; 0 0 0 0 0 1; 0 0 0 0 0 -2];
-B = transpose([0 0 2 0 0 0; 0 0 0 0 0 2]);
-C = [1 0 0 -1 0 0; 0 1 0 0 -1 0; 0 0 0 0 1 0]; % feedback relative distance, relative velocity, longitudinal velocity
-D = [0 0; 0 0; 0 0]; 
+% let x7 = -2*x(3) + 2 * a_lead -> x7(0) = -2*x(3)(0) + 2*alead
+% -> dx7 = -2dx3
+
+
+A = [0 1 0 0 0 0 0; 0 0 1 0 0 0 0; 0 0 0 0 0 0 1; 0 0 0 0 1 0 0; 0 0 0 0 0 1 0; 0 0 0 0 0 -2 0; 0 0 -2 0 0 0 0];
+B = [0; 0; 0; 0; 0; 2; 0];
+C = [1 0 0 -1 0 0 0; 0 1 0 0 -1 0 0; 0 0 0 0 1 0 0];  % feedback relative distance, relative velocity, longitudinal velocity
+D = [0; 0; 0]; 
 
 plant = LinearODE(A, B, C, D); % continuous plant model
 
 plantd = plant.c2d(0.1); % discrete plant model
 
 % the neural network provides a_ego control input to the plant
-% a_lead = -2 is combined with a_ego from the controller to form the
-% control input to the plant
-
-% a_lead is considered as a "disturbance" input to the plant model
+% a_lead = -2 
 
 
 %% Controller
@@ -53,12 +54,12 @@ Layers = [Layers L];
 Controller = FFNNS(Layers); % feedforward neural network controller
 
 
-%% NNCS
+%% NNCS 
 
 ncs = DLinearNNCS(Controller, plantd); % a discrete linear neural network control system
 
 
-%% Reachability analysis
+%% Initial Set of states and reference inputs
 
 % reference input for neural network controller
 % t_gap = 1.4; v_set = 30;
@@ -68,9 +69,9 @@ ref_input = [30; 1.4];
 % initial condition of the plant
 
 % initial position of lead car x_lead
-x_lead = [90 92];
+x_lead = [90 100];
 % initial condition of v_lead
-v_lead = [32 32.2];
+v_lead = [32 35];
 % initial condition of x_internal_lead
 internal_acc_lead = [0 0];
 % initial condition of x_ego
@@ -79,11 +80,59 @@ x_ego = [10 11];
 v_ego = [30 30.2];
 % initial condition of x_internal_ego
 internal_acc_ego = [0 0];
+% initial condition for new introduced variable 
+x7_0 = [-4 -4]; % x7 = -2*x(3) + 2 * a_lead -> x7(0) = -2*x(3)(0) + 2*alead = -2*0 + 2*-2 = -4
 
 
 x1 = x_lead;
-lb = [x1(1); v_lead(1); internal_acc_lead(1); x_ego(1); v_ego(1); internal_acc_ego(1)];
-ub = [x1(2); v_lead(2); internal_acc_lead(2); x_ego(2); v_ego(2); internal_acc_ego(2)];
+lb = [x1(1); v_lead(1); internal_acc_lead(1); x_ego(1); v_ego(1); internal_acc_ego(1); x7_0(1)];
+ub = [x1(2); v_lead(2); internal_acc_lead(2); x_ego(2); v_ego(2); internal_acc_ego(2); x7_0(2)];
 init_set = Star(lb, ub);
 
+
+%% Reachability Analysis
+
+numSteps = 10; 
+method = 'exact-star';
+numCores = 1; 
+[R, reachTime] = ncs.reach(init_set, ref_input, numSteps, method, numCores);
+
+
+%% Plot reach sets
+
+figure;
+ncs.plotPlantReachSets('blue', 1); % plot position of lead car
+hold on;
+ncs.plotPlantReachSets('red',4); % plot position of ego car
+title('Position reach sets of lead car (blue) and ego car (red)');
+
+figure;
+ncs.plotPlantReachSets('blue', 2); % plot velocity of lead car
+hold on; 
+ncs.plotPlantReachSets('red', 5); % plot velocity of ego car
+title('Velocity reach sets of lead car (blue) and ego car (red)');
+
+figure; 
+ncs.plotControllerReachSets('green', 1); % plot control sets
+title('Controller reach sets');
+
+%% Plot output reach sets: actual distance vs. safe distance
+
+% plot reachable set of the distance between two cars d = x1 - x4
+figure; 
+map_mat = [1 0 0 -1 0 0 0];
+map_vec = [];
+ncs.plotOutputReachSets('blue', map_mat, map_vec);
+
+hold on;
+
+% plot safe distance between two cars: d_safe = D_default + t_gap * v_ego;
+% D_default = 10; t_gap = 1.4 
+% d_safe = 10 + 1.4 * x5; 
+
+map_mat = [0 0 0 0 1.4 0 0];
+map_vec = [10];
+
+ncs.plotOutputReachSets('red', map_mat, map_vec);
+title('Actual Distance versus. Safe Distance');
 

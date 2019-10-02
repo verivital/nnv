@@ -931,15 +931,34 @@ classdef Star
     methods(Static) % plot methods
         
         % plot an array of Star (plot exactly, this is time consuming)
-        function plots(S)
+        function plots(varargin)
             % @S: an array of Stars
+            % @colar: color
+            
+            % author: Dung Tran
+            % date: update in 10/2/2019
+            
+            switch nargin
+                
+                case 2
+                    
+                    S = varargin{1};
+                    color = varargin{2};
+                    
+                case 1
+                    S = varargin{1};
+                    color = 'blue';
+                    
+                otherwise
+                    error('Invalid number of inputs, should be 1 or 2');
+            end
             
             n = length(S);
             P = [];
             for i=1:n
                 P = [P S(i).toPolyhedron];
             end
-            P.plot;
+            P.plot('color', color);
             
         end
         

@@ -17,6 +17,10 @@ S2.plot;
 
 S = [S1 S2];
 
+figure; 
+
+Star.plots(S);
+
 figure;
 Star.plotBoxes_2D(S, 1, 2, 'red');
 

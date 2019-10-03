@@ -89,6 +89,23 @@ classdef DLinearNNCS < handle
         end
         
         
+        % start parallel pool for computing
+        function start_pool(obj)
+            
+            if obj.numCores > 1
+                poolobj = gcp('nocreate'); % If no pool, do not create new one.
+                if isempty(poolobj)
+                    parpool('local', obj.numCores); 
+                else
+                    if poolobj.NumWorkers ~= obj.numCores
+                        delete(poolobj); % delete the old poolobj
+                        parpool('local', obj.numCores); % start the new one with new number of cores
+                    end                    
+                end
+            end   
+            
+        end
+        
         
         % reach
         function [R, reachTime] = reach(varargin)
@@ -132,10 +149,6 @@ classdef DLinearNNCS < handle
                 otherwise 
                     error('Invalid number of inputs, should be 3, 4, or 5');
             end
-                
-            
-            
-            t = tic; 
             
             if ~isa(init_set1, 'Star')
                 error('Initial set is not a star set');
@@ -165,6 +178,12 @@ classdef DLinearNNCS < handle
             
             obj.plantReachSet = cell(numOfSteps, 1);
             obj.controllerReachSet = cell(numOfSteps, 1);
+                
+            if obj.numCores > 1
+                obj.start_pool;
+            end
+            
+            t = tic; 
             
             for k=1:numOfSteps
                 
@@ -260,10 +279,11 @@ classdef DLinearNNCS < handle
 
             I = obj.getControllerInputSet(k);
             n = length(I);
+            
             for i=1:n
                 U{i} = obj.controller.reach(I(i), 'exact-star', obj.numCores);
             end
-
+        
 
         end
         
@@ -774,7 +794,7 @@ classdef DLinearNNCS < handle
     methods % VERIFICATION METHOD
         
         
-        function [safe, counterExamples] = verify(obj, unsafe_mat, unsafe_vec)
+        function [safe, counterExamples, verifyTime] = verify(obj, unsafe_mat, unsafe_vec)
             % @unsafe_mat: unsafe matrix
             % @unsafe_vec: unsafe vector            
             % Usafe region is defined by: x: unsafe_mat * x <= unsafe_vec
@@ -783,12 +803,13 @@ classdef DLinearNNCS < handle
             %        = 1: safe
             %        = 2: unknown (due to conservativeness)
             % @counterExamples: an array of star set counterExamples
-            
+            % @verifyTime: verification time
             
             % author: Dung Tran
             % date: 10/2/2019
             
             
+            t = tic; 
             if isempty(obj.plantReachSet)
                 error('Plant reachable set is empty, please do reachability analysis first');
             end
@@ -820,13 +841,14 @@ classdef DLinearNNCS < handle
             G = [];
             for i=1:m
                 G1 = Y(i).intersectHalfSpace(unsafe_mat, unsafe_vec);
-                if ~G1.isEmptySet
+                if ~isempty(G1)
                     G = [G G1];
                 end
             end
             
             if isempty(G)
                 safe = 1;
+                counterExamples = [];
             else
                 
                 if strcmp(obj.method, 'exact-star')
@@ -857,6 +879,8 @@ classdef DLinearNNCS < handle
                 fprintf('\n\n The safety of the neural network control system is unknown');
                 fprintf('\nYou can try falsification method using simulation to find counter-examples');
             end
+            
+            verifyTime = toc(t);
             
             
         end

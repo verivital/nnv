@@ -92,11 +92,22 @@ init_set = Star(lb, ub);
 
 %% Reachability Analysis
 
-numSteps = 10; 
+numSteps = 20; 
 method = 'exact-star';
 numCores = 1; 
 [R, reachTime] = ncs.reach(init_set, ref_input, numSteps, method, numCores);
 
+
+
+%% Verification
+
+% safety property: actual distance > alpha * safe distance <=> d = x1 - x4  > alpha * d_safe = alpha * (1.4 * v_ego + 10)
+
+% usafe region: x1 - x4 <= alpha * (1.4 * v_ego + 10)
+alpha = 1;
+unsafe_mat = [1 0 0 -1 alpha*1.4 0 0];
+unsafe_vec = alpha*10; 
+[safe, counterExamples, verifyTime] = ncs.verify(unsafe_mat, unsafe_vec);
 
 %% Plot reach sets
 
@@ -135,13 +146,4 @@ map_vec = [10];
 
 ncs.plotOutputReachSets('red', map_mat, map_vec);
 title('Actual Distance versus. Safe Distance');
-
-%% Verification
-
-% safety property: d >= alpha * d_safe <=> x1 - x4  >= alpha * (1.4 * v_ego + 10)
-alpha = 1;
-unsafe_mat = [-1 0 0 1 alpha*1.4 0 0];
-unsafe_vec = [-alpha*10]; 
-[safe, counterExamples] = ncs.verify(unsafe_mat, unsafe_vec);
-
 

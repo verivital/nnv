@@ -87,6 +87,25 @@ classdef FFNNS < handle
             Y = In;
         end
         
+        % check if all activation functions are piece-wise linear
+        function b = isPieceWiseNetwork(obj)
+            % author: Dung Tran
+            % date: 9/30/2019
+            
+            n = obj.nL; 
+            
+            b = 1; 
+            for i=1:obj.nL
+                f = obj.Layers(i).f;                
+                if ~strcmp(f, 'poslin') && ~strcmp(f, 'purelin') && ~strcmp(f, 'satlin') && ~strcmp(f, 'satlins')
+                    b = 0;
+                    return;
+                end
+                              
+            end
+            
+        end
+        
         
         % print information to a file
         function print(obj, file_name)

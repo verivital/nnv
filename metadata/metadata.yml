@@ -1,0 +1,25 @@
+metadata_version: 1
+name: nnv - Neural Network Verification Software Tool -  Output Reachable Set Estimation
+  and Verification for Multilayer Neural Networks
+description: "nnv - Neural Network Verification Software Tool\nHoang-Dung Tran, Patrick
+  Musau, Diego Manzanas Lopez, Xiaodong Yang, Weiming Xiang, Taylor T. Johnson (http://www.taylortjohnson.com/)\nVeriVITAL
+  - The Verification and Validation for Intelligent and Trustworthy Autonomy Laboratory
+  (http://www.VeriVITAL.com)\nInstitute for Software Integrated Systems (ISIS): http://isis.vanderbilt.edu\nElectrical
+  Engineering and Computer Science (EECS): https://engineering.vanderbilt.edu/eecs/
+  \nVanderbilt University: https://www.vanderbilt.edu/\n\nSource code and latest release:
+  https://github.com/verivital/nnv"
+tags:
+- neural-network
+- formal-methods
+- control-theory
+- verification
+- hybrid-systems
+- artificial-intelligence
+- machine-l
+authors:
+- name: Taylor T Johnson
+  affiliations:
+  - name: Vanderbilt University
+corresponding_contributor:
+  name: Taylor Johnson
+  email: taylor.johnson@vanderbilt.edu

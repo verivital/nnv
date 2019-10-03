@@ -50,6 +50,10 @@ classdef DLinearNNCS < handle
         simTraces = {}; % simulation trace
         controlTraces = {}; % control trace
         
+        % use for falsification
+        falsifyTraces = {};
+        falsifyTime = 0;
+        
     end
     
     methods % CONTRUCTOR AND REACH METHOD
@@ -980,17 +984,16 @@ classdef DLinearNNCS < handle
                 error('Invalid ref_input, should be a star set, empty or a vector with %d elements', obj.nI_ref);
             end
             
-            
             init_states = init_set.sample(N); % sample initial set of states 
-            
+                        
             if isempty(ref_input)
                 
                 M = size(init_states, 2);
-                obj.simTraces = cell(M, 1); % reset simulation traces
-                obj.controlTraces = cell(M, 1); % reset control traces
+                sim_Traces = cell(M, 1); % reset simulation traces
+                control_Traces = cell(M, 1); % reset control traces
 
                 for i=1:M
-                    [obj.simTraces{i}, obj.controlTraces{i}, ~] = obj.simulate(init_states(:,i), ref_input, numSteps);                
+                    [sim_Traces{i}, control_Traces{i}, ~] = obj.simulate(init_states(:,i), ref_input, numSteps);                
                 end                
                 
             else
@@ -1003,20 +1006,19 @@ classdef DLinearNNCS < handle
                         ref_inputs(:, i) = ref_input;
                     end
                 end
+   
+                M = min(size(init_states, 2), size(ref_inputs, 2));
+                sim_Traces = cell(M,1); % reset simulation traces
+                control_Traces = cell(M,1); % reset control traces
                 
-                 M = min(size(init_states, 2), size(ref_inputs, 2));
-                 obj.simTraces = cell(M, 1); % reset simulation traces
-                 obj.controlTraces = cell(M, 1); % reset control traces
-
-                 for i=1:M
-                     [obj.simTraces{i}, obj.controlTraces{i}, ~] = obj.simulate(init_states(:,i), ref_inputs(:,i), numSteps);                
-                 end              
+                for i=1:M
+                    [sim_Traces{i}, control_Traces{i}, ~] = obj.simulate(init_states(:,i), ref_inputs(:,i), numSteps);
+                end              
                 
             end
-                         
-            sim_Traces = obj.simTraces;
-            control_Traces = obj.controlTraces;
             
+            obj.simTraces = sim_Traces;
+            obj.controlTraces = control_Traces;
             genTime = toc(t);
             
 
@@ -1079,6 +1081,125 @@ classdef DLinearNNCS < handle
         end
         
         
+        
+    end
+    
+    
+    methods % FALSIFICATION USING SIMULATION
+        
+        function [safe, falsifyTraces, falsifyTime] = falsify(obj, init_set, ref_input, numSteps, N, unsafe_mat, unsafe_vec)
+            % @init_set: initial set of state, a star set
+            % @ref_input: reference input, a vector or a star set
+            % @numSteps: number of simulation steps 
+            % @N: number of traces generated for falsification
+            % @unsafe_mat: unsafe matrix
+            % @unsafe_vec: unsafe vector
+            % unsafe region is defined by: U = unsafe_mat * x <= unsafe_vec
+            
+            % @safe: = 0: unsafe
+            %        = 2: unknown (falsification is incomplete)
+            % @falsifyTrace: falsified traces
+            % @falsifyTime: falsification time
+            
+            
+            % author: Dung Tran
+            % date: 10/3/2019
+            
+            t = tic;
+            
+            display(N);
+            
+            obj.generateTraces(init_set, ref_input, numSteps, N);
+                       
+            n = length(obj.simTraces);
+            
+            display(n);
+            
+            m = size(obj.simTraces{1}, 2);
+            
+            U = HalfSpace(unsafe_mat, unsafe_vec);
+            
+           obj.falsifyTraces = {}; % a cell of fasified traces
+            
+            for i=1:n
+                simTrace = obj.simTraces{i};
+                for j=1:m
+                    U.contains(simTrace(:,j));
+                    obj.falsifyTraces = [obj.falsifyTraces; simTrace];
+                    break;
+                end
+                
+            end
+            
+            if isempty(obj.falsifyTraces)
+                safe = 2;
+                fprintf('The safety of the system is unknown, try increase the number of simulation traces to find counter examples');
+            else
+                safe = 0;
+                fprintf('The system is unsafe, %d falsified traces are found', length(obj.falsifyTraces));
+            end
+            
+            
+            falsifyTraces = obj.falsifyTraces; 
+            falsifyTime = toc(t);
+            obj.falsifyTime = falsifyTime;
+                       
+            
+        end
+        
+        
+        
+        % PLOT FALSIFICATION TRACES
+        function plotFalsifyTraces(varargin)
+            % @index: index of the state needs to be plotted
+            % @color: color of trace
+            % @marker: marker for plot
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            switch nargin
+                
+                case 2
+                    obj = varargin{1};
+                    index = varargin{2};
+                    color = 'blue';
+                    markers = '-x';
+                case 3
+                    obj = varargin{1};
+                    index = varargin{2};
+                    color = varargin{3};
+                    markers = '-x';
+                case 4
+                    obj = varargin{1};
+                    index = varargin{2};
+                    color = varargin{3};
+                    markers = varargin{4};
+                otherwise
+                    error('Invalid number of inputs, should be 1, 2, or 3');
+            end
+                    
+            
+            if isempty(obj.falsifyTraces)
+                error('simulation traces are empty, please do simulation first, i.e., run simulate method or generateTraces method');
+            end
+            
+            n = length(obj.falsifyTraces); % number of falsify traces
+            m = size(obj.falsifyTraces{1},2); % number of steps
+            
+            T = 1:m; 
+            
+            for i=1:n-1
+                falsifyTrace = obj.falsifyTraces{i};
+                plot(T, falsifyTrace(index, :), markers, 'color', color);
+                hold on;                
+            end
+            
+            falsifyTrace = obj.falsifyTraces{n};
+            plot(T, falsifyTrace(index, :), markers, 'color', color);
+            
+        end
+               
         
     end
     

@@ -1,4 +1,5 @@
-# Ignore al files in these folders
-nnv/UUV/
-nnv/tbxmanager
-nnv/tests/io/models
+# Ignore all files in these folders
+code/nnv/UUV/
+code/nnv/tbxmanager/data
+code/nnv/tests/io/models
+

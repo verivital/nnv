@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -ex
+
+mkdir deps && cd deps
+
+curl -LO https://tumcps.github.io/CORA/data/CORA_2018.zip
+unzip CORA_2018.zip && rm CORA_2018.zip
+
+mkdir tbxmanager && cd tbxmanager
+
+echo "
+urlwrite('https://raw.githubusercontent.com/verivital/tbxmanager/master/tbxmanager.m', 'tbxmanager.m');
+tbxmanager
+tbxmanager install mpt mptdoc;
+tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi;
+tbxmanager install yalmip; % todo: error due to license, need to force acceptance
+startup; % adding dependencies and nnv to the path
+" > install.m
+
+matlab -nodisplay -r "install; addpath(genpath('../../deps')); savepath"

@@ -122,6 +122,9 @@ classdef DLinearNNCS < handle
             % @numOfSteps: number of steps
             % @method: 'exact-star' or 'approx-star'
             % @numCores: number of cores used in computation
+            % NOTE***: parallel computing may not help due to
+            % comuninication overhead in the computation
+            
             
             % author: Dung Tran
             % date: 10/1/2019
@@ -136,8 +139,8 @@ classdef DLinearNNCS < handle
                     ref_input1 = varargin{3};
                     numOfSteps = varargin{4};
                     method1 = 'exact-star';
-                    numCores1 = 1; 
-                    
+                    numCores1 = 1;
+                               
                 case 5
                     obj = varargin{1};
                     init_set1 = varargin{2};
@@ -145,7 +148,7 @@ classdef DLinearNNCS < handle
                     numOfSteps = varargin{4};
                     method1 = varargin{5};
                     numCores1 = 1;
-                    
+                                      
                 case 6
                     obj = varargin{1};
                     init_set1 = varargin{2};
@@ -153,9 +156,17 @@ classdef DLinearNNCS < handle
                     numOfSteps = varargin{4};
                     method1 = varargin{5};
                     numCores1 = varargin{6};
-                    
+                          
+                case 7
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = varargin{6};
+                                      
                 otherwise 
-                    error('Invalid number of inputs, should be 3, 4, or 5');
+                    error('Invalid number of inputs, should be 3, 4, 5, or 6');
             end
             
             if ~isa(init_set1, 'Star')
@@ -178,6 +189,7 @@ classdef DLinearNNCS < handle
             if ~isempty(ref_input1) && ~isa(ref_input1, 'Star') && size(ref_input1, 2) ~= 1 && size(ref_input1, 1) ~= obj.nI_ref
                 error('Invalid reference input vector');
             end
+            
             
             obj.ref_I = ref_input1;
             obj.numCores = numCores1;
@@ -208,8 +220,226 @@ classdef DLinearNNCS < handle
                     
                 end
                 
-                obj.controllerReachSet{k} = obj.controllerStepReach(k);
+                obj.controllerReachSet{k} = obj.controllerStepReach(k);               
                 
+            end
+            
+            reachTime = toc(t);
+            
+            obj.reachTime = reachTime; 
+            
+            R = obj.plantReachSet;
+            
+            
+        end
+        
+        
+        
+        % live reachability analysis, plot reachable set on the fly
+        function [R, reachTime] = reachLive(varargin)
+            % @init_set: initial set of state, a star set
+            % @ref_input: reference input, may be a vector or a star set
+            % @numOfSteps: number of steps
+            % @method: 'exact-star' or 'approx-star'
+            % @numCores: number of cores used in computation
+            % NOTE***: parallel computing may not help due to
+            % comuninication overhead in the computation
+            % @map_mat: output mapping matrix 
+            % @map_vec: output mapping bias vector
+            % *** We plot y = map_mat * x + map_vec on-the-fly
+            % @color: color for plotting
+            
+            % author: Dung Tran
+            % date: 10/1/2019
+            
+            
+            switch nargin
+                
+                case 4
+                    
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = 'exact-star';
+                    numCores1 = 1;
+                    map_mat = zeros(1, obj.plant.dim);
+                    map_mat(1) = 1; % default setting, plot the reachable set of the first state versus time steps
+                    map_vec = []; % default setting
+                    color = 'blue';
+                                        
+                case 5
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = 1;
+                    map_mat = zeros(1, obj.plant.dim);
+                    map_mat(1) = 1; % default setting, plot the reachable set of the first state versus time steps
+                    map_vec = []; % default setting
+                    color = 'blue';
+                    
+                case 6
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = varargin{6};
+                    map_mat = zeros(1, obj.plant.dim);
+                    map_mat(1) = 1; % default setting, plot the reachable set of the first state versus time steps
+                    map_vec = []; % default setting
+                    color = 'blue';
+                    
+                case 7
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = varargin{6};
+                    map_mat = varargin{7};
+                    map_vec = []; % default setting
+                    color = 'blue';
+                    
+                 case 8
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = varargin{6};
+                    map_mat = varargin{7};
+                    map_vec = varargin{8}; 
+                    color = 'blue';
+                    
+                case 9
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = varargin{6};
+                    map_mat = varargin{7};
+                    map_vec = varargin{8}; 
+                    color = varargin{9};
+                    
+                case 11
+                    
+                    obj = varargin{1};
+                    init_set1 = varargin{2};
+                    ref_input1 = varargin{3};
+                    numOfSteps = varargin{4};
+                    method1 = varargin{5};
+                    numCores1 = varargin{6};
+                    map_mat = varargin{7};
+                    map_vec = varargin{8}; 
+                    color = varargin{9};
+                    boundary_mat = varargin{10};
+                    boundary_vec = varargin{11};
+                    
+                    % Indication of unsafe behavior
+                    % The output: y = map_mat * x + map_vec 
+                    % The boundary of the output: y_b = boundary_mat * x + boundary_vec
+                    % Used to indicate whether a output y reach its unsafe
+                    % boundary, i.e. y == y_b?
+                    
+                    if (size(boundary_mat, 1) ~= size(map_mat, 1)) || (size(boundary_mat, 2) ~= size(map_mat, 2))
+                        error('The size of boundary matrix is not equal to the size of the map_mat, we require this for plotting unsafe boundary');
+                    end
+                    
+                    if (size(boundary_vec, 1) ~= size(boundary_mat, 1)) || (size(boundary_vec, 2) ~= 1) 
+                        error('Invalid boundary vector, it should have one column and have the same number of rows as the boundary matrix');                        
+                    end
+                    
+                    
+                otherwise 
+                    error('Invalid number of inputs, should be 3, 4, 5, 6, 7, 8, or 9');
+            end
+            
+            if ~isa(init_set1, 'Star')
+                error('Initial set is not a star set');
+            end
+            
+            if numCores1 < 1
+                error('Invalid number of cores used in computation');
+            end
+            
+            if ~strcmp(method1, 'exact-star') && ~strcmp(method1, 'approx-star')
+                error('Unknown reachability method, NNV currently supports exact-star and approx-star methods');
+            end
+            
+            if numOfSteps < 1
+                error('Invalid number of steps');
+            end
+            
+            
+            if ~isempty(ref_input1) && ~isa(ref_input1, 'Star') && size(ref_input1, 2) ~= 1 && size(ref_input1, 1) ~= obj.nI_ref
+                error('Invalid reference input vector');
+            end
+            
+                      
+            obj.ref_I = ref_input1;
+            obj.numCores = numCores1;
+            obj.method = method1; 
+            obj.init_set = init_set1;
+            
+            obj.plantReachSet = cell(numOfSteps, 1);
+            obj.controllerReachSet = cell(numOfSteps, 1);
+                
+            if obj.numCores > 1
+                obj.start_pool;
+            end
+            
+            t = tic; 
+            
+            for k=1:numOfSteps
+                
+                X = obj.plantStepReach(k);
+                
+                if strcmp(obj.method, 'exact-star')
+                
+                    obj.plantReachSet{k} = X;
+                
+                elseif strcmp(obj.method, 'approx-star')
+                    
+                    B = Star.get_hypercube_hull(X);
+                    obj.plantReachSet{k} = B.toStar; % combine all stars into a single over-approximate star
+                    
+                end
+                
+                obj.controllerReachSet{k} = obj.controllerStepReach(k); 
+                
+                % live plotting reachable set
+                
+                if size(map_mat, 1) == 1
+                    
+                    times = 0:1:k+1;
+                    
+                    if nargin == 11
+                        obj.plotStepOutputReachSets('red', boundary_mat, boundary_vec, k);
+                        hold on;
+                    end
+                    
+                    obj.plotStepOutputReachSets(color, map_mat, map_vec, k);
+                    pause(1.0);
+                    ax = gca;
+                    ax.XTick = times;
+                    hold on;
+                    
+                elseif (size(map_mat, 1) == 2) || (size(map_mat, 1) == 3)
+                    if nargin == 11
+                        obj.plotStepOutputReachSets('red', boundary_mat, boundary_vec, k);
+                        hold on;
+                    end
+                    obj.plotStepOutputReachSets(color, map_mat, map_vec, k);
+                    pause(1.0);
+                    hold on;
+                elseif size(indexes, 1) > 3
+                    error('NNV plots only three-dimensional output reachable set, please limit number of rows in map_mat <= 3');
+                end
+                    
                 
             end
             
@@ -240,6 +470,7 @@ classdef DLinearNNCS < handle
             end
             
             if k>1
+                
                 X0 = obj.plantReachSet{k-1};
                 U0 = obj.controllerReachSet{k-1};
                 
@@ -419,6 +650,54 @@ classdef DLinearNNCS < handle
             end
             
         end
+        
+        % get step output reachable set
+        function Y = getStepOutputReachSet(obj, map_mat, map_vec, k)
+            % @map_mat: a mapping matrix
+            % @map_vec: mapping vector
+            % Y = map_mat * X + map_vec
+            % @Y: a cell of output reach sets
+            % @k: step index
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            
+            if isempty(obj.plantReachSet )
+                error('Plant reach set is empty, please perform reachability analysis first');
+            end
+            
+            dim = obj.plant.dim; % dimension of the plant
+            
+            if size(map_mat, 2) ~= dim 
+                error('Inconsistency between map_mat and dimension of the plant, map_mat should have %d columns', dim);
+            end
+            
+            if size(map_mat, 1) > 3
+                error('Plot only <= 3 dimensional outputs, the maximum allowable number of rows in map_mat is 3');
+            end
+            
+            
+            if ~isempty(map_vec) && (size(map_vec, 2) ~= 1)
+                error('map vector should have one column');
+            end
+            
+            if ~isempty(map_vec) && (size(map_vec, 1) ~= size(map_mat, 1))
+                error('Inconsistent dimensions between map matrix and map vector');
+            end
+              
+            % get output reach sets
+          
+               
+            X = obj.plantReachSet{k};
+            m = length(X);
+            Y = [];
+            for i=1:m
+                Y = [Y X(i).affineMap(map_mat, map_vec)];
+            end
+
+                      
+        end
                      
             
     end
@@ -534,7 +813,6 @@ classdef DLinearNNCS < handle
                 Star.plotRanges_2D(X, x_id, T, color);
                 ax = gca; 
                 ax.XTick = T;
-                
             end
             
             if option == 2 % plot 2D reach set               
@@ -547,9 +825,10 @@ classdef DLinearNNCS < handle
                 map = zeros(2, dim);
                 map(1, x_id) = 1;
                 map(2, y_id) = 1;
-                                
+                
+                n = length(X);
                 Y = [];
-                for i=1:n+1
+                for i=1:n
                     Y = [Y X(i).affineMap(map, [])]; 
                 end
                 
@@ -569,8 +848,9 @@ classdef DLinearNNCS < handle
                 map(2, y_id) = 1;
                 map(3, z_id) = 1;
                 
+                n = length(X);
                 Y = [];
-                for i=1:n+1
+                for i=1:n
                     Y = [Y X(i).affineMap(map, [])]; 
                 end
                 
@@ -581,6 +861,7 @@ classdef DLinearNNCS < handle
             
             
         end
+        
         
         
         % plot controller reach sets
@@ -787,7 +1068,58 @@ classdef DLinearNNCS < handle
                 
                 Star.plots(G, color);
                 
-            end  
+            end
+            
+            if option > 3
+                error('We can plot only 3-dimensional output set, please limit the number of row of the mapping matrix to <= 3');
+            end
+            
+            
+        end
+        
+        
+        % plot step output reachable sets
+        function plotStepOutputReachSets(obj, color, map_mat, map_vec, k)
+            % @map_mat: a mapping matrix
+            % @map_vec: mapping vector
+            % Y = map_mat * X + map_vec
+            % @color: color
+            % @k: step index
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            
+            Y = obj.getStepOutputReachSet(map_mat, map_vec, k);
+            
+            n = length(Y);
+            
+            % plot output reach sets
+            
+            option = size(map_mat, 1);
+            
+                       
+            if option == 1 % plot 1D, output versus time steps
+                
+                B = Star.get_hypercube_hull(Y);
+                ymin = B.lb;
+                ymax = B.ub;
+                y = [ymin ymin ymax ymax ymin];
+                x = [k-1 k k k-1 k-1];
+                plot(x, y, color)
+
+            end
+            
+            if option == 2 || option == 3 % plot 2D or 3D
+                                
+                Star.plots(Y, color);
+                
+            end
+            
+            if option > 3
+                error('We can plot only 3-dimensional output set, please limit the number of row of the mapping matrix to <= 3');
+            end
+            
             
             
         end

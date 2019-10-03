@@ -90,60 +90,25 @@ ub = [x1(2); v_lead(2); internal_acc_lead(2); x_ego(2); v_ego(2); internal_acc_e
 init_set = Star(lb, ub);
 
 
-%% Reachability Analysis
+%% Live Reachability Analysis 1
 
 numSteps = 10; 
 method = 'exact-star';
-numCores = 1; 
-[R, reachTime] = ncs.reach(init_set, ref_input, numSteps, method, numCores);
+numCores = 1;
 
-
-
-%% Verification
-
-% safety property: actual distance > alpha * safe distance <=> d = x1 - x4  > alpha * d_safe = alpha * (1.4 * v_ego + 10)
-
-% usafe region: x1 - x4 <= alpha * (1.4 * v_ego + 10)
-alpha = 1;
-unsafe_mat = [1 0 0 -1 alpha*1.4 0 0];
-unsafe_vec = alpha*10; 
-[safe, counterExamples, verifyTime] = ncs.verify(unsafe_mat, unsafe_vec);
-
-%% Plot reach sets
-
+% plot on-the-fly the distance between two cars x1-x4 and the safe distance d_safe = D_default + t_gap * v_ego = 10 + 1.4 * x(5)
+output_mat = [1 0 0 -1 0 0 0]; % plot on-the-fly the distance between two cars x1 - x4 
+output_vec = [];
+boundary_mat = [0 0 0 0 1.4 0 0]; % plot on-the-fly the safe distance 
+boundary_vec = [10];
 figure;
-ncs.plotPlantReachSets('blue', 1); % plot position of lead car
-hold on;
-ncs.plotPlantReachSets('red',4); % plot position of ego car
-title('Position reach sets of lead car (blue) and ego car (red)');
+ncs.reachLive(init_set, ref_input, numSteps, method, numCores, output_mat, output_vec, 'blue', boundary_mat, boundary_vec);
 
+%% Live Reachability Analysis 2
+
+% plot on-the-fly the position and velocity of the lead car
+output_mat = [1 0 0 0 0 0 0; 0 1 0 0 0 0 0]; 
+output_vec = [];
 figure;
-ncs.plotPlantReachSets('blue', 2); % plot velocity of lead car
-hold on; 
-ncs.plotPlantReachSets('red', 5); % plot velocity of ego car
-title('Velocity reach sets of lead car (blue) and ego car (red)');
-
-figure; 
-ncs.plotControllerReachSets('green', 1); % plot control sets
-title('Controller reach sets');
-
-%% Plot output reach sets: actual distance vs. safe distance
-
-% plot reachable set of the distance between two cars d = x1 - x4
-figure; 
-map_mat = [1 0 0 -1 0 0 0];
-map_vec = [];
-ncs.plotOutputReachSets('blue', map_mat, map_vec);
-
-hold on;
-
-% plot safe distance between two cars: d_safe = D_default + t_gap * v_ego;
-% D_default = 10; t_gap = 1.4 
-% d_safe = 10 + 1.4 * x5; 
-
-map_mat = [0 0 0 0 1.4 0 0];
-map_vec = [10];
-
-ncs.plotOutputReachSets('red', map_mat, map_vec);
-title('Actual Distance versus. Safe Distance');
+ncs.reachLive(init_set, ref_input, numSteps, method, numCores, output_mat, output_vec, 'blue');
 

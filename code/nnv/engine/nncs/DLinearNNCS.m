@@ -44,7 +44,11 @@ classdef DLinearNNCS < handle
         numCores = 1; % default setting, using single core for computation
         ref_I = []; % reference input set
         init_set = []; % initial set for the plant
-        reachTime = 0; 
+        reachTime = 0;
+        
+        % for simulation
+        simTraces = {}; % simulation trace
+        controlTraces = {}; % control trace
         
     end
     
@@ -373,7 +377,7 @@ classdef DLinearNNCS < handle
                 error('Plant reach set is empty, please perform reachability analysis first');
             end
             
-            dim = size(obj.plant.A, 1); % dimension of the plant
+            dim = obj.plant.dim; % dimension of the plant
             
             if size(map_mat, 2) ~= dim 
                 error('Inconsistency between map_mat and dimension of the plant, map_mat should have %d columns', dim);
@@ -697,9 +701,7 @@ classdef DLinearNNCS < handle
                 map = zeros(2, dim);
                 map(1, x_id) = 1;
                 map(2, y_id) = 1;
-                
-                display(map);
-                
+                                
                 Y = [];
                 n = length(U);
                 for i=1:n
@@ -814,7 +816,7 @@ classdef DLinearNNCS < handle
                 error('Plant reachable set is empty, please do reachability analysis first');
             end
             
-            dim = size(obj.plant.A, 1); 
+            dim = obj.plant.dim; 
             
             if (size(unsafe_mat, 2) ~= dim) 
                 error('Inconsistent dimensions between the unsafe matrix and the plant');
@@ -831,7 +833,7 @@ classdef DLinearNNCS < handle
             X = obj.plantReachSet; 
             n = length(X);
             % flatten reach sets
-            Y = [];
+            Y = obj.init_set;
             for i=1:n
                 Y = [Y X{i}];
             end
@@ -882,6 +884,197 @@ classdef DLinearNNCS < handle
             
             verifyTime = toc(t);
             
+            
+        end
+        
+        
+        
+    end
+    
+    
+    methods %SIMULATION
+        
+        
+        % simulate the system
+        function [simTrace, controlTrace, simTime] = simulate(obj, init_state, ref_input, numSteps)
+           % @init_state: a vector of initial states
+           % @ref_input: a vector of reference inputs
+           % @numSteps: number of simulation steps
+           % @simTrace: simulation trace
+           % @controlTrace: control trace
+           % @simTime: simulation time
+           
+           % author: Dung Tran
+           % date: 10/2/2019
+           
+           t = tic;
+           
+           dim = obj.plant.dim; % dimension of the plant
+      
+           if size(init_state, 1) ~= dim
+               error('Inconsistent between init_state vector and plant dimension');
+           end
+           
+           if size(init_state, 2) ~= 1
+               error('Invalid init_state vector, should have one column');
+           end
+           
+           if ~isempty(ref_input) && (size(ref_input, 2) ~= 1)
+               error('Invalid ref_input vector, should have one column');
+           end
+           
+           if numSteps < 1
+               error('Invalid number of steps, should be >= 1');
+           end
+           
+           if ~isempty(ref_input) && (size(ref_input, 1) ~= obj.nI_ref)
+               error('Invalid ref_input vector, should have %d elements', obj.nI_ref);
+           end
+           
+           
+           simTrace = zeros(dim, numSteps + 1);
+           simTrace(:,1) = init_state;
+           controlTrace = zeros(obj.plant.nI, numSteps + 1);
+           controlTrace(:,1) = zeros(obj.plant.nI, 1);
+                     
+           for i=2:numSteps + 1
+               x = simTrace(:, i-1);
+               y = obj.plant.C * x;
+               y1 = [ref_input; y];
+               u = obj.controller.evaluate(y1);
+               simTrace(:, i) = obj.plant.A * x + obj.plant.B * u;
+               controlTrace(:,i) = u;
+           end
+           
+           obj.simTraces = [obj.simTraces; simTrace];
+           obj.controlTraces = [obj.controlTraces; controlTrace];
+           simTime = toc(t); 
+           
+        end
+        
+        
+        % generate a number of simulation traces, used for falsification
+        function [sim_Traces, control_Traces, genTime] = generateTraces(obj, init_set, ref_input, numSteps, N)
+            % @init_set: initial set of state, a star set
+            % @ref_input: reference input, a star set or a vector
+            % @numSteps: number of simulation steps
+            % @N: number of simulation traces need to be generated
+            % @sim_Traces: a cell of simulation traces
+            % @control_Traces: a cell of control traces
+            % @genTim: generating time
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            t = tic;
+            
+            if ~isa(init_set, 'Star')
+                error('Initial set is not a star set');
+            end
+            
+            if init_set.dim ~= obj.plant.dim
+                error('Inconsistent dimension between the initial set and the plant');
+            end
+            
+            if ~isa(ref_input, 'Star') && ~isempty(ref_input) && (size(ref_input, 2 ~= 1) && size(ref_input, 1) ~= obj.nI_ref)
+                error('Invalid ref_input, should be a star set, empty or a vector with %d elements', obj.nI_ref);
+            end
+            
+            
+            init_states = init_set.sample(N); % sample initial set of states 
+            
+            if isempty(ref_input)
+                
+                M = size(init_states, 2);
+                obj.simTraces = cell(M, 1); % reset simulation traces
+                obj.controlTraces = cell(M, 1); % reset control traces
+
+                for i=1:M
+                    [obj.simTraces{i}, obj.controlTraces{i}, ~] = obj.simulate(init_states(:,i), ref_input, numSteps);                
+                end                
+                
+            else
+                
+                if isa(ref_input, 'Star')
+                   ref_inputs = ref_input.sample(N); % sample reference inputs
+                else % ref_input is a vector
+                    ref_inputs = zeros(obj.nI_ref, N);
+                    for i=1:N
+                        ref_inputs(:, i) = ref_input;
+                    end
+                end
+                
+                 M = min(size(init_states, 2), size(ref_inputs, 2));
+                 obj.simTraces = cell(M, 1); % reset simulation traces
+                 obj.controlTraces = cell(M, 1); % reset control traces
+
+                 for i=1:M
+                     [obj.simTraces{i}, obj.controlTraces{i}, ~] = obj.simulate(init_states(:,i), ref_inputs(:,i), numSteps);                
+                 end              
+                
+            end
+                         
+            sim_Traces = obj.simTraces;
+            control_Traces = obj.controlTraces;
+            
+            genTime = toc(t);
+            
+
+        end
+        
+        
+    end
+    
+    
+    methods % PLOT SIMULATION TRACES
+        
+        function plotSimTraces(varargin)
+            % @index: index of the state needs to be plotted
+            % @color: color of trace
+            % @marker: marker for plot
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            switch nargin
+                
+                case 2
+                    obj = varargin{1};
+                    index = varargin{2};
+                    color = 'blue';
+                    markers = '-x';
+                case 3
+                    obj = varargin{1};
+                    index = varargin{2};
+                    color = varargin{3};
+                    markers = '-x';
+                case 4
+                    obj = varargin{1};
+                    index = varargin{2};
+                    color = varargin{3};
+                    markers = varargin{4};
+                otherwise
+                    error('Invalid number of inputs, should be 1, 2, or 3');
+            end
+                    
+            
+            if isempty(obj.simTraces)
+                error('simulation traces are empty, please do simulation first, i.e., run simulate method');
+            end
+            
+            n = length(obj.simTraces); % number of simulation traces
+            m = length(obj.simTraces{1}); % number of steps
+            
+            T = 1:m; 
+            
+            for i=1:n-1
+                simTrace = obj.simTraces{i};
+                plot(T, simTrace(index, :), markers, 'color', color);
+                hold on;                
+            end
+            
+            simTrace = obj.simTraces{n};
+            plot(T, simTrace(index, :), markers, 'color', color);
             
         end
         

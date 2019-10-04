@@ -1,5 +1,5 @@
 % Reachability analysis for Linear ACC model
-% Dung Tran: 9/30/2019
+% Dung Tran: 10/4/2019
 
 
 
@@ -35,8 +35,6 @@ D = [0; 0; 0];
 
 plant = LinearODE(A, B, C, D); % continuous plant model
 
-plantd = plant.c2d(0.1); % discrete plant model
-
 % the neural network provides a_ego control input to the plant
 % a_lead = -2 
 
@@ -57,5 +55,5 @@ Controller = FFNNS(Layers); % feedforward neural network controller
 
 %% NNCS 
 
-ncs = DLinearNNCS(Controller, plantd); % a discrete linear neural network control system
+ncs = LinearNNCS(Controller, plant); % a discrete linear neural network control system
 

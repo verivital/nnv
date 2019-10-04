@@ -7,7 +7,7 @@ classdef LinearNNCS < handle
     
     properties
         controller = []; % a feedfoward neural network
-        plant = []; % linear plant model, DLinearODE or LinearODE
+        plant = []; % linear plant model
         feedbackMap = []; % a feedback matrix decribes the mapping from a group of 
                           % outputs of the plant to a group of inputs of the controller
                           
@@ -39,7 +39,18 @@ classdef LinearNNCS < handle
         
         % for reachability analysis
         method = 'exact-star'; % by default
+        plantReachMethod = 'direct'; % by default, direct method, compute e^Ah
+        %                = 'ode45'  : using Ode45 solver
+        % Look at LinearODE class for the detail
+        
+        transPlant = [];  % a transformed plant for reachability analysis  
+        % A_new = [A B; 0 0]; C_new = [C 0]
+        % transPlant: dot{x_new} = A_new * x_new; y_new = C_new * x_new
+        
         plantReachSet = {};
+        plantIntermediateReachSet = {};
+        plantNumOfSimSteps = 100; % default number of simulation steps for the plant between two control step k-1 and k
+        controlPeriod = 0.1; % default control period
         controllerReachSet = {};
         numCores = 1; % default setting, using single core for computation
         ref_I = []; % reference input set
@@ -75,8 +86,8 @@ classdef LinearNNCS < handle
                 error('The controller is not a piecewise network, i.e., there exists a layer whose activation function is not piecewise linear');
             end
             
-            if ~isa(plant, 'DLinearODE')
-                error('The plant is not a discrete linear system');
+            if ~isa(plant, 'LinearODE')
+                error('The plant is not a linear system');
             end            
                         
             if plant.nO > controller.nI
@@ -93,6 +104,9 @@ classdef LinearNNCS < handle
             obj.nI = controller.nI; % number of input to the controller
             obj.nI_fb = plant.nO; % number of feedback inputs to the controller
             obj.nI_ref = controller.nI - obj.nI_fb; % number of reference inputs to the controller
+            new_A = [obj.plant.A obj.plant.B; zeros(obj.plant.nI, obj.plant.dim) zeros(obj.plant.nI, obj.plant.nI)];
+            new_C = [obj.plant.C zeros(obj.plant.nO, obj.plant.nI)];
+            obj.transPlant = LinearODE(new_A, [], new_C, []);
             
         end
         
@@ -451,9 +465,7 @@ classdef LinearNNCS < handle
             
             
         end
-        
-        
-        
+      
         
         % plant step reach for step k
         function X = plantStepReach(obj, k)
@@ -465,8 +477,16 @@ classdef LinearNNCS < handle
             
             
             
+            h = obj.controlPeriod/obj.plantNumOfSimSteps; % simulation timestep for the plant model 
             if k==1
-                X = obj.init_set.affineMap(obj.plant.A, []);
+                
+                % step 1: construct initial set for the transformed plant
+                new_V = [obj.init_set.V; zeros(obj.plant.nI, obj.init_set.nVar + 1)];
+                trans_init_set = Star(new_V, obj.init_set.C, obj.init_set.d, obj.init_set.predicate_lb, obj.init_set.predicate_ub);
+                % step 2: perform the reachability analysis for the time elapse in the first step    
+                obj.plantIntermediateReachSets{k} = obj.transPlant.simReach(obj.plantReachMethod, trans_init_set, [], h, obj.plantNumOfSimSteps, []);
+                X = obj.plantIntermediateReachSets{k}(obj.plantNumOfSimSteps + 1); 
+                
             end
             
             if k>1

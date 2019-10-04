@@ -52,7 +52,7 @@ classdef LinearODE
             obj.B = B;
             obj.C = C;
             obj.D = D;
-            obj.nI = mB;
+            obj.nI = size(B, 2);
             if ~isempty(C)
                 obj.nO = nC;
             end

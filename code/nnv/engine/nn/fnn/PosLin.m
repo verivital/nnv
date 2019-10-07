@@ -87,7 +87,7 @@ classdef PosLin
             % date: 27/2/2019
             
             [xmin, xmax] = I.getRange(index);
-            S = stepReach(I, index, xmin, xmax);
+            S = PosLin.stepReach(I, index, xmin, xmax);
  
         end
               

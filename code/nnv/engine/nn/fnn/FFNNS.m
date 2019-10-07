@@ -253,7 +253,7 @@ classdef FFNNS < handle
                 In = obj.Layers(i).reach(In, obj.reachMethod, obj.reachOption);
                 t1 = toc(st);
                 
-                obj.reachSet{1, i} = In;
+                %obj.reachSet{1, i} = In;
                 obj.reachTime = [obj.reachTime t1];
                 
                 fprintf('\nExact computation time: %.5f seconds', t1);               

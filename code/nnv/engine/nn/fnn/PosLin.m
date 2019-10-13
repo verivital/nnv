@@ -1042,7 +1042,7 @@ classdef PosLin
                 
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 
-                R = PosLin.reach_star_approx(I);
+                R = PosLin.reach_star_approx2(I);
                 
             elseif strcmp(method, 'approx-star-fast')  % over-approximate analysis using star
                 

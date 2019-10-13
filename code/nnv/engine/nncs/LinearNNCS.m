@@ -917,23 +917,32 @@ classdef LinearNNCS < handle
             
             Y = obj.getOutputReachSet(map_mat, map_vec);
             
-            n = length(Y);
+            n = length(Y); % number of control periods
             
             % plot output reach sets
             
             option = size(map_mat, 1);
             
             G = obj.init_set.affineMap(map_mat, map_vec);
-            
+            h = obj.controlPeriod / obj.plantNumOfSimSteps;
+                        
             if option == 1 % plot 1D, output versus time steps        
-                                
+                
                 for i=1:n
-                    G1 = Star.get_hypercube_hull(Y{i});
-                    G1 = G1.toStar;
-                    G = [G G1];
+                    Y1 = Y{i}; 
+                    [~, m1] = size(Y1); % m1 is number of simulation steps for the plant in one control step of the controller
+                    
+                    G1 = [];
+                    for j=1:m1
+                        G1 = [G1 Star.get_hypercube_hull(Y1{:, j})];
+                    end
+                    
+                    T1 = (i-1)*obj.controlPeriod:h:i*obj.controlPeriod;
+                    Star.plotRanges_2D(G1, 1, T1, color);
+                    hold on;
                 end
-                T = 0:1:n;
-                Star.plotRanges_2D(G, 1, T, color);
+                
+                T = 0:obj.controlPeriod:n*obj.controlPeriod;
                 ax = gca; 
                 ax.XTick = T;
                 

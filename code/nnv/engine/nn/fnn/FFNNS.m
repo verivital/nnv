@@ -7,6 +7,7 @@ classdef FFNNS < handle
     % Date: 27/2/2019
     
     properties
+        Name = 'net';
         Layers = []; % An array of Layers, eg, Layers = [L1 L2 ...Ln]
         nL = 0; % number of Layers
         nN = 0; % number of Neurons
@@ -17,12 +18,14 @@ classdef FFNNS < handle
         
         reachMethod = 'exact-star';    % reachable set computation scheme, default - 'star'
         reachOption = []; % parallel option, default - non-parallel computing
-        numCores = 0; % number of cores (workers) using in computation
+        numCores = 1; % number of cores (workers) using in computation
         inputSet = [];  % input set
         reachSet = [];  % reachable set for each layers
         outputSet = []; % output reach set
         reachTime = []; % computation time for each layers
-        totalReachTime = 0; % total computation time
+        totalReachTime = 0; % total computation time       
+        numSamples = 2000; % default number of samples using to falsify a property
+        unsafeRegion = []; % unsafe region of the network
         
     end
     
@@ -30,7 +33,19 @@ classdef FFNNS < handle
     methods % constructor, evaluation, sampling, print methods
         
         % constructor
-        function obj = FFNNS(Layers)
+        function obj = FFNNS(varargin)
+            
+            switch nargin
+                case 1
+                    Layers = varargin{1};
+                    name = 'net';
+                case 2 
+                    Layers = varargin{1};
+                    name = varargin{2};
+                otherwise
+                    error('Invalid number of inputs');
+            end
+            
             nL = size(Layers, 2); % number of Layer
             for i=1:nL
                 L = Layers(i);
@@ -50,6 +65,7 @@ classdef FFNNS < handle
             obj.nL = nL;    % number of layers
             obj.nI = size(Layers(1).W, 2); % number of inputs
             obj.nO = size(Layers(nL).W, 1); % number of outputs
+            obj.Name = name;
             
             nN = 0;
             for i=1:nL
@@ -223,9 +239,6 @@ classdef FFNNS < handle
             
             obj.reachSet = cell(1, obj.nL);
             obj.reachTime = [];
-            
-  
-
                         
             % compute reachable set
             In = obj.inputSet;
@@ -272,6 +285,105 @@ classdef FFNNS < handle
         
         
     end
+    
+    methods
+        
+        function [safe, vt, counterExamples] = verify(varargin)            
+            % 1: @I: input set, need to be a star set
+            % 2: @U: unsafe region, a set of HalfSpaces
+            % 3: @method: = 'star' -> compute reach set using stars
+            %            'abs-dom' -> compute reach set using abstract
+            %            domain (support in the future)
+            %            'face-latice' -> compute reach set using
+            %            face-latice (support in the future)
+            % 4: @numOfCores: number of cores you want to run the reachable
+            % set computation, @numOfCores >= 1, maximum is the number of
+            % cores in your computer.
+            
+            % 5: @n_samples : number of simulations used for falsification if
+            % using over-approximate reachability analysis, i.e.,
+            % 'approx-zono' or 'abs-dom' or 'abs-star'
+            % note: n_samples = 0 -> do not do falsification
+            
+            switch nargin
+                case 3
+                    obj = varargin{1};
+                    obj.inputSet = varargin{2};
+                    obj.unsafeRegion = varargin{3};
+                    
+                case 4
+                    obj = varargin{1};
+                    obj.inputSet = varargin{2};
+                    obj.unsafeRegion = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    
+                case 5
+                    obj = varargin{1};
+                    obj.inputSet = varargin{2};
+                    obj.unsafeRegion = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                case 6
+                    obj = varargin{1};
+                    obj.inputSet = varargin{2};
+                    obj.unsafeRegion = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.numSamples = varargin{6};
+                 
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, 4 or 5');
+            end
+            
+            t = tic; 
+            fprintf('\nPerform fasification with %d random simulations', obj.numSamples);
+            counterExamples = obj.falsify(obj.inputSet, obj.unsafeRegion, obj.numSamples);
+            
+            if ~isempty(counterExamples)
+                safe = 0;
+            else
+                fprintf('\nNo counter examples found, verify the safety using reachability analysis');
+                % perform reachability analysis
+                [R,~] = obj.reach(obj.inputSet, obj.reachMethod, obj.numCores);   
+                
+                if strcmp(obj.reachMethod, 'exact-star')
+                    
+                    n = length(R);
+                    counterExamples = [];
+                    
+                    for i=1:n
+                        if ~isempty(R(i).intersectHalfSpace(obj.unsafeRegion.G, obj.unsafeRegion.g))
+                            counterExamples = [counterExamples Star(obj.inputSet.V, R(i).C, R(i).d, R(i).predicate_lb, R(i).predicate_ub)];
+                        end
+                    end
+                    
+                    if isempty(counterExamples)
+                        safe = 1;
+                    else
+                        safe = 0;
+                    end
+                    
+                    
+                else
+                    if strcmp(obj.reachMethod, 'zono')
+                        R = R.toStar;
+                    end
+                    
+                    if isempty(R.intersectHalfSpace(obj.unsafeRegion.G, obj.unsafeRegion.g))
+                        safe = 1;
+                    else
+                        safe = 2;
+                    end
+                    
+                end
+                
+            end
+            
+            vt = toc(t);
+         
+        end
+    end
+    
     
     
     methods % checking safety method or falsify safety property

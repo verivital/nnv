@@ -92,7 +92,7 @@ init_set = Star(lb, ub);
 
 %% Live Reachability Analysis 1
 
-numSteps = 10; 
+numSteps = 15; 
 method = 'exact-star';
 numCores = 1;
 

@@ -384,6 +384,192 @@ classdef FFNNS < handle
         end
     end
     
+    methods % Input to Output Sensitivity
+        
+        function [maxSensInputId, maxSensVal] = getMaxSensitiveInput(obj, I, output_mat)
+            % @I: input, is a star set, or box, or zono
+            % @output_mat: output matrix, y = C*x, x is the output vector
+            % of the networks
+            % @maxSensInputId: the id of the input that is most sensitive
+            % with the output changes 
+            % @maxSensVal: percentage of sensitivity of all inputs
+            
+            % author: Dung Tran
+            % date: 10/19/2019
+            
+            
+            if ~isa(I, 'Box')
+                I1 = I.getBox;
+            else
+                I1 = I;
+            end
+            
+            if I1.dim ~= obj.nI
+                error('Inconsistency between the input set and the number of inputs in the networks');
+            end
+            
+            if obj.nO ~= size(output_mat, 2)
+                error('Inconsistency between the output matrix and the number of outputs of the networks');
+            end
+            
+            maxSensVal = zeros(1, obj.nI);
+            [R, ~] = obj.reach(I1.toZono, 'approx-zono');
+            R = R.affineMap(output_mat, []);
+            B = R.getBox;
+            max_rad = max(B.ub);
+            
+            for i=1:obj.nI
+                I2 = I1.singlePartition(i, 2); % partition into two boxes at index i
+                [R2, ~] = obj.reach(I2(1).toZono, 'approx-zono');
+                R2 = R2.affineMap(output_mat, []);
+                B2 = R2.getBox;
+                max_rad2 = max(B2.ub); 
+                maxSensVal(i) = (max_rad - max_rad2)/max_rad;
+            end
+            
+            [~,maxSensInputId] = max(maxSensVal);
+   
+        end
+        
+        
+        % depth first search for max sensitive inputs in partitioning
+        function [maxSensInputs, maxSensVals] = searchMaxSensInputs(obj, I, output_mat, k, maxSen_lb)
+            % @I: input, is a star set, or box, or zono
+            % @output_mat: output matrix, y = C*x, x is the output vector
+            %              of the networks
+            % @k: depth of search tree
+            % @maxSen_lb: the search is stop if the max sensitive value
+            %             is smaller than the maxSen_lb
+            
+            % @maxSensInputs: a sequence of input indexes that are most sensitive
+            %                 with the output changes 
+            % @maxSensVals: percentage of sensitivity corresponding to
+            %               above sequence of inputs
+          
+            
+            
+            % author: Dung Tran
+            % date: 10/19/2019
+            
+            if k < 1 
+                error('Invalid depth of search tree');
+            end
+            
+            if ~isa(I, 'Box')
+                error('Input is not a box');
+            end
+            
+            maxSensInputs = [];
+            maxSensVals = [];
+            for i=1:k
+                
+                if i==1
+                    
+                    [max_id, sens_vals] = obj.getMaxSensitiveInput(I, output_mat);
+                    maxSensInputs = [maxSensInputs max_id];
+                    maxSensVals = [maxSensVals max(sens_vals)];
+                    I1 = I; 
+                else
+                    I2 = I1.singlePartition(maxSensInputs(i-1), 2);
+                    I2 = I2(1); 
+                    [max_id, sens_vals] = obj.getMaxSensitiveInput(I2, output_mat);
+                    maxSensInputs = [maxSensInputs max_id];
+                    maxSensVals = [maxSensVals max(sens_vals)];
+                    I1 = I2;
+                end
+                
+                if ~isempty(maxSen_lb) && (maxSensVals(i) < maxSen_lb)
+                    maxSensInputs(i) = [];
+                    maxSensVals(i) = [];
+                    break;
+                end
+
+            end
+              
+        end
+        
+        
+        % verify safety property using max sensitivity guided (MSG) method       
+        function [safe, VT, counterExamples] = verify_MSG(obj, I, reachMethod, k, sens_lb, U)
+            % @I: input set, a box
+            % @reachMethod: reachability method
+            % @k: depth of search tree for max sensitive inputs
+            % @sens_lb: lowerbound of sensitive value
+            % @U: unsafe region, a halfspace object
+            % @safe: = 1: safe
+            %        = 2: unknown
+            %        = 0: unsafe
+           
+            % author: Dung Tran
+            % date: 10/20/2019
+                       
+            t = tic; 
+            [maxSensInputs, ~] = obj.searchMaxSensInputs(I, U.G, k, sens_lb);
+            n = length(maxSensInputs);
+            Is = I.partition(maxSensInputs, 2*ones(1, n, 'uint8'));           
+            I1 = []; % set of partitioned inputs
+            N = 2^n; % number of partitioned inputs
+            for i=1:N
+                
+                if strcmp(reachMethod, 'approx-zono')
+                    I1 = [I1 Is(i).toZono];
+                elseif strcmp(reachMethod, 'approx-star') || strcmp(reachMethod, 'abs-dom')
+                    I1 = [I1 Is(i).toStar];
+                else
+                    error('reachmethod should be approx-zono or approx-star or abs-dom');
+                end
+            end
+            
+            safe_vec = zeros(1, N);
+            unsafe_cand= [];
+            [R, ~] = obj.reach(I1, reachMethod); % perform reachability anlaysis
+            for i=1:N
+                S = R(i).intersectHalfSpace(U.G, U.g);
+                if isempty(S)
+                    safe_vec(i) = 1;
+                else
+                    safe_vec(i) = 2;
+                    unsafe_cand = [unsafe_cand i];
+                end
+ 
+            end
+
+            if sum(safe_vec) == N
+                safe = 1;
+                counterExamples = [];
+                fprintf('\nTHE NETWORK IS SAFE');
+            else
+                
+                n = length(unsafe_cand);
+                
+                counterExamples = [];
+                for i=1:n
+                    
+                    counterExamples = obj.falsify(I1(unsafe_cand(i)), U, 2000);
+                    if length(counterExamples) >= 1
+                        safe = 0;
+                        fprintf('\nTHE NETWORK IS UNSAFE');
+                        break;
+                    end
+                    
+                end
+                
+                if isempty(counterExamples)
+                    safe = 2; 
+                    fprintf('\nTHE SAFETY OF THE NETWORK IS UNKNOWN');
+                end
+                
+            end
+            
+            VT = toc(t);
+            
+            
+
+        end
+        
+    end
+    
+    
     
     
     methods % checking safety method or falsify safety property

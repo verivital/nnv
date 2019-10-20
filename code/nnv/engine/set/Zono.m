@@ -288,10 +288,20 @@ classdef Zono
             
             C = [eye(n);-eye(n)];
             d = [ones(n,1); ones(n,1)];
-            display(C);
-            display(d);
-            
             S = Star([obj.c obj.V], C, d, lb, ub);            
+        end
+        
+        % intersect with HalfSpace
+        function S = intersectHalfSpace(obj, H, g)
+            % @H: half space matrix
+            % @g: half space vector
+            % @S: intersection is a star
+            
+            % author: Dung Tran
+            % date: 10/20/2019
+            
+            S = obj.toStar;
+            S = S.intersectHalfSpace(H, g);            
         end
         
         % plot a zonotope

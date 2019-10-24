@@ -1,7 +1,0 @@
-
-======================================================
-VERIFICATION RESULTS FOR ACC WITH DISCRETE PLANT MODEL
-======================================================
-x_lead(0)        exact-star          approx-star    
-               safety  |  VT        safety  |  VT   
-[29 30]         |  0.000        SAFE  |  19.608   

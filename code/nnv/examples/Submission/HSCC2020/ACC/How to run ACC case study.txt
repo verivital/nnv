@@ -1,0 +1,32 @@
+
+NOTE***: To run ACC case study, we need to have CORA installed. 
+
+1) Install NNV: 
+
+        a) git clone --recursive https://github.com/verivital/nnv.git
+
+        b) go to ..code/nnv/ folder to run install.m
+
+2) Run ACC case study: 
+
+        a) Run ACC with discrete linear plant model: 
+
+           a1) using exact analysis: run  verify_discrete_ACC_exact_star.m
+
+               total runtime is about 5.5 hours
+
+           a2) using approximate analysis: run verify_discrete_ACC_approx_star.m
+
+               total runtime is about 4 minutes
+
+        b) Run ACC with nonlinear plant model using approx-star method
+
+           run verify_nonlinear_ACC.m 
+
+           total runtime is about 30 minutes
+
+NOTE***: 
+
+We use 4 cores for computation. If your computer does not have >= 4 cores
+
+Set numCores (or n_cores) parameter (default = 4) in the script to a suitable number 

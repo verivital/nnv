@@ -19,7 +19,7 @@ g = [-1.5];
 
 U = HalfSpace(G, g);
 
-n_samples = 500;
+n_samples = 1000;
 
 counter_inputs = F.falsify(I, U, n_samples);
 counter_outputs = F.sample(counter_inputs);

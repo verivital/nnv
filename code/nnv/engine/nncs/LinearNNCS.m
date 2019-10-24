@@ -105,7 +105,7 @@ classdef LinearNNCS < handle
             obj.nI_fb = plant.nO; % number of feedback inputs to the controller
             obj.nI_ref = controller.nI - obj.nI_fb; % number of reference inputs to the controller
             new_A = [obj.plant.A obj.plant.B; zeros(obj.plant.nI, obj.plant.dim) zeros(obj.plant.nI, obj.plant.nI)];
-            new_C = [obj.plant.C zeros(obj.plant.nO, obj.plant.nI)];
+            new_C = [eye(obj.plant.dim) zeros(obj.plant.dim, obj.plant.nI)];
             obj.transPlant = LinearODE(new_A, [], new_C, []);
             
         end
@@ -210,8 +210,9 @@ classdef LinearNNCS < handle
             obj.method = method1; 
             obj.init_set = init_set1;
             
-            obj.plantReachSet = cell(numOfSteps, 1);
-            obj.controllerReachSet = cell(numOfSteps, 1);
+            obj.plantReachSet = cell(1, numOfSteps);
+            obj.plantIntermediateReachSet = cell(1,numOfSteps);
+            obj.controllerReachSet = cell(1, numOfSteps);
                 
             if obj.numCores > 1
                 obj.start_pool;
@@ -484,9 +485,15 @@ classdef LinearNNCS < handle
                 new_V = [obj.init_set.V; zeros(obj.plant.nI, obj.init_set.nVar + 1)];
                 trans_init_set = Star(new_V, obj.init_set.C, obj.init_set.d, obj.init_set.predicate_lb, obj.init_set.predicate_ub);
                 % step 2: perform the reachability analysis for the time elapse in the first step    
-                obj.plantIntermediateReachSets{k} = obj.transPlant.simReach(obj.plantReachMethod, trans_init_set, [], h, obj.plantNumOfSimSteps, []);
-                X = obj.plantIntermediateReachSets{k}(obj.plantNumOfSimSteps + 1); 
                 
+                 X_imd_trans = obj.transPlant.simReach(obj.plantReachMethod, trans_init_set, [], h, obj.plantNumOfSimSteps, []);
+                 X_imd = [];
+                 for i=2:obj.plantNumOfSimSteps +1
+                     X_imd = [X_imd X_imd_trans(i).affineMap(obj.transPlant.C, [])];
+                 end
+                 obj.plantIntermediateReachSet{k} = cell(1,1);
+                 obj.plantIntermediateReachSet{k}{1,1} = X_imd;
+                 X = X_imd(obj.plantNumOfSimSteps);
             end
             
             if k>1
@@ -495,32 +502,30 @@ classdef LinearNNCS < handle
                 U0 = obj.controllerReachSet{k-1};
                 
                 nX = length(X0);
+                                                                
+                % compute exact reachable set of the continuous plant from t[k] to t[k+1] using star set
                 
                 X = [];
-                
-                % compute exact reachable set of a plant using star set
-                % X[k + 1] = A * X[k] + B * u[k]
-                
                 for i=1:nX
-                    
-                    V_X0 = obj.plant.A * X0(i).V;
-                    
+                                        
                     U0_i = U0{i}; % control set corresponding to the initial set of state X0(i)
-                    
                     mU = length(U0_i); % number of control sets corresponding to the initial set of state X0(i)
-                    
+                    obj.plantIntermediateReachSet{k} = cell(nX, mU);
                     for j=1:mU
-                        
-                        V_U0 = obj.plant.B * U0_i(j).V;
-                        
-                        X_ij = Star(V_X0 + V_U0, U0_i(j).C, U0_i(j).d, U0_i(j).predicate_lb, U0_i(j).predicate_ub);
-                        
-                        X = [X X_ij];
-                        
+                        new_V = [X0(i).V; U0_i(j).V];
+                        trans_init_set = Star(new_V, U0_i(j).C, U0_i(j).d, U0_i(j).predicate_lb, U0_i(j).predicate_ub);
+                        X_imd = obj.transPlant.simReach(obj.plantReachMethod, trans_init_set, [], h, obj.plantNumOfSimSteps, []);
+                        X1 = [];
+                        for l=2:obj.plantNumOfSimSteps + 1
+                            X1 = [X1 X_imd(l).affineMap(obj.transPlant.C, [])]; 
+                        end
+                        X = [X X1(obj.plantNumOfSimSteps)]; % store plant reach set at t[k], which is the initial set for the next control period t[k+1]
+                        obj.plantIntermediateReachSet{k}{i, j} = X1; % store intermediate plant reach set
                     end
+                                        
                     
                 end
-                                
+                                                
             end
         end
         
@@ -628,7 +633,7 @@ classdef LinearNNCS < handle
             % date: 10/2/2019
             
             
-            if isempty(obj.plantReachSet )
+            if isempty(obj.plantIntermediateReachSet )
                 error('Plant reach set is empty, please perform reachability analysis first');
             end
             
@@ -651,18 +656,23 @@ classdef LinearNNCS < handle
                 error('Inconsistent dimensions between map matrix and map vector');
             end
               
-            % get output reach sets
-          
-            n = length(obj.plantReachSet);
-            Y = cell(n, 1);
+            % get output reach sets          
+            n = length(obj.plantIntermediateReachSet);
+            Y = cell(1, n);
             for i=1:n
-                
-                Xi = obj.plantReachSet{i};
-                m = length(Xi);
-                Y1 = [];
-                for j=1:m
-                    Xij = Xi(j);
-                    Y1 = [Y1 Xij.affineMap(map_mat, map_vec)];
+                Xi = obj.plantIntermediateReachSet{i};
+                [n1, m1] = size(Xi);
+                Y1 = cell(n1, m1);
+                for j=1:n1
+                    for l=1:m1
+                        X1 = Xi{j, l};
+                        m2 = length(X1);
+                        X2 = [];
+                        for g=1:m2
+                            X2 = [X2 X1(g).affineMap(map_mat, map_vec)];
+                        end
+                        Y1{j, l} = X2;
+                    end
                 end
                 
                 Y{i} = Y1;
@@ -683,7 +693,7 @@ classdef LinearNNCS < handle
             % date: 10/2/2019
             
             
-            if isempty(obj.plantReachSet )
+            if isempty(obj.plantIntermediateReachSet )
                 error('Plant reach set is empty, please perform reachability analysis first');
             end
             
@@ -709,14 +719,21 @@ classdef LinearNNCS < handle
             % get output reach sets
           
                
-            X = obj.plantReachSet{k};
-            m = length(X);
-            Y = [];
-            for i=1:m
-                Y = [Y X(i).affineMap(map_mat, map_vec)];
+            X = obj.plantIntermediateReachSet{k};
+            [n1, m1] = size(X);
+            Y = cell(n1, m1);
+            for j=1:n1
+                for l=1:m1
+                    X1 = X{j, l};
+                    m2 = length(X1);
+                    X2 = [];
+                    for g=1:m2
+                        X2 = [X2 X1(g).affineMap(map_mat, map_vec)];
+                    end
+                    Y{j, l} = X2;
+                end
             end
-
-                      
+         
         end
                      
             
@@ -724,164 +741,6 @@ classdef LinearNNCS < handle
         
     
     methods % PLOT REACHABLE SETS
-        
-        
-        function plotPlantReachSets(varargin)
-            % @color: color
-            % @x_id: id of x state
-            % @y_id: id of y state
-            % @z_id: id of z state
-            
-            % if plot in 2D, set one of three ids = []
-            % if plot in 3D, three ids need to specified
-            % if plot in 1D, set two of three ids = []
-            % plot 1D: plot the ranges vs time steps
-            
-            % author: Dung Tran
-            % date: 10/2/2019
-            
-                       
-            switch nargin
-                
-                case 3
-                    obj = varargin{1};
-                    color = varargin{2};
-                    dim = size(obj.plant.A,1); % dimension of the plant
-                    x_id = varargin{3};
-                    
-                    if isempty(x_id) || x_id < 1 || x_id > dim
-                        error('Invalid x index');
-                    end
-                    
-                    option = 1; % plot range of the state with time steps 
-                    
-                case 4
-                    obj = varargin{1};
-                    color = varargin{2};
-                    dim = size(obj.plant.A,1); % dimension of the plant
-                    x_id = varargin{3};
-                    y_id = varargin{4};
-                    
-                    if isempty(x_id) || x_id < 1 || x_id > dim
-                        error('Invalid x index');
-                    end
-                    
-                    if isempty(y_id) || y_id < 1 || y_id > dim
-                        error('Invalid y index');
-                    end
-                    
-                    if y_id == x_id 
-                        error('x index and y index need to be different');
-                    end
-                    
-                    option = 2; % plot 2D reachable set of X = (x_id, y_id)
-                    
-                case 5
-                    obj = varargin{1};
-                    color = varargin{2};
-                    dim = size(obj.plant.A,1); % dimension of the plant
-                    x_id = varargin{3};
-                    y_id = varargin{4};
-                    z_id = varargin{5};
-                    
-                    if isempty(x_id) || x_id < 1 || x_id > dim
-                        error('Invalid x index');
-                    end
-                    
-                    if isempty(y_id) || y_id < 1 || y_id > dim
-                        error('Invalid y index');
-                    end
-                    
-                    if isempty(z_id) || z_id < 1 || z_id > dim
-                        error('Invalid z index');
-                    end
-                    
-                    if y_id == x_id 
-                        error('x index and y index need to be different');
-                    end
-                    
-                    if y_id == z_id 
-                        error('y index and z index need to be different');
-                    end
-                    
-                    if z_id == x_id 
-                        error('z index and x index need to be different');
-                    end
-                    
-                    option = 3; % plot 3D reachable sets of X = (x_id, y_id, z_id)
-            
-                otherwise
-                    error('Invalid number of inputs, should be 2, 3, or 4');
-            end
-            
-            
-            if isempty(obj.plantReachSet)
-                error('Plant Reach Set is empty, please perform reachability analysis first.');
-            end
-            
-            n = length(obj.plantReachSet); % number of steps
-                        
-            if option == 1 % plot ranges of specific state versus time steps
-                
-                X = obj.init_set;
-                for i=1:n
-                    X1 = Star.get_hypercube_hull(obj.plantReachSet{i});
-                    X1 = X1.toStar;
-                    X = [X X1];
-                end
-                T = 0:1:n;
-                Star.plotRanges_2D(X, x_id, T, color);
-                ax = gca; 
-                ax.XTick = T;
-            end
-            
-            if option == 2 % plot 2D reach set               
-                
-                X = obj.init_set; 
-                for i=1:n
-                    X = [X obj.plantReachSet{i}];
-                end
-                
-                map = zeros(2, dim);
-                map(1, x_id) = 1;
-                map(2, y_id) = 1;
-                
-                n = length(X);
-                Y = [];
-                for i=1:n
-                    Y = [Y X(i).affineMap(map, [])]; 
-                end
-                
-                Star.plots(Y, color);
-                
-            end
-            
-            if option == 3 % plot 3D reach set               
-                
-                X = obj.init_set; 
-                for i=1:n
-                    X = [X obj.plantReachSet{i}];
-                end
-                
-                map = zeros(3, dim);
-                map(1, x_id) = 1;
-                map(2, y_id) = 1;
-                map(3, z_id) = 1;
-                
-                n = length(X);
-                Y = [];
-                for i=1:n
-                    Y = [Y X(i).affineMap(map, [])]; 
-                end
-                
-                Star.plots(Y, color);
-                
-            end         
-            
-            
-            
-        end
-        
         
         
         % plot controller reach sets
@@ -1058,23 +917,32 @@ classdef LinearNNCS < handle
             
             Y = obj.getOutputReachSet(map_mat, map_vec);
             
-            n = length(Y);
+            n = length(Y); % number of control periods
             
             % plot output reach sets
             
             option = size(map_mat, 1);
             
             G = obj.init_set.affineMap(map_mat, map_vec);
-            
+            h = obj.controlPeriod / obj.plantNumOfSimSteps;
+                        
             if option == 1 % plot 1D, output versus time steps        
-                                
+                
                 for i=1:n
-                    G1 = Star.get_hypercube_hull(Y{i});
-                    G1 = G1.toStar;
-                    G = [G G1];
+                    Y1 = Y{i}; 
+                    [~, m1] = size(Y1); % m1 is number of simulation steps for the plant in one control step of the controller
+                    
+                    G1 = [];
+                    for j=1:m1
+                        G1 = [G1 Star.get_hypercube_hull(Y1{:, j})];
+                    end
+                    
+                    T1 = (i-1)*obj.controlPeriod:h:i*obj.controlPeriod;
+                    Star.plotRanges_2D(G1, 1, T1, color);
+                    hold on;
                 end
-                T = 0:1:n;
-                Star.plotRanges_2D(G, 1, T, color);
+                
+                T = 0:obj.controlPeriod:n*obj.controlPeriod;
                 ax = gca; 
                 ax.XTick = T;
                 

@@ -48,6 +48,88 @@ classdef Box
                 
         end
         
+        % single partition of a box
+        function Bs = singlePartition(obj, part_id, part_num)
+            % @part_id: index of the state being partitioned
+            % @part_num: number of partition
+            
+            % author: Dung Tran
+            % date: 10/19/2019
+            
+            if part_id < 1 || part_id > obj.dim
+                error('Invalid partition index');
+            end
+            
+            if part_num < 1
+                error('Invalid partition number');
+            end
+            
+            if part_num == 1
+                Bs = obj;
+            else
+                del = (obj.ub(part_id) - obj.lb(part_id))/part_num;
+                
+                Bs = [];
+                
+                for i=1:part_num
+                    new_lb = obj.lb;
+                    new_ub = obj.ub;                    
+                    new_lb(part_id) = obj.lb(part_id) + (i-1)*del;
+                    new_ub(part_id) = new_lb(part_id) + del;
+                    Bs = [Bs Box(new_lb, new_ub)];
+                end
+                
+            end
+
+        end
+        
+        % partition a box into smaller boxes
+        function Bs = partition(obj, part_indexes, part_numbers)
+            % @part_indexes: the indexes of the states being
+            %                    partitioned, an 1D array
+            % @part_numbers: the number of partitions at specific
+            %                    index, an 1D array
+            
+            % author: Dung Tran
+            % date: 10/19/2019
+            
+            [n1, m1] = size(part_indexes); 
+            [n2, m2] = size(part_numbers); 
+            
+            if (n1 ~= 1 || n2 ~= 1)
+                error('Invalid part_indexes or part_numbers array, should have one row');
+            end
+            
+            if m1 ~= m2
+                error('Inconsistent between part_indexes and part_number array, should have the same number of elements');
+            end
+            
+            for i=1:m1
+                if ((part_indexes(i) < 1) || (part_indexes(i) > obj.dim))
+                    error('The %d^th index in part_indexes array is invalid', i);
+                end
+                                
+                if part_numbers(i) < 1
+                    error('The %d^th number in part_numbers array is invalid', i);
+                end                
+            end
+            
+            Bs = [];
+            B1 = obj; 
+            for i=1:m1             
+                n = length(B1);
+                B2 = [];
+                for j=1:n
+                    B2 = [B2 B1(j).singlePartition(part_indexes(i), part_numbers(i))];
+                end
+                B1 = B2;                
+            end
+            
+            Bs = B1;
+
+        end
+        
+        
         % affine mapping of a box
         
         function B = affineMap(obj, W, b)
@@ -159,6 +241,7 @@ classdef Box
                       
         end
         
+        % partition a box into smaller boxes
         
     end
     

@@ -609,7 +609,8 @@ classdef Star
             
             if isempty(obj.C) || isempty(obj.d) % star set is just a vector (one point)
                 lb = obj.V(:, 1);
-                ub = obj.V(:, 1);
+                ub = obj.V(:, 1);               
+                B = Box(lb, ub);
 
             else % star set is a set
                 

@@ -1132,15 +1132,21 @@ classdef DLinearNNCS < handle
     methods % VERIFICATION METHOD
         
         
-        function [safe, counterExamples, verifyTime] = verify(obj, unsafe_mat, unsafe_vec)
+        function [safe, counterExamples, verifyTime] = verify(obj,init_set, ref_input, numSteps, method, numCores, unsafe_mat, unsafe_vec)
+            % @init_set: initial set
+            % @ref_input: reference input
+            % @numSteps: number of steps
+            % @method: method for reachability analysis
+            % @numCores: number of cores used in reachability analysis
             % @unsafe_mat: unsafe matrix
             % @unsafe_vec: unsafe vector            
-            % Usafe region is defined by: x: unsafe_mat * x <= unsafe_vec
+            % Usafe region is defined by: y: unsafe_mat * x <= unsafe_vec
             
-            % @safe: = 0: unsafe
-            %        = 1: safe
-            %        = 2: unknown (due to conservativeness)
-            % @counterExamples: an array of star set counterExamples
+            % @safe: = unsafe
+            %        = safe
+            %        = unknown (due to conservativeness)
+            % @counterExamples: an array of star set counterExamples or
+            %                   falsified input points
             % @verifyTime: verification time
             
             % author: Dung Tran
@@ -1148,10 +1154,7 @@ classdef DLinearNNCS < handle
             
             
             t = tic; 
-            if isempty(obj.plantReachSet)
-                error('Plant reachable set is empty, please do reachability analysis first');
-            end
-            
+                       
             dim = obj.plant.dim; 
             
             if (size(unsafe_mat, 2) ~= dim) 
@@ -1166,6 +1169,8 @@ classdef DLinearNNCS < handle
                 error('Inconsistent dimension between unsafe matrix and unsafe vector');
             end
             
+            % perform reachability analysis
+            obj.reach(init_set, ref_input, numSteps, method, numCores);             
             X = obj.plantReachSet; 
             n = length(X);
             % flatten reach sets
@@ -1185,12 +1190,12 @@ classdef DLinearNNCS < handle
             end
             
             if isempty(G)
-                safe = 1;
+                safe = 'SAFE';
                 counterExamples = [];
             else
                 
                 if strcmp(obj.method, 'exact-star')
-                    safe = 0;
+                    safe = 'UNSAFE';
                     % construct a set of counter examples                    
                     n = length(G);
                     counterExamples = [];
@@ -1198,22 +1203,21 @@ classdef DLinearNNCS < handle
                         C1 = Star(obj.init_set.V, G(i).C, G(i).d, G(i).predicate_lb, G(i).predicate_ub);
                         counterExamples = [counterExamples C1];
                     end
-                    
-                    
+
                 elseif strcmp(obj.method, 'approx-star')
-                    safe = 2; % unknown due to over-approximation error, we can try using simulation to falsify the property
-                    counterExamples = [];
+                    % use 1000 simulations to falsify the property
+                    [safe, counterExamples, ~] = obj.falsify(init_set, ref_input, numSteps, 1000, unsafe_mat, unsafe_vec);
                 end
             
             
             end
             
             
-            if safe == 0
+            if strcmp(safe, 'UNSAFE')
                 fprintf('\n\nThe neural network control system is unsafe, NNV produces %d star sets of counter-examples', n);
-            elseif safe == 1
+            elseif strcmp(safe, 'SAFE')
                 fprintf('\n\nThe neural network control system is safe');
-            elseif safe == 2
+            elseif strcmp(safe, 'UNKNOWN')
                 fprintf('\n\n The safety of the neural network control system is unknown');
                 fprintf('\nYou can try falsification method using simulation to find counter-examples');
             end
@@ -1439,14 +1443,10 @@ classdef DLinearNNCS < handle
             
             t = tic;
             
-            display(N);
-            
             obj.generateTraces(init_set, ref_input, numSteps, N);
                        
             n = length(obj.simTraces);
-            
-            display(n);
-            
+                        
             m = size(obj.simTraces{1}, 2);
             
             U = HalfSpace(unsafe_mat, unsafe_vec);
@@ -1464,10 +1464,10 @@ classdef DLinearNNCS < handle
             end
             
             if isempty(obj.falsifyTraces)
-                safe = 2;
+                safe = 'UNKNOWN';
                 fprintf('The safety of the system is unknown, try increase the number of simulation traces to find counter examples');
             else
-                safe = 0;
+                safe = 'UNSAFE';
                 fprintf('The system is unsafe, %d falsified traces are found', length(obj.falsifyTraces));
             end
             

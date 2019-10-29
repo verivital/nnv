@@ -67,8 +67,6 @@ run_all_tests(dir_results, disabledTests, i_d) % add directory for results input
 
 'after all tests run'
 
-return
-
 'start nncs tests'
 cd /code/nnv/examples/NNCS/InvertedPendulum;
 reach_inverted_pendulum_control_sys;

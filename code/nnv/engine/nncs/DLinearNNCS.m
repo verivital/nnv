@@ -138,7 +138,7 @@ classdef DLinearNNCS < handle
                     init_set1 = varargin{2};
                     ref_input1 = varargin{3};
                     numOfSteps = varargin{4};
-                    method1 = 'exact-star';
+                    method1 = 'approx-star';
                     numCores1 = 1;
                                
                 case 5
@@ -261,7 +261,7 @@ classdef DLinearNNCS < handle
                     init_set1 = varargin{2};
                     ref_input1 = varargin{3};
                     numOfSteps = varargin{4};
-                    method1 = 'exact-star';
+                    method1 = 'approx-star';
                     numCores1 = 1;
                     map_mat = zeros(1, obj.plant.dim);
                     map_mat(1) = 1; % default setting, plot the reachable set of the first state versus time steps

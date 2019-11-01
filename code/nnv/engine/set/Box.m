@@ -213,6 +213,12 @@ classdef Box
             Z = Zono(obj.center, obj.generators);
         end
         
+        % get Range
+        function [lb, ub] = getRange(obj)
+            lb = obj.lb;
+            ub = obj.ub;
+        end
+        
         % get all vertices of the box
         function V = getVertices(obj)
             % author: Dung Tran

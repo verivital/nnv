@@ -1082,12 +1082,21 @@ classdef LinearNNCS < handle
                  for i=2:obj.plantNumOfSimSteps + 1
                      
                      B = Star.get_hypercube_hull(Y{i});
-                     Star.plots(B.toStar, color);
+                     if option == 2
+                        Star.plotBoxes_2D_noFill(B.toStar, 1, 2, color);
+                     else
+                        Star.plotBoxes_3D_noFill(B.toStar, 1, 2, 3, color);
+                     end
                      hold on;
                     
                      if ~isempty(US)
                          B = Star.get_hypercube_hull(US{i});
-                         Star.plots(B.toStar, 'red');
+                          if option == 2                             
+                              Star.plotBoxes_2D_noFill(B.toStar, 1, 2, 'red');
+                          else
+                              Star.plotBoxes_3D_noFill(B.toStar, 1, 2, 3, 'red');
+                          end
+                          
                          hold on;
                      end
                      pause(0.25);

@@ -7,6 +7,7 @@ classdef FFNNS < handle
     % Date: 27/2/2019
     
     properties
+        Name = 'net';
         Layers = []; % An array of Layers, eg, Layers = [L1 L2 ...Ln]
         nL = 0; % number of Layers
         nN = 0; % number of Neurons
@@ -17,12 +18,14 @@ classdef FFNNS < handle
         
         reachMethod = 'exact-star';    % reachable set computation scheme, default - 'star'
         reachOption = []; % parallel option, default - non-parallel computing
-        numCores = 0; % number of cores (workers) using in computation
+        numCores = 1; % number of cores (workers) using in computation
         inputSet = [];  % input set
         reachSet = [];  % reachable set for each layers
         outputSet = []; % output reach set
         reachTime = []; % computation time for each layers
-        totalReachTime = 0; % total computation time
+        totalReachTime = 0; % total computation time       
+        numSamples = 2000; % default number of samples using to falsify a property
+        unsafeRegion = []; % unsafe region of the network
         
     end
     
@@ -30,7 +33,19 @@ classdef FFNNS < handle
     methods % constructor, evaluation, sampling, print methods
         
         % constructor
-        function obj = FFNNS(Layers)
+        function obj = FFNNS(varargin)
+            
+            switch nargin
+                case 1
+                    Layers = varargin{1};
+                    name = 'net';
+                case 2 
+                    Layers = varargin{1};
+                    name = varargin{2};
+                otherwise
+                    error('Invalid number of inputs');
+            end
+            
             nL = size(Layers, 2); % number of Layer
             for i=1:nL
                 L = Layers(i);
@@ -50,6 +65,7 @@ classdef FFNNS < handle
             obj.nL = nL;    % number of layers
             obj.nI = size(Layers(1).W, 2); % number of inputs
             obj.nO = size(Layers(nL).W, 1); % number of outputs
+            obj.Name = name;
             
             nN = 0;
             for i=1:nL
@@ -85,6 +101,25 @@ classdef FFNNS < handle
                 In = obj.Layers(i).sample(In);
             end          
             Y = In;
+        end
+        
+        % check if all activation functions are piece-wise linear
+        function b = isPieceWiseNetwork(obj)
+            % author: Dung Tran
+            % date: 9/30/2019
+            
+            n = obj.nL; 
+            
+            b = 1; 
+            for i=1:obj.nL
+                f = obj.Layers(i).f;                
+                if ~strcmp(f, 'poslin') && ~strcmp(f, 'purelin') && ~strcmp(f, 'satlin') && ~strcmp(f, 'satlins')
+                    b = 0;
+                    return;
+                end
+                              
+            end
+            
         end
         
         
@@ -204,9 +239,6 @@ classdef FFNNS < handle
             
             obj.reachSet = cell(1, obj.nL);
             obj.reachTime = [];
-            
-  
-
                         
             % compute reachable set
             In = obj.inputSet;
@@ -234,7 +266,7 @@ classdef FFNNS < handle
                 In = obj.Layers(i).reach(In, obj.reachMethod, obj.reachOption);
                 t1 = toc(st);
                 
-                obj.reachSet{1, i} = In;
+                %obj.reachSet{1, i} = In;
                 obj.reachTime = [obj.reachTime t1];
                 
                 fprintf('\nExact computation time: %.5f seconds', t1);               
@@ -253,6 +285,521 @@ classdef FFNNS < handle
         
         
     end
+    
+    methods
+        
+        function [safe, vt, counterExamples] = verify(varargin)            
+            % 1: @I: input set, need to be a star set
+            % 2: @U: unsafe region, a set of HalfSpaces
+            % 3: @method: = 'star' -> compute reach set using stars
+            %            'abs-dom' -> compute reach set using abstract
+            %            domain (support in the future)
+            %            'face-latice' -> compute reach set using
+            %            face-latice (support in the future)
+            % 4: @numOfCores: number of cores you want to run the reachable
+            % set computation, @numOfCores >= 1, maximum is the number of
+            % cores in your computer.
+            
+            % 5: @n_samples : number of simulations used for falsification if
+            % using over-approximate reachability analysis, i.e.,
+            % 'approx-zono' or 'abs-dom' or 'abs-star'
+            % note: n_samples = 0 -> do not do falsification
+            
+            switch nargin
+                case 3
+                    obj = varargin{1};
+                    obj.inputSet = varargin{2};
+                    obj.unsafeRegion = varargin{3};
+                    
+                case 4
+                    obj = varargin{1};
+                    obj.inputSet = varargin{2};
+                    obj.unsafeRegion = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    
+                case 5
+                    obj = varargin{1};
+                    obj.inputSet = varargin{2};
+                    obj.unsafeRegion = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                case 6
+                    obj = varargin{1};
+                    obj.inputSet = varargin{2};
+                    obj.unsafeRegion = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.numSamples = varargin{6};
+                 
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, 4 or 5');
+            end
+            
+            t = tic; 
+            fprintf('\nPerform fasification with %d random simulations', obj.numSamples);
+            counterExamples = obj.falsify(obj.inputSet, obj.unsafeRegion, obj.numSamples);
+            
+            if ~isempty(counterExamples)
+                safe = 0;
+            else
+                fprintf('\nNo counter examples found, verify the safety using reachability analysis');
+                % perform reachability analysis
+                [R,~] = obj.reach(obj.inputSet, obj.reachMethod, obj.numCores);   
+                
+                if strcmp(obj.reachMethod, 'exact-star')
+                    
+                    n = length(R);
+                    counterExamples = [];
+                    
+                    for i=1:n
+                        if ~isempty(R(i).intersectHalfSpace(obj.unsafeRegion.G, obj.unsafeRegion.g))
+                            counterExamples = [counterExamples Star(obj.inputSet.V, R(i).C, R(i).d, R(i).predicate_lb, R(i).predicate_ub)];
+                        end
+                    end
+                    
+                    if isempty(counterExamples)
+                        safe = 1;
+                    else
+                        safe = 0;
+                    end
+                    
+                    
+                else
+                    if strcmp(obj.reachMethod, 'zono')
+                        R = R.toStar;
+                    end
+                    
+                    if isempty(R.intersectHalfSpace(obj.unsafeRegion.G, obj.unsafeRegion.g))
+                        safe = 1;
+                    else
+                        safe = 2;
+                    end
+                    
+                end
+                
+            end
+            
+            vt = toc(t);
+         
+        end
+    end
+    
+    methods % Input to Output Sensitivity
+        
+        function [maxSensInputId, maxSensVal] = getMaxSensitiveInput(obj, I, output_mat)
+            % @I: input, is a star set, or box, or zono
+            % @output_mat: output matrix, y = C*x, x is the output vector
+            % of the networks
+            % @maxSensInputId: the id of the input that is most sensitive
+            % with the output changes 
+            % @maxSensVal: percentage of sensitivity of all inputs
+            
+            % author: Dung Tran
+            % date: 10/19/2019
+            
+            
+            if ~isa(I, 'Box')
+                I1 = I.getBox;
+            else
+                I1 = I;
+            end
+            
+            if I1.dim ~= obj.nI
+                error('Inconsistency between the input set and the number of inputs in the networks');
+            end
+            
+            if obj.nO ~= size(output_mat, 2)
+                error('Inconsistency between the output matrix and the number of outputs of the networks');
+            end
+            
+            maxSensVal = zeros(1, obj.nI);
+            [R, ~] = obj.reach(I1.toZono, 'approx-zono');
+            R = R.affineMap(output_mat, []);
+            B = R.getBox;
+            max_rad = max(B.ub);
+            
+            for i=1:obj.nI
+                I2 = I1.singlePartition(i, 2); % partition into two boxes at index i
+                [R2, ~] = obj.reach(I2(1).toZono, 'approx-zono');
+                R2 = R2.affineMap(output_mat, []);
+                B2 = R2.getBox;
+                max_rad2 = max(B2.ub); 
+                maxSensVal(i) = (max_rad - max_rad2)/max_rad;
+            end
+            
+            [~,maxSensInputId] = max(maxSensVal);
+   
+        end
+        
+        
+        function Is = partitionInput_MSG(obj, I, U)
+            % @I: input, is a star set, or box, or zono
+            % @U: unsafe region, a HalfSpace object
+            % @Is: two partitioned inputs, the last one is close to the
+            %      unsafe region
+            
+            % author: Dung Tran
+            % date: 10/19/2019
+            
+            
+            if ~isa(I, 'Box')
+                I1 = I.getBox;
+            else
+                I1 = I;
+            end
+            
+            if I1.dim ~= obj.nI
+                error('Inconsistency between the input set and the number of inputs in the networks');
+            end
+            
+            if ~isa(U, 'HalfSpace')
+                error('Unsafe region is not a HalfSpace object');
+            end
+            
+            if obj.nO ~= size(U.G, 2)
+                error('Inconsistency between the output matrix and the number of outputs of the networks');
+            end
+            
+            maxSensVal = zeros(1, obj.nI);
+            [R, ~] = obj.reach(I1.toZono, 'approx-zono');
+            R = R.affineMap(U.G, -U.g);
+            B = R.getBox;
+            max_rad = max(B.ub);
+            
+            for i=1:obj.nI
+                I2 = I1.singlePartition(i, 2); % partition into two boxes at index i
+                [R2, ~] = obj.reach(I2(1).toZono, 'approx-zono');
+                R2 = R2.affineMap(U.G, -U.g);
+                B2 = R2.getBox;
+                max_rad2 = max(B2.ub); 
+                maxSensVal(i) = (max_rad - max_rad2)/max_rad;
+            end
+            
+            [~,maxSensInputId] = max(maxSensVal);
+            
+            I1 = I.partition(maxSensInputId, 2); 
+            R1 = obj.reach(I1(1).toZono, 'approx-zono');
+            R1 = R1.affineMap(U.G, -U.g);
+            B1 = R1.getBox;
+            max_y1 = max(B1.ub);
+            R2 = obj.reach(I1(2).toZono, 'approx-zono');
+            R2 = R2.affineMap(U.G, -U.g);
+            B2 = R2.getBox;
+            max_y2 = max(B2.ub);
+            
+            if max_y1 <= max_y2
+                Is = [I1(2) I1(1)];
+            else
+                Is = [I1(1) I1(2)];
+            end
+            
+            
+            
+   
+        end
+        
+        
+        % depth first search for max sensitive inputs in partitioning
+        function [maxSensInputs, maxSensVals] = searchMaxSensInputs(obj, I, output_mat, k, maxSen_lb)
+            % @I: input, is a star set, or box, or zono
+            % @output_mat: output matrix, y = C*x, x is the output vector
+            %              of the networks
+            % @k: depth of search tree
+            % @maxSen_lb: the search is stop if the max sensitive value
+            %             is smaller than the maxSen_lb
+            
+            % @maxSensInputs: a sequence of input indexes that are most sensitive
+            %                 with the output changes 
+            % @maxSensVals: percentage of sensitivity corresponding to
+            %               above sequence of inputs
+          
+            
+            
+            % author: Dung Tran
+            % date: 10/19/2019
+            
+            if k < 1 
+                error('Invalid depth of search tree');
+            end
+            
+            if ~isa(I, 'Box')
+                error('Input is not a box');
+            end
+            
+            maxSensInputs = [];
+            maxSensVals = [];
+            for i=1:k
+                
+                if i==1
+                    
+                    [max_id, sens_vals] = obj.getMaxSensitiveInput(I, output_mat);
+                    maxSensInputs = [maxSensInputs max_id];
+                    maxSensVals = [maxSensVals max(sens_vals)];
+                    I1 = I; 
+                else
+                    I2 = I1.singlePartition(maxSensInputs(i-1), 2);
+                    I2 = I2(1); 
+                    [max_id, sens_vals] = obj.getMaxSensitiveInput(I2, output_mat);
+                    maxSensInputs = [maxSensInputs max_id];
+                    maxSensVals = [maxSensVals max(sens_vals)];
+                    I1 = I2;
+                end
+                
+                if ~isempty(maxSen_lb) && (maxSensVals(i) < maxSen_lb)
+                    maxSensInputs(i) = [];
+                    maxSensVals(i) = [];
+                    break;
+                end
+
+            end
+              
+        end
+        
+        
+        % verify safety property using max sensitivity guided (MSG) method       
+        function [safe, VT, counterExamples] = verify_MSG(obj, I, reachMethod, k, sens_lb, U)
+            % @I: input set, a box
+            % @reachMethod: reachability method
+            % @k: depth of search tree for max sensitive inputs
+            % @sens_lb: lowerbound of sensitive value
+            % @U: unsafe region, a halfspace object
+            % @safe: = 1: safe
+            %        = 2: unknown
+            %        = 0: unsafe
+           
+            % author: Dung Tran
+            % date: 10/20/2019
+                       
+            t = tic; 
+            [maxSensInputs, ~] = obj.searchMaxSensInputs(I, U.G, k, sens_lb);
+            n = length(maxSensInputs);
+            Is = I.partition(maxSensInputs, 2*ones(1, n));           
+            I1 = []; % set of partitioned inputs
+            N = 2^n; % number of partitioned inputs
+            for i=1:N                
+                if strcmp(reachMethod, 'approx-zono')
+                    I1 = [I1 Is(i).toZono];
+                elseif strcmp(reachMethod, 'approx-star') || strcmp(reachMethod, 'abs-dom')
+                    I1 = [I1 Is(i).toStar];
+                else
+                    error('reachmethod should be approx-zono or approx-star or abs-dom');
+                end
+            end
+            
+            safe_vec = zeros(1, N);
+            [R, ~] = obj.reach(I1, reachMethod); % perform reachability anlaysis
+            for i=1:N
+                S = R(i).intersectHalfSpace(U.G, U.g);
+                if isempty(S)
+                    safe_vec(i) = 1;
+                else
+                    counterExamples = obj.falsify(I1(i), U, 1);
+                    if length(counterExamples) >= 1
+                        safe_vec(i) = 0;
+                        break;
+                    else
+                        safe_vec(i) = 2;
+                    end
+                end
+            end
+            
+            if sum(safe_vec) == N
+                safe = 'SAFE';
+                counterExamples = [];
+                fprintf('\nTHE NETWORK IS SAFE');
+            else
+                
+                if ~isempty(counterExamples)
+                    safe = 'UNSAFE';
+                    fprintf('\nTHE NETWORK IS UNSAFE');
+                else
+                    safe = 'UNKNOWN';
+                    fprintf('\nTHE SAFETY OF THE NETWORK IS UNKNOWN');
+                end
+
+            end
+            
+            VT = toc(t);
+            
+        end
+        
+        
+        % get counter input candidate after a single partition using MSG
+        function counterInputCand = getStepCounterInputCand_MSG(obj, I, U)
+            % @I: input, is a star set, or box, or zono
+            % @output_mat: output matrix, y = C*x, x is the output vector
+            %              of the networks
+            % @k: 
+            % @maxSensInputId: the id of the input that is most sensitive
+            %                  with the output changes
+            % @counterInputCand: counter input candidate
+            
+            % author: Dung Tran
+            % date: 10/20/2019
+            
+            
+            if ~isa(I, 'Box')
+                I1 = I.getBox;
+            else
+                I1 = I;
+            end
+            
+            if I1.dim ~= obj.nI
+                error('Inconsistency between the input set and the number of inputs in the networks');
+            end
+            
+            if obj.nO ~= size(U.G, 2)
+                error('Inconsistency between the unsafe region and the number of outputs of the networks');
+            end
+            
+            maxSensVal = zeros(1, obj.nI);
+
+            [R, ~] = obj.reach(I1.toZono, 'approx-zono');
+            R = R.affineMap(U.G, -U.g);
+            B = R.getBox;
+            max_rad = max(B.ub - B.lb);
+            
+            for i=1:obj.nI
+                I2 = I1.singlePartition(i, 2); % partition into two boxes at index i
+                [R1, ~] = obj.reach(I2(1).toZono, 'approx-zono');
+                R1 = R1.affineMap(U.G, -U.g);
+                B1 = R1.getBox;                             
+                max_rad1 = max(B1.ub - B1.lb); 
+                maxSensVal(i) = (max_rad - max_rad1)/max_rad;
+            end
+            
+            [~,maxSensInputId] = max(maxSensVal);
+            
+            I2 = I1.singlePartition(maxSensInputId, 2);
+            [R1, ~] = obj.reach(I2(1).toZono, 'approx-zono');
+            R1 = R1.affineMap(U.G, -U.g);
+            B1 = R1.getBox;                             
+            max_y1 = max(B1.ub);
+            
+            [R2, ~] = obj.reach(I2(2).toZono, 'approx-zono');
+            R2 = R2.affineMap(U.G, -U.g);
+            B2 = R2.getBox;                             
+            max_y2 = max(B2.ub);
+            
+            if max_y1 <= max_y2
+                counterInputCand = I2(1);
+            else
+                counterInputCand = I2(2);
+            end
+
+            
+        end
+        
+        
+        % Depth First Search for Counter Input Candidate
+        function counterInputCand = searchCounterInputCand_MSG(obj, I, U, k)
+            % @I: input, is a star set, or box, or zono
+            % @U: unsafe region of the networks
+            % @k: depth of search tree
+            % @maxSensInputId: the id of the input that is most sensitive
+            %                  with the output changes
+            % @counterInputCand: counter input candidate
+            
+            % author: Dung Tran
+            % date: 10/20/2019
+            
+            if k < 1
+                error('depth of search tree should be >= 1');
+            end
+            
+            counterInputCand = I; 
+            for i=1:k
+                counterInputCand = obj.getStepCounterInputCand_MSG(counterInputCand, U);
+            end
+
+        end
+        
+        
+        % Depth First Seach for Falsification using Maximum Sensitive
+        % Guided Method
+        
+        function  counterInputs = falsify_MSG(obj, I, U)
+            % @I: input set, is a box          
+            % @U: unsafe region, a halfspace object
+            % @counterExamples: counter example inputs
+            
+            % author: Dung Tran
+            % date: 10/20/2019
+            
+            
+            
+        end
+        
+        
+        function [safe, VT, counterInputs] = verify_MSG2(obj, I, U)
+            % @I: input set, is a box          
+            % @U: unsafe region, a halfspace object
+            % @counterExamples: counter example inputs
+            
+            % author: Dung Tran
+            % date: 10/20/2019
+            
+            t = tic;
+            if ~isa(I, 'Box')
+                error('Input is not a Box');
+            end
+            
+            if I.dim ~= obj.nI
+                error('Inconsistency between input set and the number of network inputs');
+            end
+            
+            if ~isa(U, 'HalfSpace')
+                error('Unsafe region is not a HalfSpace Class');
+            end
+            
+            if size(U.G, 2) ~= obj.nO
+                error('Inconsistent between the Unsafe region and the number of outputs of the network');
+            end
+            
+            I0 = I; % a queue to store number of partitioned input sets
+            safe = 'SAFE';
+            counterInputs = [];
+            while ~isempty(I0) 
+                n = length(I0); 
+                I1 = I0(n); % pop the last input set in the queue
+                I0(n) = []; 
+                [R, ~] = obj.reach(I1.toZono, 'approx-zono');
+                S = R.intersectHalfSpace(U.G, U.g);                
+                if ~isempty(S)                    
+                    y1 = obj.evaluate(I1.lb);
+                    y2 = obj.evaluate(I1.ub);
+                    y3 = obj.evaluate(0.5*(I1.lb + I1.ub));                  
+                    ys = [];
+                    if U.contains(y1)
+                        ys = [ys y1];
+                    end
+                    if U.contains(y2)
+                        ys = [ys y2];
+                    end
+                    if U.contains(y3)
+                        ys = [ys y3];
+                    end                    
+                    if ~isempty(ys)
+                        safe = 'UNSAFE';
+                        counterInputs = ys;
+                        break;
+                    else
+                        I0 = [I0 obj.partitionInput_MSG(I1, U)]; % put new partitioned input into the queue
+                    end 
+                end
+                
+                
+
+            end
+            
+            VT = toc(t);
+            
+            
+        end
+        
+    end
+    
+    
     
     
     methods % checking safety method or falsify safety property
@@ -451,10 +998,14 @@ classdef FFNNS < handle
             
             counter_inputs = [];
             
-            if ~isa(I, 'Star')
-                error('Input set is not a star set');
+            if isa(I, 'Zono') || isa(I, 'Box')
+                I1 = I.toStar;
+            elseif isa(I, 'Star')
+                I1 = I;
+            else
+                error('Unknown set representation');
             end
-            
+                        
             m = length(U);
             
             for i=1:m
@@ -468,7 +1019,7 @@ classdef FFNNS < handle
                 error('Invalid number of samples');
             end
             
-            V = I.sample(n_samples);
+            V = I1.sample(n_samples);
             
             n = size(V, 2); % number of samples 
            

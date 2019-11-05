@@ -46,5 +46,12 @@ F.print('F_approx_zono.info'); % print all information to a file
 [R4, ~] = F.reach(I, 'abs-dom'); % approximate reach set using abstract domain
 F.print('F_abs_dom.info'); % print all information to a file
 
+
+% NOTE ********
+% we just found out that I made a mistake of copying a wrong the outputSet.mat file for this property. 
+% the Zonotope, abstract-domain and approx-star cannot prove the safety
+% property for this network which is wrongly stated in the FM2019 paper. We are sorry about this mistake
+% Dung Tran: 10/11/2019
+
 save outputSet.mat R1 R2 R3 R4;
 

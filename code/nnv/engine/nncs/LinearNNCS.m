@@ -260,9 +260,8 @@ classdef LinearNNCS < handle
             
         end
         
-        
-        
         % live reachability analysis, plot reachable set on the fly
+        % produce video for the analysis
         function [R, reachTime] = reachLive(varargin)
             % @init_set: initial set of state, a star set
             % @ref_input: reference input, may be a vector or a star set
@@ -278,204 +277,184 @@ classdef LinearNNCS < handle
             
             % author: Dung Tran
             % date: 10/1/2019
+            % update: 11/6/2019
             
+            obj = varargin{1};
+            option.initSet = [];
+            option.refInput = [];
+            option.reachMethod = 'approx-star';
+            option.numCores = 1;
+            option.plantNumOfSimSteps = 20;
+            map_mat = zeros(1, obj.plant.dim);
+            map_mat(1) = 1;
+            option.outputMatrix = map_mat;
+            option.outputVector = [];
+            option.OuputSetColor = 'blue';
+            option.boundaryMatrix = [];
+            option.boundaryVector = [];
+            option.boundarySetColor = 'red'; 
+            option.figureTitle = 'Reachable Sets';
+            option.figureXLabel = '';
+            option.figureYLabel = '';
+            option.videoRecord = true;
+            option.videoName = 'reachVideo';
+            option.videoFrameRate = 4; % frame per second
             
-            switch nargin
-                
-                case 4
-                    
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = 'approx-star';
-                    numCores1 = 1;
-                    numOfSimSteps = 20; % number of simulation steps used for platn reachability analysis
-                    map_mat = zeros(1, obj.plant.dim);
-                    map_mat(1) = 1; % default setting, plot the reachable set of the first state versus time steps
-                    map_vec = []; % default setting
-                    color = 'blue';
-                    boundary_mat = [];
-                    boundary_vec = [];
-                    
-                                        
-                case 5
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = varargin{5};
-                    numCores1 = 1;
-                    numOfSimSteps = 20; % number of simulation steps used for platn reachability analysis
-                    map_mat = zeros(1, obj.plant.dim);
-                    map_mat(1) = 1; % default setting, plot the reachable set of the first state versus time steps
-                    map_vec = []; % default setting
-                    color = 'blue';
-                    boundary_mat = [];
-                    boundary_vec = [];
-                    
-                case 6
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = varargin{5};
-                    numCores1 = varargin{6};
-                    numOfSimSteps = 20; % number of simulation steps used for platn reachability analysis
-                    map_mat = zeros(1, obj.plant.dim);
-                    map_mat(1) = 1; % default setting, plot the reachable set of the first state versus time steps
-                    map_vec = []; % default setting
-                    color = 'blue';
-                    boundary_mat = [];
-                    boundary_vec = [];
-                    
-                case 7
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = varargin{5};
-                    numCores1 = varargin{6};
-                    numOfSimSteps = 20; % number of simulation steps used for platn reachability analysis
-                    map_mat = varargin{7};
-                    map_vec = []; % default setting
-                    color = 'blue';
-                    boundary_mat = [];
-                    boundary_vec = [];
-                    
-                 case 8
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    numOfSimSteps = 20; % number of simulation steps used for platn reachability analysis
-                    method1 = varargin{5};
-                    numCores1 = varargin{6};
-                    map_mat = varargin{7};
-                    map_vec = varargin{8}; 
-                    color = 'blue';
-                    boundary_mat = [];
-                    boundary_vec = [];
-                    
-                    
-                case 9
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    numOfSimSteps = 20; % number of simulation steps used for platn reachability analysis
-                    method1 = varargin{5};
-                    numCores1 = varargin{6};
-                    map_mat = varargin{7};
-                    map_vec = varargin{8}; 
-                    color = varargin{9};
-                    boundary_mat = [];
-                    boundary_vec = [];
-                    
-                case 11
-                    
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    numOfSimSteps = 20; % number of simulation steps used for platn reachability analysis
-                    method1 = varargin{5};
-                    numCores1 = varargin{6};
-                    map_mat = varargin{7};
-                    map_vec = varargin{8}; 
-                    color = varargin{9};
-                    boundary_mat = varargin{10};
-                    boundary_vec = varargin{11};
-                    
-                    % Indication of unsafe behavior
-                    % The output: y = map_mat * x + map_vec 
-                    % The boundary of the output: y_b = boundary_mat * x + boundary_vec
-                    % Used to indicate whether a output y reach its unsafe
-                    % boundary, i.e. y == y_b?
-                    
-                    if (size(boundary_mat, 1) ~= size(map_mat, 1)) || (size(boundary_mat, 2) ~= size(map_mat, 2))
-                        error('The size of boundary matrix is not equal to the size of the map_mat, we require this for plotting unsafe boundary');
-                    end
-                    
-                    if (size(boundary_vec, 1) ~= size(boundary_mat, 1)) || (size(boundary_vec, 2) ~= 1) 
-                        error('Invalid boundary vector, it should have one column and have the same number of rows as the boundary matrix');                        
-                    end
-                    
-                    
-                    case 12
-                    
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = varargin{5};
-                    numCores1 = varargin{6};
-                    map_mat = varargin{7};
-                    map_vec = varargin{8}; 
-                    color = varargin{9};
-                    boundary_mat = varargin{10};
-                    boundary_vec = varargin{11};
-                    numOfSimSteps = varargin{12}; % number of simulation steps used for platn reachability analysis
-                    
-                    % Indication of unsafe behavior
-                    % The output: y = map_mat * x + map_vec 
-                    % The boundary of the output: y_b = boundary_mat * x + boundary_vec
-                    % Used to indicate whether a output y reach its unsafe
-                    % boundary, i.e. y == y_b?
-                    
-                    if (size(boundary_mat, 1) ~= size(map_mat, 1)) || (size(boundary_mat, 2) ~= size(map_mat, 2))
-                        error('The size of boundary matrix is not equal to the size of the map_mat, we require this for plotting unsafe boundary');
-                    end
-                    
-                    if (size(boundary_vec, 1) ~= size(boundary_mat, 1)) || (size(boundary_vec, 2) ~= 1) 
-                        error('Invalid boundary vector, it should have one column and have the same number of rows as the boundary matrix');                        
-                    end
-                    
-                    
-                    
-                otherwise 
-                    error('Invalid number of inputs, should be 3, 4, 5, 6, 7, 8, or 9');
+            n = length(varargin);
+            if n < 4
+                error('Not enough inputs for analysis');
             end
             
-            if ~isa(init_set1, 'Star')
+            option.initSet = varargin{2};
+            if ~isa(option.initSet, 'Star')
                 error('Initial set is not a star set');
             end
             
-            if numCores1 < 1
-                error('Invalid number of cores used in computation');
-            end
-            
-            if ~strcmp(method1, 'exact-star') && ~strcmp(method1, 'approx-star')
-                error('Unknown reachability method, NNV currently supports exact-star and approx-star methods');
-            end
-            
-            if numOfSteps < 1
-                error('Invalid number of steps');
-            end
-            
-            
-            if ~isempty(ref_input1) && ~isa(ref_input1, 'Star') && size(ref_input1, 2) ~= 1 && size(ref_input1, 1) ~= obj.nI_ref
+            option.refInput = varargin{3};
+            if ~isempty(option.refInput) && ~isa(option.refInput, 'Star') && size(option.refInput, 2) ~= 1 && size(option.refInput, 1) ~= obj.nI_ref
                 error('Invalid reference input vector');
             end
             
+            option.numOfSteps = varargin{4};
+            if option.numOfSteps < 1
+                error('Invalid number of control steps');
+            end
+ 
+            for i=5:n
+                if ischar(varargin{i})
+                    
+                    % parse reach method
+                    if strcmp(varargin{i}, 'reachMethod')                       
+                        if ~strcmp(varargin{i+1}, 'approx-star') || ~strcmp(varargin{i+1}, 'exact-star')
+                            error('Unknown reachability method');
+                        else
+                            option.reachMethod = varargin{i+1};
+                        end
+                    end
+                                        
+                    % parse numCores
+                    if strcmp(varargin{i}, 'numCores')
+                        if varargin{i+1} < 1 
+                            error('Invalid number of cores used for computation');
+                        else
+                            option.numCores = varargin{i+1};
+                        end
+                    end
+                    
+                    % parse plantNumOfSimSteps
+                    if strcmp(varargin{i}, 'plantNumOfSimSteps')
+                        if varargin{i+1} < 1 
+                            error('Invalid number of simulation steps for reachability of the plant');
+                        else
+                            option.plantNumOfSimSteps = varargin{i+1};
+                        end
+                    end
+                    
+                    % parse output matrix
+                    if strcmp(varargin{i}, 'outputMatrix')
+                        if ~ismatrix(varargin{i+1}) 
+                            error('Invalid output Matrix');
+                        else 
+                            option.outputMatrix = varargin{i+1};
+                        end
+                    end
+                    
+                    % parse output vector
+                    if strcmp(varargin{i}, 'outputVector')
+                        if ~ismatrix(varargin{i+1}) 
+                            error('Invalid output Vector');
+                        else 
+                            option.outputVector = varargin{i+1};
+                        end
+                    end
+                    
+                    % parse boundary matrix
+                    if strcmp(varargin{i}, 'boundaryMatrix')
+                        if ~ismatrix(varargin{i+1}) 
+                            error('Invalid boundary Matrix');
+                        else 
+                            option.boundaryMatrix = varargin{i+1};
+                        end
+                    end
+                    
+                    % parse boundary matrix
+                    if strcmp(varargin{i}, 'boundaryVector')
+                        if ~ismatrix(varargin{i+1}) 
+                            error('Invalid boundary Vector');
+                        else 
+                            option.boundaryVector = varargin{i+1};
+                        end
+                    end
+                    
+                    % parse outputReachSet color
+                    if strcmp(varargin{i}, 'outputSetColor')
+                        option.outputSetColor = varargin{i+1};
+                    end
+                    
+                    % parse boundaryReachSet color
+                    if strcmp(varargin{i}, 'boudarySetColor')
+                        option.boundarySetColor = varargin{i+1};
+                    end
+                    
+                    % parse figureTitle
+                    if strcmp(varargin{i}, 'figureTitle')
+                        option.figureTitle = varargin{i+1};
+                    end
+                    
+                     % parse figureXLabel
+                    if strcmp(varargin{i}, 'figureXLabel')
+                        option.figureXLabel = varargin{i+1};
+                    end
+                    
+                    
+                    % parse figureYLabel
+                    if strcmp(varargin{i}, 'figureYLabel')
+                        option.figureYLabel = varargin{i+1};
+                    end
+                    
+                    % parse videoRecord
+                    if strcmp(varargin{i}, 'videoRecord')
+                        option.videoRecord = varargin{i+1};
+                    end
+                    
+                    % parse videoName
+                    if strcmp(varargin{i}, 'videoName')
+                        option.videoName = varargin{i+1};
+                    end
+                    
+                    % parse videoFrameRate
+                    if strcmp(varargin{i}, 'videoFrameRate')
+                        option.videoFrameRate = varargin{i+1};
+                    end
+                    
+                end
+
+            end
                       
-            obj.ref_I = ref_input1;
-            obj.numCores = numCores1;
-            obj.method = method1; 
-            obj.init_set = init_set1;
+            obj.ref_I = option.refInput;
+            obj.numCores = option.numCores;
+            obj.method = option.reachMethod; 
+            obj.init_set = option.initSet;
             
-            obj.plantNumOfSimSteps = numOfSimSteps;
-            obj.plantReachSet = cell(numOfSteps, 1);
-            obj.controllerReachSet = cell(numOfSteps, 1);
+            obj.plantNumOfSimSteps = option.plantNumOfSimSteps;
+            obj.plantReachSet = cell(option.plantNumOfSimSteps, 1);
+            obj.controllerReachSet = cell(option.plantNumOfSimSteps, 1);
             
                 
             if obj.numCores > 1
                 obj.start_pool;
             end
             
+            
+            if option.videoRecord                
+                option.reachVideo = VideoWriter(option.videoName); % Name it.
+                option.reachVideo.FrameRate = option.videoFrameRate; % How many frames per second.
+                open(option.reachVideo);
+            end
+
             t = tic; 
             
-            for k=1:numOfSteps
+            for k=1:option.numOfSteps
                 
                 X = obj.plantStepReach(k);
                 
@@ -496,21 +475,38 @@ classdef LinearNNCS < handle
                 
                 if size(map_mat, 1) == 1
                     
-                    times = 0: obj.controlPeriod: k*obj.controlPeriod;
-                    obj.plotStepOutputReachSets(color, map_mat, map_vec, boundary_mat, boundary_vec, k);
+                    obj.plotStepOutputReachSets(option, k);
+                    
+                    N = fix(k/10);
+                   
+                    if N == 0
+                        times = 0: obj.controlPeriod: k*obj.controlPeriod;
+                    else
+                        times = 0: N*obj.controlPeriod: k*obj.controlPeriod;
+                    end
                     ax = gca;
                     ax.XTick = times;
-                    hold on;
-                    
+                    hold on;      
+                                        
                 elseif (size(map_mat, 1) == 2) || (size(map_mat, 1) == 3)
                     
-                    obj.plotStepOutputReachSets(color, map_mat, map_vec, boundary_mat, boundary_vec, k);
+                    obj.plotStepOutputReachSets(option, k);
                     
                 elseif size(indexes, 1) > 3
                     error('NNV plots only three-dimensional output reachable set, please limit number of rows in map_mat <= 3');
                 end
-                    
                 
+                 % make video
+                if option.videoRecord
+                    frame = getframe(gcf); % 'gcf' can handle if you zoom in to take a movie.
+                    writeVideo(option.reachVideo, frame);
+                end   
+                
+
+            end
+            
+            if option.videoRecord
+                close(option.reachVideo);
             end
             
             reachTime = toc(t);
@@ -521,7 +517,6 @@ classdef LinearNNCS < handle
             
             
         end
-      
         
         % plant step reach for step k
         function X = plantStepReach(obj, k)
@@ -1018,10 +1013,10 @@ classdef LinearNNCS < handle
         
         
         % plot step output reachable sets
-        function plotStepOutputReachSets(obj, color, map_mat, map_vec, unsafe_mat, unsafe_vec, k)
-            % @map_mat: a mapping matrix
-            % @map_vec: mapping vector
-            % Y = map_mat * X + map_vec
+        function plotStepOutputReachSets(obj, option, k)
+            % @out_mat: a mapping matrix
+            % @out_vec: mapping vector
+            % Y = out_mat * X + out_vec
             % @unsafe_mat: unsafe region matrix
             % @unsafe_vec: unsafe region vector
             % @color: color
@@ -1032,23 +1027,22 @@ classdef LinearNNCS < handle
             % update: 11/2/2019
             
             
-            Y = obj.getStepOutputReachSet(map_mat, map_vec, k); % output set at step k
+            Y = obj.getStepOutputReachSet(option.outputMatrix, option.outputVector, k); % output set at step k
             
-            if ~isempty(unsafe_mat) && ~isempty(unsafe_vec)               
-                US = obj.getStepOutputReachSet(unsafe_mat, unsafe_vec, k); % unsafe region output
+            if ~isempty(option.boundaryMatrix) && ~isempty(option.boundaryVector)               
+                US = obj.getStepOutputReachSet(option.boundaryMatrix, option.boundaryVector, k); % unsafe region output
             else
                 US = [];
             end
             
             h = obj.controlPeriod / obj.plantNumOfSimSteps;
-            n = length(Y);
-            
+                       
             % plot output reach sets
             
-            option = size(map_mat, 1);
+            Dim = size(option.outputMatrix, 1);
             
                        
-            if option == 1 % plot 1D, output versus time steps
+            if Dim == 1 % plot 1D, output versus time steps
 
                for i=2:obj.plantNumOfSimSteps + 1
                     B = Star.get_hypercube_hull(Y{i});
@@ -1058,7 +1052,7 @@ classdef LinearNNCS < handle
                     xmin = (k-1)*obj.controlPeriod + (i-2)*h;
                     xmax = xmin + h;
                     x = [xmin xmax xmax xmin xmin];
-                    plot(x, y, color);
+                    plot(x, y, option.outputSetColor);
                     hold on;
                     
                     if ~isempty(US)
@@ -1069,33 +1063,68 @@ classdef LinearNNCS < handle
                         xmin = (k-1)*obj.controlPeriod + (i-2)*h;
                         xmax = xmin + h;
                         x = [xmin xmax xmax xmin xmin];
-                        plot(x, y, 'red');                       
+                        plot(x, y, option.boundarySetColor);
+                        
                     end
+                    
+                    ax = gca;
+                    title(option.figureTitle);
+                    xlabel(ax, option.figureXLabel);
+                    ylabel(ax, option.figureYLabel);         
+                    
                     pause(0.25);
+                     % make video
+                    if option.videoRecord
+                        frame = getframe(gcf); % 'gcf' can handle if you zoom in to take a movie.
+                        writeVideo(option.reachVideo, frame);
+                    end   
+                    
+                    
                     
                end                    
 
             end
             
-            if option == 2 || option == 3 % plot 2D or 3D
+            if Dim == 2 || Dim == 3 % plot 2D or 3D
                 
                  for i=2:obj.plantNumOfSimSteps + 1
                      
                      B = Star.get_hypercube_hull(Y{i});
-                     Star.plots(B.toStar, color);
+                     if option == 2
+                        Star.plotBoxes_2D_noFill(B.toStar, 1, 2, option.outputSetColor);
+                     else
+                        Star.plotBoxes_3D_noFill(B.toStar, 1, 2, 3, option.outputSetColor);
+                     end
                      hold on;
                     
                      if ~isempty(US)
                          B = Star.get_hypercube_hull(US{i});
-                         Star.plots(B.toStar, 'red');
+                          if option == 2                             
+                              Star.plotBoxes_2D_noFill(B.toStar, 1, 2, option.boundarySetColor);
+                          else
+                              Star.plotBoxes_3D_noFill(B.toStar, 1, 2, 3, option.boundarySetColor);
+                          end
                          hold on;
                      end
+                     
+                     ax = gca;
+                     title(option.figureTitle);
+                     xlabel(ax, option.figureXLabel);
+                     ylabel(ax, option.figureYLabel); 
+                     
                      pause(0.25);
+                     
+                      % make video
+                     if option.videoRecord
+                         frame = getframe(gcf); % 'gcf' can handle if you zoom in to take a movie.
+                         writeVideo(option.reachVideo, frame);
+                     end                
+                     
                  end       
                 
             end
             
-            if option > 3
+            if Dim > 3
                 error('We can plot only 3-dimensional output set, please limit the number of row of the mapping matrix to <= 3');
             end
             

@@ -90,11 +90,11 @@ init_set = Star(lb, ub);
 
 %% Live Reachability Analysis 1
 
-numSteps = 4; 
+numSteps = 10; 
 method = 'approx-star';
 %method = 'exact-star';
 numCores = 1;
-plantNumOfSimSteps = 10;
+plantNumOfSimSteps = 20;
 % plot on-the-fly the distance between two cars x1-x4 and the safe distance d_safe = D_default + t_gap * v_ego = 10 + 1.4 * x(5)
 output_mat = [1 0 0 -1 0 0 0]; % plot on-the-fly the distance between two cars x1 - x4 
 output_vec = [];

@@ -41,54 +41,54 @@ nnv can be executed online without installing Matlab or other dependencies throu
 </figure>
 
 <figure>
-    <img src="images/reachSetP4.png" width="600" height="400"> <figcaption>Exact reachable set of a ACAS Xu network</figcaption>
+    <img src="code/images/reachSetP4.png" width="600" height="400"> <figcaption>Exact reachable set of a ACAS Xu network</figcaption>
 </figure>
 
 <figure>
-    <img src="images/verificationTime.png" width="400" height="300"  > <figcaption>Verification time (VT) can be reduced by increasing the number of cores (N) </figcaption>
+    <img src="code/images/verificationTime.png" width="400" height="300"  > <figcaption>Verification time (VT) can be reduced by increasing the number of cores (N) </figcaption>
 </figure>
 
 <figure>
-    <img src="images/reachSetP4s.png"> <figcaption>Reachable set of a ACAS Xu network with different methods</figcaption>
+    <img src="code/images/reachSetP4s.png"> <figcaption>Reachable set of a ACAS Xu network with different methods</figcaption>
 </figure>
 
 2) NNV can construct and visualize the complete counter inputs of feedforward neural networks with ReLU/Saturation activation functions.
 
 <figure>
-    <img src="images/counterInputSet.png" width="600" height="300"> <figcaption>An Complete Set of Counter Inputs of a ACASXu network</figcaption>
+    <img src="code/images/counterInputSet.png" width="600" height="300"> <figcaption>An Complete Set of Counter Inputs of a ACASXu network</figcaption>
 </figure>
 
 3) NNV can compute and visualize the over-approximate reachable sets of feedforward neural networks with Tanh, Sigmoid activation functions.
 
 <figure>
-    <img src="images/sigmoidReachSet.png" width="400" height="300"> <figcaption>Reachable set of a network with Sigmoid activation functions</figcaption>
+    <img src="code/images/sigmoidReachSet.png" width="400" height="300"> <figcaption>Reachable set of a network with Sigmoid activation functions</figcaption>
 </figure>
 
 4) NNV can compute and visualize the reachable sets of neural network control systems, i.e., systems with plant + neural network controllers which can be used to verify or falsify safety properties of the systems.
 
 <figure>
-    <img src="images/ACC.png"> <figcaption>Neural Network Adaptive Cruise Control System</figcaption>
+    <img src="code/images/ACC.png"> <figcaption>Neural Network Adaptive Cruise Control System</figcaption>
 </figure>
 
 <figure>
-    <img src="images/ACCreachSet.png" width="400" height="300"> <figcaption>Reachable set of the neural network adaptive cruise control system</figcaption>
+    <img src="code/images/ACCreachSet.png" width="400" height="300"> <figcaption>Reachable set of the neural network adaptive cruise control system</figcaption>
 </figure>
 
 <figure>
-    <img src="images/falsifyTrace.png" width="400" height="300"> <figcaption>A fasification trace of the neural network adaptive cruise control system</figcaption>
+    <img src="code/images/falsifyTrace.png" width="400" height="300"> <figcaption>A fasification trace of the neural network adaptive cruise control system</figcaption>
 </figure>
 
 <figure>
-    <img src="images/EBS.png" width="400" height="200"> <figcaption>Advaced Emergency Braking System with Reinforcement Controller</figcaption>
+    <img src="code/images/EBS.png" width="400" height="200"> <figcaption>Advaced Emergency Braking System with Reinforcement Controller</figcaption>
 </figure>
 
 <figure>
-    <img src="images/EBreachSet.png" width="400" height="300"> <figcaption>Reachable set of the advanced emergency braking system with reinforcement controller</figcaption>
+    <img src="code/images/EBreachSet.png" width="400" height="300"> <figcaption>Reachable set of the advanced emergency braking system with reinforcement controller</figcaption>
 </figure>
 
 
 <figure>
-    <img src="images/SafeInitCondition.png" width="400" height="300"> <figcaption>Safe initial condition of the advanced emergency braking system with reinforcement controller</figcaption>
+    <img src="code/images/SafeInitCondition.png" width="400" height="300"> <figcaption>Safe initial condition of the advanced emergency braking system with reinforcement controller</figcaption>
 </figure>
 
 
@@ -96,17 +96,17 @@ nnv can be executed online without installing Matlab or other dependencies throu
 
 
 <figure>
-    <img src="images/vgg16.png" width="400" height="300"> <figcaption>VGG16 under adversarial attacks</figcaption>
+    <img src="code/images/vgg16.png" width="400" height="300"> <figcaption>VGG16 under adversarial attacks</figcaption>
 </figure>
 
 
 <figure>
-    <img src="images/vgg19_exact_range.png" width="400" height="300"> <figcaption>VGG19 exact output ranges corresponding to FGSM adversarial attack</figcaption>
+    <img src="code/images/vgg19_exact_range.png" width="400" height="300"> <figcaption>VGG19 exact output ranges corresponding to FGSM adversarial attack</figcaption>
 </figure>
 
 
 <figure>
-    <img src="images/vgg19_counter_example.png" width="400" height="300"> <figcaption>nnv generates counter examples for VGG19 corresponding to FGSM adversarial attack</figcaption>
+    <img src="code/images/vgg19_counter_example.png" width="400" height="300"> <figcaption>nnv generates counter examples for VGG19 corresponding to FGSM adversarial attack</figcaption>
 </figure>
 
 
@@ -114,11 +114,11 @@ nnv can be executed online without installing Matlab or other dependencies throu
 
 * [Hoang-Dung Tran (main developer)](https://scholar.google.com/citations?user=_RzS3uMAAAAJ&hl=en)
 * [Weiming Xiang](https://scholar.google.com/citations?user=Vm_7JP8AAAAJ&hl=en)
+* [Stanley Bak](http://stanleybak.com/)
 * [Patrick Musau](https://scholar.google.com/citations?user=C2RS3i8AAAAJ&hl=en)
 * [Diego Manzanas Lopez](https://scholar.google.com/citations?user=kgpZCIAAAAAJ&hl=en)
 * Xiaodong Yang
 * [Luan Viet Nguyen](https://luanvietnguyen.github.io)
-* [Stanley Bak](http://stanleybak.com/)
 * [Taylor T. Johnson](http://www.taylortjohnson.com)
 
 # references
@@ -127,7 +127,7 @@ The methods implemented in nnv are based upon the following papers.
 
 1. Hoang-Dung Tran, Stanley Bak, Weiming Xiang, Taylor T.Johnson, "Towards Verification of Large Convolutional Neural Networks Using ImageStars", under review 
 
-2. Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "NNV: A Tool for Verification of Deep Neural Networks and Learning-Enabled Autonomous Cyber-Physical Systems", under review
+2. Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "NNV: A Tool for Verification of Deep Neural Networks and Learning-Enabled Autonomous Cyber-Physical Systems", to be submitted.
 
 3. Hoang-Dung Tran, Weiming Xiang, Taylor T.Johnson, "Verification Approaches for Learning-Enabled Autonomous Cyber-Physical Systems", The IEEE Design & Test 2019, (Under review). 
 

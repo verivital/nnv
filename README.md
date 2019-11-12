@@ -37,7 +37,7 @@ nnv can be executed online without installing Matlab or other dependencies throu
 1) NNV can compute and visualize the exact reachable sets of feedforward nerual networks with ReLU/Saturation activation functions. The computation can be accelerated using parallel computing in Matlab. The computed reachable set can be used for safety verification of the networks.
 
 <figure>
-    <img src="images/ACASXu.png"> <figcaption>Vertical view of a generic example of the ACAS Xu benchmark set</figcaption>
+    <img src="code/images/ACASXu.png"> <figcaption>Vertical view of a generic example of the ACAS Xu benchmark set</figcaption>
 </figure>
 
 <figure>

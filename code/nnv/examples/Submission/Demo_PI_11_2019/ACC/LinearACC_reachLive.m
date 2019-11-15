@@ -116,10 +116,10 @@ figureTitle = 'Actual distance (blue) vs. safe distance (red)';
 
 % safe scenarios
 figure;
-ncs.reachLive(init_set(1), ref_input, numSteps, 'outputMatrix', output_mat, 'outputVector', output_vec, 'outputSetColor', 'blue', 'boundaryMatrix', boundary_mat, 'boundaryVector', boundary_vec, 'plantNumOfSimSteps', plantNumOfSimSteps, 'figureTitle', figureTitle, 'videoName', 'safeScenarios', 'figureXLabel', 'Time (seconds)', 'figureYLabel', 'Reachable Set', 'videoFrameRate', 40);
+%ncs.reachLive(init_set(1), ref_input, numSteps, 'outputMatrix', output_mat, 'outputVector', output_vec, 'outputSetColor', 'blue', 'boundaryMatrix', boundary_mat, 'boundaryVector', boundary_vec, 'plantNumOfSimSteps', plantNumOfSimSteps, 'figureTitle', figureTitle, 'videoName', 'safeScenarios', 'figureXLabel', 'Time (seconds)', 'figureYLabel', 'Reachable Set', 'videoFrameRate', 40);
 % unsafe scenarios
 % figure;
-% ncs.reachLive(init_set(5), ref_input, numSteps, 'outputMatrix', output_mat, 'outputVector', output_vec, 'outputSetColor', 'blue', 'boundaryMatrix', boundary_mat, 'boundaryVector', boundary_vec, 'plantNumOfSimSteps', plantNumOfSimSteps, 'figureTitle', figureTitle, 'videoName', 'unsafeScenarios', 'figureXLabel', 'Time (seconds)', 'figureYLabel', 'Reachable Set', 'videoFrameRate', 40);
+ncs.reachLive(init_set(5), ref_input, numSteps, 'outputMatrix', output_mat, 'outputVector', output_vec, 'outputSetColor', 'blue', 'boundaryMatrix', boundary_mat, 'boundaryVector', boundary_vec, 'plantNumOfSimSteps', plantNumOfSimSteps, 'figureTitle', figureTitle, 'videoName', 'unsafeScenarios', 'figureXLabel', 'Time (seconds)', 'figureYLabel', 'Reachable Set', 'videoFrameRate', 40);
 
 
 %% END

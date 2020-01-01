@@ -6,10 +6,16 @@ classdef BatchNormalizationLayer < handle
     properties
         Name = 'BatchNormalizationLayer';
         
-        InputSize = [];
-        Normalization = 'zerocenter'; %default
-        AverageImage = []; % average image
+        TrainedMean = [];
+        TrainedVariance = [];
         
+        % Hyperparameters 
+        Epsilon = 0.00001;  % default value
+        
+        % Learnable parameters
+        Offset = [];
+        Scale = [];
+               
     end
     
     
@@ -17,52 +23,38 @@ classdef BatchNormalizationLayer < handle
     methods
         
         % constructor of the class
-        function obj = ImageInputLayer(varargin)           
+        function obj = BatchNormalizationLayer(varargin)           
             % author: Dung Tran
-            % date: 6/26/2019    
+            % date: 1/1/2020    
             % update: 
             
-            switch nargin
+            
+            if mod(nargin, 2) ~= 0
+                error('Invalid number of arguments');
+            end
+            
+            for i=1:nargin-1
                 
-                case 2
+                if mod(i, 2) == 0
                     
-                    name = varargin{1};
-                                                            
-                    if ~ischar(name)
-                        error('Name is not char');
-                    else
-                        obj.Name = name;
-                    end                    
+                    if strcmp(varargin{i}, 'Name')
+                        obj.Name = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'TrainedMean')
+                        obj.TrainedMean = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'TrainedVariance')
+                        obj.TrainedVariance = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'Epsilon')
+                        obj.Epsilon = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'Offset')
+                        obj.Offset = varargin{i+1};
+                    elseif strcmp(varargin{i}, Scale)
+                        obj.Scale = varargin{i+1};
+                    end
                     
-                    inputSize = varargin{2};
-                    obj.InputSize = inputSize;
-                                        
-                case 3
-                    
-                    name = varargin{1};
-                    inputSize = varargin{2};
-                    averageImage = varargin{3};
-                                                            
-                    if ~ischar(name)
-                        error('Name is not char');
-                    else
-                        obj.Name = name;
-                    end                    
-                    
-                    
-                    obj.InputSize = inputSize;
-                    
-                    averageImage = reshape(averageImage, inputSize);
-                    obj.AverageImage = averageImage;
-               
-                case 0
-                    
-                    obj.Name = 'InputImageLayer';
-                           
-                otherwise
-                    error('Invalid number of inputs (should be 0, 2, or 3)');
-                                 
-            end 
+                end
+                
+            end
+                
              
         end
         
@@ -77,19 +69,18 @@ classdef BatchNormalizationLayer < handle
             % @y: output image with normalization
             
             % author: Dung Tran
-            % date: 8/1/2019
+            % date: 1/1/2020
                              
-            if isempty(obj.AverageImage)
-                y = double(input);
+            if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
+                x1 = double(input) - obj.TrainedMean;
+                x1 = x1/(sqrt(obj.TrainedVariance^2 + obj.Epsilon));
+                y = obj.Scale*x1 + obj.Offset;
             else
-                y = double(input) - double(obj.AverageImage); % zerocenter nomalization
+                y = double(input);
             end
                                
         end
         
-                
-        
-       
         
     end
         
@@ -136,6 +127,11 @@ classdef BatchNormalizationLayer < handle
             if strcmp(option, 'parallel')
                 parfor i=1:n
                     V = double(in_images(i).V); % convert to double precision
+                    x = in_images(i).affineMap(1/sqrt(obj.TrainedVariance^2 + obj.Epsilon), []);
+                    x = x.affineMap(1, obj.TrainedMean);
+                    y = 
+                    
+                    
                     temp = obj.evaluate(V(:,:,:,1));
                     V(:,:,:,1) = temp;
                     images(i) = ImageStar(V, in_images(i).C, in_images(i).d, in_images(i).pred_lb, in_images(i).pred_ub, in_images(i).im_lb, in_images(i).im_ub);                    

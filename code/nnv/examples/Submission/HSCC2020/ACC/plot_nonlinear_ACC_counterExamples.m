@@ -1,3 +1,5 @@
+load 'verify_nonlinear_ACC.mat'
+
 cI = counterExamples{1};
 cI = cell2mat(cI);
 d_rel = [1 0 0 -1 0 0]*cI;

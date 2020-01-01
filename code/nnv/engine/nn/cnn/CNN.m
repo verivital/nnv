@@ -404,6 +404,8 @@ classdef CNN < handle
                         Li = Conv2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.ReLULayer')
                         Li = ReluLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
+                        Li = BatchNormalizationLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
                         Li = MaxPooling2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')

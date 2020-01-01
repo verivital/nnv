@@ -124,25 +124,23 @@ classdef BatchNormalizationLayer < handle
             end
             
             images(n) = ImageStar;
+            
+            if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
+                error('Batch Normalization Layer does not have enough parameters');
+            end
+            
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    V = double(in_images(i).V); % convert to double precision
                     x = in_images(i).affineMap(1/sqrt(obj.TrainedVariance^2 + obj.Epsilon), []);
-                    x = x.affineMap(1, obj.TrainedMean);
-                    y = 
-                    
-                    
-                    temp = obj.evaluate(V(:,:,:,1));
-                    V(:,:,:,1) = temp;
-                    images(i) = ImageStar(V, in_images(i).C, in_images(i).d, in_images(i).pred_lb, in_images(i).pred_ub, in_images(i).im_lb, in_images(i).im_ub);                    
+                    x = x.affineMap([], obj.TrainedMean);
+                    images(i) = x.affineMap(obj.Scale, obj.Offset);
                 end
                 
             elseif isempty(option) || strcmp(option, 'single')
                 for i=1:n
-                    V = double(in_images(i).V); % convert to double precision
-                    temp = obj.evaluate(V(:,:,:,1));
-                    V(:,:,:,1) = temp;
-                    images(i) = ImageStar(V, in_images(i).C, in_images(i).d, in_images(i).pred_lb, in_images(i).pred_ub, in_images(i).im_lb, in_images(i).im_ub);                    
+                    x = in_images(i).affineMap(1/sqrt(obj.TrainedVariance^2 + obj.Epsilon), []);
+                    x = x.affineMap([], obj.TrainedMean);
+                    images(i) = x.affineMap(obj.Scale, obj.Offset);
                 end
             else
                 error('Unknown computation option');
@@ -155,21 +153,21 @@ classdef BatchNormalizationLayer < handle
     
     
     methods(Static)
-         % parse a trained input image layer from matlab
-        function L = parse(input_image_layer)
-            % @input_image_layer: input layer
+         % parse a trained batch normalization layer from matlab
+        function L = parse(batch_normalization_layer)
+            % @batch_normalization_layer: batch normalization layer
             % @L: constructed layer
                         
             % author: Dung Tran
-            % date: 8/1/2019
+            % date: 1/1/2020
             
             
-            if ~isa(input_image_layer, 'nnet.cnn.layer.ImageInputLayer')
-                error('Input is not a Matlab nnet.cnn.layer.ImageInputLayer class');
+            if ~isa(batch_normalization_layer, 'nnet.cnn.layer.BatchNormalizationLayer')
+                error('Input is not a Matlab nnet.cnn.layer.BatchNormalizationLayer class');
             end
             
-            L = ImageInputLayer(input_image_layer.Name, input_image_layer.InputSize, input_image_layer.AverageImage);
-            fprintf('\nParsing a Matlab image input layer is done successfully');
+            L = BatchNormalizationLayer('Name', batch_normalization_layer.Name, 'TrainedMean', batch_normalization_layer.TrainedMean, 'TrainedVariance', batch_normalization_layer.TrainedVariance, 'Epsilon', batch_normalization_layer.Epsilon, 'Offset', batch_normalization_layer.Offset, 'Scale', batch_normalization_layer.Scale);
+            fprintf('\nParsing a Matlab batch normalization layer is done successfully');
             
         end
         

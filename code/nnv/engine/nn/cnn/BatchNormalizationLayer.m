@@ -6,6 +6,7 @@ classdef BatchNormalizationLayer < handle
     properties
         Name = 'BatchNormalizationLayer';
         
+        NumChannels = [];
         TrainedMean = [];
         TrainedVariance = [];
         
@@ -35,20 +36,22 @@ classdef BatchNormalizationLayer < handle
             
             for i=1:nargin-1
                 
-                if mod(i, 2) == 0
+                if mod(i, 2) ~= 0
                     
                     if strcmp(varargin{i}, 'Name')
                         obj.Name = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'NumChannels')
+                        obj.NumChannels = varargin{i+1};
                     elseif strcmp(varargin{i}, 'TrainedMean')
-                        obj.TrainedMean = varargin{i+1};
+                        obj.TrainedMean = double(varargin{i+1});
                     elseif strcmp(varargin{i}, 'TrainedVariance')
-                        obj.TrainedVariance = varargin{i+1};
+                        obj.TrainedVariance = double(varargin{i+1});
                     elseif strcmp(varargin{i}, 'Epsilon')
-                        obj.Epsilon = varargin{i+1};
+                        obj.Epsilon = double(varargin{i+1});
                     elseif strcmp(varargin{i}, 'Offset')
-                        obj.Offset = varargin{i+1};
-                    elseif strcmp(varargin{i}, Scale)
-                        obj.Scale = varargin{i+1};
+                        obj.Offset = double(varargin{i+1});
+                    elseif strcmp(varargin{i}, 'Scale')
+                        obj.Scale = double(varargin{i+1});
                     end
                     
                 end
@@ -154,19 +157,24 @@ classdef BatchNormalizationLayer < handle
     
     methods(Static)
          % parse a trained batch normalization layer from matlab
-        function L = parse(batch_normalization_layer)
-            % @batch_normalization_layer: batch normalization layer
+        function L = parse(layer)
+            % @layer: batch normalization layer
             % @L: constructed layer
                         
             % author: Dung Tran
             % date: 1/1/2020
             
             
-            if ~isa(batch_normalization_layer, 'nnet.cnn.layer.BatchNormalizationLayer')
+            if ~isa(layer, 'nnet.cnn.layer.BatchNormalizationLayer')
                 error('Input is not a Matlab nnet.cnn.layer.BatchNormalizationLayer class');
             end
             
-            L = BatchNormalizationLayer('Name', batch_normalization_layer.Name, 'TrainedMean', batch_normalization_layer.TrainedMean, 'TrainedVariance', batch_normalization_layer.TrainedVariance, 'Epsilon', batch_normalization_layer.Epsilon, 'Offset', batch_normalization_layer.Offset, 'Scale', batch_normalization_layer.Scale);
+            display(layer.Name);
+            display(layer.TrainedMean);
+            display(layer.TrainedVariance);
+            display(layer.NumChannels);
+            
+            L = BatchNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels, 'TrainedMean', layer.TrainedMean, 'TrainedVariance', layer.TrainedVariance, 'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale);
             fprintf('\nParsing a Matlab batch normalization layer is done successfully');
             
         end

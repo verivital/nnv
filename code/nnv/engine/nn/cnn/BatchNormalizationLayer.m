@@ -75,15 +75,14 @@ classdef BatchNormalizationLayer < handle
             % date: 1/1/2020
                              
             if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                y = double(input);
+                y = input - obj.TrainedMean;
                 for i=1:obj.NumChannels
-                    y(:,:,i) = y(:,:,i) - obj.TrainedMean(1,1,i);
                     y(:,:,i) = y(:,:,i)/(sqrt(obj.TrainedVariance(1,1,i) + obj.Epsilon));
                     y(:,:,i) = obj.Scale(1, 1, i)*y(:,:,i) + obj.Offset(1,1,i);
                 end
                 
             else
-                y = double(input);
+                y = input;
             end
                                
         end
@@ -136,18 +135,27 @@ classdef BatchNormalizationLayer < handle
                 error('Batch Normalization Layer does not have enough parameters');
             end
             
+            var = obj.TrainedVariance;
+            eps = obj.Epsilon;
+            mean = obj.TrainedMean;
+            scale = obj.Scale; 
+            offset = obj.Offset;
+            l(1,1, obj.NumChannels) = 0;
+            for i=1:obj.NumChannels
+                l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
+            end
+            
             if strcmp(option, 'parallel')
+                 
                 parfor i=1:n
-                    x = in_images(i).affineMap(1/sqrt(obj.TrainedVariance^2 + obj.Epsilon), []);
-                    x = x.affineMap([], obj.TrainedMean);
-                    images(i) = x.affineMap(obj.Scale, obj.Offset);
+                    x = in_images(i).affineMap(l, l.*mean);
+                    images(i) = x.affineMap(scale, offset);
                 end
                 
             elseif isempty(option) || strcmp(option, 'single')
                 for i=1:n
-                    x = in_images(i).affineMap(1/sqrt(obj.TrainedVariance^2 + obj.Epsilon), []);
-                    x = x.affineMap([], obj.TrainedMean);
-                    images(i) = x.affineMap(obj.Scale, obj.Offset);
+                    x = in_images(i).affineMap(l, l.*mean);
+                    images(i) = x.affineMap(scale, offset);
                 end
             else
                 error('Unknown computation option');

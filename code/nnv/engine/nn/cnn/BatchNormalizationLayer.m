@@ -75,9 +75,13 @@ classdef BatchNormalizationLayer < handle
             % date: 1/1/2020
                              
             if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                x1 = double(input) - obj.TrainedMean;
-                x1 = x1/(sqrt(obj.TrainedVariance^2 + obj.Epsilon));
-                y = obj.Scale*x1 + obj.Offset;
+                y = double(input);
+                for i=1:obj.NumChannels
+                    y(:,:,i) = y(:,:,i) - obj.TrainedMean(1,1,i);
+                    y(:,:,i) = y(:,:,i)/(sqrt(obj.TrainedVariance(1,1,i) + obj.Epsilon));
+                    y(:,:,i) = obj.Scale(1, 1, i)*y(:,:,i) + obj.Offset(1,1,i);
+                end
+                
             else
                 y = double(input);
             end

@@ -89,4 +89,4 @@ end
 results.safe = safe;
 results.set_number = length(F.outputSet);
 results.total_time = check_time + F.totalReachTime;
-save(['logs\logs_nnv',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.mat'],'results')
+save(['../../../../../../logs/logs_nnv/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.mat'],'results')

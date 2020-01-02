@@ -401,20 +401,20 @@ classdef ImageStar < handle
         % affineMap of an ImageStar is another imagestar
         % y = scale * x + offset;
         function image = affineMap(obj, scale, offset)
-            % @scale: scale coefficient
-            % @offset: offset coefficient
+            % @scale: scale coefficient [1 x 1 x NumChannels] array
+            % @offset: offset coefficient [1 x 1 x NumChannels] array
             % @image: a new ImageStar
             
             % author: Dung Tran
             % date: 1/1/2020
             
-            if (~isempty(scale) && ~isscalar(scale)) || (~isempty(offset) && ~isscalar(offset))
-                error('Scale and offset should be scalars');
-            end           
             
+            if ~isempty(scale) && ~isscalar(scale) && size(scale, 3) ~= obj.numChannel
+                error('Inconsistent number of channels between scale array and the ImageStar');
+            end
             
-            if ~isempty(scale)
-                new_V = scale*obj.V;
+            if ~isempty(scale) 
+                    new_V = scale.*obj.V;                
             else
                 new_V = obj.V;
             end
@@ -422,8 +422,7 @@ classdef ImageStar < handle
             if ~isempty(offset)
                 new_V(:,:,:,1) = new_V(:,:,:,1) + offset;
             end
-            
-             
+                         
             image = ImageStar(new_V, obj.C, obj.d, obj.pred_lb, obj.pred_ub, obj.im_lb, obj.im_ub);
                       
         end

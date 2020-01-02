@@ -2,11 +2,18 @@ classdef ImageInputLayer < handle
     % The Image input layer class in CNN
     %   Contain constructor and reachability analysis methods   
     %   Dung Tran: 8/1/2019
+    %   update: 1/2/2020 (Dung Tran)
+    %       update reason: different Matlab versions have different names of AverageImage
+    %       for example: In 2018b: Matlab uses the name "AverageImage"
+    %                    In 2019b: Matlab uses the name "Mean" 
+    %       We decided to update the name AverageImage to Mean in 1/2/2020
+    %       
     
     properties
         Name = 'ImageInputLayer';
         InputSize = [];
         Normalization = 'zerocenter'; %default
+        Mean = []; % in 
         AverageImage = []; % average image
         
     end
@@ -19,49 +26,30 @@ classdef ImageInputLayer < handle
         function obj = ImageInputLayer(varargin)           
             % author: Dung Tran
             % date: 6/26/2019    
-            % update: 
+            % update: 1/2/2020
+            %   update reason: change the way the object receives input
+            %   arguments
             
-            switch nargin
+            
+            if mod(nargin, 2) ~= 0
+                error('Invalid number of input arguments');
+            end
+            
+            for i=1:nargin-1
                 
-                case 2
+                if mod(i, 2) ~= 0
                     
-                    name = varargin{1};
-                                                            
-                    if ~ischar(name)
-                        error('Name is not char');
-                    else
-                        obj.Name = name;
-                    end                    
+                    if strcmp(varargin{i}, 'Name')
+                        obj.Name = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'InputSize')
+                        obj.InputSize = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'Mean')
+                        obj.Mean = double(varargin{i+1});
+                    end
                     
-                    inputSize = varargin{2};
-                    obj.InputSize = inputSize;
-                                        
-                case 3
-                    
-                    name = varargin{1};
-                    inputSize = varargin{2};
-                    averageImage = varargin{3};
-                                                            
-                    if ~ischar(name)
-                        error('Name is not char');
-                    else
-                        obj.Name = name;
-                    end                    
-                    
-                    
-                    obj.InputSize = inputSize;
-                    
-                    averageImage = reshape(averageImage, inputSize);
-                    obj.AverageImage = averageImage;
-               
-                case 0
-                    
-                    obj.Name = 'InputImageLayer';
-                           
-                otherwise
-                    error('Invalid number of inputs (should be 0, 2, or 3)');
-                                 
-            end 
+                end
+                
+            end
              
         end
         
@@ -78,10 +66,10 @@ classdef ImageInputLayer < handle
             % author: Dung Tran
             % date: 8/1/2019
                              
-            if isempty(obj.AverageImage)
+            if isempty(obj.Mean)
                 y = double(input);
             else
-                y = double(input) - double(obj.AverageImage); % zerocenter nomalization
+                y = double(input) - double(obj.Mean); % zerocenter nomalization
             end
                                
         end
@@ -171,7 +159,14 @@ classdef ImageInputLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.ImageInputLayer class');
             end
             
-            L = ImageInputLayer(input_image_layer.Name, input_image_layer.InputSize, input_image_layer.AverageImage);
+            if isprop(input_image_layer, 'Mean')
+                L = ImageInputLayer('Name', input_image_layer.Name, 'InputSize', input_image_layer.InputSize, 'Mean', input_image_layer.Mean);
+            elseif isprop(input_image_layer, 'AverageImage')
+                L = ImageInputLayer('Name', input_image_layer.Name, 'InputSize', input_image_layer.InputSize, 'Mean', input_image_layer.AverageImage);
+            else
+                error('Mean or AverageImage property does not exist in the Input Image Layer');
+            end
+            
             fprintf('\nParsing a Matlab image input layer is done successfully');
             
         end

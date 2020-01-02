@@ -38,6 +38,8 @@ options = trainingOptions('sgdm', ...
     'Verbose',false, ...
     'Plots','training-progress');
 
-net = trainNetwork(imdsTrain,layers,options);
+MatlabNet = trainNetwork(imdsTrain,layers,options);
 
-nnvNet = CNN.parse(net, 'MatlabNet');
+nnvNet = CNN.parse(MatlabNet, 'MatlabNet');
+
+save test_Nets.mat imds imdsTrain imdsValidation MatlabNet nnvNet;

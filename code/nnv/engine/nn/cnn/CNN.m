@@ -41,7 +41,7 @@ classdef CNN < handle
                     nL = length(Layers); % number of Layers
                     for i=1:nL
                         L = Layers{i};
-                        if ~isa(L, 'ImageInputLayer') && ~isa(L, 'AveragePooling2DLayer') && ~isa(L, 'Conv2DLayer') && ~isa(L, 'FullyConnectedLayer') && ~isa(L, 'MaxPooling2DLayer') && ~isa(L, 'ReluLayer')
+                        if ~isa(L, 'ImageInputLayer') && ~isa(L, 'BatchNormalizationLayer') && ~isa(L, 'AveragePooling2DLayer') && ~isa(L, 'Conv2DLayer') && ~isa(L, 'FullyConnectedLayer') && ~isa(L, 'MaxPooling2DLayer') && ~isa(L, 'ReluLayer')
                             fprintf('\nCurrent version of NNV supports ImageInputLayer, AveragePooling2DLayer, Convolutional2DLayer, FullyConnectedLayer, MaxPooling2DLayer, AveragePooling2DLayer and ReluLayer');
                             error('Element %d of Layers is not among supported layers in NNV', i);
                         end

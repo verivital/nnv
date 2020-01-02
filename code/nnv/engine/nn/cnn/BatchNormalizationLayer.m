@@ -47,7 +47,7 @@ classdef BatchNormalizationLayer < handle
                         obj.Epsilon = varargin{i+1};
                     elseif strcmp(varargin{i}, 'Offset')
                         obj.Offset = varargin{i+1};
-                    elseif strcmp(varargin{i}, Scale)
+                    elseif strcmp(varargin{i}, 'Scale')
                         obj.Scale = varargin{i+1};
                     end
                     

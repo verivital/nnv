@@ -178,14 +178,10 @@ classdef ImageZono < handle
             if ~isempty(offset)
                 new_V(:,:,:,1) = new_V(:,:,:,1) + offset;
             end
-                         
+                       
             image = ImageZono(new_V);
-                      
+                     
         end
-        
-        
-        
-        
         
         % transform to Zono
         function Z = toZono(obj)

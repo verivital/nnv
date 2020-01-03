@@ -177,7 +177,7 @@ classdef FullyConnectedLayer < handle
                 error('Input set is not an ImageZono');
             end
             
-            N = in_image.height*in_image.width*in_image.numChannel;
+            N = in_image.height*in_image.width*in_image.numChannels;
             if N~= obj.InputSize
                 error('Inconsistency between the size of the input image and the InputSize of the network');
             end

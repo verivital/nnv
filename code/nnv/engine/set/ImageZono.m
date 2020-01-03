@@ -97,90 +97,80 @@ classdef ImageZono < handle
    
         end
                 
-        % randomly generate a set of images from an imagestar set
+        % randomly generate a set of images from an imageZono set
         function images = sample(obj, N)
             % @N: number of images 
             
             % author: Dung Tran
-            % date: 6/14/2019
+            % date: 1/3/2020
             
             if isempty(obj.V)
-                error('The imagestar is an empty set');
+                error('The imagezono is an empty set');
             end
             
-            if isempty(obj.C) || isempty(obj.d)
-                images = obj.IM;
-            else
-                
-                V1 = [zeros(obj.numPred, 1) eye(obj.numPred)];
-                S = Star(V1, obj.C, obj.d);                
-                pred_samples = S.sample(N); 
-                
-                M = length(pred_samples);
-                images = cell(1, M);
-                for i=1:M
-                    images{i} = obj.evaluate(pred_samples(:, i));
-                end
-                
-            end
+            % fill code here
+            images = {};
               
         end
         
         
-        % evaluate an image star with specific values of predicates
+        % evaluate an ImageZono with specific values of predicates
         function image = evaluate(obj, pred_val)
             % @pred_val: valued vector of predicate variables
             
             % author: Dung Tran
-            % date: 6/14/2019
+            % date: 1/3/2020
             
             if isempty(obj.V)
-                error('The imagestar is an empty set');
+                error('The ImageZono is an empty set');
             end
             
             if size(pred_val, 2) ~= 1
                 error('Invalid predicate vector');
             end
             
-            if size(pred_val, 1) ~= obj.numPred
-                error('Inconsistency between the size of the predicate vector and the number of predicates in the imagestar');
+            if size(pred_val, 1) ~= obj.numPreds
+                error('Inconsistency between the size of the predicate vector and the number of predicates in the ImageZono');
             end
             
-            image(:, :, obj.numChannel) = zeros(obj.height, obj.width);
-            
-            for i=1:obj.numChannel
-                
-                image(:, :, i) = obj.V(:,:,i, 1);
-                
-                for j=2:obj.numPred + 1
-                    
-                    image(:, :, i) = image(:, :, i) + pred_val(j-1) * obj.V(:,:,i, j);
-                
+            % check if all values of predicate variables are in [-1, 1]           
+            for i=1:obj.numPreds
+                if ~(pred_val(i)<= 1 && pred_val(i) >= -1)
+                    error('Predicate values should be in the range of [-1, 1] for ImageZono');
                 end
-                
+            end
+            
+            
+            image(:, :, obj.numChannels) = zeros(obj.height, obj.width);
+            for i=1:obj.numChannels
+                image(:, :, i) = obj.V(:,:,i, 1);
+                for j=2:obj.numPreds + 1
+                    image(:, :, i) = image(:, :, i) + pred_val(j-1) * obj.V(:,:,i, j);
+                end
             end
                       
         end
         
         
                 
-        % affineMap of an ImageStar is another imagestar
+        % affineMap of an ImageZono is another imagezono
         % y = scale * x + offset;
         function image = affineMap(obj, scale, offset)
             % @scale: scale coefficient [1 x 1 x NumChannels] array
             % @offset: offset coefficient [1 x 1 x NumChannels] array
-            % @image: a new ImageStar
+            % @image: a new ImageZono
             
             % author: Dung Tran
             % date: 1/1/2020
             
             
-            if ~isempty(scale) && ~isscalar(scale) && size(scale, 3) ~= obj.numChannel
+            if ~isempty(scale) && ~isscalar(scale) && size(scale, 3) ~= obj.numChannels
                 error('Inconsistent number of channels between scale array and the ImageStar');
             end
+                        
             
             if ~isempty(scale) 
-                    new_V = scale.*obj.V;                
+                new_V = scale.*obj.V;
             else
                 new_V = obj.V;
             end
@@ -189,7 +179,7 @@ classdef ImageZono < handle
                 new_V(:,:,:,1) = new_V(:,:,:,1) + offset;
             end
                          
-            image = ImageStar(new_V, obj.C, obj.d, obj.pred_lb, obj.pred_ub, obj.im_lb, obj.im_ub);
+            image = ImageZono(new_V);
                       
         end
         
@@ -197,29 +187,19 @@ classdef ImageZono < handle
         
         
         
-        % transform to Star
-        function S = toStar(obj)
+        % transform to Zono
+        function Z = toZono(obj)
             
             % author: Dung Tran
-            % date: 7/19/2019
+            % date: 1/2/2020
             
-            nc = obj.numChannel;
-            h = obj.height;
-            w = obj.width;
-            np = obj.numPred;
+            center = obj.V(:,:,:,1);
+            generators = obj.V(:,:,:, 2:obj.numPreds + 1);
             
-            N = h*w*nc; % total number of pixels in the input image         
-            V1(:, np+1) = zeros(N, 1);
-            for j=1:np+1
-                V1(:,j) = reshape(obj.V(:,:,:, j), N, 1);
-            end       
-            if ~isempty(obj.im_lb) && ~isempty(obj.im_ub)
-                state_lb = reshape(obj.im_lb, N, 1);
-                state_ub = reshape(obj.im_ub, N, 1);
-                S = Star(V1, obj.C, obj.d, obj.pred_lb, obj.pred_ub, state_lb, state_ub);
-            else
-                S = Star(V1, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
-            end
+            center = reshape(center, [obj.height*obj.width*obj.numChannels 1]);
+            generators = reshape(generators, [obj.height*obj.width*obj.numChannels obj.numPreds]);
+            
+            Z = Zono(center, generators);
             
         end
         

@@ -413,8 +413,8 @@ classdef ImageStar < handle
                 error('Inconsistent number of channels between scale array and the ImageStar');
             end
             
-            if ~isempty(scale) 
-                    new_V = scale.*obj.V;                
+            if ~isempty(scale)
+                new_V = scale.*obj.V;
             else
                 new_V = obj.V;
             end

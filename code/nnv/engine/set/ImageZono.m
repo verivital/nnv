@@ -3,44 +3,7 @@ classdef ImageZono < handle
     % An image can be attacked by bounded noise. An attacked image can
     % be represented using an ImageZono Set
     % Dung Tran: 1/2/2020
-    
-    %=================================================================%
-    %   a 3-channels color image is represented by 3-dimensional array 
-    %   Each dimension contains a h x w matrix, h and w is the height
-    %   width of the image. h * w = number of pixels in the image.
-    %   *** A gray image has only one channel.
-    %
-    %   Problem: How to represent a disturbed(attacked) image?
-    %   
-    %   Use a center image (a matrix) + a disturbance matrix (positions
-    %   of attacks and bounds of corresponding noises)
-    %
-    %   For example: Consider a 4 x 4 (16 pixels) gray image 
-    %   The image is represented by 4 x 4 matrix:
-    %               IM = [1 1 0 1; 0 1 0 0; 1 0 1 0; 0 1 1 1]
-    %   This image is attacked at pixel (1,1) (1,2) and (2,4) by bounded
-    %   noises:     |n1| <= 0.1, |n2| <= 0.2, |n3| <= 0.05
-    %
-    %
-    %   Lower and upper noises bounds matrices are: 
-    %         LB = [-0.1 -0.2 0 0; 0 0 0 -0.05; 0 0 0 0; 0 0 0 0]
-    %         UB = [0.1 0.2 0 0; 0 0 0 0.05; 0 0 0 0; 0 0 0 0]
-    %   The lower and upper bounds matrices also describe the position of 
-    %   attack.
-    %
-    %   Under attack we have: -0.1 + 1 <= IM(1,1) <= 1 + 0.1
-    %                         -0.2 + 1 <= IM(1,2) <= 1 + 0.2
-    %                            -0.05 <= IM(2,4) <= 0.05
-    %
-    %   To represent the attacked image we use IM, LB, UB matrices
-    %   For multi-channel image we use multi-dimensional array IM, LB, UB
-    %   to represent the attacked image. 
-    %   For example, for an attacked color image with 3 channels we have
-    %   IM(:, :, 1) = IM1, IM(:,:,2) = IM2, IM(:,:,3) = IM3
-    %   LB(:, :, 1) = LB1, LB(:,:,2) = LB2, LB(:,:,3) = LB3
-    %   UB(:, :, 1) = UB1, UB(:,:,2) = UB2, UB(:,:,3) = UB3
-    %   
-    %   The image object is: image = ImageStar(IM, LB, UB)
+   
     %=================================================================%
     
     
@@ -52,7 +15,6 @@ classdef ImageZono < handle
         % A box representation of an ImageZono
         % A convenient way for user to specify the attack
         
-        center_image = []; % center image (high-dimensional array)
         lb_image = []; % lower bound of attack (high-dimensional array)
         ub_image = []; % upper bound of attack (high-dimensional array)
         
@@ -61,7 +23,7 @@ classdef ImageZono < handle
         %                   Definition of 2-Dimensonal ImageZono
         % 
         % A ImageZono Z= <c, V> is defined by: 
-        % S = {x| x = V[0] + a[1]*V[1] + a[2]*V[2] + ... + a[n]*V[n]
+        % S = {x| x = c + a[1]*V[1] + a[2]*V[2] + ... + a[n]*V[n]
         %           = V * b, V = {c V[1] V[2] ... V[n]}, 
         %                    b = [1 a[1] a[2] ... a[n]]^T                                   
         %                    where -1 <= a[i] <= 1}
@@ -84,22 +46,55 @@ classdef ImageZono < handle
     methods
         % constructor using 2D representation of an ImageZono
         function obj = ImageZono(varargin)
-            % @nargin = 3: IM = varargin{1}, LB = varagin{2}, UB =
-            % varargin{3}
-            %         = 2: Stars = varargin{1}, imageSize = varagin{2}
-            %         = otherwise: IM = [], LB = [], UB = [], Stars = []
-            % @IM: center image (high-dimensional array)
+            % @V:  an array of basis images          
             % @LB: lower bound of attack (high-dimensional array)
             % @UB: upper bound of attack (high-dimensional array)
                         
             % author: Dung Tran
-            % date: 12/17/2018
+            % date: 1/3/2019
             
             switch nargin
-                
+                case 2
+                    obj.lb_image = varargin{1};
+                    obj.ub_image = varargin{2};
                     
+                    % check consistency
+                    size1 = size(obj.lb_image);
+                    size2 = size(obj.ub_image);
+
+                    cp12 = (size1 == size2);
+
+                    if sum(cp12) ~= 3
+                        error('Different sizes between lower bound image and upper bound image');
+                    end
+
+                    obj.height = size1(1);
+                    obj.width = size1(2);
+                    obj.numChannels = size1(3);
+                    
+                    % get basis images array
+                    
+                    lb = reshape(obj.lb_image, [obj.height*obj.width*obj.numChannels 1]);
+                    ub = reshape(obj.ub_image, [obj.height*obj.width*obj.numChannels 1]);
+                    
+                    S = Star(lb, ub);
+                    obj.numPreds = S.nVar;
+                    obj.V = reshape(S.V, [obj.height obj.width obj.numChannels obj.numPreds + 1]);
+                    
+                    
+                case 1
+                    obj.V = varargin{1};
+                    [obj.height, obj.width, obj.numChannels] = size(obj.V(:,:,:,1));
+                    obj.numPreds = size(obj.V, 4);
+                    
+                otherwise
+                    error('Invalid number of inputs, shoule be 1 or 2');
             end
-                        
+            
+            
+            
+            
+   
         end
                 
         % randomly generate a set of images from an imagestar set

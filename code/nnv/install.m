@@ -35,7 +35,7 @@ fprintf('\nTHANK YOU FOR TRYING NNV. PLEASE EMAIL trhoangdung@gmail.com FOR ANY 
 function adjust_glpk()
     fid = fopen('tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m');
     cac = textscan( fid, '%s', 'Delimiter','\n','whitespace', '');
-    fclose(fid)
+    fclose(fid);
     fid = fopen('tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m', 'w');
     change_here = 372;
     for jj = 1 : change_here-1

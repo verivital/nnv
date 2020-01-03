@@ -291,6 +291,28 @@ classdef Zono
             S = Star([obj.c obj.V], C, d, lb, ub);            
         end
         
+        % convert to ImageZono
+        function imageZono = toImageZono(obj, height, width, numChannels)
+            % @height: height of the image
+            % @width: width of the image
+            % @numChannels: number of channels of the image
+            % @imageZono: returned image
+            
+            % author: Dung Tran
+            % date: 1/2/2020
+            
+            if height*width*numChannels ~= obj.dim
+                error('Inconsistent dimension, please change the height, width and numChannels to be consistent with the dimension of the zonotope');
+            end
+             
+            new_V = [obj.c obj.V]; 
+            numPreds = size(obj.V, 2); 
+            new_V = reshape(new_V, [height width numChannels numPreds + 1]);
+            
+            imageZono = ImageZono(new_V);
+            
+        end
+        
         % intersect with HalfSpace
         function S = intersectHalfSpace(obj, H, g)
             % @H: half space matrix

@@ -633,8 +633,6 @@ classdef Conv2DLayer < handle
         % a star represent a set of images (2D matrix of h x w)
         function S = reach_star_single_input(obj, input)
             % @inputs: an ImageStar input set
-            % @option: = 'single' single core for computation
-            %          = 'parallel' multiple cores for parallel computation
             % @S: an imagestar with number of channels = obj.NumFilters
             
             % author: Dung Tran
@@ -656,10 +654,31 @@ classdef Conv2DLayer < handle
                   
         end
         
+        % reachability analysis using ImageZonos
+        function Z = reach_zono_single_input(obj, input)
+            % @input: an ImageZono input set
+            % @Z: an ImageZono with number of channels = obj.NumFilters
+            
+            if ~isa(input, 'ImageZono')
+                error('The input is not an ImageZono object');
+            end
+            
+            if input.numChannels ~= obj.NumChannels
+                error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannels, obj.NumChannels);
+            end
+            
+            % compute output sets
+            c = vl_nnconv(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+            V = vl_nnconv(double(input.V(:,:,:,2:input.numPreds + 1)), double(obj.Weights), [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
+            Y = cat(4, c, V);
+            Z = ImageZono(Y);
+            
+        end
+        
         
         % reach star with multiple inputs
         function S = reach(varargin)
-            % @inputs: an array of ImageStar input set
+            % @inputs: an array of ImageStar or ImageZono input set
             % @S: an array of ImageStar output set
                         
             % author: Dung Tran
@@ -683,16 +702,32 @@ classdef Conv2DLayer < handle
             end
          
             
-            n = length(inputs);            
-            S(n) = ImageStar;
+            n = length(inputs);
+            if isa(inputs(1), 'ImageStar')
+                S(n) = ImageStar;
+                method = 'star';
+            elseif isa(inputs(1), 'ImageZono')
+                S(n) = ImageZono;
+                method = 'zono';
+            else
+                error('The input should be array of ImageStars or ImageZonos');
+            end
             
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    S(i) = obj.reach_star_single_input(inputs(i));
+                    if strcmp(method, 'star')
+                        S(i) = obj.reach_star_single_input(inputs(i)); 
+                    elseif strcmp(method, 'zono')
+                        S(i) = obj.reach_zono_single_input(inputs(i));
+                    end
                 end
             elseif isempty(option) || strcmp(option, 'single')
                 for i=1:n
-                    S(i) = obj.reach_star_single_input(inputs(i));
+                    if strcmp(method, 'star')
+                        S(i) = obj.reach_star_single_input(inputs(i));
+                    elseif strcmp(method, 'zono')
+                        S(i) = obj.reach_zono_single_input(inputs(i));
+                    end
                 end
             else
                 error('Unknown computation option');

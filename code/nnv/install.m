@@ -33,10 +33,10 @@ fprintf('\nPlease go to examples or test folders to run case studies and test ex
 fprintf('\nTHANK YOU FOR TRYING NNV. PLEASE EMAIL trhoangdung@gmail.com FOR ANY CONCERNS OR SUGESSTIONS\n\n');
 
 function adjust_glpk()
-    fid = fopen('../tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m');
+    fid = fopen('tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m');
     cac = textscan( fid, '%s', 'Delimiter','\n','whitespace', '');
     fclose(fid)
-    fid = fopen('../tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m', 'w');
+    fid = fopen('tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m', 'w');
     change_here = 372;
     for jj = 1 : change_here-1
         fprintf(fid, '%s\n', cac{1}{jj});

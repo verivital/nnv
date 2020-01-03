@@ -38,7 +38,7 @@ function adjust_glpk()
         fid = fopen(filename);
         cac = textscan( fid, '%s', 'Delimiter','\n','whitespace', '');
         fclose(fid);
-        filename2 = 'tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m2';
+        filename2 = 'tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk2.m';
         fid = fopen(filename2, 'w');
         change_here = 372;
         for jj = 1 : change_here-1

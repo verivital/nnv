@@ -14,8 +14,7 @@ classdef ImageInputLayer < handle
         InputSize = [];
         Normalization = 'zerocenter'; %default
         Mean = []; % in 
-        AverageImage = []; % average image
-        
+                
     end
     
     
@@ -141,6 +140,57 @@ classdef ImageInputLayer < handle
             
                       
         end
+        
+        
+        % reachability analysis using ImageZono method
+        function images = reach_zono(varargin)
+            % @in_images: an array of input ImageZono
+            % @option: 'parallel' or 'single' or '[]'
+            % @images: output set
+            
+            % author: Dung Tran
+            % date: 1/4/2020
+            
+            
+            switch nargin
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = varargin{3};
+                case 2
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = 'single';
+                otherwise
+                    error('Invalid number of inputs, should be 1 or 2');
+            end
+        
+            
+            
+            n = length(in_images);
+            for i=1:n
+                if ~isa(in_images(i), 'ImageZono')
+                    error('The %d the input is not an ImageZono');
+                end                
+            end
+            
+            images(n) = ImageZono;
+            mean_image = obj.Mean;
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = in_images(i).affineMap([], mean_image);
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = in_images(i).affineMap([], mean_image);
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+            
+            
+        end
+        
                  
     end
     

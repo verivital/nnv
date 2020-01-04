@@ -94,10 +94,10 @@ classdef ImageZono < handle
                     generators = reshape(generators, [obj.height*obj.width*obj.numChannels obj.numPreds]);
 
                     Z = Zono(center, generators);
-                    B = Z.getBox;
+                    [lb, ub] = Z.getBounds;
                     
-                    obj.lb_image = reshape(B.lb, [obj.height obj.width obj.numChannels]);
-                    obj.ub_image = reshape(B.ub, [obj.height obj.width obj.numChannels]);
+                    obj.lb_image = reshape(lb, [obj.height obj.width obj.numChannels]);
+                    obj.ub_image = reshape(ub, [obj.height obj.width obj.numChannels]);
                     
                 case 0
                     

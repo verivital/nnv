@@ -9,6 +9,7 @@ classdef Zono
         c = []; % center vector
         V = []; % generator matrix V = [v1 v2 ... vn]
         dim = 0; % dimension of the zonotope
+        
     end
     
     methods
@@ -349,13 +350,33 @@ classdef Zono
             
             lb = zeros(obj.dim, 1);
             ub = zeros(obj.dim, 1);
-            
+                        
             for i=1:obj.dim
                 lb(i) = obj.c(i) - norm(obj.V(i, :), 1);
                 ub(i) = obj.c(i) + norm(obj.V(i, :), 1);
             end
             
             B = Box(lb, ub);
+            
+        end
+        
+        function [lb, ub] = getBounds(obj)
+            % clip method from StanleyBak
+            % to get bound of a zonotope
+            
+            % Author: Dung Tran
+            % Date: 1/4/2020
+            
+            pos_mat = obj.V'; 
+            neg_mat = obj.V';
+            pos_mat(pos_mat < 0) = 0; 
+            neg_mat(neg_mat > 0) = 0;
+            pos1_mat = ones(1, size(obj.V, 2)); 
+            ub = transpose(pos1_mat*(pos_mat - neg_mat));
+            lb = -ub;
+            
+            ub = obj.c + ub;
+            lb = obj.c + lb;
             
         end
         

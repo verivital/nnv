@@ -155,15 +155,15 @@ classdef ReluLayer < handle
             
             n = length(in_images);
             In(n) = Star; % preallocation
-            h = in_images(1).height;
-            w = in_images(1).width;
-            c = in_images(1).numChannel;
             for i=1:n               
                 if ~isa(in_images(i), 'ImageStar')
                     error('Input %d is not an imagestar', i);
                 end
                 In(i) = in_images(i).toStar;
             end
+            h = in_images(1).height;
+            w = in_images(1).width;
+            c = in_images(1).numChannel;
             
             Y = PosLin.reach(In, method, option); % reachable set computation with ReLU
             n = length(Y);
@@ -188,15 +188,15 @@ classdef ReluLayer < handle
             
             n = length(in_images);
             In(n) = Star; % preallocation
-            h = in_images(1).height;
-            w = in_images(1).width;
-            c = in_images(1).numChannel;
             for i=1:n               
                 if ~isa(in_images(i), 'ImageStar')
                     error('Input %d is not an imagestar', i);
                 end
                 In(i) = in_images(i).toStar;
             end
+            h = in_images(1).height;
+            w = in_images(1).width;
+            c = in_images(1).numChannel;
             
             images(n) = ImageStar;            
             if strcmp(option, 'parallel')
@@ -227,16 +227,17 @@ classdef ReluLayer < handle
             
             n = length(in_images);
             In(n) = Zono; % preallocation
-            h = in_images(1).height;
-            w = in_images(1).width;
-            c = in_images(1).numChannels;
-            
+                        
             for i=1:n
                 if ~isa(in_images(i), 'ImageZono')
                     error('Input %d is not an ImageZono', i);
                 end                
                 In(i) = in_images(i).toZono;                
             end
+            h = in_images(1).height;
+            w = in_images(1).width;
+            c = in_images(1).numChannels;
+            
             
             images(n) = ImageZono;            
             if strcmp(option, 'parallel')

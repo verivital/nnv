@@ -101,36 +101,68 @@ classdef ReluLayer < handle
             switch nargin
                 
                 case 4
+                    obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
                 
                 case 3
+                    obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = [];
+                    
                 case 2
+                    obj = varargin{1};
                     in_images = varargin{2};
-                    method = 'approx-star';
+                    method = [];
                     option = [];
                 otherwise
                     error('Invalid number of input arguments (should be 1, 2 or 3)');
             end
+      
+            if isa(in_images(1), 'ImageStar') && ~isempty(method) && strcmp(method, 'approx-zono')
+                error('Cannot use approx-zono reachability method for ImageStar input set, use exact-star, approx-star or abs-dom methods');
+            end
             
+            if isa(in_images(1), 'ImageZono') && ~isempty(method) && ~strcmp(method, 'approx-zono')
+                error('Please use approx-zono method for the ImageZono input set, or transform ImageZono to ImageStar to perform the reachability analysis');
+            end
+            
+            
+            if isa(in_images(1), 'ImageStar') && strcmp(method, 'abs-dom')
+                images = obj.reach_abs_dom(in_images, option); % use abstract-domain from DeepPoly
+            else
+                images = obj.reach_star(in_images, method, option); % use star method
+            end
+            
+            if isa(in_images(1), 'ImageZono')
+                images = obj.reach_zono(in_images, option); % use zonotope method from DeepZono
+            end
+
+        end
+        
+        
+        % rechability using ImageStar
+        function images = reach_star(~, in_images, method, option)
+            % @in_images: an array of input ImageStar
+            % @images: output images
+            % @method: 'exact-star' or 'approx-star'
+            % @option: 'parallel' or 'single': parallel computing
+            
+            % author: Dung Tran
+            % date: 2/4/2020
             
             n = length(in_images);
             In(n) = Star; % preallocation
             h = in_images(1).height;
             w = in_images(1).width;
             c = in_images(1).numChannel;
-            for i=1:n
-                
+            for i=1:n               
                 if ~isa(in_images(i), 'ImageStar')
                     error('Input %d is not an imagestar', i);
                 end
-                
                 In(i) = in_images(i).toStar;
-                
             end
             
             Y = PosLin.reach(In, method, option); % reachable set computation with ReLU
@@ -139,6 +171,46 @@ classdef ReluLayer < handle
             % transform back to ImageStar
             for i=1:n
                 images(i) = Y(i).toImageStar(h,w,c);
+            end
+           
+        end
+        
+        
+        % reachability using ImageStar + Deepoly abstract-domain method
+        function images = reach_abs_dom(~, in_images, option)
+            % @in_images: an array of input ImageStar
+            % @images: output images
+            % @method: 'exact-star' or 'approx-star'
+            % @option: 'parallel' or 'single': parallel computing
+            
+            % author: Dung Tran
+            % date: 2/4/2020
+            
+            n = length(in_images);
+            In(n) = Star; % preallocation
+            h = in_images(1).height;
+            w = in_images(1).width;
+            c = in_images(1).numChannel;
+            for i=1:n               
+                if ~isa(in_images(i), 'ImageStar')
+                    error('Input %d is not an imagestar', i);
+                end
+                In(i) = in_images(i).toStar;
+            end
+            
+            images(n) = ImageStar;            
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    Y = PosLin.reach(In(i), 'abs-dom');
+                    images(i) = Y.toImageStar(h,w,c);
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    Y = PosLin.reach(In(i), 'abs-dom');
+                    images(i) = Y.toImageStar(h,w,c);
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
             end
            
         end
@@ -172,7 +244,7 @@ classdef ReluLayer < handle
                     Y = PosLin.reach(In(i), 'approx-zono');
                     images(i) = Y.toImageZono(h,w,c);
                 end
-            elseif strcmp(option, 'single')
+            elseif strcmp(option, 'single') || isempty(option)
                 for i=1:n
                     Y = PosLin.reach(In(i), 'approx-zono');
                     images(i) = Y.toImageZono(h,w,c);

@@ -14,23 +14,35 @@ classdef Zono
     methods
         
         %constructor
-        function obj = Zono(c, V)
+        function obj = Zono(varargin)
             % @c: center vector
             % @V: generator matrix
             
-            [nC, mC] = size(c);
-            [nV, ~] = size(V);
+            switch nargin
+                
+                case 2
+                    c = varargin{1};
+                    V = varargin{2};
             
-            if mC ~= 1
-                error('center vector should have one column');
+                    [nC, mC] = size(c);
+                    [nV, ~] = size(V);
+
+                    if mC ~= 1
+                        error('center vector should have one column');
+                    end
+                    if nC ~= nV
+                        error('Inconsistent dimension between center vector and generator matrix');
+                    end
+
+                    obj.c = c;
+                    obj.V = V;
+                    obj.dim = nV;
+                    
+                case 0 
+                    
+                otherwise
+                    error('Invalid number of inputs, 0 or 2');
             end
-            if nC ~= nV
-                error('Inconsistent dimension between center vector and generator matrix');
-            end
-            
-            obj.c = c;
-            obj.V = V;
-            obj.dim = nV;
             
         end
         

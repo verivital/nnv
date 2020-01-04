@@ -142,6 +142,47 @@ classdef ReluLayer < handle
             end
            
         end
+        
+        
+        % reachability using ImageZono
+        function images = reach_zono(~,in_images, option)
+            % @in_images: an array of input ImageZono
+            % @images: output images
+            % @option: 'parallel' or 'single' : parallel computing
+            
+            % author: Dung Tran
+            % date: 2/4/2020
+            
+            n = length(in_images);
+            In(n) = Zono; % preallocation
+            h = in_images(1).height;
+            w = in_images(1).width;
+            c = in_images(1).numChannels;
+            
+            for i=1:n
+                if ~isa(in_images(i), 'ImageZono')
+                    error('Input %d is not an ImageZono', i);
+                end                
+                In(i) = in_images(i).toZono;                
+            end
+            
+            images(n) = ImageZono;            
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    Y = PosLin.reach(In(i), 'approx-zono');
+                    images(i) = Y.toImageZono(h,w,c);
+                end
+            elseif strcmp(option, 'single')
+                for i=1:n
+                    Y = PosLin.reach(In(i), 'approx-zono');
+                    images(i) = Y.toImageZono(h,w,c);
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+            
+        end
+        
                  
     end
     

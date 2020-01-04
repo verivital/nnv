@@ -142,7 +142,7 @@ classdef ImageInputLayer < handle
         end
         
         
-        % reachability analysis using ImageZono method
+        % reachability analysis using ImageStar or ImageZono method
         function images = reach_zono(varargin)
             % @in_images: an array of input ImageZono
             % @option: 'parallel' or 'single' or '[]'
@@ -169,12 +169,17 @@ classdef ImageInputLayer < handle
             
             n = length(in_images);
             for i=1:n
-                if ~isa(in_images(i), 'ImageZono')
-                    error('The %d the input is not an ImageZono');
+                if ~isa(in_images(i), 'ImageZono') || ~isa(in_images(i), 'ImageStar')
+                    error('The %d the input is not an ImageStar or ImageZono');
                 end                
             end
             
-            images(n) = ImageZono;
+            if isa(in_images(1), 'ImageStar')
+                images(n) = ImageStar;
+            elseif isa(in_images(1), 'ImageZono')
+                images(n) = ImageZono;
+            end
+   
             mean_image = obj.Mean;
             if strcmp(option, 'parallel')
                 parfor i=1:n

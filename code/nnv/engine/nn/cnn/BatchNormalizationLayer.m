@@ -90,11 +90,11 @@ classdef BatchNormalizationLayer < handle
         
     end
         
-    % exact reachability analysis using star set
+    % exact reachability analysis using ImageStar or ImageZono
     methods
         
         function images = reach(varargin)
-            % @in_image: an input imagestar
+            % @in_image: an input imagestar or imagezono
             % @image: output set
             % @option: = 'single' or 'parallel' 
             
@@ -124,12 +124,16 @@ classdef BatchNormalizationLayer < handle
             
             n = length(in_images);
             for i=1:n
-                if ~isa(in_images(i), 'ImageStar')
-                    error('The %d^th input is not an ImageStar', i);
+                if ~isa(in_images(i), 'ImageStar') || ~isa(in_images(i), 'ImageZono')
+                    error('The %d^th input is not an ImageStar or ImageZono', i);
                 end
             end
             
-            images(n) = ImageStar;
+            if isa(in_images(1), 'ImageStar')
+                images(n) = ImageStar;
+            elseif isa(in_images(1), 'ImageZono')
+                images(n) = ImageZono;
+            end
             
             if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
                 error('Batch Normalization Layer does not have enough parameters');

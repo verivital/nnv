@@ -144,7 +144,7 @@ classdef ReluLayer < handle
         
         
         % rechability using ImageStar
-        function images = reach_star(~, in_images, method, option)
+        function images = reach_star(varargin)
             % @in_images: an array of input ImageStar
             % @images: output images
             % @method: 'exact-star' or 'approx-star'
@@ -152,6 +152,23 @@ classdef ReluLayer < handle
             
             % author: Dung Tran
             % date: 2/4/2020
+            
+            switch nargin
+                case 4 
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                case 3
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = 'single';
+                case 2
+                    in_images = varargin{2};
+                    method = 'approx-star';
+                    option = 'single';
+                otherwise
+                    error('Invalid number of inputs, should be 1 or 2');
+            end
             
             n = length(in_images);
             In(n) = Star; % preallocation
@@ -177,7 +194,7 @@ classdef ReluLayer < handle
         
         
         % reachability using ImageStar + Deepoly abstract-domain method
-        function images = reach_abs_dom(~, in_images, option)
+        function images = reach_abs_dom(varargin)
             % @in_images: an array of input ImageStar
             % @images: output images
             % @method: 'exact-star' or 'approx-star'
@@ -185,6 +202,17 @@ classdef ReluLayer < handle
             
             % author: Dung Tran
             % date: 2/4/2020
+            
+            switch nargin
+                case 3 
+                    in_images = varargin{2};
+                    option = varargin{3};
+                case 2                    
+                    in_images = varargin{2};
+                    option = 'single';
+                otherwise
+                    error('Invalid number of inputs, should be 1 or 2');
+            end
             
             n = length(in_images);
             In(n) = Star; % preallocation
@@ -217,7 +245,7 @@ classdef ReluLayer < handle
         
         
         % reachability using ImageZono
-        function images = reach_zono(~,in_images, option)
+        function images = reach_zono(varargin)
             % @in_images: an array of input ImageZono
             % @images: output images
             % @option: 'parallel' or 'single' : parallel computing
@@ -225,6 +253,18 @@ classdef ReluLayer < handle
             % author: Dung Tran
             % date: 2/4/2020
             
+            switch nargin
+                case 3 
+                    in_images = varargin{2};
+                    option = varargin{3};
+                case 2
+                    
+                    in_images = varargin{2};
+                    option = 'single';
+                otherwise
+                    error('Invalid number of inputs, should be 1 or 2');
+            end
+                    
             n = length(in_images);
             In(n) = Zono; % preallocation
                         

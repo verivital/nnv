@@ -712,13 +712,17 @@ classdef PosLin
     methods(Static) % over-approximate reachability analysis use zonotope
         
         % step over-approximate reachability analysis using zonotope
-        function Z = stepReachZonoApprox(I, index)
+        function Z = stepReachZonoApprox(I, index, lb, ub)
             % @I: zonotope input set
-            % @index: index of neuron performing stepReach
+            % @lb: lower bound of input at specific neuron i
+            % @ub: lower bound of input at specfic neuron i
+            % @index: index of the neuron we want to perform stepReach
             % @Z: zonotope output set
             
             % author: Dung Tran
             % date: 5/3/2019
+            % update: 1/4/2020:
+            %     update reason: change getBounds method for Zonotope
         
             % reference: Fast and Effective Robustness Ceritification,
             % Gagandeep Singh, NIPS 2018
@@ -726,8 +730,6 @@ classdef PosLin
             if ~isa(I, 'Zono')
                 error('Input is not a Zonotope');
             end
-               
-            [lb, ub] = I.getRange(index);
             
             if lb >= 0
                 Z = Zono(I.c, I.V);
@@ -774,9 +776,10 @@ classdef PosLin
             end
                       
             In = I;
+            [lb, ub] = I.getBounds;
             for i=1:I.dim
                 fprintf('\nPerforming approximate PosLin_%d operation using Zonotope', i);
-                In = PosLin.stepReachZonoApprox(In, i);
+                In = PosLin.stepReachZonoApprox(In, i, lb(i), ub(i));
             end
             Z = In;
                        

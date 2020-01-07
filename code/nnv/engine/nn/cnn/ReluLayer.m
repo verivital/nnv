@@ -162,10 +162,10 @@ classdef ReluLayer < handle
                 error('input is not an ImageZono');
             end
             
-            h = in_images.height;
-            w = in_images.width;
-            c = in_images.numChannels;
-            In = in_images.toStar;
+            h = in_image.height;
+            w = in_image.width;
+            c = in_image.numChannels;
+            In = in_image.toZono;
             Y = PosLin.reach(In, 'approx-zono');
             image = Y.toImageZono(h,w,c);
             

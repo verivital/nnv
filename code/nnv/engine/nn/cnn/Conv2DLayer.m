@@ -655,7 +655,7 @@ classdef Conv2DLayer < handle
         end
         
         % reachability analysis using ImageZonos
-        function Z = reach_zono_sigle_input(obj, input)
+        function Z = reach_zono(obj, input)
             % @input: an ImageZono input set
             % @Z: an ImageZono with number of channels = obj.NumFilters
             

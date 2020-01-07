@@ -655,7 +655,7 @@ classdef Conv2DLayer < handle
         end
         
         % reachability analysis using ImageZonos
-        function Z = reach_zono_single_input(obj, input)
+        function Z = reach_zono_sigle_input(obj, input)
             % @input: an ImageZono input set
             % @Z: an ImageZono with number of channels = obj.NumFilters
             
@@ -676,8 +676,61 @@ classdef Conv2DLayer < handle
         end
         
         
+        % hangle multiple inputs
+        function images = reach_star_multipleInputs(obj, in_images, option)
+            % @in_images: an array of ImageStars input set
+            % @option: 
+            % @images: an array of ImageStars output set
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            n = length(in_images);
+            images(n) = ImageStar; 
+            
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = obj.reach_star_single_input(in_images(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = obj.reach_star_single_input(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+
+            end
+            
+        end
+        
+        function images = reach_zono_multipleInputs(obj, in_images, option)
+            % @in_images: an array of ImageZonos input set
+            % @option: = 'parallel' or 'single' or empty
+
+            % author: Dung Tran
+            % date: 1/7/2020
+
+            n = length(in_images);
+            images(n) = ImageZono; 
+
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = obj.reach_zono(in_images(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = obj.reach_zono(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+            end
+
+        end
+
+        
+        
         % reach star with multiple inputs
-        function S = reach(varargin)
+        function images = reach(varargin)
             % @inputs: an array of ImageStar or ImageZono input set
             % @S: an array of ImageStar output set
                         
@@ -685,54 +738,25 @@ classdef Conv2DLayer < handle
             % date: 7/16/2019
             
             switch nargin
-                case 2
-                    obj = varargin{1};
-                    inputs = varargin{2};
-                    option = [];
-                case 3
-                    obj = varargin{1};
-                    inputs = varargin{2}; 
-                    option = [];
                 case 4
                     obj = varargin{1};
-                    inputs = varargin{2}; % don't care the third option
-                    option = varargin{4}; 
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = varargin{3};
+                    option = 'single';
                 otherwise
-                    error('Invalid number of input arguments, should be 1, 2 or 3');
+                    error('Invalid number of input arguments, should be 2 or 3');
             end
          
-            
-            n = length(inputs);
-            if isa(inputs(1), 'ImageStar')
-                S(n) = ImageStar;
-                method = 'star';
-            elseif isa(inputs(1), 'ImageZono')
-                S(n) = ImageZono;
-                method = 'zono';
-            else
-                error('The input should be array of ImageStars or ImageZonos');
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-domain')
+                images = obj.reach_star_multipleInputs(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                images = obj.reach_zono_multipleInputs(in_images, option);
             end
-            
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    if strcmp(method, 'star')
-                        S(i) = obj.reach_star_single_input(inputs(i)); 
-                    elseif strcmp(method, 'zono')
-                        S(i) = obj.reach_zono_single_input(inputs(i));
-                    end
-                end
-            elseif isempty(option) || strcmp(option, 'single')
-                for i=1:n
-                    if strcmp(method, 'star')
-                        S(i) = obj.reach_star_single_input(inputs(i));
-                    elseif strcmp(method, 'zono')
-                        S(i) = obj.reach_zono_single_input(inputs(i));
-                    end
-                end
-            else
-                error('Unknown computation option');
-            end
-
             
         end
         

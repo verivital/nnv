@@ -149,7 +149,7 @@ classdef BatchNormalizationLayer < handle
                 l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
             end
             
-            x = in_images.affineMap(l, l.*mean);
+            x = in_image.affineMap(l, l.*mean);
             image = x.affineMap(scale, offset);
             
         end
@@ -255,12 +255,7 @@ classdef BatchNormalizationLayer < handle
             if ~isa(layer, 'nnet.cnn.layer.BatchNormalizationLayer')
                 error('Input is not a Matlab nnet.cnn.layer.BatchNormalizationLayer class');
             end
-            
-            display(layer.Name);
-            display(layer.TrainedMean);
-            display(layer.TrainedVariance);
-            display(layer.NumChannels);
-            
+                       
             L = BatchNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels, 'TrainedMean', layer.TrainedMean, 'TrainedVariance', layer.TrainedVariance, 'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale);
             fprintf('\nParsing a Matlab batch normalization layer is done successfully');
             

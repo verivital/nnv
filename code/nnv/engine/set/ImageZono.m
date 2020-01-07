@@ -64,13 +64,17 @@ classdef ImageZono < handle
 
                     cp12 = (size1 == size2);
 
-                    if sum(cp12) ~= 3
+                    if sum(cp12) ~= 3 && sum(cp12) ~= 2
                         error('Different sizes between lower bound image and upper bound image');
                     end
 
                     obj.height = size1(1);
                     obj.width = size1(2);
-                    obj.numChannels = size1(3);
+                    if length(size1) == 2
+                        obj.numChannels = 1;
+                    else
+                        obj.numChannels = size1(3);
+                    end
                     
                     % get basis images array
                     

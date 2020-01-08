@@ -23,6 +23,7 @@ classdef FFNNS < handle
         reachSet = [];  % reachable set for each layers
         outputSet = []; % output reach set
         reachTime = []; % computation time for each layers
+        numReachSet = []; % number of reach sets over layers
         totalReachTime = 0; % total computation time       
         numSamples = 2000; % default number of samples using to falsify a property
         unsafeRegion = []; % unsafe region of the network
@@ -140,9 +141,9 @@ classdef FFNNS < handle
                 fprintf(f, '\nNumber of cores used in computation: %d', obj.numCores);
                 
                 for i=1:length(obj.reachSet)-1
-                    fprintf(f, '\nLayer %d reach set consists of %d sets that are computed in %.5f seconds', i, length(obj.reachSet{1, i}), obj.reachTime(i));
+                    fprintf(f, '\nLayer %d reach set consists of %d sets that are computed in %.5f seconds', i, obj.numReachSet(i), obj.reachTime(i));
                 end
-                fprintf(f, '\nOutput Layer reach set consists of %d sets that are computed in %.5f seconds', length(obj.reachSet{1, obj.nL}), obj.reachTime(obj.nL)); 
+                fprintf(f, '\nOutput Layer reach set consists of %d sets that are computed in %.5f seconds', obj.numReachSet(obj.nL), obj.reachTime(obj.nL)); 
                 fprintf(f, '\nTotal reachable set computation time: %.5f', obj.totalReachTime);
                 
             end
@@ -238,6 +239,7 @@ classdef FFNNS < handle
             end
             
             obj.reachSet = cell(1, obj.nL);
+            obj.numReachSet = zeros(1, obj.nL);
             obj.reachTime = [];
                         
             % compute reachable set
@@ -267,6 +269,7 @@ classdef FFNNS < handle
                 t1 = toc(st);
                 
                 %obj.reachSet{1, i} = In;
+                obj.numReachSet(i) = length(In);
                 obj.reachTime = [obj.reachTime t1];
                 
                 fprintf('\nExact computation time: %.5f seconds', t1);               

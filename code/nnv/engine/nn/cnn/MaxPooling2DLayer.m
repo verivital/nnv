@@ -707,6 +707,34 @@ classdef MaxPooling2DLayer < handle
         
     end
     
+    methods
+        % reachability analysis using ImageZono
+        % this is an over-approximation method
+        function image = reach_zono(obj, in_image)
+            % @in_image: an ImageZono input
+            % @image: an ImageZono output
+            
+            % author: Dung Tran
+            % date: 1/5/2020
+            
+            
+            if ~isa(in_image, 'ImageZono')
+                error('Input is not an ImageZono');
+            end
+            
+            lb = in_image.lb_image;
+            ub = in_image.ub_image;
+            
+            new_lb = vl_nnpool(-lb, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');         
+            new_ub = vl_nnpool(ub, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');
+            
+            image = ImageZono(-new_lb, new_ub);
+            
+        end
+        
+        
+    end
+    
     
     methods(Static)
        

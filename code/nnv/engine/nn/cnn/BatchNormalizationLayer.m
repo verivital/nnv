@@ -119,7 +119,7 @@ classdef BatchNormalizationLayer < handle
                 l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
             end
             
-            x = in_images.affineMap(l, l.*mean);
+            x = in_image.affineMap(l, -l.*mean);
             image = x.affineMap(scale, offset);
             
         end
@@ -149,7 +149,7 @@ classdef BatchNormalizationLayer < handle
                 l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
             end
             
-            x = in_image.affineMap(l, l.*mean);
+            x = in_image.affineMap(l, -l.*mean);
             image = x.affineMap(scale, offset);
             
         end

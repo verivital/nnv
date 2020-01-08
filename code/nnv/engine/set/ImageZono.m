@@ -239,6 +239,21 @@ classdef ImageZono < handle
             
         end
         
+        
+        % contain, check if an ImageZono contain an image 
+        function bool = contains(obj, image)
+            % @image: input image
+            % @bool: = 1 if the ImageStar contain the image
+            %        = 0 if the ImageStar does not contain the image
+            
+            % author: Dung Tran
+            % date: 1/8/2020
+            
+            S = obj.toImageStar;
+            bool = S.contains(image);
+            
+        end
+        
        
          
     end

@@ -10,22 +10,17 @@ load('Small_ConvNet.mat');
 nnvNet = CNN.parse(net, 'Small_ConvNet');
 IM = IM_data(:,:,1);
 IM = reshape(IM, [28, 28, 1]);
-imshow(IM);
-
 N = 784; 
 IM1 = reshape(IM, [N 1]);
 
 % Brightening attack
-del = 50;
-lb = zeros(N, 1);
-ub = zeros(N, 1);
-for i=1:n
-    if IM1(i) >= 255 - del
-        lb(i) = IM1(i);
-        ub(i) = 255;
-    else
-        lb(i) = IM1(i);
-        ub(i) = IM1(i);
+del1 = 15;
+lb = IM1;
+ub = IM1;
+for i=1:N
+    if  IM1(i) >= 255 - del1
+        lb(i) = 0.3*IM1(i);
+        ub(i) = 0.5*IM1(i);
     end
 end
 
@@ -35,10 +30,12 @@ ub = reshape(ub, [28 28 1]);
 inputSet = ImageZono(lb, ub);
 
 figure;
-imshow(IM);
+imshow(uint8(IM));
 figure;
-imshow(lb);
+imshow(uint8(lb));
 figure;
-imshow(ub);
+imshow(uint8(ub));
+
+y1 = nnvNet.evaluate(lb);
 
 %outputSet = nnvNet.reach(inputSet, 'approx-zono');

@@ -88,7 +88,7 @@ classdef ImageInputLayer < handle
             if ~isa(in_image, 'ImageStar')
                 error('Input is not an ImageStar');
             end
-            image = in_image.affineMap([], obj.Mean);
+            image = in_image.affineMap([], -obj.Mean);
         end
         
         % handling multiple inputs
@@ -128,7 +128,7 @@ classdef ImageInputLayer < handle
             if ~isa(in_image, 'ImageZono')
                 error('Input is not an ImageZono');
             end
-            image = in_image.affineMap([], obj.Mean);
+            image = in_image.affineMap([], -obj.Mean);
         end
         
         % handling multiple inputs
@@ -185,7 +185,7 @@ classdef ImageInputLayer < handle
             end      
       
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-domain')
-                images = obj.reach_star_multipleInputs(in_images, method, option);
+                images = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);
             end   

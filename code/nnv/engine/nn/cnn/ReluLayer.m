@@ -105,11 +105,11 @@ classdef ReluLayer < handle
             end
             
             
-            h = in_images.height;
-            w = in_images.width;
-            c = in_images.numChannel;
+            h = in_image.height;
+            w = in_image.width;
+            c = in_image.numChannel;
             
-            Y = PosLin.reach(In, method, []); % reachable set computation with ReLU
+            Y = PosLin.reach(in_image.toStar, method, []); % reachable set computation with ReLU
             n = length(Y);
             images(n) = ImageStar;
             % transform back to ImageStar

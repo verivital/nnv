@@ -63,8 +63,10 @@ N = 2000; % get 100 images and its labels from the imdsValidation
 IM_data = zeros(28, 28, N);
 IM_labels = zeros(N, 1);
 for i=1:N
-    IM_data(:,:, i) = imread(imdsValidation.Files{i});
-    IM_labels(i) = imdsValidation.Labels(i);
+    if YPred(i) == YValidation(i)
+        IM_data(:,:, i) = imread(imdsValidation.Files{i});
+        IM_labels(i) = imdsValidation.Labels(i);
+    end
 end
 
 save images.mat IM_data IM_labels

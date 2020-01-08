@@ -126,8 +126,9 @@ classdef FullyConnectedLayer < handle
        
     end   
      
-    methods %(reachability analysis using imagestar)
+    methods 
         
+        %(reachability analysis using imagestar)
         function image = reach_star_exact(obj, in_image)
             % @in_image: input imagestar
             % @image: output set
@@ -162,6 +163,43 @@ classdef FullyConnectedLayer < handle
         end
         
         
+        
+        %(reachability analysis using imagezono)
+        function image = reach_zono_exact(obj, in_image)
+            % @in_image: input imagezono
+            % @image: output set
+            
+            % author: Dung Tran
+            % date: 1/2/2020
+            
+            
+            if ~isa(in_image, 'ImageZono')
+                error('Input set is not an ImageZono');
+            end
+            
+            N = in_image.height*in_image.width*in_image.numChannels;
+            if N~= obj.InputSize
+                error('Inconsistency between the size of the input image and the InputSize of the network');
+            end
+                       
+            n = in_image.numPreds;
+            V(1, 1, :, in_image.numPreds + 1) = zeros(obj.OutputSize, 1);        
+            for i=1:n+1
+                I = in_image.V(:,:,:,i);
+                I = reshape(I,N,1);
+                if i==1
+                    V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
+                else
+                    V(1, 1,:,i) = double(obj.Weights)*I;
+                end
+            end
+            
+            image = ImageZono(V);
+            
+        end
+        
+        
+        
         % reachability analysis with multiple inputs
         function IS = reach(varargin)
             % @in_image: an input imagestar
@@ -193,22 +231,36 @@ classdef FullyConnectedLayer < handle
             
             
             n = length(in_images);
-            IS(n) = ImageStar;
-
+            if isa(in_images(1), 'ImageStar')
+                IS(n) = ImageStar;
+                method = 'star';
+            elseif isa(in_images(1), 'ImageZono')
+                IS(n) = ImageZono;
+                method = 'zono';
+            else
+                error('The input should be array of ImageStars or ImageZonos');
+            end
+            
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    IS(i) = obj.reach_star_exact(in_images(i));
+                    if strcmp(method, 'star')
+                        IS(i) = obj.reach_star_exact(in_images(i));
+                    elseif strcmp(method, 'zono')
+                        IS(i) = obj.reach_zono_exact(in_images(i));
+                    end
                 end
                 
             elseif isempty(option) || strcmp(option, 'single')
                 for i=1:n
-                    IS(i) = obj.reach_star_exact(in_images(i));
+                    if strcmp(method, 'star')
+                        IS(i) = obj.reach_star_exact(in_images(i));
+                    elseif strcmp(method, 'zono')
+                        IS(i) = obj.reach_zono_exact(in_images(i));
+                    end
                 end
             else
                 error('Unknown computation option');
             end
-            
-            
             
         end
         

@@ -423,12 +423,9 @@ classdef ImageStar < handle
                 new_V(:,:,:,1) = new_V(:,:,:,1) + offset;
             end
                          
-            image = ImageStar(new_V, obj.C, obj.d, obj.pred_lb, obj.pred_ub, obj.im_lb, obj.im_ub);
+            image = ImageStar(new_V, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
                       
         end
-        
-        
-        
         
         
         % transform to Star
@@ -456,6 +453,38 @@ classdef ImageStar < handle
             end
             
         end
+        
+        
+        % contain, check if ImageStar contains an image
+        function bool = contains(obj, image)
+            % @image: input image
+            % @bool: = 1 if the ImageStar contain the image
+            %        = 0 if the ImageStar does not contain the image
+            
+            % author: Dung Tran
+            % date: 1/8/2020
+            
+            n = size(image);
+            if length(n) == 2 % one channel image
+                if n(1) ~= obj.height || n(2) ~= obj.width || obj.numChannel ~= 1
+                    error('Inconsistent dimenion between input image and the ImageStar');
+                end
+                y = reshape(image, [n(1)*n(2) 1]);
+            elseif length(n) == 3
+                if n(1) ~= obj.height || n(2) ~= obj.width || n(3) ~= obj.numChannel
+                    error('Inconsistent dimenion between input image and the ImageStar');
+                end
+                y = reshape(image, [n(1)*n(2)*n(3) 1]);
+            else
+                error('Invalid input image');
+            end
+            
+            S = obj.toStar;
+            bool = S.contains(y);
+            
+        end
+        
+        
         
         % projection of imagestar on specific 2d plane
         function proj_star = project2D(obj, point1, point2)

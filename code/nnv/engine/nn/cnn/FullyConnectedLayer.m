@@ -163,7 +163,7 @@ classdef FullyConnectedLayer < handle
         end
         
         % handle multiple inputs
-        function S = reach_star_mutipleInputs(obj, inputs, option)
+        function S = reach_star_multipleInputs(obj, inputs, option)
             % @inputs: an array of ImageStars
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar

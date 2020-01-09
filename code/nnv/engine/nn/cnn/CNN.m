@@ -358,6 +358,48 @@ classdef CNN < handle
         
     end
     
+    methods % verify robustness
+        
+        function bool = isRobust(varargin)
+            % @in_images: input sets
+            % @correct_ids: an array of correct labels corresponding to the input sets
+            % @method: reachability method: 'exact-star', 'approx-star',
+            % 'approx-zono' and 'abs-dom'
+            % @numCores: number of cores used in computation
+            
+            % author: Dung Tran
+            % date:1/9/2020
+            
+            switch nargin
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numCores = varargin{5};
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numCores = 1;
+                otherwise
+                    error('Invalid number of input arguments, should be 3 or 4');                    
+            end
+            
+            
+            if length(correct_ids) ~= length(in_images)
+                error('Inconsistency between the number of correct_ids and the number of input sets');
+            end
+            
+            
+            
+            
+        end
+        
+        
+    end
+    
     
     methods(Static)
        

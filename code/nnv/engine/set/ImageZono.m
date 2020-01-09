@@ -249,10 +249,35 @@ classdef ImageZono < handle
             % author: Dung Tran
             % date: 1/8/2020
             
-            S = obj.toImageStar;
-            bool = S.contains(image);
+            n = size(image);
+            if length(n) == 2 % one channel image
+                if n(1) ~= obj.height || n(2) ~= obj.width || obj.numChannels ~= 1
+                    error('Inconsistent dimenion between input image and the ImageStar');
+                end
+                y = reshape(image, [n(1)*n(2) 1]);
+            elseif length(n) == 3
+                if n(1) ~= obj.height || n(2) ~= obj.width || n(3) ~= obj.numChannels
+                    error('Inconsistent dimenion between input image and the ImageStar');
+                end
+                y = reshape(image, [n(1)*n(2)*n(3) 1]);
+            else
+                error('Invalid input image');
+            end
+            
+            Z = obj.toZono;
+            bool = Z.contains(y);
             
         end
+        
+        % get Ranges
+        function [lb, ub] = getRanges(obj)
+            % author: Dung Tran
+            % date: 1/9/2020
+            
+            lb = obj.lb_image;
+            ub = obj.ub_image;
+        end
+        
         
        
          

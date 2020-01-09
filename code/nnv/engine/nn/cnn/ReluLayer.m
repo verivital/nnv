@@ -226,7 +226,7 @@ classdef ReluLayer < handle
                     error('Invalid number of input arguments (should be 1, 2 or 3)');
             end
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-domain')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
                 images = obj.reach_star_multipleInputs(in_images, method, option);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);

@@ -691,7 +691,7 @@ classdef MaxPooling2DLayer < handle
                 IS = obj.reach_star_approx_multipleInputs(in_images, option);
             elseif strcmp(method, 'exact-star')
                 IS = obj.reach_star_exact_multipleInputs(in_images, option);
-            elseif strcmp(method, 'abs-domain')
+            elseif strcmp(method, 'abs-dom')
                 % abs-domain works similarly to approx-star method for max
                 % pooling layer
                 IS = obj.reach_star_approx_multipleInputs(in_images, option);

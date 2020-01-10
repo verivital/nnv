@@ -9,20 +9,21 @@ nnvNet = CNN.parse(net, 'Small_ConvNet');
 
 
 %delta = [0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1];
-delta = [0.01 0.02 0.03 0.04 0.05];
-
+%delta = [0.005 0.01 0.015 0.02 0.025];
+delta = 0.005;
 M = length(delta);
-N = 2; % number of images used for robustness tested
-del = 5;
+N = 100; % number of test images used for testing robustness
+d = 240; % threshold for brightening attack
 inputSetStar = cell(M, 1);
 for i=1:M
     inputStar = [];
-    for j=1:N
+    count = 0;
+    for j=1:2000
         IM = IM_data(:,:,j);
         lb = IM;
         ub = IM;
         for k=1:784
-            if  IM(k) >= 255 - del
+            if  IM(k) >= d
                 lb(k) = 0;
                 ub(k) = delta(i)*IM(k);
             end
@@ -30,27 +31,30 @@ for i=1:M
         lb = reshape(lb, [28 28 1]);
         ub = reshape(ub, [28 28 1]);
         Z = ImageZono(lb, ub);
-        inputStar = [inputStar Z.toImageStar];
+        S = Z.toImageStar;
+        if ~isempty(S.C)
+            inputStar = [inputStar S];
+            count = count + 1;
+        end
+        if count == N
+            break;
+        end
     end
     inputSetStar{i} = inputStar;
 end
 
-% computing reachable set
+% evaluate robustness
 numCores = 4;
-outputSetStar = cell(M, 1);
 verifyTimeStar = zeros(1, M);
+correct_labels = IM_labels(1:N, 1);
+r_star = zeros(1, M); % robustness percentage on an array of test N input sets
+ids_star = cell(1,M); % classified labels
 for i=1:M
-    outputSetStar{i} = nnvNet.reach(inputSetStar{i}, 'approx-star', numCores);
-    verifyTimeStar(i) = nnvNet.totalReachTime;
+    t = tic;
+    [r_star(i),ids_star{i}] = nnvNet.evaluateRobustness(inputSetStar{i}, correct_labels, 'abs-dom', numCores);
+    verifyTimeStar(i) = toc(t);
 end
 
-%verify results
-for i=1:M
-    outputSet = outputSetStar{i};
-    for j=1:N
-        
-    end
-   
-end
+save result_star.mat verifyTimeStar r_star ids_star
 
 

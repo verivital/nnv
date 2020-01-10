@@ -57,7 +57,7 @@ YValidation = imdsValidation.Labels;
 
 accuracy = sum(YPred == YValidation)/numel(YValidation)
 
-save Small_ConvNet.mat net; 
+save Medium_ConvNet.mat net; 
 
 N = 2000; % get 100 images and its labels from the imdsValidation
 IM_data = zeros(28, 28, N);

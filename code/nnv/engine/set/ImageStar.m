@@ -454,6 +454,15 @@ classdef ImageStar < handle
             
         end
         
+        % checking if an ImageStar is an empty set
+        function bool = isEmptySet(obj)
+            % author: Dung Tran
+            % date: 1/10/2020
+            
+            S = obj.toStar;
+            bool = S.isEmptySet;
+        end
+        
         
         % contain, check if ImageStar contains an image
         function bool = contains(obj, image)

@@ -29,12 +29,12 @@ layers = [
     batchNormalizationLayer
     reluLayer
     
-    maxPooling2dLayer(2,'Stride',2)
+    maxPooling2dLayer(2,'Stride',2);
     
     convolution2dLayer(3,32,'Padding','same')
     batchNormalizationLayer
     reluLayer
-    
+           
     fullyConnectedLayer(10)
     softmaxLayer
     classificationLayer];
@@ -57,7 +57,7 @@ YValidation = imdsValidation.Labels;
 
 accuracy = sum(YPred == YValidation)/numel(YValidation)
 
-save Medium_ConvNet.mat net; 
+save Small_ConvNet.mat net; 
 
 N = 2000; % get 100 images and its labels from the imdsValidation
 IM_data = zeros(28, 28, N);

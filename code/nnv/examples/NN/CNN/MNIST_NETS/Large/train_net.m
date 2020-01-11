@@ -35,6 +35,14 @@ layers = [
     batchNormalizationLayer
     reluLayer
     
+    convolution2dLayer(3,64,'Padding','same')
+    batchNormalizationLayer
+    reluLayer
+    
+    convolution2dLayer(3,128,'Padding','same')
+    batchNormalizationLayer
+    reluLayer
+    
     fullyConnectedLayer(100)
     batchNormalizationLayer
     reluLayer

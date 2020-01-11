@@ -16,14 +16,13 @@ IM = IM_data(:,:,1);
 IM = reshape(IM, [784 1]);
 label = IM_labels(1);
 % Brightening attack
-del = 5;
-p = 10; 
+d = 250
 lb = IM;
 ub = IM;
 for i=1:784
-    if  IM(i) >= 255 - del
-        lb(i) = 0.1*IM(i);
-        ub(i) = 0.15*IM(i);
+    if  IM(i) >= 250
+        lb(i) = 0;
+        ub(i) = 0.05*IM(i);
     end
 end
 
@@ -33,14 +32,16 @@ inputSet = ImageZono(lb, ub);
 inputSet1 = inputSet.toImageStar;
 
 outputSet_Star = nnvNet.reach(inputSet1, 'approx-star');
+reachTime_star = nnvNet.totalReachTime;
 outputSet_Zono = nnvNet.reach(inputSet, 'approx-zono');
+reachTime_zono = nnvNet.totalReachTime;
 outputSet_AbsDom = nnvNet.reach(inputSet1, 'abs-dom');
-
+reachTime_AbsDom = nnvNet.totalReachTime;
 
 
 [lb1, ub1] = outputSet_Star.getRanges;
 [lb2, ub2] = outputSet_Zono.getRanges;
-[lb3, ub3] = outputSet_Star.getRanges;
+[lb3, ub3] = outputSet_AbsDom.getRanges;
 
 lb1 = reshape(lb1, [10 1]);
 ub1 = reshape(ub1, [10 1]);
@@ -99,7 +100,7 @@ xticklabels({'0', '5', '9'});
 set(gca, 'FontSize', 10);
 
 subplot(1,3,3);
-e = errorbar(x2,y2,err2);
+e = errorbar(x3,y3,err3);
 e.LineStyle = 'none';
 e.LineWidth = 1;
 e.Color = 'red';

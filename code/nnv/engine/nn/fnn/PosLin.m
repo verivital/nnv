@@ -886,8 +886,8 @@ classdef PosLin
                 case 2
                     I = varargin{1};
                     index = varargin{2};
-                    [lb, ub] = I.getRange(index);
-                
+                    %[lb, ub] = I.getRange(index); % our improved approach
+                    [lb, ub] = I.estimateRange(index); % originial DeepPoly approach use estimated range
                 otherwise
                     error('Invalid number of input arguments (should be 2 or 4)');
             end
@@ -981,7 +981,7 @@ classdef PosLin
                     m = length(map); 
                     for i=1:m
                         fprintf('\nPerforming approximate PosLin_%d operation using Abstract Domain', map(i));
-                        In = PosLin.stepReachAbstractDomain(In, map(i));
+                        In = PosLin.stepReachAbstractDomain(In, map(i), lb(map(i)), ub(map(i)));
                     end
                     S = In;
              

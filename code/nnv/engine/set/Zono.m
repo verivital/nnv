@@ -360,6 +360,32 @@ classdef Zono
             
         end
         
+        % check if a zonotope contains a point
+        function bool = contains(obj, x)
+            % @x: point
+            % @bool: = '1' if the zonotope contain x else = '0'
+            
+            % author: Dung Tran
+            % date: 1/9/2020
+            
+            if size(x,1) ~= obj.dim
+                error('In consistent dimensions between the input point and the zonotope');
+            end
+            if size(x, 2) ~= 1
+                error('Invalid input point, should have 1 column');
+            end
+            
+            d = x - obj.c; 
+            abs_V = abs(obj.V);
+            d1 = sum(abs_V, 2); 
+            
+            x1 = (d <= d1);
+            x2 = (d >= -d1);
+            
+            bool = (sum(x1) == obj.dim) && (sum(x2) == obj.dim);
+                        
+        end
+        
         function [lb, ub] = getBounds(obj)
             % clip method from StanleyBak
             % to get bound of a zonotope

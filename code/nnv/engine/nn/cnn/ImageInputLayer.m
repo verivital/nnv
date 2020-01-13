@@ -72,15 +72,91 @@ classdef ImageInputLayer < handle
             end
                                
         end
-        
-                
-        
-       
-        
+         
     end
         
-    % exact reachability analysis using star set
-    methods
+    
+    methods % reachability methods
+        
+        function image = reach_star_single_input(obj, in_image)
+            % @in_image: an input ImageStar
+            % @image: an output ImageStar
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            if ~isa(in_image, 'ImageStar')
+                error('Input is not an ImageStar');
+            end
+            image = in_image.affineMap([], -obj.Mean);
+        end
+        
+        % handling multiple inputs
+        function images = reach_star_multipleInputs(obj, in_images, option)
+            % @in_images: an array of ImageStars
+            % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
+            % @option: = 'parallel' or 'single' or empty
+            % @images: an array of ImageStar (if we use 'exact-star' method)
+            %         or a single ImageStar set
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            n = length(in_images);
+            images(n) = ImageStar;            
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = obj.reach_star_single_input(in_images(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = obj.reach_star_single_input(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+
+            end
+        end
+        
+        function image = reach_zono(obj, in_image)
+            % @in_image: an input ImageZono
+            % @image: an output ImageZono
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            if ~isa(in_image, 'ImageZono')
+                error('Input is not an ImageZono');
+            end
+            image = in_image.affineMap([], -obj.Mean);
+        end
+        
+        % handling multiple inputs
+        function images = reach_zono_multipleInputs(obj, in_images, option)
+            % @in_images: an array of ImageZonos
+            % @option: = 'parallel' or 'single' or empty
+            % @images: an array of ImageZono 
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            n = length(in_images);
+            images(n) = ImageZono;            
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = obj.reach_zono(in_images(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = obj.reach_zono(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+
+            end
+        end
+        
+        
         
         function images = reach(varargin)
             % @in_image: an input imagestar
@@ -101,102 +177,23 @@ classdef ImageInputLayer < handle
                 case 3
                     obj = varargin{1};
                     in_images = varargin{2};
-                    option = varargin{3};
-                case 2
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    option = [];
-                otherwise
-                    error('Invalid number of input arguments (should be 1, 2 or 3)');
-            end
-            
-            
-            n = length(in_images);
-            for i=1:n
-                if ~isa(in_images(i), 'ImageStar')
-                    error('The %d^th input is not an ImageStar', i);
-                end
-            end
-            
-            images(n) = ImageStar;
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    V = double(in_images(i).V); % convert to double precision
-                    temp = obj.evaluate(V(:,:,:,1));
-                    V(:,:,:,1) = temp;
-                    images(i) = ImageStar(V, in_images(i).C, in_images(i).d, in_images(i).pred_lb, in_images(i).pred_ub, in_images(i).im_lb, in_images(i).im_ub);                    
-                end
+                    method = varargin{3};
+                    option = 'single';
                 
-            elseif isempty(option) || strcmp(option, 'single')
-                for i=1:n
-                    V = double(in_images(i).V); % convert to double precision
-                    temp = obj.evaluate(V(:,:,:,1));
-                    V(:,:,:,1) = temp;
-                    images(i) = ImageStar(V, in_images(i).C, in_images(i).d, in_images(i).pred_lb, in_images(i).pred_ub, in_images(i).im_lb, in_images(i).im_ub);                    
-                end
-            else
-                error('Unknown computation option');
-            end
+                otherwise
+                    error('Invalid number of input arguments (should be 2 or 3)');
+            end      
+      
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+                images = obj.reach_star_multipleInputs(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                images = obj.reach_zono_multipleInputs(in_images, option);
+            end   
             
                       
         end
         
         
-        % reachability analysis using ImageStar or ImageZono method
-        function images = reach_zono(varargin)
-            % @in_images: an array of input ImageZono
-            % @option: 'parallel' or 'single' or '[]'
-            % @images: output set
-            
-            % author: Dung Tran
-            % date: 1/4/2020
-            
-            
-            switch nargin
-                case 3
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    option = varargin{3};
-                case 2
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    option = 'single';
-                otherwise
-                    error('Invalid number of inputs, should be 1 or 2');
-            end
-        
-            
-            
-            n = length(in_images);
-            for i=1:n
-                if ~isa(in_images(i), 'ImageZono') || ~isa(in_images(i), 'ImageStar')
-                    error('The %d the input is not an ImageStar or ImageZono');
-                end                
-            end
-            
-            if isa(in_images(1), 'ImageStar')
-                images(n) = ImageStar;
-            elseif isa(in_images(1), 'ImageZono')
-                images(n) = ImageZono;
-            end
-   
-            mean_image = obj.Mean;
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    images(i) = in_images(i).affineMap([], mean_image);
-                end
-            elseif strcmp(option, 'single') || isempty(option)
-                for i=1:n
-                    images(i) = in_images(i).affineMap([], mean_image);
-                end
-            else
-                error('Unknown computation option, should be parallel or single');
-            end
-            
-            
-        end
-        
-                 
     end
     
     

@@ -68,7 +68,7 @@ classdef CNN < handle
                 
         
         % Evaluation of a CNN
-        function [y, features] = evaluate(obj, x)
+        function y = evaluate(obj, x)
             % Evaluation of this FFNN
             % @x: input vector x
             % @y: output vector y
@@ -358,6 +358,106 @@ classdef CNN < handle
         
     end
     
+    methods % evaluate robustness
+        
+        % evaluate robustness of a network on an array of input (test) sets
+        function [r, ids] = evaluateRobustness(varargin)
+            % @in_images: input sets
+            % @correct_ids: an array of correct labels corresponding to the input sets
+            % @method: reachability method: 'exact-star', 'approx-star',
+            % 'approx-zono' and 'abs-dom'
+            % @numCores: number of cores used in computation
+            % @r: robustness value (in percentage)
+            % @ids: classified ids
+            
+            
+            % author: Dung Tran
+            % date:1/9/2020
+            
+            switch nargin
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5};
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = 1;
+                otherwise
+                    error('Invalid number of input arguments, should be 3 or 4');                    
+            end
+            
+            
+            if length(correct_ids) ~= length(in_images)
+                error('Inconsistency between the number of correct_ids and the number of input sets');
+            end
+            
+            
+            N = length(in_images);
+            % compute reachable set
+            if strcmp(method, 'exact-star')
+                outputSets = cell(1, N);
+                for i=1:N
+                    outputSets{i} = obj.reach(in_images, method, numOfCores);
+                end
+            else
+                outputSets = obj.reach(in_images, method, numOfCores);
+            end
+            
+            % classify outputset             
+            ids = cell(1,N);
+            for i=1:N
+                if iscell(outputSets)
+                    outputSet = outputSets{i};
+                else
+                    outputSet = outputSets(i);
+                end
+                M = length(outputSet);
+                id = [];
+                for j=1:M
+                    id1 = CNN.classifyOutputSet(outputSet(j));
+                    if ~isempty(id1)
+                        id = [id id1];
+                    else
+                        id = [];
+                    end
+                end
+                ids{i} = id;
+            end
+            
+            % compute percentage of cases that we successfully prove the
+            % robustness of the network on the test input sets
+            
+            count = 0; 
+            for i=1:N
+                id = ids{i};                
+                if ~isempty(id)
+                    M = length(id);
+                    count1 = 0;
+                    for j=1:M
+                        if id(j) ~= correct_ids(i)
+                            count1 = count1 + 1;
+                        end
+                    end
+
+                    if count1 == 0
+                        count = count + 1;
+                    end
+                end
+                
+            end
+            
+            r = count/N; 
+            
+        end
+        
+        
+    end
+    
     
     methods(Static)
        
@@ -426,6 +526,38 @@ classdef CNN < handle
             
             cnn = CNN(name, Ls, inputSize, outputSize);
             fprintf('\nParsing network is done successfully and %d Layers are neglected in the analysis phase', n - j);
+            
+        end
+        
+        
+        % classify outputset
+        function classified_id = classifyOutputSet(outputSet)
+            % @outputSet: is the output of a CNN, it is an ImageStar or
+            %             ImageZono object
+            % @classified_id: the classified_id = the id of classified
+            % output or [] if we cannot classified outputset
+            % the classified id is corresponding to the output that has
+            % maximum value
+            
+            
+            % author: Dung Tran
+            % date: 1/10/2020
+            
+            if ~isa(outputSet, 'ImageStar') && ~isa(outputSet, 'ImageZono')
+                error('Output set is not an ImageStar or an ImageZono');
+            end
+                       
+            [lb, ub] = outputSet.getRanges; 
+            
+            [max_lb, max_lb_id] = max(lb);
+            ub(max_lb_id) = [];
+            ub = (ub > max_lb); 
+            
+            if sum(ub) == 0
+                classified_id = max_lb_id;
+            else
+                classified_id = [];
+            end
             
         end
         

@@ -64,13 +64,17 @@ classdef ImageZono < handle
 
                     cp12 = (size1 == size2);
 
-                    if sum(cp12) ~= 3
+                    if sum(cp12) ~= 3 && sum(cp12) ~= 2
                         error('Different sizes between lower bound image and upper bound image');
                     end
 
                     obj.height = size1(1);
                     obj.width = size1(2);
-                    obj.numChannels = size1(3);
+                    if length(size1) == 2
+                        obj.numChannels = 1;
+                    else
+                        obj.numChannels = size1(3);
+                    end
                     
                     % get basis images array
                     
@@ -234,6 +238,46 @@ classdef ImageZono < handle
             S = ImageStar(obj.V, C, d, pred_lb, pred_ub, obj.lb_image, obj.ub_image);
             
         end
+        
+        
+        % contain, check if an ImageZono contain an image 
+        function bool = contains(obj, image)
+            % @image: input image
+            % @bool: = 1 if the ImageStar contain the image
+            %        = 0 if the ImageStar does not contain the image
+            
+            % author: Dung Tran
+            % date: 1/8/2020
+            
+            n = size(image);
+            if length(n) == 2 % one channel image
+                if n(1) ~= obj.height || n(2) ~= obj.width || obj.numChannels ~= 1
+                    error('Inconsistent dimenion between input image and the ImageStar');
+                end
+                y = reshape(image, [n(1)*n(2) 1]);
+            elseif length(n) == 3
+                if n(1) ~= obj.height || n(2) ~= obj.width || n(3) ~= obj.numChannels
+                    error('Inconsistent dimenion between input image and the ImageStar');
+                end
+                y = reshape(image, [n(1)*n(2)*n(3) 1]);
+            else
+                error('Invalid input image');
+            end
+            
+            Z = obj.toZono;
+            bool = Z.contains(y);
+            
+        end
+        
+        % get Ranges
+        function [lb, ub] = getRanges(obj)
+            % author: Dung Tran
+            % date: 1/9/2020
+            
+            lb = obj.lb_image;
+            ub = obj.ub_image;
+        end
+        
         
        
          

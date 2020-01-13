@@ -87,9 +87,119 @@ classdef ReluLayer < handle
         
     end
         
-    % exact reachability analysis using star set
-    methods
+    
+    methods % reachability methods
         
+        % reachability using ImageStar
+        function images = reach_star_single_input(~, in_image, method)
+            % @in_image: an ImageStar input set
+            % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
+            % @images: an array of ImageStar (if we use 'exact-star' method)
+            %         or a single ImageStar set
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            if ~isa(in_image, 'ImageStar')
+                error('input is not an ImageStar');
+            end
+            
+            
+            h = in_image.height;
+            w = in_image.width;
+            c = in_image.numChannel;
+            
+            Y = PosLin.reach(in_image.toStar, method, []); % reachable set computation with ReLU
+            n = length(Y);
+            images(n) = ImageStar;
+            % transform back to ImageStar
+            for i=1:n
+                images(i) = Y(i).toImageStar(h,w,c);
+            end
+
+        end
+        
+        
+        % hangling multiple inputs
+        function images = reach_star_multipleInputs(obj, in_images, method, option)
+            % @in_images: an array of ImageStars
+            % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
+            % @option: = 'parallel' or 'single' or empty
+            % @images: an array of ImageStar (if we use 'exact-star' method)
+            %         or a single ImageStar set
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            
+            images = [];
+            n = length(in_images);
+                        
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images = [images obj.reach_star_single_input(in_images(i), method)];
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images = [images obj.reach_star_single_input(in_images(i), method)];
+                end
+            else
+                error('Unknown computation option');
+
+            end
+            
+        end
+        
+        
+        % reachability using ImageZono
+        function image = reach_zono(~, in_image)
+            % @in_image: an ImageZono input set
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            if ~isa(in_image, 'ImageZono')
+                error('input is not an ImageZono');
+            end
+            
+            h = in_image.height;
+            w = in_image.width;
+            c = in_image.numChannels;
+            In = in_image.toZono;
+            Y = PosLin.reach(In, 'approx-zono');
+            image = Y.toImageZono(h,w,c);
+            
+        end
+        
+        % handling multiple inputs
+        function images = reach_zono_multipleInputs(obj, in_images, option)
+            % @in_images: an array of ImageStars
+            % @option: = 'parallel' or 'single' or empty
+            % @images: an array of ImageStar (if we use 'exact-star' method)
+            %         or a single ImageStar set
+            
+            % author: Dung Tran
+            % date: 1/7/2020
+            
+            n = length(in_images);
+            images(n) = ImageZono;
+                        
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = obj.reach_zono(in_images(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = obj.reach_zono(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+            end
+            
+        end
+        
+        
+        % MAIN REACHABILITY METHOD
         function images = reach(varargin)
             % @in_image: an input imagestar
             % @image: output set
@@ -110,192 +220,19 @@ classdef ReluLayer < handle
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
-                    option = [];
+                    option = 'single';
                     
-                case 2
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = [];
-                    option = [];
                 otherwise
                     error('Invalid number of input arguments (should be 1, 2 or 3)');
             end
-      
-            if isa(in_images(1), 'ImageStar') && ~isempty(method) && strcmp(method, 'approx-zono')
-                error('Cannot use approx-zono reachability method for ImageStar input set, use exact-star, approx-star or abs-dom methods');
-            end
             
-            if isa(in_images(1), 'ImageZono') && ~isempty(method) && ~strcmp(method, 'approx-zono')
-                error('Please use approx-zono method for the ImageZono input set, or transform ImageZono to ImageStar to perform the reachability analysis');
-            end
-            
-            
-            if isa(in_images(1), 'ImageStar') && strcmp(method, 'abs-dom')
-                images = obj.reach_abs_dom(in_images, option); % use abstract-domain from DeepPoly
-            else
-                images = obj.reach_star(in_images, method, option); % use star method
-            end
-            
-            if isa(in_images(1), 'ImageZono')
-                images = obj.reach_zono(in_images, option); % use zonotope method from DeepZono
-            end
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+                images = obj.reach_star_multipleInputs(in_images, method, option);
+            elseif strcmp(method, 'approx-zono')
+                images = obj.reach_zono_multipleInputs(in_images, option);
+            end         
 
         end
-        
-        
-        % rechability using ImageStar
-        function images = reach_star(varargin)
-            % @in_images: an array of input ImageStar
-            % @images: output images
-            % @method: 'exact-star' or 'approx-star'
-            % @option: 'parallel' or 'single': parallel computing
-            
-            % author: Dung Tran
-            % date: 2/4/2020
-            
-            switch nargin
-                case 4 
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                case 3
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = 'single';
-                case 2
-                    in_images = varargin{2};
-                    method = 'approx-star';
-                    option = 'single';
-                otherwise
-                    error('Invalid number of inputs, should be 1 or 2');
-            end
-            
-            n = length(in_images);
-            In(n) = Star; % preallocation
-            for i=1:n               
-                if ~isa(in_images(i), 'ImageStar')
-                    error('Input %d is not an imagestar', i);
-                end
-                In(i) = in_images(i).toStar;
-            end
-            h = in_images(1).height;
-            w = in_images(1).width;
-            c = in_images(1).numChannel;
-            
-            Y = PosLin.reach(In, method, option); % reachable set computation with ReLU
-            n = length(Y);
-            images(n) = ImageStar;
-            % transform back to ImageStar
-            for i=1:n
-                images(i) = Y(i).toImageStar(h,w,c);
-            end
-           
-        end
-        
-        
-        % reachability using ImageStar + Deepoly abstract-domain method
-        function images = reach_abs_dom(varargin)
-            % @in_images: an array of input ImageStar
-            % @images: output images
-            % @method: 'exact-star' or 'approx-star'
-            % @option: 'parallel' or 'single': parallel computing
-            
-            % author: Dung Tran
-            % date: 2/4/2020
-            
-            switch nargin
-                case 3 
-                    in_images = varargin{2};
-                    option = varargin{3};
-                case 2                    
-                    in_images = varargin{2};
-                    option = 'single';
-                otherwise
-                    error('Invalid number of inputs, should be 1 or 2');
-            end
-            
-            n = length(in_images);
-            In(n) = Star; % preallocation
-            for i=1:n               
-                if ~isa(in_images(i), 'ImageStar')
-                    error('Input %d is not an imagestar', i);
-                end
-                In(i) = in_images(i).toStar;
-            end
-            h = in_images(1).height;
-            w = in_images(1).width;
-            c = in_images(1).numChannel;
-            
-            images(n) = ImageStar;            
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    Y = PosLin.reach(In(i), 'abs-dom');
-                    images(i) = Y.toImageStar(h,w,c);
-                end
-            elseif strcmp(option, 'single') || isempty(option)
-                for i=1:n
-                    Y = PosLin.reach(In(i), 'abs-dom');
-                    images(i) = Y.toImageStar(h,w,c);
-                end
-            else
-                error('Unknown computation option, should be parallel or single');
-            end
-           
-        end
-        
-        
-        % reachability using ImageZono
-        function images = reach_zono(varargin)
-            % @in_images: an array of input ImageZono
-            % @images: output images
-            % @option: 'parallel' or 'single' : parallel computing
-            
-            % author: Dung Tran
-            % date: 2/4/2020
-            
-            switch nargin
-                case 3 
-                    in_images = varargin{2};
-                    option = varargin{3};
-                case 2
-                    
-                    in_images = varargin{2};
-                    option = 'single';
-                otherwise
-                    error('Invalid number of inputs, should be 1 or 2');
-            end
-                    
-            n = length(in_images);
-            In(n) = Zono; % preallocation
-                        
-            for i=1:n
-                if ~isa(in_images(i), 'ImageZono')
-                    error('Input %d is not an ImageZono', i);
-                end                
-                In(i) = in_images(i).toZono;                
-            end
-            h = in_images(1).height;
-            w = in_images(1).width;
-            c = in_images(1).numChannels;
-            
-            
-            images(n) = ImageZono;            
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    Y = PosLin.reach(In(i), 'approx-zono');
-                    images(i) = Y.toImageZono(h,w,c);
-                end
-            elseif strcmp(option, 'single') || isempty(option)
-                for i=1:n
-                    Y = PosLin.reach(In(i), 'approx-zono');
-                    images(i) = Y.toImageZono(h,w,c);
-                end
-            else
-                error('Unknown computation option, should be parallel or single');
-            end
-            
-        end
-        
                  
     end
     

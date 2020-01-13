@@ -1,7 +1,7 @@
 function results = verify_P0_N00_star(P0, N1, N2)
 
-addpath(genpath("../../engine"));
-addpath(genpath("../../tbxmanager"));
+addpath(genpath("../../../engine"));
+addpath(genpath("../../../tbxmanager"));
 addpath("nnet-mat-files/")
 load(['ACASXU_run2a_',num2str(N1),'_',num2str(N2),'_batch_2000.mat']);
 
@@ -51,7 +51,8 @@ end
 
 I = Star(lb, ub);
 
-numCores = 8;
+c = parcluster('local');
+numCores = c.NumWorkers;
 
 [R1, ~] = F.reach(I, 'exact-star', numCores); % exact reach set using polyhdedron
 
@@ -88,4 +89,4 @@ end
 results.safe = safe;
 results.set_number = length(F.outputSet);
 results.total_time = check_time + F.totalReachTime;
-%save(['batch_star\P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.mat'],'results')
+save(['../../../../../../logs/logs_nnv/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.mat'],'results')

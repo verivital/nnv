@@ -205,12 +205,18 @@ classdef Star
             f = ones(1, obj.nVar);
             
             %[~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-            [~, ~, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-            if exitflag == 5 % use 1 for linprog
-                bool = 0;
+            if ~isempty(obj.C)
+                [~, ~, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                if exitflag == 5 % use 1 for linprog
+                    bool = 0;
+                else
+                    bool = 1;
+                end 
             else
-                bool = 1;
-            end 
+                if ~isempty(obj.V)
+                    bool = 1;
+                end
+            end
             
         end
         

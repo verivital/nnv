@@ -361,15 +361,13 @@ classdef CNN < handle
     methods % evaluate robustness
         
         % evaluate robustness of a network on an array of input (test) sets
-        function [r, ids] = evaluateRobustness(varargin)
+        function r = evaluateRobustness(varargin)
             % @in_images: input sets
             % @correct_ids: an array of correct labels corresponding to the input sets
             % @method: reachability method: 'exact-star', 'approx-star',
             % 'approx-zono' and 'abs-dom'
             % @numCores: number of cores used in computation
-            % @r: robustness value (in percentage)
-            % @ids: classified ids
-            
+            % @r: robustness value (in percentage)           
             
             % author: Dung Tran
             % date:1/9/2020
@@ -392,68 +390,67 @@ classdef CNN < handle
             end
             
             
-            if length(correct_ids) ~= length(in_images)
+            N = length(in_images);
+            if length(correct_ids) ~= N
                 error('Inconsistency between the number of correct_ids and the number of input sets');
             end
             
-            
-            N = length(in_images);
-            % compute reachable set
-            if strcmp(method, 'exact-star')
-                outputSets = cell(1, N);
-                for i=1:N
-                    outputSets{i} = obj.reach(in_images, method, numOfCores);
-                end
-            else
+                      
+            count = zeros(1, N);
+            if ~strcmp(method, 'exact-star')                
+                % compute reachable set
                 outputSets = obj.reach(in_images, method, numOfCores);
-            end
-            
-            % classify outputset             
-            ids = cell(1,N);
-            for i=1:N
-                if iscell(outputSets)
-                    outputSet = outputSets{i};
+                
+                % verify reachable set              
+                if numOfCores> 1
+                    parfor i=1:N
+                        count(i) = CNN.isRobust(outputSets(i), correct_ids(i));                            
+                    end
                 else
-                    outputSet = outputSets(i);
-                end
-                M = length(outputSet);
-                id = [];
-                for j=1:M
-                    id1 = CNN.classifyOutputSet(outputSet(j));
-                    if ~isempty(id1)
-                        id = [id id1];
-                    else
-                        id = [];
-                    end
-                end
-                ids{i} = id;
-            end
-            
-            % compute percentage of cases that we successfully prove the
-            % robustness of the network on the test input sets
-            
-            count = 0; 
-            for i=1:N
-                id = ids{i};                
-                if ~isempty(id)
-                    M = length(id);
-                    count1 = 0;
-                    for j=1:M
-                        if id(j) ~= correct_ids(i)
-                            count1 = count1 + 1;
-                        end
-                    end
-
-                    if count1 == 0
-                        count = count + 1;
+                    for i=1:N
+                        count(i) = CNN.isRobust(outputSets(i), correct_ids(i));
                     end
                 end
                 
             end
             
-            r = count/N; 
+            if strcmp(method, 'exact-star')
+                % compute reachable set
+                if numOfCores > 1
+                    parfor i=1:N
+                        outputSets = obj.reach(in_images(i), method);
+                        % verify reachable set
+                        M = length(outputSets);
+                        count1 = 0;
+                        for j=1:M
+                            count1 = count1 + CNN.isRobust(outputSets(j), correct_ids(i));
+                        end
+                        if count1 == M
+                            count(i) = 1;
+                        end
+                        
+                    end
+                else
+                    for i=1:N
+                        outputSets = obj.reach(in_images(i), method);
+                        % verify reachable set
+                        M = length(outputSets);
+                        count1 = 0;
+                        for j=1:M
+                            count1 = count1 + CNN.isRobust(outputSets(j), correct_ids(i));
+                        end
+                        if count1 == M
+                            count(i) = 1;
+                        end
+                    end
+                end
+                                    
+            end          
+                        
+            r = sum(count)/N; 
             
-        end
+        end      
+        
         
         
     end
@@ -529,6 +526,37 @@ classdef CNN < handle
             
         end
         
+             
+        % check robustness using the outputSet
+        function bool = isRobust(outputSet, correct_id)
+            % @outputSet: the outputSet we need to check
+            % @correct_id: the correct_id of the classified output
+            
+            % author: Dung Tran
+            % date: 1/11/2020
+            
+            if correct_id > outputSet.numChannel || correct_id < 1
+                error('Invalid correct id');
+            end
+            
+            count = 0;
+            for i=1:outputSet.numChannel
+                if correct_id ~= i
+                    if outputSet.is_p1_larger_p2([1 1 i], [1 1 correct_id]);
+                       bool = 0;
+                       break;
+                    else
+                        count = count + 1;
+                    end
+                end
+            end
+            
+            if count == outputSet.numChannel - 1
+                bool = 1;
+            end
+            
+        end
+        
         
         % classify outputset
         function classified_id = classifyOutputSet(outputSet)
@@ -545,9 +573,10 @@ classdef CNN < handle
             
             if ~isa(outputSet, 'ImageStar') && ~isa(outputSet, 'ImageZono')
                 error('Output set is not an ImageStar or an ImageZono');
-            end
-                       
+            end           
+  
             [lb, ub] = outputSet.getRanges; 
+     
             
             [max_lb, max_lb_id] = max(lb);
             ub(max_lb_id) = [];
@@ -560,6 +589,7 @@ classdef CNN < handle
             end
             
         end
+        
         
         
         

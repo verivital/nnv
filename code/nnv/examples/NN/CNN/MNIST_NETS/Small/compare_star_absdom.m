@@ -79,11 +79,11 @@ for i=1:P
     for j=1:M
              
         t = tic;
-        [r_star(i, j), ~] = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'approx-star', numCores);
+        r_star(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'approx-star', numCores);
         VT_star(i, j) = toc(t);
                 
         t = tic;
-        [r_absdom(i, j), ~] = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'abs-dom', numCores);
+        r_absdom(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'abs-dom', numCores);
         VT_absdom(i, j) = toc(t);
         
         

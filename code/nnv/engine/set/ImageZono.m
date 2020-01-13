@@ -278,6 +278,24 @@ classdef ImageZono < handle
             ub = obj.ub_image;
         end
         
+        function b = is_p1_larger_p2(obj, p1, p2)
+            % @p1: the first point = [h1, w1, c1]
+            % @p2: the second point = [h2, w2, c2]
+            % h: height, w: width, c: channel index
+            
+            % @b = 1 -> p1 > p2 is feasible
+            %    = 0 -> p1 > p2 is not feasible
+            
+            % author: Dung Tran
+            % date: 7/23/2019
+            
+            % a*(V2 - V1) <= c1 - c2
+            
+            S = obj.toImageStar;
+            b = S.is_p1_larger_p2(p1, p2);           
+            
+        end
+        
         
        
          

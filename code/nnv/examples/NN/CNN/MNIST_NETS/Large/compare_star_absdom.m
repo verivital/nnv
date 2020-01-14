@@ -78,9 +78,9 @@ numCores = c.NumWorkers; % specify number of cores used for verification
 for i=1:P
     for j=1:M
              
-        %t = tic;
-        %r_star(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'approx-star', numCores);
-        %VT_star(i, j) = toc(t);
+        t = tic;
+        r_star(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'approx-star', numCores);
+        VT_star(i, j) = toc(t);
                 
         t = tic;
         r_absdom(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'abs-dom', numCores);

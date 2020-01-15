@@ -5,11 +5,11 @@ addpath(genpath("../../../tbxmanager"));
 addpath("nnet-mat-files/")
 load(['ACASXU_run2a_',num2str(N1),'_',num2str(N2),'_batch_2000.mat']);
 % edit property here
-P0 = 1;
-lb = [60750;3.13;3.13;1190;55];
-ub = [60760;3.14;3.14;1200;60];
-unsafe_mat = [-1,0,0,0,0];
-unsafe_vec = [-1500];
+P0 = 4;
+lb = [1790;0.05;0;1190;790];
+ub = [1800;0.06;0;1200;800];
+unsafe_mat = [1,-1,0,0,0;1,0,-1,0,0;1,0,0,-1,0;1,0,0,0,-1];
+unsafe_vec = [0;0;0;0];
 
 Layers = [];
 n = length(b);

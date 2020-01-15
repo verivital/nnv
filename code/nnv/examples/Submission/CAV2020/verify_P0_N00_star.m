@@ -5,11 +5,11 @@ addpath(genpath("../../../tbxmanager"));
 addpath("nnet-mat-files/")
 load(['ACASXU_run2a_',num2str(N1),'_',num2str(N2),'_batch_2000.mat']);
 % edit property here
-P0 = 2;
+P0 = 1;
 lb = [60750;3.13;3.13;1190;55];
 ub = [60760;3.14;3.14;1200;60];
-unsafe_mat = [-1,1,0,0,0;-1,0,1,0,0;-1,0,0,1,0;-1,0,0,0,1];
-unsafe_vec = [0;0;0;0];
+unsafe_mat = [-1,0,0,0,0];
+unsafe_vec = [-1500];
 
 Layers = [];
 n = length(b);
@@ -72,4 +72,15 @@ end
 results.safe = safe;
 results.set_number = length(F.outputSet);
 results.total_time = check_time + F.totalReachTime;
-save(['../../../../../../logs/logs_nnv_star/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.mat'],'results')
+
+filename = ['../../../../../../logs/logs_nnv_star/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.txt'];
+fileID = fopen(filename,'w');
+if safe
+    fprintf(fileID, 'UNSAT\n');
+else
+    fprintf(fileID, 'SAT\n');
+end
+fprintf(fileID,'Number of Output Sets: %d\n', length(F.outputSet));
+fprintf(fileID,'Total Time: %f\n', check_time + F.totalReachTime);
+fclose(fileID);
+%save(['../../../../../../logs/logs_nnv_star/%P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.mat'],'results')

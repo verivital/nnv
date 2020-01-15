@@ -95,7 +95,7 @@ yo1 = obstacle(1,1) + 0.5;
 yo2 = obstacle(1,1) - 0.5;
 
 % Plot results
-aa = figure;
+aa = figure('units','normalized','outerposition',[0 0 0.5 0.5]);
 aa1 = plot(out(:,1),out(:,2),'b','LineWidth',3);
 hold on;
 aa2 = patch([xo1 ; xo1; xo2; xo2; xo1],[yo1 ; yo2; yo2; yo1; yo1],'g');
@@ -104,7 +104,7 @@ aa4 = plot([ipoint(1) fpoint(1)],[ipoint(2) fpoint(2)], '--m','LineWidth',3);
 Star.plotBoxes_2D_noFill(ReachSystem, 1, 2,'b');
 xlabel('X Position (m)');
 ylabel('Y Position (m)');
-legend([aa1 aa2 aa4 aa3],{'Trajectory','Obstacle','N.O.P.','Unsafe Region'});
+legend([aa1 aa2 aa4 aa3],{'Trajectory','Obstacle','N.O.P.','Unsafe Region'},'Position',[0.7 0.3 0.1 0.1]);
 set(gca,'FontSize',16)
 set(gca,'DataAspectRatio',[1 1 1])
 title('Experiment 1');

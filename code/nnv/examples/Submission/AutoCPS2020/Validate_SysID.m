@@ -1,11 +1,14 @@
 %% This script will be used to test the blackboox systems with the LEC1 in closed-loop
 % The environment data will be fed by ground truth data recorded using the
 % UUV Simulator
-clc;clear
+clc;clear;close all;
+
+addpath(genpath(pwd))
+
 % Load blackbox model
-load('components/UUV_model.mat');
+load('UUV_model.mat');
 % % Load data to test the closed-loop system
-load('data/dataSysVal.mat')
+load('dataSysVal.mat')
 
 %% Compare the outputs of whole system (Cont+Norm+sys)
 [Y, FIT, X0] = compare(sys,ida);

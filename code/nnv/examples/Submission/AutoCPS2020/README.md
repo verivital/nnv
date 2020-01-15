@@ -10,5 +10,5 @@ Then, you can run the following scripts: reach_approx_1.m to reach_approx_4.m to
 To run the system validation, just run Validate_SysID.m.
 
 ### See results
-All the figures will be saved in the figures folder.
+All the figures will be saved in the [figures](https://github.com/dieman95/nnv/tree/master/code/nnv/examples/Submission/AutoCPS2020/figures) folder.
 

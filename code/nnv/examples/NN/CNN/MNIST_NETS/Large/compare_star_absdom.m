@@ -82,8 +82,17 @@ for i=1:P
         r_star(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'approx-star', numCores);
         VT_star(i, j) = toc(t);
         
-        % absdom reach time out (set as 1 hour for delta = 0.01 and 0.015)
-        if j <= 2
+        
+        
+    end
+end
+
+
+for i=1:P
+    for j=1:M
+        
+        % absdom run into memory issue (set as 1 hour for delta = 0.01 and 0.015)
+        if  ~((j== 3) || (i==3 && j==2))
         t = tic;
         r_absdom(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'abs-dom', numCores);
         VT_absdom(i, j) = toc(t);
@@ -91,6 +100,7 @@ for i=1:P
         
     end
 end
+       
 
 save Large_ConvNet_Results.mat r_star VT_star r_absdom VT_absdom;
 

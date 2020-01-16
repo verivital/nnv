@@ -72,8 +72,8 @@ r_star = zeros(P, M); % robustness percentage on an array of N tested input sets
 r_absdom = zeros(P, M); % robustness percentage on an array of N tested input sets obtained by the DeepPoly abstract domain method
 
 c = parcluster('local');
-numCores = c.NumWorkers; % specify number of cores used for verification
-
+%numCores = c.NumWorkers; % specify number of cores used for verification
+numCores = 4;
 
 for i=1:P
     for j=1:M
@@ -81,11 +81,13 @@ for i=1:P
         t = tic;
         r_star(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'approx-star', numCores);
         VT_star(i, j) = toc(t);
-                
+        
+        % absdom reach time out (set as 1 hour for delta = 0.01 and 0.015)
+        if j <= 2
         t = tic;
         r_absdom(i, j) = nnvNet.evaluateRobustness(inputSetStar{i, j}, correct_labels{i, j}, 'abs-dom', numCores);
         VT_absdom(i, j) = toc(t);
-        
+        end
         
     end
 end

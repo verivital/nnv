@@ -1,6 +1,8 @@
 %% Compute the reachability analysis of the obstacle avoidance scenario for UUV
 clc;clear;close all;
 
+addpath(genpath(pwd))
+
 % computation steps
 % step 0: initial state of plant
 % step 1: output set of the plant (input to controller)
@@ -13,18 +15,18 @@ clc;clear;close all;
 
 %% Load all elements 
 % Discrete-time Plant
-load('components\UUV_model.mat');
+load('UUV_model.mat');
 Plant = DLinearODE(sys.A,sys.B,sys.C,sys.D,sys.Ts); % Continuous
 % Norm: sensor NN model
-Norm = load_nn('','','','','','components\FNNsensor.mat'); 
+Norm = load_nn('','','','','','FNNsensor.mat'); 
 % Controller
-Cont = load_nn('','','','','','components\FNNcontroller.mat');
+Cont = load_nn('','','','','','FNNcontroller.mat');
 % Controller output normalization NN
-Cont2 = load_nn('','','','','','components\FNNnorm.mat');
+Cont2 = load_nn('','','','','','FNNnorm.mat');
 % Gazebo data
-load('data\data_exp1.mat');% (28 variables, 1Hz)
+load('data_exp1.mat');% (28 variables, 1Hz)
 % Obstacle locations
-load('obstacles\obstacle1');
+load('obstacle1');
 
 %% Perform simulation of the system given initial conditions and obstacle location (Visualizing purpose)
 % Find initial state of the plant based on recorded Gazebo data
@@ -93,7 +95,7 @@ yo1 = obstacle(1,1) + 0.5;
 yo2 = obstacle(1,1) - 0.5;
 
 % Plot results
-aa = figure;
+aa = figure('units','normalized','outerposition',[0 0 0.5 0.5]);
 aa1 = plot(out(:,1),out(:,2),'b','LineWidth',3);
 hold on;
 aa2 = patch([xo1 ; xo1; xo2; xo2; xo1],[yo1 ; yo2; yo2; yo1; yo1],'g');
@@ -102,7 +104,7 @@ aa4 = plot([ipoint(1) fpoint(1)],[ipoint(2) fpoint(2)], '--m','LineWidth',3);
 Star.plotBoxes_2D_noFill(ReachSystem, 1, 2,'b');
 xlabel('X Position (m)');
 ylabel('Y Position (m)');
-legend([aa1 aa2 aa4 aa3],{'Trajectory','Obstacle','N.O.P.','Unsafe Region'});
+legend([aa1 aa2 aa4 aa3],{'Trajectory','Obstacle','N.O.P.','Unsafe Region'},'Position',[0.7 0.3 0.1 0.1]);
 set(gca,'FontSize',16)
 set(gca,'DataAspectRatio',[1 1 1])
 title('Experiment 1');

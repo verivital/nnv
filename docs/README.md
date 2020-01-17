@@ -9,6 +9,10 @@ About the course, introduction to machine learning verification, challenges, int
 - Towards Verified AI - Seshia, Sadigh, Sastry - [link](https://arxiv.org/abs/1606.08514)
 - Formal Specification for Deep Neural Networks - Seshia et al - (https://link.springer.com/chapter/10.1007/978-3-030-01090-4_2)
 
+# Week 3 - Satisfiability Approaches for Neural Network Verification
+
+- Reluplex
+- Marabou
 
 # Resources
 
@@ -16,3 +20,4 @@ About the course, introduction to machine learning verification, challenges, int
 
 - (https://sites.google.com/view/vnn19/)
 - (https://sites.google.com/view/vnn20/)
+- https://www.dagstuhl.de/en/program/calendar/semhp/?semnr=18121

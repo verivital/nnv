@@ -964,7 +964,7 @@ classdef ImageStar < handle
            
             f = zeros(1, obj.numPred);
 
-                [~,~,status,~] = glpk(f, new_C, new_d);
+                [~,~,status,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
 
                 if status == 5 % feasible solution exist
                     b = 1;

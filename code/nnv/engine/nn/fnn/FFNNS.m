@@ -28,6 +28,9 @@ classdef FFNNS < handle
         numSamples = 2000; % default number of samples using to falsify a property
         unsafeRegion = []; % unsafe region of the network
         
+        
+        Operations = []; % flatten a network into a sequence of operations
+        
     end
     
     
@@ -1327,6 +1330,50 @@ classdef FFNNS < handle
         
         
                
+    end
+    
+    
+    methods % verify using Deep First Search + exact star for verification (on testing phase)
+        
+        
+        % flatten a FFNN into a sequence of operations for reachability
+        function flatten(obj, reachMethod)
+            % @reachMethod: reachability method
+            
+            % author: Dung Tran
+            % date: 1/18/2020
+            
+            
+            Ops = [];
+            
+            for i=1:obj.nL
+                Op = obj.Layers(i).flatten(reachMethod);
+                Ops = [Ops Op];
+            end
+            
+            obj.Operations = Ops;
+                       
+        end
+        
+        
+        function [safe, counterExamples] = verify_DFS(obj, inputSets, unsafeRegion, numCores)
+            % @inputSets: an array of star set
+            % @unsafeRegion: a HalfSpace object
+            % @numCores: number of cores used for verification
+            
+            % author: Dung Tran
+            % date: 1/18/2020
+            
+            
+            
+            
+        end
+        
+        
+        
+        
+        
+        
     end
     
     

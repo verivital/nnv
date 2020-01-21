@@ -15,6 +15,7 @@ tbxmanager
 tbxmanager install mpt mptdoc;
 tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi;
 tbxmanager install yalmip; % todo: error due to license, need to force acceptance
+cd /code/nnv;
 startup_nnv; % adding dependencies and nnv to the path
 " > install.m
 

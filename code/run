@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
 set -ex
 
+pwd
+
 # This is the master script for the capsule. When you click "Reproducible Run", the code in this file will execute.
+ls
+
+cd /deps/run_nnv_comparison
+
+#chmod +x setup_tools.sh
+#./setup_tools.sh
+
+chmod +x run_tools.sh
+./run_tools.sh > /results/run_nnv_comparison_log.txt 2>/results/run_nnv_comparison_err.txt
+
+cd ~/
+
 matlab -nodisplay -r "addpath(genpath('/code')); run_codeocean;"

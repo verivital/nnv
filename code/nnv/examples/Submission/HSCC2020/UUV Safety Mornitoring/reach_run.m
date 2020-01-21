@@ -115,7 +115,8 @@ end
 [y00,fit00,x_0] = compare(ida,sys);
 x4 = lsim(sys,x2,linspace(0,time-1,time)',x_0);
 %% Plot everything in same figure
-aa = figure('WindowState','maximized');
+%aa = figure('WindowState','maximized'); % doesn't work on codeocean
+aa = figure();
 aa1 = plot(x4(:,1),x4(:,2),'LineWidth',4);
 hold on;
 aa2 = plot(data(:,12),data(:,13),'LineWidth',4);

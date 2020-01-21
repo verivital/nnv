@@ -73,7 +73,7 @@ results.safe = safe;
 results.set_number = length(F.outputSet);
 results.total_time = check_time + F.totalReachTime;
 
-filename = ['../../../../../../logs/logs_nnv_star/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.txt'];
+filename = [path_results(), 'logs_nnv_star/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.txt'];
 fileID = fopen(filename,'w');
 if safe
     fprintf(fileID, 'UNSAT\n');
@@ -83,4 +83,4 @@ end
 fprintf(fileID,'Number of Output Sets: %d\n', length(F.outputSet));
 fprintf(fileID,'Total Time: %f\n', check_time + F.totalReachTime);
 fclose(fileID);
-%save(['../../../../../../logs/logs_nnv_star/%P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.mat'],'results')
+%save([path_results(), 'logs_nnv_star/%P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star.mat'],'results')

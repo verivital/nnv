@@ -46,7 +46,6 @@ load controller_5_20.mat;
 weights = network.weights;
 bias = network.bias;
 n = length(weights);
-n = length(weights);
 Layers = [];
 for i=1:n - 1
     L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');

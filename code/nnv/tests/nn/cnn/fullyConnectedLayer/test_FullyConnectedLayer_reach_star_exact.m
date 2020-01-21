@@ -18,3 +18,6 @@ UB(:,:,3) = UB(:,:,2);
 image = ImageStar(IM, LB, UB);
 
 output = fc.reach_star_exact(image);
+
+image2 = ImageZono(LB, UB);
+output2 = fc.reach_zono_exact(image2);

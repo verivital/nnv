@@ -126,9 +126,10 @@ classdef FullyConnectedLayer < handle
        
     end   
      
-    methods %(reachability analysis using imagestar)
+    methods 
         
-        function image = reach_star_exact(obj, in_image)
+        %(reachability analysis using imagestar)
+        function image = reach_star_single_input(obj, in_image)
             % @in_image: input imagestar
             % @image: output set
             
@@ -161,6 +162,93 @@ classdef FullyConnectedLayer < handle
             
         end
         
+        % handle multiple inputs
+        function S = reach_star_multipleInputs(obj, inputs, option)
+            % @inputs: an array of ImageStars
+            % @option: = 'parallel' or 'single'
+            % @S: output ImageStar
+            
+            % author: Dung Tran
+            % date: 1/6/2020
+            
+            n = length(inputs);
+            S(n) = ImageStar;
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    S(i) = obj.reach_star_single_input(inputs(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    S(i) = obj.reach_star_single_input(inputs(i));
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+            
+        end
+        
+        
+        
+        %(reachability analysis using imagezono)
+        function image = reach_zono(obj, in_image)
+            % @in_image: input imagezono
+            % @image: output set
+            
+            % author: Dung Tran
+            % date: 1/2/2020
+            
+            
+            if ~isa(in_image, 'ImageZono')
+                error('Input set is not an ImageZono');
+            end
+            
+            N = in_image.height*in_image.width*in_image.numChannels;
+            if N~= obj.InputSize
+                error('Inconsistency between the size of the input image and the InputSize of the network');
+            end
+                       
+            n = in_image.numPreds;
+            V(1, 1, :, in_image.numPreds + 1) = zeros(obj.OutputSize, 1);        
+            for i=1:n+1
+                I = in_image.V(:,:,:,i);
+                I = reshape(I,N,1);
+                if i==1
+                    V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
+                else
+                    V(1, 1,:,i) = double(obj.Weights)*I;
+                end
+            end
+            
+            image = ImageZono(V);
+            
+        end
+        
+        % handle mulitples inputs
+        function S = reach_zono_multipleInputs(obj, inputs, option)
+            % @inputs: an array of ImageZonos
+            % @option: = 'parallel' or 'single'
+            % @S: output ImageZono
+            
+            % author: Dung Tran
+            % date: 1/6/2020
+            
+            n = length(inputs);
+            S(n) = ImageZono;
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    S(i) = obj.reach_zono(inputs(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    S(i) = obj.reach_zono(inputs(i));
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+            
+        end
+        
+        
         
         % reachability analysis with multiple inputs
         function IS = reach(varargin)
@@ -170,42 +258,32 @@ classdef FullyConnectedLayer < handle
             
             % author: Dung Tran
             % date: 6/26/2019
+            % update: 1/6/2020  update reason: add zonotope method
              
             switch nargin
                 
                 case 4
                     obj = varargin{1};
-                    in_images = varargin{2}; % don't care the third inputs 
+                    in_images = varargin{2}; 
+                    method = varargin{3};
                     option = varargin{4}; % computation option
 
                 case 3
                     obj = varargin{1};
                     in_images = varargin{2}; % don't care the rest inputs
+                    method = varargin{3};
                     option = [];
-                case 2
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    option = [];
-
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+                    error('Invalid number of input arguments (should be 2 or 3)');
             end
             
             
             n = length(in_images);
-            IS(n) = ImageStar;
-
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    IS(i) = obj.reach_star_exact(in_images(i));
-                end
-                
-            elseif isempty(option) || strcmp(option, 'single')
-                for i=1:n
-                    IS(i) = obj.reach_star_exact(in_images(i));
-                end
-            else
-                error('Unknown computation option');
+            
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+                IS = obj.reach_star_multipleInputs(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                IS = obj.reach_zono_multipleInputs(in_images, option);
             end
             
             

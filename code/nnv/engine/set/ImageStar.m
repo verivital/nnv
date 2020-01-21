@@ -397,6 +397,37 @@ classdef ImageStar < handle
         end
         
         
+                
+        % affineMap of an ImageStar is another imagestar
+        % y = scale * x + offset;
+        function image = affineMap(obj, scale, offset)
+            % @scale: scale coefficient [1 x 1 x NumChannels] array
+            % @offset: offset coefficient [1 x 1 x NumChannels] array
+            % @image: a new ImageStar
+            
+            % author: Dung Tran
+            % date: 1/1/2020
+            
+            
+            if ~isempty(scale) && ~isscalar(scale) && size(scale, 3) ~= obj.numChannel
+                error('Inconsistent number of channels between scale array and the ImageStar');
+            end
+            
+            if ~isempty(scale)
+                new_V = scale.*obj.V;
+            else
+                new_V = obj.V;
+            end
+            
+            if ~isempty(offset)
+                new_V(:,:,:,1) = new_V(:,:,:,1) + offset;
+            end
+                         
+            image = ImageStar(new_V, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+                      
+        end
+        
+        
         % transform to Star
         function S = toStar(obj)
             
@@ -422,6 +453,47 @@ classdef ImageStar < handle
             end
             
         end
+        
+        % checking if an ImageStar is an empty set
+        function bool = isEmptySet(obj)
+            % author: Dung Tran
+            % date: 1/10/2020
+            
+            S = obj.toStar;
+            bool = S.isEmptySet;
+        end
+        
+        
+        % contain, check if ImageStar contains an image
+        function bool = contains(obj, image)
+            % @image: input image
+            % @bool: = 1 if the ImageStar contain the image
+            %        = 0 if the ImageStar does not contain the image
+            
+            % author: Dung Tran
+            % date: 1/8/2020
+            
+            n = size(image);
+            if length(n) == 2 % one channel image
+                if n(1) ~= obj.height || n(2) ~= obj.width || obj.numChannel ~= 1
+                    error('Inconsistent dimenion between input image and the ImageStar');
+                end
+                y = reshape(image, [n(1)*n(2) 1]);
+            elseif length(n) == 3
+                if n(1) ~= obj.height || n(2) ~= obj.width || n(3) ~= obj.numChannel
+                    error('Inconsistent dimenion between input image and the ImageStar');
+                end
+                y = reshape(image, [n(1)*n(2)*n(3) 1]);
+            else
+                error('Invalid input image');
+            end
+            
+            S = obj.toStar;
+            bool = S.contains(y);
+            
+        end
+        
+        
         
         % projection of imagestar on specific 2d plane
         function proj_star = project2D(obj, point1, point2)
@@ -892,7 +964,7 @@ classdef ImageStar < handle
            
             f = zeros(1, obj.numPred);
 
-                [~,~,status,~] = glpk(f, new_C, new_d);
+                [~,~,status,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
 
                 if status == 5 % feasible solution exist
                     b = 1;

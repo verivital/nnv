@@ -11,8 +11,8 @@ About the course, introduction to machine learning verification, challenges, int
 
 # Week 3 - Satisfiability Approaches for Neural Network Verification
 
-- Reluplex
-- Marabou
+- Reluplex: An Efficient SMT Solver for Verifying Deep Neural Networks - Katz et al - [link](https://link.springer.com/chapter/10.1007/978-3-319-63387-9_5)
+- The Marabou Framework for Verification and Analysis of Deep Neural Networks - Katz et al - [link](https://link.springer.com/chapter/10.1007/978-3-030-25540-4_26)
 
 # Resources
 

@@ -43,18 +43,13 @@ RUN pkg-config --cflags python
 # this directory is used as a flag to detect if on codeocean or not
 RUN mkdir -p /codeocean-true
 
-
 RUN mkdir -p /deps
 
-RUN ls
-RUN ls /
 RUN ls /codeocean-true
 
 RUN ls
 
-RUN ls /
-
-RUN ls /
+RUN ls
 
 RUN ls /
 

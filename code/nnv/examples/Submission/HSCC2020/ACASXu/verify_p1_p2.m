@@ -107,7 +107,8 @@ function R1 = compute_P0_N00_star(P0, N1, N2)
 
     I = Star(lb, ub);
 
-    numCores = parcluster('local').NumWorkers;
+    c = parcluster('local');
+    numCores = c.NumWorkers;
 
     [R1, ~] = F.reach(I, 'exact-star', numCores); % exact reach set using star
 

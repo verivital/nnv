@@ -682,25 +682,77 @@ classdef MaxPooling2DLayer < handle
                     in_images = varargin{2};
                     method = varargin{3};
                     option = [];
-                case 2
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = 'approx-star';
-                    option = [];
+                
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+                    error('Invalid number of input arguments (should be 2 or 3)');
             end
             
             if strcmp(method, 'approx-star')
                 IS = obj.reach_star_approx_multipleInputs(in_images, option);
             elseif strcmp(method, 'exact-star')
                 IS = obj.reach_star_exact_multipleInputs(in_images, option);
-            elseif strcmp(method, 'abs-domain')
-                error('NNV have not yet support abstract-domain method for CNN');
-            elseif strcmp(method, 'zono')
-                error('NNV have not yet support zonotope method for CNN');
+            elseif strcmp(method, 'abs-dom')
+                % abs-domain works similarly to approx-star method for max
+                % pooling layer
+                IS = obj.reach_star_approx_multipleInputs(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                IS = obj.reach_zono_multipleInputs(in_images, option);
             end
    
+            
+        end
+        
+        
+    end
+    
+    methods
+        % reachability analysis using ImageZono
+        % this is an over-approximation method
+        function image = reach_zono(obj, in_image)
+            % @in_image: an ImageZono input
+            % @image: an ImageZono output
+            
+            % author: Dung Tran
+            % date: 1/5/2020
+            
+            
+            if ~isa(in_image, 'ImageZono')
+                error('Input is not an ImageZono');
+            end
+            
+            lb = in_image.lb_image;
+            ub = in_image.ub_image;
+            
+            new_lb = vl_nnpool(-lb, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');         
+            new_ub = vl_nnpool(ub, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');
+            
+            image = ImageZono(-new_lb, new_ub);
+            
+        end
+        
+        % handle multiple inputs
+        function images = reach_zono_multipleInputs(obj, in_images, option)
+            % @in_images: an array of zonotopes
+            % @option: = 'parallel' or 'single'
+            % @images: output set
+            
+            % author: Dung Tran
+            % date: 1/6/2020
+            
+            
+            n = length(in_images);
+            images(n) = ImageZono;
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = obj.reach_zono(in_images(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = obj.reach_zono(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+            end
             
         end
         

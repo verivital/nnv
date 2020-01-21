@@ -383,8 +383,74 @@ classdef AveragePooling2DLayer < handle
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
         end
         
+        % handle multiple inputs
+        function S = reach_star_mutipleInputs(obj, inputs, option)
+            % @inputs: an array of ImageStars
+            % @option: = 'parallel' or 'single'
+            % @S: output ImageStar
+            
+            % author: Dung Tran
+            % date: 1/6/2020
+            
+            n = length(inputs);
+            S(n) = ImageStar;
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    S(i) = obj.reach_star_single_input(inputs(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    S(i) = obj.reach_star_single_input(inputs(i));
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+            
+        end
         
-        % general functio for reachability analysis
+        % reachability analysis using ImageZono
+        function image = reach_zono(obj, input)
+            % @input: an ImageZono input set
+            % @image: output set
+            
+            % author: Dung Tran
+            % date: 1/6/2020
+            
+            if ~isa(input, 'ImageZono')
+                error('The input is not an ImageZono object');
+            end
+            
+            Y = obj.evaluate(input.V);
+            image = ImageZono(Y);
+            
+        end
+        
+        % handle multiple inputs
+        function S = reach_zono_mutipleInputs(obj, inputs, option)
+            % @inputs: an array of ImageZonos
+            % @option: = 'parallel' or 'single'
+            % @S: output ImageZono
+            
+            % author: Dung Tran
+            % date: 1/6/2020
+            
+            n = length(inputs);
+            S(n) = ImageZono;
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    S(i) = obj.reach_zono(inputs(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    S(i) = obj.reach_zono(inputs(i));
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+            
+        end
+        
+        % general function for reachability analysis
         function IS = reach(varargin)
             % @in_image: an input imagestar
             % @image: output set
@@ -392,43 +458,33 @@ classdef AveragePooling2DLayer < handle
             
             % author: Dung Tran
             % date: 6/26/2019
+            % update: 1/6/2020   update reason: add zonotope method
+            %          
+            
              
             switch nargin
                 
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
+                    method = varargin{3};
                     option = varargin{4};
                 
                 case 3
                     obj = varargin{1};
                     in_images = varargin{2};
-                   
-                    option = [];
-                case 2
-                    obj = varargin{1};
-                    in_images = varargin{2};
+                    method = varargin{3};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+                    error('Invalid number of input arguments (should be 2 or 3)');
             end
             
             
-            n = length(in_images);
-            IS(n) = ImageStar;
-            
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    IS(i) = obj.reach_star_single_input(in_images(i));
-                end
-            elseif isempty(option) || strcmp(option, 'single')
-                for i=1:n
-                    IS(i) = obj.reach_star_single_input(in_images(i));
-                end
-            else
-                error('Unknown computation option');
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+                IS = obj.reach_star_multipleInputs(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                IS = obj.reach_zono_multipleInputs(in_images, option);
             end
-   
             
         end
         
@@ -436,9 +492,6 @@ classdef AveragePooling2DLayer < handle
     
 
     methods(Static)
-
-
-
         % parse a trained averagePooling2dLayer from matlab
         function L = parse(average_Pooling_2d_Layer)
             % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep

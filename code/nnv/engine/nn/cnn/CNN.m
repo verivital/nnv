@@ -41,7 +41,7 @@ classdef CNN < handle
                     nL = length(Layers); % number of Layers
                     for i=1:nL
                         L = Layers{i};
-                        if ~isa(L, 'ImageInputLayer') && ~isa(L, 'AveragePooling2DLayer') && ~isa(L, 'Conv2DLayer') && ~isa(L, 'FullyConnectedLayer') && ~isa(L, 'MaxPooling2DLayer') && ~isa(L, 'ReluLayer')
+                        if ~isa(L, 'ImageInputLayer') && ~isa(L, 'BatchNormalizationLayer') && ~isa(L, 'AveragePooling2DLayer') && ~isa(L, 'Conv2DLayer') && ~isa(L, 'FullyConnectedLayer') && ~isa(L, 'MaxPooling2DLayer') && ~isa(L, 'ReluLayer')
                             fprintf('\nCurrent version of NNV supports ImageInputLayer, AveragePooling2DLayer, Convolutional2DLayer, FullyConnectedLayer, MaxPooling2DLayer, AveragePooling2DLayer and ReluLayer');
                             error('Element %d of Layers is not among supported layers in NNV', i);
                         end
@@ -68,7 +68,7 @@ classdef CNN < handle
                 
         
         % Evaluation of a CNN
-        function [y, features] = evaluate(obj, x)
+        function y = evaluate(obj, x)
             % Evaluation of this FFNN
             % @x: input vector x
             % @y: output vector y
@@ -358,6 +358,103 @@ classdef CNN < handle
         
     end
     
+    methods % evaluate robustness
+        
+        % evaluate robustness of a network on an array of input (test) sets
+        function r = evaluateRobustness(varargin)
+            % @in_images: input sets
+            % @correct_ids: an array of correct labels corresponding to the input sets
+            % @method: reachability method: 'exact-star', 'approx-star',
+            % 'approx-zono' and 'abs-dom'
+            % @numCores: number of cores used in computation
+            % @r: robustness value (in percentage)           
+            
+            % author: Dung Tran
+            % date:1/9/2020
+            
+            switch nargin
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5};
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = 1;
+                otherwise
+                    error('Invalid number of input arguments, should be 3 or 4');                    
+            end
+            
+            
+            N = length(in_images);
+            if length(correct_ids) ~= N
+                error('Inconsistency between the number of correct_ids and the number of input sets');
+            end
+            
+                      
+            count = zeros(1, N);
+            if ~strcmp(method, 'exact-star')                
+                % compute reachable set
+                outputSets = obj.reach(in_images, method, numOfCores);
+                
+                % verify reachable set              
+                if numOfCores> 1
+                    parfor i=1:N
+                        count(i) = CNN.isRobust(outputSets(i), correct_ids(i));                            
+                    end
+                else
+                    for i=1:N
+                        count(i) = CNN.isRobust(outputSets(i), correct_ids(i));
+                    end
+                end
+                
+            end
+            
+            if strcmp(method, 'exact-star')
+                % compute reachable set
+                if numOfCores > 1
+                    parfor i=1:N
+                        outputSets = obj.reach(in_images(i), method);
+                        % verify reachable set
+                        M = length(outputSets);
+                        count1 = 0;
+                        for j=1:M
+                            count1 = count1 + CNN.isRobust(outputSets(j), correct_ids(i));
+                        end
+                        if count1 == M
+                            count(i) = 1;
+                        end
+                        
+                    end
+                else
+                    for i=1:N
+                        outputSets = obj.reach(in_images(i), method);
+                        % verify reachable set
+                        M = length(outputSets);
+                        count1 = 0;
+                        for j=1:M
+                            count1 = count1 + CNN.isRobust(outputSets(j), correct_ids(i));
+                        end
+                        if count1 == M
+                            count(i) = 1;
+                        end
+                    end
+                end
+                                    
+            end          
+                        
+            r = sum(count)/N; 
+            
+        end      
+        
+        
+        
+    end
+    
     
     methods(Static)
        
@@ -404,6 +501,8 @@ classdef CNN < handle
                         Li = Conv2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.ReLULayer')
                         Li = ReluLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
+                        Li = BatchNormalizationLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
                         Li = MaxPooling2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')
@@ -426,6 +525,71 @@ classdef CNN < handle
             fprintf('\nParsing network is done successfully and %d Layers are neglected in the analysis phase', n - j);
             
         end
+        
+             
+        % check robustness using the outputSet
+        function bool = isRobust(outputSet, correct_id)
+            % @outputSet: the outputSet we need to check
+            % @correct_id: the correct_id of the classified output
+            
+            % author: Dung Tran
+            % date: 1/11/2020
+            
+            if correct_id > outputSet.numChannel || correct_id < 1
+                error('Invalid correct id');
+            end
+            
+            count = 0;
+            for i=1:outputSet.numChannel
+                if correct_id ~= i
+                    if outputSet.is_p1_larger_p2([1 1 i], [1 1 correct_id]);
+                       bool = 0;
+                       break;
+                    else
+                        count = count + 1;
+                    end
+                end
+            end
+            
+            if count == outputSet.numChannel - 1
+                bool = 1;
+            end
+            
+        end
+        
+        
+        % classify outputset
+        function classified_id = classifyOutputSet(outputSet)
+            % @outputSet: is the output of a CNN, it is an ImageStar or
+            %             ImageZono object
+            % @classified_id: the classified_id = the id of classified
+            % output or [] if we cannot classified outputset
+            % the classified id is corresponding to the output that has
+            % maximum value
+            
+            
+            % author: Dung Tran
+            % date: 1/10/2020
+            
+            if ~isa(outputSet, 'ImageStar') && ~isa(outputSet, 'ImageZono')
+                error('Output set is not an ImageStar or an ImageZono');
+            end           
+  
+            [lb, ub] = outputSet.getRanges; 
+     
+            
+            [max_lb, max_lb_id] = max(lb);
+            ub(max_lb_id) = [];
+            ub = (ub > max_lb); 
+            
+            if sum(ub) == 0
+                classified_id = max_lb_id;
+            else
+                classified_id = [];
+            end
+            
+        end
+        
         
         
         

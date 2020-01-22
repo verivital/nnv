@@ -19,4 +19,10 @@ cd /code/nnv;
 startup_nnv; % adding dependencies and nnv to the path
 " > install.m
 
+pwd
+
+ls
+
 matlab -nodisplay -r "install; addpath(genpath('../../deps')); savepath"
+
+matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); savepath;"

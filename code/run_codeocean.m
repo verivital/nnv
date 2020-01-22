@@ -1,3 +1,15 @@
+%install;
+
+cd /code/nnv/examples/Submission/CAV2020/
+is_codeocean
+
+%verify_P0_N00_abs(1,1)
+%verify_P0_N00_star_appr(1,1)
+%verify_P0_N00_star(1,1)
+%verify_P0_N00_zono(1,1)
+
+%return
+
 % hscc 2020 re acc example
 pwd
 ls
@@ -54,6 +66,8 @@ i_d = 1; disabledTests = {} ; global i_d disabledTests;
 
 cd '/code/nnv/tests';
 pwd
+
+return
 
 % run all tests, recursively runs all tests in the code/nnv/tests directory
 run_all_tests(dir_results, disabledTests, i_d) % add directory for results input and use dir_root/results

@@ -47,14 +47,6 @@ RUN mkdir -p /deps
 
 RUN ls /codeocean-true
 
-RUN ls
-
-RUN ls
-
-RUN ls /
-
-RUN ls /
-
 WORKDIR /deps
 RUN ls
 RUN git clone https://github.com/verivital/run_nnv_comparison.git
@@ -70,3 +62,14 @@ RUN /postInstall
 
 # not in repository
 #RUN apt-get install nano -y
+
+
+WORKDIR /MATLAB/bin/glnxa64
+RUN ls
+#RUN ./SupportSoftwareInstaller -downloadfolder /data/matlab_sp -inputfile /data/matlab_sp/ssi_input.txt
+# previous gives error:
+# 
+#root@d5a9c3095b6b:/MATLAB/bin/glnxa64# ./SupportSoftwareInstaller
+#terminate called after throwing an instance of '(anonymous namespace)::DisplayError'
+#  what():  No display available.
+#Aborted (core dumped)

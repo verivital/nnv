@@ -3,12 +3,17 @@ fprintf('\nAdding dependencies to Matlab path...\n');
 tbxmanager restorepath
 
 fprintf('\nAdding NNV to Matlab path...\n');
-mydir  = pwd;
-idcs   = strfind(mydir,filesep);
-newdir = mydir(1:idcs(end)-1);
-p = genpath(newdir); % generate a path that includes NNV folder and all folders below it
-addpath(p);
-cd(newdir);
+%mydir  = pwd;
+%mydir
+%idcs   = strfind(mydir,filesep);
+%idcs
+%newdir = mydir(1:idcs(end)-1);
+%p = genpath(newdir); % generate a path that includes NNV folder and all folders below it
+%addpath(p);
+%cd(newdir);
+
+addpath(pwd);
+cd('/code/')
 
 % import data structures from Hyst
 javaaddpath(['nnv', filesep, 'engine', filesep, 'hyst', filesep, 'lib', filesep, 'Hyst.jar']);
@@ -53,6 +58,6 @@ import de.uni_freiburg.informatik.swt.spaceexxmlprinter.*;
 import de.uni_freiburg.informatik.swt.spaxeexxmlreader.*;
 import de.uni_freiburg.informatik.swt.sxhybridautomaton.*;
     
-cd(mydir);
+%cd(mydir);
 
 clear;

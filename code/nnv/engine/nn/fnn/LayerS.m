@@ -179,7 +179,104 @@ classdef LayerS
             
             
         end
+        
+    end
     
+    
+    methods % flattening a layer into a sequence of operation
+        
+        
+        function Ops = flatten(obj, reachMethod)
+            % @reachMethod: reachability method
+            % @Ops: an array of operations for the reachability of
+            % the layer
+            
+            % author: Dung Tran
+            % date: 1/18/2020
+            
+            O1 = Operation('AffineMap', obj.W, obj.b);
+            
+            
+            if strcmp(obj.f, 'poslin')
+                
+                if strcmp(reachMethod, 'exact-star')
+                    O2(obj.N) = Operation;
+                    for i=1:obj.N
+                        O2(i) = Operation('PosLin_stepExactReach', i);
+                    end
+                elseif strcmp(reachMethod, 'approx-star')
+                    O2 = Operation('PosLin_approxReachStar');
+                elseif strcmp(reachMethod, 'approx-zono')
+                    O2 = Operation('PosLin_approxReachZono');
+                elseif strcmp(reachMethod, 'abs-dom')
+                    O2 = Operation('PosLin_approxReachAbsDom');
+                end
+                
+            elseif strcmp(obj.f, 'satlin')
+                
+                if strcmp(reachMethod, 'exact-star')
+                    O2(obj.N) = Operation;
+                    for i=1:obj.N
+                        O2(i) = Operation('SatLin_stepExactReach', i);
+                    end
+                elseif strcmp(reachMethod, 'approx-star')
+                    O2 = Operation('SatLin_approxReachStar');
+                elseif strcmp(reachMethod, 'approx-zono')
+                    O2 = Operation('SatLin_approxReachZono');
+                elseif strcmp(reachMethod, 'abs-dom')
+                    O2 = Operation('SatLin_approxReachAbsDom');
+                end
+                
+            elseif strcmp(obj.f, 'satlins')
+                
+                if strcmp(reachMethod, 'exact-star')
+                    O2(obj.N) = Operation;
+                    for i=1:obj.N
+                        O2(i) = Operation('SatLins_stepExactReach', i);
+                    end
+                elseif strcmp(reachMethod, 'approx-star')
+                    O2 = Operation('SatLins_approxReachStar');
+                elseif strcmp(reachMethod, 'approx-zono')
+                    O2 = Operation('SatLins_approxReachZono');
+                elseif strcmp(reachMethod, 'abs-dom')
+                    O2 = Operation('SatLins_approxReachAbsDom');
+                end
+                
+            elseif strcmp(obj.f, 'purelin')
+                
+                O2 = [];
+                
+            elseif strcmp(obj.f, 'logsig')
+                
+                if strcmp(reachMethod, 'exact-star')
+                    error('\nCannot do exact analysis for layer with logsig activation function, use approximate method');
+                elseif strcmp(reachMethod, 'approx-star')
+                    O2 = Operation('LogSig_approxReachStar');
+                elseif strcmp(reachMethod, 'approx-zono')
+                    O2 = Operation('LogSig_approxReachZono');
+                elseif strcmp(reachMethod, 'abs-dom')
+                    O2 = Operation('LogSig_approxReachAbsDom');
+                end
+                
+            elseif strcmp(obj.f, 'tansig')
+                
+                
+                if strcmp(reachMethod, 'exact-star')
+                    error('\nCannot do exact analysis for layer with logsig activation function, use approximate method');
+                elseif strcmp(reachMethod, 'approx-star')
+                    O2 = Operation('TanSig_approxReachStar');
+                elseif strcmp(reachMethod, 'approx-zono')
+                    O2 = Operation('TanSig_approxReachZono');
+                elseif strcmp(reachMethod, 'abs-dom')
+                    O2 = Operation('TanSig_approxReachAbsDom');
+                end
+                
+            end
+                           
+            Ops = [O1 O2];
+            
+        end
+        
     end
     
     

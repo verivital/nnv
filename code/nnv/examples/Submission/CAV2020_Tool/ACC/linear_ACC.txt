@@ -1,0 +1,14 @@
+
+======================================================
+VERIFICATION RESULTS FOR ACC WITH DISCRETE PLANT MODEL
+======================================================
+v_lead(0)                 approx-star    
+                       safety  |  VT   
+[29 30]                SAFE  |  9.596   
+[28 29]                SAFE  |  9.450   
+[27 28]                SAFE  |  9.817   
+[26 27]                UNSAFE  |  17.801   
+[25 26]                UNSAFE  |  19.242   
+[24 25]                UNSAFE  |  18.119   
+-------------------------------------------------------
+Total verification time:      84.024

@@ -116,7 +116,12 @@ for i=1:n
 end
 
 %% Safe verification results
-save verify_nonlinear_ACC.mat safe VT counterExamples;
+if is_codeocean()
+    path_results = '/results/';
+else
+    path_results = '';
+end
+save([path_results, 'verify_nonlinear_ACC.mat'], 'safe', 'VT', 'counterExamples');
 
 
 %% Print verification results to screen
@@ -133,7 +138,7 @@ fprintf('\nTotal verification time:      %3.3f', sum(VT));
 
 %% Print verification results to a file
 
-fid = fopen('nonlinear_ACC.txt', 'wt');
+fid = fopen([path_results, 'nonlinear_ACC.txt'], 'wt');
 fprintf(fid,'\n=======================================================');
 fprintf(fid,'\nVERIFICATION RESULTS FOR ACC WITH NONLINEAR PLANT MODEL');
 fprintf(fid,'\n=======================================================');
@@ -162,3 +167,5 @@ xlabel('Control Time Steps', 'FontSize', 13);
 ylabel('Distance', 'FontSize', 13);
 xticks([0:5:50]);
 title('Actual Distance (blue) vs. Safe Distance (red)');
+
+saveas(gcf, [path_results, 'verify_nonlinear_acc_cex.png']);

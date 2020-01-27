@@ -116,10 +116,17 @@ if ~exist('numCores')
 end
 
 ncs.reach(init_set(1), ref_input, numSteps, 'approx-star', numCores);
-save linear_ACC_ncs_1.mat ncs; 
+if is_codeocean()
+    path_results = '/results/';
+else
+    path_results = '';
+end
+
+save([path_results, 'linear_ACC_ncs_1.mat'], 'ncs');
 
 ncs.reach(init_set(6), ref_input, numSteps, 'approx-star', numCores);
-save linear_ACC_ncs_6.mat ncs; 
+
+save([path_results, 'linear_ACC_ncs_6.mat'], 'ncs');
 
 %% Plot output reach sets: actual distance vs. safe distance
 
@@ -128,7 +135,7 @@ save linear_ACC_ncs_6.mat ncs;
 
 figure;
 h1 = subplot(2,1,1);
-load linear_ACC_ncs_1.mat;
+load([path_results, 'linear_ACC_ncs_1.mat']);
 map_mat = [1 0 0 -1 0 0 0];
 map_vec = [];
 ncs.plotOutputReachSets('blue', map_mat, map_vec);
@@ -146,7 +153,7 @@ ylabel(h1, 'Distance');
 xticks(h1, [0:5:50])
 
 h2 = subplot(2,1,2);
-load linear_ACC_ncs_6.mat;
+load([path_results, 'linear_ACC_ncs_6.mat']);
 map_mat = [1 0 0 -1 0 0 0];
 map_vec = [];
 ncs.plotOutputReachSets('blue', map_mat, map_vec);
@@ -163,5 +170,6 @@ xlabel(h2, 'Control Time Steps');
 ylabel(h2, 'Distance');
 xticks(h2, [0:5:50])
 
+saveas(gcf, [path_results, 'plot_linear_ACC_reachSets.png']);
 
 %% END OF SCRIPT

@@ -1,9 +1,9 @@
-[submodule "code/nnv/engine/cora"]
-	path = code/nnv/engine/cora
-    url = https://github.com/verivital/CORA.git
-[submodule "code/nnv/engine/nnmt"]
-	path = code/nnv/engine/nnmt
-	url = https://github.com/verivital/nnmt
 [submodule "code/nnv/engine/hyst"]
 	path = code/nnv/engine/hyst
 	url = https://github.com/verivital/hyst.git
+[submodule "code/nnv/engine/cora"]
+	path = code/nnv/engine/cora
+	url = https://github.com/verivital/CORA
+[submodule "code/nnv/engine/nnmt"]
+	path = code/nnv/engine/nnmt
+	url = https://github.com/verivital/nnmt

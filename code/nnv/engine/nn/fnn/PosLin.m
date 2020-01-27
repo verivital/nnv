@@ -402,7 +402,7 @@ classdef PosLin
                 error('Input is not a star');
             end
 
-            if isEmptySet(I)
+            if isempty(I)
                 S = [];
             else
                 In = I;
@@ -433,7 +433,7 @@ classdef PosLin
                 error('Input is not a star');
             end
 
-            if isEmptySet(I)
+            if isempty(I)
                 S = [];
             else
                 [lb, ub] = I.estimateRanges;
@@ -539,7 +539,7 @@ classdef PosLin
                 error('Input is not a star');
             end
 
-            if isEmptySet(I)
+            if isempty(I)
                 S = [];
             else
                 B = I.getBoxFast;
@@ -966,7 +966,7 @@ classdef PosLin
                 error('Input is not a star');
             end
 
-            if isEmptySet(I)
+            if isempty(I)
                 S = [];
             else    
                 [lb, ub] = I.estimateRanges;

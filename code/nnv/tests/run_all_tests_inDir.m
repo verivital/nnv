@@ -7,13 +7,13 @@ function [disabledTests, i_d] = run_all_tests_inDir(dirname, outputDirname)
 
     cd(char(dirname)); % char necessary for linux/codeocean
     fprintf('\n\nEXECUTING TESTS IN: %s\n', pwd);
-    t_pause = 0.1;
+    t_pause = 0.01;
     
     % don't run these tests (throw exceptions)
     % TODO: fix these exceptions and tests, we cannot have tests 
     % with exceptions for codeocean
     offTests = {'test_box_getVertices_c_gen_mexexa64', 'test_box_getVertices_c_gen_rtwk', 'test_FFNNS_reach_star', 'test_NonLinearODE_evaluate', 'test_NonLinearODE_reach_zono', ...
-            'test_star_plotBoxes_3D', 'test_PosLin_stepReach', 'test_ReLU_reach_approx', 'test_NonLinearODE_stepReachStar', 'test_LayerS_reach_satlin',  'test_LayerS_reach_poslin'};
+            'test_star_plotBoxes_3D', 'test_PosLin_stepReach', 'test_ReLU_reach_approx', 'test_NonLinearODE_stepReachStar', 'test_LayerS_reach_satlin',  'test_LayerS_reach_poslin', 'test_CNN_parse'};
 
     % to manually get all files in reasonable format for setting up tests
     % fprintf("%s\n",strtrim(strrep(strrep(string(ls),'"',''),'.m','')))

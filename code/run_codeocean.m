@@ -1,8 +1,7 @@
-%install;
-
 cd /code/nnv/examples/Submission/CAV2020_Tool/
 is_codeocean
 
+% examples to manually run nnv on acas-xu
 %verify_P0_N00_abs(1,1)
 %verify_P0_N00_star_appr(1,1)
 %verify_P0_N00_star(1,1)
@@ -75,7 +74,7 @@ cd /code/nnv/examples/NNCS/InvertedPendulum;
 reach_inverted_pendulum_control_sys;
 saveas(gcf, '/results/results_nncs_ip_fig1.png')
 
-return; % stop here
+%return; % stop here
 
 % some bugs in next, not sure if it's due to cora submodule and we need to upload (as codeocean does not support git submodules currently), or what
 cd '/code/nnv/examples/NNCS/ACC/Verification/Scenarios 1'

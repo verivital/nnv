@@ -4,7 +4,12 @@ path_reproduce = pwd();
 path_nnv_root = ['..', filesep, '..', filesep, '..', filesep, '..', filesep]; % in acc subfolder
 
 cd(path_nnv_root);
-install;
+% run installation if not on codeocean / not already set up
+try
+    is_codeocean();
+catch
+    install;
+end
 
 cd(path_reproduce);
 

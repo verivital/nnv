@@ -1,6 +1,6 @@
 %install;
 
-cd /code/nnv/examples/Submission/CAV2020/
+cd /code/nnv/examples/Submission/CAV2020_Tool/
 is_codeocean
 
 %verify_P0_N00_abs(1,1)

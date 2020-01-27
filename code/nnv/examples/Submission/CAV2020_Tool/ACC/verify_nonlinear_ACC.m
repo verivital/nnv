@@ -72,7 +72,10 @@ input_ref = Star(lb, ub); % input reference set
 
 N = 50; % number of control steps 
 
-n_cores = 4; % number of cores 
+% set number of cores if not defined externally
+if ~exist('numCores')
+    numCores = 4;
+end
 
 % safety specification: relative distance > safe distance
 % dis = x_lead - x_ego  

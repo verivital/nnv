@@ -109,7 +109,12 @@ end
 
 %% Compute reachable set
 numSteps = 50; 
-numCores = 4; 
+
+% set number of cores if not already defined externally
+if ~exist('numCores')
+    numCores = 4;
+end
+
 ncs.reach(init_set(1), ref_input, numSteps, 'approx-star', numCores);
 save linear_ACC_ncs_1.mat ncs; 
 

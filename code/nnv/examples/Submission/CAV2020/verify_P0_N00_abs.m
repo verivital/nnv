@@ -55,7 +55,16 @@ end
 results.safe = safe;
 results.set_number = length(F.outputSet);
 results.total_time = check_time + F.totalReachTime;
-filename = ['../../../../../../logs/logs_nnv_abs/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_abs.txt'];
+filename = [path_results(), 'logs_nnv_abs/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_abs.txt'];
+
+if ~isfolder(path_results())
+    mkdir(path_results())
+end
+
+if ~isfolder([path_results(), 'logs_nnv_abs'])
+    mkdir([path_results(), 'logs_nnv_abs'])
+end
+
 fileID = fopen(filename,'w');
 if safe
     fprintf(fileID, 'UNSAT\n');

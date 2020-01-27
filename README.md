@@ -15,6 +15,10 @@ nnv can be executed online without installing Matlab or other dependencies throu
     1) Install Matlab
 
     2) Clone or download the nnv toolbox from (https://github.com/verivital/nnv)
+    
+    Note: to operate correctly, nnv depends on other tools (CORA, NNMT, HyST), which are included as git submodules. As such, you must clone recursively, e.g., with the following:
+    
+    git clone --recursive https://github.com/verivital/nnv.git
 
     3) Open matlab, then go to the directory where nnv exists on your machine, then run the `install.m` script located at /nnv/
 

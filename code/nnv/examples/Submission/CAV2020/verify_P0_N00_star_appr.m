@@ -58,7 +58,15 @@ results.safe = safe;
 results.set_number = length(F.outputSet);
 results.total_time = check_time + F.totalReachTime;
 
-filename = ['../../../../../../logs/logs_nnv_star_appr/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star_appr.txt'];
+if ~isfolder(path_results())
+    mkdir(path_results())
+end
+
+if ~isfolder([path_results(), 'logs_nnv_star_appr'])
+    mkdir([path_results(), 'logs_nnv_star_appr'])
+end
+
+filename = [path_results(), 'logs_nnv_star_appr/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star_appr.txt'];
 fileID = fopen(filename,'w');
 if safe
     fprintf(fileID, 'UNSAT\n');

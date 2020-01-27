@@ -11,9 +11,9 @@ is_codeocean
 cd ACC;
 pwd
 
-reproduce
+%reproduce % will take ~32.5 minutes (see run 140515)
 
-return
+%return
 
 % problem in plotting for this one on codeocean
 %cd '../UUV Safety Mornitoring'
@@ -51,12 +51,13 @@ pwd
 dir_results = '/results/';
 
 % global variables for batch test runs
-i_d = 1; disabledTests = {} ; global i_d disabledTests;
+% some tests need to be disabled for codeocean due to differences on running without a UI, etc.
+i_d = 1; disabledTests = {'test_CNN_parse'} ; global i_d disabledTests;
 
 cd '/code/nnv/tests';
 pwd
 
-return
+%return
 
 % run all tests, recursively runs all tests in the code/nnv/tests directory
 run_all_tests(dir_results, disabledTests, i_d) % add directory for results input and use dir_root/results

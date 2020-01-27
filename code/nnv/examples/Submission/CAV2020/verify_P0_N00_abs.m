@@ -67,7 +67,7 @@ end
 
 fileID = fopen(filename,'w');
 if safe
-    fprintf(fileID, 'UNSAT\n');
+    fprintf(fileID, 'UNKNOWN\n');
 else
     fprintf(fileID, 'SAT\n');
 end

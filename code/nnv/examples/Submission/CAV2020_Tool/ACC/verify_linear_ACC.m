@@ -104,8 +104,13 @@ end
 
 
 %% Reachability Analysis && Verification
-numSteps = 50; 
-numCores = 4; 
+numSteps = 50;
+
+% set number of cores if not defined already
+if ~exist('numCores')
+    numCores = 4;
+end
+
 % safety property: actual distance > alpha * safe distance <=> d = x1 - x4  > alpha * d_safe = alpha * (1.4 * v_ego + 10)
 
 % usafe region: x1 - x4 <= alpha * (1.4 * v_ego + 10)
@@ -125,7 +130,7 @@ for i=1:N
 end
 
 
-%% Safe verification results
+%% Save verification results
 
 save linear_ACC.mat safe_approx VT_approx counterExamples_approx;
 

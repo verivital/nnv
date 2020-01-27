@@ -12,8 +12,11 @@ fprintf('\nAdding NNV to Matlab path...\n');
 %addpath(p);
 %cd(newdir);
 
-addpath(pwd);
-cd('/code/')
+addpath(pwd());
+addpath(genpath(pwd()));
+if is_codeocean()
+    cd('/code/')
+end
 
 % import data structures from Hyst
 javaaddpath(['nnv', filesep, 'engine', filesep, 'hyst', filesep, 'lib', filesep, 'Hyst.jar']);
@@ -59,5 +62,3 @@ import de.uni_freiburg.informatik.swt.spaxeexxmlreader.*;
 import de.uni_freiburg.informatik.swt.sxhybridautomaton.*;
     
 %cd(mydir);
-
-clear;

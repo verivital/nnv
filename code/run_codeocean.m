@@ -8,23 +8,12 @@ is_codeocean
 %verify_P0_N00_star(1,1)
 %verify_P0_N00_zono(1,1)
 
-%return
-
-% hscc 2020 re acc example
-pwd
-ls
-cd /code/nnv
-pwd
-cd examples
-pwd
-cd Submission
-pwd
-cd HSCC2020
-pwd
-
 cd ACC;
 pwd
-verify_discrete_ACC_approx_star; % generates table, not a figure
+
+reproduce
+
+return
 
 % problem in plotting for this one on codeocean
 %cd '../UUV Safety Mornitoring'

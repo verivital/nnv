@@ -13,8 +13,9 @@ ls
 cd /deps/run_nnv_comparison
 
 chmod +x run_tools.sh
+# run tool comparisons, this will take some time
 #./run_tools.sh > /results/run_nnv_comparison_log.txt 2>/results/run_nnv_comparison_err.txt
 
 cd ~/
 
-matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); savepath; run_codeocean;"
+matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); startup_nnv; savepath; run_codeocean;"

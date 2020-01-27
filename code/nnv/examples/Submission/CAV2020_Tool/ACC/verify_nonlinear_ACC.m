@@ -97,8 +97,8 @@ VT = zeros(1,n); % verification time
 counterExamples = cell(1,n); % counter examples
 for i=1:n
     t = tic;
-    ncs.reach('approx-star', init_set(i), input_ref, n_cores, N);
-    [safe1, ~] = ncs.check_safety(unsafe_mat, unsafe_vec, n_cores);
+    ncs.reach('approx-star', init_set(i), input_ref, numCores, N);
+    [safe1, ~] = ncs.check_safety(unsafe_mat, unsafe_vec, numCores);
     if safe1 == 1
         safe{i} = 'SAFE';
     else

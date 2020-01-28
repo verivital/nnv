@@ -1,6 +1,7 @@
 % Reachability analysis for Discrete Linear ACC model
 % Dung Tran: 9/30/2019
 
+path_out = [path_results(), filesep, 'ACC', filesep];
 
 
 %% System model
@@ -131,12 +132,7 @@ end
 
 
 %% Save verification results
-if is_codeocean()
-    path_results = '/results/';
-else
-    path_results = '';
-end
-save([path_results, 'linear_ACC.mat'], 'safe_approx', 'VT_approx', 'counterExamples_approx');
+save([path_out, 'linear_ACC.mat'], 'safe_approx', 'VT_approx', 'counterExamples_approx');
 
 %% Print verification results to screen
 fprintf('\n======================================================');
@@ -152,7 +148,7 @@ fprintf('\nTotal verification time:      %3.3f', sum(VT_approx));
 
 %% Print verification results to a file
 
-fid = fopen([path_results, 'table3_linear_ACC.txt'], 'wt');
+fid = fopen([path_out, 'table3_linear_ACC.txt'], 'wt');
 
 fprintf(fid,'\n======================================================');
 fprintf(fid,'\nVERIFICATION RESULTS FOR ACC WITH DISCRETE PLANT MODEL');

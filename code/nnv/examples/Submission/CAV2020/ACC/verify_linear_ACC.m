@@ -152,7 +152,7 @@ fprintf('\nTotal verification time:      %3.3f', sum(VT_approx));
 
 %% Print verification results to a file
 
-fid = fopen([path_results, 'linear_ACC.txt'], 'wt');
+fid = fopen([path_results, 'table3_linear_ACC.txt'], 'wt');
 
 fprintf(fid,'\n======================================================');
 fprintf(fid,'\nVERIFICATION RESULTS FOR ACC WITH DISCRETE PLANT MODEL');

@@ -170,6 +170,6 @@ xlabel(h2, 'Control Time Steps');
 ylabel(h2, 'Distance');
 xticks(h2, [0:5:50])
 
-saveas(gcf, [path_results, 'plot_linear_ACC_reachSets.png']);
+saveas(gcf, [path_results, 'figure4_plot_linear_ACC_reachSets.png']);
 
 %% END OF SCRIPT

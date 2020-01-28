@@ -138,7 +138,7 @@ fprintf('\nTotal verification time:      %3.3f', sum(VT));
 
 %% Print verification results to a file
 
-fid = fopen([path_results, 'nonlinear_ACC.txt'], 'wt');
+fid = fopen([path_results, 'table3_nonlinear_ACC.txt'], 'wt');
 fprintf(fid,'\n=======================================================');
 fprintf(fid,'\nVERIFICATION RESULTS FOR ACC WITH NONLINEAR PLANT MODEL');
 fprintf(fid,'\n=======================================================');

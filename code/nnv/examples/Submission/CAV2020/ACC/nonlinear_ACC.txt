@@ -1,0 +1,14 @@
+
+=======================================================
+VERIFICATION RESULTS FOR ACC WITH NONLINEAR PLANT MODEL
+=======================================================
+v_lead(0)                 approx-star    
+                       safety  |  VT   
+[29 30]              UNSAFE  |  512.111   
+[28 29]              UNSAFE  |  550.162   
+[27 28]              UNSAFE  |  497.645   
+[26 27]              UNSAFE  |  529.117   
+[25 26]              UNSAFE  |  521.827   
+[24 25]              UNSAFE  |  518.838   
+-------------------------------------------------------
+Total verification time:      3129.700

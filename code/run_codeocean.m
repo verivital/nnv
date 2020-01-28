@@ -23,7 +23,7 @@ pwd
 % run all closed-loop CPS examples
 reproduce % will take ~32.5 minutes (see run 140515 or 152224)
 
-return; % stop here, comment/remove this to run all tests, other examples, etc.
+%return; % stop here, comment/remove this to run all tests, other examples, etc.
 % if you run all these, it will add another ~15 minutes of runtime
 
 cd /code/nnv/tests/set/zono

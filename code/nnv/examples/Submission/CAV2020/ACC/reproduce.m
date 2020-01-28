@@ -23,6 +23,8 @@ end
 
 cd(path_reproduce);
 
+mkdir([path_results(), filesep, 'ACC']);
+
 % set number of cores based on system availability, up to a maximum of 16
 config_parallelism(16);
 

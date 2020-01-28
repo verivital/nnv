@@ -11,24 +11,26 @@ catch
     install;
 end
 
-cd(path_reproduce);
-
-% set number of cores to use in parallel computations
-% if system executed on has fewer, set lower
-physical_cores = feature('numcores'); % physical cores
-
-% use at most the number of logical cores available
-core_info = evalc('feature(''numcores'')'); % string with all core info, including logical cores
-core_info_logical = regexpi(core_info, '(?<num>\d+)\s+logical\s+cores', 'names');
-available_cores = physical_cores;
-for i = 1 : length(core_info_logical)
-    available_cores = max(available_cores, str2num(core_info_logical(i).num));
+% check if CORA is set up, if submodules are not pulled recursively, it won't be
+% so ensure you've pulled with: 
+% git clone --recursive https://github.com/verivital/nnv.git
+try
+    coraroot();
+catch
+    'ERROR: CORA not detected, ensure submodules have been pulled, CORA is required for nonlinear plant analysis'
+    return;
 end
 
-numCores = min(available_cores, 4); % use at most 4 cores if available, else fewer
+cd(path_reproduce);
 
+% set number of cores based on system availability, up to a maximum of 16
+config_parallelism(16);
+
+'Figure 4: Generating ACC with linear plant model reachable sets'
 plot_linear_ACC_reachSets;
 
+'Table 3 (linear plant): Generating ACC results for linear plant model'
 verify_linear_ACC;
 
+'Table 3 (nonlinear plant): Generating ACC results for nonlinear plant model'
 verify_nonlinear_ACC;

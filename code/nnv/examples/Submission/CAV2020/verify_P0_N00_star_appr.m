@@ -69,7 +69,7 @@ end
 filename = [path_results(), 'logs_nnv_star_appr/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star_appr.txt'];
 fileID = fopen(filename,'w');
 if safe
-    fprintf(fileID, 'UNSAT\n');
+    fprintf(fileID, 'UNKNOWN\n');
 else
     fprintf(fileID, 'SAT\n');
 end

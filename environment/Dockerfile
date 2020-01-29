@@ -48,6 +48,13 @@ RUN mkdir -p /deps
 RUN ls /codeocean-true
 
 WORKDIR /deps
+# these ls commands are just to force a new build so that the cloned repo is latest and not the cached one in the prior docker container image
+RUN ls
+RUN ls
+RUN ls
+RUN ls
+RUN ls
+RUN ls
 RUN ls
 RUN git clone https://github.com/verivital/run_nnv_comparison.git
 WORKDIR /deps/run_nnv_comparison 

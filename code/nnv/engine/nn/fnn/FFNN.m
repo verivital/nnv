@@ -152,7 +152,9 @@
                     rt = obj.reachTime(i-1);
                     
                     estimatedTime = rt*(nP/nP1)*(obj.Layers(i).N / obj.Layers(i-1).N);
-                    
+                    if isnan(estimatedTime)
+                        estimatedTime = 0.0;
+                    end
                     fprintf('\nEstimated computation time: ~ %.5f seconds', estimatedTime);
                 end
                 

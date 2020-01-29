@@ -6,7 +6,7 @@ clc;clear;close all;
 
 %% Load all components
 % Load controller (NN)
-load controller_10_20.mat;
+load controller_3_20.mat;
 weights = network.weights;
 bias = network.bias;
 n = length(weights);
@@ -36,7 +36,7 @@ ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 % x = [x_lead v_lead x_internal_lead x_ego v_ego x_internal_ego]'
 
 lb = [94; 32; 0; 10; 30; 0];
-ub = [96; 32.2; 0; 11; 30.2; 0];
+ub = [95; 32.2; 0; 11; 30.2; 0];
 
 init_set = Star(lb, ub);
 
@@ -86,19 +86,7 @@ end
 
 %% Plot results
 
-% plot velocity, distance, safe_distance versus time
 figure;
-% subplot 1
-subplot(2, 1, 1);
-Star.plotRanges_2D(ego_vel, 1, times, 'blue'); % plot ego car's velocity versus time
-hold on;
-Star.plotRanges_2D(lead_vel, 1, times, 'green'); % plot ego car's velocity versus time
-xlabel('Time (s)');
-ylabel('Velocity (m/s)');
-title('Ego (blue) and lead (green) car velocities');
-
-% subplot 2
-subplot(2, 1, 2);
 Star.plotRanges_2D(dis, 1, times, 'blue'); % plot distance between two cars versus time 
 hold on;
 Star.plotRanges_2D(safe_dis, 1, times, 'red'); % plot safe distance versus time
@@ -106,4 +94,6 @@ hold on;
 xlabel('Time (s)');
 ylabel('Distance (m)');
 title('Actual distance (blue) vs. safe distance (red)');
-% saveas(gcf, 'reachSet.pdf');
+grid;
+set(gca,'FontSize',13)
+saveas(gcf, 'reachSet.png');

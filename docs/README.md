@@ -23,7 +23,7 @@ Gehr et al - [link](https://ieeexplore.ieee.org/document/8418593)
 # Weeks 5 and 6 - Survey of Neural Network Verification Methods
 
 - Algorithms for Verifying Deep Neural Networks - Changliu Liu et al - [link](https://arxiv.org/abs/1903.06758) [code](https://github.com/sisl/NeuralVerification.jl)
-- Note: this paper is quite long, so we may spend a couple weeks on it
+- Note: this paper is quite long, so we will spend a couple weeks on it: week 5 through section 6, week 6 section 7 to end
 
 # Week 7
 
@@ -32,6 +32,25 @@ Gehr et al - [link](https://ieeexplore.ieee.org/document/8418593)
 ## Related Courses / Tutorials
 
 - Neural Network Verification - M. Pawan Kumar - VMCAI'19 Winter School (http://mpawankumar.info/tutorials/vmcai2019/)
+
+## Software and Tools
+
+- NNV: https://github.com/verivital/nnv and NNMT: https://github.com/verivital/nnmt
+- Reluplex: https://github.com/guykatzz/ReluplexCav2017
+- Marabou: https://github.com/NeuralNetworkVerification/Marabou
+- AI^2 / ERAN / DeepZ / DeepPoly / DeepG: https://github.com/eth-sri/eran and https://github.com/eth-sri/deepg
+- Reluval: https://github.com/tcwangshiqi-columbia/ReluVal
+- CNN-Cert: https://github.com/IBM/CNN-Cert
+- Sherlock: https://github.com/souradeep-111/sherlock
+- Verisig: https://github.com/Verisig/verisig
+- CROWN: https://github.com/IBM/CROWN-Robustness-Certification and https://github.com/huanzhang12/RecurJac-and-CROWN
+- PLANET: https://github.com/progirep/planet
+- DeepGO: https://github.com/trustAI/DeepGO
+- MIPVerify: https://github.com/vtjeng/MIPVerify.jl
+- Neurify: https://github.com/tcwangshiqi-columbia/Neurify
+- Syrenn: https://github.com/95616ARG/SyReNN
+- NSVerify: https://vas.doc.ic.ac.uk/software/neural/
+- DNNV: https://github.com/dlshriver/DNNV
 
 ## Events - Workshops, Symposia, Etc.
 

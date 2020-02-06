@@ -18,11 +18,14 @@ About the course, introduction to machine learning verification, challenges, int
 
 - AI2: Safety and Robustness Certification of Neural Networks with Abstract Interpretation
 Gehr et al - [link](https://ieeexplore.ieee.org/document/8418593)
+-- Video: https://www.youtube.com/watch?v=LJnjCMV8KzA&list=PLZVw65tJnqIRDhCnnvk6Neh29-aeRYBB0&index=2&t=0s
 - ReLUVal - Formal security analysis of neural networks using symbolic intervals - Wang et al - [link](https://dl.acm.org/doi/10.5555/3277203.3277323) [code](https://github.com/tcwangshiqi-columbia/ReluVal)
+-- Video: https://www.youtube.com/watch?v=jm_7SKOC-cA&list=PLZVw65tJnqIRDhCnnvk6Neh29-aeRYBB0&index=3&t=0s
 
 # Weeks 5 and 6 - Survey of Neural Network Verification Methods
 
 - Algorithms for Verifying Deep Neural Networks - Changliu Liu et al - [link](https://arxiv.org/abs/1903.06758) [code](https://github.com/sisl/NeuralVerification.jl)
+- Video: https://www.youtube.com/watch?v=on17gZFUP9Y&list=PLZVw65tJnqIR2r5aHTrj_Ew-oJImV6MU5&t=180s
 - Note: this paper is quite long, so we will spend a couple weeks on it: week 5 through section 6, week 6 section 7 to end
 
 # Week 7

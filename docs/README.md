@@ -30,6 +30,10 @@ Gehr et al - [link](https://ieeexplore.ieee.org/document/8418593)
 
 # Week 7
 
+- End-to-End Safe Reinforcement Learning through Barrier Functions for Safety-Critical Continuous Control Tasks [link](https://arxiv.org/abs/1903.08792)
+
+- 
+
 # Resources
 
 ## Related Courses / Tutorials

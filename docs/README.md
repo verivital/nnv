@@ -32,7 +32,7 @@ Gehr et al - [link](https://ieeexplore.ieee.org/document/8418593)
 
 - End-to-End Safe Reinforcement Learning through Barrier Functions for Safety-Critical Continuous Control Tasks [link](https://arxiv.org/abs/1903.08792)
 
-- 
+- Towards Responsibility-Sensitive Safety of Automated Vehicles with Reachable Set Analysis [link](https://ieeexplore.ieee.org/abstract/document/8965069)
 
 # Resources
 

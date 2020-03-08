@@ -1356,14 +1356,71 @@ classdef FFNNS < handle
         end
         
         
-        function [safe, counterExamples] = verify_DFS(obj, inputSets, unsafeRegion, numCores)
+        function [safe, CEx] = verify_DFS(varargin)
             % @inputSets: an array of star set
             % @unsafeRegion: a HalfSpace object
             % @numCores: number of cores used for verification
+            % @safe:  = 'safe' or 'unsafe'
+            % @CEx: counter examples
             
             % author: Dung Tran
             % date: 1/18/2020
+            % update: 3/8/2020
             
+            
+            % passing inputs
+            
+            if mod(nargin, 2) == 0
+                error('Invalid number of arguments');
+            end
+            
+            obj = varargin{1};
+            
+            for i=2:nargin-1
+                
+                if mod(i, 2) == 0
+                   
+                    if strcmp(varargin{i}, 'InputSet')
+                        obj.inputSet = varargin{i+1};                      
+                    elseif strcmp(varargin{i}, 'UnsafeRegion')
+                        obj.unsafeRegion = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'ReachMethod')
+                        obj.reachMethod = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'NumCores')
+                        obj.numCores = varargin{i+1};
+                    end
+                    
+                end
+                
+            end         
+            
+            obj.flatten(obj.reachMethod);
+            
+            N1 = length(obj.inputSet);
+            N2 = length(obj.Operations);
+            
+            if obj.numCores > 1
+                obj.start_pool;
+                
+            else
+            
+                % DFS without parallel computing
+                for i=1:N1
+                    I1 = obj.inputSet(1);
+                    S = cell(1,N2);
+                    S1 = I1;
+                    for j=1:N2
+                        S2 = obj.Operations(j).execute(S1);
+                        S1 = S2(1);    
+                        S{j} = S2;
+                    end
+                    
+                    
+                    
+                end
+                
+                
+            end
             
             
             

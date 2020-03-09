@@ -1357,10 +1357,10 @@ classdef FFNNS < handle
         
         
         function [safe, CEx] = verify_DFS(varargin)
-            % @inputSets: an array of star set
+            % @inputSets: a star set
             % @unsafeRegion: a HalfSpace object
             % @numCores: number of cores used for verification
-            % @safe:  = 'safe' or 'unsafe'
+            % @safe:  = 'safe' or 'unsafe' or 'unknown'
             % @CEx: counter examples
             
             % author: Dung Tran
@@ -1396,29 +1396,77 @@ classdef FFNNS < handle
             
             obj.flatten(obj.reachMethod);
             
-            N1 = length(obj.inputSet);
-            N2 = length(obj.Operations);
+            N = length(obj.Operations);
+            U = obj.unsafeRegion;
             
             if obj.numCores > 1
                 obj.start_pool;
                 
             else
             
-                % DFS without parallel computing
-                for i=1:N1
-                    I1 = obj.inputSet(1);
-                    S = cell(1,N2);
-                    S1 = I1;
-                    for j=1:N2
-                        S2 = obj.Operations(j).execute(S1);
-                        S1 = S2(1);    
-                        S{j} = S2;
+                S.data = obj.inputSet;
+                S.opsIndex = 1; 
+                safe = 'safe';
+                while strcmp(safe, 'safe') && ~isempty(S)
+                    S1 = S(1).data;
+                    id = S(1).opsIndex;                    
+                    if id < N
+                        S2 = obj.Operations(id).execute(S1);
+                        if length(S2) == 2
+                            S3_1.data = S2(1);
+                            S3_1.opsIndex = id + 1;
+                            S3_2.data = S2(2);
+                            S3_2.opsIndex = id + 1;
+                            S3 = [S3_1 S3_2];
+                            S(1) = [];
+                            S = [S3 S];
+                        else                            
+                            S4.data = S2;
+                            S4.opsIndex = id + 1;
+                            S(1) = [];
+                            S = [S4 S];
+                        end
+                    else
+                        % checking safety of the leaf sets
+                        S2 = obj.Operations(id).execute(S1);
+                        if length(S2) == 2
+                            H1 = S2(1).intersectHalfSpace(U.G, U.g);
+                            H2 = S2(2).intersectHalfSpace(U.G, U.g);
+                            if ~isempty(H1)
+                                if strcmp(obj.reachMethod, 'exact-star')
+                                    safe = 'unsafe';
+                                    CEx = Star(obj.inputSet.V, H1.C, H1.d, H1.predicate_lb, H1.predicate_ub);
+                                else
+                                    safe = 'unknown';
+                                    CEx = [];
+                                end
+                            elseif ~isempty(H2)
+                                if strcmp(obj.reachMethod, 'exact-star')
+                                    safe = 'unsafe';
+                                    CEx = Star(obj.inputSet.V, H2.C, H2.d, H2.predicate_lb, H2.predicate_ub);
+                                else
+                                    safe = 'unknown';
+                                    CEx = [];
+                                end
+                            end
+                        else
+                            H = S2.intersectHalfSpace(U.G, U.g);
+                            if ~isempty(H)
+                                if strcmp(obj.reachMethod, 'exact-star')
+                                    safe = 'unsafe';
+                                    CEx = Star(obj.inputSet.V, H.C, H.d, H.predicate_lb, H.predicate_ub);
+                                else
+                                    safe = 'unknown';
+                                    CEx = [];
+                                end
+                            end
+                        end
+                        
+                        S(1) = [];
+                        
                     end
                     
-                    
-                    
                 end
-                
                 
             end
             

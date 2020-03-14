@@ -28,8 +28,10 @@ RUN apt-get update \
         wget \
         python-pip \
         python3-pip \
-        software-properties-common \
-    && rm -rf /var/lib/apt/lists/*
+        software-properties-common
+
+RUN apt-get install -y texlive
+RUN apt-get install -y nano
 
 RUN pip install numpy
 RUN pip3 install numpy
@@ -49,29 +51,22 @@ RUN ls /codeocean-true
 
 WORKDIR /deps
 # these ls commands are just to force a new build so that the cloned repo is latest and not the cached one in the prior docker container image
-RUN ls
-RUN ls
-RUN ls
-RUN ls
-RUN ls
-RUN ls
-RUN ls
-RUN ls
 RUN git clone https://github.com/verivital/run_nnv_comparison.git
 WORKDIR /deps/run_nnv_comparison 
 RUN ls
 RUN chmod +x setup_tools.sh
-RUN ./setup_tools.sh
-WORKDIR /
 
+# setting up all the tools will take several minutes at least, so comment out if comparison is not needed
+RUN ./setup_tools.sh
+
+RUN git clone https://github.com/verivital/nnvmt.git
+
+WORKDIR /
 
 COPY postInstall /
 RUN /postInstall
 
-# not in repository
-#RUN apt-get install nano -y
-
-
+# set up matlab support packages (for vgg)
 WORKDIR /MATLAB/bin/glnxa64
 RUN ls
 #RUN ./SupportSoftwareInstaller -downloadfolder /data/matlab_sp -inputfile /data/matlab_sp/ssi_input.txt

@@ -30,7 +30,7 @@ RUN apt-get update \
         python3-pip \
         software-properties-common
 
-RUN apt-get install -y texlive
+RUN apt-get install -y texlive-full
 RUN apt-get install -y nano
 
 RUN pip install numpy

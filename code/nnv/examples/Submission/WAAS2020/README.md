@@ -1,4 +1,4 @@
-# AutoCPS 2020
+# WAAS 2020
 
 ### Installation
 Follow instructions in [NNV](https://github.com/verivital/nnv) to install the tool.

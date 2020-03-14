@@ -69,9 +69,9 @@ end
 filename = [path_results(), 'logs_nnv_star_appr/P',num2str(P0),'_N',num2str(N1),num2str(N2),'_star_appr.txt'];
 fileID = fopen(filename,'w');
 if safe
-    fprintf(fileID, 'UNKNOWN\n');
+    fprintf(fileID, 'UNSAT\n');
 else
-    fprintf(fileID, 'SAT\n');
+    fprintf(fileID, 'UNKNOWN\n');
 end
 fprintf(fileID,'Number of Output Sets: %d\n', length(F.outputSet));
 fprintf(fileID,'Total Time: %f\n', check_time + F.totalReachTime);

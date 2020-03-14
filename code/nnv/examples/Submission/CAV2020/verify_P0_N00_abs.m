@@ -67,9 +67,9 @@ end
 
 fileID = fopen(filename,'w');
 if safe
-    fprintf(fileID, 'UNKNOWN\n');
+    fprintf(fileID, 'UNSAT\n');
 else
-    fprintf(fileID, 'SAT\n');
+    fprintf(fileID, 'UNKNOWN\n');
 end
 fprintf(fileID,'Number of Output Sets: %d\n', length(F.outputSet));
 fprintf(fileID,'Total Time: %f\n', check_time + F.totalReachTime);

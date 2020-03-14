@@ -50,7 +50,7 @@ check_time = toc(t);
 if isempty(S)
     safe = 1;
 else
-    safe = -1;
+    safe = 0;
 end
 results.safe = safe;
 results.set_number = length(F.outputSet);

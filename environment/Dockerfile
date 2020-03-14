@@ -56,6 +56,7 @@ RUN ls
 RUN ls
 RUN ls
 RUN ls
+RUN ls
 RUN git clone https://github.com/verivital/run_nnv_comparison.git
 WORKDIR /deps/run_nnv_comparison 
 RUN ls

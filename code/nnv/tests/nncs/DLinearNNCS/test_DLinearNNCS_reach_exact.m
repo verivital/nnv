@@ -92,10 +92,13 @@ init_set = Star(lb, ub);
 
 %% Reachability Analysis
 
-numSteps = 10; 
-method = 'exact-star';
-numCores = 1; 
-[R, reachTime] = ncs.reach(init_set, ref_input, numSteps, method, numCores);
+
+reachPRM.init_set = init_set;
+reachPRM.ref_input = ref_input;
+reachPRM.numSteps = 10;
+reachPRM.reachMethod = 'exact-star';
+reachPRM.numCores = 1;
+[R, reachTime] = ncs.reach(reachPRM);
 
 
 
@@ -107,7 +110,9 @@ numCores = 1;
 alpha = 1;
 unsafe_mat = [1 0 0 -1 alpha*1.4 0 0];
 unsafe_vec = alpha*10; 
-[safe, counterExamples, verifyTime] = ncs.verify(unsafe_mat, unsafe_vec);
+unsafeRegion = HalfSpace(unsafe_mat, unsafe_vec);
+
+[safe, counterExamples, verifyTime] = ncs.verify(reachPRM, unsafeRegion);
 
 %% Plot reach sets
 

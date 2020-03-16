@@ -92,14 +92,18 @@ init_set = Star(lb, ub);
 
 %% Falsification using simulations
 
-numSteps = 20; 
-N = 10; % number of random simulations used for falsification
 
 % unsafe region: x1 >= 110, position of the lead car >= 110
 unsafe_mat = [-1 0 0 0 0 0 0];
 unsafe_vec = [-110];
 
-[safe, counterExamples, falsifyTime] = ncs.falsify(init_set, ref_input, numSteps, N, unsafe_mat, unsafe_vec);
+falsifyPRM.init_set = init_set;
+falsifyPRM.ref_input = ref_input;
+falsifyPRM.numSteps = 20;
+falsifyPRM.numTraces = 10;
+falsifyPRM.unsafeRegion = HalfSpace(unsafe_mat, unsafe_vec);
+
+[safe, counterExamples, falsifyTime] = ncs.falsify(falsifyPRM);
 
 %% Plot falsification traces
 

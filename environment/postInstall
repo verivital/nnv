@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -ex
 
-mkdir deps && cd deps
+# mkdir deps && # already created in dockerfile
+cd deps
 
 curl -LO https://tumcps.github.io/CORA/data/CORA_2018.zip
 unzip CORA_2018.zip && rm CORA_2018.zip
@@ -14,7 +15,16 @@ tbxmanager
 tbxmanager install mpt mptdoc;
 tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi;
 tbxmanager install yalmip; % todo: error due to license, need to force acceptance
-startup; % adding dependencies and nnv to the path
+cd /code/nnv;
+startup_nnv; % adding dependencies and nnv to the path
 " > install.m
 
+pwd
+
+ls
+
 matlab -nodisplay -r "install; addpath(genpath('../../deps')); savepath"
+
+matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); savepath;"
+
+

@@ -1115,7 +1115,13 @@ classdef LinearNNCS < handle
                         
             unsafe_mat = unsafeRegion.G;
             unsafe_vec = unsafeRegion.g;
-            
+            falsifyPRM.init_set = reachPRM.init_set;
+            falsifyPRM.ref_input = reachPRM.ref_input;
+            falsifyPRM.numSteps = reachPRM.numSteps;
+            falsifyPRM.numTraces = 1000;
+            falsifyPRM.controlPeriod = obj.plant.controlPeriod;
+            falsifyPRM.unsafeRegion = unsafeRegion;
+                        
             t = tic; 
                         
             dim = obj.plant.dim; 
@@ -1152,12 +1158,12 @@ classdef LinearNNCS < handle
             end
             
             if isempty(G)
-                safe = 1;
+                safe = 'SAFE';
                 counterExamples = [];
             else
                 
                 if strcmp(obj.method, 'exact-star')
-                    safe = 0;
+                    safe = 'UNSAFE';
                     % construct a set of counter examples                    
                     n = length(G);
                     counterExamples = [];
@@ -1168,19 +1174,18 @@ classdef LinearNNCS < handle
                     
                     
                 elseif strcmp(obj.method, 'approx-star')
-                    safe = 2; % unknown due to over-approximation error, we can try using simulation to falsify the property
-                    counterExamples = [];
+                    [safe, counterExamples, ~] = obj.falsify(falsifyPRM);
                 end
             
             
             end
             
             
-            if safe == 0
-                fprintf('\n\nThe neural network control system is unsafe, NNV produces %d star sets of counter-examples', n);
-            elseif safe == 1
+            if strcmp(safe, 'UNSAFE')
+                fprintf('\n\nThe neural network control system is unsafe, NNV produces counter-examples');
+            elseif strcmp(safe, 'SAFE')
                 fprintf('\n\nThe neural network control system is safe');
-            elseif safe == 2
+            elseif strcmp(safe, 'UNKNOWN')
                 fprintf('\n\n The safety of the neural network control system is unknown');
                 fprintf('\nYou can try falsification method using simulation to find counter-examples');
             end
@@ -1245,8 +1250,12 @@ classdef LinearNNCS < handle
                y = obj.plant.C * x;
                y1 = [ref_input; y];
                u = obj.controller.evaluate(y1);
-               [x1,~,~] = obj.plant.simulate(u, obj.controlPeriod, x);
-               simTrace(:, i) = x1;
+               x0 = [x; u];
+               [~,~,x1] = obj.transPlant.initial(x0, obj.controlPeriod);
+               n = size(x1, 1);
+               x2 = x1(n, :)'; % store computed states to simTrace 
+               x2(obj.plant.dim + 1:obj.transPlant.dim) = []; 
+               simTrace(:, i) = x2;
                controlTrace(:,i) = u;
            end
            
@@ -1415,8 +1424,8 @@ classdef LinearNNCS < handle
             numSteps = falsifyPRM.numSteps;
             numTraces = falsifyPRM.numTraces;
             obj.controlPeriod = falsifyPRM.controlPeriod;
-            unsafe_mat = falsifyPRM.unsafeRegion.unsafe_mat;
-            unsafe_vec = falsifyPRM.unsafeRegion.unsafe_vec;
+            unsafe_mat = falsifyPRM.unsafeRegion.G;
+            unsafe_vec = falsifyPRM.unsafeRegion.g;
             
             obj.generateTraces(initSet, ref_input, numSteps, numTraces);
                        

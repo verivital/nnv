@@ -90,12 +90,13 @@ init_set = Star(lb, ub);
 
 %% Reachability Analysis
 
-numSteps = 4; 
-method = 'approx-star';
-%method = 'exact-star';
-numCores = 1;
-plantNumOfSimSteps = 10;
-[R, reachTime] = ncs.reach(init_set, ref_input, numSteps, method, numCores, plantNumOfSimSteps);
+reachPRM.init_set = Star(lb, ub);
+reachPRM.ref_input = [30; 1.4];
+reachPRM.numSteps = 4;
+reachPRM.reachMethod = 'exact-star';
+reachPRM.numCores = 4;
+
+[R, reachTime] = ncs.reach(reachPRM);
 
 %% Plot output reach sets: actual distance vs. safe distance
 

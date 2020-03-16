@@ -4,20 +4,17 @@
 load MountainCar_ReluController.mat;
 W = nnetwork.W; % weight matrices
 b = nnetwork.b; % bias vectors
-
 n = length(W);
 Layers = [];
 for i=1:n - 1
-    L = Layer(W{1, i}, b{1, i}, 'ReLU');
+    L = LayerS(W{1, i}, b{1, i}, 'poslin');
     Layers = [Layers L];
 end
-
-L = Layer(W{1, n}, b{1, n}, 'Linear');
-
+L = LayerS(W{1, n}, b{1, n}, 'purelin');
 Layers = [Layers L];
+Controller = FFNNS(Layers); % feedforward neural network controller
 
 Ts = 0.5; 
-Controller = FFNN(Layers); % feedforward neural network controller
 Plant = DNonLinearODE(2, 1, @discrete_car_dynamics, Ts); % two states and one input
 output_mat = [1 0; 0 1];
 Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller

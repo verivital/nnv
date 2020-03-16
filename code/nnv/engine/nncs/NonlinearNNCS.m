@@ -1,4 +1,4 @@
-classdef NNCS < handle
+classdef NonlinearNNCS < handle
     %Neural network control system class 
     %   Dung Tran: 10/21/2018
     
@@ -52,7 +52,7 @@ classdef NNCS < handle
     methods
         
         %constructor
-        function obj = NNCS(varargin)
+        function obj = NonlinearNNCS(varargin)
             % @controller: a neural net controller
             % @plant: a plant model (a LinearODE, DLinearODE or Neural net)
             % @feedbackMap: a feedback map from outputs of the plant to the
@@ -79,11 +79,7 @@ classdef NNCS < handle
             
             if ~isa(controller, 'FFNN') && ~isa(controller, 'FFNNS')
                 error('The controller is not a feedforward neural network');
-            end
-            
-            if ~isa(plant, 'LinearODE') && ~isa(plant, 'DLinearODE') && ~isa(plant, 'NonLinearODE') && ~isa(plant, 'DNonLinearODE')
-                error('The plant is not a linear or nonlinear ode system in discrete or continuous time');
-            end            
+            end     
                         
             [nO, nI] = size(feedbackMap);
             
@@ -123,12 +119,16 @@ classdef NNCS < handle
              n_cores = reachPRM.numCores;
              n_steps = reachPRM.numSteps;
              
+             if ~strcmp(reachPRM.reachMethod, 'approx-star')
+                 error('Only approx-star method is supported for nonlinear NNCS');
+             end
+             
              if ~isa(initSet, 'Star')
                  error('Initial set of the plant is not a Star');
              end
 
-             if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Star')
-                 error('The reference input set is not a Star');
+             if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Star') && isvector(ref_inputSet)
+                 ref_inputSet = Star(ref_inputSet, ref_inputSet);
              end
 
              if n_steps < 1
@@ -293,7 +293,7 @@ classdef NNCS < handle
                 parfor i=1:N
                     L = S(i).intersectHalfSpace(unsafe_mat, unsafe_vec);                 
                     if ~isempty(L)
-                        fprintf('\nThe %d^th reach set reach unsafe region', i);
+                        fprintf('\nThe %d^th reach set reaches unsafe region', i);
                         j = j + 1; 
                     end
                 end
@@ -303,7 +303,7 @@ classdef NNCS < handle
                 for i=1:N
                     L = S(i).intersectHalfSpace(unsafe_mat, unsafe_vec);                 
                     if ~isempty(L)
-                        fprintf('\nThe %d^th reach set reach unsafe region', i);
+                        fprintf('\nThe %d^th reach set reaches unsafe region', i);
                         j = j + 1; 
                     end
                 end
@@ -421,7 +421,7 @@ classdef NNCS < handle
                 error('Inconsistent dimension between initial set of state and plant');
             end
             
-            if ~isa(ref_input_set, 'Box')
+            if ~isempty(ref_input_set) && ~isa(ref_input_set, 'Box')
                 error('Reference input set should be a box');
             end
             if ~isempty(ref_input_set) && ref_input_set.dim ~= obj.nI_ref
@@ -473,14 +473,16 @@ classdef NNCS < handle
         
         
         % automatically falsify nncs using random simulations
-        function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, step, n_steps, init_set, ref_input_set, unsafe_mat, unsafe_vec, n_samples)
-            % @step: control step size
-            % @n_steps: number of control steps
-            % @init_set: initial set of the plant, should be a box
-            % @ref_input_set: reference input set, should be a box
-            % @unsafe_mat: unsafe matrix
-            % @unsafe_vec: unsafe vector
-            % @n_samples: number of simulations used for falsification
+        function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, falsifyPRM)
+            % @falsifyPRM: falsification parameters including following
+            % inputs:
+            %       1) @step: control step size
+            %       2) @n_steps: number of control steps
+            %       3) @init_set: initial set of the plant, should be a box
+            %       4) @ref_input_set: reference input set, should be a box
+            %       5) @unsafe_mat: unsafe matrix
+            %       6) @unsafe_vec: unsafe vector
+            %       7) @n_samples: number of simulations used for falsification
             
             % @falsify_result: = 1: counter example exist, = 0: counter
             % example does not exit, -> increase number of samples
@@ -490,13 +492,22 @@ classdef NNCS < handle
             % to counter simulation traces
             % @counter_init_states: counter initial states of plant
             % @counter_ref_inputs: counter reference inputs
-                        
             
             % author: Dung Tran
             % date: 1/31/2019
+            % update: 3/15/2020
+                        
+            step = falsifyPRM.controlPeriod;
+            n_steps = falsifyPRM.numSteps;
+            initSet = falsifyPRM.init_set;
+            ref_input_set = falsifyPRM.ref_input;
+            unsafe_mat = falsifyPRM.unsafeRegion.G;
+            unsafe_vec = falsifyPRM.unsafeRegion.g;
+            n_samples = falsifyPRM.numTraces;
+           
             
             t = tic; 
-            [~, sim_traces, control_traces, sampled_init_states, sampled_ref_inputs] = obj.sample(step, n_steps, init_set, ref_input_set, n_samples);
+            [~, sim_traces, control_traces, sampled_init_states, sampled_ref_inputs] = obj.sample(step, n_steps, initSet, ref_input_set, n_samples);
             
             n = size(sim_traces, 2);
             violate_trace_indexes = [];
@@ -526,7 +537,9 @@ classdef NNCS < handle
                 counter_sim_traces{1, i} = sim_traces(:, violate_trace_indexes(i));
                 counter_control_traces{1, i} = control_traces(:, violate_trace_indexes(i));
                 counter_init_states{1, i} = sampled_init_states(:, violate_trace_indexes(i));
-                counter_ref_inputs{1, i} = sampled_ref_inputs(:, violate_trace_indexes(i));
+                if ~isempty(sampled_ref_inputs)
+                    counter_ref_inputs{1, i} = sampled_ref_inputs(:, violate_trace_indexes(i));
+                end
             end
             
             falsify_time = toc(t);
@@ -603,8 +616,6 @@ classdef NNCS < handle
             %       2) @reachPRM.ref_input: reference input
             %       3) @reachPRM.numSteps: number of steps
             %       4) @reachPRM.numCores: number of cores used in reachability analysis
-            %       5) @reachPRM.plantTimStep: reachability step for the plant
-            %       6) @reachPRM.controlPeriod: controler period 
             % @unsafeRegion: a Halfpsace object
             % Usafe region is defined by: y: unsafe_mat * x <= unsafe_vec
             
@@ -619,8 +630,34 @@ classdef NNCS < handle
             % date:   2/15/2019
             % update: 3/15/2020
             
+            t = tic;
+            obj.reach(reachPRM);
+            falsifyPRM.controlPeriod = obj.plant.controlPeriod;
+            falsifyPRM.numSteps = reachPRM.numSteps;
+            falsifyPRM.init_set = reachPRM.init_set.getBox;
+            if isvector(reachPRM.ref_input)
+                falsifyPRM.ref_input = Box(reachPRM.ref_input, reachPRM.ref_input);
+            else
+                falsifyPRM.ref_input = reachPRM.ref_input.getBox;
+            end
+            falsifyPRM.unsafeRegion = unsafeRegion;
+            falsifyPRM.numTraces = 1000;
             
+                        
+            [safe1, ~] = obj.check_safety(unsafeRegion.G, unsafeRegion.g, reachPRM.numCores);
+            counterExamples = [];
+            if safe1 == 1
+                safe = 'SAFE';
+            else
+                [rs, ~, counterExamples, ~, ~, ~] = obj.falsify(falsifyPRM);
+                if rs == 1
+                    safe = 'UNSAFE';
+                else
+                    safe = 'UNKNOWN';
+                end
+            end
             
+            verifyTime = toc(t);
             
         end
     end

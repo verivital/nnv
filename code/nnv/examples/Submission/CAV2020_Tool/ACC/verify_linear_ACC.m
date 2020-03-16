@@ -104,14 +104,23 @@ end
 
 
 %% Reachability Analysis && Verification
-numSteps = 50; 
+numSteps =50;
 numCores = 4; 
 % safety property: actual distance > alpha * safe distance <=> d = x1 - x4  > alpha * d_safe = alpha * (1.4 * v_ego + 10)
 
 % usafe region: x1 - x4 <= alpha * (1.4 * v_ego + 10)
 alpha = 1;
 unsafe_mat = [1 0 0 -1 -alpha*1.4 0 0];
-unsafe_vec = alpha*10; 
+unsafe_vec = alpha*10;
+
+% reachability parameters
+
+reachPRM.ref_input = ref_input;
+reachPRM.numSteps = numSteps;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.numCores = numCores;
+
+unsafeRegion = HalfSpace(unsafe_mat, unsafe_vec);
 
 % N = 1; % just for testing
 
@@ -121,7 +130,8 @@ counterExamples_approx = cell(1, N);
 dis_ACC_approx = cell(1, N);
 
 for i=1:N
-    [safe_approx{i}, counterExamples_approx{i}, VT_approx(i)] = ncs.verify(init_set(i), ref_input, numSteps, 'approx-star', numCores, unsafe_mat, unsafe_vec);
+    reachPRM.init_set = init_set(i);
+    [safe_approx{i}, counterExamples_approx{i}, VT_approx(i)] = ncs.verify(reachPRM, unsafeRegion);
 end
 
 

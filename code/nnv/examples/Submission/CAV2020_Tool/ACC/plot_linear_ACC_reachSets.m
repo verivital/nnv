@@ -31,7 +31,7 @@ B = [0; 0; 0; 0; 0; 2; 0];
 C = [1 0 0 -1 0 0 0; 0 1 0 0 -1 0 0; 0 0 0 0 1 0 0];  % feedback relative distance, relative velocity, longitudinal velocity
 D = [0; 0; 0]; 
 
-plant = LinearODE(A, B, C, D); % continuous plant model
+plant = LinearODE(A, B, C, D, 0.1, 20); % continuous plant model
 
 plantd = plant.c2d(0.1); % discrete plant model
 
@@ -108,12 +108,17 @@ end
 
 
 %% Compute reachable set
-numSteps = 50; 
-numCores = 4; 
-ncs.reach(init_set(1), ref_input, numSteps, 'approx-star', numCores);
+reachPRM.init_set = init_set(1);
+reachPRM.ref_input = ref_input;
+reachPRM.numSteps = 50;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.numCores = 4;
+
+ncs.reach(reachPRM);
 save linear_ACC_ncs_1.mat ncs; 
 
-ncs.reach(init_set(6), ref_input, numSteps, 'approx-star', numCores);
+reachPRM.init_set = init_set(6);
+ncs.reach(reachPRM);
 save linear_ACC_ncs_6.mat ncs; 
 
 %% Plot output reach sets: actual distance vs. safe distance

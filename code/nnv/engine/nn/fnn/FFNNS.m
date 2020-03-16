@@ -25,7 +25,7 @@ classdef FFNNS < handle
         reachTime = []; % computation time for each layers
         numReachSet = []; % number of reach sets over layers
         totalReachTime = 0; % total computation time       
-        numSamples = 2000; % default number of samples using to falsify a property
+        numSamples = 1000; % default number of samples using to falsify a property
         unsafeRegion = []; % unsafe region of the network
         
         
@@ -296,7 +296,7 @@ classdef FFNNS < handle
         
         function [safe, vt, counterExamples] = verify(varargin)            
             % 1: @I: input set, need to be a star set
-            % 2: @U: unsafe region, a set of HalfSpaces
+            % 2: @U: unsafe region, a HalfSpace
             % 3: @method: = 'star' -> compute reach set using stars
             %            'abs-dom' -> compute reach set using abstract
             %            domain (support in the future)
@@ -310,6 +310,14 @@ classdef FFNNS < handle
             % using over-approximate reachability analysis, i.e.,
             % 'approx-zono' or 'abs-dom' or 'abs-star'
             % note: n_samples = 0 -> do not do falsification
+            
+            % @safe: = 1-> safe, 0-> unsafe, 2 -> unknown
+            % @vt: verification time
+            % @counterExamples: counterexamples
+            
+            % author: Dung Tran
+            % date: 2/27/2019
+            % update: 3/15/2020
             
             switch nargin
                 case 3
@@ -342,11 +350,15 @@ classdef FFNNS < handle
             end
             
             t = tic; 
-            fprintf('\nPerform fasification with %d random simulations', obj.numSamples);
-            counterExamples = obj.falsify(obj.inputSet, obj.unsafeRegion, obj.numSamples);
-            
+            if obj.numSamples > 0
+                fprintf('\nPerform fasification with %d random simulations', obj.numSamples);
+                counterExamples = obj.falsify(obj.inputSet, obj.unsafeRegion, obj.numSamples);
+            else
+                counterExamples = []; 
+            end
             if ~isempty(counterExamples)
                 safe = 0;
+                obj.outputSet = [];
             else
                 fprintf('\nNo counter examples found, verify the safety using reachability analysis');
                 % perform reachability analysis
@@ -387,6 +399,57 @@ classdef FFNNS < handle
             
             vt = toc(t);
          
+        end
+        
+        % visualize verification results
+        % plot the output sets in a specific direction
+        function visualize(obj, proj_mat, proj_vec)
+            % @proj_mat: projection matrix 
+            % @proj_vec: project vector 
+            
+            % author: Dung Tran
+            % date: 
+            
+            if isempty(obj.outputSet)
+                error('Empty output set');
+            end
+            
+            if ~isempty(proj_vec)
+                [n1, m1] = size(proj_mat);
+                [n2, m2] = size(proj_vec); 
+                if n1 ~= n2
+                    error('Inconsistency between projection matrix and projection vector');
+                end
+                if m2 ~= 1
+                    error('Projection vector should have one column');
+                end
+                if m1 ~= obj.nO
+                    error('Inconsistency between projection matrix and the number of outputs of the network');
+                end
+            end
+            
+            N = length(obj.outputSet);
+            pl_outputs = [];
+            for i=1:N
+                if isa(obj.outputSet(i), 'Star') || isa(obj.outputSet(i), 'Zono') 
+                    pl_outputs = [pl_outputs obj.outputSet(i).affineMap(proj_mat, proj_vec)];
+                elseif isa(obj.outputSet(i), 'Polyhedron')
+                    if ~isempty(proj_vec)
+                        pl_outputs = [pl_outputs obj.outputSet(i).affineMap(proj_mat) + proj_vec];
+                    else
+                        pl_outputs = [pl_outputs obj.outputSet(i).affineMap(proj_mat)];
+                    end
+                end
+            end
+            
+            if isa(obj.outputSet(1), 'Star')
+                Star.plots(pl_outputs);
+            elseif isa(obj.outputSet(1), 'Polyhedron')
+                plot(pl_outputs);
+            elseif isa(obj.outputSet(1), 'Zono')
+                Zono.plots(pl_outputs);
+            end
+                        
         end
     end
     
@@ -1342,17 +1405,85 @@ classdef FFNNS < handle
             
             % author: Dung Tran
             % date: 1/18/2020
-            
-            
+                        
             Ops = [];
-            
             for i=1:obj.nL
                 Op = obj.Layers(i).flatten(reachMethod);
                 Ops = [Ops Op];
-            end
-            
+            end        
             obj.Operations = Ops;
                        
+        end
+        
+        % reachability using flattened network
+        function R = reach_flatten(varargin)
+            % @inputSet: an array of star set or zonotope
+            % @reachMethod: reachability method
+            % @numCores: number of cores
+            
+            % author: Dung Tran
+            % date: 3/11/2020
+            
+            % passing inputs
+            
+            if mod(nargin, 2) == 0
+                error('Invalid number of arguments');
+            end
+            
+            obj = varargin{1};
+            
+            for i=2:nargin-1
+                
+                if mod(i, 2) == 0
+                   
+                    if strcmp(varargin{i}, 'InputSet')
+                        obj.inputSet = varargin{i+1};                      
+                    elseif strcmp(varargin{i}, 'ReachMethod')
+                        obj.reachMethod = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'NumCores')
+                        obj.numCores = varargin{i+1};
+                    end
+                    
+                end
+                
+            end         
+            
+            obj.flatten(obj.reachMethod);
+            N = length(obj.Operations);
+            ops = obj.Operations; 
+            S = obj.inputSet;
+            if obj.numCores > 1
+                obj.start_pool;
+                i = 1;                
+                while (i < N)
+                    M = length(S);
+                    S1 = [];
+                    fprintf("\nExecuting the %d^th Operation (%s)", i, ops(i).Name);
+                    parfor j=1:M
+                        S1 = [S1 ops(i).execute(S(j))];
+                    end
+                    S = S1; 
+                    fprintf("\nNumber of reachable sets after the %d^th Operation: %d", i, length(S));
+                    i = i + 1;
+                end
+                
+                     
+            else
+                i = 1;
+                while (i < N)
+                    M = length(S);
+                    S1 = [];
+                    fprintf("\nExecuting %d^th Operations", i);
+                    for j=1:M
+                        S1 = [S1 ops(i).execute(S(j))];
+                    end
+                    S = S1; 
+                    fprintf("\nNumber of reachable sets after %d^th Operation: %d", i, length(S));
+                    i = i + 1;
+                end
+                
+            end
+            R = S;    
         end
         
         
@@ -1395,83 +1526,67 @@ classdef FFNNS < handle
             end         
             
             obj.flatten(obj.reachMethod);
-            
-            N = length(obj.Operations);
-            U = obj.unsafeRegion;
-            
+                                              
             if obj.numCores > 1
                 obj.start_pool;
-                
-            else
-            
-                S.data = obj.inputSet;
-                S.opsIndex = 1; 
-                safe = 'safe';
-                while strcmp(safe, 'safe') && ~isempty(S)
-                    S1 = S(1).data;
-                    id = S(1).opsIndex;                    
-                    if id < N
-                        S2 = obj.Operations(id).execute(S1);
-                        if length(S2) == 2
-                            S3_1.data = S2(1);
-                            S3_1.opsIndex = id + 1;
-                            S3_2.data = S2(2);
-                            S3_2.opsIndex = id + 1;
-                            S3 = [S3_1 S3_2];
-                            S(1) = [];
-                            S = [S3 S];
-                        else                            
-                            S4.data = S2;
-                            S4.opsIndex = id + 1;
-                            S(1) = [];
-                            S = [S4 S];
-                        end
-                    else
-                        % checking safety of the leaf sets
-                        S2 = obj.Operations(id).execute(S1);
-                        if length(S2) == 2
-                            H1 = S2(1).intersectHalfSpace(U.G, U.g);
-                            H2 = S2(2).intersectHalfSpace(U.G, U.g);
-                            if ~isempty(H1)
-                                if strcmp(obj.reachMethod, 'exact-star')
-                                    safe = 'unsafe';
-                                    CEx = Star(obj.inputSet.V, H1.C, H1.d, H1.predicate_lb, H1.predicate_ub);
-                                else
-                                    safe = 'unknown';
-                                    CEx = [];
-                                end
-                            elseif ~isempty(H2)
-                                if strcmp(obj.reachMethod, 'exact-star')
-                                    safe = 'unsafe';
-                                    CEx = Star(obj.inputSet.V, H2.C, H2.d, H2.predicate_lb, H2.predicate_ub);
-                                else
-                                    safe = 'unknown';
-                                    CEx = [];
-                                end
-                            end
-                        else
-                            H = S2.intersectHalfSpace(U.G, U.g);
-                            if ~isempty(H)
-                                if strcmp(obj.reachMethod, 'exact-star')
-                                    safe = 'unsafe';
-                                    CEx = Star(obj.inputSet.V, H.C, H.d, H.predicate_lb, H.predicate_ub);
-                                else
-                                    safe = 'unknown';
-                                    CEx = [];
-                                end
-                            end
-                        end
-                        
-                        S(1) = [];
-                        
+                ops = obj.Operations; 
+                N = length(ops); 
+                n = 0;
+                i = 0;
+                S1 = obj.inputSet;
+                while n < obj.numCores && i < N
+                    i = i + 1;                    
+                    n1 = length(S1);
+                    S2 = [];
+                    parfor j=1:n1
+                        S2 = [S2 ops(i).execute(S1(j))]; 
                     end
+                    S1 = S2;
+                    n = length(S1);
+                end
+                
+                display(i);
+                display(N);
+                display(S1);
+                U = obj.unsafeRegion;
+                method = obj.reachMethod;
+                if n == obj.numCores
+                    x = Composite();
+                    for k=1:n
+                        x{k} = S1(k);
+                    end
+                    spmd                       
+                        done_unsafe_exit = false; 
+                        done_safe_exit = false;
+                        while (~done_unsafe_exit && ~done_safe_exit)
+                            [safe, CEx] = sub_verify_DFS(ops, x, i+1, U, method);
+                            if strcmp(safe, 'unsafe') || strcmp(safe, 'unknown')
+                                unsafe_exit = true;
+                                safe_exit = false;
+                                if strcmp(safe, 'unsafe')
+                                    myCEx = CEx;
+                                else
+                                    myCEx = [];
+                                end
+                            else
+                                safe_exit = true;
+                                unsafe_exit = false;
+                            end
+                            done_unsafe_exit = gop(@or, unsafe_exit);
+                            done_safe_exit = gop(@and, safe_exit);
+                        end
+                    end
+
+                else
                     
                 end
                 
+                
+                
+            else
+                [safe, CEx] = sub_verify_DFS(obj.Operations, obj.inputSet, 1, obj.unsafeRegion, obj.reachMethod);                
             end
-            
-            
-            
+
         end
         
         
@@ -1530,7 +1645,91 @@ classdef FFNNS < handle
         
     end
     
-    
-    
+     
 end
+
+function [safe, CEx] = sub_verify_DFS(ops, inputSet, start_index, unsafeRegion, reachMethod)
+        % @ops: operations array
+        % @inputSet: a star set
+        % @start_index: the index of the sup-tree to start searching
+        % @unsafeRegion: a HalfSpace
+        % @reachMethod: reachability method
+
+        % author: Dung Tran
+        % date: 3/10/2020
+
+        N = length(ops);
+        U = unsafeRegion;
+        S.data = inputSet;
+        S.opsIndex = start_index; 
+        safe = 'safe';
+        CEx = [];
+        numSets = 0;
+        fprintf('\n Number of verified reach sets: 0000000000');
+        while strcmp(safe, 'safe') && ~isempty(S)
+            S1 = S(1).data;
+            id = S(1).opsIndex;                    
+            if id < N
+                S2 = ops(id).execute(S1);
+                if length(S2) == 2
+                    S3_1.data = S2(1);
+                    S3_1.opsIndex = id + 1;
+                    S3_2.data = S2(2);
+                    S3_2.opsIndex = id + 1;
+                    S3 = [S3_1 S3_2];
+                    S(1) = [];
+                    S = [S3 S];
+                else                            
+                    S4.data = S2;
+                    S4.opsIndex = id + 1;
+                    S(1) = [];
+                    S = [S4 S];
+                end
+            else
+                % checking safety of the leaf sets
+                S2 = ops(id).execute(S1);
+                if length(S2) == 2
+                    H1 = S2(1).intersectHalfSpace(U.G, U.g);
+                    H2 = S2(2).intersectHalfSpace(U.G, U.g);
+                    if ~isempty(H1)
+                        if strcmp(reachMethod, 'exact-star')
+                            safe = 'unsafe';
+                            CEx = Star(inputSet.V, H1.C, H1.d, H1.predicate_lb, H1.predicate_ub);
+                        else
+                            safe = 'unknown';
+                            CEx = [];
+                        end
+                    elseif ~isempty(H2)
+                        if strcmp(reachMethod, 'exact-star')
+                            safe = 'unsafe';
+                            CEx = Star(inputSet.V, H2.C, H2.d, H2.predicate_lb, H2.predicate_ub);
+                        else
+                            safe = 'unknown';
+                            CEx = [];
+                        end
+                    end
+                else
+                    H = S2.intersectHalfSpace(U.G, U.g);
+                    if ~isempty(H)
+                        if strcmp(reachMethod, 'exact-star')
+                            safe = 'unsafe';
+                            CEx = Star(inputSet.V, H.C, H.d, H.predicate_lb, H.predicate_ub);
+                        else
+                            safe = 'unknown';
+                            CEx = [];
+                        end
+                    end
+                end
+
+                S(1) = [];
+                numSets = numSets + 1;
+                fprintf("\b\b\b\b\b\b\b\b\b\b%10d", numSets);
+            end
+        end
+        fprintf("\n");
+
+end
+
+
+
 

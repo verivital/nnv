@@ -1,7 +1,6 @@
 % Reachability analysis for Discrete Linear ACC model
 % Dung Tran: 9/30/2019
 
-path_out = [path_results(), filesep, 'ACC', filesep];
 
 
 %% System model
@@ -105,19 +104,23 @@ end
 
 
 %% Reachability Analysis && Verification
-numSteps = 50;
-
-% set number of cores if not defined already
-if ~exist('numCores')
-    numCores = 4;
-end
-
+numSteps =50;
+numCores = 4; 
 % safety property: actual distance > alpha * safe distance <=> d = x1 - x4  > alpha * d_safe = alpha * (1.4 * v_ego + 10)
 
 % usafe region: x1 - x4 <= alpha * (1.4 * v_ego + 10)
 alpha = 1;
 unsafe_mat = [1 0 0 -1 -alpha*1.4 0 0];
-unsafe_vec = alpha*10; 
+unsafe_vec = alpha*10;
+
+% reachability parameters
+
+reachPRM.ref_input = ref_input;
+reachPRM.numSteps = numSteps;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.numCores = numCores;
+
+unsafeRegion = HalfSpace(unsafe_mat, unsafe_vec);
 
 % N = 1; % just for testing
 
@@ -127,12 +130,14 @@ counterExamples_approx = cell(1, N);
 dis_ACC_approx = cell(1, N);
 
 for i=1:N
-    [safe_approx{i}, counterExamples_approx{i}, VT_approx(i)] = ncs.verify(init_set(i), ref_input, numSteps, 'approx-star', numCores, unsafe_mat, unsafe_vec);
+    reachPRM.init_set = init_set(i);
+    [safe_approx{i}, counterExamples_approx{i}, VT_approx(i)] = ncs.verify(reachPRM, unsafeRegion);
 end
 
 
-%% Save verification results
-save([path_out, 'linear_ACC.mat'], 'safe_approx', 'VT_approx', 'counterExamples_approx');
+%% Safe verification results
+
+save linear_ACC.mat safe_approx VT_approx counterExamples_approx;
 
 %% Print verification results to screen
 fprintf('\n======================================================');
@@ -148,7 +153,7 @@ fprintf('\nTotal verification time:      %3.3f', sum(VT_approx));
 
 %% Print verification results to a file
 
-fid = fopen([path_out, 'table3_linear_ACC.txt'], 'wt');
+fid = fopen('linear_ACC.txt', 'wt');
 
 fprintf(fid,'\n======================================================');
 fprintf(fid,'\nVERIFICATION RESULTS FOR ACC WITH DISCRETE PLANT MODEL');

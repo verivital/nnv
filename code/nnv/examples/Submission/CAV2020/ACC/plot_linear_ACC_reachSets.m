@@ -1,6 +1,7 @@
 % Plot reachable sets for Discrete Linear ACC model
 % Dung Tran: 10/22/2019
 
+path_out = [path_results(), filesep, 'ACC', filesep];	
 
 %% System model
 % x1 = lead_car position
@@ -112,14 +113,21 @@ reachPRM.init_set = init_set(1);
 reachPRM.ref_input = ref_input;
 reachPRM.numSteps = 50;
 reachPRM.reachMethod = 'approx-star';
-reachPRM.numCores = 4;
+
+if ~exist('numCores')
+    reachPRM.numCores = 4;
+else
+    reachPRM.numCores = numCores;
+end
 
 ncs.reach(reachPRM);
-save linear_ACC_ncs_1.mat ncs; 
+
+save([path_out, 'linear_ACC_ncs_1.mat'], 'ncs');
 
 reachPRM.init_set = init_set(6);
 ncs.reach(reachPRM);
-save linear_ACC_ncs_6.mat ncs; 
+
+save([path_out, 'linear_ACC_ncs_6.mat'], 'ncs');	
 
 %% Plot output reach sets: actual distance vs. safe distance
 
@@ -128,12 +136,12 @@ save linear_ACC_ncs_6.mat ncs;
 
 figure;
 h1 = subplot(2,1,1);
-load linear_ACC_ncs_1.mat;
+load([path_out, 'linear_ACC_ncs_1.mat']);	
 map_mat = [1 0 0 -1 0 0 0];
 map_vec = [];
 ncs.plotOutputReachSets('blue', map_mat, map_vec);
 hold on;
-% plot safe distance between two cars: d_safe = D_default + t_gap * v_ego;
+% plot safe distance betwenen two cars: d_safe = D_default + t_gap * v_ego;
 % D_default = 10; t_gap = 1.4 
 % d_safe = 10 + 1.4 * x5; 
 
@@ -146,7 +154,7 @@ ylabel(h1, 'Distance');
 xticks(h1, [0:5:50])
 
 h2 = subplot(2,1,2);
-load linear_ACC_ncs_6.mat;
+load([path_out, 'linear_ACC_ncs_6.mat']);	
 map_mat = [1 0 0 -1 0 0 0];
 map_vec = [];
 ncs.plotOutputReachSets('blue', map_mat, map_vec);
@@ -163,5 +171,6 @@ xlabel(h2, 'Control Time Steps');
 ylabel(h2, 'Distance');
 xticks(h2, [0:5:50])
 
+saveas(gcf, [path_out, 'figure4_plot_linear_ACC_reachSets.png']);
 
 %% END OF SCRIPT

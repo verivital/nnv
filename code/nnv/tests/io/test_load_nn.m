@@ -17,10 +17,10 @@ pypath = strjoin(e,sh);
 
 % Get paths to the inputs for the first example
 genp = split(string(pwd),sh);
-rp = {'nnv','nnv','tests','io'};
+rp = {'nnv','code','nnv','tests','io'};
 
-if ~isequal(genp(end-3:end),string(rp)')
-    error('Executing from %s. \nPlease, change your current folder path to ../nnv/nnv/io/tests and run script again',pwd);
+if ~isequal(genp(end-4:end),string(rp)')
+    error('Executing from %s. \nPlease, change your current folder path to ../nnv/code/nnv/io/tests and run script again',pwd);
 end
 
 fp = genp(1:end-2);

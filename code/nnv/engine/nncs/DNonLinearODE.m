@@ -18,13 +18,14 @@ classdef DNonLinearODE < handle
     
     methods
         % constructor
-        function obj = DNonLinearODE(dim, nI, dynamics_func, Ts)
+        function obj = DNonLinearODE(dim, nI, dynamics_func, Ts, outputMat)
             % construct DnonLinearODE plant
             % @dim: dimension of the plant
             % @nI: number of input
             % @dynamics_func: dynamics of the plant, the input should have
             % @ character to specify function, for example @car_dynamics
             % Ts: timestep
+            % @outputMat: output matrix
             
             % Note: we construct a DnonLinearODE plant with default option
             
@@ -40,7 +41,7 @@ classdef DNonLinearODE < handle
             obj.nI = nI;
             obj.dynamics_func = dynamics_func;
             obj.Ts = Ts;
-            
+                        
             % default option
             option.tStart = 0;
             option.tFinal = Ts; % we provide method to change the option
@@ -61,6 +62,7 @@ classdef DNonLinearODE < handle
             option.uTrans = 0;
             
             obj.options = option; % default option
+            obj.set_output_mat(outputMat);
             
         end
         
@@ -301,6 +303,20 @@ classdef DNonLinearODE < handle
             end
             
             % the last zonotope in the reach set is returned
+            
+        end
+        
+        % evaluate (simulate) the plant with specific input and state
+        % using ode45 solver
+        function y = evaluate(obj, x0, u)
+            % @x0: initial state
+            % @u: control input
+            % @tspan: time points
+            
+            % author: Dung Tran
+            % date: 1/29/2019
+            
+            y = obj.dynamics_func([], x0, u, []);          
             
         end
         

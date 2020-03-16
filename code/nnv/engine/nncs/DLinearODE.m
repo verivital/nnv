@@ -1,7 +1,7 @@
 classdef DLinearODE
     %Discrete Linear ODE class
     %   represents discrete linear ode system: x[k + 1] = Ax[k] + Bu[k],
-    %                                          y[k + 1] = Cx[k] + Du[k]
+    %                                          y[k] = Cx[k] + Du[k]
     %   Dung Tran: 10/21/2018
     
     properties
@@ -36,7 +36,7 @@ classdef DLinearODE
                 error('A and C are inconsistent');
             end
 
-            if nD ~= nC
+            if nD~= 0 && nD ~= nC
                 error('C and D are inconsistent');
             end
 

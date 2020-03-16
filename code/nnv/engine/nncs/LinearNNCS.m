@@ -236,7 +236,7 @@ classdef LinearNNCS < handle
             map_mat(1) = 1;
             option.outputMatrix = map_mat;
             option.outputVector = [];
-            option.OuputSetColor = 'blue';
+            option.outputSetColor = 'blue';
             option.boundaryMatrix = [];
             option.boundaryVector = [];
             option.boundarySetColor = 'red'; 

@@ -1,5 +1,7 @@
 load controller_5_20.mat;
 
+path_out = [path_results(), filesep, 'ACC', filesep];	
+
 weights = network.weights;
 bias = network.bias;
 n = length(weights);
@@ -85,7 +87,12 @@ unsafeRegion = HalfSpace(unsafe_mat, unsafe_vec);
 reachPRM.ref_input = [30; 1.4];
 reachPRM.numSteps = 50;
 reachPRM.reachMethod = 'approx-star';
-reachPRM.numCores = 4;
+
+if ~exist('numCores')
+    reachPRM.numCores = 4;
+else
+    reachPRM.numCores = numCores;
+end
 
 safe = cell(1, n); % safety status
 VT = zeros(1,n); % verification time
@@ -96,7 +103,7 @@ for i=1:n
 end
 
 %% Safe verification results
-save verify_nonlinear_ACC.mat safe VT counterExamples;
+save([path_out, 'verify_nonlinear_ACC.mat'], 'safe', 'VT', 'counterExamples');	
 
 
 %% Print verification results to screen
@@ -113,7 +120,8 @@ fprintf('\nTotal verification time:      %3.3f', sum(VT));
 
 %% Print verification results to a file
 
-fid = fopen('nonlinear_ACC.txt', 'wt');
+fid = fopen([path_out, 'table3_nonlinear_ACC.txt'], 'wt');
+
 fprintf(fid,'\n=======================================================');
 fprintf(fid,'\nVERIFICATION RESULTS FOR ACC WITH NONLINEAR PLANT MODEL');
 fprintf(fid,'\n=======================================================');
@@ -125,3 +133,22 @@ end
 fprintf(fid,'\n-------------------------------------------------------');
 fprintf(fid,'\nTotal verification time:      %3.3f', sum(VT));
 fclose(fid);
+
+% %% Plot counter examples	
+% cI = counterExamples{1};	
+% cI = cell2mat(cI);	
+% d_rel = [1 0 0 -1 0 0]*cI;	
+% d_safe = [0 0 0 1.4 0 0]*cI + 10;	
+% 
+% figure; 	
+% T = 0:1:50;	
+% plot(T, d_rel, 'blue');	
+% hold on;	
+% plot(T, d_safe, 'red');	
+% 
+% xlabel('Control Time Steps', 'FontSize', 13);	
+% ylabel('Distance', 'FontSize', 13);	
+% xticks([0:5:50]);	
+% title('Actual Distance (blue) vs. Safe Distance (red)');	
+% 
+% saveas(gcf, [path_out, 'verify_nonlinear_acc_cex.png']);

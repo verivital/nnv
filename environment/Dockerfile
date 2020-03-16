@@ -50,7 +50,13 @@ RUN mkdir -p /deps
 RUN ls /codeocean-true
 
 WORKDIR /deps
+
+RUN git clone https://github.com/verivital/nnvmt.git
+
 # these ls commands are just to force a new build so that the cloned repo is latest and not the cached one in the prior docker container image
+RUN ls
+RUN ls
+
 RUN git clone https://github.com/verivital/run_nnv_comparison.git
 WORKDIR /deps/run_nnv_comparison 
 RUN ls
@@ -58,8 +64,6 @@ RUN chmod +x setup_tools.sh
 
 # setting up all the tools will take several minutes at least, so comment out if comparison is not needed
 RUN ./setup_tools.sh
-
-RUN git clone https://github.com/verivital/nnvmt.git
 
 WORKDIR /
 

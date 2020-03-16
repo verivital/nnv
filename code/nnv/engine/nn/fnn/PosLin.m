@@ -607,12 +607,9 @@ classdef PosLin
                     if R2.isEmptySet
                         R = R1;
                     else
-                        if R1 <= R2
-                            R = R2;
-                        else
-                            R = [R1 R2];
-                        end
+                        R = [R1 R2];
                     end
+                    
                 end               
                 
             end

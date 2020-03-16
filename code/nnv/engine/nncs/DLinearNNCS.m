@@ -1130,6 +1130,12 @@ classdef DLinearNNCS < handle
             obj.numCores = reachPRM.numCores;
             unsafe_mat = unsafeRegion.G;
             unsafe_vec = unsafeRegion.g;
+            
+            falsifyPRM.init_set = initSet;
+            falsifyPRM.ref_input = ref_input;
+            falsifyPRM.numSteps = numSteps;
+            falsifyPRM.numTraces = 1000;
+            falsifyPRM.unsafeRegion = unsafeRegion;
                        
             dim = obj.plant.dim; 
             
@@ -1182,7 +1188,7 @@ classdef DLinearNNCS < handle
 
                 elseif strcmp(obj.method, 'approx-star')
                     % use 1000 simulations to falsify the property
-                    [safe, counterExamples, ~] = obj.falsify(initSet, ref_input, numSteps, 1000, unsafe_mat, unsafe_vec);
+                    [safe, counterExamples, ~] = obj.falsify(falsifyPRM);
                 end
             
             
@@ -1190,7 +1196,7 @@ classdef DLinearNNCS < handle
             
             
             if strcmp(safe, 'UNSAFE')
-                fprintf('\n\nThe neural network control system is unsafe, NNV produces %d star sets of counter-examples', n);
+                fprintf('\n\nThe neural network control system is unsafe, NNV produces counter-examples');
             elseif strcmp(safe, 'SAFE')
                 fprintf('\n\nThe neural network control system is safe');
             elseif strcmp(safe, 'UNKNOWN')

@@ -97,7 +97,6 @@ classdef LinearODE
             if size(x0, 1) ~= obj.dim || size(x0, 2) ~= 1
                 error('initial vector has an inappropriate dimension');
             end
-            
             [y, t, x] = lsim(sys, u, t, x0);    
             
         end
@@ -125,7 +124,7 @@ classdef LinearODE
             
             sys = ss(obj.A, [], obj.C, []);
             [y, t, x] = initial(sys, x0, Tfinal);
-            initial(sys, x0, Tfinal); % just for plot
+            % initial(sys, x0, Tfinal); % just for plot
             
         end
         

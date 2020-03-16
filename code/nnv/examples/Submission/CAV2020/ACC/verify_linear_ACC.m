@@ -104,7 +104,7 @@ end
 
 
 %% Reachability Analysis && Verification
-numSteps =50;
+numSteps =10;
 numCores = 4; 
 % safety property: actual distance > alpha * safe distance <=> d = x1 - x4  > alpha * d_safe = alpha * (1.4 * v_ego + 10)
 

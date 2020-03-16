@@ -5,24 +5,23 @@ bias = network.bias;
 n = length(weights);
 Layers = [];
 for i=1:n - 1
-    L = Layer(weights{1, i}, bias{i, 1}, 'ReLU');
+    L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
     Layers = [Layers L];
 end
 
-L = Layer(weights{1, n}, bias{n, 1}, 'Linear');
+L = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
 
 Layers = [Layers L];
 
-Controller = FFNN(Layers); % feedforward neural network controller
-Plant = NonLinearODE(6, 1, @car_dynamics);
-Plant.set_timeStep(0.01); % time step for reachability analysis of the plant
-Plant.set_tFinal(0.1); % Ts = 0.1, sampling time for control signal from neural network controller
-output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity
-Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
+Controller = FFNNS(Layers); % feedforward neural network controller
+% /* car model
+Tr = 0.01; % reachability time step for the plant
+Tc = 0.1; % control period of the plant
+% output matrix
+C = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % output matrix
+Plant = NonLinearODE(6, 1, @car_dynamics, Tr, Tc, C);
 
-feedbackMap = [0]; % feedback map, y[k] 
-
-ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
+ncs = NonlinearNNCS(Controller, Plant); % the neural network control system
 
 %% Construct initial conditions
 % initial condition of the Plant
@@ -63,16 +62,9 @@ end
 % reference input for neural network controller
 % t_gap = 1.4; v_set = 30;
 
-lb = [30; 1.4];
-ub = [30; 1.4];
-
-input_ref = Star(lb, ub); % input reference set
+input_ref = [30; 1.4];
 
 %% Verification
-
-N = 50; % number of control steps 
-
-n_cores = 4; % number of cores 
 
 % safety specification: relative distance > safe distance
 % dis = x_lead - x_ego  
@@ -87,29 +79,20 @@ D_default = 10;
 % unsafe region: x_lead - x_ego - t_gap * v_ego <= D_default 
 
 unsafe_mat = [1 0 0 -1 -t_gap 0];
-unsafe_vec = [D_default];
+unsafe_vec = D_default;
+unsafeRegion = HalfSpace(unsafe_mat, unsafe_vec);
+
+reachPRM.ref_input = [30; 1.4];
+reachPRM.numSteps = 50;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.numCores = 4;
 
 safe = cell(1, n); % safety status
 VT = zeros(1,n); % verification time
 counterExamples = cell(1,n); % counter examples
 for i=1:n
-    t = tic;
-    ncs.reach('approx-star', init_set(i), input_ref, n_cores, N);
-    [safe1, ~] = ncs.check_safety(unsafe_mat, unsafe_vec, n_cores);
-    if safe1 == 1
-        safe{i} = 'SAFE';
-    else
-        Bi = init_set(i).getBox;
-        Br = input_ref.getBox;
-        [rs, ~, counterExamples, ~, ~, ~] = ncs.falsify(0.1, N, Bi, Br, unsafe_mat, unsafe_vec, 1000);
-        
-        if rs == 1
-            safe{i} = 'UNSAFE';
-        else
-            safe{i} = 'UNKNOWN';
-        end
-    end
-    VT(i) = toc(t);
+    reachPRM.init_set = init_set(i);
+    [safe{i}, counterExamples{i}, VT(i)] = ncs.verify(reachPRM, unsafeRegion);
 end
 
 %% Safe verification results
@@ -142,20 +125,3 @@ end
 fprintf(fid,'\n-------------------------------------------------------');
 fprintf(fid,'\nTotal verification time:      %3.3f', sum(VT));
 fclose(fid);
-
-%% Plot counter examples
-cI = counterExamples{1};
-cI = cell2mat(cI);
-d_rel = [1 0 0 -1 0 0]*cI;
-d_safe = [0 0 0 1.4 0 0]*cI + 10;
-
-figure; 
-T = 0:1:50;
-plot(T, d_rel, 'blue');
-hold on;
-plot(T, d_safe, 'red');
-
-xlabel('Control Time Steps', 'FontSize', 13);
-ylabel('Distance', 'FontSize', 13);
-xticks([0:5:50]);
-title('Actual Distance (blue) vs. Safe Distance (red)');

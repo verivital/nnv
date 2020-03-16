@@ -42,5 +42,6 @@ I = Star(lb, ub); % construct input set
 
 U = HalfSpace([-1 0], -5);
 
-safe = F.verify_DFS('InputSet', I, 'UnsafeRegion', U)
+[safe, CEx] = F.verify_DFS('InputSet', I, 'UnsafeRegion', U, 'NumCores', 2)
+%[safe, CEx] = F.verify_DFS('InputSet', I, 'UnsafeRegion', U)
 

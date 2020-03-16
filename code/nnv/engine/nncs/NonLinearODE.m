@@ -9,35 +9,31 @@ classdef NonLinearODE < handle
         nI = 0; % number of control inputs
         nO = 0; % number of outputs
         C; % output matrix y = Cx
-        
+        controlPeriod = 0.1; % control period
         intermediate_reachSet = []; % intermediate reachable set between steps
+        reachStep = 0.01; % reachability step for the plant
         % this is used to store all intermediate reachable sets of NNCS
     end
     
     methods
         
         % constructor from a matlab function reference in dynamics_func
-        function obj = NonLinearODE(dim, nI, dynamics_func)
+        function obj = NonLinearODE(dim, nI, dynamics_func, reachTimeStep, controlPeriod, outputMat)
             % construct nonLinearODE plant
             % @dim: dimension of the plant
             % @nI: number of input
             % @dynamics_func: dynamics of the plant, the input should have
             % @ character to specify function, for example @car_dynamics
+            % @reachTimeStep: reachability step for the plant
+            % @controlPeriod: control period for the plant
+            % @outputMat: output matrix
             
             % author: Dung Tran
             % date: 11/19/2018
+            % update: 3/15/2020
             
             % Note: we construct a nonLinearODE plant with default option
-            
-            % 
-            % if 1 argument, use hyst model to instantiate components,
-            % else, pull in from remaining arguments
-            %if nargin > 1
-            %    %obj.
-            %else
-            %    obj. = 1;
-            %end
-            
+
             if dim < 1
                 error('Dimension should be >=1');
             end
@@ -51,6 +47,11 @@ classdef NonLinearODE < handle
             obj.dynamics_func = dynamics_func;
             
             obj.NonLinearODE_init();
+            obj.set_timeStep(reachTimeStep);
+            obj.reachStep = reachTimeStep;
+            obj.set_tFinal(controlPeriod);
+            obj.controlPeriod = controlPeriod;
+            obj.set_output_mat(outputMat);
         end
         
         function obj = NonLinearODE_hyst(hyst_ha)

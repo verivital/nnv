@@ -10,13 +10,35 @@ classdef LinearODE
         dim = 0; % system dimension
         nI = 0; % number of inputs
         nO = 0; % number of outputs
+        controlPeriod = 0.1; % control period
+        numReachSteps = 20; % number of simulation steps of the plant in one control period
     end
     
     methods
         
         % constructor
-        function obj = LinearODE(A, B, C, D)       
+        function obj = LinearODE(varargin)       
             
+            switch nargin
+                case 4 
+                    A = varargin{1};
+                    B = varargin{2};
+                    C = varargin{3};
+                    D = varargin{4};
+                    controlPeriod = 0.1;
+                    numReachSteps = 20;
+                case 6
+                    A = varargin{1};
+                    B = varargin{2};
+                    C = varargin{3};
+                    D = varargin{4};
+                    controlPeriod = varargin{5};
+                    numReachSteps = varargin{6};
+                otherwise
+                    error('Invalid number of arguments');
+                
+            end
+
             if isempty(A)
                 error('Matrix A is empty');
             else 
@@ -27,7 +49,7 @@ classdef LinearODE
             end
             
             if ~isempty(B)
-                [nB, mB] = size(B);
+                [nB, ~] = size(B);
                 if nA ~= nB
                     error('A and B are inconsistent');
                 end
@@ -57,6 +79,8 @@ classdef LinearODE
                 obj.nO = nC;
             end
             obj.dim = nA;
+            obj.controlPeriod = controlPeriod;
+            obj.numReachSteps = numReachSteps;
                 
         end
         
@@ -74,8 +98,7 @@ classdef LinearODE
                 error('initial vector has an inappropriate dimension');
             end
             
-            [y, t, x] = lsim(sys, u, t, x0);
-            lsim(sys, u, t, x0); % just for plot      
+            [y, t, x] = lsim(sys, u, t, x0);    
             
         end
         

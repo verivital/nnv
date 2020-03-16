@@ -7,17 +7,14 @@ classdef DLinearNNCS < handle
     
     properties
         controller = []; % a feedfoward neural network
-        plant = []; % linear plant model, DLinearODE or LinearODE
-        feedbackMap = []; % a feedback matrix decribes the mapping from a group of 
-                          % outputs of the plant to a group of inputs of the controller
-                          
+        plant = []; % linear plant model, DLinearODE or LinearODE                                  
         % nerual network control system architecture
         %
-        %              --->| plant ---> y(t) ---sampling--->y(k) 
+        %              --->| plant ---> x(k+1)--------------->y(k+1) 
         %             |                                       |
         %             |                                       |
-        %             u(k) <---- controller |<---- v(k)-------|--- (reference inputs to the controller) 
-        %                                   |<----- y(k)------|(output feedback)                                    
+        %             u(k) <---- controller |<------ y(k)-----|--- (output feedback) 
+        %                                                           
         
         
         % the input to neural net controller is grouped into 2 group
@@ -116,58 +113,28 @@ classdef DLinearNNCS < handle
         
         
         % reach
-        function [R, reachTime] = reach(varargin)
-            % @init_set: initial set of state, a star set
-            % @ref_input: reference input, may be a vector or a star set
-            % @numOfSteps: number of steps
-            % @method: 'exact-star' or 'approx-star'
-            % @numCores: number of cores used in computation
+        function [R, reachTime] = reach(obj,reachPRM)
+            % @reachPRM: reachability papameters including following inputs
+            % 1) @init_set: initial set of state, a star set
+            % 2) @ref_input: reference input, may be a vector or a star set
+            % 3) @numOfSteps: number of steps
+            % 4) @reachMethod: 'exact-star' or 'approx-star'
+            % 5) @numCores: number of cores used in computation
             % NOTE***: parallel computing may not help due to
             % comuninication overhead in the computation
-            
+
             
             % author: Dung Tran
             % date: 10/1/2019
+            % update 3/15/2020
             
             
-            switch nargin
-                
-                case 4
-                    
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = 'approx-star';
-                    numCores1 = 1;
-                               
-                case 5
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = varargin{5};
-                    numCores1 = 1;
-                                      
-                case 6
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = varargin{5};
-                    numCores1 = varargin{6};
-                          
-                case 7
-                    obj = varargin{1};
-                    init_set1 = varargin{2};
-                    ref_input1 = varargin{3};
-                    numOfSteps = varargin{4};
-                    method1 = varargin{5};
-                    numCores1 = varargin{6};
-                                      
-                otherwise 
-                    error('Invalid number of inputs, should be 3, 4, 5, or 6');
-            end
+            init_set1 = reachPRM.init_set;
+            ref_input1 = reachPRM.ref_input;
+            numOfSteps = reachPRM.numSteps;
+            method1 = reachPRM.reachMethod;
+            numCores1 = reachPRM.numCores;
+                        
             
             if ~isa(init_set1, 'Star')
                 error('Initial set is not a star set');
@@ -1132,14 +1099,15 @@ classdef DLinearNNCS < handle
     methods % VERIFICATION METHOD
         
         
-        function [safe, counterExamples, verifyTime] = verify(obj,init_set, ref_input, numSteps, method, numCores, unsafe_mat, unsafe_vec)
-            % @init_set: initial set
-            % @ref_input: reference input
-            % @numSteps: number of steps
-            % @method: method for reachability analysis
-            % @numCores: number of cores used in reachability analysis
-            % @unsafe_mat: unsafe matrix
-            % @unsafe_vec: unsafe vector            
+        function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
+            % @reachPRM: reachability parameters consists of following
+            % inputs: 
+            %       1) @reachPRM.init_set: initial set
+            %       2) @reachPRM.ref_input: reference input
+            %       3) @reachPRM.numSteps: number of steps
+            %       4) @reachPRM.reachMethod: method for reachability analysis
+            %       5) @reachPRM.numCores: number of cores used in reachability analysis
+            % @unsafeRegion: a Halfpsace object
             % Usafe region is defined by: y: unsafe_mat * x <= unsafe_vec
             
             % @safe: = unsafe
@@ -1153,7 +1121,15 @@ classdef DLinearNNCS < handle
             % date: 10/2/2019
             
             
-            t = tic; 
+            t = tic;
+            
+            initSet = reachPRM.init_set;
+            ref_input = reachPRM.ref_input;
+            numSteps = reachPRM.numSteps;
+            obj.method = reachPRM.reachMethod; 
+            obj.numCores = reachPRM.numCores;
+            unsafe_mat = unsafeRegion.G;
+            unsafe_vec = unsafeRegion.g;
                        
             dim = obj.plant.dim; 
             
@@ -1170,7 +1146,7 @@ classdef DLinearNNCS < handle
             end
             
             % perform reachability analysis
-            obj.reach(init_set, ref_input, numSteps, method, numCores);             
+            obj.reach(reachPRM);             
             X = obj.plantReachSet; 
             n = length(X);
             % flatten reach sets
@@ -1206,7 +1182,7 @@ classdef DLinearNNCS < handle
 
                 elseif strcmp(obj.method, 'approx-star')
                     % use 1000 simulations to falsify the property
-                    [safe, counterExamples, ~] = obj.falsify(init_set, ref_input, numSteps, 1000, unsafe_mat, unsafe_vec);
+                    [safe, counterExamples, ~] = obj.falsify(initSet, ref_input, numSteps, 1000, unsafe_mat, unsafe_vec);
                 end
             
             
@@ -1282,6 +1258,7 @@ classdef DLinearNNCS < handle
                y = obj.plant.C * x;
                y1 = [ref_input; y];
                u = obj.controller.evaluate(y1);
+               
                simTrace(:, i) = obj.plant.A * x + obj.plant.B * u;
                controlTrace(:,i) = u;
            end
@@ -1423,13 +1400,14 @@ classdef DLinearNNCS < handle
     
     methods % FALSIFICATION USING SIMULATION
         
-        function [safe, falsifyTraces, falsifyTime] = falsify(obj, init_set, ref_input, numSteps, N, unsafe_mat, unsafe_vec)
-            % @init_set: initial set of state, a star set
-            % @ref_input: reference input, a vector or a star set
-            % @numSteps: number of simulation steps 
-            % @N: number of traces generated for falsification
-            % @unsafe_mat: unsafe matrix
-            % @unsafe_vec: unsafe vector
+        function [safe, falsifyTraces, falsifyTime] = falsify(obj, fasifyPRM)
+            % @fasifyPRM: falsification parameters including following
+            % inputs:
+            %       1) @init_set: initial set of state, a star set
+            %       2) @ref_input: reference input, a vector or a star set
+            %       3) @numSteps: number of simulation steps 
+            %       4) @numTraces: number of traces generated for falsification
+            %       5) @unsafeRegion: a HalfSpace object
             % unsafe region is defined by: U = unsafe_mat * x <= unsafe_vec
             
             % @safe: = 0: unsafe
@@ -1440,10 +1418,18 @@ classdef DLinearNNCS < handle
             
             % author: Dung Tran
             % date: 10/3/2019
+            % update: 3/15/2020
             
             t = tic;
             
-            obj.generateTraces(init_set, ref_input, numSteps, N);
+            initSet = fasifyPRM.init_set;
+            ref_input = fasifyPRM.ref_input;
+            numSteps = fasifyPRM.numSteps;
+            numTraces = fasifyPRM.numTraces;
+            unsafe_mat = fasifyPRM.unsafeRegion.G;
+            unsafe_vec = fasifyPRM.unsafeRegion.g;
+            
+            obj.generateTraces(initSet, ref_input, numSteps, numTraces);
                        
             n = length(obj.simTraces);
                         

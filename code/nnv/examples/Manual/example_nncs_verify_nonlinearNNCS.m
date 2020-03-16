@@ -28,13 +28,13 @@ ub = [92; 30; 0; 31; 30.5; 0];
 % /* reachability parameters
 reachPRM.init_set = Star(lb, ub);
 reachPRM.ref_input = [30; 1.4];
-reachPRM.numSteps = 50;
+reachPRM.numSteps = 10;
 reachPRM.reachMethod = 'approx-star';
 reachPRM.numCores = 4;
 % /* usafe region: x1 - x4 <= 1.4 * v_ego + 10
 unsafe_mat = [1 0 0 -1 -1.4 0];
 unsafe_vec = 10;
 U = HalfSpace(unsafe_mat, unsafe_vec);
-
+%U = HalfSpace([-1 0 0 0 0 0], -20);
 % /* verify the system
 [safe, counterExamples, verifyTime] = ncs.verify(reachPRM, U);

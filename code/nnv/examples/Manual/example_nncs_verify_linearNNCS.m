@@ -34,6 +34,7 @@ reachPRM.numCores = 4;
 unsafe_mat = [1 0 0 -1 -1.4 0 0];
 unsafe_vec = 10;
 U = HalfSpace(unsafe_mat, unsafe_vec);
+%U = HalfSpace([-1 0 0 0 0 0 0], -20);
 
 % /* verify the system
 [safe, counterExamples, verifyTime] = ncs.verify(reachPRM, U);

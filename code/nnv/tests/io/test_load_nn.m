@@ -1,13 +1,13 @@
 %% Run examples to load a FNN from different formats using nnmt
 [v,e,l] = pyversion;
 % Check OS running on
-osc = computer;
-if contains(osc,'WIN')
-    sh = '\'; % windows
-else 
-    sh = '/'; % mac and linux
-end
-
+% osc = computer;
+% if contains(osc,'WIN')
+%     sh = '\'; % windows
+% else 
+%     sh = '/'; % mac and linux
+% end
+sh = filesep;
 % Find the path to the python to use, in case that python does not have all
 % dependencies needed, look at help pyversion and py.sys.path to choose the
 % correct python environment
@@ -17,14 +17,14 @@ pypath = strjoin(e,sh);
 
 % Get paths to the inputs for the first example
 genp = split(string(pwd),sh);
-rp = {'nnv','nnv','tests','io'};
+rp = {'nnv','code','nnv','tests','io'};
 
-if ~isequal(genp(end-3:end),string(rp)')
-    error('Executing from %s. \nPlease, change your current folder path to ../nnv/nnv/io/tests and run script again',pwd);
+if ~isequal(genp(end-4:end),string(rp)')
+    error('Executing from %s. \nPlease, change your current folder path to ../nnv/code/nnv/io/tests and run script again',pwd);
 end
 
 fp = genp(1:end-2);
-fp = strjoin(fp,sh);
+fp = strjoin(fp,filesep);
 fp = char(fp);
 disp('Coverting neural network 1')
 cont1 = load_nn(pypath,[fp sh 'engine' sh 'nnmt'],[fp sh 'engine' sh 'nnmt' sh 'original_networks' sh 'neural_network_information_13'],[fp sh 'engine' sh 'nnmt' sh 'translated_networks'],'Sherlock','');

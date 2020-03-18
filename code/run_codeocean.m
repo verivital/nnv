@@ -67,10 +67,10 @@ run_all_tests(dir_results, disabledTests, i_d) % add directory for results input
 %
 % We do not batch all of these as the runtime for everything would be on 
 % the order of several days at least.
-'start nncs tests'
-cd /code/nnv/examples/NNCS/InvertedPendulum;
-reach_inverted_pendulum_control_sys;
-saveas(gcf, '/results/results_nncs_invpend_fig1.png')
+%'start nncs tests'
+%cd /code/nnv/examples/NNCS/InvertedPendulum;
+%reach_inverted_pendulum_control_sys;
+%saveas(gcf, '/results/results_nncs_invpend_fig1.png')
 
 %cd '/code/nnv/examples/NNCS/ACC/Verification/Scenarios 1'
 %verify_controller_3_20;
@@ -80,4 +80,4 @@ saveas(gcf, '/results/results_nncs_invpend_fig1.png')
 %reach_nncACCsystem;
 %saveas(gcf, '/results/results_nncs_acc_s2_fig1.png')
 
-'after nncs tests'
+%'after nncs tests'

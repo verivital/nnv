@@ -22,7 +22,7 @@ I.plot; % input set
 hold on;
 Z.plot; % zonotope reach set
 hold on;
-S.plot; % star reach set = zonotope reach set
+Star.plots(S, 'red'); % star reach set = zonotope reach set
 hold on;
 plot(Y(1, :), Y(2, :), '*'); % sampled outputs
 hold on;

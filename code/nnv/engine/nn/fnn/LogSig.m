@@ -33,6 +33,10 @@ classdef LogSig
                     error('Invalid number of input arguments');
             end
             
+            if ~isa(I, 'Star')
+                error('Input set is not a star set');
+            end
+            
             if strcmp(option, 'approx-star-no-split')
                 S = LogSig.reach_star_approx_no_split(I);
             elseif strcmp(option, 'approx-star-split')

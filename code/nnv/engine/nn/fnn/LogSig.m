@@ -16,92 +16,93 @@ classdef LogSig
             y = logsig(x);
         end
         
-                
-        % reachability analysis with star
-        function S = reach_star_approx(I)
-            % @I: input star
-            % @S: output star
-            
+        
+        % main method
+        function S = reach_star_approx(varargin)
             % author: Dung Tran
-            % date: 1/3/2019
+            % date: 3/19/2020
             
-            % method: approximate sigmoid function by a zonotope
-            % reference: Fast and Effective Robustness Certification,
-            % Gagandeep Singh, NIPS, 2018
-            
-            if ~isa(I, 'Star')
-                error('Input set is not a star');
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    option = 'approx-star-no-split';
+                case 2
+                    I = varargin{1};
+                    option = varargin{2};
+                otherwise
+                    error('Invalid number of input arguments');
             end
             
-            B = I.getBox;
-            if isempty(B)
-                S = [];
+            if strcmp(option, 'approx-star-no-split')
+                S = LogSig.reach_star_approx_no_split(I);
+            elseif strcmp(option, 'approx-star-split')
+                S = LogSig.reach_star_approx_split(I);
             else
-                lb = B.lb;
-                ub = B.ub;
-                Z = [logsig('dn', lb) logsig('dn', ub)];
-                gamma_opt = min(Z, [], 2);
-                gamma_mat = diag(gamma_opt);
-                mu1 = 0.5 * (logsig(ub) + logsig(lb) - gamma_mat * (ub + lb));
-                mu2 = 0.5 * (logsig(ub) - logsig(lb) - gamma_mat * (ub - lb));
-                S1 = I.affineMap(gamma_mat, mu1);
-                n = I.dim;
-                new_V = diag(mu2);
-                new_C = [eye(n); -eye(n)];
-                new_d = ones(2*n, 1);
-                
-                V = [S1.V new_V];
-                C = blkdiag(S1.C, new_C);
-                d = [S1.d; new_d];
-                
-                S = Star(V, C, d);
-                            
+                error('Unknown reachability method');
             end
-                  
+            
         end
         
-        % improved reachability method with star
-        function S = reach_star_approx_nosplit(I)
+        % reachability method with star
+        function S = reach_star_approx_no_split(I)
             % @I: the input star set
             % @S: a star set output
             
+            % author: Dung Tran
+            % date: 3/19/2020
             
             B = I.getBox; 
             if isempty(B)
                 S = [];
             else
-                lb = B.lb;
-                ub = B.ub;
+                l = B.lb;
+                u = B.ub;
                 
-                y_l = sigmoid(lb);
-                y_u = sigmoid(ub);
-                dy_l = sigmoid('dn', lb);
-                dy_u = sigmoid('dn', ub);
+                y_l = logsig(l);
+                y_u = logsig(u);
+                dy_l = logsig('dn', l);
+                dy_u = logsig('dn', u);
                 
                 n = I.dim;
                 S = I;
                 for i=1:n
-                    
-                    if lb(i) >= 0
-                        
-                        
-                        
-                    elseif ub(i) <= 0 
-                        
-                       
-                         
-                        
-                    elseif lb(i) < 0 && ub(i) > 0
-                        
-                        
-                        
-                    end
-                        
-                    
-                    
+                    S = LogSig.stepLogSig_NoSplit(S, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i)); 
                 end
+            end
+            
+            
+        end
+        
+        % reachability method with star
+        function S = reach_star_approx_split(I)
+            % @I: the input star set
+            % @S: an array of star set output
+            
+            % author: Dung Tran
+            % date: 3/19/2020
+            
+            B = I.getBox; 
+            if isempty(B)
+                S = [];
+            else
+                l = B.lb;
+                u = B.ub;
                 
-               
+                y_l = logsig(l);
+                y_u = logsig(u);
+                dy_l = logsig('dn', l);
+                dy_u = logsig('dn', u);
+                
+                n = I.dim;
+                S = I;
+                for i=1:n
+                    m = length(S);
+                    O = [];
+                    for j=1:m
+                        O = [O LogSig.stepLogSig_Split(S(j), i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i))];
+                    end
+                    S = O;
+                end
             end
             
             

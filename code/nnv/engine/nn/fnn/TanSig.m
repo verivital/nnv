@@ -129,11 +129,7 @@ classdef TanSig
                 new_V = I.V;
                 new_V(index, 1:I.nVar+1) = 0;
                 new_V(index, 1) = y_l;
-                new_predicate_lb = I.predicate_lb;
-                new_predicate_ub = I.predicate_ub;
-                new_predicate_lb(index) = y_l;
-                new_predicate_ub(index) = y_1;
-                S = Star(new_V, I.C, I.d, new_predicate_lb, new_predicate_ub);
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub);
                 
             elseif l >= 0
                 % y is convex when x >= 0
@@ -298,11 +294,7 @@ classdef TanSig
                 new_V = I.V;
                 new_V(index, 1:I.nVar+1) = 0;
                 new_V(index, 1) = y_l;
-                new_predicate_lb = I.predicate_lb;
-                new_predicate_ub = I.predicate_ub;
-                new_predicate_lb(index) = y_l;
-                new_predicate_ub(index) = y_1;
-                S = Star(new_V, I.C, I.d, new_predicate_lb, new_predicate_ub);                
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub);               
             elseif l >= 0
                 % y is convex when x >= 0
                 % constraint 1: y <= y'(l) * (x - l) + y(l)

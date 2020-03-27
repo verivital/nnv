@@ -11,13 +11,13 @@ W = [0.5 1; -1 1];
 I = I.affineMap(W, []);
 
 I_star = I.toStar;
-S1 = LogSig.reach(I_star, 'approx-star');
-S2 = LogSig.reach(I_star, 'abs-dom');
+S1 = TanSig.reach(I_star, 'approx-star');
+S2 = TanSig.reach(I_star, 'abs-dom');
 
 X = I_star.sample(10);
-Y = LogSig.evaluate(X);
+Y = TanSig.evaluate(X);
 
-Z = LogSig.reach(I, 'approx-zono');
+Z = TanSig.reach(I, 'approx-zono');
 
 figure;
 I.plot; % input set

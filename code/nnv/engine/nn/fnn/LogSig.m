@@ -625,12 +625,7 @@ methods(Static) % over-approximate reachability analysis using abstract domain
             % in [0, u]
             % split can be done here 
 
-            % combine two stars into one star               
-            x1 = (0.5 + dy_u * u - y_u)/(dy_u - 0.25);
-            y1 = 0.25 * x1 + 0.5;
-            x2 = (0.5 + dy_l * l - y_l)/(dy_l - 0.25);
-            y2 = 0.25 * x2 + 0.5; 
-
+            
             % over-approximation constraints 
             % constraint 1: y >= y'(l) * (x - l) + y(l)
             % constraint 2: y <= y'(u) * (x - u) + y(u)

@@ -582,7 +582,7 @@ classdef Star
         function P = toPolyhedron(obj)
             
             b = obj.V(:, 1);        
-            W = obj.V(:, 2:size(obj.V, 2));           
+            W = obj.V(:, 2:obj.nVar + 1);           
             Pa = Polyhedron('A', obj.C, 'b', obj.d);
             P = Pa.affineMap(W) + b;
         end
@@ -1015,11 +1015,21 @@ classdef Star
             end
             
             n = length(S);
-            P = [];
-            for i=1:n
-                P = [P S(i).toPolyhedron];
+            if n==1
+                P = S.toPolyhedron;
+                display(S);
+                display(P);
+                P.plot('color', color);
+            else
+                for i=1:n-1
+                    P = S(i).toPolyhedron;
+                    P.plot('color', color);
+                    hold on;
+                end
+                P = S(n).toPolyhedron;
+                P.plot('color', color);
             end
-            P.plot('color', color);
+            
             
         end
         

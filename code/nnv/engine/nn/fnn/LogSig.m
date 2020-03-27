@@ -756,9 +756,8 @@ methods(Static) % main reach method
                 option = [];
             otherwise
                 error('Invalid number of input arguments (should be 1, 2 or 3)');
-        end
-
-
+        end       
+        
         if strcmp(method, 'approx-star') % exact analysis using star
 
             R = LogSig.reach_star_approx_multipleInputs(I, option);
@@ -774,6 +773,11 @@ methods(Static) % main reach method
         else
             error('Unknown or unsupported reachability method for layer with LogSig activation function');
         end
+            
+        
+       
+
+        
 
     end
     

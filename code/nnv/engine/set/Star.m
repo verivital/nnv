@@ -802,6 +802,36 @@ classdef Star
             
         end
         
+        % estimate range using clip 
+        % from Stanley Bak
+        function [xmin, xmax] = estimateBound(obj, index)
+            % @index: position of the state
+            % range: min and max values of x[index]
+            
+            % author: Dung Tran
+            % date: 3/27/2020
+            
+            if (index < 1) || (index > obj.dim)
+                error('Invalid index');
+            end
+            
+            f = obj.V(index, 2:obj.nVar+1);
+                        
+            pos_mat = f; 
+            neg_mat = f;
+            pos_mat(pos_mat < 0) = 0; 
+            neg_mat(neg_mat > 0) = 0;
+            
+            xmin1 = pos_mat*obj.predicate_lb;
+            xmax1 = pos_mat*obj.predicate_ub;
+            xmin2 = neg_mat*obj.predicate_ub;
+            xmax2 = neg_mat*obj.predicate_lb;
+            
+            xmin = obj.V(index, 1) + xmin1 + xmin2;
+            xmax = obj.V(index, 1) + xmax1 + xmax2;
+            
+        end
+        
         
         % quickly estimate lower bound and upper bound vector of state
         % variables
@@ -818,6 +848,30 @@ classdef Star
                 [lb(i), ub(i)] = obj.estimateRange(i);
             end
 
+        end
+        
+        % estimate ranges using clip method from Stanley Bak
+        % it is slower than the for-loop method
+        function [lb, ub] = estimateBounds(obj)
+            % @lb: lowerbound vector
+            % @ub: upper bound vector
+            
+            % author: Dung Tran
+            % date: 3/27/2020
+                                   
+            pos_mat = obj.V; 
+            neg_mat = obj.V;
+            pos_mat(pos_mat < 0) = 0; 
+            neg_mat(neg_mat > 0) = 0;
+            
+            xmin1 = pos_mat*[0; obj.predicate_lb];
+            xmax1 = pos_mat*[0; obj.predicate_ub];
+            xmin2 = neg_mat*[0; obj.predicate_ub];
+            xmax2 = neg_mat*[0; obj.predicate_lb];
+            
+            lb = obj.V(:, 1) + xmin1 + xmin2;
+            ub = obj.V(:, 1) + xmax1 + xmax2;
+            
         end
         
         % find a oriented box bounding a star

@@ -11,7 +11,9 @@ W = [0.5 1; -1 1];
 I = I.affineMap(W, []);
 
 I_star = I.toStar;
-S = LogSig.reach_star_approx(I_star);
+S1 = LogSig.reach_star_approx_split(I_star);
+S2 = LogSig.reach_star_approx_no_split(I_star);
+
 X = I_star.sample(10);
 Y = LogSig.evaluate(X);
 
@@ -22,7 +24,7 @@ I.plot; % input set
 hold on;
 Z.plot; % zonotope reach set
 hold on;
-S.plot; % star reach set = zonotope reach set
+S2.plot; % star reach set = zonotope reach set
 hold on;
 plot(Y(1, :), Y(2, :), '*'); % sampled outputs
 hold on;

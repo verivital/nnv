@@ -108,18 +108,16 @@ classdef LayerS
             end
             
             n = length(I);
-            
+                        
             if strcmp(option, 'parallel') % reachability analysis using star set
                                  
                 parfor i=1:n
                     
                     % affine mapping y = Wx + b;
-                    if isa(I(i), 'Star')
+                    if ~isa(I(i), 'Polyhedron')
                         I1 = I(i).affineMap(obj.W, obj.b);
-                    elseif isa(I(i), 'Polyhedron')
-                        I1 = I(i).affineMap(obj.W) + obj.b;
                     else
-                        error('%d^th input is not a star or polyhedron', i);
+                        I1 = I(i).affineMap(obj.W) + obj.b;
                     end
                     % apply activation function: y' = ReLU(y) or y' = 
 
@@ -132,9 +130,9 @@ classdef LayerS
                     elseif strcmp(obj.f, 'satlins')
                         S = [S SatLins.reach(I1, method)];
                     elseif strcmp(obj.f, 'logsig')
-                        S = [S LogSig.reach_star_approx(I1)];
+                        S = [S LogSig.reach(I1, method)];
                     elseif strcmp(obj.f, 'tansig')
-                        S = [S TanSig.reach_star_approx(I1)];
+                        S = [S TanSig.reach(I1, method)];
                     else
                         error('Unsupported activation function, currently support purelin, poslin(ReLU), satlin, logsig, tansig');
                     end

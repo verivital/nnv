@@ -77,8 +77,12 @@ acf = net_info.act_fcns;
 
 Layers = [];
 for i=1:n 
-    L = LayerS(W{i}, b{i}, ActFunction(acf(i,:)));
-    Layers = [Layers L];
+    if W{i} == 0
+        Layers(end).f = ActFunction(acf(i,:));
+    else
+        L = LayerS(W{i}, b{i}, ActFunction(acf(i,:)));
+        Layers = [Layers L];
+    end
 end
 
 

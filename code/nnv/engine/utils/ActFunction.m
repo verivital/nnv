@@ -16,7 +16,9 @@ elseif contains(act,'relu')
 elseif contains(act,'tanh')
     new_act = 'tansig';
 elseif contains(act,'igmoid')
-    new_act = 'logsig';   
+    new_act = 'logsig';
+else
+    new_act = act;
 end
     
 end

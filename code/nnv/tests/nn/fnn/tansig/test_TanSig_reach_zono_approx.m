@@ -1,10 +1,10 @@
 
-I = ExamplePoly.randVrep;   
-V = [0 0; 1 0; 0 1];
-I = Star(V', I.A, I.b); % input star
+lb = [-1; 1];
+ub = [1; 2];
 
-B = I.getBox; 
-I = B.toZono;
+
+I = Box(lb, ub); 
+I = I.toZono;
 
 W = [0.5 1; -1 1];
 
@@ -22,7 +22,7 @@ I.plot; % input set
 hold on;
 Z.plot; % zonotope reach set
 hold on;
-Star.plots(S, 'red'); % star reach set = zonotope reach set
+Star.plots(S, 'yellow'); % star reach set = zonotope reach set
 hold on;
 plot(Y(1, :), Y(2, :), '*'); % sampled outputs
 hold on;

@@ -14,14 +14,42 @@ Ln = LayerS(Wn, bn, 'purelin');
 Layers = [Layers Ln];
 
 F = FFNNS(Layers);
+C = [1 0 0; -1 0 0; 0 1 0; 0 -1 0; 0 0 1; 0 0 -1];
+ub = 0.2;
+d = [ub; ub; ub; ub; ub; ub];
 
-lb = [-1; -1; -1];
-ub = -lb;
+V = [0 0 0; 1 0 0; 0 1 0; 0 0 1];
+I = Star(V', C, d); % input set as a Star set
 
-I = Star(lb, ub);
-%[R1, t1] = F.reach(I, 'exact-star',4); % exact reachable set
+% select option for reachability algorithm
+
+I1 = I.getZono;
+
+[R1, t1] = F.reach(I, 'exact-star'); % exact reachable set
 [R2, t2] = F.reach(I, 'approx-star'); % over-approximate reach set using stars
+[R3, t3] = F.reach(I1, 'approx-zono'); % over-approximate reachable set using zonotope
 
+% generate some input to test the output
+e = 0.05;
+x = [];
+y = [];
+for x1=-ub:e:ub
+    for x2=-ub:e:ub
+        for x3=-ub:e:ub
+            xi = [x1; x2; x3];
+            yi = F.evaluate(xi);
+            x = [x, xi];
+            y = [y, yi];
+        end
+    end
+end
 
-
+fig = figure;
+R3.plot;
+hold on;
+R2.plot;
+hold on;
+plot(y(1, :), y(2, :), '+');
+hold on;
+Star.plots(R1);
 

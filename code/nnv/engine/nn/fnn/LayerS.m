@@ -46,10 +46,8 @@ classdef LayerS
                 y = tansig(y1);
             elseif strcmp(obj.f, 'logsig')
                 y = logsig(y1);
-            elseif strcmp(obj.f, 'purelin')   
+            elseif strcmp(obj.f, 'purelin')
                 y = y1;
-            elseif strcmp(obj.f, 'softmax')
-                y = softmax(y1);
             end 
 
         end
@@ -98,7 +96,9 @@ classdef LayerS
                     error('Invalid number of input arguments (should be 2 or 3)');
             end
             
-            if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-star-fast') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom') && ~strcmp(method, 'exact-polyhedron') && ~strcmp(method, 'approx-star-split') && ~strcmp(method,'approx-star-no-split')
+            S = [];
+            
+            if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-star-fast') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom') && ~strcmp(method, 'exact-polyhedron')
                 error('Unknown reachability analysis method');
             end
             
@@ -108,37 +108,31 @@ classdef LayerS
             end
             
             n = length(I);
-            S = [];
-            W1 = obj.W;
-            b1 = obj.b;
-            f1 = obj.f;
+                        
             if strcmp(option, 'parallel') % reachability analysis using star set
-                              
+                                 
                 parfor i=1:n
                     
                     % affine mapping y = Wx + b;
                     if ~isa(I(i), 'Polyhedron')
-                        I1 = I(i).affineMap(W1, b1);
+                        I1 = I(i).affineMap(obj.W, obj.b);
                     else
-                        I1 = I(i).affineMap(W1) + b1;
+                        I1 = I(i).affineMap(obj.W) + obj.b;
                     end
                     % apply activation function: y' = ReLU(y) or y' = 
 
-                    if strcmp(f1, 'purelin')
+                    if strcmp(obj.f, 'purelin')
                         S = [S I1];
-                    elseif strcmp(f1, 'poslin')
+                    elseif strcmp(obj.f, 'poslin')
                         S = [S PosLin.reach(I1, method)];
-                    elseif strcmp(f1, 'satlin')
+                    elseif strcmp(obj.f, 'satlin')
                         S = [S SatLin.reach(I1, method)];
-                    elseif strcmp(f1, 'satlins')
+                    elseif strcmp(obj.f, 'satlins')
                         S = [S SatLins.reach(I1, method)];
-                    elseif strcmp(f1, 'logsig')
+                    elseif strcmp(obj.f, 'logsig')
                         S = [S LogSig.reach(I1, method)];
-                    elseif strcmp(f1, 'tansig')
+                    elseif strcmp(obj.f, 'tansig')
                         S = [S TanSig.reach(I1, method)];
-                    elseif strcmp(f1, 'softmax')
-                        fprintf("\nSoftmax reachability is neglected in verification");
-                        S = [S I1];
                     else
                         error('Unsupported activation function, currently support purelin, poslin(ReLU), satlin, logsig, tansig');
                     end
@@ -147,32 +141,31 @@ classdef LayerS
                 
                 
             else
-                
+
                 for i=1:n
-                    % affine mapping y = Wx + b;                     
+
+                    % affine mapping y = Wx + b; 
+                    
                     if isa(I(i), 'Polyhedron')
-                        I1 = I(i).affineMap(W1) + b1;
+                        I1 = I(i).affineMap(obj.W) + obj.b;
                     else                        
-                        I1 = I(i).affineMap(W1, b1);    
+                        I1 = I(i).affineMap(obj.W, obj.b);    
                     end
                         
-                    if strcmp(f1, 'purelin')
+                    if strcmp(obj.f, 'purelin')
                         S = [S I1];
-                    elseif strcmp(f1, 'poslin')
+                    elseif strcmp(obj.f, 'poslin')
                         S = [S PosLin.reach(I1, method)];
-                    elseif strcmp(f1, 'satlin')
+                    elseif strcmp(obj.f, 'satlin')
                         S = [S SatLin.reach(I1, method)];
-                    elseif strcmp(f1, 'satlins')
+                    elseif strcmp(obj.f, 'satlins')
                         S = [S SatLins.reach(I1, method)];
-                    elseif strcmp(f1, 'logsig')
-                        S = [S LogSig.reach(I1, method)];
-                    elseif strcmp(f1, 'tansig')
-                        S = [S TanSig.reach(I1, method)];
-                    elseif strcmp(f1, 'softmax')
-                        fprintf("\nSoftmax reachability is neglected in verification");
-                        S = [S I1];
+                    elseif strcmp(obj.f, 'logsig')
+                        S = [S LogSig.reach_star_approx(I1)];
+                    elseif strcmp(obj.f, 'tansig')
+                        S = [S TanSig.reach_star_approx(I1)];
                     else
-                        error('Unsupported activation function, currently support purelin, poslin(ReLU), satlin, satlins, logsig, tansig, softmax');
+                        error('Unsupported activation function, currently support purelin, poslin(ReLU), satlin, logsig, tansig');
                     end
 
                 end

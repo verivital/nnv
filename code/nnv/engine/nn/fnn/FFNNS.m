@@ -25,9 +25,9 @@ classdef FFNNS < handle
         reachTime = []; % computation time for each layers
         numReachSet = []; % number of reach sets over layers
         totalReachTime = 0; % total computation time       
-        numSamples = 0; % default number of samples using to falsify a property
+        numSamples = 1000; % default number of samples using to falsify a property
         unsafeRegion = []; % unsafe region of the network
-        getCounterExs = 0; % default, not getting counterexamples
+        
         
         Operations = []; % flatten a network into a sequence of operations
         
@@ -155,27 +155,16 @@ classdef FFNNS < handle
         
         
         % start parallel pool for computing
-        function start_pool(varargin)
+        function start_pool(obj)
             
-            switch nargin
-                case 1
-                    obj = varargin{1};
-                    nCores = obj.numCores;
-                case 2
-                    nCores = varargin{2};
-                otherwise
-                    error('Invalid number of input arguments');
-            
-            end
-            
-            if nCores > 1
+            if obj.numCores > 1
                 poolobj = gcp('nocreate'); % If no pool, do not create new one.
                 if isempty(poolobj)
-                    parpool('local', nCores); 
+                    parpool('local', obj.numCores); 
                 else
-                    if poolobj.NumWorkers ~= nCores
+                    if poolobj.NumWorkers ~= obj.numCores
                         delete(poolobj); % delete the old poolobj
-                        parpool('local', nCores); % start the new one with new number of cores
+                        parpool('local', obj.numCores); % start the new one with new number of cores
                     end                    
                 end
             end   
@@ -193,7 +182,6 @@ classdef FFNNS < handle
             % @I: input set, a star set          
             % @method: = 'exact-star' or 'approx-star' -> compute reach set using stars
             %            'abs-dom' -> compute reach set using abstract
-            %            'approx-zono' -> compute reach set using zonotope
             %            domain (support in the future)
             %            'face-latice' -> compute reach set using
             %            face-latice (support in the future)
@@ -264,22 +252,22 @@ classdef FFNNS < handle
                 
                 fprintf('\nComputing reach set for Layer %d ...', i);
                 
-%                 % estimate reachability analysis time from the second layer
-%                 if i > 1
-%                     nP = length(obj.reachSet{1, i - 1});
-%                     if i==2
-%                         nP1 = 1;
-%                     else
-%                         nP1 = length(obj.reachSet{1, i-2});
-%                     end
-%                     rt = obj.reachTime(i-1);
-%                     
-%                     estimatedTime = rt*(nP/nP1)*(obj.Layers(i).N / obj.Layers(i-1).N);
-%                     if isnan(estimatedTime)
-%                         estimatedTime = 0.0;
-%                     end
-%                     fprintf('\nEstimated computation time: ~ %.5f seconds', estimatedTime);
-%                 end
+                % estimate reachability analysis time from the second layer
+                if i > 1
+                    nP = length(obj.reachSet{1, i - 1});
+                    if i==2
+                        nP1 = 1;
+                    else
+                        nP1 = length(obj.reachSet{1, i-2});
+                    end
+                    rt = obj.reachTime(i-1);
+                    
+                    estimatedTime = rt*(nP/nP1)*(obj.Layers(i).N / obj.Layers(i-1).N);
+                    if isnan(estimatedTime)
+                        estimatedTime = 0.0;
+                    end
+                    fprintf('\nEstimated computation time: ~ %.5f seconds', estimatedTime);
+                end
                 
                 st = tic;
                 In = obj.Layers(i).reach(In, obj.reachMethod, obj.reachOption);
@@ -358,81 +346,42 @@ classdef FFNNS < handle
                     obj.reachMethod = varargin{4};
                     obj.numCores = varargin{5};
                     obj.numSamples = varargin{6};
-                case 7
-                    obj = varargin{1};
-                    obj.inputSet = varargin{2};
-                    obj.unsafeRegion = varargin{3};
-                    obj.reachMethod = varargin{4};
-                    obj.numCores = varargin{5};
-                    obj.numSamples = varargin{6};
-                    obj.getCounterExs = varargin{7}; % 
                  
                 otherwise
                     error('Invalid number of inputs, should be 2, 3, 4 or 5');
             end
             
-            
+            t = tic; 
             if obj.numSamples > 0
-                t = tic;
                 fprintf('\nPerform fasification with %d random simulations', obj.numSamples);
                 counterExamples = obj.falsify(obj.inputSet, obj.unsafeRegion, obj.numSamples);
-                vt = toc(t);
             else
                 counterExamples = []; 
             end
             if ~isempty(counterExamples)
                 safe = 0;
                 obj.outputSet = [];
-                
-            else               
-                
-                if obj.numCores > 1
-                    obj.start_pool;
-                end                
-                t = tic;
+            else
+                fprintf('\nNo counter examples found, verify the safety using reachability analysis');
                 % perform reachability analysis
                 [R,~] = obj.reach(obj.inputSet, obj.reachMethod, obj.numCores);   
                 
                 if strcmp(obj.reachMethod, 'exact-star')
+                    
                     n = length(R);
                     counterExamples = [];
-                    safes = [];
-                    G = obj.unsafeRegion.G;
-                    g = obj.unsafeRegion.g;
-                    getCEs = obj.getCounterExs;
-                    V = obj.inputSet.V;
-                    if obj.numCores > 1
-                        parfor i=1:n
-                            if ~isempty(R(i).intersectHalfSpace(G, g))
-                                if getCEs
-                                    counterExamples = [counterExamples Star(V, R(i).C, R(i).d, R(i).predicate_lb, R(i).predicate_ub)];
-                                end
-                                safes = [safes 0];
-                            else
-                                safes = [safes 1];
-                            end
-                        end
-                        if sum(safes) == n
-                            safe = 1;
-                        else
-                            safe = 0;
-                        end
-                    else
-                        safe = 1;
-                        for i=1:n
-                            if ~isempty(R(i).intersectHalfSpace(obj.unsafeRegion.G, obj.unsafeRegion.g))
-                                if obj.getCounterExs
-                                    counterExamples = [counterExamples Star(obj.inputSet.V, R(i).C, R(i).d, R(i).predicate_lb, R(i).predicate_ub)];
-                                else
-                                    safe = 0;
-                                    break;
-                                end
-                                
-                            end
+                    
+                    for i=1:n
+                        if ~isempty(R(i).intersectHalfSpace(obj.unsafeRegion.G, obj.unsafeRegion.g))
+                            counterExamples = [counterExamples Star(obj.inputSet.V, R(i).C, R(i).d, R(i).predicate_lb, R(i).predicate_ub)];
                         end
                     end
                     
-                    
+                    if isempty(counterExamples)
+                        safe = 1;
+                    else
+                        safe = 0;
+                    end
                     
                     
                 else
@@ -448,11 +397,9 @@ classdef FFNNS < handle
                     
                 end
                 
-                vt = toc(t);
-                
             end
             
-            
+            vt = toc(t);
          
         end
         
@@ -1600,6 +1547,9 @@ classdef FFNNS < handle
                     n = length(S1);
                 end
                 
+                display(i);
+                display(N);
+                display(S1);
                 U = obj.unsafeRegion;
                 method = obj.reachMethod;
                 if n == obj.numCores
@@ -1640,253 +1590,10 @@ classdef FFNNS < handle
             end
 
         end
-         
-    end
-    
-    methods % verify robustness of classification feedforward networks
         
-        function label_id = classify(varargin)
-            % @in_image: a star set or a vector of an image
-            % @label_id: output index of classified object
-            
-            % author: Dung Tran
-            % date: 8/21/2019
-            
-            switch nargin
-                case 2
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    method = 'approx-star';
-                    numOfCores = 1;
-                    
-                case 3
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    method = varargin{3};
-                    numOfCores = 1;
-                    
-                case 4
-                    
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    method = varargin{3};
-                    numOfCores = varargin{4};
-                  
-                otherwise
-                    error('Invalid number of inputs, should be 1, 2, or 3');
-            end
-            
-            if ~isa(in_image, 'Star') && ~isa(in_image, 'Zono')
-                y = obj.evaluate(in_image);
-                [~, label_id] = max(y); 
-            else
-
-                fprintf('\n=============================================');
-                obj.reach(in_image, method, numOfCores);
-
-                RS = obj.outputSet;
-                n = length(RS);
-                label_id = cell(n, 1);
-                for i=1:n
-                    label_id{i} = RS(i).getMaxIndexes;
-                end
-
-            end
-                        
-        end 
         
-        % verify robustness of classification feedforward networks
-        function [robust, counterExamples] = verifyRobustness(varargin)
-            % @robust: = 1: the network is robust
-            %          = 0: the network is notrobust
-            %          = 2: robustness is uncertain
-            % @counterExamples: a set of counter examples 
-            % 
-            % author: Dung Tran
-            % date: 4/1/2020
-            
-            switch nargin
-                
-                case 3
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    correct_id = varargin{3};
-                    method = 'approx-star';
-                    numOfCores = 1;
-                    
-                case 4
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    correct_id = varargin{3};
-                    method = varargin{4};
-                    numOfCores = 1; 
-                    
-                case 5
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    correct_id = varargin{3};
-                    method = varargin{4};
-                    numOfCores = varargin{5}; 
-                    
-                otherwise
-                    error('Invalid number of inputs, should be 2, 3, or 4');
-                     
-            end
-            
-            if correct_id > obj.nO || correct_id < 1
-                error('Invalid correct id');
-            end
-            
-            label_id = obj.classify(in_image, method, numOfCores);      
-            n = length(label_id); 
-            % check the correctness of classifed label
-            counterExamples = [];
-            incorrect_id_list = []; 
-            im1 = in_image.toImageStar(in_image.dim, 1, 1);
-            for i=1:n
-                ids = label_id{i};
-                m = length(ids);
-                id1 = [];
-                for j=1:m
-                    if ids(j) ~= correct_id
-                       id1 = [id1 ids(j)];
-                    end
-                end
-                incorrect_id_list = [incorrect_id_list id1];             
-                
-                % construct counter example set
-                if ~isempty(id1)
-                    
-                    if ~isa(in_image, 'Star')
-                        
-                        counterExamples = in_image; 
-                    
-                    elseif strcmp(method, 'exact-star') && obj.isPieceWiseNetwork
-                        
-                        rs = obj.outputSet(i);
-                        rs = rs.toImageStar(rs.dim, 1, 1);
-                        
-                        L = length(id1); 
-                        for l=1:L
-                            
-                            [new_C, new_d] = ImageStar.addConstraint(rs, [1, 1, correct_id], [1, 1, id1(l)]);  
-                            counter_IS = ImageStar(im1.V, new_C, new_d, im1.pred_lb, im1.pred_ub);
-                            counterExamples = [counterExamples counter_IS.toStar];
-                        end
-                        
-                    end
-   
-                end
-      
-            end
-            
-            
-            if isempty(incorrect_id_list)
-                robust = 1;
-                fprintf('\n=============================================');
-                fprintf('\nTHE NETWORK IS ROBUST');
-                fprintf('\nClassified index: %d', correct_id);
-                
-            else
-                
-                if strcmp(method, 'exact-star') && obj.isPieceWiseNetwork
-                    robust = 0;
-                    fprintf('\n=============================================');
-                    fprintf('\nTHE NETWORK IS NOT ROBUST');
-                    fprintf('\nLabel index: %d', correct_id);
-                    fprintf('\nClassified index:');
-                    
-                    n = length(incorrect_id_list);
-                    for i=1:n
-                        fprintf('%d ', incorrect_id_list(i));
-                    end
-                    
-                else
-                    robust = 2;
-                    fprintf('\n=============================================');
-                    fprintf('\nThe robustness of the network is UNCERTAIN due to the conservativeness of approximate analysis');
-                    fprintf('\nLabel index: %d', correct_id);
-                    fprintf('\nPossible classified index: ');
-                                       
-                    n = length(incorrect_id_list);
-                    for i=1:n
-                        fprintf('%d ', incorrect_id_list(i));
-                    end
-                    if obj.isPieceWiseNetwork
-                        fprintf('\nPlease try to verify the robustness with exact-star (exact analysis) option');
-                    end
-                end
-                
-            end
-            
-
-        end
         
-        % evaluate robustness of a classification feedforward network on an array of input (test) sets
-        function r = evaluateRobustness(varargin)
-            % @in_images: input sets
-            % @correct_ids: an array of correct labels corresponding to the input sets
-            % @method: reachability method: 'exact-star', 'approx-star',
-            % 'approx-zono' and 'abs-dom'
-            % @numCores: number of cores used in computation
-            % @r: robustness value (in percentage)           
-            
-            % author: Dung Tran
-            % date:1/9/2020
-            
-            switch nargin
-                case 5
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    correct_ids = varargin{3};
-                    method = varargin{4};
-                    numOfCores = varargin{5};
-                case 4
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    correct_ids = varargin{3};
-                    method = varargin{4};
-                    numOfCores = 1;
-                otherwise
-                    error('Invalid number of input arguments, should be 3 or 4');                    
-            end
-            
-            
-            N = length(in_images);
-            if length(correct_ids) ~= N
-                error('Inconsistency between the number of correct_ids and the number of input sets');
-            end
-            
-                      
-            count = zeros(1, N);
-            if ~strcmp(method, 'exact-star')                
-                
-                % verify reachable set              
-                if numOfCores> 1
-                    parfor i=1:N
-                        [rb,~] = obj.verifyRobustness(in_images(i), correct_ids(i), method);
-                        if rb == 1
-                            count(i) = 1;
-                        else
-                            count(i) = 0;
-                        end                             
-                    end
-                else
-                    for i=1:N
-                        [rb,~] = obj.verifyRobustness(in_images(i), correct_ids(i), method);
-                        if rb == 1
-                            count(i) = 1;
-                        else
-                            count(i) = 0;
-                        end
-                    end
-                end
-                
-            end
-                        
-            r = sum(count)/N; 
-            
-        end      
+        
         
         
     end
@@ -1894,28 +1601,13 @@ classdef FFNNS < handle
     
     methods(Static) % parse Matlab trained feedforward network
         
-        function nnvNet = parse(varargin)
+        function nnvNet = parse(MatlabNet)
             % @MatlabNet: A feedforward network trained by Matlab
-            % @name: name of the network
             % @nnvNet: an NNV FFNNS object for reachability analysis and
             % verification
             
             % author: Dung Tran
             % date: 9/13/2019
-            % update: 4/1/2020
-            
-            
-            switch nargin
-                case 1
-                    MatlabNet = varargin{1};
-                    name = 'parsed_net';
-                case 2
-                    MatlabNet = varargin{1};
-                    name = varargin{2};
-                otherwise
-                    error('Invalid number of inputs, should be 1 or 2');
-            end
-            
             
             if ~isa(MatlabNet, 'network')
                 error('Input is not a matlab network');
@@ -1949,123 +1641,9 @@ classdef FFNNS < handle
                 
             end
             
-            nnvNet = FFNNS(Layers, name);
+            nnvNet = FFNNS(Layers);
             
         end
-        
-    end
-    
-    
-    methods % method for measuring the influence of neurons in the network to the output sets
-        
-        function [infl, ids] = getInfluence(varargin)
-            % del: value of perturbance
-            % nCore: number of cores used for computation
-            % @infl: sorted influence vectors for all neurons in the network
-            % @ids: sorted neuron indexes in descend manner, i.e., from
-            % high influence to low influence
-            
-            % author: Dung Tran
-            % date: 4/4/2020
-            
-            switch nargin
-                case 2
-                    obj = varargin{1};
-                    del = varargin{2};
-                    nCores = 1;
-                case 3
-                    obj = varargin{1};
-                    del = varargin{2};
-                    nCores = varargin{3};
-                otherwise
-                    error('Invalid number of input arguments');
-            end
-            
-            infl = cell(1, obj.nL - 1);
-            ids = cell(1, obj.nL - 1);
-            
-            for i=0:obj.nL - 1
-                [infl{i+1}, ids{i+1}] = obj.getLayerInfluence(i, del, nCores);
-            end
-            
-        end
-        
-        % get influence measurement for a single layer
-        % measure how a single neuron in a layer affects to the size of the
-        % output set, 
-        function  [infl, ids] = getLayerInfluence(varargin)
-            % @layer_id: layer index
-            % @del: perturbance to a neuron |x(i) - x'(i)| <= del
-            % @nCores: number of cores used for computation
-            % @infl: sorted influence measurement vector
-            % @ids: sorted neurons indexes in descend manner, i.e., from high influence to
-            % low-influence
-            
-            
-            % author: Dung Tran
-            % date: 4/4/2020
-            
-            switch nargin
-                case 3
-                    obj = varargin{1};
-                    layer_id = varargin{2};
-                    del = varargin{3};
-                    nCores = 1;
-                case 4
-                    obj = varargin{1};
-                    layer_id = varargin{2};
-                    del = varargin{3};
-                    nCores = varargin{4};
-                otherwise
-                    error('Invalid number of input arguments');
-            end
-            
-            
-            if layer_id < 0 && layer_id > obj.nL - 1
-                error('Invalid layer index');
-            end
-            
-            if nCores < 1
-                error('Invalid number of cores');
-            end
-            
-            if del < 0
-                error('Invalid value of perturbance, should be larger than 0');
-            end
-            
-            % construct a subnetwork
-            subnet = FFNNS(obj.Layers(layer_id + 1:obj.nL));
-            N = subnet.nI;
-            lb = zeros(N, 1);
-            influence = zeros(N, 1);
-            
-            if nCores > 1
-                subnet.start_pool(nCores);
-                parfor i=1:N
-                    ub = zeros(N,1);
-                    ub(i) = del;
-                    I = Box(lb, ub);
-                    I = I.toZono; % input set to the subnet
-                    [O,~] = subnet.reach(I, 'approx-zono');
-                    [lb1, ub1] = O.getBounds; 
-                    influence(i) = max(ub1 - lb1)/del;
-                end
-            else
-                for i=1:N
-                    ub = zeros(N,1);
-                    ub(i) = del;
-                    I = Box(lb, ub);
-                    I = I.toZono; % input set to the subnet
-                    [O,~] = subnet.reach(I, 'approx-zono');
-                    [lb1, ub1] = O.getBounds; 
-                    influence(i) = max(ub1 - lb1)/del;
-                end
-            end
-            
-            [infl, ids] = sort(influence, 'descend');
-            
-        end
-        
         
     end
     

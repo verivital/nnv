@@ -22,10 +22,10 @@ classdef TanSig
             switch nargin
                 case 1
                     I = varargin{1};
-                    method = 'approx-star-no-split';
+                    option = 'approx-star-no-split';
                 case 2
                     I = varargin{1};
-                    method = varargin{2};
+                    option = varargin{2};
                 otherwise
                     error('Invalid number of input arguments');
             end
@@ -33,9 +33,9 @@ classdef TanSig
             if ~isa(I, 'Star')
                 error('Input set is not a star set');
             end            
-            if strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star')
+            if strcmp(option, 'approx-star-no-split')
                 S = TanSig.reach_star_approx_no_split(I);
-            elseif strcmp(method, 'approx-star-split')
+            elseif strcmp(option, 'approx-star-split')
                 S = TanSig.reach_star_approx_split(I);
             else
                 error('Unknown reachability method');
@@ -43,6 +43,46 @@ classdef TanSig
             
         end
         
+        function S = reach_star_approx_multipleInputs(varargin)
+            % author: Dung Tran
+            % date: 3/27/2020
+            
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    parallel = []; % no parallel computation
+                    method = 'approx-star-no-split';
+                case 2
+                    I = varargin{1};
+                    parallel = varargin{2};
+                    method = 'approx-star-no-split';
+                case 3
+                    I = varargin{1};
+                    parallel = varargin{2};
+                    method = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments');
+            end
+            
+            p = length(I);
+            S = [];
+            if isempty(parallel)
+                
+                for i=1:p
+                    S =[S TanSig.reach_star_approx(I(i), method)];
+                end
+                
+            elseif strcmp(parallel, 'parallel')
+                
+                parfor i=1:p
+                    S =[S, TanSig.reach_star_approx(I(i), method)];
+                end
+                
+            else
+                error('Unknown parallel computation option');
+            end
+
+        end
         
         % reachability method with star
         function S = reach_star_approx_no_split(I)
@@ -51,13 +91,26 @@ classdef TanSig
             
             % author: Dung Tran
             % date: 3/19/2020
-            % update:4/3/2020
-  
-            n = I.dim;
-            S = I;
-            for i=1:n
-                S = TanSig.stepTanSig_NoSplit(S, i); 
+            
+            B = I.getBox; 
+            if isempty(B)
+                S = [];
+            else
+                l = B.lb;
+                u = B.ub;
+                
+                y_l = tansig(l);
+                y_u = tansig(u);
+                dy_l = tansig('dn', l);
+                dy_u = tansig('dn', u);
+                
+                n = I.dim;
+                S = I;
+                for i=1:n
+                    S = TanSig.stepTanSig_NoSplit(S, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i)); 
+                end
             end
+            
             
         end
         
@@ -68,23 +121,36 @@ classdef TanSig
             
             % author: Dung Tran
             % date: 3/19/2020
-            % update: 4/3/2020
-
-            n = I.dim;
-            S = I;
-            for i=1:n
-                m = length(S);
-                O = [];
-                for j=1:m
-                    O = [O TanSig.stepTanSig_Split(S(j), i)];
+            
+            B = I.getBox; 
+            if isempty(B)
+                S = [];
+            else
+                l = B.lb;
+                u = B.ub;
+                
+                y_l = tansig(l);
+                y_u = tansig(u);
+                dy_l = tansig('dn', l);
+                dy_u = tansig('dn', u);
+                
+                n = I.dim;
+                S = I;
+                for i=1:n
+                    m = length(S);
+                    O = [];
+                    for j=1:m
+                        O = [O TanSig.stepTanSig_Split(S(j), i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i))];
+                    end
+                    S = O;
                 end
-                S = O;
             end
-
+            
+            
         end
         
         % stepTanSig
-        function S = stepTanSig_Split(I, index)
+        function S = stepTanSig_Split(I, index, l, u, y_l, y_u, dy_l, dy_u)
             % @I: input star set
             % @index: index of the neuron
             % @l: l = min(x[index]), lower bound at neuron x[index] 
@@ -97,31 +163,14 @@ classdef TanSig
             % @S: output star set
             
             % author: Dung Tran
-            % date: 3/19/2020            
-            % update: 4/3/2020
+            % date: 3/19/2020
             
-            %[l, u] = I.Z.getRange(index);
-            [l, u] = I.getRange(index);
-            y_l = tansig(l);
-            y_u = tansig(u);
-            dy_l = tansig('dn', l);
-            dy_u = tansig('dn', u);
-
             if l == u
                 
                 new_V = I.V;
                 new_V(index, 1:I.nVar+1) = 0;
                 new_V(index, 1) = y_l;
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;
-                    c(index) = y_l;
-                    V(index, :) = 0;
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub);
                 
             elseif l >= 0
                 % y is convex when x >= 0
@@ -155,25 +204,7 @@ classdef TanSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                
-                % update outer-zonotope
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;                
-                    lamda = min(dy_l, dy_u);
-                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
-                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
-                    c(index) = lamda * c(index) + mu1;
-                    V(index, :) = lamda * V(index, :); 
-                    I1 = zeros(I.dim, 1);
-                    I1(index) = mu2;
-                    V = [V I1];
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
                 
             elseif u <= 0
@@ -207,25 +238,7 @@ classdef TanSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                
-                % update outer-zonotope
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;                
-                    lamda = min(dy_l, dy_u);
-                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
-                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
-                    c(index) = lamda * c(index) + mu1;
-                    V(index, :) = lamda * V(index, :); 
-                    I1 = zeros(I.dim, 1);
-                    I1(index) = mu2;
-                    V = [V I1];
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
                 
             elseif l <0 && u >0
@@ -265,25 +278,7 @@ classdef TanSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; 0.0];
-                
-                % update outer-zonotope
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;                
-                    lamda = min(dy_l, 1);
-                    mu1 = 0.5*(0 + y_l - lamda *(0 + l));
-                    mu2 = 0.5*(0 - y_l - lamda *(0 - l));
-                    c(index) = lamda * c(index) + mu1;
-                    V(index, :) = lamda * V(index, :); 
-                    I1 = zeros(I.dim, 1);
-                    I1(index) = mu2;
-                    V = [V I1];
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                
-                S1 = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+                S1 = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
                 % case 2: x in [0, u] 
                 % y is convex when x >= 0
@@ -312,26 +307,7 @@ classdef TanSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; 0.0]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                
-                % update outer-zonotope
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;                
-                    lamda = min(dy_u, 1);
-                    mu1 = 0.5*(y_u + 0 - lamda *(u + 0));
-                    mu2 = 0.5*(y_u - 0 - lamda *(u - 0));
-                    c(index) = lamda * c(index) + mu1;
-                    V(index, :) = lamda * V(index, :); 
-                    I1 = zeros(I.dim, 1);
-                    I1(index) = mu2;
-                    V = [V I1];
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                
-                
-                S2 = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+                S2 = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
                 S = [S1 S2];
             end
@@ -339,7 +315,7 @@ classdef TanSig
         end
         
         % stepTanSig
-        function S = stepTanSig_NoSplit(I, index)
+        function S = stepTanSig_NoSplit(I, index, l, u, y_l, y_u, dy_l, dy_u)
             % @I: input star set
             % @index: index of the neuron
             % @l: l = min(x[index]), lower bound at neuron x[index] 
@@ -353,29 +329,13 @@ classdef TanSig
             
             % author: Dung Tran
             % date: 3/19/2020
-            % update: 4/3/2020
             
-            %[l, u] = I.Z.getRange(index);
-            [l, u] = I.getRange(index);
-            y_l = tansig(l);
-            y_u = tansig(u);
-            dy_l = tansig('dn', l);
-            dy_u = tansig('dn', u);
             
             if l == u
                 new_V = I.V;
                 new_V(index, 1:I.nVar+1) = 0;
                 new_V(index, 1) = y_l;
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;
-                    c(index) = y_l;
-                    V(index, :) = 0;
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);               
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub);               
             elseif l >= 0
                 % y is convex when x >= 0
                 % constraint 1: y <= y'(l) * (x - l) + y(l)
@@ -408,25 +368,7 @@ classdef TanSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                
-                % update outer-zonotope
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;                
-                    lamda = min(dy_l, dy_u);
-                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
-                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
-                    c(index) = lamda * c(index) + mu1;
-                    V(index, :) = lamda * V(index, :); 
-                    I1 = zeros(I.dim, 1);
-                    I1(index) = mu2;
-                    V = [V I1];
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
                 
             elseif u <= 0
@@ -460,25 +402,7 @@ classdef TanSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                
-                % update outer-zonotope
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;                
-                    lamda = min(dy_l, dy_u);
-                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
-                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
-                    c(index) = lamda * c(index) + mu1;
-                    V(index, :) = lamda * V(index, :); 
-                    I1 = zeros(I.dim, 1);
-                    I1(index) = mu2;
-                    V = [V I1];
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
                 
             elseif l <0 && u >0
@@ -529,26 +453,8 @@ classdef TanSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                
-                % update outer-zonotope
-                if ~isempty(I.Z)
-                    c = I.Z.c;
-                    V = I.Z.V;                
-                    lamda = min(dy_l, dy_u);
-                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
-                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
-                    c(index) = lamda * c(index) + mu1;
-                    V(index, :) = lamda * V(index, :); 
-                    I1 = zeros(I.dim, 1);
-                    I1(index) = mu2;
-                    V = [V I1];
-                    new_Z = Zono(c, V);
-                else
-                    new_Z = [];
-                end
-                
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
-                
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+                                
             end
 
         end
@@ -856,15 +762,15 @@ methods(Static) % main reach method
 
         if strcmp(method, 'approx-star') % exact analysis using star
 
-            R = TanSig.reach_star_approx(I, method);
+            R = TanSig.reach_star_approx_multipleInputs(I, option);
 
         elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
 
-            R = TanSig.reach_zono_approx(I);
+            R = TanSig.reach_zono_approx_multipleInputs(I, option);
 
         elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
 
-            R = TanSig.reach_absdom_approx(I);
+            R = TanSig.reach_absdom_approx_multipleInputs(I, option);
 
         else
             error('Unknown or unsupported reachability method for layer with LogSig activation function');

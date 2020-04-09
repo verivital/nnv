@@ -24,9 +24,9 @@ S3 = PosLin.reach(I, 'approx-zono'); % over-approximate reach set using zonotope
 Y = PosLin.evaluate(X);
 
 figure;
-Zono.plots(S3);
+S3.plot;
 hold on;
-S2.plot('yellow');
+S2.plot;
 hold on;
 Star.plots(S1);
 hold on;

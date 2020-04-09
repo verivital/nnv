@@ -541,7 +541,283 @@ classdef NNCS < handle
     
     methods(Static)
         
-         
+        % parse a SpaceEx file for reachability analysis
+        function plant = parseSpaceEx(xmlFile,rootID,outputName)
+            % Parse a file from SpaceEx and load a plant into NNV
+            % 
+            % plant = parseSpaceEx(xmlFile,rootID,outputName)
+            % 
+            % Inputs:
+            %   xmlFile - path to the xml-file that contains the SpaceEx-model
+            %   rootID -  ID of SpaceEx component to be used as root component
+            %           (specified as a string)
+            %   outputName - name of the generated CORA model (specified as string)
+            %            (CORA model will be saved in current working directory)
+            % 
+            % plant - NNV plant model obtained from the CORA file
+            %
+            % -------- Example ---------
+            % plant = NNCS.parsePlant('platoon_continuous.xml','platoon11', 'platoonC');
+            % 
+            % See also: spaceex2cora.m
+            spaceex2cora(xmlFile, rootID, outputName, pwd);
+            fi = char(outputName);
+            fi = [fi '.m'];
+            fid = fopen(fi);
+            if fid == -1, error('Cannot open file'); end
+            filetext = fileread(fi);
+            matches = regexp(filetext,'dynamics =','match');
+            if length(matches) > 1, error('We do not support HA modeling as part of the NNCS class'); end
+            while true
+                tline = fgetl(fid);
+                if length(tline) > 9
+                    if string(tline(1:8)) == "dynamics"
+                        dynamics = 'nonlinear';
+                        disp('Creating the nonlinear plant');
+                        break
+                    end
+                end
+                if length(tline) > 5
+                   if string(tline(1:4)) == "dynA"
+                       dynamics = 'linear';
+                       disp('Creating the linear plant');
+                       break
+                   end
+                end
+            end
+            if dynamics == "nonlinear"
+                fclose(fid);
+                str = split(string(tline),' = ');
+                str = str(2);
+                str = split(str,'(');
+                dynamics = str(1);
+                str = str(2);
+                str = split(str,',');
+                num_states = str2double(str(1));
+                num_inputs = str2double(str(2));
+                str = split(str(3),'@');
+                strfunc = str2func(str(2));
+                if contains(dynamics,'DT')
+                    Ts = 0.1;
+                    C = eye(num_states);
+                    plant = DNonLinearODE(num_states, num_inputs,strfunc,Ts,C);
+                    disp('Plant created with default values.');
+                    disp(plant);
+                    disp('Please see DNonLinearODE for more details.');
+                else
+                    reachStep = 0.01;
+                    controlPeriod = 0.1;
+                    C= eye(num_states);
+                    plant = NonLinearODE(num_states,num_inputs,strfunc,reachStep,controlPeriod,C);
+                    disp('Plant created with default values.');
+                    disp(plant);
+                    disp('Please see NonLinearODE for more details.');
+                end
+            elseif dynamics == "linear"
+                % Initialize matrices for linear model
+                dynA = [];
+                dynB = [];
+                dynC = [];
+                dynD = [];
+                dynRow = 1;
+                dynCol = 1;
+                p = 1;
+                % Obtain matrix A
+                while true
+                    tline = fgetl(fid);
+                    if string(tline) == "-1"
+                        error('Stop')
+                    end
+                    if  contains(string(tline),"dynB")
+                        disp('Moving to matrix B');
+                        break
+                    end
+                    str = split(string(tline),'[');
+                    str2 = str(end);
+                    str = split(str2,';');
+                    if str2 == str
+                        tmpl = split(str,',');
+                        for p = dynCol:dynCol+length(tmpl)-1
+                            if contains(string(tmpl(p+1-dynCol)),"]")
+                                tt = split(string(tmpl(p+1-dynCol)),']');
+                                if ~isnan(str2double(tt(1)))
+                                    dynA(dynRow,p) = str2double(tt(1));
+                                end
+                                break
+                            elseif contains(string(tmpl(p+1-dynCol)),"...")
+                                tt = split(string(tmpl(p+1-dynCol)),'...');
+                                if ~isnan(str2double(tt(1)))
+                                    dynA(dynRow,p) = str2double(tt(1));
+                                end
+                            elseif ~isnan(str2double(tmpl(p+1-dynCol)))
+                                dynA(dynRow,p) = str2double(tmpl(p+1-dynCol));
+                            end
+                        end
+                        dynCol = p;
+                    else
+                        for i=dynRow:dynRow+length(str)-1
+                            tmpl = split(str(i+1-dynRow),',');
+                            for k=dynCol:dynCol+length(tmpl)-1
+                                if contains(string(tmpl(k+1-dynCol)),"]")
+                                    tt = split(string(tmpl(k+1-dynCol)),']');
+                                    if ~isnan(str2double(tt(1)))
+                                        dynA(i,p) = str2double(tt(1));
+                                    end
+                                    break                                    
+                                elseif contains(string(tmpl(k+1-dynCol)),"...")
+                                    tt = split(string(tmpl(k+1-dynCol)),'...');
+                                    if ~isnan(str2double(tt(1)))
+                                        dynA(dynRow,p) = str2double(tt(1));
+                                    end
+                                elseif ~isnan(str2double(tmpl(k+1-dynCol)))
+                                    dynA(i,k) = str2double(tmpl(k+1-dynCol));
+                                end
+                            end
+                            dynCol = 1;
+                        end
+                        dynRow = i;
+                    end
+                end
+                % Obtain matrix B
+                dynRow = 1;
+                dynCol = 1;
+                p = 1;
+                while true
+                    tline = fgetl(fid);
+                    if string(tline) == "-1"
+                        error('Stop')
+                    end
+                    if  contains(string(tline),"dync") || contains(string(tline),"dynC")
+                        disp('Moving to matrix C');
+                        break
+                    end
+                    str = split(string(tline),'[');
+                    str2 = str(end);
+                    str = split(str2,';');
+                    if str2 == str
+                        tmpl = split(str,',');
+                        for p = dynCol:dynCol+length(tmpl)-1
+                            if contains(string(tmpl(p+1-dynCol)),"]")
+                                tt = split(string(tmpl(p+1-dynCol)),']');
+                                if ~isnan(str2double(tt(1)))
+                                    dynB(dynRow,p) = str2double(tt(1));
+                                end
+                                break
+                            elseif contains(string(tmpl(p+1-dynCol)),"...")
+                                tt = split(string(tmpl(p+1-dynCol)),'...');
+                                if ~isnan(str2double(tt(1)))
+                                    dynB(dynRow,p) = str2double(tt(1));
+                                end
+                            elseif ~isnan(str2double(tmpl(p+1-dynCol)))
+                                dynB(dynRow,p) = str2double(tmpl(p+1-dynCol));
+                            end
+                        end
+                        dynCol = p;
+                    else
+                        for i=dynRow:dynRow+length(str)-1
+                            tmpl = split(str(i+1-dynRow),',');
+                            for k=dynCol:dynCol+length(tmpl)-1
+                                if contains(string(tmpl(k+1-dynCol)),"]")
+                                    tt = split(string(tmpl(k+1-dynCol)),']');
+                                    if ~isnan(str2double(tt(1)))
+                                        dynB(i,p) = str2double(tt(1));
+                                    end
+                                    break                                    
+                                elseif contains(string(tmpl(k+1-dynCol)),"...")
+                                    tt = split(string(tmpl(k+1-dynCol)),'...');
+                                    if ~isnan(str2double(tt(1)))
+                                        dynB(dynRow,p) = str2double(tt(1));
+                                    end
+                                elseif ~isnan(str2double(tmpl(k+1-dynCol)))
+                                    dynB(i,k) = str2double(tmpl(k+1-dynCol));
+                                end
+                            end
+                            dynCol = 1;
+                        end
+                        dynRow = i;
+                    end
+                end
+                dynRow = 1;
+                dynCol = 1;
+                p = 1;
+                % Obtaining matrix C
+                while true
+                    tline = fgetl(fid);
+                    if string(tline) == "-1"
+                        error('Stop')
+                    end
+                    if  contains(string(tline),"dynamics")
+                        disp('Finishing the matrices');
+                        break
+                    end
+                    str = split(string(tline),'[');
+                    str2 = str(end);
+                    str = split(str2,';');
+                    if str2 == str
+                        tmpl = split(str,',');
+                        for p = dynCol:dynCol+length(tmpl)-1
+                            if contains(string(tmpl(p+1-dynCol)),"]")
+                                tt = split(string(tmpl(p+1-dynCol)),']');
+                                if ~isnan(str2double(tt(1)))
+                                    dynC(dynRow,p) = str2double(tt(1));
+                                end
+                                break
+                            elseif contains(string(tmpl(p+1-dynCol)),"...")
+                                tt = split(string(tmpl(p+1-dynCol)),'...');
+                                if ~isnan(str2double(tt(1)))
+                                    dynC(dynRow,p) = str2double(tt(1));
+                                end
+                            elseif ~isnan(str2double(tmpl(p+1-dynCol)))
+                                dynC(dynRow,p) = str2double(tmpl(p+1-dynCol));
+                            end
+                        end
+                        dynCol = p;
+                    else
+                        for i=dynRow:dynRow+length(str)-1
+                            tmpl = split(str(i+1-dynRow),',');
+                            for k=dynCol:dynCol+length(tmpl)-1
+                                if contains(string(tmpl(k+1-dynCol)),"]")
+                                    tt = split(string(tmpl(k+1-dynCol)),']');
+                                    if ~isnan(str2double(tt(1)))
+                                        dynC(i,p) = str2double(tt(1));
+                                    end
+                                    break                                    
+                                elseif contains(string(tmpl(k+1-dynCol)),"...")
+                                    tt = split(string(tmpl(k+1-dynCol)),'...');
+                                    if ~isnan(str2double(tt(1)))
+                                        dynC(dynRow,p) = str2double(tt(1));
+                                    end
+                                elseif ~isnan(str2double(tmpl(k+1-dynCol)))
+                                    dynC(i,k) = str2double(tmpl(k+1-dynCol));
+                                end
+                            end
+                            dynCol = 1;
+                        end
+                        dynRow = i;
+                    end
+                end
+                try
+                    dynD = zeros(size(dynC,1),size(dynB,2));
+                    plant = LinearODE(dynA,dynB,dynC,dynD);
+                catch
+                    try
+                        dynC = dynC';
+                        dynD = zeros(size(dynC,1),size(dynB,2));
+                        plant = LinearODE(dynA,dynB,dynC,dynD);
+                    catch
+                        assignin('base','dynA',dynA);
+                        assignin('base','dynB',dynB);
+                        assignin('base','dynC',dynC');
+                        assignin('base','dynD',dynD');
+                        disp('All matrices have been saved to the workspace as dynA, dynB, dynC and dynD');
+                        error('We have found inconsistency in the matrix dimensions.')
+                    end
+                end
+                disp(plant);
+                fclose(fid);
+            end
+        end
+        
         % check if a trace violates safety specification
         function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
             % @simTrace: a single simulation trace

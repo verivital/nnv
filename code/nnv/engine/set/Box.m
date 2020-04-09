@@ -179,33 +179,9 @@ classdef Box
         
         % transform box to star set
         function S = toStar(obj)
-                        
-            c = 0.5 * (obj.lb + obj.ub);
-            vec = 0.5 * (obj.ub - obj.lb);  
-           
-            V = [];
-            alp_min = [];
-            alp_max = [];
-            for i=1:obj.dim
-                if vec(i) ~= 0
-                    gen = zeros(obj.dim, 1);
-                    gen(i) = vec(i);
-                    V = [V gen]; 
-                    alp_min = [alp_min obj.lb(i)];
-                    alp_max = [alp_max obj.ub(i)];
-                                       
-                end                
-            end
             
-            alp_min = alp_min';
-            alp_max = alp_max';
-           
-            n = length(alp_min);
-            C = vertcat(eye(n), -eye(n)); % constraint matrix
-            d = ones(2*n, 1);
-           
-            V = horzcat(c, V);
-            S = Star(V, C, d, -ones(n,1), ones(n,1));       
+            Z = obj.toZono;
+            S = Z.toStar;        
         end
         
         % transform box to zonotope

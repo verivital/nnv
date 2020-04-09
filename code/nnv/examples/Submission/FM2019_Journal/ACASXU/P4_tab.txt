@@ -1,0 +1,55 @@
+
+===============================================VERIFICATION RESULTS FOR PROPERTY P4====================================================
+
+=======================================================================================================================================
+
+Network ID       Reluplex               Exact-Star              Approx-star                 Zonotope               Abstract-Domain
+               Res      VT         Res      VT     Imp       Res      VT     Imp       Res      VT     Imp       Res      VT     Imp
+N_11          UNSAT   1291.0      UNSAT   76.9     16.8       UNK    0.4    3107.0       UNK    0.0   74511.4       UNK   0.0   31882.6
+N_12          UNSAT   1267.0      UNSAT   47.5     26.7       UNK    0.5    2336.0       UNK    0.0   75568.3       UNK   0.1   23811.3
+N_13          UNSAT   1150.0      UNSAT   36.3     31.7       UNK    0.6    1890.0       UNK    0.0   57693.0       UNK   0.1   20327.3
+N_14          UNSAT   107.0       UNSAT    3.5     30.5       UNK    0.1     773.7       UNK    0.0    6033.8       UNK   0.1    1842.4
+N_15          UNSAT   352.0       UNSAT   26.6     13.2       UNK    0.2    1687.9       UNK    0.0   21426.0       UNK   0.0   10327.0
+N_16          UNSAT   219.0       UNSAT   12.8     17.1     UNSAT    0.2     926.1       UNK    0.0   13293.8       UNK   0.1    4319.8
+N_17          SAT     1.0           SAT    2.0      0.5       UNK    0.1      18.3       UNK    0.0      70.3       UNK   0.0      22.4
+N_18          SAT     3.0           SAT    2.1      1.4       UNK    0.1      47.5       UNK    0.0     200.2       UNK   0.0      74.4
+N_19          SAT     3.0           SAT    1.9      1.5       UNK    0.0      68.9       UNK    0.0     195.5       UNK   0.0     115.9
+N_21          UNSAT   330.0       UNSAT   15.7     21.0       UNK    0.4     781.6       UNK    0.0   20118.8       UNK   0.1    6261.9
+N_22          UNSAT   415.0       UNSAT   14.8     28.1       UNK    0.4    1043.9       UNK    0.0   24469.8       UNK   0.1    7016.1
+N_23          UNSAT   243.0       UNSAT    3.2     75.2     UNSAT    0.1    2101.4       UNK    0.0   14841.6       UNK   0.0    7479.7
+N_24          UNSAT   86.0        UNSAT    3.5     24.3     UNSAT    0.2     396.6       UNK    0.0    4906.6       UNK   0.0    2624.6
+N_25          UNSAT   151.0       UNSAT   12.0     12.6     UNSAT    0.4     359.0       UNK    0.0    8584.2       UNK   0.1    2924.4
+N_26          UNSAT   118.0       UNSAT    5.7     20.9     UNSAT    0.4     319.8       UNK    0.0    6231.4       UNK   0.1    1811.7
+N_27          UNSAT   34.0        UNSAT    2.5     13.8     UNSAT    0.1     283.3       UNK    0.0    1921.3       UNK   0.1     511.7
+N_28          UNSAT   549.0       UNSAT    8.4     65.3       UNK    1.2     442.2       UNK    0.0   27415.3       UNK   0.1    8002.6
+N_29          UNSAT   52.0        UNSAT    1.3     40.2     UNSAT    0.0    1384.2       UNK    0.0    3720.6       UNK   0.0    1859.6
+N_31          UNSAT   478.0       UNSAT   14.2     33.6     UNSAT    0.3    1489.9       UNK    0.0   27161.1       UNK   0.0    9575.3
+N_32          UNSAT   107.0       UNSAT   27.1      3.9     UNSAT    0.2     504.4       UNK    0.0    6648.2       UNK   0.0    3313.2
+N_33          UNSAT   116.0       UNSAT    3.7     31.4     UNSAT    0.1     991.5       UNK    0.0    7316.1       UNK   0.0    3955.6
+N_34          UNSAT   75.0        UNSAT    4.2     17.9     UNSAT    0.1     581.6       UNK    0.0    4733.4       UNK   0.0    2245.5
+N_35          UNSAT   206.0       UNSAT   16.7     12.3     UNSAT    0.7     291.9       UNK    0.0   10913.9       UNK   0.0    4386.7
+N_36          UNSAT   141.0       UNSAT    5.6     25.3     UNSAT    0.3     460.6       UNK    0.0    7651.7       UNK   0.1    1978.6
+N_37          UNSAT   304.0       UNSAT    4.1     74.6     UNSAT    0.1    2707.4       UNK    0.0   14354.0       UNK   0.1    4670.6
+N_38          UNSAT   131.0       UNSAT    3.0     44.0       UNK    0.3     474.9       UNK    0.0    5796.2       UNK   0.0    2898.9
+N_39          UNSAT   621.0       UNSAT   13.0     47.6     UNSAT    0.4    1424.2       UNK    0.0   29816.8       UNK   0.1    9947.5
+N_41          UNSAT   49.0        UNSAT    2.7     18.0     UNSAT    0.1     660.8     UNSAT    0.0    3157.7       UNK   0.0    1931.4
+N_42          UNSAT   244.0       UNSAT    5.0     49.2     UNSAT    0.3     760.5       UNK    0.0   14887.5       UNK   0.0    5170.2
+N_43          UNSAT   243.0       UNSAT    9.8     24.8     UNSAT    0.3     750.4       UNK    0.0   14720.8       UNK   0.0    5204.6
+N_44          UNSAT   206.0       UNSAT    4.9     41.7       UNK    0.6     362.2       UNK    0.0   11038.5       UNK   0.1    3642.9
+N_45          UNSAT   217.0       UNSAT    3.9     55.5     UNSAT    0.2     992.1       UNK    0.0   12636.0       UNK   0.1    3225.3
+N_46          UNSAT   177.0       UNSAT    8.0     22.2     UNSAT    0.3     582.1       UNK    0.0    9664.7       UNK   0.1    3215.3
+N_47          UNSAT   47.0        UNSAT    1.3     37.4     UNSAT    0.1     495.5       UNK    0.0    2843.1       UNK   0.1     845.2
+N_48          UNSAT   195.0       UNSAT    6.1     32.0     UNSAT    0.2    1094.4       UNK    0.0   10859.2       UNK   0.1    3280.5
+N_49          UNSAT   422.0       UNSAT    8.7     48.3     UNSAT    0.2    2443.0       UNK    0.0   26394.3       UNK   0.0    8590.6
+N_51          UNSAT   513.0       UNSAT   19.9     25.8     UNSAT    0.2    2304.6       UNK    0.0   28380.8       UNK   0.0   11007.3
+N_52          UNSAT   210.0       UNSAT   13.4     15.7     UNSAT    0.2    1389.7       UNK    0.0   13413.8       UNK   0.0    5715.1
+N_53          UNSAT   124.0       UNSAT    5.2     24.1     UNSAT    0.3     457.9       UNK    0.0    7316.3       UNK   0.0    2616.9
+N_54          UNSAT   144.0       UNSAT    3.6     39.9     UNSAT    0.2     753.7       UNK    0.0    8361.5       UNK   0.0    3491.8
+N_55          UNSAT   114.0       UNSAT    5.3     21.5     UNSAT    0.2     693.3       UNK    0.0    6813.2       UNK   0.1    2060.0
+N_56          UNSAT   160.0       UNSAT    3.0     53.2     UNSAT    0.2     856.5       UNK    0.0    9600.2       UNK   0.0    3953.9
+N_57          UNSAT   38.0        UNSAT    1.1     33.7     UNSAT    0.1     541.3       UNK    0.0    2271.9       UNK   0.0     772.1
+N_58          UNSAT   111.0       UNSAT    3.1     35.9     UNSAT    0.3     398.8       UNK    0.0    6110.4       UNK   0.1    1714.8
+N_59          UNSAT   116.0       UNSAT    3.8     30.8     UNSAT    0.1     821.3       UNK    0.0    6647.4       UNK   0.1    2205.4
+Total VT:            11880.00              477.01                    12.20                      0.78                      2.19
+Average Imp:                                       29.8                       961.1                    14904.7                    5396.2
+Safe Nets:   42/45                42/45                      32/45                     1/45                       0/45

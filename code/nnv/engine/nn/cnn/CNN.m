@@ -341,6 +341,7 @@ classdef CNN < handle
                     robust = 2;
                     fprintf('\n=============================================');
                     fprintf('\nThe robustness of the network is UNCERTAIN due to the conservativeness of approximate analysis');
+                    fprintf('\nLabel index: %d', correct_id);
                     fprintf('\nPossible classified index: ');
                                        
                     n = length(incorrect_id_list);

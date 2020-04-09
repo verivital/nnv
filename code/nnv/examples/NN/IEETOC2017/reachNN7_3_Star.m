@@ -14,17 +14,15 @@ Ln = LayerS(Wn, bn, 'purelin');
 Layers = [Layers Ln];
 
 F = FFNNS(Layers);
-C = [1 0 0; -1 0 0; 0 1 0; 0 -1 0; 0 0 1; 0 0 -1];
-d = [1; 1; 1; 1; 1; 1];
 
-V = [0 0 0; 1 0 0; 0 1 0; 0 0 1];
-pred_lb = [-1;-1;-1];
-pred_ub = [1;1;1];
-I = Star(V', C, d, pred_lb, pred_ub); % input set as a Star set
+lb = [-1; -1; -1];
+ub = -lb;
+I = Star(lb, ub);
+
 
 % select option for reachability algorithm
 
-[R, t] = F.reach(I, 'exact-star', 1); % exact reach set using stars
+[R, t] = F.reach(I, 'exact-star', 4); % exact reach set using stars
 save F.mat F; % save the verified network
 F.print('F.info'); % print all information to a file
 

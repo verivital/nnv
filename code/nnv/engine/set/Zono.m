@@ -301,7 +301,7 @@ classdef Zono
             
             C = [eye(n);-eye(n)];
             d = [ones(n,1); ones(n,1)];
-            S = Star([obj.c obj.V], C, d, lb, ub);            
+            S = Star([obj.c obj.V], C, d, lb, ub, obj);            
         end
         
         % convert to ImageZono
@@ -326,6 +326,21 @@ classdef Zono
             
         end
         
+        % convert to ImageStar
+        function imageStar = toImageStar(obj, height, width, numChannels)
+            % @height: height of the image
+            % @width: width of the image
+            % @numChannels: number of channels of the image
+            % @imageZono: returned image
+            
+            % author: Dung Tran
+            % date: 1/2/2020
+            
+            im1 = obj.toStar;
+            imageStar = im1.toImageStar(height, width, numChannels);
+            
+        end
+        
         % intersect with HalfSpace
         function S = intersectHalfSpace(obj, H, g)
             % @H: half space matrix
@@ -340,9 +355,25 @@ classdef Zono
         end
         
         % plot a zonotope
-        function plot(obj)
+        function plot(varargin)
+            % author: Dung Tran
+            % date: 10/20/2019
+            % update: 4/2/2020
+            
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    color = varargin{2};
+                case 1
+                    obj = varargin{1};
+                    color = 'red';
+                otherwise
+                    error('Invalid number of input arguments');
+            end
+  
             P = obj.toPolyhedron();
-            P.plot;
+            P.plot('color', color);
+            
         end
         
         % get a box bounding the zonotope
@@ -359,6 +390,21 @@ classdef Zono
             B = Box(lb, ub);
             
         end
+        
+        
+        % return possible max indexes
+        function max_ids = getMaxIndexes(obj)
+            % @max_ids: index of the state that can be a max point
+            
+            % author: Dung Tran
+            % date: 4/1/2020
+            
+            new_rs  = obj.toStar; 
+            new_rs = new_rs.toImageStar(obj.dim, 1, 1);
+            max_id = new_rs.get_localMax_index([1 1], [obj.dim 1], 1);
+            max_ids = max_id(:, 1);
+        end
+        
         
         % check if a zonotope contains a point
         function bool = contains(obj, x)
@@ -404,6 +450,12 @@ classdef Zono
             ub = obj.c + ub;
             lb = obj.c + lb;
             
+        end
+        
+        function [lb, ub] = getRanges(obj)
+            B = obj.getBox;
+            lb = B.lb;
+            ub = B.ub;
         end
         
         % get range of a zonotope at specific index
@@ -481,8 +533,23 @@ classdef Zono
     methods(Static)
         
         % plot an array of zonotopes
-        function plots(Z)
+        function plots(varargin)
             % @Z: an array of zonotope
+            % author: Dung Tran
+            % date: 10/9/2019
+            % update:4/2/2020
+            
+            switch nargin
+                case 2
+                    Z = varargin{1};
+                    color = varargin{2};
+                case 1
+                    Z = varargin{1};
+                    color = 'red';
+                otherwise
+                    error('Invalid number of input arguments');
+            end
+            
             
             n = length(Z);
             for i=1:n
@@ -491,25 +558,25 @@ classdef Zono
                 end
             end
             
-            max_order = 2;
+            max_order = 12;
             
             for i=1:n-1
                 max_gens = max_order * Z(i).dim;
                 if max_gens >= size(Z(i).V, 2)
-                    Z(i).plot;
+                    Z(i).plot(color);
                 else
                     Zr = Z(i).orderReduction_box(max_gens);
-                    Zr.plot;
+                    Zr.plot(color);
                 end
                 hold on;
             end
             
             max_gens = max_order * Z(n).dim;
             if max_gens >= size(Z(n).V, 2)
-                Z(n).plot;
+                Z(n).plot(color);
             else
                 Zr = Z(n).orderReduction_box(max_gens);
-                Zr.plot;
+                Zr.plot(color);
             end
             
             

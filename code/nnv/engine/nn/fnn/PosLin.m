@@ -19,7 +19,7 @@ classdef PosLin
         end
         
         % stepReach method, compute reachable set for a single step
-        function S = stepReach(I, index, xmin, xmax)
+        function S = stepReach(I, index)
             % @I: single star set input
             % @index: index of the neuron performing stepPosLin
             % @xmin: minimum of x[index]
@@ -32,15 +32,27 @@ classdef PosLin
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
+            
+            [xmin, xmax] = I.getRange(index);
                        
             if xmin >= 0
                 S = I; 
-            elseif xmax < 0 
+            elseif xmax <= 0 
+                
                 V1 = I.V;
                 V1(index, :) = 0;
-                S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub);
-            elseif xmin < 0 && xmax >= 0
-                %fprintf('\nSplit at neuron %d', index);
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    c(index) = 0;
+                    V = I.Z.V;
+                    V(index, :) = 0;
+                    new_Z = Zono(c, V); % update outer-zono
+                else
+                    new_Z = [];
+                end
+                S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+                
+            elseif xmin < 0 && xmax > 0
                 % S1 = I && x[index] < 0 
                 c = I.V(index, 1);
                 V = I.V(index, 2:I.nVar + 1); 
@@ -48,51 +60,50 @@ classdef PosLin
                 new_d = vertcat(I.d, -c);                
                 new_V = I.V;
                 new_V(index, :) = zeros(1, I.nVar + 1);
-                S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub);
+                
+                % update outer-zono
+                if ~isempty(I.Z)
+                    c1 = I.Z.c;
+                    c1(index) = 0;
+                    V1 = I.Z.V;
+                    V1(index, :) = 0;
+                    new_Z = Zono(c1, V1);
+                else
+                    new_Z = [];
+                end
+                S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub, new_Z);
                 
                 % S2 = I && x[index] >= 0
                 new_C = vertcat(I.C, -V);
                 new_d = vertcat(I.d, c);
-                S2 = Star(I.V, new_C, new_d, I.predicate_lb, I.predicate_ub);
                 
-                a = S1.isEmptySet;
-                b = S2.isEmptySet;
-                                             
-                if a && ~b
-                    S = S2;
-                end
-                if a && b
-                    S = [];
-                end
-                if ~a && b
-                    S = S1;
-                end
-                if ~a && ~b
-                 S = [S1 S2];
-                end
+                S2 = Star(I.V, new_C, new_d, I.predicate_lb, I.predicate_ub, I.Z);
+                
+%                 a = S1.isEmptySet;
+%                 b = S2.isEmptySet;
+%                                              
+%                 if a && ~b
+%                     S = S2;
+%                 end
+%                 if a && b
+%                     S = [];
+%                 end
+%                 if ~a && b
+%                     S = S1;
+%                 end
+%                 if ~a && ~b
+%                     S = [S1 S2];
+%                 end
+
+               S = [S1 S2];
         
             end
                         
         end
         
-        % stepReach method, compute reachable set for a single step
-        function S = stepReach2(I, index)
-            % @I: single star set input
-            % @index: index of the neuron performing stepPosLin
-            % @xmin: minimum of x[index]
-            % @xmax: maximum of x[index]
-            % @S: star output set
-            
-            % author: Dung Tran
-            % date: 27/2/2019
-            
-            [xmin, xmax] = I.getRange(index);
-            S = PosLin.stepReach(I, index, xmin, xmax);
- 
-        end
-              
+        
         % stepReach with multiple inputs
-        function S = stepReachMultipleInputs(varargin)
+        function S = stepReachMultipleInputs(I, index, option)
             % @I: an array of stars
             % @index: index where stepReach is performed
             % @option: = 'parallel' use parallel computing
@@ -100,21 +111,7 @@ classdef PosLin
             
             % author: Dung Tran
             % date: 27/2/2019
-            
-            switch nargin
-                
-                case 5
-                    I = varargin{1};
-                    index = varargin{2};
-                    xmin = varargin{3};
-                    xmax = varargin{4};
-                    option = varargin{5};
-                
-                otherwise
-                    error('Invalid number of input arguments (should be 5)');
-            end
-            
-            
+            % update: 4/2/2020
             
             p = length(I);
             S = [];
@@ -122,13 +119,13 @@ classdef PosLin
             if isempty(option)
                 
                 for i=1:p
-                    S =[S, PosLin.stepReach(I(i), index, xmin, xmax)];
+                    S =[S, PosLin.stepReach(I(i), index)];
                 end
                 
             elseif strcmp(option, 'parallel')
                 
                 parfor i=1:p
-                    S =[S, PosLin.stepReach(I(i), index, xmin, xmax)];
+                    S =[S, PosLin.stepReach(I(i), index)];
                 end
                 
             else
@@ -137,77 +134,10 @@ classdef PosLin
             
             
         end
-        
-        % stepReach with multiple inputs
-        function S = stepReachMultipleInputs2(I, index, option)
-            % @I: an array of stars
-            % @index: index where stepReach is performed
-            % @option: = 'parallel' use parallel computing
-            %          = not declare -> don't use parallel computing
-            
-            % author: Dung Tran
-            % date: 27/2/2019
-
-            
-            p = length(I);
-            S = [];
-            
-            if isempty(option)
-                
-                for i=1:p
-                    S =[S, PosLin.stepReach2(I(i), index)];
-                end
-                
-            elseif strcmp(option, 'parallel')
-                
-                parfor i=1:p
-                    S =[S, PosLin.stepReach2(I(i), index)];
-                end
-                
-            else
-                error('Unknown option');
-            end
-            
-            
-        end
-        
         
         
         % exact reachability analysis using star
         function S = reach_star_exact(I, option)
-            % @I: star input sets
-            % @option: = 'parallel' using parallel computing
-            %          = ''    do not use parallel computing
-            
-            % author: Dung Tran
-            % date: 3/16/2019
-            
-             if ~isempty(I)
-                            
-                %[lb, ub] = I.getRanges;
-                [lb, ub] = I.estimateRanges;
-                
-                if isempty(lb) || isempty(ub)
-                    S = [];
-                else
-                    map = find(lb < 0); % computation map
-                    m = size(map, 1); % number of stepReach operations needs to be executed
-                    In = I;
-                    for i=1:m
-                        fprintf('\nPerforming exact PosLin_%d operation using Star', map(i));
-                        In = PosLin.stepReachMultipleInputs(In, map(i), lb(map(i)), ub(map(i)), option);
-                    end               
-                    S = In;
-                end
-                
-            else
-                S = [];
-            end
-            
-        end
-        
-        % exact reachability analysis using star
-        function S = reach_star_exact2(I, option)
             % @I: star input sets
             % @option: = 'parallel' using parallel computing
             %          = '[]'    do not use parallel computing
@@ -227,12 +157,23 @@ classdef PosLin
                     map = find(ub <= 0); % computation map
                     V = I.V;
                     V(map, :) = 0;
-                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);                    
+                    % update outer-zono
+                    if ~isempty(I.Z)
+                        c1 = I.Z.c;
+                        c1(map, :) = 0;
+                        V1 = I.Z.V;
+                        V1(map, :) = 0;
+                        new_Z = Zono(c1, V1);
+                    else
+                        new_Z = [];
+                    end
+                    
+                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);                    
                     map = find(lb <0 & ub > 0);
                     m = length(map);                    
                     for i=1:m
                         fprintf('\nPerforming exact PosLin_%d operation using Star', map(i));
-                        In = PosLin.stepReachMultipleInputs2(In, map(i), option);
+                        In = PosLin.stepReachMultipleInputs(In, map(i), option);
                     end               
                     S = In;
                 end
@@ -257,89 +198,21 @@ classdef PosLin
              S = [];
              if strcmp(option, 'parallel')
                  parfor i=1:n
-                     S = [S PosLin.reach_star_exact2(In(i), [])];
+                     S = [S PosLin.reach_star_exact(In(i), [])];
                  end
              elseif isempty(option) || strcmp(option, 'single')
                  for i=1:n
-                     S = [S PosLin.reach_star_exact2(In(i), [])];
+                     S = [S PosLin.reach_star_exact(In(i), [])];
                  end
              else
                  error('Unknown computation option');
              end
         end
               
-        % step reach approximation using star
-        function S = stepReachStarApprox(varargin)
-            % @I: star set input
-            % @index: index of the neuron performing stepReach
-            % @S: star output
-
-            % author: Dung Tran
-            % date: 4/3/2019
-            
-            
-             switch nargin
-                
-                case 4
-                    
-                    I = varargin{1};
-                    index = varargin{2};
-                    lb = varargin{3};
-                    ub = varargin{4};
-                
-                case 2
-                    I = varargin{1};
-                    index = varargin{2};
-                    [lb, ub] = I.getRange(index);
-                
-                otherwise
-                    error('Invalid number of input arguments (should be 2 or 4)');
-             end
-            
-            
-            if ~isa(I, 'Star')
-                error('Input is not a star');
-            end         
-           
-            if lb >= 0
-                S = Star(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub);
-            elseif ub <= 0
-                V = I.V;
-                V(index, :) = zeros(1, I.nVar + 1);
-                S = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
-            elseif lb < 0 && ub > 0
-                n = I.nVar + 1;
-                % over-approximation constraints 
-                % constraint 1: y[index] = ReLU(x[index]) >= 0
-                C1 = zeros(1, n);
-                C1(n) = -1; 
-                d1 = 0;
-                % constraint 2: y[index] >= x[index]
-                C2 = [I.V(index, 2:n) -1];
-                d2 = -I.V(index, 1);
-                % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
-                C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-                d3 = -ub*lb/(ub-lb) +  ub*I.V(index, 1)/(ub-lb);
-
-                m = size(I.C, 1);
-                C0 = [I.C zeros(m, 1)];
-                d0 = I.d;
-                new_C = [C0; C1; C2; C3];
-                new_d = [d0; d1; d2; d3];
-                new_V = [I.V zeros(I.dim, 1)];
-                new_V(index, :) = zeros(1, n+1);
-                new_V(index, n+1) = 1; 
-                % update predicate bound
-                new_predicate_lb = [I.predicate_lb; 0]; 
-                new_predicate_ub = [I.predicate_ub; ub];
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
-            end
-
-        end
         
         
         % step reach approximation using star
-        function S = stepReachStarApprox2(I, index)
+        function S = stepReachStarApprox(I, index)
             % @I: star set input
             % @index: index of the neuron performing stepReach
             % @S: star output
@@ -355,11 +228,20 @@ classdef PosLin
             [lb, ub] = I.getRange(index);
            
             if lb >= 0
-                S = Star(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub);
+                S = I;
             elseif ub <= 0
                 V = I.V;
                 V(index, :) = 0;
-                S = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
+                if ~isempty(I.Z)
+                    c1= I.Z.c;
+                    c1(index) = 0;
+                    V1 = I.Z.V;
+                    V1(index, :) = 0;
+                    new_Z = Zono(c1, V1); % update outer-zono
+                else
+                    new_Z = [];
+                end
+                S = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
             elseif lb < 0 && ub > 0
                 fprintf('\nAdd a new predicate variables at index = %d', index);
                 n = I.nVar + 1;
@@ -385,44 +267,32 @@ classdef PosLin
                 new_V(index, n+1) = 1;              
                 new_predicate_lb = [I.predicate_lb; 0];                
                 new_predicate_ub = [I.predicate_ub; ub];
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+                
+                % update outer-zono
+                
+                lamda = ub/(ub -lb);
+                mu = -0.5*ub*lb/(ub - lb);
+                if ~isempty(I.Z)
+                    c = I.Z.c; 
+                    c(index) = lamda * c(index) + mu;
+                    V = I.Z.V;
+                    V(index, :) = lamda * V(index, :);
+                    I1 = zeros(I.dim,1);
+                    I1(index) = mu;
+                    V = [V I1];              
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+                
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
             end
 
         end
+        
         
         % over-approximate reachability analysis using Star
         function S = reach_star_approx(I)
-            % @I: star input set
-            % @S: star output set
-
-            % author: Dung Tran
-            % date: 4/3/2019
-
-            if ~isa(I, 'Star')
-                error('Input is not a star');
-            end
-
-            if isempty(I)
-                S = [];
-            else
-                In = I;
-                [lb, ub] = I.getRanges;
-                %[lb, ub] = I.estimateRanges;
-                if ~isempty(lb) && ~isempty(ub)
-                    for i=1:I.dim
-                        fprintf('\nPerforming approximate PosLin_%d operation using Star', i);
-                        In = PosLin.stepReachStarApprox(In, i, lb(i), ub(i));
-                    end
-                S = In;
-                else
-                    S = [];
-                end
-            end
-
-        end
-        
-        % over-approximate reachability analysis using Star
-        function S = reach_star_approx2(I)
             % @I: star input set
             % @S: star output set
 
@@ -443,12 +313,21 @@ classdef PosLin
                     map = find(ub <= 0); % computation map
                     V = I.V;
                     V(map, :) = 0;
-                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);                    
+                    if ~isempty(I.Z)
+                        c1 = I.Z.c;
+                        c1(map, :) = 0;
+                        V1 = I.Z.V;
+                        V1(map, :) = 0;
+                        new_Z = Zono(c1, V1);
+                    else
+                        new_Z = [];
+                    end
+                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);                    
                     map = find(lb <0 & ub > 0);
                     m = length(map); 
                     for i=1:m
                         fprintf('\nPerforming approximate PosLin_%d operation using Star', map(i));
-                        In = PosLin.stepReachStarApprox2(In, map(i));
+                        In = PosLin.stepReachStarApprox(In, map(i));
                     end
                     S = In;
              
@@ -456,109 +335,6 @@ classdef PosLin
             end
 
         end
-               
-        % fast step reach approximation using star
-        function S = stepReachStarApproxFast(varargin)
-            % @I: star set input
-            % @index: index of the neuron performing stepReach
-            % @S: star output
-
-            % author: Dung Tran
-            % date: 5/30/2019
-            
-            
-             switch nargin
-                
-                case 4
-                    
-                    I = varargin{1};
-                    index = varargin{2};
-                    lb = varargin{3};
-                    ub = varargin{4};
-                
-                case 2
-                    I = varargin{1};
-                    index = varargin{2};
-                    [lb, ub] = I.getRange(index);
-                
-                otherwise
-                    error('Invalid number of input arguments (should be 2 or 4)');
-             end
-            
-            
-            if ~isa(I, 'Star')
-                error('Input is not a star');
-            end         
-           
-            if lb >= 0
-                S = Star(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub);
-            elseif ub <= 0
-                V = I.V;
-                V(index, :) = zeros(1, I.nVar + 1);
-                S = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
-            elseif lb < 0 && ub > 0
-                n = I.nVar + 1;
-                % over-approximation constraints 
-                % constraint 1: y[index] = ReLU(x[index]) >= 0
-                C1 = zeros(1, n);
-                C1(n) = -1; 
-                d1 = 0;
-                % constraint 2: y[index] >= x[index]
-                C2 = [I.V(index, 2:n) -1];
-                d2 = -I.V(index, 1);
-                % constraint 3: y[index] <= ub(x[index] -lb)/(ub - lb)
-                C3 = [-(ub/(ub-lb))*I.V(index, 2:n) 1];
-                d3 = -ub*lb/(ub-lb) +  ub*I.V(index, 1)/(ub-lb);
-
-                m = size(I.C, 1);
-                C0 = [I.C zeros(m, 1)];
-                d0 = I.d;
-                new_C = [C0; C1; C2; C3];
-                new_d = [d0; d1; d2; d3];
-                new_V = [I.V zeros(I.dim, 1)];
-                new_V(index, :) = zeros(1, n+1);
-                new_V(index, n+1) = 1;
-                new_predicate_lb = [I.predicate_lb; 0];
-                new_predicate_ub = [I.predicate_ub; ub];
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
-            end
-
-        end
-
-
-        % fast over-approximate reachability analysis using Star
-        function S = reach_star_approx_fast(I)
-            % @I: star input set
-            % @S: star output set
-
-            % author: Dung Tran
-            % date: 4/3/2019
-
-
-            if ~isa(I, 'Star')
-                error('Input is not a star');
-            end
-
-            if isempty(I)
-                S = [];
-            else
-                B = I.getBoxFast;
-                [pred_lb, pred_ub] = I.getPredicateBounds;
-                In = Star(I.V, I.C, I.d, pred_lb, pred_ub);          
-                if ~isempty(B)
-                    for i=1:I.dim
-                        fprintf('\nPerforming fast approximate PosLin_%d operation using Star', i);
-                        In = PosLin.stepReachStarApproxFast(In, i, B.lb(i), B.ub(i));
-                    end
-                S = In;
-                else
-                    S = [];
-                end
-            end
-
-        end
-
-
 
     end
     
@@ -783,74 +559,6 @@ classdef PosLin
         end
         
         
-        % a new step over-approximate reachability analysis using zonotope
-        function Z = stepReachZonoApprox2(I, index)
-            % @I: zonotope input set
-            % @index: index of neuron performing stepReach
-            % @Z: zonotope output set
-            
-            % author: Dung Tran
-            % date: 5/3/2019
-        
-            % reference: Fast and Effective Robustness Ceritification,
-            % Gagandeep Singh, NIPS 2018
-           
-            if ~isa(I, 'Zono')
-                error('Input is not a Zonotope');
-            end
-               
-            [lb, ub] = I.getRange(index);
-            
-            if lb >= 0
-                Z = Zono(I.c, I.V);
-                
-            elseif ub <= 0
-                c = I.c;
-                c(index) = 0;
-                V = I.V;
-                V(index, :) = zeros(1, size(I.V, 2));
-                Z = Zono(c, V);
-                
-            elseif lb < 0 && ub > 0
-                
-                lamda = lb/2;
-                c = I.c; 
-                c(index) = c(index) - lamda;
-                V = I.V;
-                I1 = zeros(I.dim,1);
-                I1(index) = lamda;
-                V = [V I1];
-                
-                Z = Zono(c, V);                
-            end
-            
-        end
-        
-        % over-approximate reachability analysis use new zonotope method
-        function Z = reach_zono_approx2(I)
-            % @I: zonotope input
-            % @Z: zonotope output
-            
-            % author: Dung Tran
-            % date: 5/3/2019
-            
-            % reference: Fast and Effective Robustness Ceritification,
-            % Gagandeep Singh, NIPS 2018
-            
-            if ~isa(I, 'Zono')
-                error('Input is not a Zonotope');
-            end
-                      
-            In = I;
-            for i=1:I.dim
-                fprintf('\nPerforming approximate PosLin_%d operation using new Zonotope method', i);
-                In = PosLin.stepReachZonoApprox2(In, i);
-            end
-            Z = In;
-                       
-        end
-        
-        
     end
     
     
@@ -1042,19 +750,11 @@ classdef PosLin
                 
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 
-                R = PosLin.reach_star_approx2(I);
-                
-            elseif strcmp(method, 'approx-star-fast')  % over-approximate analysis using star
-                
-                R = PosLin.reach_star_approx_fast(I);
+                R = PosLin.reach_star_approx(I);
                 
             elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
                 
                 R = PosLin.reach_zono_approx(I);
-                
-            elseif strcmp(method, 'approx-zono-new')  % over-approximate analysis using new zonotope method
-                
-                R = PosLin.reach_zono_approx2(I);
                 
             elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
                 

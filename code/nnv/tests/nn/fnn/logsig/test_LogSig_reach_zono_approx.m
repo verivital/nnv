@@ -6,6 +6,7 @@ I = Star(V', I.A, I.b); % input star
 B = I.getBox; 
 I = B.toZono;
 
+
 W = [0.5 1; -1 1];
 
 I = I.affineMap(W, []);

@@ -25,10 +25,10 @@ classdef LogSig
             switch nargin
                 case 1
                     I = varargin{1};
-                    option = 'approx-star-no-split';
+                    method = 'approx-star-no-split';
                 case 2
                     I = varargin{1};
-                    option = varargin{2};
+                    method = varargin{2};
                 otherwise
                     error('Invalid number of input arguments');
             end
@@ -37,9 +37,9 @@ classdef LogSig
                 error('Input set is not a star set');
             end
             
-            if strcmp(option, 'approx-star-no-split')
+            if strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star')
                 S = LogSig.reach_star_approx_no_split(I);
-            elseif strcmp(option, 'approx-star-split')
+            elseif strcmp(method, 'approx-star-split')
                 S = LogSig.reach_star_approx_split(I);
             else
                 error('Unknown reachability method');
@@ -47,46 +47,6 @@ classdef LogSig
             
         end
         
-        function S = reach_star_approx_multipleInputs(varargin)
-            % author: Dung Tran
-            % date: 3/27/2020
-            
-            switch nargin
-                case 1
-                    I = varargin{1};
-                    parallel = []; % no parallel computation
-                    method = 'approx-star-no-split';
-                case 2
-                    I = varargin{1};
-                    parallel = varargin{2};
-                    method = 'approx-star-no-split';
-                case 3
-                    I = varargin{1};
-                    parallel = varargin{2};
-                    method = varargin{3};
-                otherwise
-                    error('Invalid number of input arguments');
-            end
-            
-            p = length(I);
-            S = [];
-            if isempty(parallel)
-                
-                for i=1:p
-                    S =[S LogSig.reach_star_approx(I(i), method)];
-                end
-                
-            elseif strcmp(parallel, 'parallel')
-                
-                parfor i=1:p
-                    S =[S, LogSig.reach_star_approx(I(i), method)];
-                end
-                
-            else
-                error('Unknown parallel computation option');
-            end
-
-        end
         
         % reachability method with star
         function S = reach_star_approx_no_split(I)
@@ -95,27 +55,14 @@ classdef LogSig
             
             % author: Dung Tran
             % date: 3/19/2020
-            
-            B = I.getBox; 
-            if isempty(B)
-                S = [];
-            else
-                l = B.lb;
-                u = B.ub;
-                
-                y_l = logsig(l);
-                y_u = logsig(u);
-                dy_l = logsig('dn', l);
-                dy_u = logsig('dn', u);
-                
-                n = I.dim;
-                S = I;
-                for i=1:n
-                    S = LogSig.stepLogSig_NoSplit(S, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i)); 
-                end
+            % update:4/2/2020
+
+            n = I.dim;
+            S = I;
+            for i=1:n
+                S = LogSig.stepLogSig_NoSplit(S, i); 
             end
-            
-            
+                        
         end
         
         % reachability method with star
@@ -125,38 +72,26 @@ classdef LogSig
             
             % author: Dung Tran
             % date: 3/19/2020
-            
-            B = I.getBox; 
-            if isempty(B)
-                S = [];
-            else
-                l = B.lb;
-                u = B.ub;
-                
-                y_l = logsig(l);
-                y_u = logsig(u);
-                dy_l = logsig('dn', l);
-                dy_u = logsig('dn', u);
-                
-                n = I.dim;
-                S = I;
-                for i=1:n
-                    m = length(S);
-                    O = [];
-                    for j=1:m
-                        O = [O LogSig.stepLogSig_Split(S(j), i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i))];
-                    end
-                    S = O;
+            % update:4/2/2020
+           
+            n = I.dim;
+            S = I;
+            for i=1:n
+                m = length(S);
+                O = [];
+                for j=1:m
+                    O = [O LogSig.stepLogSig_Split(S(j), i)];
                 end
+                S = O;
             end
-            
-            
+       
         end
         
         % stepLogSig
-        function S = stepLogSig_Split(I, index, l, u, y_l, y_u, dy_l, dy_u)
+        function S = stepLogSig_Split(I, index)
             % @I: input star set
             % @index: index of the neuron
+            
             % @l: l = min(x[index]), lower bound at neuron x[index] 
             % @u: u = min(x[index]), upper bound at neuron x[index]
             % @y_l: = logsig(l); output of logsig at lower bound
@@ -168,21 +103,38 @@ classdef LogSig
             
             % author: Dung Tran
             % date: 3/19/2020
+            % update: 4/2/2020
+            
+            %[l, u] = I.Z.getRange(index);
+            [l, u] = I.getRange(index);
+            y_l = logsig(l);
+            y_u = logsig(u);
+            dy_l = logsig('dn', l);
+            dy_u = logsig('dn', u);
             
             if l == u
-                
+               
                 new_V = I.V;
                 new_V(index, 1:I.nVar+1) = 0;
                 new_V(index, 1) = y_l;
-                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub);
-                
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;
+                    c(index) = y_l;
+                    V(index, :) = 0;
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z); 
+               
             elseif l >= 0
                 % y is convex when x >= 0
                 % constraint 1: y <= y'(l) * (x - l) + y(l)
                 % constarint 2: y <= y'(u) * (x - u) + y(u) 
                 % constraint 3: y >= (y(u) - y(l)) * (x - l) / (u - l) + y(l);
-                
-                
+
+
                 n = I.nVar + 1;
                 % over-approximation constraints 
                 % constraint 1: y <= y'(l) * (x - l) + y(l)
@@ -195,7 +147,7 @@ classdef LogSig
                 a = (y_u - y_l)/(u - l);
                 C3 = [a*I.V(index, 2:n) -1];
                 d3 = a*l - y_l - a*I.V(index, 1);
-                
+
                 m = size(I.C, 1);
                 C0 = [I.C zeros(m, 1)];
                 d0 = I.d;
@@ -204,19 +156,36 @@ classdef LogSig
                 new_V = [I.V zeros(I.dim, 1)];
                 new_V(index, :) = zeros(1, n+1);
                 new_V(index, n+1) = 1; 
-                
+
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
-                
-                
+
+                % update outer-zonotope
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;                
+                    lamda = min(dy_l, dy_u);
+                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
+                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
+                    c(index) = lamda * c(index) + mu1;
+                    V(index, :) = lamda * V(index, :); 
+                    I1 = zeros(I.dim, 1);
+                    I1(index) = mu2;
+                    V = [V I1];
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+
             elseif u <= 0
                 % y is concave when x <= 0
                 % constraint 1: y >= y'(l) * (x - l) + y(l)
                 % constraint 2: y >= y'(u) * (x - u) + y(u)
                 % constraint 3: y <= (y(u) - y(l)) * (x -l) / (u - l) + y(l);
-                
+
                 n = I.nVar + 1;
                 % over-approximation constraints 
                 % constraint 1: y >= y'(l) * (x - l) + y(l)
@@ -229,7 +198,7 @@ classdef LogSig
                 a = (y_u - y_l)/(u - l);
                 C3 = [-a*I.V(index, 2:n) 1];
                 d3 = -a*l + y_l + a*I.V(index, 1);
-                
+
                 m = size(I.C, 1);
                 C0 = [I.C zeros(m, 1)];
                 d0 = I.d;
@@ -238,25 +207,41 @@ classdef LogSig
                 new_V = [I.V zeros(I.dim, 1)];
                 new_V(index, :) = zeros(1, n+1);
                 new_V(index, n+1) = 1; 
-                
+
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
-                
-                
+                % update outer-zonotope
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;                
+                    lamda = min(dy_l, dy_u);
+                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
+                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
+                    c(index) = lamda * c(index) + mu1;
+                    V(index, :) = lamda * V(index, :); 
+                    I1 = zeros(I.dim, 1);
+                    I1(index) = mu2;
+                    V = [V I1];
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+
             elseif l <0 && u >0
                 % y is concave for x in [l, 0] and convex for x
                 % in [0, u]
                 % split can be done here 
-                
+
                 % case 1: x in [l, 0]
                 % y'(0) = 0.25
                 % y is concave when x <= 0
                 % constraint 1: y >= y'(l) * (x - l) + y(l)
                 % constraint 2: y >= y'(0) * (x) + y(0)
                 % constraint 3: y <= (y(0) - y(l)) * (x -l) / (0 - l) + y(l);
-                
+
                 n = I.nVar + 1;
                 % over-approximation constraints 
                 % constraint 1: y >= y'(l) * (x - l) + y(l)
@@ -269,7 +254,7 @@ classdef LogSig
                 a = (0.5 - y_l)/(0 - l);
                 C3 = [-a*I.V(index, 2:n) 1];
                 d3 = -a*l + y_l + a*I.V(index, 1);
-                
+
                 m = size(I.C, 1);
                 C0 = [I.C zeros(m, 1)];
                 d0 = I.d;
@@ -278,18 +263,36 @@ classdef LogSig
                 new_V = [I.V zeros(I.dim, 1)];
                 new_V(index, :) = zeros(1, n+1);
                 new_V(index, n+1) = 1; 
-                
+
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; 0.5];
-                S1 = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
+                % update outer-zonotope
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;                
+                    lamda = min(dy_l, 0.25);
+                    mu1 = 0.5*(0.5 + y_l - lamda *(0 + l));
+                    mu2 = 0.5*(0.5 - y_l - lamda *(0 - l));
+                    c(index) = lamda * c(index) + mu1;
+                    V(index, :) = lamda * V(index, :); 
+                    I1 = zeros(I.dim, 1);
+                    I1(index) = mu2;
+                    V = [V I1];
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+                
+                S1 = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+
                 % case 2: x in [0, u] 
                 % y is convex when x >= 0
                 % constraint 1: y <= y'(0) * (x - 0) + y(0) = 0.25*x + 0.5
                 % constarint 2: y <= y'(u) * (x - u) + y(u) 
                 % constraint 3: y >= (y(u) - y(0)) * (x - 0) / (u - 0) + y(0);
-                
+
                 % over-approximation constraints 
                 % constraint 1: y <= y'(0) * (x - 0) + y(0) = 0.25*x + 0.5
                 C1 = [-0.25*I.V(index, 2:n) 1];
@@ -301,25 +304,45 @@ classdef LogSig
                 a = (y_u - 0.5)/u;
                 C3 = [a*I.V(index, 2:n) -1];
                 d3 = -0.5 - a*I.V(index, 1);
-                
+
                 new_C = [C0; C1; C2; C3];
                 new_d = [d0; d1; d2; d3];
                 new_V = [I.V zeros(I.dim, 1)];
                 new_V(index, :) = zeros(1, n+1);
                 new_V(index, n+1) = 1; 
-                
+
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; 0.5]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                S2 = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
+                % update outer-zonotope
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;                
+                    lamda = min(dy_u, 0.25);
+                    mu1 = 0.5*(y_u + 0.5 - lamda *(u + 0));
+                    mu2 = 0.5*(y_u - 0.5 - lamda *(u - 0));
+                    c(index) = lamda * c(index) + mu1;
+                    V(index, :) = lamda * V(index, :); 
+                    I1 = zeros(I.dim, 1);
+                    I1(index) = mu2;
+                    V = [V I1];
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+                
+                S2 = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+
                 S = [S1 S2];
             end
+            
+               
 
         end
         
         % stepLogSig
-        function S = stepLogSig_NoSplit(I, index, l, u, y_l, y_u, dy_l, dy_u)
+        function S = stepLogSig_NoSplit(I, index)
             % @I: input star set
             % @index: index of the neuron
             % @l: l = min(x[index]), lower bound at neuron x[index] 
@@ -335,11 +358,32 @@ classdef LogSig
             % date: 3/19/2020
             
             
+            if ~isempty(I.Z) && I.nVar > 200
+                [l, u] = I.Z.getRange(index);
+            else
+                [l, u] = I.getRange(index);
+            end
+            
+            y_l = logsig(l);
+            y_u = logsig(u);
+            dy_l = logsig('dn', l);
+            dy_u = logsig('dn', u);
+            
             if l == u
                 new_V = I.V;
                 new_V(index, 1:I.nVar+1) = 0;
                 new_V(index, 1) = y_l;
-                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub);                
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;
+                    c(index) = y_l;
+                    V(index, :) = 0;
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+                
             elseif l >= 0
                 % y is convex when x >= 0
                 % constraint 1: y <= y'(l) * (x - l) + y(l)
@@ -372,8 +416,25 @@ classdef LogSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
+                % update outer-zonotope
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;                
+                    lamda = min(dy_l, dy_u);
+                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
+                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
+                    c(index) = lamda * c(index) + mu1;
+                    V(index, :) = lamda * V(index, :); 
+                    I1 = zeros(I.dim, 1);
+                    I1(index) = mu2;
+                    V = [V I1];
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);             
                 
             elseif u <= 0
                 % y is concave when x <= 0
@@ -406,9 +467,25 @@ classdef LogSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
                 
-                
+                % update outer-zonotope
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;                
+                    lamda = min(dy_l, dy_u);
+                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
+                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
+                    c(index) = lamda * c(index) + mu1;
+                    V(index, :) = lamda * V(index, :); 
+                    I1 = zeros(I.dim, 1);
+                    I1(index) = mu2;
+                    V = [V I1];
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
+
             elseif l <0 && u >0
                 % y is concave for x in [l, 0] and convex for x
                 % in [0, u]
@@ -457,7 +534,25 @@ classdef LogSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+                
+                % update outer-zonotope
+                if ~isempty(I.Z)
+                    c = I.Z.c;
+                    V = I.Z.V;                
+                    lamda = min(dy_l, dy_u);
+                    mu1 = 0.5*(y_u + y_l - lamda *(u + l));
+                    mu2 = 0.5*(y_u - y_l - lamda *(u - l));
+                    c(index) = lamda * c(index) + mu1;
+                    V(index, :) = lamda * V(index, :); 
+                    I1 = zeros(I.dim, 1);
+                    I1(index) = mu2;
+                    V = [V I1];
+                    new_Z = Zono(c, V);
+                else
+                    new_Z = [];
+                end
+
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);
                                 
             end
 
@@ -731,44 +826,28 @@ end
 methods(Static) % main reach method
     
     % main function for reachability analysis
-    function R = reach(varargin)
+    function R = reach(I, method)
         % @I: an array of star input sets
         % @method: 'approx-star' or 'approx-zono' or 'abs-dom' 
         % @option: = 'parallel' or [] using parallel computation or not
 
         % author: Dung Tran
         % date: 3/27/2019
-
-        switch nargin
-
-            case 3
-                I = varargin{1};
-                method = varargin{2};
-                option = varargin{3};
-
-            case 2
-                I = varargin{1};
-                method = varargin{2};
-                option = [];
-            case 1
-                I = varargin{1};
-                method = 'approx-star';
-                option = [];
-            otherwise
-                error('Invalid number of input arguments (should be 1, 2 or 3)');
-        end       
+        % update: 4/2/2020
         
-        if strcmp(method, 'approx-star') % exact analysis using star
 
-            R = LogSig.reach_star_approx_multipleInputs(I, option);
+
+        if strcmp(method, 'approx-star') || strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star-split') 
+
+            R = LogSig.reach_star_approx(I, method);
 
         elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
 
-            R = LogSig.reach_zono_approx_multipleInputs(I, option);
+            R = LogSig.reach_zono_approx(I);
 
         elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
 
-            R = LogSig.reach_absdom_approx_multipleInputs(I, option);
+            R = LogSig.reach_absdom_approx(I);
 
         else
             error('Unknown or unsupported reachability method for layer with LogSig activation function');

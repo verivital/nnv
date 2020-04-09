@@ -18,7 +18,8 @@ classdef Star
         predicate_ub = []; % upper bound vector of predicate variable
         
         state_lb = []; % lower bound of state variables
-        state_ub = []; % upper bound of state variables       
+        state_ub = []; % upper bound of state variables
+        Z = []; % an outer zonotope covering this star, used for reachability of logsig and tansig networks
     end
     
     methods
@@ -79,14 +80,79 @@ classdef Star
                         
 
                     obj.V = V;
-                    obj.C = C; 
+                    obj.C = C;
                     obj.d = d;
+                    
                     obj.dim = nV;
                     obj.nVar = mC;
                     obj.predicate_lb = pred_lb;
                     obj.predicate_ub = pred_ub;
                     obj.state_lb = state_lb;
                     obj.state_ub = state_ub;
+                    B = Box(state_lb, state_ub);
+                    obj.Z = B.toZono;
+                    
+                case 6
+                    
+                    V = varargin{1};
+                    C = varargin{2};
+                    d = varargin{3};
+                    pred_lb = varargin{4};
+                    pred_ub = varargin{5};
+                    outer_zono = varargin{6};
+                    
+                    [nV, mV] = size(V);
+                    [nC, mC] = size(C);
+                    [nd, md] = size(d);
+                    
+                    if ~isempty(outer_zono) && ~isa(outer_zono, 'Zono')
+                        error("Outer zonotope is not a Zono object");
+                    end
+                    
+                    if ~isempty(outer_zono)
+                        [nZ, ~] = size(outer_zono.V);
+                        if nZ ~= nV
+                            error('Inconsistent dimension between outer zonotope and star set');
+                        end
+                    end
+
+                    if mV ~= mC + 1
+                        error('Inconsistency between basic matrix and constraint matrix');
+                    end
+                    
+                    if nC ~= nd
+                        error('Inconsistency between constraint matrix and constraint vector');
+                    end
+
+                    if md ~= 1
+                        error('constraint vector should have one column');
+                    end
+                    
+                    
+                    if ~isempty(pred_lb) && ~isempty(pred_ub)
+                        [n1, m1] = size(pred_lb);
+                        [n2, m2] = size(pred_ub);
+                        
+                        if m1 ~=1 || m2 ~=1 
+                            error('predicate lower- or upper-bounds vector should have one column');
+                        end
+
+                        if n1 ~= n2 || n1 ~= mC
+                            error('Inconsistency between number of predicate variables and predicate lower- or upper-bounds vector');
+                        end
+                        
+                    end
+                    
+                    obj.V = V;
+                    obj.C = C;
+                    obj.d = d;
+                    
+                    obj.dim = nV;
+                    obj.nVar = mC;
+                    obj.predicate_lb = pred_lb;
+                    obj.predicate_ub = pred_ub;
+                    obj.Z = outer_zono;
+                
                 
                 case 5
                     
@@ -114,16 +180,16 @@ classdef Star
                         error('constraint vector should have one column');
                     end
                     
-                    if m1 ~=1 || m2 ~=1 
+                    if (m1 ~= 0 && m2~=0) && (m1 ~=1 || m2 ~=1) 
                         error('predicate lower- or upper-bounds vector should have one column');
                     end
                     
-                    if n1 ~= n2 || n1 ~= mC
+                    if (n1 ~=0 && n2 ~= 0) && (n1 ~= n2 || n1 ~= mC)
                         error('Inconsistency between number of predicate variables and predicate lower- or upper-bounds vector');
                     end
 
                     obj.V = V;
-                    obj.C = C; 
+                    obj.C = C;
                     obj.d = d;
                     obj.dim = nV;
                     obj.nVar = mC;
@@ -152,14 +218,11 @@ classdef Star
                     end
 
                     obj.V = V;
-                    obj.C = C; 
+                    obj.C = C;
                     obj.d = d;
+                    
                     obj.dim = nV;
                     obj.nVar = mC;
-                    P = Polyhedron('A', obj.C, 'b', obj.d);
-                    P.outerApprox;
-                    obj.predicate_lb = P.Internal.lb;
-                    obj.predicate_ub = P.Internal.ub;
                                                             
                 case 2
                     
@@ -179,6 +242,7 @@ classdef Star
                     obj.state_ub = ub;
                     obj.predicate_lb = -ones(S.nVar, 1);
                     obj.predicate_ub = ones(S.nVar, 1);
+                    obj.Z = B.toZono;
                     
                 
                 case 0
@@ -331,12 +395,14 @@ classdef Star
                 newV = W * obj.V;
             end
             
-            if ~isempty(obj.predicate_lb)
-                S = Star(newV, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+            if ~isempty(obj.Z)
+                new_Z = obj.Z.affineMap(W, b);
             else
-                S = Star(newV, obj.C, obj.d);
+                new_Z = [];
             end
-           
+            
+            S = Star(newV, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub, new_Z);
+                       
         end
         
         % Minkowski Sum
@@ -409,7 +475,7 @@ classdef Star
             
             new_C = vertcat(obj.C, C1);
             new_d = vertcat(obj.d, d1);
-                       
+            
             S = Star(obj.V, new_C, new_d, obj.predicate_lb, obj.predicate_ub);
             
             if S.isEmptySet
@@ -605,9 +671,115 @@ classdef Star
         end
         
         % plot star set
-        function plot(obj)
-            P = obj.toPolyhedron();
-            P.plot;
+        function plot(varargin)
+            % author: Dung Tran
+            % date: 3/27/2019
+            % update: 4/2/2020
+            
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    color = varargin{2};
+                    map_mat = [];
+                    map_vec = [];
+                    approx = [];
+                case 1
+                    obj = varargin{1};
+                    color = 'red';
+                    map_mat = [];
+                    map_vec = [];
+                    approx = [];
+                case 3
+                    obj = varargin{1};
+                    color = varargin{2};
+                    map_mat = varargin{3};
+                    map_vec = [];
+                    approx = [];
+                case 4
+                    obj = varargin{1};
+                    color = varargin{2};
+                    map_mat = varargin{3};
+                    map_vec = varargin{4};
+                    approx = [];
+                case 5
+                    obj = varargin{1};
+                    color = varargin{2};
+                    map_mat = varargin{3};
+                    map_vec = varargin{4};
+                    approx = varargin{5};
+                    
+                otherwise
+                    error('Invalid number of input arguments, should be 1, 2, 3, 4, or 5');
+                
+            end
+            
+            
+            if isempty(map_mat)
+                
+                if obj.dim > 3
+                    error('Cannot visualize the star set in > 3 dimensional space, please plot a projection of the star set');
+                end
+                
+                if obj.nVar > 20
+                                        
+                    if isempty(approx)
+                        try 
+                            P = obj.toPolyhedron;
+                            P.plot('color', color);
+                        catch
+                            warning('The number of predicate variables is high (%d). This can cause an error for MPT plotting');
+                            warning('NNV plots an over-approximation of the star set using a box instead');
+                            B = obj.getBox;
+                            B.plot;
+                        end                       
+                    else                       
+                        
+                        if strcmp(approx, 'zonotope')                            
+                            if isempty(obj.Z)
+                                Z1 = obj.getZono;
+                                Zono.plots(Z1);
+                            else
+                                Zono.plots(obj.Z);
+                            end
+                        elseif strcmp(approx, 'box')
+                            B = obj.getBox;
+                            B.plot;
+                        else
+                            error('Unknown plotting option');
+                        end
+                        
+                    end
+                    
+                else
+                    P = obj.toPolyhedron;
+                    P.plot('color', color);
+                end
+            
+            else
+                
+                [n1,n2] = size(map_mat);
+                if n1 > 3 || n1 < 1
+                    error('Invalid projection matrix');
+                end
+                if n2 ~= obj.dim
+                    error('Inconsistency between projection matrix and the star set dimension');
+                end
+                
+                if ~isempty(map_vec)
+                    [m1,m2] = size(map_vec);
+                    if n1~=m1
+                        error('Inconsistency between projection matrix and projection vector');
+                    end
+                    if m2 ~= 1
+                        error('Invalid projection vector');
+                    end
+                end
+                
+                S1 = obj.affineMap(map_mat, map_vec);
+                S1.plot(color,[],[],approx);
+            end
+            
+            
         end
         
         % find a box bounding a star
@@ -669,7 +841,32 @@ classdef Star
               
         end
         
-        
+        % return possible max indexes
+        function max_ids = getMaxIndexes(obj)
+            % @max_ids: index of the state that can be a max point
+            
+            % author: Dung Tran
+            % date: 4/1/2020
+            
+            new_rs  = obj.toImageStar(obj.dim, 1, 1);                    
+            max_id = new_rs.get_localMax_index([1 1], [obj.dim 1], 1);
+            max_ids = max_id(:, 1);
+
+%               max_ids = [];
+%               for i=1:obj.dim
+%                     
+%                   G1 = eye(obj.dim);
+%                   G1(i, :) = [];
+%                   G2 = zeros(obj.dim - 1, obj.dim);
+%                   G2(:, i) = 1;
+%                   G = G1 - G2;
+%                   g = zeros(obj.dim - 1, 1);
+%                   
+%                   if ~isempty(obj.intersectHalfSpace(G, g))
+%                       max_ids = [max_ids; i];
+%                   end
+%               end
+        end
         
         % estimates ranges of state vector quickly
         % these ranges are not the exact range, it is an
@@ -839,14 +1036,20 @@ classdef Star
             
             % author: Dung Tran
             % date: 7/19/2019
+            % update: 4/2/2020
             
-            n = obj.dim;
-            lb = zeros(n,1);
-            ub = zeros(n,1);
-            
-            for i=1:n
-                [lb(i), ub(i)] = obj.estimateRange(i);
+            if ~isempty(obj.Z)
+                [lb, ub] = obj.Z.getBounds;
+            else
+                n = obj.dim;
+                lb = zeros(n,1);
+                ub = zeros(n,1);
+
+                for i=1:n
+                    [lb(i), ub(i)] = obj.estimateRange(i);
+                end
             end
+            
 
         end
         
@@ -1016,18 +1219,13 @@ classdef Star
             
             n = length(S);
             if n==1
-                P = S.toPolyhedron;
-                display(S);
-                display(P);
-                P.plot('color', color);
+                S(1).plot(color);
             else
                 for i=1:n-1
-                    P = S(i).toPolyhedron;
-                    P.plot('color', color);
+                    S(i).plot(color);
                     hold on;
                 end
-                P = S(n).toPolyhedron;
-                P.plot('color', color);
+                S(n).plot(color);
             end
             
             

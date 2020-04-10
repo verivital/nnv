@@ -173,6 +173,7 @@ classdef NonlinearNNCS < handle
             
             l = length(fb_I);
             fb_inputSet = [];
+            
             if l > 0
                 for i=1:l
                     if ~isa(fb_I(i), 'Star')
@@ -192,12 +193,11 @@ classdef NonlinearNNCS < handle
                 
                 new_V = vertcat(obj.ref_I, zeros(obj.nI_fb, obj.ref_I.nVar + 1));
                 
-                I = Star(new_V, obj.ref_I.C, obj.ref_I.d);
-                
+                I = Star(new_V, obj.ref_I.C, obj.ref_I.d, obj.ref_I.predicate_lb, obj.ref_I.predicate_lb);
             end
             
             if ~isempty(obj.ref_I) && ~isempty(fb_inputSet)
-               
+                
                 l = length(fb_inputSet);
                 nA = fb_inputSet(1).dim;
                 I2 = [];

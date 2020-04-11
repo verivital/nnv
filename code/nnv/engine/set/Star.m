@@ -981,22 +981,30 @@ classdef Star
                 error('Invalid index');
             end
             
-            f = obj.V(index, 1:obj.nVar+1);
-            xmin = f(1);
-            xmax = f(1);
-                        
-            for i=2:obj.nVar+1
-                if f(i) >= 0
-                    xmin = xmin + f(i) * obj.predicate_lb(i-1);
-                    xmax = xmax + f(i) * obj.predicate_ub(i-1);
-                else
-                    xmin = xmin + f(i) * obj.predicate_ub(i-1);
-                    xmax = xmax + f(i) * obj.predicate_lb(i-1);
+            
+            if ~isempty(obj.predicate_lb) && ~isempty(obj.predicate_ub)
+
+                f = obj.V(index, 1:obj.nVar+1);
+                xmin = f(1);
+                xmax = f(1);
+
+                for i=2:obj.nVar+1
+                    if f(i) >= 0
+                        xmin = xmin + f(i) * obj.predicate_lb(i-1);
+                        xmax = xmax + f(i) * obj.predicate_ub(i-1);
+                    else
+                        xmin = xmin + f(i) * obj.predicate_ub(i-1);
+                        xmax = xmax + f(i) * obj.predicate_lb(i-1);
+                    end
+
                 end
+
+            else
                 
+               warning('The ranges of predicate variables are unknown to estimate the ranges of the states, we solve LP optimization to get the exact range');
+               [xmin, xmax] = obj.getRange(index); 
+               
             end
-            
-            
         end
         
         % estimate range using clip 
@@ -1525,6 +1533,8 @@ classdef Star
             new_V = [];
             new_C = [];
             new_d = [];
+            new_pred_lb = [];
+            new_pred_ub = [];
             
             n = length(stars);
             
@@ -1537,10 +1547,12 @@ classdef Star
                 new_V = blkdiag(new_V, stars(i).V(:, 2:stars(i).nVar + 1));
                 new_C = blkdiag(new_C, stars(i).C);
                 new_d = vertcat(new_d, stars(i).d);
+                new_pred_lb = vertcat(new_pred_lb, stars(i).predicate_lb);
+                new_pred_ub = vertcat(new_pred_ub, stars(i).predicate_ub);
                 
             end
             
-            S = Star([new_c new_V], new_C, new_d);
+            S = Star([new_c new_V], new_C, new_d, new_pred_lb, new_pred_ub);
            
         end
        

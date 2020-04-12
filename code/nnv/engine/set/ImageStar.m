@@ -109,9 +109,9 @@ classdef ImageStar < handle
                 
                 case 3 % input center image and lower and upper bound matrices (box-representation)
                     
-                    IM1 = varargin{1};
-                    LB1 = varargin{2};
-                    UB1 = varargin{3};
+                    IM1 = double(varargin{1});
+                    LB1 = double(varargin{2});
+                    UB1 = double(varargin{3});
                     n = size(IM1); % n(1) and n(2) are height and width of image
                                   % n(3) is number of channels
                     l = size(LB1);
@@ -169,11 +169,11 @@ classdef ImageStar < handle
                                          
                 case 5 % 
                     
-                    V1 = varargin{1};  % basis matrices
-                    C1 = varargin{2};  % predicate constraint matrix 
-                    d1 = varargin{3};  % predicate constraint vector
-                    lb1 = varargin{4}; % predicate lower bound
-                    ub1 = varargin{5}; % predicate upper bound
+                    V1 = double(varargin{1});  % basis matrices
+                    C1 = double(varargin{2});  % predicate constraint matrix 
+                    d1 = double(varargin{3});  % predicate constraint vector
+                    lb1 = double(varargin{4}); % predicate lower bound
+                    ub1 = double(varargin{5}); % predicate upper bound
                     
                                         
                     if size(C1, 1) ~= size(d1, 1)
@@ -230,13 +230,13 @@ classdef ImageStar < handle
                      
                 case 7 % 
                     
-                    V1 = varargin{1};  % basis matrices
-                    C1 = varargin{2};  % predicate constraint matrix 
-                    d1 = varargin{3};  % predicate constraint vector
-                    lb1 = varargin{4}; % predicate lower bound
-                    ub1 = varargin{5}; % predicate upper bound
-                    im_lb1 = varargin{6}; % lower bound image
-                    im_ub1 = varargin{7}; % upper bound image
+                    V1 = double(varargin{1});  % basis matrices
+                    C1 = double(varargin{2});  % predicate constraint matrix 
+                    d1 = double(varargin{3});  % predicate constraint vector
+                    lb1 = double(varargin{4}); % predicate lower bound
+                    ub1 = double(varargin{5}); % predicate upper bound
+                    im_lb1 = double(varargin{6}); % lower bound image
+                    im_ub1 = double(varargin{7}); % upper bound image
                                                           
                                         
                     if size(C1, 1) ~= size(d1, 1)
@@ -304,6 +304,56 @@ classdef ImageStar < handle
                     else
                         obj.im_ub = im_ub1;
                     end
+                    
+                case 2
+                    % input lower bound and upper bound image
+                    lb_im = double(varargin{1});
+                    ub_im = double(varargin{2});
+                    if isempty(lb_im)
+                        error('Invalid lower bound image');
+                    end
+                    if isempty(ub_im)
+                        error('Invalid upper bound image');
+                    end
+                    
+                    n = size(lb_im);
+                    m = size(ub_im); 
+                    
+                    if length(n) ~= length(m)
+                        error('Inconsistency between lower bound image and upper bound image');
+                    end
+                    
+                    if length(n) == 3
+                        if n(1) ~= m(1) || n(2) ~= m(2) || n(3) ~= m(3)
+                            error('Inconsistency between lower bound image and upper bound image');
+                        end
+                        
+                        lb = reshape(lb_im, [n(1)*n(2)*n(3) 1]);
+                        ub = reshape(ub_im, [n(1)*n(2)*n(3) 1]);
+                        
+                        S = Star(lb, ub);
+                        obj = S.toImageStar(n(1), n(2), n(3));
+                        obj.im_lb = lb_im;
+                        obj.im_ub = ub_im;
+                    end
+                    
+                    if length(n) == 2
+                        if n(1) ~= m(1) || n(2) ~= m(2) 
+                            error('Inconsistency between lower bound image and upper bound image');
+                        end
+                        obj.numChannel = 1;
+                        lb = reshape(lb_im, [n(1)*n(2) 1]);
+                        ub = reshape(ub_im, [n(1)*n(2) 1]);
+                        
+                        S = Star(lb, ub);
+                        obj = S.toImageStar(n(1), n(2), 1);
+                        obj.im_lb = lb_im;
+                        obj.im_ub = ub_im;
+                    end
+                    
+                    
+                    
+                    
                     
                                                                     
                 case 0 % create an empty ImageStar

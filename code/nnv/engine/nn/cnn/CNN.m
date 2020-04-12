@@ -460,7 +460,7 @@ classdef CNN < handle
     methods(Static)
        
         % parse a network from matlab for reachability analysis
-        function cnn = parse(net, name)
+        function cnn = parse(varargin)
             % @net: input network
             % @cnn: the cnn network for reachability analysis
             
@@ -473,6 +473,19 @@ classdef CNN < handle
             
             % author: Dung Tran
             % date: 7/16/2019
+            % update: 4/10/2020
+            
+            switch nargin
+                case 1
+                    net = varargin{1};
+                    name = 'parsed_net';
+                case 2
+                    net = varargin{1};
+                    name = varargin{2};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');
+            end
+            
             
             
             n = length(net.Layers); % number of layers
@@ -484,7 +497,7 @@ classdef CNN < handle
             j = 0; % counter of number of layers
             for i=1:n
                 L = net.Layers(i);
-                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                  
+                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') || isa(L, 'nnet.cnn.layer.PixelClassificationLayer')                  
                     fprintf('\nLayer %d is a %s class which is neglected in the analysis phase', i, class(L));                   
                     if isa(L, 'nnet.cnn.layer.ImageInputLayer')
                         inputSize = L.InputSize;

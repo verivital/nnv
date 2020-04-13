@@ -12,9 +12,8 @@ cd /code/nnv/examples/Submission/CAV2020_ImageStar/
 
 cd MNIST_NETS/Small
 
-plot_ranges
-
-saveas(gcf, '/results/figure8_mnist_small.png')
+%plot_ranges
+%saveas(gcf, '/results/figure8_mnist_small.png')
 
 compare_star_absdom_short
 

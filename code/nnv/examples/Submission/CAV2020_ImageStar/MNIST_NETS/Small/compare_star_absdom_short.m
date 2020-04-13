@@ -1,6 +1,7 @@
 load images.mat;
 load('Small_ConvNet.mat');
 nnvNet = CNN.parse(net, 'Small_ConvNet');
+mkdir([path_results(), filesep, 'MNIST_Small']);
 path_out = [path_results(), filesep, 'MNIST_Small', filesep];
 
 

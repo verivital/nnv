@@ -8,6 +8,18 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
+cd /code/nnv/examples/Submission/CAV2020_ImageStar/
+
+cd MNIST_NETS/Small
+
+plot_ranges
+
+saveas(gcf, '/results/figure8_mnist_small.png')
+
+
+
+return
+
 cd /code/nnv/examples/Submission/CAV2020/
 
 % examples to manually run nnv on acas-xu, these (and many more) are 

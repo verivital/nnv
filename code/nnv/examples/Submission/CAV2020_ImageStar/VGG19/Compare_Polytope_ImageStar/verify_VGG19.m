@@ -38,7 +38,13 @@ end
 fprintf('\n\n=============================LOAD VGG19 ======================\n');
 
 % Load the trained model 
-net = vgg19();
+% Load the trained model
+if is_codeocean()
+    load('/data/vgg19_cache.mat');
+    net = net_vgg19;
+else
+    net = vgg19();
+end
 
 fprintf('\n\n======================== PARSING VGG19 =======================\n');
 nnvNet = CNN.parse(net, 'VGG19');

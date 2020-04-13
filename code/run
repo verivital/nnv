@@ -32,3 +32,6 @@ ls
 cd ~/
 
 matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); startup_nnv; savepath; run_codeocean;"
+
+#cd /results/logs/vgg
+#pdflatex VGG16_Results.tex

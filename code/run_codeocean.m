@@ -11,17 +11,32 @@ end
 cd /code/nnv/examples/Submission/CAV2020_ImageStar/
 
 cd MNIST_NETS/Small
-
 %plot_ranges
 %saveas(gcf, '/results/figure8_mnist_small.png')
+%compare_star_absdom_short % ~ 5 min
 
+% next together: > 1.5 hours
+cd ../Medium
 %compare_star_absdom_short
+
+cd ../Large
+%compare_star_absdom_short
+
 
 cd /code/nnv/examples/Submission/CAV2020_ImageStar/
 
 cd VGG16/Compare_Polytope_ImageStar
+%verify_VGG16 % takes ~1:38 hours:min
 
-verify_VGG16
+cd ../Compare_Exact_vs_Approx
+%verify_robustness_delta_2e_07 % ~15 min
+
+%verify_robustness_delta_e_07 % ~15 min
+
+cd /code/nnv/examples/Submission/CAV2020_ImageStar/
+
+cd VGG19/Compare_Polytope_ImageStar
+verify_VGG19
 
 return
 

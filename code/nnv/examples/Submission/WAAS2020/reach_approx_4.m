@@ -18,11 +18,11 @@ addpath(genpath(pwd))
 load('UUV_model.mat');
 Plant = DLinearODE(sys.A,sys.B,sys.C,sys.D,sys.Ts); % Continuous
 % Norm: sensor NN model
-Norm = load_nn('','','','','','FNNsensor.mat'); 
+Norm = Load_nn('FNNsensor.mat'); 
 % Controller
-Cont = load_nn('','','','','','FNNcontroller.mat');
+Cont = Load_nn('FNNcontroller.mat');
 % Controller output normalization NN
-Cont2 = load_nn('','','','','','FNNnorm.mat');
+Cont2 = Load_nn('FNNnorm.mat');
 % Gazebo data
 load('data_exp4.mat');% (28 variables, 1Hz)
 % Obstacle locations

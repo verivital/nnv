@@ -16,7 +16,7 @@ plot_ranges
 
 saveas(gcf, '/results/figure8_mnist_small.png')
 
-
+compare_star_absdom_short
 
 return
 

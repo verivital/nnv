@@ -38,7 +38,6 @@ end
 fprintf('\n\n=============================LOAD VGG19 ======================\n');
 
 % Load the trained model 
-% Load the trained model
 if is_codeocean()
     load('/data/vgg19_cache.mat');
     net = net_vgg19;

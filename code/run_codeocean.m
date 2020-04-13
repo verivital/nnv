@@ -15,7 +15,13 @@ cd MNIST_NETS/Small
 %plot_ranges
 %saveas(gcf, '/results/figure8_mnist_small.png')
 
-compare_star_absdom_short
+%compare_star_absdom_short
+
+cd /code/nnv/examples/Submission/CAV2020_ImageStar/
+
+cd VGG16/Compare_Polytope_ImageStar
+
+verify_VGG16
 
 return
 

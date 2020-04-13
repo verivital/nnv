@@ -3,9 +3,9 @@
 clc;clear;close all;
 
 % Load the first part of the NN controller (LEC)
-Cont = load_nn(' ',' ',' ',' ',' ','model.ckpt-558138.mat');
+Cont = Load_nn('model.ckpt-558138.mat');
 % Load the second part of the NN controller (LEc)
-Norm = load_nn(' ',' ',' ',' ',' ','LEC1_NormFcnRelu.mat');
+Norm = Load_nn('LEC1_NormFcnRelu.mat');
 % Load the SysID model of the UUV
 load('blackbox_sys_6s_3'); % sys is loaded
 

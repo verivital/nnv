@@ -555,7 +555,7 @@ classdef NNCS < handle
             %            (CORA model will be saved in current working directory)
             % 
             % plant - NNV plant model obtained from the CORA file
-            %
+           
             % -------- Example ---------
             % plant = NNCS.parsePlant('platoon_continuous.xml','platoon11', 'platoonC');
             % 

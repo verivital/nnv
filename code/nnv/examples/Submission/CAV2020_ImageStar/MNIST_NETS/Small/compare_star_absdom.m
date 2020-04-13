@@ -2,6 +2,13 @@ load images.mat;
 load('Small_ConvNet.mat');
 nnvNet = CNN.parse(net, 'Small_ConvNet');
 
+path_out = [path_results(), filesep, 'MNIST', filesep];
+
+if ~isfolder(path_out)
+    mkdir(path_out);
+end
+
+
 % Note: label = 1 --> digit 0
 %       label = 2 --> digit 1
 %       ...
@@ -90,7 +97,7 @@ for i=1:P
     end
 end
 
-save Small_ConvNet_Results.mat r_star VT_star r_absdom VT_absdom;
+save([path_out, 'Small_ConvNet_Results.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom'];
 
 
 %% print the results
@@ -147,7 +154,7 @@ end
 
 
 %% Print to file
-fid = fopen('Small_ConvNet_Results.txt', 'wt');
+fid = fopen([path_out, 'Small_ConvNet_Results.txt'], 'wt');
 fprintf(fid,'\n========================================================================================');
 fprintf(fid,'\n          ROBUSTNESS VERIFICATION RESULTS (IN PERCENT) OF SMALL_CONVNET                 ');
 fprintf(fid,'\n========================================================================================\n\n');
@@ -199,7 +206,7 @@ for i=1:P
 end
 
 %% Print latex table
-fid = fopen('Small_ConvNet_Results.tex', 'wt');
+fid = fopen([path_out, 'Small_ConvNet_Results.tex'], 'wt');
 fprintf(fid,'\nRobustness results\n');
 for i=1:P
     fprintf(fid, '$d = %d$', d(i));

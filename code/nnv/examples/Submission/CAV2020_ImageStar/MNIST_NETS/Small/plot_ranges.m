@@ -111,3 +111,4 @@ title('Polytope', 'FontSize', 11);
 xticks([0 5 9]);
 xticklabels({'0', '5', '9'});
 set(gca, 'FontSize', 10);
+

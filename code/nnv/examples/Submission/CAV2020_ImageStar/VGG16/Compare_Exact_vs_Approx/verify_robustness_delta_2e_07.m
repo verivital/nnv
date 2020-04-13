@@ -2,6 +2,12 @@
 clc;
 clear;
 
+path_out = [path_results(), filesep, 'vgg', filesep];
+
+if ~isfolder(path_out)
+    mkdir(path_out);
+end
+
 fprintf('\n\n=============================LOAD VGG16 ======================\n');
 
 % Load the trained model 
@@ -55,7 +61,7 @@ for i=1:n
 end
 
 
-save verificationResult_2e_07.mat l delta robust_exact VT_exact robust_approx VT_approx;
+save([path_out, 'verificationResult_2e_07.mat'], 'l', 'delta', 'robust_exact', 'VT_exact', 'robust_approx', 'VT_approx');
 
 
 

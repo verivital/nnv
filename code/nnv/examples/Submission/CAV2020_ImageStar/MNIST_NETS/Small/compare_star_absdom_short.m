@@ -1,8 +1,12 @@
 load images.mat;
 load('Small_ConvNet.mat');
 nnvNet = CNN.parse(net, 'Small_ConvNet');
-mkdir([path_results(), filesep, 'MNIST_Small']);
-path_out = [path_results(), filesep, 'MNIST_Small', filesep];
+
+path_out = [path_results(), filesep, 'MNIST', filesep];
+
+if ~isfolder(path_out)
+    mkdir(path_out);
+end
 
 
 % Note: label = 1 --> digit 0
@@ -93,7 +97,7 @@ for i=1:P
     end
 end
 
-save Small_ConvNet_Results.mat r_star VT_star r_absdom VT_absdom;
+save([path_out, 'Small_ConvNet_Results.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom');
 
 
 %% print the results

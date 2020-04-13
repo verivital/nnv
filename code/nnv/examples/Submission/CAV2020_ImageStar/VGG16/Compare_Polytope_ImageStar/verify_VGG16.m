@@ -1,3 +1,9 @@
+path_out = [path_results(), filesep, 'vgg', filesep];
+
+if ~isfolder(path_out)
+    mkdir(path_out);
+end
+
 
 %% Construct input sets
 dif_images = load('pepper_dif_images.mat');
@@ -37,8 +43,16 @@ end
 %% parse VGG16
 fprintf('\n\n=============================LOAD VGG16 ======================\n');
 
-% Load the trained model 
-net = vgg16();
+% Load the trained model
+if is_codeocean()
+    % the vgg support packages require a gui to install
+    % so, load alternatively from the data repository 
+    % when running on codeocean / other headless platforms
+    load('/data/vgg16_cache.mat');
+    net = net_vgg16;
+else
+    net = vgg16();
+end
 
 fprintf('\n\n======================== PARSING VGG16 =======================\n');
 nnvNet = CNN.parse(net, 'VGG16');
@@ -70,7 +84,7 @@ for i=1:P
     end
 end
 
-save VGG16_Results.mat r_star VT_star r_absdom VT_absdom;
+save([path_out, 'VGG16_Results.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom');
 
 
 %% print the results
@@ -127,7 +141,7 @@ end
 
 
 %% Print to file
-fid = fopen('VGG_Results.txt', 'wt');
+fid = fopen([path_out, 'VGG_Results.txt'], 'wt');
 fprintf(fid,'\n========================================================================================');
 fprintf(fid,'\n          ROBUSTNESS VERIFICATION RESULTS (IN PERCENT) OF VGG16 UNDER DEEPFOOL ATTACK       ');
 fprintf(fid,'\n========================================================================================\n\n');
@@ -179,7 +193,7 @@ for i=1:P
 end
 
 %% Print latex table
-fid = fopen('VGG16_Results.tex', 'wt');
+fid = fopen([path_out, 'VGG16_Results.tex'], 'wt');
 fprintf(fid,'\nRobustness results\n');
 for i=1:P
     fprintf(fid, '$l = %.2f$', l(i));

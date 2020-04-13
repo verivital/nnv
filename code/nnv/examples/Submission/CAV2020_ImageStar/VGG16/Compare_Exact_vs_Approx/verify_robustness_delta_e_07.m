@@ -11,7 +11,13 @@ end
 fprintf('\n\n=============================LOAD VGG16 ======================\n');
 
 % Load the trained model 
-net = vgg16();
+if is_codeocean()
+    load('/data/vgg16_cache.mat');
+    net = net_vgg16;
+else
+    net = vgg16();
+end
+
 
 fprintf('\n\n======================== PARSING VGG16 =======================\n');
 nnvNet = CNN.parse(net, 'VGG16');

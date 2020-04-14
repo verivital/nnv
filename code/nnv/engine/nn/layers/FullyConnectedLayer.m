@@ -140,7 +140,7 @@ classdef FullyConnectedLayer < handle
             if ~isa(in_image, 'ImageStar')
                 error('Input set is not an ImageStar');
             end
-            display(in_image)
+            
             N = in_image.height*in_image.width*in_image.numChannel;
             if N~= obj.InputSize
                 error('Inconsistency between the size of the input image and the InputSize of the network');

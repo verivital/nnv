@@ -2,6 +2,8 @@
 clc;
 clear;
 
+path_out = [path_results(), filesep, 'vgg19', filesep];
+
 fprintf('\n\n=============================LOAD VGG19 ======================\n');
 
 % Load the trained model 

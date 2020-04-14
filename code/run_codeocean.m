@@ -14,13 +14,16 @@ cd MNIST_NETS/Small
 %plot_ranges
 %saveas(gcf, '/results/figure8_mnist_small.png')
 %compare_star_absdom_short % ~ 5 min
+compare_star_absdom
 
-% next together: > 1.5 hours
+% next together: > 1.5 hours for short version
 cd ../Medium
 %compare_star_absdom_short
+compare_star_absdom
 
 cd ../Large
 %compare_star_absdom_short
+compare_star_absdom
 
 
 cd /code/nnv/examples/Submission/CAV2020_ImageStar/
@@ -36,7 +39,7 @@ cd ../Compare_Exact_vs_Approx
 cd /code/nnv/examples/Submission/CAV2020_ImageStar/
 
 cd VGG19/Compare_Polytope_ImageStar
-verify_VGG19
+%verify_VGG19 % 1:10
 
 return
 

@@ -39,14 +39,7 @@ classdef CNN < handle
                     inputsize = varargin{3};
                     outputsize = varargin{4};
                     nL = length(Layers); % number of Layers
-                    for i=1:nL
-                        L = Layers{i};
-                        if ~isa(L, 'ImageInputLayer') && ~isa(L, 'BatchNormalizationLayer') && ~isa(L, 'AveragePooling2DLayer') && ~isa(L, 'Conv2DLayer') && ~isa(L, 'FullyConnectedLayer') && ~isa(L, 'MaxPooling2DLayer') && ~isa(L, 'ReluLayer')
-                            fprintf('\nCurrent version of NNV supports ImageInputLayer, AveragePooling2DLayer, Convolutional2DLayer, FullyConnectedLayer, MaxPooling2DLayer, AveragePooling2DLayer and ReluLayer');
-                            error('Element %d of Layers is not among supported layers in NNV', i);
-                        end
-                    end
-                    
+                                        
                     obj.Name = name;
                     obj.Layers = Layers;
                     obj.numLayers = nL;    % number of layers
@@ -230,8 +223,8 @@ classdef CNN < handle
                 label_id = cell(n, 1);
                 for i=1:n
                     rs = RS(i);                        
-                    new_rs  = ImageStar.reshape(rs, [obj.OutputSize 1 1]);                    
-                    max_id = new_rs.get_localMax_index([1 1], [obj.OutputSize 1], 1);
+                    new_rs  = ImageStar.reshape(rs, [obj.OutputSize(1) 1 1]);                    
+                    max_id = new_rs.get_localMax_index([1 1], [obj.OutputSize(1) 1], 1);
                     label_id{i} = max_id(:, 1);
                 end
 
@@ -497,7 +490,7 @@ classdef CNN < handle
             j = 0; % counter of number of layers
             for i=1:n
                 L = net.Layers(i);
-                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') || isa(L, 'nnet.cnn.layer.PixelClassificationLayer')                  
+                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                   
                     fprintf('\nLayer %d is a %s class which is neglected in the analysis phase', i, class(L));                   
                     if isa(L, 'nnet.cnn.layer.ImageInputLayer')
                         inputSize = L.InputSize;
@@ -523,6 +516,8 @@ classdef CNN < handle
                         Li = AveragePooling2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
                         Li = FullyConnectedLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
+                        Li = PixelClassificationLayer.parse(L);
                     else                     
                         fprintf('\nLayer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis', i, class(L));
                         error('\nUnsupported Class of Layer');                     

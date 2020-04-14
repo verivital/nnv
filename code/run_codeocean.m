@@ -14,16 +14,16 @@ cd MNIST_NETS/Small
 %plot_ranges
 %saveas(gcf, '/results/figure8_mnist_small.png')
 %compare_star_absdom_short % ~ 5 min
-compare_star_absdom
+compare_star_absdom % full version: 10:41 total
 
 % next together: > 1.5 hours for short version
 cd ../Medium
 %compare_star_absdom_short
-compare_star_absdom
+compare_star_absdom  % full version: 10:41 total
 
 cd ../Large
 %compare_star_absdom_short
-compare_star_absdom
+compare_star_absdom  % full version: 10:41 total
 
 
 cd /code/nnv/examples/Submission/CAV2020_ImageStar/

@@ -21,7 +21,7 @@ acc_nonlinear = NonLinearODE(6, 1, @car_dynamics, Tr, Tc, OutMat); % nonlinear
 NNcont = Load_nn('ACCcontroller5_20.mat');
 
 % NNCS 
-ncs_nonlinear = NonlinearNNCS(NNcont,acc_linear);
+ncs_nonlinear = NonlinearNNCS(NNcont,acc_nonlinear);
 ncs_linear = LinearNNCS(NNcont,acc_linear);
 
 %% Step 2. Set initial conditions (linear)
@@ -55,7 +55,8 @@ figureTitle = 'Actual distance (blue) vs. safe distance (red)';
 
 % safe scenarios
 figure;
-ncs.reachLive(init_set(5), input_ref, numSteps, 'outputMatrix', output_mat, 'outputVector', output_vec, 'outputSetColor', 'blue', 'boundaryMatrix', boundary_mat, 'boundaryVector', boundary_vec, 'plantNumOfSimSteps', plantNumOfSimSteps, 'figureTitle', figureTitle, 'videoName', 'unsafeScenarios', 'figureXLabel', 'Time (seconds)', 'figureYLabel', 'Reachable Set', 'videoFrameRate', 40);
+% ncs_linear.reachLive(init_set)
+ncs_linear.reachLive(init_set, input_ref, numSteps, 'outputMatrix', output_mat, 'outputVector', output_vec, 'outputSetColor', 'blue', 'boundaryMatrix', boundary_mat, 'boundaryVector', boundary_vec, 'plantNumOfSimSteps', plantNumOfSimSteps, 'figureTitle', figureTitle, 'videoName', 'unsafeScenarios', 'figureXLabel', 'Time (seconds)', 'figureYLabel', 'Reachable Set', 'videoFrameRate', 40);
 
 %% Step 2. Set initial conditions (nonlinear)
 
@@ -63,7 +64,7 @@ ncs.reachLive(init_set(5), input_ref, numSteps, 'outputMatrix', output_mat, 'out
 x_lead = [90 92];       % x1
 v_lead = [29 30];       % x2
 a_lead = [0 0];           % x3
-x_ego = [10 11];        % x4
+x_ego = [30 31];        % x4
 v_ego = [30 30.2];     % x5
 a_ego = [0 0];             % x6
 % Create star set
@@ -88,29 +89,35 @@ reachPRM.ref_input = [30; 1.4];
 reachPRM.numSteps = 50;
 reachPRM.reachMethod = 'approx-star';
 reachPRM.numCores = 4;
+reachPRM.init_set = init_set;
 
-safe = cell(1, n); % safety status
-VT = zeros(1,n); % verification time
-counterExamples = cell(1,n); % counter examples
+[safe, counterExamples, VT] = ncs_nonlinear.verify(reachPRM, unsafeRegion);
 
-for i=1:n
-    reachPRM.init_set = init_set(i);
-    [safe{i}, counterExamples{i}, VT(i)] = ncs.verify(reachPRM, unsafeRegion);
-end
-
-%% Print verification results to screen
+%% Print verification results to screen (one case)
 fprintf('\n=======================================================');
 fprintf('\nVERIFICATION RESULTS FOR ACC WITH NONLINEAR PLANT MODEL');
 fprintf('\n=======================================================');
 fprintf('\nv_lead(0)                 approx-star    ');
-fprintf('\n                       safety  |  VT   ');
+fprintf('\n                                safety  |  VT   ');
+fprintf('\n[%d %d]              %s  |  %3.3f   ', v_lead(1), v_lead(2), safe, VT);
+
+
+%% Print verification results to screen (multiple initial sets)
+load('nonlinearACC_results.mat');
+n = length(v_lead);
+% Difference ->  x_ego = [10 11];      % x4
+fprintf('\n=======================================================');
+fprintf('\nVERIFICATION RESULTS FOR ACC WITH NONLINEAR PLANT MODEL');
+fprintf('\n=======================================================');
+fprintf('\nv_lead(0)                approx-star    ');
+fprintf('\n                              safety  |  VT   ');
 for i=1:n
     fprintf('\n[%d %d]              %s  |  %3.3f   ', v_lead{i}(1), v_lead{i}(2), safe{i}, VT(i));
 end
 fprintf('\n-------------------------------------------------------');
 fprintf('\nTotal verification time:      %3.3f', sum(VT));
 
-%% Plot counter examples	
+%% Plot counter example
 cI = counterExamples{1};	
 cI = cell2mat(cI);	
 d_rel = [1 0 0 -1 0 0]*cI;	
@@ -127,5 +134,5 @@ ylabel('Distance', 'FontSize', 13);
 xticks([0:5:50]);	
 title('Actual Distance (blue) vs. Safe Distance (red)');	
 
-saveas(gcf, [path_out, 'verify_nonlinear_acc_cex.png']);
+saveas(gcf, 'counterEx_nonlinear.png');
 

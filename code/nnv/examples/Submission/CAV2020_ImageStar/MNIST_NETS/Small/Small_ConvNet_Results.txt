@@ -1,0 +1,16 @@
+
+========================================================================================
+          ROBUSTNESS VERIFICATION RESULTS (IN PERCENT) OF SMALL_CONVNET                 
+========================================================================================
+
+             delta = 0.00500             delta = 0.01000             delta = 0.01500
+         Polytope   ImageStar         Polytope   ImageStar         Polytope   ImageStar
+d = 250    86.00        87.00          84.00        87.00          83.00        87.00      
+
+========================================================================================
+                VERIFICATION TIMES (IN SECONDS) OF SMALL_CONVNET                        
+========================================================================================
+
+             delta = 0.00500             delta = 0.01000             delta = 0.01500
+         Polytope   ImageStar         Polytope   ImageStar         Polytope   ImageStar
+d = 250    10.35       10.01            16.29       18.57            22.47       35.35        

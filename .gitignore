@@ -3,3 +3,9 @@ code/nnv/UUV/
 code/nnv/tbxmanager/
 code/nnv/tests/io/models/*.caffemodel
 
+<<<<<<< HEAD
+=======
+
+data/vgg16_cache.mat
+data/vgg19_cache.mat
+>>>>>>> upstream/master

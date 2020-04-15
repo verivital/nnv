@@ -14,16 +14,16 @@ cd MNIST_NETS/Small
 %plot_ranges
 %saveas(gcf, '/results/figure8_mnist_small.png')
 %compare_star_absdom_short % ~ 5 min
-compare_star_absdom % full version: 10:41 total
+%compare_star_absdom % full version: 10:41 total
 
 % next together: > 1.5 hours for short version
 cd ../Medium
 %compare_star_absdom_short
-compare_star_absdom  % full version: 10:41 total
+%compare_star_absdom  % full version: 10:41 total
 
 cd ../Large
 %compare_star_absdom_short
-compare_star_absdom  % full version: 10:41 total
+%compare_star_absdom  % full version: 10:41 total
 
 
 cd /code/nnv/examples/Submission/CAV2020_ImageStar/
@@ -41,7 +41,11 @@ cd /code/nnv/examples/Submission/CAV2020_ImageStar/
 cd VGG19/Compare_Polytope_ImageStar
 %verify_VGG19 % 1:10
 
+cd ../Compare_Exact_vs_Approx
+
+
 return
+
 
 cd /code/nnv/examples/Submission/CAV2020/
 
@@ -57,6 +61,8 @@ pwd
 
 % run all closed-loop CPS examples
 reproduce % will take ~32.5 minutes (see run 140515 or 152224)
+
+
 
 %return; % stop here, comment/remove this to run all tests, other examples, etc.
 % if you run all these, it will add another ~15 minutes of runtime

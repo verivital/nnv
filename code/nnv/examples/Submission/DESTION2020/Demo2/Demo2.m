@@ -55,8 +55,7 @@ figureTitle = 'Actual distance (blue) vs. safe distance (red)';
 
 % safe scenarios
 figure;
-% ncs_linear.reachLive(init_set)
-ncs_linear.reachLive(init_set, input_ref, numSteps, 'outputMatrix', output_mat, 'outputVector', output_vec, 'outputSetColor', 'blue', 'boundaryMatrix', boundary_mat, 'boundaryVector', boundary_vec, 'plantNumOfSimSteps', plantNumOfSimSteps, 'figureTitle', figureTitle, 'videoName', 'unsafeScenarios', 'figureXLabel', 'Time (seconds)', 'figureYLabel', 'Reachable Set', 'videoFrameRate', 40);
+ncs_linear.reachLive(init_set, input_ref, numSteps, 'outputMatrix', output_mat, 'outputVector', output_vec, 'outputSetColor', 'blue', 'boundaryMatrix', boundary_mat, 'boundaryVector', boundary_vec, 'plantNumOfSimSteps', plantNumOfSimSteps, 'figureTitle', figureTitle, 'videoName', 'reachLive_video', 'figureXLabel', 'Time (seconds)', 'figureYLabel', 'Distance (m)', 'videoFrameRate', 40);
 
 %% Step 2. Set initial conditions (nonlinear)
 
@@ -91,7 +90,7 @@ reachPRM.reachMethod = 'approx-star';
 reachPRM.numCores = 4;
 reachPRM.init_set = init_set;
 
-[safe, counterExamples, VT] = ncs_nonlinear.verify(reachPRM, unsafeRegion);
+[safe, counterExs, VT] = ncs_nonlinear.verify(reachPRM, unsafeRegion);
 
 %% Print verification results to screen (one case)
 fprintf('\n=======================================================');
@@ -118,7 +117,7 @@ fprintf('\n-------------------------------------------------------');
 fprintf('\nTotal verification time:      %3.3f', sum(VT));
 
 %% Plot counter example
-cI = counterExamples{1};	
+cI = counterExs{1,1};	
 cI = cell2mat(cI);	
 d_rel = [1 0 0 -1 0 0]*cI;	
 d_safe = [0 0 0 1.4 0 0]*cI + 10;	

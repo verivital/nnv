@@ -14,7 +14,12 @@ classdef ReluLayer < handle
     %   Dung Tran: 6/20/2019
     
     properties
-        Name = 'relu_layer';        
+        Name = 'relu_layer';
+        
+        NumInputs = 1;
+        InputNames = {'in'};
+        NumOutputs = 1;
+        OutputNames = {'out'};
     end
     
     
@@ -29,6 +34,13 @@ classdef ReluLayer < handle
             
             switch nargin
                 
+                case 5 % used for parsin a matlab relu layer
+                    obj.Name = varargin{1};
+                    obj.NumInputs = varargin{2};
+                    obj.InputNames = varargin{3};
+                    obj.NumOutputs = varargin{4};
+                    obj.OutputNames = varargin{5};
+
                 case 1
                     
                     name = varargin{1};
@@ -251,7 +263,7 @@ classdef ReluLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.ReLULayer class');
             end
             
-            L = ReluLayer(relu_layer.Name);
+            L = ReluLayer(relu_layer.Name, relu_layer.NumInputs, relu_layer.InputNames, relu_layer.NumOutputs, relu_layer.OutputNames);
             fprintf('\nParsing a Matlab relu layer is done successfully');
             
         end

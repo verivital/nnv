@@ -10,8 +10,10 @@ classdef MaxUnpooling2DLayer < handle
     
     properties
         Name = 'max_unpooling_2d_layer';
-        NumInputs = 0;
-        InputNames = {};        
+        NumInputs = 3;
+        InputNames = {'in'  'indices'  'size'};
+        NumOutputs = 1;
+        OutputNames = {'out'};
     end
     
     
@@ -25,6 +27,41 @@ classdef MaxUnpooling2DLayer < handle
             
             switch nargin
                 
+                case 5
+                    
+                    name = varargin{1};
+                    numInputs = varargin{2};
+                    inputNames = varargin{3};
+                    numOutputs = varargin{4};
+                    outputNames = varargin{5};
+                    
+                    if ~ischar(name)
+                        error('Name is not char');
+                    end                    
+                    
+                    if numInputs < 1 
+                        error('Invalid number of inputs');
+                    end
+                    
+                    if ~iscell(inputNames)
+                        error('InputNames should be a cell');
+                    end
+                    
+                    if numOutputs < 1
+                        error('Invalid number of outputs');
+                    end
+                    
+                    if ~iscell(outputNames)
+                        error('OutputNames should be a cell');
+                    end
+                    
+                    
+                    obj.Name = name;
+                    obj.NumInputs = numInputs;
+                    obj.InputNames = inputNames;
+                    obj.NumOutputs = numOutputs;
+                    obj.OutputNames = outputNames;
+                    
                 case 3
                     
                     name = varargin{1};
@@ -106,7 +143,7 @@ classdef MaxUnpooling2DLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.MaxUnpooling2DLayer class');
             end
             
-            L = MaxUnpooling2DLayer(max_unpooling_2d_layer.Name, max_unpooling_2d_layer.NumInputs, max_unpooling_2d_layer.InputNames);
+            L = MaxUnpooling2DLayer(max_unpooling_2d_layer.Name, max_unpooling_2d_layer.NumInputs, max_unpooling_2d_layer.InputNames, max_unpooling_2d_layer.NumOutputs, max_unpooling_2d_layer.OutputNames);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
             
         end

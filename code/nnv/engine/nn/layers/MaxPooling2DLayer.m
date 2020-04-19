@@ -15,6 +15,8 @@ classdef MaxPooling2DLayer < handle
     
     properties
         Name = 'max_pooling_2d_layer';
+        NumInputs = 1; 
+        InputNames = {'in'};       
         HasUnpoolingOutputs = 0;
         NumOutputs = 1; % by default
         OutputNames = {'out'}; %by default
@@ -40,15 +42,18 @@ classdef MaxPooling2DLayer < handle
             
             switch nargin
                 
-                case 7
+                case 9
                     
                     name = varargin{1};
                     poolSize = varargin{2};
                     stride = varargin{3};
                     paddingSize = varargin{4};
                     hasUnpoolingOutputs = varargin{5};
-                    numOutputs = varargin{6};
-                    outputNames = varargin{7};
+                    numInputs = varargin{6};
+                    inputNames = varargin{7};
+                    numOutputs = varargin{8};
+                    outputNames = varargin{9};
+                    
                     
                     if ~ischar(name)
                         error('Name is not char');
@@ -78,6 +83,18 @@ classdef MaxPooling2DLayer < handle
                         error('Invalid HasUnpoolingOutputs parameter');
                     else
                         obj.HasUnpoolingOutputs = hasUnpoolingOutputs;
+                    end
+                    
+                    if numInputs < 1
+                        error('Invalid number of inputs');
+                    else
+                        obj.NumInputs = numInputs;
+                    end
+                    
+                    if ~iscell(inputNames)
+                        error('InputNames should be a cell');
+                    else
+                        obj.InputNames = inputNames;
                     end
                     
                     if numOutputs < 1
@@ -158,7 +175,7 @@ classdef MaxPooling2DLayer < handle
                     obj.PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
                                     
                 otherwise
-                    error('Invalid number of inputs (should be 0, 3 or 4)');
+                    error('Invalid number of inputs (should be 0, 3, 4, or 9)');
                                  
             end 
              
@@ -848,7 +865,7 @@ classdef MaxPooling2DLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.MaxPooling2DLayer class');
             end
             
-            L = MaxPooling2DLayer(max_Pooling_2d_Layer.Name, max_Pooling_2d_Layer.PoolSize, max_Pooling_2d_Layer.Stride, max_Pooling_2d_Layer.PaddingSize, max_Pooling_2d_Layer.HasUnpoolingOutputs, max_Pooling_2d_Layer.NumOutputs, max_Pooling_2d_Layer.OutputNames);
+            L = MaxPooling2DLayer(max_Pooling_2d_Layer.Name, max_Pooling_2d_Layer.PoolSize, max_Pooling_2d_Layer.Stride, max_Pooling_2d_Layer.PaddingSize, max_Pooling_2d_Layer.HasUnpoolingOutputs, max_Pooling_2d_Layer.NumInputs, max_Pooling_2d_Layer.InputNames, max_Pooling_2d_Layer.NumOutputs, max_Pooling_2d_Layer.OutputNames);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
             
         end

@@ -7,44 +7,68 @@ classdef PixelClassificationLayer < handle
         Name = 'PixelClassificationLayer';
         Classes = [];
         OutputSize = [];
+        
+        NumInputs = 1;
+        InputNames = {'in'};
     end
     
     methods
         
-        function obj = PixelClassificationLayer(name, classes, outputSize)
+        function obj = PixelClassificationLayer(varargin)
             % @name: name of the layer
             % @classes: array of class
-            % @classWeights: class weight used only for training process,
-            % not for verification
             % @outputSize: outputSize
-            % @lossFunction: lossfunction, we don't use it for verification
             
             % author: Dung Tran
             % date:4/12/2020
             
-            if ~ischar(name)
-                error('Invalid name, should be a charracter array');
+            switch nargin
+                
+                case 3
+                    
+                    name = varargin{1};
+                    classes = varargin{2};
+                    outputSize = varargin{3};
+                    
+                    if ~ischar(name)
+                        error('Invalid name, should be a charracter array');
+                    end
+
+                    if ~ismatrix(classes)
+                        error('Invalid classes, should be a matrix');
+                    end
+
+                    if ~ismatrix(outputSize)
+                        error('Invalid outputSize');
+                    end           
+
+                    if length(outputSize) ~= 3
+                        error('Invalid outputSize matrix');
+                    end
+
+                    if length(classes) ~= outputSize(1, 3)
+                        error('Inconsistency betwen the number of classes and the outputSize');
+                    end
+
+
+
+                    obj.Name = name;
+                    obj.Classes = classes;
+                    obj.OutputSize = outputSize;
+                    
+                case 5 % used to parse the Matlab pixelClassificationLayer
+                    
+                    obj.Name = varargin{1};
+                    obj.Classes = varargin{2};
+                    obj.OutputSize = varargin{3};
+                    obj.NumInputs = varargin{4};
+                    obj.InputNames = varargin{5};
+                    
+                otherwise
+                    error('Invalid number of input arguments');
             end
             
-            if ~ismatrix(classes)
-                error('Invalid classes, should be a matrix');
-            end
-                       
-            if ~ismatrix(outputSize)
-                error('Invalid outputSize');
-            end           
             
-            if length(outputSize) ~= 3
-                error('Invalid outputSize matrix');
-            end
-            
-            if length(classes) ~= outputSize(1, 3)
-                error('Inconsistency betwen the number of classes and the outputSize');
-            end
-            
-            obj.Name = name;
-            obj.Classes = classes;
-            obj.OutputSize = outputSize;
             
         end
             
@@ -128,7 +152,7 @@ classdef PixelClassificationLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.PixelClassificationLayer');
             end
             
-            L = PixelClassificationLayer(pixel_classification_layer.Name, pixel_classification_layer.Classes, pixel_classification_layer.OutputSize);
+            L = PixelClassificationLayer(pixel_classification_layer.Name, pixel_classification_layer.Classes, pixel_classification_layer.OutputSize, pixel_classification_layer.NumInputs, pixel_classification_layer.InputNames);
             
             fprintf('\nParsing a Matlab pixel classification layer is done successfully');
             

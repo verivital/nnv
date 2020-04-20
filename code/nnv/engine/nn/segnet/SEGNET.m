@@ -177,12 +177,60 @@ classdef SEGNET < handle
                 if ~isa(obj.Layers{i}, 'MaxUnpooling2DLayer')
                     y = obj.Layers{i}.evaluate(y);
                 else
-                    
-                    y = obj.Layers{i}.evaluate(); %
-                    
+                    [maxIndx, outputSize] = obj.getMaxIndxAndInputSize(obj.Layers{i}.Name);
+                    y = obj.Layers{i}.evaluate(y, maxIndx, outputSize); %
                 end
             end
                 
+        end
+        
+        
+        % get the max indices and inputsize for max unpooling layer
+        function [MaxIndx, InputSize] = getMaxIndxAndInputSize(obj, unpooling_layer_name)
+            % @dest_name: destination name
+            % @MaxIndx: max point index
+            % @InputSize: the outputSize for max unpooling
+            
+            
+            % author: Dung Tran
+            % date: 4/20/2020
+            
+            
+            if isempty(obj.Connections)
+                error('No connection table');
+            end
+            
+            if ~ischar(unpooling_layer_name)
+                error('Invalid unpooling_layer_name');
+            else
+                dest_name = sprintf("%s/indices", unpooling_layer_name);
+            end
+            
+            n = size(obj.Connections, 1);
+            
+            source_name = [];
+            for i=1:n                
+                if strcmp(obj.Connections.Destination(i), dest_name)
+                    source_name = obj.Connections.Source(i);
+                    break;
+                end
+            end
+            
+            if isempty(source_name)
+                error('Unknown destination name');
+            end
+            
+            maxpooling_layer_name = erase(source_name{1}, "/indices");
+            MaxIndx = [];
+            InputSize = [];
+            for i=1:obj.numLayers
+                if strcmp(obj.Layers{i}.Name, maxpooling_layer_name)
+                    MaxIndx = obj.Layers{i}.MaxIndx;
+                    InputSize = obj.Layers{i}.InputSize;
+                    break;
+                end
+            end
+            
         end
         
         

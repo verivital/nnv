@@ -28,6 +28,10 @@ classdef MaxPooling2DLayer < handle
         PaddingMode = 'manual'; 
         PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
         
+        % used for maxunpooling
+        MaxIndx = [];
+        InputSize = [];
+        
     end
     
     
@@ -253,7 +257,7 @@ classdef MaxPooling2DLayer < handle
     % evaluation method
     methods
         
-        function varargout = evaluate(obj, input)
+        function y = evaluate(obj, input)
             % @input: high-dimensional array, for example, input(:, :, :), 
             % @y: output
             
@@ -267,18 +271,13 @@ classdef MaxPooling2DLayer < handle
             % date: 12/10/2018
             % update: 7/26/2019
            
-            switch nargout
-                case 1
-                    varargout{1} = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');
-                case 3
+
                     dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
-                    [dlY, varargout{2}, varargout{3}] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
-                    varargout{1} = extractdata(dlY);
-                otherwise
-                    error('Invalid number of outputs');
-                    
-            end
-                     
+                    [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
+                    y = extractdata(dlY);
+                    n = size(y);
+                    obj.MaxIndx = indx;
+                    obj.InputSize = inputSize;
                    
         end
         

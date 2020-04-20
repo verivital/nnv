@@ -11,7 +11,7 @@ classdef MaxUnpooling2DLayer < handle
     properties
         Name = 'max_unpooling_2d_layer';
         NumInputs = 3;
-        InputNames = {'in'  'indices'  'size'};
+        InputNames = {'in',  'indices' , 'size'};
         NumOutputs = 1;
         OutputNames = {'out'};
     end
@@ -109,9 +109,7 @@ classdef MaxUnpooling2DLayer < handle
                 case 0
                     
                     obj.Name = 'max_unpooling_2d_layer';
-                    obj.NumInputs = 0;
-                    obj.InputNames = {};
-                                    
+                                                        
                 otherwise
                     error('Invalid number of inputs (should be 0 or 3)');
                                  
@@ -119,8 +117,22 @@ classdef MaxUnpooling2DLayer < handle
              
         end
         
-       
         
+        % evaluation 
+        function y = evaluate(~, input, indx, outputSize)
+            % @input: input image
+            % @indx: max index
+            % @outputSize: inputSie
+            % @y: output image
+            
+            % author: Dung Tran
+            % date:4/19/2020
+            
+            dlX = dlarray(input, 'SSC');
+            dlY = maxunpool(dlX, indx, outputSize); 
+            y = extractdata(dlY);
+            
+        end
         
     end
     

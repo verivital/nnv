@@ -50,7 +50,7 @@ cd VGG19/Compare_Polytope_ImageStar
 
 % table 5
 cd ../Compare_Exact_vs_Approx
-verify_robustness_delta_2e_07 % ~17 min
+verify_robustness_delta_2e_07 % ~34 min
 
 verify_robustness_delta_e_07 % ~17 min
 

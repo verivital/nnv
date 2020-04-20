@@ -62,7 +62,7 @@ for i=1:n
 end
 
 
-save([path_out, 'verificationResult_1e_07.mat', 'robust_exact', 'VT_exact', 'robust_approx', 'VT_approx');
+save([path_out, 'verificationResult_1e_07.mat'], 'robust_exact', 'VT_exact', 'robust_approx', 'VT_approx');
 
 
 

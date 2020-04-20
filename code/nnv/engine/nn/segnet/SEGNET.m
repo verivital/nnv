@@ -186,6 +186,25 @@ classdef SEGNET < handle
         end
         
         
+        % find max pooling layer index that connects with max unpooling
+        % layer
+        function layer_id = getSourceIndex(obj, dest_name)
+            % @dest_name: destination name
+            % @layer_id: idex of the layer connect to the dest_name layer
+            
+            % author: Dung Tran
+            % date: 4/20/2020
+            
+            
+            if isempty(obj.Connections)
+                error('No connection table');
+            end
+            
+            u = obj.Connections(strcmp)
+            
+        end
+        
+        
         % start parallel pool for computing
         function start_pool(obj)
             

@@ -16,6 +16,12 @@ classdef BatchNormalizationLayer < handle
         % Learnable parameters
         Offset = [];
         Scale = [];
+        
+        % layer properties
+        NumInputs = 1;
+        InputNames = {'in'};
+        NumOutputs = 1;
+        OutputNames = {'out'};
                
     end
     
@@ -52,6 +58,14 @@ classdef BatchNormalizationLayer < handle
                         obj.Offset = double(varargin{i+1});
                     elseif strcmp(varargin{i}, 'Scale')
                         obj.Scale = double(varargin{i+1});
+                    elseif strcmp(varargin{i}, 'NumInputs')
+                        obj.NumInputs = double(varargin{i+1});
+                    elseif strcmp(varargin{i}, 'InputNames')
+                        obj.InputNames = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'NumOutputs')
+                        obj.NumOutputs = double(varargin{i+1});
+                    elseif strcmp(varargin{i}, 'OutputNames')
+                        obj.OutputNames = varargin{i+1};
                     end
                     
                 end
@@ -256,7 +270,7 @@ classdef BatchNormalizationLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.BatchNormalizationLayer class');
             end
                        
-            L = BatchNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels, 'TrainedMean', layer.TrainedMean, 'TrainedVariance', layer.TrainedVariance, 'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale);
+            L = BatchNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels, 'TrainedMean', layer.TrainedMean, 'TrainedVariance', layer.TrainedVariance, 'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale, 'NumInputs', layer.NumInputs, 'InputNames', layer.InputNames, 'NumOutputs', layer.NumOutputs, 'OutputNames', layer.OutputNames);
             fprintf('\nParsing a Matlab batch normalization layer is done successfully');
             
         end

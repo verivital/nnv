@@ -7,6 +7,10 @@ L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
 
 y = L.evaluate(inputVol);
 
+L1 = MaxUnpooling2DLayer();
+
+
+y1 = L1.evaluate(y, L.MaxIndx, L.InputSize);
 
 
 

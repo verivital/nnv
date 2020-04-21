@@ -257,8 +257,9 @@ classdef MaxPooling2DLayer < handle
     % evaluation method
     methods
         
-        function y = evaluate(obj, input)
+        function y = evaluate(varargin)
             % @input: high-dimensional array, for example, input(:, :, :), 
+            % @option = 'cnn' or 'segnet'
             % @y: output
             
             % author: Dung Tran
@@ -270,15 +271,38 @@ classdef MaxPooling2DLayer < handle
             % author: Dung Tran
             % date: 12/10/2018
             % update: 7/26/2019
-           
+            
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    input = varargin{2};
+                    option = 'cnn';
+                case 3
+                    obj = varargin{1};
+                    input = varargin{2};
+                    option = varargin{3};
+                otherwise
+                    error('Invalid number of input');
+            end
+            
+            if strcmp(option, 'cnn')
+                
+                y = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');
+                
+            elseif strcmp(option, 'segnet')
+                % require Matlab version 2019b
+                
+                dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
+                [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
+                y = extractdata(dlY);
+                obj.MaxIndx = indx;
+                obj.InputSize = inputSize;
 
-                    dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
-                    [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
-                    y = extractdata(dlY);
-                    n = size(y);
-                    obj.MaxIndx = indx;
-                    obj.InputSize = inputSize;
-                   
+            
+            else
+                error('Unknown option for max pooling evaluation');
+            end
+            
         end
         
         % parallel evaluation on an array of inputs

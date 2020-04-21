@@ -15,7 +15,9 @@ cd(path_reproduce);
 path_out_mnist = [path_results(), filesep, 'MNIST', filesep];
 path_out_vgg19 = [path_results(), filesep, 'vgg19', filesep];
 
-mkdir();
+mkdir(path_out_mnist);
+mkdir(path_out_vgg19);
+
 
 cd MNIST_NETS/Small
 plot_ranges

@@ -166,7 +166,7 @@ end
 
 
 %% Print to file
-fid = fopen([path_out, 'Large_ConvNet_Results.txt'], 'wt');
+fid = fopen([path_out, 'table3_Large_ConvNet_Results.txt'], 'wt');
 fprintf(fid,'\n========================================================================================');
 fprintf(fid,'\n          ROBUSTNESS VERIFICATION RESULTS (IN PERCENT) OF LARGE_CONVNET                 ');
 fprintf(fid,'\n========================================================================================\n\n');
@@ -218,7 +218,7 @@ for i=1:P
 end
 
 %% Print latex table
-fid = fopen([path_out, 'Large_ConvNet_Results.tex'], 'wt');
+fid = fopen([path_out, 'table3_Large_ConvNet_Results.tex'], 'wt');
 fprintf(fid,'\nRobustness results\n');
 for i=1:P
     fprintf(fid, '$d = %d$', d(i));

@@ -15,12 +15,23 @@ classdef MaxPooling2DLayer < handle
     
     properties
         Name = 'max_pooling_2d_layer';
+        NumInputs = 1; 
+        InputNames = {'in'};       
+        HasUnpoolingOutputs = 0;
+        NumOutputs = 1; % by default
+        OutputNames = {'out'}; %by default
+        
+        
         % Hyperparameters
         PoolSize = [2 2];
         Stride = [1 1]; % step size for traversing input
         PaddingMode = 'manual'; 
-        PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers       
-                
+        PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
+        
+        % used for maxunpooling
+        MaxIndx = [];
+        InputSize = [];
+        
     end
     
     
@@ -34,6 +45,74 @@ classdef MaxPooling2DLayer < handle
             % update: 
             
             switch nargin
+                
+                case 9
+                    
+                    name = varargin{1};
+                    poolSize = varargin{2};
+                    stride = varargin{3};
+                    paddingSize = varargin{4};
+                    hasUnpoolingOutputs = varargin{5};
+                    numInputs = varargin{6};
+                    inputNames = varargin{7};
+                    numOutputs = varargin{8};
+                    outputNames = varargin{9};
+                    
+                    
+                    if ~ischar(name)
+                        error('Name is not char');
+                    else
+                        obj.Name = name;
+                    end                    
+                    
+                    if size(poolSize, 1) ~= 1 || size(poolSize, 2) ~= 2
+                        error('Invalid pool size');
+                    else
+                        obj.PoolSize = poolSize;
+                    end
+                    
+                    if size(stride, 1) ~= 1 || size(stride, 2) ~= 2
+                        error('Invalid stride');
+                    else 
+                        obj.Stride = stride; 
+                    end
+                    
+                    if size(paddingSize, 1) ~= 1 || size(paddingSize, 2) ~= 4
+                        error('Invalide padding size');
+                    else
+                        obj.PaddingSize = paddingSize;
+                    end
+                    
+                    if hasUnpoolingOutputs < 0
+                        error('Invalid HasUnpoolingOutputs parameter');
+                    else
+                        obj.HasUnpoolingOutputs = hasUnpoolingOutputs;
+                    end
+                    
+                    if numInputs < 1
+                        error('Invalid number of inputs');
+                    else
+                        obj.NumInputs = numInputs;
+                    end
+                    
+                    if ~iscell(inputNames)
+                        error('InputNames should be a cell');
+                    else
+                        obj.InputNames = inputNames;
+                    end
+                    
+                    if numOutputs < 1
+                        error('Invalid number of outputs');
+                    else
+                        obj.NumOutputs = numOutputs;
+                    end
+                    
+                    if ~iscell(outputNames)
+                        error('Invalid output Names, should be a cell');
+                    else
+                        obj.OutputNames = outputNames;
+                    end
+                    
                 
                 case 4
                     
@@ -100,7 +179,7 @@ classdef MaxPooling2DLayer < handle
                     obj.PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
                                     
                 otherwise
-                    error('Invalid number of inputs (should be 0, 3 or 4)');
+                    error('Invalid number of inputs (should be 0, 3, 4, or 9)');
                                  
             end 
              
@@ -184,6 +263,7 @@ classdef MaxPooling2DLayer < handle
             
             % author: Dung Tran
             % date: 6/17/2019
+            % update: 4/19/2020: evaluate method for segmentation network
             
             % @y: high-dimensional array (output volume), depth of output = number of filters
             
@@ -191,7 +271,13 @@ classdef MaxPooling2DLayer < handle
             % date: 12/10/2018
             % update: 7/26/2019
            
-            y = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');         
+
+                    dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
+                    [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
+                    y = extractdata(dlY);
+                    n = size(y);
+                    obj.MaxIndx = indx;
+                    obj.InputSize = inputSize;
                    
         end
         
@@ -778,7 +864,7 @@ classdef MaxPooling2DLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.MaxPooling2DLayer class');
             end
             
-            L = MaxPooling2DLayer(max_Pooling_2d_Layer.Name, max_Pooling_2d_Layer.PoolSize, max_Pooling_2d_Layer.Stride, max_Pooling_2d_Layer.PaddingSize);
+            L = MaxPooling2DLayer(max_Pooling_2d_Layer.Name, max_Pooling_2d_Layer.PoolSize, max_Pooling_2d_Layer.Stride, max_Pooling_2d_Layer.PaddingSize, max_Pooling_2d_Layer.HasUnpoolingOutputs, max_Pooling_2d_Layer.NumInputs, max_Pooling_2d_Layer.InputNames, max_Pooling_2d_Layer.NumOutputs, max_Pooling_2d_Layer.OutputNames);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
             
         end

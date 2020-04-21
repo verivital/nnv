@@ -1,4 +1,7 @@
 path_out = [path_results(), filesep, 'vgg19', filesep];
+if ~isfolder(path_out)
+    mkdir(path_out);
+end
 
 %% Construct input sets
 dif_images = load('pepper_dif_images.mat');
@@ -76,7 +79,7 @@ for i=1:P
     end
 end
 
-save([path_out, 'VGG19_Results.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom');
+save([path_out, 'table4_VGG19_Results.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom');
 
 
 %% print the results
@@ -133,7 +136,7 @@ end
 
 
 %% Print to file
-fid = fopen([path_out,'VGG19_Results.txt'], 'wt');
+fid = fopen([path_out,'table4_VGG19_Results.txt'], 'wt');
 fprintf(fid,'\n========================================================================================');
 fprintf(fid,'\n          ROBUSTNESS VERIFICATION RESULTS (IN PERCENT) OF VGG19 UNDER DEEPFOOL ATTACK       ');
 fprintf(fid,'\n========================================================================================\n\n');
@@ -185,7 +188,7 @@ for i=1:P
 end
 
 %% Print latex table
-fid = fopen([path_out, 'VGG19_Results.tex'], 'wt');
+fid = fopen([path_out, 'table4_VGG19_Results.tex'], 'wt');
 fprintf(fid,'\nRobustness results\n');
 for i=1:P
     fprintf(fid, '$l = %.2f$', l(i));

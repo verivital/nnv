@@ -16,8 +16,8 @@ classdef LayerS
         % Constructor
         function obj = LayerS(W, b, f)
             if size(W, 1) == size(b, 1)
-                obj.W = W;
-                obj.b = b;
+                obj.W = double(W);
+                obj.b = double(b);
                 obj.N = size(W, 1);
             else
                 error('Inconsistent dimensions between Weights matrix and bias vector');

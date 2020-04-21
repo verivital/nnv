@@ -926,7 +926,7 @@ classdef Star
                 xmin = obj.V(index,1);
                 xmax = obj.V(index,1);
             else
-                %options = optimset('Display','none');
+                options = optimset('Display','none');
                 %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
                 [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                 if exitflag > 0
@@ -944,8 +944,7 @@ classdef Star
                 end
 
             end
-            
-            
+                        
         end
         
         % get lower bound and upper bound vector of the state variables

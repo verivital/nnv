@@ -49,7 +49,7 @@ classdef SEGNET < handle
                         error('Layers should be an array of layers');
                     end
                     
-                    if ~istable(connections)
+                    if ~isempty(connections) && ~istable(connections)
                         error('Connection should be a table');
                     end
                     
@@ -174,8 +174,13 @@ classdef SEGNET < handle
             
             y = x;
             for i=1:layer_id
+                
                 if ~isa(obj.Layers{i}, 'MaxUnpooling2DLayer')
-                    y = obj.Layers{i}.evaluate(y);
+                    if isa(obj.Layers{i}, 'MaxPooling2DLayer')
+                        y = obj.Layers{i}.evaluate(y, 'segnet');
+                    else
+                        y = obj.Layers{i}.evaluate(y);
+                    end
                 else
                     [maxIndx, outputSize] = obj.getMaxIndxAndInputSize(obj.Layers{i}.Name);
                     y = obj.Layers{i}.evaluate(y, maxIndx, outputSize); %
@@ -339,16 +344,17 @@ classdef SEGNET < handle
         % parse a dag neural network from matlab for reachability analysis
         function segnet = parse(varargin)
             % @net: input network, should be a dagnetwork or lgraph object
-            % @dagnn: the dagnn network for reachability analysis
-            
+            % or a SeriesNetwork
+                       
             % the constructed DAGNN for reachability analysis get rid of the
             % these following layers:
             % 2) Dropout Layer (is not used for prediction phase)
-            % 3) Softmax Layer
             
             % author: Dung Tran
             % date: 4/14/2020
-            % update: 4/10/2020
+            % update: 4/10/2020, 4/20/2020
+            
+            
             
             switch nargin
                 case 1
@@ -363,8 +369,8 @@ classdef SEGNET < handle
             
             
             
-            if ~isa(net, 'DAGNetwork') && ~isa(net, 'LayerGraph')
-                error('the parsed object is not a Matlab DAGNetwork object or a LayerGraph object');
+            if ~isa(net, 'DAGNetwork') && ~isa(net, 'LayerGraph') && ~isa(net, 'SeriesNetwork')
+                error('the parsed object is not a Matlab DAGNetwork object, a LayerGraph object or a SeriesNetwork object');
             end
             
             n = length(net.Layers); % number of layers
@@ -409,8 +415,13 @@ classdef SEGNET < handle
                             
             end
             
-            % update connection table                           
-            segnet = SEGNET(name, Ls, net.Connections, net.InputNames, net.OutputNames);
+            % update connection table
+            if isprop(net, 'Connections')
+                connects = net.Connections;
+            else
+                connects = [];
+            end
+            segnet = SEGNET(name, Ls, connects, net.InputNames, net.OutputNames);
             fprintf('\nParsing network is done successfully and %d Layers are neglected in the analysis phase', n - j);
             
         end

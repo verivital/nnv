@@ -72,7 +72,7 @@ classdef CNN < handle
                 y = obj.Layers{i}.evaluate(y);
                 obj.features{i} = y;
             end
-            features = obj.features;      
+       
         end
         
         
@@ -206,7 +206,7 @@ classdef CNN < handle
                      
             
             if ~isa(in_image, 'ImageStar')
-                [y, ~] = obj.evaluate(in_image);
+                y = obj.evaluate(in_image);
                 y = reshape(y, [obj.OutputSize, 1]);
                 [~, label_id] = max(y); 
             else

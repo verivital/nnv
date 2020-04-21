@@ -8,14 +8,17 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
+% CAV 2020 ImageStar paper reproducibility
 cd /code/nnv/examples/Submission/CAV2020_ImageStar/
 
+% see details in this script for each figure/table recreation
 reproduce_CAV2020_ImageStar;
 
+return % end of CAV 2020 ImageStar reproducibility
 
-return
+% if interested, one can also look at these others, as well as how to manually run new examples in CodeOcean below
 
-
+% CAV 2020 tool paper reproducibility
 cd /code/nnv/examples/Submission/CAV2020/
 
 % examples to manually run nnv on acas-xu, these (and many more) are 

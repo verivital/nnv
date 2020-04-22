@@ -1,7 +1,3 @@
-
-clc;
-clear;
-
 path_out = [path_results(), filesep, 'vgg19', filesep];
 
 

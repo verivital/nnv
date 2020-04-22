@@ -147,7 +147,7 @@ To re-run all computations and reproduce the results, one selects "Reproducible 
 
 ```cd MNIST_NETS/Small/
 plot_ranges
-``
+```
 
 This starts by building the Docker container, which first executes this Dockerfile (if the container is already cached, it doesn't rebuild, so runtime can be faster):
 

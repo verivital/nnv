@@ -21,13 +21,9 @@ mkdir(path_out_mnist);
 mkdir(path_out_vgg16);
 mkdir(path_out_vgg19);
 
-opt_skip_first = 1;
-
 % reproduce all computationally generated figures and tables
 % each command indicates the figure/table number, with the details in the corresponding script that is called, e.g., plot_ranges for figure 8
 % the diary commands save the matlab console interaction to a text file, which is easier to view than the full output log generated and displayed on screen
-
-if opt_skip_first == 0 % skip first part (see run 7502688)
 
 diary([path_out_mnist, 'figure8_mnist_small_log.txt'])
 cd MNIST_NETS/Small
@@ -64,7 +60,7 @@ plot_network_architectures;
 saveas(gcf, [path_out_mnist, 'figure13_mnist_architectures.png']);
 diary off;
 
-cd /code/nnv/examples/Submission/CAV2020_ImageStar/
+cd path_reproduce;
 
 % table 4, vgg16 part
 diary([path_out_vgg16, 'table4_vgg16_log.txt'])
@@ -72,9 +68,7 @@ cd VGG16/Compare_Polytope_ImageStar
 verify_VGG16 % takes ~1:38 hours:min
 diary off;
 
-end
-
-cd /code/nnv/examples/Submission/CAV2020_ImageStar/
+cd path_reproduce;
 
 cd VGG16/Compare_Polytope_ImageStar
 
@@ -88,7 +82,7 @@ diary([path_out_vgg16, 'table5_vgg16_delta1e07_log.txt'])
 verify_robustness_delta_e_07 % ~15 min
 diary off;
 
-cd /code/nnv/examples/Submission/CAV2020_ImageStar/
+cd path_reproduce;
 
 % table 4, vgg19 part
 diary([path_out_vgg19, 'table4_vgg19_log.txt']);

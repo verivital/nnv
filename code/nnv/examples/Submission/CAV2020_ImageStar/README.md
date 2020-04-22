@@ -13,7 +13,14 @@ Tool paper AE: https://github.com/verivital/run_nnv_comparison/blob/master/READM
 
 Tool paper AE files: https://github.com/verivital/nnv/tree/master/code/nnv/examples/Submission/CAV2020
 
+## NNV Manual:
+A detailed manual for NNV exists, which illustrates how to create new examples, etc.
+
+https://github.com/verivital/nnv/blob/master/docs/manual.pdf
+
 ## CodeOcean Capsule (username: see easychair, password: see easychair):
+CodeOcean is a cloud-based execution environment we have configured to reproduce the paper results, discussed in more detail below.
+
 https://codeocean.com/capsule/1314285/
 
 ## REPRODUCING THE RESULTS IN THE PAPER
@@ -26,7 +33,7 @@ The computational results of the paper consist of three main parts.
 2. Comparison of the Polytope and ImageStar methods on VGG16 and VGG19.
 3. Comparison of the exact and approximate scheme of the ImageStar methods on VGG16 and VGG19.
 
-Each reproducible figure and table is discussed next. While one can reproduce any figure and table from a script, they may all be reproduced through this script:
+Each reproducible figure and table is discussed next, with installation instructions and more below. While one can reproduce any figure and table from a script, they may all be reproduced through this script:
 
 https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/CAV2020_ImageStar/reproduce_CAV2020_ImageStar.m
 
@@ -145,11 +152,12 @@ Run 7502688\logs\MNIST\figure8_mnist_small.png
 
 To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. We next explain what this "Reproducible Run" process does. Note that while we have set up the shared user account with sufficient runtime to re-run the results, we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased. As a simple test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run an individual figure/table, such as `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Small/plot_ranges.m` instead of the full `reproduce_CAV2020_ImageStar.m`. This can be done by replacing the `reproduce_CAV2020_ImageStar` call (https://github.com/verivital/nnv/blob/master/code/run_codeocean.m#L15) with:
 
-```cd MNIST_NETS/Small/
+```
+cd MNIST_NETS/Small/
 plot_ranges
 ```
 
-This starts by building the Docker container, which first executes this Dockerfile (if the container is already cached, it doesn't rebuild, so runtime can be faster):
+3d. The CodeOcean execution process starts by building the Docker container, which first executes this Dockerfile (if the container is already cached, it doesn't rebuild, so runtime can be faster):
 
 https://github.com/verivital/nnv/blob/master/environment/Dockerfile
 

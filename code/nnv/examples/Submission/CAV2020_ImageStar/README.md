@@ -54,7 +54,9 @@ Password: see easychair
 Prior executions of all results in this paper are available in Runs 7518355, 7502688, and 7438990. This process takes about 20 hours, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
 
 Run 7518355\logs (second half of VGG16 results and all VGG19 results)
+
 Run 7502688\logs (MNIST results, first half of VGG16 results)
+
 Run 7438990\logs (full version of MNIST examples using e.g. compare_star_absdom.m instead of compare_star_absdom_short.m )
 
 For example, Figure 8 showing the MNIST comparison of reachable states can be seen at:
@@ -103,18 +105,18 @@ This setup is if you want to delve more into NNV without relying on CodeOcean, b
 
 #### 4b1. Clone NNV repository using the recursive option as it has submodules:
 
-git clone --recursive https://github.com/verivital/nnv.git
+`git clone --recursive https://github.com/verivital/nnv.git`
 
 #### 4b2. Install NNV (install.m)
-In Matlab, navigate to the code/nnv/ folder. Execute the install.m script, which will set up various dependencies (mostly via tbxmanager). This should also set up the path correctly within Matlab so all dependencies are available.
+In Matlab, navigate to the `code/nnv/` folder. Execute the `install.m` script, which will set up various dependencies (mostly via tbxmanager). This should also set up the path correctly within Matlab so all dependencies are available.
 
-install
+`install`
 
 https://github.com/verivital/nnv/blob/master/code/nnv/install.m
 
-If Matlab is restarted, to work again, either install.m or startup_nnv.m must be executed again. Alternatively, one can execute savepath to update the path after executing install (but in this case, Matlab may need to have been launched with administrative privilege).
+If Matlab is restarted, to work again, either `install.m` or `startup_nnv.m` must be executed again. Alternatively, one can execute `savepath` to update the path after executing install (but in this case, Matlab may need to have been launched with administrative privilege).
 
-savepath
+`savepath`
 
 https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
@@ -122,6 +124,6 @@ https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
 In Matlab, navigate to the CAV2020_ImageStar submission folder at code/nnv/examples/Submission/CAV2020_ImageStar.
 
-One can then execute the reproduce_CAV2020_ImageStar.m script discussed earlier that executes in CodeOcean:
+One can then execute the `reproduce_CAV2020_ImageStar.m` script discussed earlier that executes in CodeOcean:
 
 https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/CAV2020_ImageStar/reproduce_CAV2020_ImageStar.m

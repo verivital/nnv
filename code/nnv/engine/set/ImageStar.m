@@ -157,9 +157,13 @@ classdef ImageStar < handle
                     % converting box ImageStar to an array of 2D Stars
                     
                     n = size(obj.im_lb);
-                    I = Star(reshape(obj.im_lb, [n(1)*n(2)*n(3), 1]),reshape(obj.im_ub, [n(1)*n(2)*n(3), 1]));
-                    
-                    obj.V = reshape(I.V,[n(1), n(2), n(3), I.nVar + 1]);
+                    if length(n) == 3
+                        I = Star(reshape(obj.im_lb, [n(1)*n(2)*n(3), 1]),reshape(obj.im_ub, [n(1)*n(2)*n(3), 1]));
+                        obj.V = reshape(I.V,[n(1), n(2), n(3), I.nVar + 1]);
+                    else
+                        I = Star(reshape(obj.im_lb, [n(1)*n(2), 1]),reshape(obj.im_ub, [n(1)*n(2), 1]));
+                        obj.V = reshape(I.V,[n(1), n(2), I.nVar + 1]);
+                    end
                     obj.C = I.C;
                     obj.d = I.d;
                     obj.pred_lb = I.predicate_lb;

@@ -51,7 +51,7 @@ Password: see easychair
 
 3c. After opening the capsule through the above URL, one can view code, navigate existing reproduced results, etc.
 
-Prior executions of all results in this paper are available in Runs 7518355, 7502688, and 7438990. This process takes about 20 hours, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
+Prior executions of all results in this paper are available in `Runs 7518355, 7502688, and 7438990`. This process takes about 20 hours, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
 
 Run 7518355\logs (second half of VGG16 results and all VGG19 results)
 
@@ -63,7 +63,7 @@ For example, Figure 8 showing the MNIST comparison of reachable states can be se
 
 Run 7502688\logs\MNIST\figure8_mnist_small.png
 
-To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. We next explain what this process does.
+To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. We next explain what this "Reproducible Run" process does.
 
 This starts by building the Docker container, which first executes this Dockerfile (if the container is already cached, it doesn't rebuild, so runtime can be faster):
 
@@ -73,19 +73,19 @@ This subsequently runs a post-installation script that installs further dependen
 
 https://github.com/verivital/nnv/blob/master/environment/postInstall
 
-Finally, the main entry point that is executed when selecting "Reproducible Run" is this bash script:
+Finally, the main entry point that is executed when selecting "Reproducible Run" is this bash script, which launches Matlab and sets up NNV:
 
 https://github.com/verivital/nnv/blob/master/code/run
 
-Within this shell script, the computational artifacts are reproduced through the run_codeocean.m Matlab script:
+Within this `run` shell script, the computational artifacts are reproduced through the `run_codeocean.m` Matlab script:
 
 https://github.com/verivital/nnv/blob/master/code/run_codeocean.m
 
-Within this, the paper results are recreated by running this reproduce_CAV2020_ImageStar.m script:
+Within this, the paper results are recreated by running the `reproduce_CAV2020_ImageStar.m` script:
 
 https://github.com/verivital/nnv/blob/master/code/run_codeocean.m#L15
 
-Which executes this script:
+Which executes the `reproduce_CAV2020_ImageStar.m` script:
 
 https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/CAV2020_ImageStar/reproduce_CAV2020_ImageStar.m
 
@@ -122,8 +122,8 @@ https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
 #### 4b3. Run paper reproducibility
 
-In Matlab, navigate to the CAV2020_ImageStar submission folder at code/nnv/examples/Submission/CAV2020_ImageStar.
+In Matlab, navigate to the CAV2020_ImageStar submission folder at `code/nnv/examples/Submission/CAV2020_ImageStar`.
 
-One can then execute the `reproduce_CAV2020_ImageStar.m` script discussed earlier that executes in CodeOcean:
+One can then execute the `reproduce_CAV2020_ImageStar.m` script discussed earlier in the CodeOcean execution:
 
 https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/CAV2020_ImageStar/reproduce_CAV2020_ImageStar.m

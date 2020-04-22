@@ -68,9 +68,6 @@ cd VGG16/Compare_Polytope_ImageStar
 verify_VGG16 % takes ~1:38 hours:min
 diary off;
 
-cd path_reproduce;
-cd VGG16/Compare_Polytope_ImageStar;
-
 % table 5, vgg16 part
 diary([path_out_vgg16, 'table5_vgg16_delta2e07_log.txt'])
 cd ../Compare_Exact_vs_Approx
@@ -101,8 +98,6 @@ diary off;
 cd ../Plot_Figures
 
 % 1:05 total for figs 9-12
-% additionally, had an OOM, so checking
-% figure 9
 diary([path_out_vgg19, 'figure9_vgg19_log.txt'])
 plot_vgg19_exact_range % ~3min
 saveas(gcf, [path_out_vgg19, 'figure9_vgg19.png'])

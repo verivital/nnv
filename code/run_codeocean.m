@@ -17,6 +17,7 @@ reproduce_CAV2020_ImageStar;
 % short test (uncomment and comment the above reproduce_CAV2020_ImageStar)
 %cd MNIST_NETS/Small/
 %plot_ranges
+%saveas(gcf, '/results/figure8_mnist_small.png');
 
 
 return % end of CAV 2020 ImageStar reproducibility

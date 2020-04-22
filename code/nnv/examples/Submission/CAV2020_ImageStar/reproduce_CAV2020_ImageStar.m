@@ -69,8 +69,7 @@ verify_VGG16 % takes ~1:38 hours:min
 diary off;
 
 cd path_reproduce;
-
-cd VGG16/Compare_Polytope_ImageStar
+cd VGG16/Compare_Polytope_ImageStar;
 
 % table 5, vgg16 part
 diary([path_out_vgg16, 'table5_vgg16_delta2e07_log.txt'])

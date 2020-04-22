@@ -20,7 +20,75 @@ https://codeocean.com/capsule/1314285/
 
 ### 1. The paper contains the following computational elements:
 
+The computational results of the paper consist of three main parts.
 
+1. Comparison of the Zonotope, Polytope and ImageStar methods on three MNIST networks.
+2. Comparison of the Polytope and ImageStar methods on VGG16 and VGG19.
+3. Comparison of the exact and approximate scheme of the ImageStar methods on VGG16 and VGG19.
+
+Each reproducible figure and table is discussed next. While one can reproduce any figure and table from a script, they may all be reproduced through this script:
+
+https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/CAV2020_ImageStar/reproduce_CAV2020_ImageStar.m
+
+#### MNIST
+
+Notes: When producing Table 1, 2, and 3, in the case that the reviewer runs into out of memory (OOM) errors, we suggest the reviewer to run the short version of the results by using `compare_star_absdom_short.m` for each table instead of `compare_star_absdom.m`.  This script will produce a small version of the full result. The full version will also take ~10 hours runtime (on a powerful computer like the CodeOcean one described shortly).
+
+1. Figure 8. 
+-	Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Small`
+-	Run `plot_ranges.m`
+
+2. Table 1.
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Small`
+- Run `compare_star_absdom.m`
+
+3. Table 2.
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Medium`
+- Run `compare_star_absdom.m`
+
+4. Table 3.
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Large`
+- Run `compare_star_absdom.m`
+
+5. Figure 13 in Appendix.
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Architecture`
+- Run `plot_network_architectures.m`
+
+#### VGG16 and VGG19 Comparison of Polytope and ImageStar Methods
+
+1. Table 4, VGG16 part 
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG16/Compare_Polytope_ImageStar/`
+- Run `verify_VGG16.m`
+
+2. Table 4, VGG19 part
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Compare_Polytope_ImageStar/`
+- Run `verify_VGG19.m`
+
+#### VGG16 and VGG19 Comparison of Exact and Approximate ImageStars
+
+1. Table 5, VGG16 part
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG16/Compare_Exact_vs_Approx`
+- Run verify_robustness_delta_e_07.m  and verify_robustness_delta_2e_07.m
+
+2. Table 5, VGG19 part
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Compare_Exact_vs_Approx`
+- Run `verify_robustness_delta_e_07.m` and `verify_robustness_delta_2e_07.m`
+
+3. Figure 9
+- Go to code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Plot_Figures
+- Run `plot_vgg19_exact_range.m`
+
+4. Figure 10
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Plot_Figures`
+- Run `plot_vgg19_counter_example.m`
+
+5. Figure 11
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Plot_Figures`
+- Run `plot_vgg19_reachTime.m`
+
+6. Figure 12
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Plot_Figures`
+- Run `plot_vgg19_inputSize_effect.m`
 
 ### 2. System Requirements
 
@@ -36,7 +104,13 @@ Window 10 or Linux, but either should work (CodeOcean described below is run on 
 
 #### 2c. Dependencies
 
-Matlab 2018b or later (may work on earlier versions, but untested)
+Matlab 2019b or later (may work on earlier versions, but untested)
+
+Matlab toolboxes listed here: https://github.com/verivital/nnv#installation
+
+#### 2d. Hardware
+
+The computer needs > 60 GiB RAM.  Note that a computer with less RAM cannot be used to reproduce all results in the paper, which is part of why the CodeOcean set up is recommended.
 
 ### 3. CodeOcean Capsule
 
@@ -101,7 +175,9 @@ https://doi.org/10.24433/CO.1314285.v1
 
 ### 4. Manual / Standalone Installation
 
-This setup is if you want to delve more into NNV without relying on CodeOcean, but requires a Matlab installation and license.
+This setup is if you want to delve more into NNV without relying on CodeOcean, but requires a Matlab installation and license. For the first two steps, more details are available here:
+
+https://github.com/verivital/nnv#installation
 
 #### 4b1. Clone NNV repository using the recursive option as it has submodules:
 

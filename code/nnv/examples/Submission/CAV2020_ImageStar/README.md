@@ -140,11 +140,11 @@ Password: see easychair
 
 Prior executions of all results in this paper are available in `Runs 7518355, 7502688, and 7438990`. This process takes about 20 hours total across these runs, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
 
-`Run 7518355\logs` (second half of VGG16 results and all VGG19 results; continued from run 7502688 after correcting path error)
+`Run 7518355\logs` (second half of VGG16 results and all VGG19 results; continued from `run 7502688` after correcting path error)
 
 `Run 7502688\logs` (MNIST results, first half of VGG16 results; stopped due to a path error that was corrected)
 
-`Run 7438990\logs` (full version of MNIST examples using e.g. compare_star_absdom.m instead of compare_star_absdom_short.m )
+`Run 7438990\logs` (full version of MNIST examples using e.g. `compare_star_absdom.m` instead of `compare_star_absdom_short.m` )
 
 For example, Figure 8 showing the MNIST comparison of reachable states can be seen at:
 

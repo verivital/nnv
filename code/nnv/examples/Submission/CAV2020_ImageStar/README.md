@@ -129,11 +129,11 @@ Password: see easychair
 
 3c. After opening the capsule through the above URL, one can view code, navigate existing reproduced results, etc.
 
-Prior executions of all results in this paper are available in `Runs 7518355, 7502688, and 7438990`. This process takes about 20 hours, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
+Prior executions of all results in this paper are available in `Runs 7518355, 7502688, and 7438990`. This process takes about 20 hours total across these runs, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
 
-Run 7518355\logs (second half of VGG16 results and all VGG19 results)
+Run 7518355\logs (second half of VGG16 results and all VGG19 results; continued from run 7502688 after correcting path error)
 
-Run 7502688\logs (MNIST results, first half of VGG16 results)
+Run 7502688\logs (MNIST results, first half of VGG16 results; stopped due to a path error that was corrected)
 
 Run 7438990\logs (full version of MNIST examples using e.g. compare_star_absdom.m instead of compare_star_absdom_short.m )
 
@@ -141,7 +141,7 @@ For example, Figure 8 showing the MNIST comparison of reachable states can be se
 
 Run 7502688\logs\MNIST\figure8_mnist_small.png
 
-To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. We next explain what this "Reproducible Run" process does.
+To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. We next explain what this "Reproducible Run" process does. Note that while we have set up the shared user account with sufficient runtime to re-run the results, we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased. As a simple test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run an individual figure/table, such as `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Small/plot_ranges.m` instead of the full `reproduce_CAV2020_ImageStar.m`.
 
 This starts by building the Docker container, which first executes this Dockerfile (if the container is already cached, it doesn't rebuild, so runtime can be faster):
 
@@ -204,6 +204,6 @@ https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
 In Matlab, navigate to the CAV2020_ImageStar submission folder at `code/nnv/examples/Submission/CAV2020_ImageStar`.
 
-One can then execute the `reproduce_CAV2020_ImageStar.m` script discussed earlier in the CodeOcean execution:
+One can then execute the `reproduce_CAV2020_ImageStar.m` script discussed earlier, or any of the individual scripts discussed earlier (https://github.com/verivital/nnv/tree/master/code/nnv/examples/Submission/CAV2020_ImageStar#1-the-paper-contains-the-following-computational-elements):
 
 https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/CAV2020_ImageStar/reproduce_CAV2020_ImageStar.m

@@ -34,6 +34,8 @@ So to reproduce all figures and tables, one may simply:
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/` 
 - Run `reproduce_CAV2020_ImageStar`
 
+If run standalone, the resulting figures, tables, and log files will be one-level above the root directory where NNV was cloned, in a `logs` folder.
+
 #### MNIST
 
 Notes: When producing Table 1, 2, and 3, in the case that the reviewer runs into out of memory (OOM) errors, we suggest the reviewer to run the short version of the results by using `compare_star_absdom_short.m` for each table instead of `compare_star_absdom.m`.  This script will produce a small version of the full result. The full version will also take ~10 hours runtime (on a powerful computer like the CodeOcean one described shortly).

@@ -405,6 +405,8 @@ classdef SEGNET < handle
                         Li = PixelClassificationLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.SoftmaxLayer')
                         Li = SoftmaxLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.TransposedConvolution2DLayer')
+                        Li = TransposedConv2DLayer.parse(L);
                     else                     
                         fprintf('\nLayer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis', i, class(L));
                         error('\nUnsupported Class of Layer');                     

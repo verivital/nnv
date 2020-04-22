@@ -1,4 +1,4 @@
-classdef TransposeConv2DLayer < handle
+classdef TransposedConv2DLayer < handle
     % The transpose convolutional 2D layer class
     %   Contain constructor and reachability analysis methods
     % Matlab reference: 
@@ -37,7 +37,7 @@ classdef TransposeConv2DLayer < handle
     methods
         
         % constructor of the class
-        function obj = TransposeConv2DLayer(varargin)           
+        function obj = TransposedConv2DLayer(varargin)           
             % author: Dung Tran
             % date: 12/5/2018    
             % update: 
@@ -51,10 +51,10 @@ classdef TransposeConv2DLayer < handle
                     obj.Bias = varargin{3};
                     obj.CroppingSize = varargin{4};
                     obj.Stride = varargin{5};
-                    obj.NumInputs = varargin{7};
-                    obj.InputNames = varargin{8};
-                    obj.NumOutputs = varargin{9};
-                    obj.OutputNames = varargin{10};
+                    obj.NumInputs = varargin{6};
+                    obj.InputNames = varargin{7};
+                    obj.NumOutputs = varargin{8};
+                    obj.OutputNames = varargin{9};
                                         
                     w = size(obj.Weights);
                     b = size(obj.Bias);
@@ -258,31 +258,6 @@ classdef TransposeConv2DLayer < handle
         
     end
     
-    
-    
-    methods(Static) % parsing, get zero input pading, compute feature maps
-        
-        % parse a trained transposeConvolutional2dLayer from matlab
-        function L = parse(layer)
-            % @layer: a transpose convolutional 2d layer from matlab deep
-            % neural network tool box
-            % @L : a TransposeCov2DLayer for reachability analysis purpose
-            
-            % author: Dung Tran
-            % date: 4/22/2020
-            
-            
-            if ~isa(layer, 'nnet.cnn.layer.TransposeConvolution2DLayer')
-                error('Input is not a Matlab nnet.cnn.layer.TransposeConvolution2DLayer class');
-            end
-            
-            L = Conv2DLayer(layer.Name, layer.Weights, layer.Bias, layer.CroppingSize, layer.Stride, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
-                        
-            fprintf('\nParsing a Matlab transpose convolutional 2d layer is done successfully');
-            
-        end
-
-    end
        
     % reachability analysis using star set
     
@@ -423,6 +398,31 @@ classdef TransposeConv2DLayer < handle
         end
         
         
+    end
+    
+    
+    methods(Static) % parsing, get zero input pading, compute feature maps
+        
+        % parse a trained transposeConvolutional2dLayer from matlab
+        function L = parse(layer)
+            % @layer: a transpose convolutional 2d layer from matlab deep
+            % neural network tool box
+            % @L : a TransposeCov2DLayer for reachability analysis purpose
+            
+            % author: Dung Tran
+            % date: 4/22/2020
+            
+            
+            if ~isa(layer, 'nnet.cnn.layer.TransposedConvolution2DLayer')
+                error('Input is not a Matlab nnet.cnn.layer.TransposedConvolution2DLayer class');
+            end
+            
+            L = TransposedConv2DLayer(layer.Name, layer.Weights, layer.Bias, layer.CroppingSize, layer.Stride, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
+                        
+            fprintf('\nParsing a Matlab transposed convolutional 2d layer is done successfully');
+            
+        end
+
     end
     
 end

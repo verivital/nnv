@@ -30,63 +30,67 @@ Each reproducible figure and table is discussed next. While one can reproduce an
 
 https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/CAV2020_ImageStar/reproduce_CAV2020_ImageStar.m
 
+So to reproduce all figures and tables, one may simply:
+- Go to `code/nnv/example/Submission/CAV2020_ImageStar/` 
+- Run `reproduce_CAV2020_ImageStar`
+
 #### MNIST
 
 Notes: When producing Table 1, 2, and 3, in the case that the reviewer runs into out of memory (OOM) errors, we suggest the reviewer to run the short version of the results by using `compare_star_absdom_short.m` for each table instead of `compare_star_absdom.m`.  This script will produce a small version of the full result. The full version will also take ~10 hours runtime (on a powerful computer like the CodeOcean one described shortly).
 
-1. Figure 8. 
+1. Figure 8. Comparison of output ranges of the small MNIST classification networks using different approaches.
 -	Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Small`
 -	Run `plot_ranges.m`
 
-2. Table 1.
+2. Table 1. Small MNIST CNN verification results.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Small`
 - Run `compare_star_absdom.m`
 
-3. Table 2.
+3. Table 2. Medium MNIST CNN verification results.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Medium`
 - Run `compare_star_absdom.m`
 
-4. Table 3.
+4. Table 3. Large MNIST CNN verification results.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Large`
 - Run `compare_star_absdom.m`
 
-5. Figure 13 in Appendix.
+5. Figure 13 in Appendix. Architectures of the small, medium, and large MNIST CNNs.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Architecture`
 - Run `plot_network_architectures.m`
 
 #### VGG16 and VGG19 Comparison of Polytope and ImageStar Methods
 
-1. Table 4, VGG16 part 
+1. Table 4, VGG16 part. VGG verification results.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG16/Compare_Polytope_ImageStar/`
 - Run `verify_VGG16.m`
 
-2. Table 4, VGG19 part
+2. Table 4, VGG19 part. VGG verification results.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Compare_Polytope_ImageStar/`
 - Run `verify_VGG19.m`
 
 #### VGG16 and VGG19 Comparison of Exact and Approximate ImageStars
 
-1. Table 5, VGG16 part
+1. Table 5, VGG16 part. VGG verification results comparing exact and approximate.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG16/Compare_Exact_vs_Approx`
 - Run verify_robustness_delta_e_07.m  and verify_robustness_delta_2e_07.m
 
-2. Table 5, VGG19 part
+2. Table 5, VGG19 part. VGG verification results comparing exact and approximate.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Compare_Exact_vs_Approx`
 - Run `verify_robustness_delta_e_07.m` and `verify_robustness_delta_2e_07.m`
 
-3. Figure 9
+3. Figure 9. Exact ranges of VGG19 shows that VGG19 correctly classifies the input image as a bell pepper.
 - Go to code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Plot_Figures
 - Run `plot_vgg19_exact_range.m`
 
-4. Figure 10
+4. Figure 10. A counterexample shows that VGG19 misclassifies the input image as a strawberry instead of a bell pepper.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Plot_Figures`
 - Run `plot_vgg19_counter_example.m`
 
-5. Figure 11
+5. Figure 11. Total reachability time of each type of layers in the VGG19, where the max pooling and ReLU layers dominate the total reachability analysis runtime.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Plot_Figures`
 - Run `plot_vgg19_reachTime.m`
 
-6. Figure 12
+6. Figure 12. Number of ImageStars in exact analysis increases with input size.
 - Go to `code/nnv/example/Submission/CAV2020_ImageStar/VGG19/Plot_Figures`
 - Run `plot_vgg19_inputSize_effect.m`
 
@@ -110,7 +114,7 @@ Matlab toolboxes listed here: https://github.com/verivital/nnv#installation
 
 #### 2d. Hardware
 
-The computer needs > 60 GiB RAM.  Note that a computer with less RAM cannot be used to reproduce all results in the paper, which is part of why the CodeOcean set up is recommended.
+The computer needs > 60 GB RAM.  Note that a computer with less RAM cannot be used to reproduce all results in the paper, which is part of why the CodeOcean set up is recommended as it has 120GB RAM.
 
 ### 3. CodeOcean Capsule
 

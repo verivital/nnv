@@ -1,7 +1,3 @@
-
-clc;
-clear;
-
 path_out = [path_results(), filesep, 'vgg19', filesep];
 
 
@@ -70,6 +66,8 @@ adv_image = double(ori_image) + pred_ub*double(dif_image);
 label1 = classify(net, ori_image);
 label2 = classify(net, adv_image);
 
+
+
 figure; 
 subplot(2,3,[1 2 3]);
 Star.plotBoxes_2D(S1, 1, 2, 'blue');
@@ -90,3 +88,9 @@ imshow((adv_image/255));
 text(10, 20, char(label2),'Color','black');
 xlabel('l = 98\%, $\delta = 2\times 10^{-7}$', 'Interpreter','latex', 'FontSize', 13);
 title('Adversarial image');
+
+% there is a bug in the matlab scheduler
+% adding this exit(0) avoids throwing an OOM error, which does not actually happen or cause any results to not be generated
+% see here: https://www.mathworks.com/matlabcentral/answers/442711-script-fails-when-run-via-scheduler-matlab-management-cpp-671-find-assertion-failed
+% note that with this exit though, this script must be called last, as it will kill the matlab session
+exit(0);

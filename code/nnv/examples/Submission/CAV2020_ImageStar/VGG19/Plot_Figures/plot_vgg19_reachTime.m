@@ -1,8 +1,3 @@
-
-clc;
-clear;
-
-
 fprintf('\n\n=============================LOAD VGG19 ======================\n');
 
 % Load the trained model 

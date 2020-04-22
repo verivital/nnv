@@ -1,8 +1,4 @@
-
-clc;
-clear;
-
-path_out = [path_results(), filesep, 'vgg', filesep];
+path_out = [path_results(), filesep, 'vgg16', filesep];
 
 if ~isfolder(path_out)
     mkdir(path_out);
@@ -66,7 +62,7 @@ for i=1:n
 end
 
 
-save([path_out, 'verificationResult_2e_07.mat'], 'l', 'delta', 'robust_exact', 'VT_exact', 'robust_approx', 'VT_approx');
+save([path_out, 'table5_vgg16_verificationResult_2e_07.mat'], 'l', 'delta', 'robust_exact', 'VT_exact', 'robust_approx', 'VT_approx');
 
 
 

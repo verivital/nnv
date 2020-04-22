@@ -1,8 +1,7 @@
-
-clc;
-clear;
-
 path_out = [path_results(), filesep, 'vgg19', filesep];
+if ~isfolder(path_out)
+    mkdir(path_out);
+end
 
 fprintf('\n\n=============================LOAD VGG19 ======================\n');
 
@@ -62,5 +61,5 @@ for i=1:n
 end
 
 
-save([path_out, 'vgg19_verificationResult_1e_07.mat'], 'robust_exact', 'VT_exact', 'robust_approx', 'VT_approx');
+save([path_out, 'table5_vgg19_verificationResult_1e_07.mat'], 'robust_exact', 'VT_exact', 'robust_approx', 'VT_approx');
 

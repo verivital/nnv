@@ -19,7 +19,7 @@ if is_codeocean()
 end
 
 % import data structures from Hyst
-javaaddpath(['nnv', filesep, 'engine', filesep, 'hyst', filesep, 'lib', filesep, 'Hyst.jar']);
+javaaddpath(['engine', filesep, 'hyst', filesep, 'lib', filesep, 'Hyst.jar']);
 import de.uni_freiburg.informatik.swt.spaceexboogieprinter.*;
 import com.verivital.hyst.automaton.*;
 import com.verivital.hyst.grammar.antlr.*;

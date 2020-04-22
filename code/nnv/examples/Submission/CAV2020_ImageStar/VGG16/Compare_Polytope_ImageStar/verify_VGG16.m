@@ -1,4 +1,4 @@
-path_out = [path_results(), filesep, 'vgg', filesep];
+path_out = [path_results(), filesep, 'vgg16', filesep];
 
 if ~isfolder(path_out)
     mkdir(path_out);
@@ -84,7 +84,7 @@ for i=1:P
     end
 end
 
-save([path_out, 'VGG16_Results.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom');
+save([path_out, 'table4_VGG16_Results.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom');
 
 
 %% print the results
@@ -141,7 +141,7 @@ end
 
 
 %% Print to file
-fid = fopen([path_out, 'VGG_Results.txt'], 'wt');
+fid = fopen([path_out, 'table4_VGG16_Results.txt'], 'wt');
 fprintf(fid,'\n========================================================================================');
 fprintf(fid,'\n          ROBUSTNESS VERIFICATION RESULTS (IN PERCENT) OF VGG16 UNDER DEEPFOOL ATTACK       ');
 fprintf(fid,'\n========================================================================================\n\n');
@@ -193,7 +193,7 @@ for i=1:P
 end
 
 %% Print latex table
-fid = fopen([path_out, 'VGG16_Results.tex'], 'wt');
+fid = fopen([path_out, 'table4_VGG16_Results.tex'], 'wt');
 fprintf(fid,'\nRobustness results\n');
 for i=1:P
     fprintf(fid, '$l = %.2f$', l(i));

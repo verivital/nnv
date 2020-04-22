@@ -76,6 +76,8 @@ end
 
 cd /code/nnv/examples/Submission/CAV2020_ImageStar/
 
+cd VGG16/Compare_Polytope_ImageStar
+
 % table 5, vgg16 part
 diary([path_out_vgg16, 'table5_vgg16_delta2e07_log.txt'])
 cd ../Compare_Exact_vs_Approx

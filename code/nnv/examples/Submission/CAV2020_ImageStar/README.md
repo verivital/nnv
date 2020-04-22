@@ -23,6 +23,11 @@ CodeOcean is a cloud-based execution environment we have configured to reproduce
 
 https://codeocean.com/capsule/1314285/
 
+## Demo Video
+A recent video demonstration of NNV is available, although note that this does not focus on the ImageStar approach and is more an overview of the whole tool:
+
+[![Alt text](https://img.youtube.com/vi/fLcEwPae5C4/0.jpg)](https://www.youtube.com/watch?v=fLcEwPae5C4)
+
 ## REPRODUCING THE RESULTS IN THE PAPER
 
 ### 1. The paper contains the following computational elements:

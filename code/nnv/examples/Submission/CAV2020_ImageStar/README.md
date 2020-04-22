@@ -23,6 +23,11 @@ CodeOcean is a cloud-based execution environment we have configured to reproduce
 
 https://codeocean.com/capsule/1314285/
 
+## Demo Video
+A recent video demonstration of NNV is available, although note that this does not focus on the ImageStar approach and is more an overview of the whole tool:
+
+[![Alt text](https://img.youtube.com/vi/fLcEwPae5C4/0.jpg)](https://www.youtube.com/watch?v=fLcEwPae5C4)
+
 ## REPRODUCING THE RESULTS IN THE PAPER
 
 ### 1. The paper contains the following computational elements:
@@ -138,9 +143,9 @@ Password: see easychair
 
 3c. After opening the capsule through the above URL, one can view code, navigate existing reproduced results, etc.
 
-Prior executions of all results in this paper are available in the single execution `Run 7531671` as well as the three `Runs 7518355, 7502688, and 7438990` together. This process takes about 20 hours total, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
+Prior executions of all results in this paper are available in the single execution `Run 7557000` as well as the three `Runs 7518355, 7502688, and 7438990` together. This process takes about 20 hours total, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
 
-`Run 7531671\logs` (all results, using `compare_star_absdom_short.m` for MNIST)
+`Run 7557000\logs` (all results, using `compare_star_absdom_short.m` for MNIST)
 
 `Run 7518355\logs` (second half of VGG16 results and all VGG19 results; continued from `run 7502688` after correcting path error)
 

@@ -60,7 +60,7 @@ plot_network_architectures;
 saveas(gcf, [path_out_mnist, 'figure13_mnist_architectures.png']);
 diary off;
 
-cd path_reproduce;
+cd(path_reproduce);
 
 % table 4, vgg16 part
 diary([path_out_vgg16, 'table4_vgg16_log.txt'])
@@ -78,7 +78,7 @@ diary([path_out_vgg16, 'table5_vgg16_delta1e07_log.txt'])
 verify_robustness_delta_e_07 % ~15 min
 diary off;
 
-cd path_reproduce;
+cd(path_reproduce);
 
 % table 4, vgg19 part
 diary([path_out_vgg19, 'table4_vgg19_log.txt']);

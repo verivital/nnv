@@ -1,7 +1,6 @@
 # nnv
 Matlab Toolbox for Neural Network Verification
 
-
 This toolbox implements reachability methods for analyzing neural networks, particularly with a focus on closed-loop controllers in autonomous cyber-physical systems (CPS).
 
 # related tools and software
@@ -41,6 +40,10 @@ nnv can be executed online without installing Matlab or other dependencies throu
 
     Go into the `tests/examples` folders to execute the scripts for testing/analyzing examples.
 
+# Demo Video
+A recent video demonstration of NNV is available.
+
+[![Alt text](https://img.youtube.com/vi/fLcEwPae5C4/0.jpg)](https://www.youtube.com/watch?v=fLcEwPae5C4)
 
 # novel features
 

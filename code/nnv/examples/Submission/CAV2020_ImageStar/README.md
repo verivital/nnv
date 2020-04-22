@@ -143,7 +143,11 @@ For example, Figure 8 showing the MNIST comparison of reachable states can be se
 
 Run 7502688\logs\MNIST\figure8_mnist_small.png
 
-To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. We next explain what this "Reproducible Run" process does. Note that while we have set up the shared user account with sufficient runtime to re-run the results, we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased. As a simple test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run an individual figure/table, such as `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Small/plot_ranges.m` instead of the full `reproduce_CAV2020_ImageStar.m`.
+To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. We next explain what this "Reproducible Run" process does. Note that while we have set up the shared user account with sufficient runtime to re-run the results, we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased. As a simple test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run an individual figure/table, such as `code/nnv/example/Submission/CAV2020_ImageStar/MNIST_NETS/Small/plot_ranges.m` instead of the full `reproduce_CAV2020_ImageStar.m`. This can be done by replacing the `reproduce_CAV2020_ImageStar` call (https://github.com/verivital/nnv/blob/master/code/run_codeocean.m#L15) with:
+
+```cd MNIST_NETS/Small/
+plot_ranges
+``
 
 This starts by building the Docker container, which first executes this Dockerfile (if the container is already cached, it doesn't rebuild, so runtime can be faster):
 

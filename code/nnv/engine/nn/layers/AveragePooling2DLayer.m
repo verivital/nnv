@@ -425,7 +425,7 @@ classdef AveragePooling2DLayer < handle
         end
         
         % handle multiple inputs
-        function S = reach_star_mutipleInputs(obj, inputs, option)
+        function S = reach_star_multipleInputs(obj, inputs, option)
             % @inputs: an array of ImageStars
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar
@@ -467,7 +467,7 @@ classdef AveragePooling2DLayer < handle
         end
         
         % handle multiple inputs
-        function S = reach_zono_mutipleInputs(obj, inputs, option)
+        function S = reach_zono_multipleInputs(obj, inputs, option)
             % @inputs: an array of ImageZonos
             % @option: = 'parallel' or 'single'
             % @S: output ImageZono
@@ -534,8 +534,8 @@ classdef AveragePooling2DLayer < handle
 
     methods(Static)
         % parse a trained averagePooling2dLayer from matlab
-        function L = parse(average_Pooling_2d_Layer)
-            % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep
+        function L = parse(layer)
+            % @layer: a average pooling 2d layer from matlab deep
             % neural network tool box
             % @L : a AveragePooling2DLayer obj for reachability analysis purpose
 
@@ -543,11 +543,11 @@ classdef AveragePooling2DLayer < handle
             % date: 7/26/2019
 
 
-            if ~isa(average_Pooling_2d_Layer, 'nnet.cnn.layer.AveragePooling2DLayer')
+            if ~isa(layer, 'nnet.cnn.layer.AveragePooling2DLayer')
                 error('Input is not a Matlab nnet.cnn.layer.AveragePooling2DLayer class');
             end
 
-            L = MaxPooling2DLayer(average_Pooling_2d_Layer.Name, average_Pooling_2d_Layer.PoolSize, average_Pooling_2d_Layer.Stride, average_Pooling_2d_Layer.PaddingSize, average_Pooling_2d_Layer.NumInputs, average_Pooling_2d_Layer.InputNames, average_Pooling_2d_Layer.NumOutputs, average_Pooling_2d_Layer.OutputNames);
+            L = AveragePooling2DLayer(layer.Name, layer.PoolSize, layer.Stride, layer.PaddingSize, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
 
         end

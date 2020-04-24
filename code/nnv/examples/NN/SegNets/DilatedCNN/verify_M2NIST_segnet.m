@@ -1,5 +1,6 @@
 % load pretrained network and data
-load('M2NISTnet_92.mat');
+%load('M2NISTnet_92.mat');
+load('M2NIST_dilatedCNN_avgpool.mat');
 nnvNet = SEGNET.parse(net, 'M2NISTnet_92');
 load('test_im.mat');
 % attack the image by some bounded disturbance

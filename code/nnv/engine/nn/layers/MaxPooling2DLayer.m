@@ -366,6 +366,39 @@ classdef MaxPooling2DLayer < handle
                          
         end
         
+        % get zero-padding image star
+        function pad_ims = get_zero_padding_imageStar(obj, ims)
+            % @ims: an image star input set
+            % @pad_ims: an zero-padding image star set
+            
+            % author: Dung Tran
+            % date: 4/23/2020
+            
+            if sum(obj.PaddingSize) == 0
+                pad_ims = ims;
+            else
+                c = obj.get_zero_padding_input(ims.V(:,:,:,1));
+                k = size(c);
+                n = ims.numPred;
+                V1(:,:,:,n+1) = zeros(k);
+                for i=1:n
+                    V1(:,:,:,i+1) = obj.get_zero_padding_input(ims.V(:,:,:,i+1));
+                end
+                V1(:,:,:,1) = c;
+                if ~isempty(ims.im_lb)
+                    new_im_lb = obj.get_zero_padding_input(ims.im_lb);
+                    new_im_ub = obj.get_zero_padding_input(ims.im_ub);
+                else
+                    new_im_lb = [];
+                    new_im_ub = [];
+                end
+                pad_ims = ImageStar(V1, ims.C, ims.d, ims.pred_lb, ims.pred_ub, new_im_lb, new_im_ub);
+            end
+            
+            
+            
+        end
+        
         
         % compute feature map for specific input and weight
         function maxMap = compute_maxMap(obj, input)
@@ -634,15 +667,19 @@ classdef MaxPooling2DLayer < handle
                 error('Input image is not an imagestar');
             end
             
-            [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1)); 
+            [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1));
             startPoints = obj.get_startPoints(in_image.V(:,:,1,1));
             max_index = cell(h, w, in_image.numChannel);
+            
+            % padding in_image star
+            
+            pad_image = obj.get_zero_padding_imageStar(in_image);
                         
             % compute max_index when applying maxpooling operation
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
-                        max_index{i, j, k}  = in_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);     
+                        max_index{i, j, k}  = pad_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);     
                     end
                 end
             end
@@ -650,9 +687,9 @@ classdef MaxPooling2DLayer < handle
             % construct an over-approximate imagestar reachable set
             
             % compute new number of predicate
-            np = in_image.numPred;
+            np = pad_image.numPred;
             l = 0;
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
@@ -664,24 +701,24 @@ classdef MaxPooling2DLayer < handle
                 end
             end
             
-            fprintf('\n%d new variables are introduced', l);
+            fprintf('\n%d new variables are introduced\n', l);
                                    
             % update new basis matrix
-            new_V(:,:,in_image.numChannel,np+1) = zeros(h,w);
+            new_V(:,:,pad_image.numChannel,np+1) = zeros(h,w);
             new_pred_index = 0;
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
                         if size(max_id, 1) == 1                            
-                            for p=1:in_image.numPred + 1
-                                new_V(i,j,k, p) = in_image.V(max_id(1),max_id(2),k, p);
+                            for p=1:pad_image.numPred + 1
+                                new_V(i,j,k, p) = pad_image.V(max_id(1),max_id(2),k, p);
                             end
                         else
                             % adding new predicate variable
                             new_V(i,j,k,1) = 0;
                             new_pred_index = new_pred_index + 1;
-                            new_V(i,j,k,in_image.numPred+1+new_pred_index) = 1;                            
+                            new_V(i,j,k,pad_image.numPred+1+new_pred_index) = 1;                            
                         end                       
                     end
                 end
@@ -694,7 +731,7 @@ classdef MaxPooling2DLayer < handle
             new_pred_lb = zeros(new_pred_index, 1); % update lower bound and upper bound of new predicate variables
             new_pred_ub = zeros(new_pred_index, 1); 
             new_pred_index = 0;
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
@@ -702,10 +739,10 @@ classdef MaxPooling2DLayer < handle
                             % construct new set of constraints here
                             new_pred_index = new_pred_index + 1;                           
                             startpoint = startPoints{i,j};
-                            points = in_image.get_localPoints(startpoint, obj.PoolSize);
+                            points = pad_image.get_localPoints(startpoint, obj.PoolSize);
                             C1 = zeros(1, np);
-                            C1(in_image.numPred + new_pred_index) = 1;
-                            [lb, ub] = in_image.get_localBound(startpoint, obj.PoolSize, k);
+                            C1(pad_image.numPred + new_pred_index) = 1;
+                            [lb, ub] = pad_image.get_localBound(startpoint, obj.PoolSize, k);
                             new_pred_lb(new_pred_index) = lb;
                             new_pred_ub(new_pred_index) = ub;
                             d1 = ub;                           
@@ -714,9 +751,9 @@ classdef MaxPooling2DLayer < handle
                             for g=1:N
                                 point = points(g,:);
                                 % add new predicate constraint: xi - y <= 0
-                                C2(g, 1:in_image.numPred) = in_image.V(point(1), point(2),k, 2:in_image.numPred+1);
-                                C2(g, in_image.numPred + new_pred_index) = -1;
-                                d2(g) = -in_image.V(point(1),point(2),k,1);                                
+                                C2(g, 1:pad_image.numPred) = pad_image.V(point(1), point(2),k, 2:pad_image.numPred+1);
+                                C2(g, pad_image.numPred + new_pred_index) = -1;
+                                d2(g) = -pad_image.V(point(1),point(2),k,1);                                
                             end
                             
                             C = [C1; C2];
@@ -729,12 +766,12 @@ classdef MaxPooling2DLayer < handle
                 end
             end
             
-            n = size(in_image.C, 1);
-            C = [in_image.C zeros(n, new_pred_index)];
+            n = size(pad_image.C, 1);
+            C = [pad_image.C zeros(n, new_pred_index)];
             new_C = [C; new_C];
-            new_d = [in_image.d; new_d];
-            new_pred_lb = [in_image.pred_lb; new_pred_lb];
-            new_pred_ub = [in_image.pred_ub; new_pred_ub];
+            new_d = [pad_image.d; new_d];
+            new_pred_lb = [pad_image.pred_lb; new_pred_lb];
+            new_pred_ub = [pad_image.pred_ub; new_pred_ub];
             
             image = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
                        

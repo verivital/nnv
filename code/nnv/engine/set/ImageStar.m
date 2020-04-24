@@ -162,7 +162,7 @@ classdef ImageStar < handle
                         obj.V = reshape(I.V,[n(1), n(2), n(3), I.nVar + 1]);
                     else
                         I = Star(reshape(obj.im_lb, [n(1)*n(2), 1]),reshape(obj.im_ub, [n(1)*n(2), 1]));
-                        obj.V = reshape(I.V,[n(1), n(2), I.nVar + 1]);
+                        obj.V = reshape(I.V,[n(1) n(2) 1 I.nVar + 1]);
                     end
                     obj.C = I.C;
                     obj.d = I.d;
@@ -865,7 +865,17 @@ classdef ImageStar < handle
             h  = PoolSize(1);   % height of the MaxPooling layer
             w  = PoolSize(2);   % width of the MaxPooling layer
             
-
+            
+%             display(x0 < 1);
+%             display(y0 < 1);
+%             display(x0 + h - 1 > obj.height);
+%             display(y0 + w - 1 > obj.width);
+%             
+%             display(x0);
+%             display(y0);
+%             display(w);
+%             display(obj.width);
+            
             if x0 < 1 || y0 < 1 || x0 + h - 1 > obj.height || y0 + w - 1 > obj.width
                 error('Invalid startpoint or PoolSize');
             end

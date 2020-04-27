@@ -579,20 +579,23 @@ classdef MaxPooling2DLayer < handle
             
             startPoints = obj.get_startPoints(in_image.V(:,:,1,1)); % get starpoints
             [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1)); % size of maxMap           
-            image = in_image;   
+            
+            % padding in_image star
+            pad_image = obj.get_zero_padding_imageStar(in_image);
+            
             % check max_id first           
-            max_index = cell(h, w, in_image.numChannel);
-            maxMap_basis_V(:,:,in_image.numChannel, in_image.numPred+1) = zeros(h,w); % pre-allocate basis matrix for the maxmap
+            max_index = cell(h, w, pad_image.numChannel);
+            maxMap_basis_V(:,:,pad_image.numChannel, pad_image.numPred+1) = zeros(h,w); % pre-allocate basis matrix for the maxmap
             split_pos = [];
             
             % compute max_index and split_index when applying maxpooling operation
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
-                        max_index{i, j, k}  = in_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);                       
+                        max_index{i, j, k}  = pad_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);                       
                         % construct the basis image for the maxMap
                         if size(max_index{i, j, k}, 1) == 1
-                            maxMap_basis_V(i,j,k, :) = in_image.V(max_index{i, j, k}(1), max_index{i, j, k}(2), k, :);
+                            maxMap_basis_V(i,j,k, :) = pad_image.V(max_index{i, j, k}(1), max_index{i, j, k}(2), k, :);
                         else
                             split_pos = [split_pos; [i j k]];
                         end
@@ -603,11 +606,11 @@ classdef MaxPooling2DLayer < handle
             
             n = size(split_pos, 1);
             fprintf('\nThere are splits happened at %d local regions when computing the exact max maps', n);
-            images = ImageStar(maxMap_basis_V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+            images = ImageStar(maxMap_basis_V, pad_image.C, pad_image.d, pad_image.pred_lb, pad_image.pred_ub);
             if n > 0         
                 for i=1:n
                     m1 = length(images);           
-                    images = ImageStar.stepSplitMultipleInputs(images, in_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
+                    images = ImageStar.stepSplitMultipleInputs(images, pad_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
                     m2 = length(images);
                     fprintf('\nSplit %d images into %d images', m1, m2);
                 end
@@ -672,7 +675,6 @@ classdef MaxPooling2DLayer < handle
             max_index = cell(h, w, in_image.numChannel);
             
             % padding in_image star
-            
             pad_image = obj.get_zero_padding_imageStar(in_image);
                         
             % compute max_index when applying maxpooling operation

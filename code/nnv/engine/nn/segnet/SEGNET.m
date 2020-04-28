@@ -284,8 +284,7 @@ classdef SEGNET < handle
             end
             
         end
-        
-        
+                
         % start parallel pool for computing
         function start_pool(obj)
             
@@ -877,8 +876,15 @@ classdef SEGNET < handle
                 error('the parsed object is not a Matlab DAGNetwork object, a LayerGraph object or a SeriesNetwork object');
             end
             
-            n = length(net.Layers); % number of layers
-                        
+            
+            % get connection table
+            if isprop(net, 'Connections')
+                connects = net.Connections;
+            else
+                connects = [];
+            end
+            
+            n = length(net.Layers); % number of layers           
             Ls = {};
             j = 0;
             for i=1:n
@@ -905,6 +911,8 @@ classdef SEGNET < handle
                         Li = FullyConnectedLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.MaxUnpooling2DLayer')
                         Li = MaxUnpooling2DLayer.parse(L);
+                        pairedMaxPoolingName = SEGNET.getPairedMaxPoolingName(connects, Li.Name);
+                        Li.setPairedMaxPoolingName(pairedMaxPoolingName);
                     elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
                         Li = PixelClassificationLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.SoftmaxLayer')
@@ -921,12 +929,7 @@ classdef SEGNET < handle
                             
             end
             
-            % update connection table
-            if isprop(net, 'Connections')
-                connects = net.Connections;
-            else
-                connects = [];
-            end
+            
             segnet = SEGNET(name, Ls, connects, net.InputNames, net.OutputNames);
             fprintf('\nParsing network is done successfully and %d Layers are neglected in the analysis phase', n - j);
             
@@ -936,9 +939,42 @@ classdef SEGNET < handle
             
         end
         
-             
-        %
-        
+
+        % get paired max pooling layer name
+        function maxpooling_layer_name = getPairedMaxPoolingName(Connections, unpooling_layer_name)
+            % @unpooling_layer_name: the name of the unmaxpooling layer
+            % @maxpooling_layer_name: the name of the paired max pooling layer           
+            
+            % author: Dung Tran
+            % date: 4/27/2020
+            
+            
+            if isempty(Connections)
+                error('No connection table');
+            end
+            
+            if ~ischar(unpooling_layer_name)
+                error('Invalid unpooling_layer_name');
+            else
+                dest_name = sprintf("%s/indices", unpooling_layer_name);
+            end
+            
+            n = size(Connections, 1);
+            
+            source_name = [];
+            for i=1:n                
+                if strcmp(Connections.Destination(i), dest_name)
+                    source_name = Connections.Source(i);
+                    break;
+                end
+            end
+            
+            if isempty(source_name)
+                error('Unknown destination name');
+            end
+            
+            maxpooling_layer_name = erase(source_name{1}, "/indices");            
+        end
         
     end
     

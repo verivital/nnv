@@ -86,8 +86,10 @@ classdef ImageStar < handle
         pred_lb = []; % lower bound vector of the predicate
         pred_ub = []; % upper bound vector of the predicate
         im_lb = []; % lower bound image of the ImageStar
-        im_ub = []; % upper bound image of the ImageStar   
-
+        im_ub = []; % upper bound image of the ImageStar
+        
+        maxIdxs_inputSize = cell(1,1); % used for unmaxpooling operation in Segmentation network 
+        
     end
     
     methods
@@ -996,6 +998,27 @@ classdef ImageStar < handle
             end
          
          
+        end
+        
+        
+        % add maxidx and inputSize
+        % used for unmaxpooling reachability 
+        function addMaxIdx_InputSize(obj, name, maxIdx, inputSize)
+            % @name: name of the max pooling layer
+            % @maxIdx: max indexes
+            % @inputSize: input size
+            
+            % author: Dung Tran
+            % date: 4/27/2020
+            
+            A.Name = name;
+            A.MaxIdx = maxIdx;
+            A.InputSize = inputSize;
+            if isempty(obj.maxIdxs_inputSize{1})
+                obj.maxIdxs_inputSize{1} = A;
+            else
+                obj.maxIdxs_inputSize = [obj.maxIdxs_inputSize A];
+            end
         end
         
         

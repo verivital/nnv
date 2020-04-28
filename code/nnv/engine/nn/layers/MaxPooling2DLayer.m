@@ -601,8 +601,7 @@ classdef MaxPooling2DLayer < handle
                         end
                     end
                 end
-            end
-            
+            end           
             
             n = size(split_pos, 1);
             fprintf('\nThere are splits happened at %d local regions when computing the exact max maps', n);
@@ -776,7 +775,7 @@ classdef MaxPooling2DLayer < handle
             new_pred_ub = [pad_image.pred_ub; new_pred_ub];
             
             image = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
-                       
+            image.addMaxIdx_InputSize(obj.Name, max_index, [pad_image.height pad_image.width]);           
         end
         
         % reach approx-star with multiple inputs

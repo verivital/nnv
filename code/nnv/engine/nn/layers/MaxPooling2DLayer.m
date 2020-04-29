@@ -562,7 +562,7 @@ classdef MaxPooling2DLayer < handle
     methods
         % reachability analysis method using Stars
         % a star represent a set of images (2D matrix of h x w)           
-        
+ 
         function images = reach_star_exact(obj, in_image)
             % @in_image: an ImageStar input set
             % @option: = 'single' single core for computation
@@ -571,7 +571,7 @@ classdef MaxPooling2DLayer < handle
             
             % author: Dung Tran
             % date: 6/17/2019
-            % updates: 7/25/2019
+            % updates: 7/25/2019, 4/28/2020
             
             if ~isa(in_image, 'ImageStar')
                 error('The input is not an ImageStar object');
@@ -589,6 +589,7 @@ classdef MaxPooling2DLayer < handle
             split_pos = [];
             
             % compute max_index and split_index when applying maxpooling operation
+            maxidx = [];
             for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
@@ -596,26 +597,105 @@ classdef MaxPooling2DLayer < handle
                         % construct the basis image for the maxMap
                         if size(max_index{i, j, k}, 1) == 1
                             maxMap_basis_V(i,j,k, :) = pad_image.V(max_index{i, j, k}(1), max_index{i, j, k}(2), k, :);
+                            maxidx = [maxidx; max_index{i, j, k}];
                         else
                             split_pos = [split_pos; [i j k]];
                         end
                     end
                 end
-            end           
-            
+            end
+                        
             n = size(split_pos, 1);
             fprintf('\nThere are splits happened at %d local regions when computing the exact max maps', n);
             images = ImageStar(maxMap_basis_V, pad_image.C, pad_image.d, pad_image.pred_lb, pad_image.pred_ub);
+            images.addMaxIdx_InputSize(obj.Name, maxidx, [pad_image.height pad_image.width]);
             if n > 0         
                 for i=1:n
                     m1 = length(images);           
-                    images = ImageStar.stepSplitMultipleInputs(images, pad_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
+                    images = obj.stepSplitMultipleInputs(images, pad_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
                     m2 = length(images);
                     fprintf('\nSplit %d images into %d images', m1, m2);
                 end
             end
+                        
                                           
         end
+        
+        % step split of an image star
+        % a single in_image can be splitted into several images in the
+        % exact max pooling operation
+        function images = stepSplit(obj, in_image, ori_image, pos, split_index)
+            % @in_image: the current maxMap ImageStar
+            % @ori_image: the original ImageStar to compute the maxMap 
+            % @pos: local position of the maxMap where splits may occur
+            % @split_index: indexes of local pixels where splits occur
+            
+            % author: Dung Tran
+            % date: 7/25/2019
+            
+            
+            if ~isa(in_image, 'ImageStar')
+                error('input maxMap is not an ImageStar');
+            end
+            if ~isa(ori_image, 'ImageStar')
+                error('reference image is not an ImageStar');
+            end
+            
+            n = size(split_index);
+            if n(2) ~= 3 || n(1) < 1
+                error('Invalid split index, it should have 3 columns and at least 1 row');
+            end
+            
+                        
+            images = [];
+            for i=1:n(1)               
+                center = split_index(i, :, :);
+                others = split_index;
+                others(i,:,:) = [];     
+                [new_C, new_d] = ImageStar.isMax(in_image, ori_image, center, others);                
+                if ~isempty(new_C) && ~isempty(new_d)                    
+                    V = in_image.V;
+                    V(pos(1), pos(2), pos(3), :) = ori_image.V(center(1), center(2), center(3), :);
+                    im = ImageStar(V, new_C, new_d, in_image.pred_lb, in_image.pred_ub, in_image.im_lb, in_image.im_ub);
+                    im.maxIdxs_inputSize = in_image.maxIdxs_inputSize;
+                    im.addMaxIdx_InputSize(obj.Name, center, [ori_image.height ori_image.width]);
+                    images = [images im];
+                end
+            end
+           
+        end
+        
+        
+        % step split for multiple image stars
+        % a single in_image can be splitted into several images in the
+        % exact max pooling operation
+        function images = stepSplitMultipleInputs(obj, in_images, ori_image, pos, split_index, option)
+            % @in_image: the current maxMap ImageStar
+            % @ori_image: the original ImageStar to compute the maxMap 
+            % @pos: local position of the maxMap where splits may occur
+            % @split_index: indexes of local pixels where splits occur
+            % @option: = [] or 'parallel'
+            
+            % author: Dung Tran
+            % date: 7/25/2019
+            
+            
+            n = length(in_images);
+            images = [];
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images = [images obj.stepSplit(in_images(i), ori_image, pos, split_index)];
+                end
+            elseif isempty(option) || strcmp(option, 'single')
+                for i=1:n
+                    images = [images obj.stepSplit(in_images(i), ori_image, pos, split_index)];
+                end
+            else 
+                error('Unknown computation option');
+            end       
+            
+        end
+        
         
         % reach exact star multiple inputs
         function IS = reach_star_exact_multipleInputs(obj, in_images, option)
@@ -642,10 +722,10 @@ classdef MaxPooling2DLayer < handle
             else
                 error('Unknown computation option');
             end
-            
-            
+                
         end
         
+               
         
         
         

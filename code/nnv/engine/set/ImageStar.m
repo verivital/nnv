@@ -991,13 +991,14 @@ classdef ImageStar < handle
                     
                 end
                 
-                n = size(max_id, 1);
-                channels = channel_id*ones(n,1);
-                max_id = [max_id channels];
-
+                
             end
-         
-         
+            
+            n = size(max_id, 1);
+            channels = channel_id*ones(n,1);
+            max_id = [max_id channels];
+
+        
         end
         
         
@@ -1010,6 +1011,7 @@ classdef ImageStar < handle
             
             % author: Dung Tran
             % date: 4/27/2020
+            % update: 4/29/2020
             
             A.Name = name;
             A.MaxIdx = maxIdx;
@@ -1017,8 +1019,25 @@ classdef ImageStar < handle
             if isempty(obj.maxIdxs_inputSize{1})
                 obj.maxIdxs_inputSize{1} = A;
             else
-                obj.maxIdxs_inputSize = [obj.maxIdxs_inputSize A];
+                n = length(obj.maxIdxs_inputSize);
+                ct = 0;
+                for i=1:n
+                    if strcmp(obj.maxIdxs_inputSize{i}.Name, name)
+                        obj.maxIdxs_inputSize{i}.MaxIdx = [obj.maxIdxs_inputSize{i}.MaxIdx; maxIdx];
+                        break;
+                    else
+                        ct = ct + 1;
+                    end
+                end
+                
+                if ct == n
+                    obj.maxIdxs_inputSize = [obj.maxIdxs_inputSize A];
+                end
             end
+            
+            
+            
+            
         end
         
         
@@ -1140,82 +1159,7 @@ classdef ImageStar < handle
 
         end
         
-        % step split of an image star
-        % a single in_image can be splitted into several images in the
-        % exact max pooling operation
-        function images = stepSplit(in_image, ori_image, pos, split_index)
-            % @in_image: the current maxMap ImageStar
-            % @ori_image: the original ImageStar to compute the maxMap 
-            % @pos: local position of the maxMap where splits may occur
-            % @split_index: indexes of local pixels where splits occur
-            
-            % author: Dung Tran
-            % date: 7/25/2019
-            
-            
-            if ~isa(in_image, 'ImageStar')
-                error('input maxMap is not an ImageStar');
-            end
-            if ~isa(ori_image, 'ImageStar')
-                error('reference image is not an ImageStar');
-            end
-            
-            n = size(split_index);
-            if n(2) ~= 3 || n(1) < 1
-                error('Invalid split index, it should have 3 columns and at least 1 row');
-            end
-            
                         
-            images = [];
-            for i=1:n(1)
-                
-                center = split_index(i, :, :);
-                others = split_index;
-                others(i,:,:) = [];     
-                [new_C, new_d] = ImageStar.isMax(in_image, ori_image, center, others);                
-                if ~isempty(new_C) && ~isempty(new_d)                    
-                    V = in_image.V;
-                    V(pos(1), pos(2), pos(3), :) = ori_image.V(center(1), center(2), center(3), :);
-                    im = ImageStar(V, new_C, new_d, in_image.pred_lb, in_image.pred_ub, in_image.im_lb, in_image.im_ub);
-                    images = [images im];
-                end
-            end
-           
-        end
-        
-        
-        % step split for multiple image stars
-        % a single in_image can be splitted into several images in the
-        % exact max pooling operation
-        function images = stepSplitMultipleInputs(in_images, ori_image, pos, split_index, option)
-            % @in_image: the current maxMap ImageStar
-            % @ori_image: the original ImageStar to compute the maxMap 
-            % @pos: local position of the maxMap where splits may occur
-            % @split_index: indexes of local pixels where splits occur
-            % @option: = [] or 'parallel'
-            
-            % author: Dung Tran
-            % date: 7/25/2019
-            
-            
-            n = length(in_images);
-            images = [];
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    images = [images ImageStar.stepSplit(in_images(i), ori_image, pos, split_index)];
-                end
-            elseif isempty(option) || strcmp(option, 'single')
-                for i=1:n
-                    images = [images ImageStar.stepSplit(in_images(i), ori_image, pos, split_index)];
-                end
-            else 
-                error('Unknown computation option');
-            end       
-            
-        end
-        
-        
-        
         
         % reshape an ImageStar
         function new_IS = reshape(in_IS, new_shape)

@@ -170,10 +170,13 @@ classdef MaxUnpooling2DLayer < handle
             N = size(max_points, 1); % number of local max points
             R = [];
             for l=1:N
-                i = max_points(1);
-                j = max_points(2);
-                k = max_points(3);
-                R1 = in_R;
+                maxpoint = max_points(l,:,:);
+                i = maxpoint(1);
+                j = maxpoint(2);
+                k = maxpoint(3);
+                R1 = ImageStar(in_R.V, in_R.C, in_R.d, in_R.pred_lb, in_R.pred_ub, in_R.im_lb, in_R.im_ub);
+                R1.MaxIdxs = in_R.MaxIdxs;
+                R1.InputSizes = in_R.InputSizes;
                 R1.V(i,j,k,:) = V;
                 R1.im_lb(i, j, k) = lb;
                 R1.im_ub(i, j, k) = ub;
@@ -210,11 +213,15 @@ classdef MaxUnpooling2DLayer < handle
             % date: 4/27/2020
             
             
-            n = length(IS.maxIdxs_inputSize);
+            n = length(IS.MaxIdxs);
+            newMaxIdxs = IS.MaxIdxs;
+            newInputSizes = IS.InputSizes;
             for i=1:n
-                if strcmp(IS.maxIdxs_inputSize{i}.Name, obj.PairedMaxPoolingName)
-                    maxIdx = IS.maxIdxs_inputSize{i}.MaxIdx;
-                    inputSize = IS.maxIdxs_inputSize{i}.InputSize;
+                if strcmp(IS.MaxIdxs{i}.Name, obj.PairedMaxPoolingName)
+                    maxIdx = IS.MaxIdxs{i}.MaxIdx;
+                    inputSize = IS.InputSizes{i}.InputSize;
+                    newMaxIdxs{i} = [];
+                    newInputSizes{i} = [];
                     break;
                 end
             end
@@ -232,6 +239,8 @@ classdef MaxUnpooling2DLayer < handle
             im_lb(:,:,numChannel) = zeros(inputSize(1), inputSize(2));
             im_ub(:,:,numChannel) = zeros(inputSize(1), inputSize(2));
             R0 = ImageStar(V, IS.C, IS.d, IS.pred_lb, IS.pred_ub, im_lb, im_ub);
+            R0.MaxIdxs = newMaxIdxs; 
+            R0.InputSizes = newInputSizes;
             R = R0;
             for k=1:numChannel
                 for i=1:h
@@ -261,16 +270,17 @@ classdef MaxUnpooling2DLayer < handle
             
             
             n = length(in_images);
-            IS(n) = ImageStar;
+            IS = [];
             if strcmp(option, 'parallel')
                 
                 parfor i=1:n
-                    IS(i) = obj.reach_star(in_images(i));
+                    IS = [IS obj.reach_star(in_images(i))];
                 end
                 
             elseif isempty(option) || strcmp(option, 'single')
+                
                 for i=1:n
-                    IS(i) = obj.reach_star(in_images(i));
+                    IS = [IS obj.reach_star(in_images(i))];
                 end
             else
                 error('Unknown computation option');

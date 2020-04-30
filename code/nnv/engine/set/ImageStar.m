@@ -88,8 +88,8 @@ classdef ImageStar < handle
         im_lb = []; % lower bound image of the ImageStar
         im_ub = []; % upper bound image of the ImageStar
         
-        maxIdxs_inputSize = cell(1,1); % used for unmaxpooling operation in Segmentation network 
-        
+        MaxIdxs = cell(1,1); % used for unmaxpooling operation in Segmentation network 
+        InputSizes = cell(1,1); % used for unmaxpooling operation in Segmentation network 
     end
     
     methods
@@ -1002,42 +1002,72 @@ classdef ImageStar < handle
         end
         
         
-        % add maxidx and inputSize
+        % add maxidx
         % used for unmaxpooling reachability 
-        function addMaxIdx_InputSize(obj, name, maxIdx, inputSize)
+        function addMaxIdx(obj, name, maxIdx)
             % @name: name of the max pooling layer
             % @maxIdx: max indexes
-            % @inputSize: input size
+           
             
             % author: Dung Tran
             % date: 4/27/2020
-            % update: 4/29/2020
+            % update: 4/30/2020
             
             A.Name = name;
             A.MaxIdx = maxIdx;
-            A.InputSize = inputSize;
-            if isempty(obj.maxIdxs_inputSize{1})
-                obj.maxIdxs_inputSize{1} = A;
+            if isempty(obj.MaxIdxs{1})
+                obj.MaxIdxs{1} = A;
             else
-                n = length(obj.maxIdxs_inputSize);
-                ct = 0;
-                for i=1:n
-                    if strcmp(obj.maxIdxs_inputSize{i}.Name, name)
-                        obj.maxIdxs_inputSize{i}.MaxIdx = [obj.maxIdxs_inputSize{i}.MaxIdx; maxIdx];
-                        break;
-                    else
-                        ct = ct + 1;
-                    end
-                end
-                
-                if ct == n
-                    obj.maxIdxs_inputSize = [obj.maxIdxs_inputSize A];
+                obj.MaxIdxs = [obj.MaxIdxs A];
+            end
+        end
+        
+        % update max index
+        % used for unmaxpooling reachability 
+        function updateMaxIdx(obj, name, maxIdx, pos)
+            % @name: name of the max pooling layer
+            % @maxIdx: max indexes
+            % @pos: the position of the local pixel of the max map
+            % corresponding to the maxIdx
+           
+            
+            % author: Dung Tran
+            % date: 4/30/2020
+            % update: 
+            
+            n = length(obj.MaxIdxs);
+            ct = 0;
+            for i=1:n
+                if strcmp(obj.MaxIdxs{i}.Name, name)
+                    obj.MaxIdxs{i}.MaxIdx{pos(1), pos(2), pos(3)} = maxIdx;
+                    break;
+                else
+                    ct = ct + 1;
                 end
             end
             
+            if ct == n
+                error('Unknown name of the maxpooling layer');
+            end
             
+        end
+        
+        % add maxidx
+        % used for unmaxpooling reachability 
+        function addInputSize(obj, name, inputSize)
+            % @name: name of the max pooling layer
+            % @inputSize: input size of the original image
             
-            
+            % author: Dung Tran
+            % date: 4/30/2020
+                       
+            A.Name = name;
+            A.InputSize = inputSize;
+            if isempty(obj.InputSizes{1})
+                obj.InputSizes{1} = A;
+            else
+                obj.InputSizes = [obj.InputSizes A];
+            end
         end
         
         

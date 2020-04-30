@@ -589,7 +589,7 @@ classdef MaxPooling2DLayer < handle
             split_pos = [];
             
             % compute max_index and split_index when applying maxpooling operation
-            maxidx = [];
+            maxidx = cell(h, w, pad_image.numChannel);
             for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
@@ -597,7 +597,7 @@ classdef MaxPooling2DLayer < handle
                         % construct the basis image for the maxMap
                         if size(max_index{i, j, k}, 1) == 1
                             maxMap_basis_V(i,j,k, :) = pad_image.V(max_index{i, j, k}(1), max_index{i, j, k}(2), k, :);
-                            maxidx = [maxidx; max_index{i, j, k}];
+                            maxidx{i, j, k} = max_index{i, j, k};
                         else
                             split_pos = [split_pos; [i j k]];
                         end
@@ -608,11 +608,12 @@ classdef MaxPooling2DLayer < handle
             n = size(split_pos, 1);
             fprintf('\nThere are splits happened at %d local regions when computing the exact max maps', n);
             images = ImageStar(maxMap_basis_V, pad_image.C, pad_image.d, pad_image.pred_lb, pad_image.pred_ub);
-            images.addMaxIdx_InputSize(obj.Name, maxidx, [pad_image.height pad_image.width]);
+            images.addMaxIdx(obj.Name, maxidx);
+            images.addInputSize(obj.Name, [pad_image.height pad_image.width]);
             if n > 0         
                 for i=1:n
                     m1 = length(images);           
-                    images = obj.stepSplitMultipleInputs(images, pad_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
+                    images = obj.stepSplitMultipleInputs(images, pad_image, split_pos(i, :, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
                     m2 = length(images);
                     fprintf('\nSplit %d images into %d images', m1, m2);
                 end
@@ -657,8 +658,9 @@ classdef MaxPooling2DLayer < handle
                     V = in_image.V;
                     V(pos(1), pos(2), pos(3), :) = ori_image.V(center(1), center(2), center(3), :);
                     im = ImageStar(V, new_C, new_d, in_image.pred_lb, in_image.pred_ub, in_image.im_lb, in_image.im_ub);
-                    im.maxIdxs_inputSize = in_image.maxIdxs_inputSize;
-                    im.addMaxIdx_InputSize(obj.Name, center, [ori_image.height ori_image.width]);
+                    im.MaxIdxs = in_image.MaxIdxs; % inherit the max indexes from the previous intermediate imagestar
+                    im.InputSizes = in_image.InputSizes; % inherit the InputSize from the preivous intermediate imageStar
+                    im.updateMaxIdx(obj.Name, center, pos);
                     images = [images im];
                 end
             end
@@ -855,7 +857,8 @@ classdef MaxPooling2DLayer < handle
             new_pred_ub = [pad_image.pred_ub; new_pred_ub];
             
             image = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
-            image.addMaxIdx_InputSize(obj.Name, max_index, [pad_image.height pad_image.width]);           
+            image.addInputSize(obj.Name, [pad_image.height pad_image.width]);
+            image.addMaxIdx(obj.Name, max_index);           
         end
         
         % reach approx-star with multiple inputs

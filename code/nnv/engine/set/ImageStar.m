@@ -1001,6 +1001,50 @@ classdef ImageStar < handle
         
         end
         
+        % get local max index, this medthod tries to find the maximum point
+        % of a local image, used in over-approximate reachability analysis
+        % of maxpooling operation
+        function max_id = get_localMax_index2(obj, startpoint, PoolSize, channel_id)
+            % @startpoint: startpoint of the local(partial) image
+            %               startpoint = [x1 y1];
+            % @PoolSize: = [height width] the height and width of max pooling layer
+            % @channel_id: the channel index
+            % @max_id: = []: we don't know which one has maximum value,
+            % i.e., the maximum values may be the intersection between of
+            % several pixel valutes.
+            %           = [xi yi]: the point that has maximum value
+            
+            % author: Dung Tran
+            % date: 6/24/2019
+            
+            points = obj.get_localPoints(startpoint, PoolSize);          
+            % get lower bound and upper bound image
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+                obj.estimateRanges;
+            end
+            
+            h  = PoolSize(1);   % height of the MaxPooling layer
+            w  = PoolSize(2);   % width of the MaxPooling layer
+            n = h*w;
+            
+            lb = zeros(1, n);
+            ub = zeros(1,n);
+            
+            for i=1:n
+                point_i = points(i, :);
+                lb(:, i) = obj.im_lb(point_i(1), point_i(2), channel_id);
+                ub(:, i) = obj.im_ub(point_i(1), point_i(2), channel_id);   
+            end
+            
+            [max_lb_val, ~] = max(lb, [], 2);
+            
+            max_id = find(ub - max_lb_val > 0);
+            n = size(max_id, 1);
+            channels = channel_id*ones(n,1);
+            max_id = [max_id channels];
+      
+        end
+        
         
         % add maxidx
         % used for unmaxpooling reachability 

@@ -1,4 +1,4 @@
-% /* Visualize reachable sets of discrete nonlinear NNCS */
+% /* An example of constructing a discrete nonlinear NNCS */
 %/* FFNN controller
 load MountainCar_ReluController.mat;
 W = nnetwork.W; % weight matrices
@@ -32,3 +32,17 @@ reachPRM.numCores = 4;
 U = HalfSpace([-1 0], 0); % x1 > 0
 
 [safe, counterExamples, verifyTime] = ncs.verify(reachPRM, U);
+
+%% plot 2d output sets
+figure; 
+map_mat = [1 0; 0 1];
+map_vec = [];
+ncs.plotOutputReachSets('blue', map_mat, map_vec);
+title('Position versus speed');
+
+%% plot 1d output sets
+figure; 
+map_mat = [1 0];
+map_vec = [];
+ncs.plotOutputReachSets('blue', map_mat, map_vec);
+title('Position versus time');

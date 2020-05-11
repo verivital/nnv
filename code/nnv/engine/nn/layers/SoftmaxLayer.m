@@ -103,16 +103,10 @@ classdef SoftmaxLayer < handle
                     error('Invalid input image');
                 else
                     
-                    prob_im = zeros(n);
                     if length(n) == 3
-                       for i=1:n(1)
-                           for j=1:n(2)
-                               v_ij = image(i,j,:);
-                               v_ij = reshape(v_ij, [n(3) 1]);
-                               prob_im(i,j,:) = softmax(v_ij);
-                           end
-                       end
-
+                       dlX = dlarray(image, 'SSC');
+                       dlY = softmax(dlX);
+                       prob_im = extractdata(dlY);
                     else
                         error('Input image is not a multi-channel image');
                     end

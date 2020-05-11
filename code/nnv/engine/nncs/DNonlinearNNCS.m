@@ -653,5 +653,118 @@ classdef DNonlinearNNCS < handle
         end
     end
     
+    
+      methods % plot method
+        % plot output reach set
+        % output reach set is derived by mapping the state reach set by
+        % a maping matrix, M 
+        function plotOutputReachSets(obj, color, map_mat, map_vec)
+            % @map_mat: a mapping matrix
+            % @map_vec: mapping vector
+            % Y = map_mat * X + map_vec
+            % @color: color
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            
+            Y = obj.getOutputReachSet(map_mat, map_vec);
+            
+            n = length(Y); % number of control periods
+            
+            % plot output reach sets
+            
+            option = size(map_mat, 1);
+            h = obj.plant.Ts;                       
+            if option == 1 % plot 1D, output versus time steps        
+                
+                for i=1:n
+                    B = Star.get_hypercube_hull(Y{i});
+                    ymin = B.lb;
+                    ymax = B.ub;
+                    y = [ymin ymin ymax ymax ymin];
+                    xmin = (i-1)*h;
+                    xmax = xmin + h;
+                    x = [xmin xmax xmax xmin xmin];
+                    plot(x, y, color);
+                    hold on;
+                end
+                
+                T = 0:obj.plant.Ts:n*obj.plant.Ts;
+                ax = gca; 
+                ax.XTick = T;
+                
+            end
+            
+            if option == 2 || option == 3 % plot 2D or 3D
+                G = [];
+                for i=1:n
+                     G = [G Star.get_hypercube_hull(Y{i})];                   
+                end
+                
+                if option == 2
+                    Box.plotBoxes_2D_noFill(G, 1, 2, color);
+                elseif option == 3
+                    Box.plotBoxes_3D_noFill(G, 1, 2, 3, color);
+                end
+                
+            end
+            
+            if option > 3
+                error('We can plot only 3-dimensional output set, please limit the number of row of the mapping matrix to <= 3');
+            end
+            
+            
+        end
+        
+        
+        
+        function Y = getOutputReachSet(obj, map_mat, map_vec)
+            % @map_mat: a mapping matrix
+            % @map_vec: mapping vector
+            % Y = map_mat * X + map_vec
+            % @Y: a cell of output reach sets
+            
+            % author: Dung Tran
+            % date: 10/2/2019
+            
+            
+            if isempty(obj.plant.intermediate_reachSet)
+                error('Plant reach set is empty, please perform reachability analysis first');
+            end
+            
+            dim = obj.plant.dim; % dimension of the plant
+            
+            if size(map_mat, 2) ~= dim 
+                error('Inconsistency between map_mat and dimension of the plant, map_mat should have %d columns', dim);
+            end
+            
+            if size(map_mat, 1) > 3
+                error('Plot only <= 3 dimensional outputs, the maximum allowable number of rows in map_mat is 3');
+            end
+            
+            
+            if ~isempty(map_vec) && (size(map_vec, 2) ~= 1)
+                error('map vector should have one column');
+            end
+            
+            if ~isempty(map_vec) && (size(map_vec, 1) ~= size(map_mat, 1))
+                error('Inconsistent dimensions between map matrix and map vector');
+            end
+              
+            % get output reach sets          
+            n = length(obj.plant.intermediate_reachSet);
+            
+            Y = cell(1, n);
+            for i=1:n
+                Y{i} = obj.plant.intermediate_reachSet(i).affineMap(map_mat, map_vec);
+            end
+            
+        end
+        
+        
+        
+    end
+    
 end
 

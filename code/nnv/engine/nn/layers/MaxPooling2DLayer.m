@@ -366,6 +366,39 @@ classdef MaxPooling2DLayer < handle
                          
         end
         
+        % get zero-padding image star
+        function pad_ims = get_zero_padding_imageStar(obj, ims)
+            % @ims: an image star input set
+            % @pad_ims: an zero-padding image star set
+            
+            % author: Dung Tran
+            % date: 4/23/2020
+            
+            if sum(obj.PaddingSize) == 0
+                pad_ims = ims;
+            else
+                c = obj.get_zero_padding_input(ims.V(:,:,:,1));
+                k = size(c);
+                n = ims.numPred;
+                V1(:,:,:,n+1) = zeros(k);
+                for i=1:n
+                    V1(:,:,:,i+1) = obj.get_zero_padding_input(ims.V(:,:,:,i+1));
+                end
+                V1(:,:,:,1) = c;
+                if ~isempty(ims.im_lb)
+                    new_im_lb = obj.get_zero_padding_input(ims.im_lb);
+                    new_im_ub = obj.get_zero_padding_input(ims.im_ub);
+                else
+                    new_im_lb = [];
+                    new_im_ub = [];
+                end
+                pad_ims = ImageStar(V1, ims.C, ims.d, ims.pred_lb, ims.pred_ub, new_im_lb, new_im_ub);
+            end
+            
+            
+            
+        end
+        
         
         % compute feature map for specific input and weight
         function maxMap = compute_maxMap(obj, input)
@@ -529,7 +562,7 @@ classdef MaxPooling2DLayer < handle
     methods
         % reachability analysis method using Stars
         % a star represent a set of images (2D matrix of h x w)           
-        
+ 
         function images = reach_star_exact(obj, in_image)
             % @in_image: an ImageStar input set
             % @option: = 'single' single core for computation
@@ -538,7 +571,7 @@ classdef MaxPooling2DLayer < handle
             
             % author: Dung Tran
             % date: 6/17/2019
-            % updates: 7/25/2019
+            % updates: 7/25/2019, 4/28/2020
             
             if ~isa(in_image, 'ImageStar')
                 error('The input is not an ImageStar object');
@@ -546,41 +579,125 @@ classdef MaxPooling2DLayer < handle
             
             startPoints = obj.get_startPoints(in_image.V(:,:,1,1)); % get starpoints
             [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1)); % size of maxMap           
-            image = in_image;   
+            
+            % padding in_image star
+            pad_image = obj.get_zero_padding_imageStar(in_image);
+            
             % check max_id first           
-            max_index = cell(h, w, in_image.numChannel);
-            maxMap_basis_V(:,:,in_image.numChannel, in_image.numPred+1) = zeros(h,w); % pre-allocate basis matrix for the maxmap
+            max_index = cell(h, w, pad_image.numChannel);
+            maxMap_basis_V(:,:,pad_image.numChannel, pad_image.numPred+1) = zeros(h,w); % pre-allocate basis matrix for the maxmap
             split_pos = [];
             
             % compute max_index and split_index when applying maxpooling operation
-            for k=1:in_image.numChannel
+            maxidx = cell(h, w, pad_image.numChannel);
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
-                        max_index{i, j, k}  = in_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);                       
+                        max_index{i, j, k}  = pad_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);                       
                         % construct the basis image for the maxMap
                         if size(max_index{i, j, k}, 1) == 1
-                            maxMap_basis_V(i,j,k, :) = in_image.V(max_index{i, j, k}(1), max_index{i, j, k}(2), k, :);
+                            maxMap_basis_V(i,j,k, :) = pad_image.V(max_index{i, j, k}(1), max_index{i, j, k}(2), k, :);
+                            maxidx{i, j, k} = max_index{i, j, k};
                         else
                             split_pos = [split_pos; [i j k]];
                         end
                     end
                 end
             end
-            
-            
+                        
             n = size(split_pos, 1);
             fprintf('\nThere are splits happened at %d local regions when computing the exact max maps', n);
-            images = ImageStar(maxMap_basis_V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+            images = ImageStar(maxMap_basis_V, pad_image.C, pad_image.d, pad_image.pred_lb, pad_image.pred_ub);
+            images.addMaxIdx(obj.Name, maxidx);
+            images.addInputSize(obj.Name, [pad_image.height pad_image.width]);
             if n > 0         
                 for i=1:n
                     m1 = length(images);           
-                    images = ImageStar.stepSplitMultipleInputs(images, in_image, split_pos(i, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
+                    images = obj.stepSplitMultipleInputs(images, pad_image, split_pos(i, :, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
                     m2 = length(images);
                     fprintf('\nSplit %d images into %d images', m1, m2);
                 end
             end
+                        
                                           
         end
+        
+        % step split of an image star
+        % a single in_image can be splitted into several images in the
+        % exact max pooling operation
+        function images = stepSplit(obj, in_image, ori_image, pos, split_index)
+            % @in_image: the current maxMap ImageStar
+            % @ori_image: the original ImageStar to compute the maxMap 
+            % @pos: local position of the maxMap where splits may occur
+            % @split_index: indexes of local pixels where splits occur
+            
+            % author: Dung Tran
+            % date: 7/25/2019
+            
+            
+            if ~isa(in_image, 'ImageStar')
+                error('input maxMap is not an ImageStar');
+            end
+            if ~isa(ori_image, 'ImageStar')
+                error('reference image is not an ImageStar');
+            end
+            
+            n = size(split_index);
+            if n(2) ~= 3 || n(1) < 1
+                error('Invalid split index, it should have 3 columns and at least 1 row');
+            end
+            
+                        
+            images = [];
+            for i=1:n(1)               
+                center = split_index(i, :, :);
+                others = split_index;
+                others(i,:,:) = [];     
+                [new_C, new_d] = ImageStar.isMax(in_image, ori_image, center, others);                
+                if ~isempty(new_C) && ~isempty(new_d)                    
+                    V = in_image.V;
+                    V(pos(1), pos(2), pos(3), :) = ori_image.V(center(1), center(2), center(3), :);
+                    im = ImageStar(V, new_C, new_d, in_image.pred_lb, in_image.pred_ub, in_image.im_lb, in_image.im_ub);
+                    im.MaxIdxs = in_image.MaxIdxs; % inherit the max indexes from the previous intermediate imagestar
+                    im.InputSizes = in_image.InputSizes; % inherit the InputSize from the preivous intermediate imageStar
+                    im.updateMaxIdx(obj.Name, center, pos);
+                    images = [images im];
+                end
+            end
+           
+        end
+        
+        
+        % step split for multiple image stars
+        % a single in_image can be splitted into several images in the
+        % exact max pooling operation
+        function images = stepSplitMultipleInputs(obj, in_images, ori_image, pos, split_index, option)
+            % @in_image: the current maxMap ImageStar
+            % @ori_image: the original ImageStar to compute the maxMap 
+            % @pos: local position of the maxMap where splits may occur
+            % @split_index: indexes of local pixels where splits occur
+            % @option: = [] or 'parallel'
+            
+            % author: Dung Tran
+            % date: 7/25/2019
+            
+            
+            n = length(in_images);
+            images = [];
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images = [images obj.stepSplit(in_images(i), ori_image, pos, split_index)];
+                end
+            elseif isempty(option) || strcmp(option, 'single')
+                for i=1:n
+                    images = [images obj.stepSplit(in_images(i), ori_image, pos, split_index)];
+                end
+            else 
+                error('Unknown computation option');
+            end       
+            
+        end
+        
         
         % reach exact star multiple inputs
         function IS = reach_star_exact_multipleInputs(obj, in_images, option)
@@ -607,10 +724,10 @@ classdef MaxPooling2DLayer < handle
             else
                 error('Unknown computation option');
             end
-            
-            
+                
         end
         
+               
         
         
         
@@ -634,15 +751,18 @@ classdef MaxPooling2DLayer < handle
                 error('Input image is not an imagestar');
             end
             
-            [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1)); 
+            [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1));
             startPoints = obj.get_startPoints(in_image.V(:,:,1,1));
             max_index = cell(h, w, in_image.numChannel);
+            
+            % padding in_image star
+            pad_image = obj.get_zero_padding_imageStar(in_image);
                         
             % compute max_index when applying maxpooling operation
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
-                        max_index{i, j, k}  = in_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);     
+                        max_index{i, j, k}  = pad_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);     
                     end
                 end
             end
@@ -650,9 +770,9 @@ classdef MaxPooling2DLayer < handle
             % construct an over-approximate imagestar reachable set
             
             % compute new number of predicate
-            np = in_image.numPred;
+            np = pad_image.numPred;
             l = 0;
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
@@ -664,24 +784,24 @@ classdef MaxPooling2DLayer < handle
                 end
             end
             
-            fprintf('\n%d new variables are introduced', l);
+            fprintf('\n%d new variables are introduced\n', l);
                                    
             % update new basis matrix
-            new_V(:,:,in_image.numChannel,np+1) = zeros(h,w);
+            new_V(:,:,pad_image.numChannel,np+1) = zeros(h,w);
             new_pred_index = 0;
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
                         if size(max_id, 1) == 1                            
-                            for p=1:in_image.numPred + 1
-                                new_V(i,j,k, p) = in_image.V(max_id(1),max_id(2),k, p);
+                            for p=1:pad_image.numPred + 1
+                                new_V(i,j,k, p) = pad_image.V(max_id(1),max_id(2),k, p);
                             end
                         else
                             % adding new predicate variable
                             new_V(i,j,k,1) = 0;
                             new_pred_index = new_pred_index + 1;
-                            new_V(i,j,k,in_image.numPred+1+new_pred_index) = 1;                            
+                            new_V(i,j,k,pad_image.numPred+1+new_pred_index) = 1;                            
                         end                       
                     end
                 end
@@ -694,7 +814,7 @@ classdef MaxPooling2DLayer < handle
             new_pred_lb = zeros(new_pred_index, 1); % update lower bound and upper bound of new predicate variables
             new_pred_ub = zeros(new_pred_index, 1); 
             new_pred_index = 0;
-            for k=1:in_image.numChannel
+            for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
                         max_id = max_index{i,j,k};
@@ -702,10 +822,10 @@ classdef MaxPooling2DLayer < handle
                             % construct new set of constraints here
                             new_pred_index = new_pred_index + 1;                           
                             startpoint = startPoints{i,j};
-                            points = in_image.get_localPoints(startpoint, obj.PoolSize);
+                            points = pad_image.get_localPoints(startpoint, obj.PoolSize);
                             C1 = zeros(1, np);
-                            C1(in_image.numPred + new_pred_index) = 1;
-                            [lb, ub] = in_image.get_localBound(startpoint, obj.PoolSize, k);
+                            C1(pad_image.numPred + new_pred_index) = 1;
+                            [lb, ub] = pad_image.get_localBound(startpoint, obj.PoolSize, k);
                             new_pred_lb(new_pred_index) = lb;
                             new_pred_ub(new_pred_index) = ub;
                             d1 = ub;                           
@@ -714,9 +834,9 @@ classdef MaxPooling2DLayer < handle
                             for g=1:N
                                 point = points(g,:);
                                 % add new predicate constraint: xi - y <= 0
-                                C2(g, 1:in_image.numPred) = in_image.V(point(1), point(2),k, 2:in_image.numPred+1);
-                                C2(g, in_image.numPred + new_pred_index) = -1;
-                                d2(g) = -in_image.V(point(1),point(2),k,1);                                
+                                C2(g, 1:pad_image.numPred) = pad_image.V(point(1), point(2),k, 2:pad_image.numPred+1);
+                                C2(g, pad_image.numPred + new_pred_index) = -1;
+                                d2(g) = -pad_image.V(point(1),point(2),k,1);                                
                             end
                             
                             C = [C1; C2];
@@ -729,15 +849,16 @@ classdef MaxPooling2DLayer < handle
                 end
             end
             
-            n = size(in_image.C, 1);
-            C = [in_image.C zeros(n, new_pred_index)];
+            n = size(pad_image.C, 1);
+            C = [pad_image.C zeros(n, new_pred_index)];
             new_C = [C; new_C];
-            new_d = [in_image.d; new_d];
-            new_pred_lb = [in_image.pred_lb; new_pred_lb];
-            new_pred_ub = [in_image.pred_ub; new_pred_ub];
+            new_d = [pad_image.d; new_d];
+            new_pred_lb = [pad_image.pred_lb; new_pred_lb];
+            new_pred_ub = [pad_image.pred_ub; new_pred_ub];
             
             image = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
-                       
+            image.addInputSize(obj.Name, [pad_image.height pad_image.width]);
+            image.addMaxIdx(obj.Name, max_index);           
         end
         
         % reach approx-star with multiple inputs

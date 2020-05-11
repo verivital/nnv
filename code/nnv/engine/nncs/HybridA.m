@@ -1,11 +1,11 @@
 classdef HybridA < handle
-    %HYBRID AUTOMATA class is a grapper of Hybrid Automaton class in CORA 
+    %HYBRID AUTOMATA class is a wrapper of Hybrid Automaton class in CORA 
     %   Author: Diego Manzanas 05/07/2020
     %   Last revision: Diego Manzanas 05/07/2020
     % 
     %HYBRIDA Construct an instance of this class
     %      HA = HybridA(dum, nI,dynamics_func, modes);
-    %      HA = NNV HA grapper class for CORA Hybrid Automaton class
+    %      HA = NNV HA wrapper class for CORA Hybrid Automaton class
     %      dim = dynamics dimensions for each mode
     %      nI = number of inputs
     %      dynamics_func = hybrid dynamics in CORA format
@@ -29,9 +29,9 @@ classdef HybridA < handle
     methods
         
         function obj = HybridA(dim, nI, dynamics_func, modes)
-            %HYBRIDODE Construct an instance of this class
+            %HYBRIDA Construct an instance of this class
             %   HA = HybridA(dim, nI, dynamics_func, modes);
-            %   HA = NNV HA grapper class for CORA Hybrid Automaton class
+            %   HA = NNV HA wrapper class for CORA Hybrid Automaton class
             %   dim = dynamics dimensions for each mode
             %   nI = number of inputs
             %   dynamics_func = hybrid dynamics in CORA format
@@ -49,6 +49,7 @@ classdef HybridA < handle
             % Reachability Time default option
             option.tStart = 0;
             option.tFinal = 0.1; % we provide method to change the option
+            option.timeStep = option.tFinal;
             % Reachability mode location default option
             option.startLoc = 1; %initial location
             option.finalLoc = 0; %0: no final location
@@ -276,15 +277,17 @@ classdef HybridA < handle
             S = Z.toStar;
             
             for i=1:N
-                N = length(R);
-                Z = R{i}{1,1}; 
-                Z = Z.Z; % get c and V 
-                c = Z(:,1); % center vector
-                V = Z(:, 2:size(Z, 2)); % generators
-
-                Z = Zono(c, V);
-                S = Z.toStar;
-                obj.intermediate_reachSet = [obj.intermediate_reachSet S];
+                Zz = R{i};
+                Nn = length(Zz);
+                for k=1:Nn
+                    Z = R{i}{k};
+                    Z = Z.Z;
+                    c = Z(:,1);
+                    V = Z(:,2:size(Z,2));
+                    Z = Zono(c,V);
+                    S = Z.toStar;
+                    obj.intermediate_reachSet = [obj.intermediate_reachSet S];
+                end
             end
             % the last zonotope in the reach set is returned
         end

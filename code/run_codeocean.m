@@ -20,7 +20,7 @@ reproduce_CAV2020_ImageStar;
 %saveas(gcf, '/results/figure8_mnist_small.png');
 
 
-return % end of CAV 2020 ImageStar reproducibility
+%return % end of CAV 2020 ImageStar reproducibility
 
 % if interested, one can also look at these others, as well as how to manually run new examples in CodeOcean below
 
@@ -42,7 +42,7 @@ reproduce % will take ~32.5 minutes (see run 140515 or 152224)
 
 
 
-%return; % stop here, comment/remove this to run all tests, other examples, etc.
+return; % stop here, comment/remove this to run all tests, other examples, etc.
 % if you run all these, it will add another ~15 minutes of runtime
 
 cd /code/nnv/tests/set/zono

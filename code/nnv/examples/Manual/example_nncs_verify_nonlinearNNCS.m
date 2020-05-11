@@ -6,7 +6,7 @@ bias = network.bias;
 n = length(weights);
 Layers = [];
 for i=1:n - 1
-    L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
+    L = LayerS(weights{1, i}, bias{i, 1}, 'tansig');
     Layers = [Layers L];
 end
 L = LayerS(weights{1, n}, bias{n, 1}, 'purelin');

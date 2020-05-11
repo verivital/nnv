@@ -814,8 +814,14 @@ classdef Conv2DLayer < handle
                     in_images = varargin{2}; 
                     method = varargin{3};
                     option = 'single';
+                case 2
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = 'approx-star';
+                    option = 'single';
+                    
                 otherwise
-                    error('Invalid number of input arguments, should be 2 or 3');
+                    error('Invalid number of input arguments, should be 1, 2 or 3');
             end
          
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')

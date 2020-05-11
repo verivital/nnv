@@ -548,21 +548,20 @@ classdef CNN < handle
                 error('Invalid correct id');
             end
             
-            count = 0;
-            for i=1:outputSet.numChannel
-                if correct_id ~= i
-                    if outputSet.is_p1_larger_p2([1 1 i], [1 1 correct_id]);
-                       bool = 0;
-                       break;
-                    else
-                        count = count + 1;
-                    end
-                end
-            end
+            classified_id = CNN.classifyOutputSet(outputSet);
             
-            if count == outputSet.numChannel - 1
-                bool = 1;
+            if length(classified_id) == 1
+                if classified_id == correct_id
+                    bool = 1;
+                else
+                    bool = 0;
+                end
+            else                
+                bool = 0;               
             end
+                
+                
+            
             
         end
         
@@ -579,22 +578,33 @@ classdef CNN < handle
             
             % author: Dung Tran
             % date: 1/10/2020
+            % update: 5/4/2020
             
             if ~isa(outputSet, 'ImageStar') && ~isa(outputSet, 'ImageZono')
                 error('Output set is not an ImageStar or an ImageZono');
             end           
   
-            [lb, ub] = outputSet.getRanges; 
-     
-            
+            [lb, ub] = outputSet.estimateRanges; 
             [max_lb, max_lb_id] = max(lb);
-            ub(max_lb_id) = [];
-            ub = (ub > max_lb); 
+            n = size(lb, 1); % number of outputs
             
-            if sum(ub) == 0
+            ub1 = ub;
+            ub1(max_lb_id) = [];
+            ub1 = (ub1 > max_lb);
+                        
+            if sum(ub1) == 0
                 classified_id = max_lb_id;
             else
-                classified_id = [];
+                classified_id = max_lb_id;
+                [act_lb, ~] = outputSet.getRange(1, 1, max_lb_id);
+                for i=1:n
+                    if ub(i) > max_lb && i ~= max_lb_id
+                        [~, ubi] = outputSet.getRange(1, 1, i);
+                        if ubi > act_lb
+                            classified_id = [classified_id i];
+                        end
+                    end
+                end
             end
             
         end

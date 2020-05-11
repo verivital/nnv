@@ -89,6 +89,9 @@ text(10, 20, char(label2),'Color','black');
 xlabel('l = 98\%, $\delta = 2\times 10^{-7}$', 'Interpreter','latex', 'FontSize', 13);
 title('Adversarial image');
 
+path_out_vgg19 = [path_results(), filesep, 'vgg19', filesep];
+saveas(gcf, [path_out_vgg19, 'figure10_vgg19.png'])
+
 % there is a bug in the matlab scheduler
 % adding this exit(0) avoids throwing an OOM error, which does not actually happen or cause any results to not be generated
 % see here: https://www.mathworks.com/matlabcentral/answers/442711-script-fails-when-run-via-scheduler-matlab-management-cpp-671-find-assertion-failed

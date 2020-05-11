@@ -35,7 +35,7 @@ diary off;
 % for tables 1, 2, and 3, we reproduce a subset of the full tables due to runtime restrictions, which take ~1.5 hours for the short versions, versus ~11 hours for the full versions (run earlier in codeocean, see run #6830033)
 diary([path_out_mnist, 'table1_mnist_small_log.txt'])
 compare_star_absdom_short % ~ 5 min
-%compare_star_absdom % full version: ~10 hours, 41min total for small, medium, and large
+compare_star_absdom % full version: ~10 hours, 41min total for small, medium, and large
 diary off;
 
 % table 2
@@ -43,14 +43,14 @@ diary off;
 diary([path_out_mnist, 'table2_mnist_medium_log.txt'])
 cd ../Medium
 compare_star_absdom_short
-%compare_star_absdom  % full version
+compare_star_absdom  % full version
 diary off;
 
 % table 3
 diary([path_out_mnist, 'table3_mnist_large_log.txt'])
 cd ../Large
 compare_star_absdom_short
-%compare_star_absdom  % full version
+compare_star_absdom  % full version
 diary off;
 
 % figure 13 (appendix)

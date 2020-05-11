@@ -8,22 +8,6 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
-% CAV 2020 ImageStar paper reproducibility
-cd /code/nnv/examples/Submission/CAV2020_ImageStar/
-
-% see details in this script for each figure/table recreation
-reproduce_CAV2020_ImageStar;
-
-% short test (uncomment and comment the above reproduce_CAV2020_ImageStar)
-%cd MNIST_NETS/Small/
-%plot_ranges
-%saveas(gcf, '/results/figure8_mnist_small.png');
-
-
-%return % end of CAV 2020 ImageStar reproducibility
-
-% if interested, one can also look at these others, as well as how to manually run new examples in CodeOcean below
-
 % CAV 2020 tool paper reproducibility
 cd /code/nnv/examples/Submission/CAV2020/
 
@@ -40,6 +24,21 @@ pwd
 % run all closed-loop CPS examples
 reproduce % will take ~32.5 minutes (see run 140515 or 152224)
 
+% CAV 2020 ImageStar paper reproducibility
+cd /code/nnv/examples/Submission/CAV2020_ImageStar/
+
+% see details in this script for each figure/table recreation
+reproduce_CAV2020_ImageStar;
+
+% short test (uncomment and comment the above reproduce_CAV2020_ImageStar)
+%cd MNIST_NETS/Small/
+%plot_ranges
+%saveas(gcf, '/results/figure8_mnist_small.png');
+
+
+%return % end of CAV 2020 ImageStar reproducibility
+
+% if interested, one can also look at these others, as well as how to manually run new examples in CodeOcean below
 
 
 return; % stop here, comment/remove this to run all tests, other examples, etc.

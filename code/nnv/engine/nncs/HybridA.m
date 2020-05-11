@@ -209,7 +209,7 @@ classdef HybridA < handle
            % @init_set: initial set of state
            % @input_set: input set u
            % @timeStep: time step in reachable set computation
-           % @num_steps: number of steps in reachable set computation
+           % @tFinal: final time of reachability computation
            % R: output reachable set
            % reachTime = time duration of reachability analysis
            %

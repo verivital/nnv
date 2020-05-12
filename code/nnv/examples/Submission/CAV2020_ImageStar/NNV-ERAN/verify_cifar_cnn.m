@@ -23,8 +23,8 @@ end
 
 %% construct input set;
 r = size(M,1);
-delta = [0.005; 0.008; 0.01; 0.012; 0.015];
-% delta = [0.005; 0.008]; % used for testing
+% delta = [0.005; 0.008; 0.01; 0.012; 0.015];
+delta = [0.02]; % used for testing
 N = length(delta);
 inputSet = cell(1,N); % a cell of imagestar input set
 labelSet = cell(1,N); % a cell of correct label corresponding to imagestar input set

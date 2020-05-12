@@ -97,7 +97,7 @@ for i=1:P
     end
 end
 
-save([path_out, 'Medium_ConvNet_Results.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom');
+save([path_out, 'Medium_ConvNet_Results_short.mat'], 'r_star', 'VT_star', 'r_absdom', 'VT_absdom');
 
 
 %% print the results

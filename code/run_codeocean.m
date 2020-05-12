@@ -8,9 +8,9 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
-cd /code/nnv/examples/NN/CNN/VGG16/DEEPFOOL_Attack/
+cd /code/nnv/examples/NN/CNN/VGG19/DEEPFOOL_Attack/
 
-verify_VGG16
+verify_VGG19
 
 return;
 

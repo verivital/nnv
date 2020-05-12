@@ -8,6 +8,12 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
+cd /code/nnv/examples/NN/CNN/VGG16/DEEPFOOL_Attack/
+
+verify_VGG16
+
+return;
+
 % CAV 2020 tool paper reproducibility
 cd /code/nnv/examples/Submission/CAV2020/
 

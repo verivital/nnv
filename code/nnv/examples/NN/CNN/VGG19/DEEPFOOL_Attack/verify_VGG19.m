@@ -1,4 +1,4 @@
-% load from: data\examples\CNN\VGG16\DEEPFOOL_Attack
+% load from: data\examples\CNN\VGG19\DEEPFOOL_Attack
 path_base = [nnvroot(), filesep, 'data', filesep, 'examples', filesep, 'CNN', filesep, 'VGG19', filesep, 'DEEPFOOL_Attack', filesep];
 
 %% Construct input sets

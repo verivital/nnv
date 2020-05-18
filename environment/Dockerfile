@@ -54,8 +54,6 @@ WORKDIR /deps
 RUN git clone https://github.com/verivital/nnvmt.git
 
 # these ls commands are just to force a new build so that the cloned repo is latest and not the cached one in the prior docker container image
-RUN ls
-RUN ls
 
 RUN git clone https://github.com/verivital/run_nnv_comparison.git
 WORKDIR /deps/run_nnv_comparison 
@@ -71,8 +69,8 @@ COPY postInstall /
 RUN /postInstall
 
 # set up matlab support packages (for vgg)
-WORKDIR /MATLAB/bin/glnxa64
-RUN ls
+#WORKDIR /MATLAB/bin/glnxa64
+#RUN ls
 #RUN ./SupportSoftwareInstaller -downloadfolder /data/matlab_sp -inputfile /data/matlab_sp/ssi_input.txt
 # previous gives error:
 # 

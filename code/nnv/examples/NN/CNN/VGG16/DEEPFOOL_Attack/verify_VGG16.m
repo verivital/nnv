@@ -1,7 +1,9 @@
+% load from: data\examples\CNN\VGG16\DEEPFOOL_Attack
+path_base = [nnvroot(), filesep, 'data', filesep, 'examples', filesep, 'CNN', filesep, 'VGG16', filesep, 'DEEPFOOL_Attack', filesep];
 
 %% Construct input sets
-dif_images = load('pepper_dif_images.mat');
-ori_images = load('pepper_ori_images.mat');
+dif_images = load([path_base, 'pepper_dif_images.mat']);
+ori_images = load([path_base, 'pepper_ori_images.mat']);
 
 dif_images = struct2cell(dif_images);
 ori_images = struct2cell(ori_images);
@@ -38,7 +40,15 @@ end
 fprintf('\n\n=============================LOAD VGG16 ======================\n');
 
 % Load the trained model 
-net = vgg16();
+if is_codeocean()
+    % the vgg support packages require a gui to install
+    % so, load alternatively from the data repository 
+    % when running on codeocean / other headless platforms
+    load('/data/vgg16_cache.mat');
+    net = net_vgg16;
+else
+    net = vgg16();
+end
 
 fprintf('\n\n======================== PARSING VGG16 =======================\n');
 nnvNet = CNN.parse(net, 'VGG16');

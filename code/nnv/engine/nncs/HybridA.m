@@ -327,7 +327,6 @@ classdef HybridA < handle
             end
             
             [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.options.tFinal);
-            disp(R);
             N = length(R);
             Z = R{N}{1,1}; % get the last zonotope in the reach set
             try

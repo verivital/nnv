@@ -45,11 +45,17 @@ classdef HybridA < handle
             obj.HybridA_init;
         end
         
+        % Initialize the HybridA reachability options to default (some are
+        % not used in different examples, could initialize them depending
+        % if linear or nonlinear system)
+        % a = get(HA.sysCORA, 'location');
+        % b = get(a,'contDynamics');
+        % if contains(class(b),'non') -> nonlinear sys options
         function HybridA_init(obj)
             % Reachability Time default option
             option.tStart = 0;
             option.tFinal = 0.1; % we provide method to change the option
-            option.timeStep = option.tFinal;
+            option.timeStep = 0.05;
             % Reachability mode location default option
             option.startLoc = 1; %initial location
             option.finalLoc = 0; %0: no final location
@@ -74,7 +80,43 @@ classdef HybridA < handle
             option.originContained = 0;
             option.maxProjectionError = inf;
             option.linAlg = 1;
+            option.intermediateOrder = 2;
+            option.tensorOrder = 1;
+            option.reductionInterval = inf;
+            option.maxError = 1e7*ones(obj.dim,1);
+            option.oldError = zeros(obj.dim,1);
+            option.advancedLinErrorComp = 0;
             obj.options = option; % default options
+        end
+        
+        % set advanced linear error comp.
+        function set_advancedLinErrorComp(obj,aLE)
+            obj.options.advancedLinErrorComp = aLE;
+        end
+        
+        % set reduction interval
+        function set_reductionInterval(obj,rI)
+            obj.options.reductionInterval = rI;
+        end
+        
+        % set old error
+        function set_oldError(obj,oE)
+           obj.options.oldError = oE; 
+        end
+        
+        % set maximum error
+        function set_maxError(obj,mE)
+           obj.options.maxError = mE; 
+        end
+        
+        % set tensor order
+        function set_tensorOrder(obj,tO)
+           obj.options.tensorOrder = tO; 
+        end
+        
+        % set intermediate order
+        function set_intermediateOrder(obj,iO)
+           obj.options.intermediateOrder = iO; 
         end
         
         % set linAlg
@@ -86,6 +128,12 @@ classdef HybridA < handle
         function set_maxProjectionError(obj,a)
             obj.maxProjectionError = a;
         end
+
+        % set enclonsure enable method
+        function set_enclosureMethod(obj,num)
+            obj.options.enclosureEnables = num;
+        end
+        
         % set output matrix
         function set_outputMatrix(obj,C)
             obj.C = C;
@@ -115,7 +163,7 @@ classdef HybridA < handle
         
         % set isHyperplaneMap
         function set_HyperplaneMap(obj,num)
-            obj.isHyperplaneMap = num;
+            obj.options.isHyperplaneMap = num;
         end
         
         % set taylor terms
@@ -189,12 +237,25 @@ classdef HybridA < handle
             obj.options.x0 = x0;
         end
         
+        % set start location
+        function set_startLoc(obj,loc)
+            obj.options.startLoc = loc;
+        end
+        
+        % set final location
+        function set_finalLoc(obj,loc)
+            obj.options.finalLoc = loc;
+        end
+        
         % set time step 
         function set_timeStep(obj, timeStep)
             if timeStep <= 0
                 error('Invalid time step');
             end
             obj.options.timeStep = timeStep;
+            for i=1:obj.modes
+                obj.options.timeStepLoc{i} = timeStep;
+            end
         end
         
     end
@@ -266,10 +327,14 @@ classdef HybridA < handle
             end
             
             [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.options.tFinal);
-            
+            disp(R);
             N = length(R);
             Z = R{N}{1,1}; % get the last zonotope in the reach set
-            Z = Z.Z; % get c and V 
+            try
+                Z = Z.Z; % get c and V 
+            catch
+                Z = Z{1}.Z;
+            end
             c = Z(:,1); % center vector
             V = Z(:, 2:size(Z, 2)); % generators
             
@@ -281,7 +346,11 @@ classdef HybridA < handle
                 Nn = length(Zz);
                 for k=1:Nn
                     Z = R{i}{k};
-                    Z = Z.Z;
+                    try
+                        Z = Z.Z; % get c and V 
+                    catch
+                        Z = Z{1}.Z;
+                    end
                     c = Z(:,1);
                     V = Z(:,2:size(Z,2));
                     Z = Zono(c,V);

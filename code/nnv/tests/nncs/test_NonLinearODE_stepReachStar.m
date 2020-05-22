@@ -15,8 +15,11 @@
 
 % Dung Tran : 11/19/2018
 % 
-
-car = NonLinearODE(4, 1, @car_dynamics);
+Tr = 0.001; % reachability time step for the plant
+Tc = 0.1; % control period of the plant
+% output matrix
+C = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % output matrix
+car = NonLinearODE(6, 1, @car_dynamics, Tr, Tc, C);
 
 lb = [49; 25; 9; 20];
 ub = [51; 25.2; 11; 20.2];
@@ -30,10 +33,5 @@ ub = 1.0;
 B1 = Box(lb, ub);
 
 input_set = B1.toStar; % input set
-
-timeStep = 0.01; % time step for reachability analysis
-tFinal = 0.1; % final time for reachability analysis
-car.set_timeStep(timeStep);
-car.set_tFinal(tFinal);
 
 R = car.stepReachStar(init_set, input_set); % return reach set at t = tFinal

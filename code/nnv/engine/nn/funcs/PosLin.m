@@ -224,9 +224,7 @@ classdef PosLin
             if ~isa(I, 'Star')
                 error('Input is not a star');
             end
-            
             [lb, ub] = I.getRange(index);
-           
             if lb >= 0
                 S = I;
             elseif ub <= 0

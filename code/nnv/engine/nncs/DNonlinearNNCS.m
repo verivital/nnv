@@ -146,8 +146,13 @@ classdef DNonlinearNNCS < handle
                  fprintf('Reachability analysis for the controller \n');
                  fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                  input_set = obj.nextInputSetStar(fb_I{1});
-                 [U,~] = obj.controller.reach(input_set, 'exact-star', n_cores); % control set at step i
-                 U1 = Star.get_hypercube_hull(U);   
+                 if i==2
+                     lb = zeros(obj.plant.nI, 1); % at first step, U = 0.
+                     U = Star(lb, lb);
+                 else
+                    [U,~] = obj.controller.reach(input_set, reachPRM.reachMethod, n_cores); % control set at step i   
+                 end
+                 U1 = Star.get_hypercube_hull(U);
                  
                  % reachability analysis for plant
                  fprintf('\nReachability analysis for the plant \n');

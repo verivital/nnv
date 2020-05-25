@@ -358,11 +358,12 @@ classdef LogSig
             % date: 3/19/2020
             
             
-            if ~isempty(I.Z) && I.nVar > 200
-                [l, u] = I.Z.getRange(index);
-            else
-                [l, u] = I.getRange(index);
-            end
+            [l, u] = I.estimateRange(index);
+%             if ~isempty(I.Z) && I.nVar > 200
+%                 [l, u] = I.Z.getRange(index);
+%             else
+%                 [l, u] = I.getRange(index);
+%             end
             
             y_l = logsig(l);
             y_u = logsig(u);

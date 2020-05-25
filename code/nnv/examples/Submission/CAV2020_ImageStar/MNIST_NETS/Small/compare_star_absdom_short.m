@@ -21,7 +21,7 @@ end
 
 % for testing
 delta = [0.005 0.01 0.015]; 
-d = 250;
+d = 245;
 
 M = length(delta);
 P = length(d);

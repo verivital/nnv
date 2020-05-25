@@ -367,6 +367,7 @@ classdef HybridA < handle
             obj.set_x0(x0);
             for i=1:obj.modes
                 obj.options.uLoc{i} = u;
+                obj.options.uLocTrans{i} = u;
             end
             HAsim = simulate(obj.sysCORA,obj.options);
             y = get(HAsim,'trajectory');

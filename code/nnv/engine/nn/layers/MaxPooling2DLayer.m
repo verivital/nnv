@@ -759,31 +759,23 @@ classdef MaxPooling2DLayer < handle
             pad_image = obj.get_zero_padding_imageStar(in_image);
                         
             % compute max_index when applying maxpooling operation
-            for k=1:pad_image.numChannel
-                for i=1:h
-                    for j=1:w
-                        max_index{i, j, k}  = pad_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);     
-                    end
-                end
-            end
-            
-            % construct an over-approximate imagestar reachable set
-            
             % compute new number of predicate
             np = pad_image.numPred;
             l = 0;
             for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
+                        max_index{i, j, k}  = pad_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k);
                         max_id = max_index{i,j,k};
                         if size(max_id,1) > 1
                             np = np + 1;
                             l  = l + 1;
-                        end                       
+                        end   
                     end
                 end
             end
             
+            % construct an over-approximate imagestar reachable set
             fprintf('\n%d new variables are introduced\n', l);
                                    
             % update new basis matrix

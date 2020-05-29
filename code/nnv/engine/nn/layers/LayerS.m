@@ -153,7 +153,7 @@ classdef LayerS
                     if isa(I(i), 'Polyhedron')
                         I1 = I(i).affineMap(W1) + b1;
                     else                        
-                        I1 = I(i).affineMap(W1, b1);    
+                        I1 = I(i).affineMap(W1, b1);
                     end
                         
                     if strcmp(f1, 'purelin')

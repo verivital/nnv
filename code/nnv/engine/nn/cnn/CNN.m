@@ -548,21 +548,22 @@ classdef CNN < handle
                 error('Invalid correct id');
             end
             
-            classified_id = CNN.classifyOutputSet(outputSet);
-            
-            if length(classified_id) == 1
-                if classified_id == correct_id
-                    bool = 1;
-                else
-                    bool = 0;
+            count = 0;
+            for i=1:outputSet.numChannel
+                if correct_id ~= i
+                        if outputSet.is_p1_larger_p2([1 1 i], [1 1 correct_id])
+                           bool = 0;
+                           break;
+                        else
+                            count = count + 1;
+                        end
                 end
-            else                
-                bool = 0;               
             end
-                
-                
-            
-            
+
+            if count == outputSet.numChannel - 1
+                bool = 1;
+            end             
+
         end
         
         

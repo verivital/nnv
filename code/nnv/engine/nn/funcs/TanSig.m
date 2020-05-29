@@ -356,7 +356,8 @@ classdef TanSig
             % update: 4/3/2020
             
             %[l, u] = I.Z.getRange(index);
-            [l, u] = I.getRange(index);
+            %[l, u] = I.getRange(index);
+            [l, u] = I.estimateRange(index);
             y_l = tansig(l);
             y_u = tansig(u);
             dy_l = tansig('dn', l);

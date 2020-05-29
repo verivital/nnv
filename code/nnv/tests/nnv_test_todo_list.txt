@@ -1,0 +1,243 @@
+tests and their completion stat
+
+This error type keeps showing up.
+
+    Inconsistency between number of predicate variables and
+    predicate lower- or upper-bounds vector
+    
+    Error in TanSig.stepTanSig_NoSplit (line 550)
+                    S = Star(new_V, new_C, new_d,
+                    new_predicate_lb, new_predicate_ub, new_Z);
+    
+    Error in TanSig.reach_star_approx_no_split (line 59)
+                    S = TanSig.stepTanSig_NoSplit(S, i);
+    
+    Error in TanSig.reach_star_approx (line 37)
+                    S = TanSig.reach_star_approx_no_split(I);
+    
+    Error in test_funcs_TanSig (line 91)
+    S = TanSig.reach_star_approx(I);
+
+
+
+
+
+
+-
+test_attacks.m ; test 6 fails: (SOLVED????) (i think there was a typo in the original test)
+    Error using ImageStar (line 219)
+    Inconsistency between the basis matrix and the number of predicate variables
+    
+    Error in test_attacks (line 134)
+    IS2 = ImageStar(V, C, d, pred_lb, pred_ub);
+
+test_vgg_attacks.m ;  ALL PASS
+
+test_video_to_image.m ; test 1 fails: (I THINK I'M JUST MISSING A LIBRARY)
+    Undefined variable "vision" or class "vision.VideoFileReader".
+    
+    Error in test_video_to_image (line 14)
+    videoFReader = vision.VideoFileReader('shuttle.avi');
+-
+test_c_code_gen.m ; both fail, something to do with this
+    Undefined function 'de2bi' for input arguments of type 'double'.
+    
+    Error in Box/getVertices (line 207)
+                    b = de2bi(i, n+3);
+    
+    Error in test_c_code_gen (line 34)
+    V = B.getVertices();
+-
+SUCCESS  test_glpk_feasibility.m ; ALL PASS.
+-
+test_io.m ; Note: requires running from specific location. might want to look into that
+	  test1_LoadCnnMatlab: FAIL, used to work? fome field doesn't exist
+    	  test2_LoadCnnKeras: FAIL. missing field
+	  test3_LoadCnnOnnx: FAIL. unsurported layer class
+	  test4_LoadCnnCaffe: FAIL. Missing file?
+	  test5_LoadCnnOnnx2: FAIL. unsurported layer class
+	  test6_LoanNn1: FAIL. Missing file
+	  test7_LoanNn2: FAIL. Missing file
+	  test8_LoanNn3: FAIL. Missing file
+	  test9_LoanNn4: FAIL. Missing file
+	  test10_LoanNn5: FAIL. Missing file
+	  test11_LoanNn6: FAIL. Missing file
+	  test12_LoanNn7: FAIL. Missing file
+-
+SUCCESS/FAIL test_cnn_cnn.m ; ALL PASS. No longer true! following update, test 2 fails!
+    No appropriate method, property, or field 'NumInputs' for class 'nnet.cnn.layer.Convolution2DLayer'.
+    
+    Error in Conv2DLayer.parse (line 511)
+                L = Conv2DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat,
+                conv2dLayer.NumInputs, conv2dLayer.InputNames, conv2dLayer.NumOutputs, conv2dLayer.OutputNames);
+    
+    Error in CNN.parse (line 508)
+                            Li = Conv2DLayer.parse(L);
+    
+    Error in test_cnn_cnn (line 73)
+    nnvNet = CNN.parse(MatlabNet, 'MatlabNet');
+
+-
+test_DAGNN.m ; FAIL
+    Dot indexing is not supported for variables of this type.
+    
+    Error in DAGNetwork/get.Layers (line 118)
+                if this.LayersCache.isEmpty()
+    
+    Error in DAGNN.parse (line 317)
+                n = length(net.Layers); % number of layers
+    
+    Error in test_DAGNN (line 17)
+
+
+-
+test_fnn_ffnns.m ; 4 pass, 2 fail (4 and 5)
+    'Unknown reachability analysis method'
+    'Undefined function ''gcp'' for input arguments of type ''char''.'
+-
+SUCCESS/FAIL test_funcs_LogSig.m ; ALL PASS. THESE USED TO PASS? (1, 3, 5)
+    Undefined variable "R1" or class "R1.C".
+    
+    Error in test_funcs_LogSig (line 22)
+    P1 = Polyhedron('A', R1.C, 'b', R1.d);
+    -
+    Error using Star (line 141)
+    Inconsistency between number of predicate variables and
+    predicate lower- or upper-bounds vector
+    
+    Error in LogSig.stepLogSig_NoSplit (line 555)
+                    S = Star(new_V, new_C, new_d,
+                    new_predicate_lb, new_predicate_ub, new_Z);
+    
+    Error in LogSig.reach_star_approx_no_split (line 63)
+                    S = LogSig.stepLogSig_NoSplit(S, i);
+    
+    Error in LogSig.reach_star_approx (line 41)
+                    S = LogSig.reach_star_approx_no_split(I);
+    
+    Error in test_funcs_LogSig (line 75)
+    S = LogSig.reach_star_approx(I);
+    -
+    Error using LogSig.stepLogSig_Split
+    Too many input arguments.
+    
+    Error in test_funcs_LogSig (line 144)
+    S = LogSig.stepLogSig_Split(I, 1, l(1), u(1), y_l(1),
+    y_u(1), dy_l(1), dy_u(1));
+-
+test_funcs_poslin.m ; 10 pass, 1 fail (11) ;;;; MULTIPLE OUTDATED TESTS, now like 2 pass and 9 fail. not willing to remove, because maybe i'm just blind.
+-
+test_funcs_relu.m ; 2 pass, 1 fail (2) unknown scheme
+-
+SUCCESS test_funcs_SatLin.m ;
+-
+SUCCESS test_funcs_SatLins.m ;
+-
+SUCCESS/FAIL test_funcs_TanSig.m ; ALL PASS: some weird inconsistency
+-
+SUCCESS test_layers_averagepooling.m ; ALL PASS. 
+-
+test_layers_batchNorm.m ; FAILS
+    Error using matlab.io.datastore.ImageDatastore/readimage (line 32)
+    Error using ReadFcn @readDatastoreImage function handle for file
+    /usr/local/MATLAB/R2019b/toolbox/nnet/nndemos/nndatasets/DigitDataset/0/image9012.png.
+    
+    Error using imread>get_full_filename (line 568)
+    File "/usr/local/MATLAB/R2019b/toolbox/nnet/nndemos/nndatasets/DigitDataset/0/image9012.png" does not exist.
+    
+    Error in imread (line 377)
+        fullname = get_full_filename(filename);
+    
+    Error in readDatastoreImage (line 12)
+    data = imread(filename);
+    
+    Error in test_cnn_batchNorm (line 20)
+    img = readimage(imdsValidation, 1);
+
+-
+test_layers_Conv2D.m ; 4 pass, 1 fail (4)
+    Error using Conv2DLayer/reach_star_single_input (line 708)
+    The input is not an ImageStar object
+    
+    Error in Conv2DLayer/reach_star_multipleInputs (line 763)
+                        images(i) = obj.reach_star_single_input(in_images(i));
+    
+    Error in Conv2DLayer/reach (line 828)
+                    images = obj.reach_star_multipleInputs(in_images, option);
+    
+    Error in test_cnn_Conv2D (line 135)
+    Z = L0.reach(image);
+-
+test_layers_fullyConnected.m ; 1 pass, 2 fail (2 and 3)
+    No appropriate method, property, or field 'reach_star_exact' for class 'FullyConnectedLayer'.
+    
+    Error in test_cnn_fullyConnected (line 54)
+    output = fc.reach_star_exact(image_star);
+    No appropriate method, property, or field 'reach_zono_exact' for class 'FullyConnectedLayer'.
+    
+    Error in test_cnn_fullyConnected (line 71)
+    output = fc.reach_zono_exact(image_zono);
+-
+test_layers_image.m ; 3 pass, 1 fail (3)
+    Error using ImageInputLayer/reach (line 184)
+    Invalid number of input arguments (should be 2 or 3)
+    
+    Error in test_cnn_image (line 100)
+    IS1 = L1.reach(IS); 
+-
+SUCCESS test_fnn_layer.m ; ALL PASS.
+-
+test_layers_LayerS.m ; ALL FAIL
+		  unkonwn reachability analysis method ('star')
+		  (both cases)
+-
+SUCCESS test_layers_maxpool.m ; ALL PASS.
+-
+test_layers_maxunpool.m ; 1 pass, 1 fail
+    Undefined function 'dlarray' for input arguments of type
+    'double'.
+    
+    Error in MaxUnpooling2DLayer/evaluate (line 148)
+                dlX = dlarray(input, 'SSC');
+    
+    Error in test_layers_maxunpool (line 31)
+    y1 = L1.evaluate(y, L.MaxIndx, L.InputSize);
+-
+test_layers_relu.m ; 4 pass, 1 fail (5).
+    Error using ReluLayer/reach_zono
+    Too many input arguments.
+    
+    Error in test_layers_relu (line 129)
+    image1 = L.reach_zono(image, 'single');
+-
+test_layers_TransposedConv2dLayer.m ; both fail because
+    Undefined function 'TransposeConv2DLayer' for input
+    arguments of type 'double'.
+    
+    Error in test_layers_TransposedConv2dLayer (line 67)
+    L0 = TransposeConv2DLayer(W, b);
+-
+test_SEGNET.m ; both fail because
+    Dot indexing is not supported for variables of this type.
+    
+    Error in DAGNetwork/get.Connections (line 129)
+                    this.PrivateNetwork.OriginalConnections,
+                    ...
+    
+    Error in SEGNET.parse (line 882)
+                    connects = net.Connections;
+    
+    Error in test_SEGNET (line 20)
+    nnvSegNet = SEGNET.parse(net, 'SetNet');
+
+
+
+
+
+
+
+
+
+
+
+

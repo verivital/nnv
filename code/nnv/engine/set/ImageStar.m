@@ -214,7 +214,6 @@ classdef ImageStar < handle
                         obj.numChannel = n(3);
                         
                     elseif length(n) == 4
-                        
                         if n(4) ~= obj.numPred + 1
                             error('Inconsistency between the basis matrix and the number of predicate variables');
                         else

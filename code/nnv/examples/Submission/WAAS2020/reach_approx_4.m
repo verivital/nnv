@@ -110,7 +110,7 @@ set(gca,'FontSize',16);
 set(gca,'DataAspectRatio',[1 1 1]);
 title('Experiment 4');
 grid;
-saveas(aa,'figures/CaseStudy4_b','png');
+saveas(aa,'figures/CaseStudy4_new','png');
 
 
 %%% Helper Functions

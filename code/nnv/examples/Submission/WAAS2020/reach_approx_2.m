@@ -34,7 +34,7 @@ ida = iddata([data(1:6,6:7) data(1:6,17)],[data(1:6,28) data(1:6,5)],1);
 % x, y, yaw, heading change, speed
 ipoint = data(1,6:7);
 ihea = data(1,17);
-fpoint = ipoint + [50*cos(ihea) 50*sin(ihea)];
+fpoint = ipoint + [53*cos(ihea) 53*sin(ihea)];
 x0 = findstates(sys,ida);
 % outtou = lsim(sys,ida.u,[],x0);
 m = size(data,1); % length of data points
@@ -43,7 +43,7 @@ t = [0; 1];
 u = ida.u(1,:);
 
 % Following same steps as reachability analysis algorithm
-for i=1:size(data,1)-1
+for i=1:size(data,1)+1
     [y,temp,x] = lsim(sys,[u;u],[],x,'zoh');
     y = y(1,:);x = x(2,:);
     out(i,:) = y;
@@ -112,7 +112,7 @@ set(gca,'FontSize',16);
 set(gca,'DataAspectRatio',[1 1 1]);
 title('Experiment 2');
 grid;
-saveas(aa,'figures/CaseStudy2_b','png');
+saveas(aa,'figures/CaseStudy2_new','png');
 
 
 % Helper Functions

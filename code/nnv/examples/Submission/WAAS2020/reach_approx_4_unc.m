@@ -67,17 +67,20 @@ init_set = Star(lb,ub); % initial set of states (Star)
 
 % Begin loop to compute the reachable sets of all the components
 ReachSystem = []; % To store all output sets of the plant
-% Obstacle position
-x_obsS = Star(obstacle(1,2),obstacle(1,2));
-y_obsS = Star(obstacle(1,1),obstacle(1,1));
+% Uncertainty in obstacle position
+unc = 2;
+x_obsS = Star(obstacle(1,2)-unc,obstacle(1,2)+unc);
+y_obsS = Star(obstacle(1,1)-unc,obstacle(1,1)+unc);
+% Reachability methods for NNs
 met = 'approx-star';
+
 
 for i=1:m
     % Step 1.
     OutPlant = init_set.affineMap(sys.C,[]);
     ReachSystem = [ReachSystem OutPlant];
     % Step 2.
-    In_Norm = relObstacle(x_obsS,y_obsS,OutPlant);
+    In_Norm = uncertainObstacle(x_obsS,y_obsS,OutPlant);
     % Step 3.
     Out_Norm = Norm.reach(In_Norm,met,4);
     % Step 4.
@@ -100,7 +103,7 @@ aa = figure('units','normalized','outerposition',[0 0 0.5 0.5]);
 aa1 = plot(out(:,1),out(:,2),'b','LineWidth',3);
 hold on;
 aa2 = patch([xo1 ; xo1; xo2; xo2; xo1],[yo1 ; yo2; yo2; yo1; yo1],'g');
-aa3 = viscircles([obstacle(1,2) obstacle(1,1)],2,'Color','r');
+aa3 = viscircles([obstacle(1,2) obstacle(1,1)],2+unc,'Color','r');
 aa4 = plot([ipoint(1) fpoint(1)],[ipoint(2) fpoint(2)], '--m','LineWidth',3);
 Star.plotBoxes_2D_noFill(ReachSystem, 1, 2,'b');
 xlabel('X Position (m)');
@@ -110,11 +113,11 @@ set(gca,'FontSize',16);
 set(gca,'DataAspectRatio',[1 1 1]);
 title('Experiment 4');
 grid;
-saveas(aa,'figures/CaseStudy4_new','png');
+saveas(aa,'figures/CaseStudy4_unc','png');
 
 
 %%% Helper Functions
-function X = relObstacle(xobs,yobs,OutPlant)
+function X = uncertainObstacle(xobs,yobs,OutPlant)
     [xo(1),xo(2)] = xobs.getRanges;
     [yo(1),yo(2)] = yobs.getRanges;
     [m,M] = OutPlant.getRanges;
@@ -152,6 +155,7 @@ function Y = reachPlantStep(plant,X0,controls)
 %     X = Star.get_convex_hull(Y);
     X = X.toStar; 
 end
+
 % Discrete-time Systems
 function X = stepReachPlant(A, B, X0, controls)
     

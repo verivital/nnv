@@ -2,7 +2,7 @@
 clc;clear;close all;
 
 addpath(genpath(pwd))
-
+timeT = tic;
 % computation steps
 % step 0: initial state of plant
 % step 1: output set of the plant (input to controller)
@@ -16,7 +16,7 @@ addpath(genpath(pwd))
 %% Load all elements 
 % Discrete-time Plant
 load('UUV_model.mat');
-Plant = DLinearODE(sys.A,sys.B,sys.C,sys.D,sys.Ts); % Continuous
+Plant = DLinearODE(sys.A,sys.B,sys.C,sys.D,sys.Ts); 
 % Norm: sensor NN model
 Norm = Load_nn('FNNsensor.mat'); 
 % Controller
@@ -24,9 +24,9 @@ Cont = Load_nn('FNNcontroller.mat');
 % Controller output normalization NN
 Cont2 = Load_nn('FNNnorm.mat');
 % Gazebo data
-load('data_exp4.mat');% (28 variables, 1Hz)
+load('data_exp1.mat');% (28 variables, 1Hz)
 % Obstacle locations
-load('obstacle34.mat');
+load('obstacle1');
 
 %% Perform simulation of the system given initial conditions and obstacle location (Visualizing purpose)
 % Find initial state of the plant based on recorded Gazebo data
@@ -34,14 +34,15 @@ ida = iddata([data(:,6:7) data(:,17)],[data(:,28) data(:,5)],1);
 % x, y, yaw, heading change, speed
 ipoint = data(1,6:7);
 ihea = data(1,17);
-fpoint = ipoint + [50*cos(ihea) 50*sin(ihea)];
+fpoint = ipoint + [30*cos(data(1,17)) 30*sin(data(1,17))];
 x0 = findstates(sys,ida);
 m = size(data,1); % length of data points
 x = x0; % First step
 t = [0; 1];
 u = ida.u(1,:);
+
 % Following same steps as reachability analysis algorithm
-for i=1:size(data,1)
+for i=1:m
     [y,temp,x] = lsim(sys,[u;u],[],x);
     y = y(1,:);x = x(2,:);
     out(i,:) = y;
@@ -51,6 +52,8 @@ for i=1:size(data,1)
     u = Cont2.evaluate(outlec);
     u = u';
 end
+
+
 
 %% Perform Reachability Analysis following the computation steps described
 
@@ -67,9 +70,11 @@ init_set = Star(lb,ub); % initial set of states (Star)
 
 % Begin loop to compute the reachable sets of all the components
 ReachSystem = []; % To store all output sets of the plant
-% Obstacle position
-x_obsS = Star(obstacle(1,2),obstacle(1,2));
-y_obsS = Star(obstacle(1,1),obstacle(1,1));
+% Uncertainty in obstacle position
+unc = 1;
+x_obsS = Star(obstacle(1,2)-unc,obstacle(1,2)+unc);
+y_obsS = Star(obstacle(1,1)-unc,obstacle(1,1)+unc);
+% Reachability methods for NNs
 met = 'approx-star';
 
 for i=1:m
@@ -77,9 +82,9 @@ for i=1:m
     OutPlant = init_set.affineMap(sys.C,[]);
     ReachSystem = [ReachSystem OutPlant];
     % Step 2.
-    In_Norm = relObstacle(x_obsS,y_obsS,OutPlant);
+    In_Norm = uncertainObstacle(x_obsS,y_obsS,OutPlant);
     % Step 3.
-    Out_Norm = Norm.reach(In_Norm,met,4);
+    Out_Norm = Norm.reach(In_Norm, met,4);
     % Step 4.
     Out_Lec = Cont.reach(Out_Norm,met,4);
     % Step 5.
@@ -100,21 +105,21 @@ aa = figure('units','normalized','outerposition',[0 0 0.5 0.5]);
 aa1 = plot(out(:,1),out(:,2),'b','LineWidth',3);
 hold on;
 aa2 = patch([xo1 ; xo1; xo2; xo2; xo1],[yo1 ; yo2; yo2; yo1; yo1],'g');
-aa3 = viscircles([obstacle(1,2) obstacle(1,1)],2,'Color','r');
+aa3 = viscircles([obstacle(1,2) obstacle(1,1)],2+unc,'Color','r');
 aa4 = plot([ipoint(1) fpoint(1)],[ipoint(2) fpoint(2)], '--m','LineWidth',3);
 Star.plotBoxes_2D_noFill(ReachSystem, 1, 2,'b');
 xlabel('X Position (m)');
 ylabel('Y Position (m)');
-legend([aa1 aa2 aa3 aa4],{'Trajectory','Obstacle','Unsafe Region','N.O.P'},'Position',[0.8 0.5 0.1 0.1]);
-set(gca,'FontSize',16);
-set(gca,'DataAspectRatio',[1 1 1]);
-title('Experiment 4');
+legend([aa1 aa2 aa4 aa3],{'Trajectory','Obstacle','N.O.P.','Unsafe Region'},'Position',[0.7 0.2 0.1 0.1]);
+set(gca,'FontSize',16)
+set(gca,'DataAspectRatio',[1 1 1])
+title('Experiment 1');
 grid;
-saveas(aa,'figures/CaseStudy4_new','png');
+saveas(aa,'figures/CaseStudy1_unc','png');
+timeT = toc(timeT);
 
-
-%%% Helper Functions
-function X = relObstacle(xobs,yobs,OutPlant)
+% Helper Functions
+function X = uncertainObstacle(xobs,yobs,OutPlant)
     [xo(1),xo(2)] = xobs.getRanges;
     [yo(1),yo(2)] = yobs.getRanges;
     [m,M] = OutPlant.getRanges;
@@ -152,6 +157,7 @@ function Y = reachPlantStep(plant,X0,controls)
 %     X = Star.get_convex_hull(Y);
     X = X.toStar; 
 end
+
 % Discrete-time Systems
 function X = stepReachPlant(A, B, X0, controls)
     

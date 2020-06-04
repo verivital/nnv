@@ -97,7 +97,8 @@ V = double(V); % use double precison for analysis
 
 IS = ImageStar(V, C, d, pred_lb, pred_ub);
 
-IS1 = L1.reach(IS);
+%IS1 = L1.reach(IS);
+IS1 = L1.reach(IS, 'approx-star');
 
 
 

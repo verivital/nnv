@@ -34,7 +34,7 @@ b(:, :, 2) = 0; % filter 2
 
 
 
-L = TransposeConv2DLayer(W, b);
+L = TransposedConv2DLayer(W, b);
 input = rand(4,4,2);
 output = L.evaluate(input);
 
@@ -64,7 +64,7 @@ b(:, :, 1) = 1; % filter 1
 b(:, :, 2) = 0; % filter 2
 
 
-L0 = TransposeConv2DLayer(W, b);
+L0 = TransposedConv2DLayer(W, b);
 
 LB(:,:,1) = [-0.1 -0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; % attack on pixel (1,1) and (1,2)
 LB(:,:,2) = [-0.1 -0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; 

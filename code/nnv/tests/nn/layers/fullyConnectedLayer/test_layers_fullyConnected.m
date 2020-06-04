@@ -51,9 +51,11 @@ W = rand(4, 48);
 b = rand(4,1);
 fc = FullyConnectedLayer(W,b);
 
-output = fc.reach_star_exact(image_star);
-output2 = fc.reach_zono_exact(image_zono);
+%output = fc.reach_star_exact(image_star);
+%output2 = fc.reach_zono_exact(image_zono);
 
+output = fc.reach_star_single_input(image_star);
+output2 = fc.reach_zono(image_zono);
 
 %___________________________________________________________________________________________________
 %tests below originally taken from test_FullyConnectedLayer_reach_zono_exact.m
@@ -68,7 +70,8 @@ W = rand(4, 48);
 b = rand(4,1);
 fc = FullyConnectedLayer(W,b);
 
-output = fc.reach_zono_exact(image_zono);
+%output = fc.reach_zono_exact(image_zono);
+output = fc.reach_zono(image_zono);
 
 
 

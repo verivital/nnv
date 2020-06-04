@@ -6,3 +6,15 @@ code/nnv/tests/io/models/*.caffemodel
 
 data/vgg16_cache.mat
 data/vgg19_cache.mat
+
+
+
+code/nnv/tests/shuttle_images/
+code/nnv/tests/attacks/shuttle_images/
+code/nnv/tests/shuttle_images/**
+code/nnv/tests/attacks/shuttle_images/**
+**/*.m~
+**/shuttle_images/
+**/shuttle_images/**
+**/tbxmanager/
+**/tbxmanager/**

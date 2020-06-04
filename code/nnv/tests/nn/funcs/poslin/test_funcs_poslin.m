@@ -37,7 +37,6 @@ assert(isequal(y, [0; .5; 2]));
 %% test 2: PosLin reach
 
 
-
 lb = [-0.5; -0.5];
 ub = [0.5; 0.5];
 
@@ -79,7 +78,6 @@ plot(Y(1, :), Y(2, :), '*'); % sampled outputs
 
 %% test 3: PosLin reach abstract domain
 
-
 figure;
 I.plot;
 hold on;
@@ -104,7 +102,6 @@ plot(Y(1, :), Y(2, :), '*'); % sampled outputs
 %tests below originally taken from test_PosLin_reach_star_approx.m
 
 %% test 4: PosLin reach star approx
-
 
 figure;
 I.plot;
@@ -131,7 +128,6 @@ plot(Y(1, :), Y(2, :), '*'); % sampled outputs
 %tests below originally taken from test_PosLin_reach_star_approx_fast.m
 
 %% test 5: PosLin reach star approx fast
-
 
 figure;
 I.plot;
@@ -162,7 +158,6 @@ plot(Y(1, :), Y(2, :), '*'); % sampled outputs
 %tests below originally taken from test_PosLin_reach_star_approx_vs_zono.m
 
 %% test 6: PosLin reach star approx vs zono
-
 
 W1 = [1 -1; 0.5 2; -1 1];
 b1 = [-1; 0.5; 0];
@@ -231,7 +226,6 @@ Y3.plot;
 
 %% test 7: PosLin reach zono approx
 
-
 lb = [-0.5; -0.5];
 ub = [0.5; 0.5];
 
@@ -268,7 +262,6 @@ title('Output set, inside is Star, outside is Zonotope');
 %tests below originally taken from test_PosLin_stepReach.m
 
 %% test 8: PosLin stepReach
-
 figure;
 I.plot;
 S = PosLin.stepReach2(I, 1);
@@ -282,7 +275,6 @@ Star.plots(S);
 %tests below originally taken from test_PosLin_stepReachAbstractDomain.m
 
 %% test 9: PosLin stepReach Abstract Domain
-
 figure;
 I.plot;
 S = PosLin.stepReachAbstractDomain(I, 1);
@@ -295,7 +287,6 @@ S.plot;
 %tests below originally taken from test_PosLin_stepReachStarApprox.m
 
 %% test 10: PosLin stepReach Star Approx
-
 figure;
 I.plot;
 S = PosLin.stepReachStarApprox(I, 1);
@@ -308,7 +299,6 @@ S.plot;
 %tests below originally taken from test_PosLin_stepReachZonoApprox.m
 
 %% test 11: PosLin stepReach Zono Approx
-
 
 lb = [-0.5; -0.5];
 ub = [0.5; 0.5];

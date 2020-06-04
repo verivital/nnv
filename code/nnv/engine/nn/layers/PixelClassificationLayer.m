@@ -153,7 +153,7 @@ classdef PixelClassificationLayer < handle
             for i=1:h
                 for j=1:w
                     max_xmin = max(im_lb(i, j, :));
-                    c = (im_ub(i, j, :) > max_xmin);
+                    c = (im_ub(i, j, :) >= max_xmin);
                     pc = find(c);
                     if length(pc) == 1
                         seg_im_id(i,j) = pc;

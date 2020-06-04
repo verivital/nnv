@@ -1,6 +1,6 @@
 tests and their completion stat
 
-This error type keeps showing up.
+This error type keeps showing up. shows up in tansig, poslin, etc
 
     Inconsistency between number of predicate variables and
     predicate lower- or upper-bounds vector
@@ -23,23 +23,37 @@ This error type keeps showing up.
 
 
 
--
-test_attacks.m ; test 6 fails: (SOLVED????) (i think there was a typo in the original test)
-    Error using ImageStar (line 219)
-    Inconsistency between the basis matrix and the number of predicate variables
-    
-    Error in test_attacks (line 134)
-    IS2 = ImageStar(V, C, d, pred_lb, pred_ub);
 
-test_vgg_attacks.m ;  ALL PASS
 
-test_video_to_image.m ; test 1 fails: (I THINK I'M JUST MISSING A LIBRARY)
-    Undefined variable "vision" or class "vision.VideoFileReader".
-    
-    Error in test_video_to_image (line 14)
-    videoFReader = vision.VideoFileReader('shuttle.avi');
+Warning: Invalid file or directory 'H:\vandy\research\nnv\engine\hyst\lib\Hyst.jar'. 
+> In javaclasspath>local_validate_dynamic_path (line 271)
+  In javaclasspath>local_javapath (line 187)
+  In javaclasspath (line 124)
+  In javaaddpath (line 71)
+  In startup_nnv (line 22)
+
+
+
+Some sort of path error?
+
+
+
+
+
+
+
+
+
+
+
 -
-test_c_code_gen.m ; both fail, something to do with this
+SUCCESS test_attacks.m ;
+
+SUCCESS test_vgg_attacks.m ;
+
+SUCCESS test_video_to_image.m ; REQUIRES COMPUTER VISION TOOLBOX, not installed by nnv.
+-
+SUCCESS test_c_code_gen.m ; both fail, something to do with this FIXED BY CHANGING TO dec2bin???????????
     Undefined function 'de2bi' for input arguments of type 'double'.
     
     Error in Box/getVertices (line 207)
@@ -48,10 +62,9 @@ test_c_code_gen.m ; both fail, something to do with this
     Error in test_c_code_gen (line 34)
     V = B.getVertices();
 -
-SUCCESS  test_glpk_feasibility.m ; ALL PASS.
+SUCCESS  test_glpk_feasibility.m ;
 -
 test_io.m ; Note: requires running from specific location. might want to look into that
-	  test1_LoadCnnMatlab: FAIL, used to work? fome field doesn't exist
     	  test2_LoadCnnKeras: FAIL. missing field
 	  test3_LoadCnnOnnx: FAIL. unsurported layer class
 	  test4_LoadCnnCaffe: FAIL. Missing file?
@@ -64,19 +77,7 @@ test_io.m ; Note: requires running from specific location. might want to look in
 	  test11_LoanNn6: FAIL. Missing file
 	  test12_LoanNn7: FAIL. Missing file
 -
-SUCCESS/FAIL test_cnn_cnn.m ; ALL PASS. No longer true! following update, test 2 fails!
-    No appropriate method, property, or field 'NumInputs' for class 'nnet.cnn.layer.Convolution2DLayer'.
-    
-    Error in Conv2DLayer.parse (line 511)
-                L = Conv2DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat,
-                conv2dLayer.NumInputs, conv2dLayer.InputNames, conv2dLayer.NumOutputs, conv2dLayer.OutputNames);
-    
-    Error in CNN.parse (line 508)
-                            Li = Conv2DLayer.parse(L);
-    
-    Error in test_cnn_cnn (line 73)
-    nnvNet = CNN.parse(MatlabNet, 'MatlabNet');
-
+SUCCESS test_cnn_cnn.m ; ALL PASS.
 -
 test_DAGNN.m ; FAIL
     Dot indexing is not supported for variables of this type.
@@ -94,6 +95,36 @@ test_DAGNN.m ; FAIL
 test_fnn_ffnns.m ; 4 pass, 2 fail (4 and 5)
     'Unknown reachability analysis method'
     'Undefined function ''gcp'' for input arguments of type ''char''.'
+
+    BOTH ARE FIXED
+    BOTH ARE CAUSED BECAUSE PARALLELISM IS NOT APPARENTLY DONE CORRECTLY?
+    ALSO NOT SURE WHAT METHOD TEST 4 WAS SUPPOSED TO BE USING, CURRENTLY USING EXACT STAR.
+
+
+
+however....
+
+    Error using PosLin.stepReach
+    Too many input arguments.
+    
+    Error in Operation/execute (line 144)
+                    S = PosLin.stepReach(I, obj.index, xmin, xmax);
+    
+    Error in FFNNS>sub_verify_DFS (line 2097)
+                    S2 = ops(id).execute(S1);
+    
+    Error in FFNNS/verify_DFS (line 1639)
+                    [safe, CEx] = sub_verify_DFS(obj.Operations, obj.inputSet, 1, obj.unsafeRegion, obj.reachMethod);
+    
+    Error in test_fnn_ffnns (line 273)
+    [safe, CEx] = F.verify_DFS('InputSet', I, 'UnsafeRegion', U, 'NumCores', 1)
+
+
+I do not understand what poslin stepReach should actually be taking. the comments seem to indicate the call is correct, and it should take (I, obj.index, xmin, xmax), but the signature only has I and index......
+
+looks like maybe xmin and xmax were merged into index????
+
+
 -
 SUCCESS/FAIL test_funcs_LogSig.m ; ALL PASS. THESE USED TO PASS? (1, 3, 5)
     Undefined variable "R1" or class "R1.C".
@@ -127,7 +158,20 @@ SUCCESS/FAIL test_funcs_LogSig.m ; ALL PASS. THESE USED TO PASS? (1, 3, 5)
 -
 test_funcs_poslin.m ; 10 pass, 1 fail (11) ;;;; MULTIPLE OUTDATED TESTS, now like 2 pass and 9 fail. not willing to remove, because maybe i'm just blind.
 -
-test_funcs_relu.m ; 2 pass, 1 fail (2) unknown scheme
+test_funcs_relu.m ; 2 pass, 1 fail (2)
+TEST 2 FAILS BECAUSE OF PARALLELIZATION STUFF
+ Error: File: Reduction.m Line: 276 Column: 38
+    Assigning to the for-loop variable 'j' is not supported in parfor-loops. For more information, see Parallel for Loops in MATLAB,
+    "Nested for-Loops: Requirements and Limitations".
+    
+    Error in Layer/reach_approx_box_coarse (line 191)
+                                I1 = Reduction.affineMap(I(i), obj.W) + obj.b;
+    
+    Error in FFNN/reach (line 170)
+                            [In, t1] = obj.Layers(i).reach_approx_box_coarse(In, max_nP, parallel);
+    
+    Error in test_funcs_relu (line 54)
+    [R2, t2] = F.reach(I, 'approx', 1, []); % compute an over-approximate reachable set using star
 -
 SUCCESS test_funcs_SatLin.m ;
 -
@@ -137,25 +181,9 @@ SUCCESS/FAIL test_funcs_TanSig.m ; ALL PASS: some weird inconsistency
 -
 SUCCESS test_layers_averagepooling.m ; ALL PASS. 
 -
-test_layers_batchNorm.m ; FAILS
-    Error using matlab.io.datastore.ImageDatastore/readimage (line 32)
-    Error using ReadFcn @readDatastoreImage function handle for file
-    /usr/local/MATLAB/R2019b/toolbox/nnet/nndemos/nndatasets/DigitDataset/0/image9012.png.
-    
-    Error using imread>get_full_filename (line 568)
-    File "/usr/local/MATLAB/R2019b/toolbox/nnet/nndemos/nndatasets/DigitDataset/0/image9012.png" does not exist.
-    
-    Error in imread (line 377)
-        fullname = get_full_filename(filename);
-    
-    Error in readDatastoreImage (line 12)
-    data = imread(filename);
-    
-    Error in test_cnn_batchNorm (line 20)
-    img = readimage(imdsValidation, 1);
-
+test_layers_batchNorm.m ;
 -
-test_layers_Conv2D.m ; 4 pass, 1 fail (4)
+SUCCESS??? test_layers_Conv2D.m ; 4 pass, 1 fail (4) FIXED?????? one of the images is not a star, and therefore fails? (patched out, but idk why it was the way it was)
     Error using Conv2DLayer/reach_star_single_input (line 708)
     The input is not an ImageStar object
     
@@ -168,28 +196,13 @@ test_layers_Conv2D.m ; 4 pass, 1 fail (4)
     Error in test_cnn_Conv2D (line 135)
     Z = L0.reach(image);
 -
-test_layers_fullyConnected.m ; 1 pass, 2 fail (2 and 3)
-    No appropriate method, property, or field 'reach_star_exact' for class 'FullyConnectedLayer'.
-    
-    Error in test_cnn_fullyConnected (line 54)
-    output = fc.reach_star_exact(image_star);
-    No appropriate method, property, or field 'reach_zono_exact' for class 'FullyConnectedLayer'.
-    
-    Error in test_cnn_fullyConnected (line 71)
-    output = fc.reach_zono_exact(image_zono);
+SUCCESS test_layers_fullyConnected.m ; FIXED, renamed calls
 -
-test_layers_image.m ; 3 pass, 1 fail (3)
-    Error using ImageInputLayer/reach (line 184)
-    Invalid number of input arguments (should be 2 or 3)
-    
-    Error in test_cnn_image (line 100)
-    IS1 = L1.reach(IS); 
+SUCCESS test_layers_image.m ; FIXED, specified method 'approx-star'
 -
-SUCCESS test_fnn_layer.m ; ALL PASS.
+SUCCESS test_layers_layer.m ; ALL PASS.
 -
-test_layers_LayerS.m ; ALL FAIL
-		  unkonwn reachability analysis method ('star')
-		  (both cases)
+SUCCESS test_layers_LayerS.m ; specified exact or approx
 -
 SUCCESS test_layers_maxpool.m ; ALL PASS.
 -
@@ -203,19 +216,9 @@ test_layers_maxunpool.m ; 1 pass, 1 fail
     Error in test_layers_maxunpool (line 31)
     y1 = L1.evaluate(y, L.MaxIndx, L.InputSize);
 -
-test_layers_relu.m ; 4 pass, 1 fail (5).
-    Error using ReluLayer/reach_zono
-    Too many input arguments.
-    
-    Error in test_layers_relu (line 129)
-    image1 = L.reach_zono(image, 'single');
+SUCCESS test_layers_relu.m ; FIXED, removed single argument.....why is there a ~ in the function call?
 -
-test_layers_TransposedConv2dLayer.m ; both fail because
-    Undefined function 'TransposeConv2DLayer' for input
-    arguments of type 'double'.
-    
-    Error in test_layers_TransposedConv2dLayer (line 67)
-    L0 = TransposeConv2DLayer(W, b);
+SUCCESS test_layers_TransposedConv2dLayer.m ; FIXED, there was a missing d in function called.
 -
 test_SEGNET.m ; both fail because
     Dot indexing is not supported for variables of this type.
@@ -234,6 +237,12 @@ test_SEGNET.m ; both fail because
 
 
 
+
+
+________________________________________________________
+test specific
+
+test_video_to_image.m .....is this test needed? should it be making so much stuff?
 
 
 

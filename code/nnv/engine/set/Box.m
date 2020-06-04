@@ -203,8 +203,9 @@ classdef Box
             n = length(obj.lb);            
             N = 2^n; % number of vertices in the worst case 
             V = [];
-            for i=0:N-1               
-                b = de2bi(i, n+3);
+            for i=0:N-1
+                %b = de2bi(i, n+3);
+                b=dec2bin(i, n+3);
                 v = zeros(n, 1);
                 for j=1:n
                     if b(j) == 1

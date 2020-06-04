@@ -36,7 +36,7 @@ figure;
 I1.plot;
 
 
-S = L.reach(I, 'star'); % new Layer class
+S = L.reach(I, 'exact-star'); % new Layer class
 figure;
 Star.plots(S);
 
@@ -60,12 +60,12 @@ figure;
 I1.plot;
 
 tic;
-S = L.reach(I, 'star'); % new Layer class
+S = L.reach(I, 'approx-star'); % new Layer class
 toc;
 
 figure;
 Star.plots(S);
 
 tic;
-S1 = L.reach(I, 'star', 'parallel');
+S1 = L.reach(I, 'approx-star', 'parallel');
 toc;

@@ -648,7 +648,7 @@ classdef PosLin
                     new_pred_ub = [I.predicate_ub; ub];
                                         
                 end
-                
+		display(new_C)
                 S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
                 
             end
@@ -663,7 +663,10 @@ classdef PosLin
 
             % author: Dung Tran
             % date: 4/3/2019
-
+	  display(I)
+	  display(I.V)
+	  display(I.C)
+	  display(I.d)
 
             if ~isa(I, 'Star')
                 error('Input is not a star');
@@ -680,7 +683,8 @@ classdef PosLin
                     V = I.V;
                     V(map, :) = 0;
                     In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);                    
-                    map = find(lb <0 & ub > 0);
+		    display(In)
+		    map = find(lb <0 & ub > 0);
                     m = length(map); 
                     for i=1:m
                         fprintf('\nPerforming approximate PosLin_%d operation using Abstract Domain', map(i));

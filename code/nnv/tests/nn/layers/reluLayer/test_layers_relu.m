@@ -126,7 +126,8 @@ UB(:,:,3) = UB(:,:,2);
 
 image = ImageZono(LB, UB);
 
-image1 = L.reach_zono(image, 'single');
+%image1 = L.reach_zono(image, 'single');
+image1 = L.reach_zono(image);
 
 
 

@@ -163,7 +163,6 @@ title('Output set and unsafe region');
 
 %% test 4: FFNNS reach star
 
-
 load NeuralNetwork7_3.mat;
 Layers = [];
 n = length(b);
@@ -188,7 +187,10 @@ I = Star(V', C, d); % input set as a Star set
 
 % select option for reachability algorithm
 
-[R, t] = F.reach(I, 4); % compute reach set using stars and 4 cores
+%[R, t] = F.reach(I, 4); % compute reach set using stars and 4 cores
+%[R, t] = F.reach(I, 'exact-star', 4); % compute reach set using stars and 4 cores
+%[R, t] = F.reach(I, 'exact-star', 'parallel'); % compute reach set using stars and 4 cores
+[R, t] = F.reach(I, 'exact-star'); % compute reach set using stars and 4 cores
 save F.mat F; % save the verified network
 F.print('F.info'); % print all information to a file
 
@@ -263,7 +265,9 @@ I = Star(lb, ub); % construct input set
 
 U = HalfSpace([-1 0], -5);
 
-[safe, CEx] = F.verify_DFS('InputSet', I, 'UnsafeRegion', U, 'NumCores', 2)
+%[safe, CEx] = F.verify_DFS('InputSet', I, 'UnsafeRegion', U, 'NumCores', 2)
+[safe, CEx] = F.verify_DFS('InputSet', I, 'UnsafeRegion', U, 'NumCores', 1)
+
 %[safe, CEx] = F.verify_DFS('InputSet', I, 'UnsafeRegion', U)
 
 
@@ -272,7 +276,6 @@ U = HalfSpace([-1 0], -5);
 %tests below originally taken from test_FFNNS_verify_MSG.m
 
 %% test 6: FFNNS verify MSG
-
 
 load ACASXU_run2a_1_1_batch_2000.mat;
 Layers = [];

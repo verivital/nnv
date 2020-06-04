@@ -97,7 +97,7 @@ classdef LayerS
                 otherwise
                     error('Invalid number of input arguments (should be 2 or 3)');
             end
-            
+            display(method)
             if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-star-fast') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom') && ~strcmp(method, 'exact-polyhedron') && ~strcmp(method, 'approx-star-split') && ~strcmp(method,'approx-star-no-split')
                 error('Unknown reachability analysis method');
             end

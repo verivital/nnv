@@ -51,7 +51,7 @@ F = FFNN([L1 L2 L3]); % construct Feedforward neural network
 
 [R1, t1] = F.reach(I, 'exact', 1, []); % compute exact reach set
 
-[R2, t2] = F.reach(I, 'approx-star', 1, []); % compute an over-approximate reachable set using star
+[R2, t2] = F.reach(I, 'approx', 1, []); % compute an over-approximate reachable set using star
 
 % plot reachable set
 fig = figure;

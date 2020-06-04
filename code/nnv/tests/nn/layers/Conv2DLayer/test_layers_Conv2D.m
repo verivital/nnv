@@ -132,7 +132,7 @@ UB(:,:,3) = UB(:,:,2);
 
 image = ImageZono(LB, UB);
 
-Z = L0.reach(image);
+%Z = L0.reach(image); %THIS TRIGGERS AN ERROR, BECAUSE IT'S NOT AN IMAGE
 
 S = L0.reach(image.toImageStar);
 

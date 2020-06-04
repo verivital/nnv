@@ -20,19 +20,23 @@ classdef SEGNET < handle
         reachMethod = 'approx-star';    % reachable set computation scheme, default - 'star'
         reachOption = []; % parallel option, default - non-parallel computing
         numCores = 0; % number of cores (workers) using in computation
-        reachSet = [];  % reachable set for each layers
+        reachSet = [];  % reachable set before the pixelClassification layer
         reachTime = []; % computation time for each layers
         totalReachTime = 0; % total computation time
         
+        pixelClassificationReachSet = []; % pixel Classification Reach Set
         verifiedOutputSet = []; % verified output reach set
         groundTruthSegIms = []; % ground truth segmentation images
         % used for plotting verified output set
         numClasses = 0;
         
         % used for plot robustness information
-        rb_val = []; % robustness value in percentage
+        RV = []; % robustness value in percentage
+        RS = []; % robustness sensitivity
         numMisPixels = []; % number of missclassified pixels
         numRbPixels = [];  % number of correctly classified pixels
+        numUnkPixels = []; % number of unknown pixels (may be correct, may be not)
+        numAttPixels = []; % number of attacked pixels
         numPixels = []; % total number of pixels
     end
     
@@ -364,27 +368,29 @@ classdef SEGNET < handle
                 error("NNV have not yet support reachability for DAG networks");
             end
             
-            obj.reachSet = cell(1, obj.numLayers+1);
+            
             obj.reachTime = zeros(1, obj.numLayers);
             fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
-            obj.reachSet{1} = inputSet;
+            rs = inputSet;
             for i=2:obj.numLayers+1
                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 start_time = tic;
                 if ~isa(obj.Layers{i-1}, 'PixelClassificationLayer')
-                    obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, obj.reachOption);
+                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption);
                 else
-                    [obj.reachSet{i}, ~, ~] = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, obj.reachOption);
+                    obj.reachSet = rs; % save reachable set before pixel classification layer
+                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption);
+                    obj.pixelClassificationReachSet = rs_new;
                 end
-                
+                rs = rs_new;
                 obj.reachTime(i-1) = toc(start_time);
                 fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
-                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(obj.reachSet{i}));
+                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs));
             end
             fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
-            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet{obj.numLayers+1}));
+            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet));
             obj.totalReachTime = sum(obj.reachTime);
-            IS = obj.reachSet{obj.numLayers+1};
+            IS = rs;
             reachTime = obj.totalReachTime;
         end
         
@@ -393,18 +399,22 @@ classdef SEGNET < handle
     
     methods % verifier
         
-        function [rb, n_mis, n_rb, ver_rs] = verify(varargin)
+        function [rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify(varargin)
             % @in_images: an array of input set
             % @ground_truths: an array of ground truth images (without attack)
             % @method: reachability method
             % @nCores: number of cores used for computation
-            % @rb: percentage of correctly classified pixels
-            % @n_mis: number of misclassified pixels
+            % @rv: robustness value (percentage of correctly classified pixels)
+            % @rs: robustness sensitivity (ratio of (misclassified + unknown pixels)/attacked pixels)
             % @n_rb: number of robust pixels
+            % @n_mis: number of misclassified pixels
+            % @n_unk: number of unknown pixels
+            % @n_att: number of attacked pixels
             % @ver_rs: verified output reachable set, used for plot
                         
             % author: Dung Tran
             % date: 4/22/2020
+            % update: 5/29/2020
             
             switch nargin
                 case 5
@@ -435,29 +445,23 @@ classdef SEGNET < handle
                 error("Inconsistent number of ground truth images and input sets");
             end
             
-            rb = zeros(1, n1);
+            rv = zeros(1, n1);
+            rs = zeros(1, n1);
             n_rb = zeros(1, n1);
             n_mis = zeros(1, n1);
+            n_unk = zeros(1, n1);
+            n_att = zeros(1, n1);
             ver_rs = cell(1, n1);
                        
             % compute reachable set
-            [seg_im_ids, ~] = obj.reach(in_images, method, nCores);
+            obj.reach(in_images, method, nCores);
             
             % compute ground truth output segmentation image
             gr_seg_ims = obj.evaluate_parallel(ground_truths, nCores);
             
             % compute number of correctly classified pixels
             n_pixels = obj.OutputSize(1) * obj.OutputSize(2);
-            
-            for i=1:n1
-                gr_im = gr_seg_ims{i};
-                seg_im = seg_im_ids{i};
-                c = (gr_im == seg_im);
-                n_rb(i) = sum(c, 'all');
-                n_mis(i) = n_pixels - n_rb(i);
-                rb(i) = n_rb(i)/(n_pixels);
-            end
-            
+                        
             % obtain verify rearch set
             % 'unknown': the label of the pixel is unknown, may be correct may be not
             % 'misclass': the label of the pixel is misclassified 
@@ -466,30 +470,173 @@ classdef SEGNET < handle
             % 1) unknown class
             % 2) misclassification class
                       
-            for i=1:n1
-                seg_im = seg_im_ids{i};
-                gr_seg_im = gr_seg_ims{i};
-                n = size(seg_im);
-                ver_im = seg_im;
-                for j=1:n(1)
-                    for k=1:n(2)
-                        % unk_id = obj.mis_id - 1
-                        if (seg_im(j, k) ~= gr_seg_im(j,k)) && (seg_im(j,k) ~= obj.numClasses - 1)
-                            ver_im(j,k) = obj.numClasses;
+            if obj.numCores > 1
+                parfor i=1:n1
+
+                    gr_seg_im = gr_seg_ims{i};
+                    pc_rs = obj.getPixelClassReachSet(i);
+                    [h, w] = size(pc_rs);
+                    ver_im = zeros(h, w);
+                    n_mis_ct = 0;
+                    n_unk_ct = 0;                  
+                    n_att(i) = in_images(i).getNumAttackedPixels; 
+
+                    for j=1:h
+                        for k=1:w
+                            pc = pc_rs{j, k};
+                            if size(pc, 1) == 1
+                                if pc == gr_seg_im(j,k)
+                                    ver_im(j,k) = pc; %(robust pixel)
+                                else
+                                    ver_im(j,k) = obj.numClasses; % misclass (unrobust pixel)
+                                    n_mis_ct = n_mis_ct + 1;
+                                end
+                            else
+                                c = (pc == gr_seg_im(j, k));
+                                if sum(c) ~= 0
+                                    n_unk_ct = n_unk_ct + 1;
+                                    ver_im(j,k) = obj.numClasses - 1; % unknown pixel
+                                else
+                                    ver_im(j,k) = obj.numClasses; % unrobust pixel
+                                    n_mis_ct = n_mis_ct + 1;
+                                end
+                                
+                            end
+      
                         end
-                    end
-                end                
-                ver_rs{i} = ver_im;
+                    end                
+                    ver_rs{i} = ver_im;
+                    n_mis(i) = n_mis_ct;
+                    n_unk(i) = n_unk_ct;
+                    n_rb_ct = n_pixels - n_mis_ct - n_unk_ct;
+                    n_rb(i) = n_rb_ct;
+                    rv(i) = n_rb_ct/n_pixels;
+                    rs(i) = (n_mis_ct + n_unk_ct)/n_att(i);
+                end
+            else
+                 for i=1:n1
+
+                    gr_seg_im = gr_seg_ims{i};
+                    pc_rs = obj.getPixelClassReachSet(i);
+                    [h, w] = size(pc_rs);
+                    ver_im = zeros(h, w);
+                    n_mis_ct = 0;
+                    n_unk_ct = 0;                  
+                    n_att(i) = in_images(i).getNumAttackedPixels; 
+
+                    for j=1:h
+                        for k=1:w
+                            pc = pc_rs{j, k};
+                            if size(pc, 1) == 1
+                                if pc == gr_seg_im(j,k)
+                                    ver_im(j,k) = pc; %(robust pixel)
+                                else
+                                    ver_im(j,k) = obj.numClasses; % misclass (unrobust pixel)
+                                    n_mis_ct = n_mis_ct + 1;
+                                end
+                            else
+                                c = (pc == gr_seg_im(j, k));
+                                if sum(c) ~= 0
+                                    n_unk_ct = n_unk_ct + 1;
+                                    ver_im(j,k) = obj.numClasses - 1; % unknown pixel
+                                else
+                                    ver_im(j,k) = obj.numClasses; % unrobust pixel
+                                    n_mis_ct = n_mis_ct + 1;
+                                end
+                                
+                            end
+      
+                        end
+                    end                
+                    ver_rs{i} = ver_im;
+                    n_mis(i) = n_mis_ct;
+                    n_unk(i) = n_unk_ct;
+                    n_rb_ct = n_pixels - n_mis_ct - n_unk_ct;
+                    n_rb(i) = n_rb_ct;
+                    rv(i) = n_rb_ct/n_pixels;
+                    rs(i) = (n_mis_ct + n_unk_ct)/n_att(i);
+                end
             end
+            
             
             obj.verifiedOutputSet = ver_rs;
             obj.groundTruthSegIms = gr_seg_ims;
-            obj.rb_val = rb;
-            obj.numMisPixels = n_mis;
-            obj.numPixels = n_pixels;
+            obj.RV = rv;
+            obj.RS = rs;
+            
             obj.numRbPixels = n_rb;
+            obj.numMisPixels = n_mis;
+            obj.numUnkPixels = n_unk;
+            obj.numPixels = n_pixels;
+            obj.numAttPixels = n_att;
             
         end
+
+        
+        % get all possible classes of a pixels
+        function pc = getPixelClasses(obj, rs_id, h_id, w_id)
+            % @rs_id: reach set id
+            % @h_id: height index of the pixel
+            % @w_id; width index of the pixel
+            % @pc: an array of all possible classes of the pixel x(h_id, w_id)
+
+            % author: Dung Tran
+            % date: 5/31/2020
+
+            if isempty(obj.reachSet)
+                error('Reach Set is empty, please perform reachability first');
+            end
+            
+            rs = obj.reachSet(rs_id); 
+            if h_id < 1 || h_id > rs.height
+                error('Invalid height index');
+            end
+            
+            if w_id < 1 || w_id > rs.width
+                error('Invalid weight index');
+            end
+            
+            nc =rs.numChannel;
+            xmin = zeros(nc,1);
+            xmax = zeros(nc,1);
+            
+            for i=1:nc
+                [xmin(i), xmax(i)] = rs.estimateRange(h_id, w_id, i);
+            end
+            
+            max_xmin = max(xmin);
+            c = (xmax >= max_xmin);
+            pc = find(c);          
+        end
+        
+        % get possible classes of all pixels
+        function pc_rs = getPixelClassReachSet(obj, rs_id)
+            % @rs_id: reach set id
+            % @pc_rs: pixel class reach set
+            
+            % author: Dung Tran
+            % date: 5/31/2020
+            
+            if isempty(obj.reachSet)
+                error('Empty reach set, please do reachability analysis first');
+            end
+            
+            if rs_id < 1 || rs_id > length(obj.reachSet)
+                error('Invalid reach set index');
+            end
+            
+            rs = obj.reachSet(rs_id);
+            h = rs.height;
+            w = rs.width;
+            pc_rs = cell(h, w);
+            
+            for i=1:h
+                for j=1:w
+                    pc_rs{i, j} = obj.getPixelClasses(rs_id, i,j);
+                end
+            end      
+        end
+        
         
     end
     
@@ -651,7 +798,7 @@ classdef SEGNET < handle
                 error("The last layer in the network is not a pixel classification layer, i.e., the network is not a segmentation network");
             end
             
-            RS = obj.reachSet{obj.numLayers + 1};
+            RS = obj.pixelClassificationReachSet;
                         
             if ind > length(RS) || ind < 1
                 error("Invalid index");
@@ -720,17 +867,24 @@ classdef SEGNET < handle
                 error("Verified Output Reachable set is empty, please perform verify method first");
             end
             
+            ps = obj.pixelClassificationReachSet;
             rs = obj.verifiedOutputSet;
             gr = obj.groundTruthSegIms;
             
             if ind > length(rs) || ind < 1
                 error("Invalid index");
             end
-
+            
+                        
             pl_rs = rs{ind};
             pl_gr = gr{ind};         
+            px_rs = ps{ind};
             gr_RGB = label2rgb(pl_gr);
             rs_RGB = label2rgb(pl_rs);
+            px_RGB = label2rgb(px_rs);
+            
+            
+            
             
             gr_unique = unique(pl_gr);
             m1 = length(gr_unique);
@@ -744,25 +898,43 @@ classdef SEGNET < handle
             map2 = obj.getColorMap(pl_rs, IND2, in_map2);
             classes2 = obj.getClasses(rs_unique); 
             
+            px_unique = unique(px_rs);
+            m3 = length(px_unique);
+            [IND3,in_map3] = rgb2ind(px_RGB, m3);
+            map3 = obj.getColorMap(px_rs, IND3, in_map3);
+            classes3 = obj.getClasses(px_unique); 
+            
+            
             figure;
-            ax1 = subplot(1,2,1);
+            ax1 = subplot(1,3,1);
             imshow(gr_RGB);
             colormap(ax1,map1);
             cbh1 = colorbar(ax1);
             xtick = 1/(2*m1):1/m1:1;
             cbh1.Ticks = xtick;               
             cbh1.TickLabels = classes1;
-            str = sprintf("%d^{th} segmentation image without attack", ind);
+            str = sprintf("%d^{th} Segmentation without Attack", ind);
+            title(str);
+            
+            ax3 = subplot(1,3,2);
+            imshow(px_RGB);
+            colormap(ax3,map3);
+            cbh1 = colorbar(ax3);
+            xtick = 1/(2*m3):1/m3:1;
+            cbh1.Ticks = xtick;               
+            cbh1.TickLabels = classes3;
+            str = sprintf("%d^{th} Pixel-class Reach Set", ind);
             title(str);
 
-            ax2 = subplot(1,2,2);
+            
+            ax2 = subplot(1,3,3);
             imshow(rs_RGB);
             colormap(ax2,map2);
             cbh2 = colorbar(ax2);
             xtick = 1/(2*m2):1/m2:1;
             cbh2.Ticks = xtick;               
             cbh2.TickLabels = classes2;
-            str = sprintf("%d^{th} verified output segmentation image after attack", ind);
+            str = sprintf("%d^{th} Verified Reach Set", ind);
             title(str);
 
             truesize(figSize);
@@ -771,72 +943,74 @@ classdef SEGNET < handle
         end
         
         % plot robustness statistics
-        function plotRobustnessStatistics(varargin)
+        function plotRobustnessStatistics(obj)
             % @option: 'individual' or ''
-            % @x: value of x axes
             
             % author: Dung Tran
             % date: 4/23/2020
+            % update: 5/29/2020
             
-            switch nargin
-                case 1
-                    obj = varargin{1};
-                    x = length(obj.rb_val);
-                    x_label = "Index";
-                case 3
-                    obj = varargin{1};
-                    x = varargin{2};
-                    x_label = varargin{3};
-                otherwise
-                    error("Invalid number of input arguments, should be 1 or 3");
-            end
             
-            if isempty(obj.rb_val)
+            if isempty(obj.RV)
                 error("Robustness Statistics is empty, please perform verify method first");
             end
             
-            n = length(obj.rb_val);
-            
-            if length(x) ~= n
-                error('Inconsistency between the length of x and y');
-            end
-            
+            x = 1:1:length(obj.RV);
+            % plot robustness value
             figure;
-            b = bar(x, obj.rb_val, 'y');
-            xtips1 = b(1).XEndPoints;
-            ytips1 = b(1).YEndPoints;
-            labels1 = string(b(1).YData);
-            text(xtips1,ytips1,labels1,'HorizontalAlignment','center',...
-                'VerticalAlignment','bottom')
-            xlabel(x_label);
+            plot(x, obj.RV,'--*');
+            xlabel('Image Index');
+            ylabel('RV');
             ylim([0 1.1]);
             title("Robustness Value");
-            saveas(gcf, 'RobustValue.pdf');
+            set(gca, 'FontSize', 13);
+            saveas(gcf, 'RobustnessValue.pdf');
+            
+            figure;
+            plot(x, obj.RS, '--x');
+            xlabel('Image Index');
+            ylim([0 max(obj.RS) + 1]);
+            ylabel('RS');
+            title("Robustness Sensitivity");
+            set(gca, 'FontSize', 13);
+            saveas(gcf, 'RobustnessSensitivity.pdf');
             
             
             figure;
-            b = bar(x, obj.numMisPixels, 'r');
-            xtips1 = b(1).XEndPoints;
-            ytips1 = b(1).YEndPoints;
-            labels1 = string(b(1).YData);
-            text(xtips1,ytips1,labels1,'HorizontalAlignment','center',...
-                'VerticalAlignment','bottom');
-            xlabel(x_label);
+            plot(x, obj.numMisPixels, '--o');
+            xlabel('Image Index');
             ylim([0 max(obj.numMisPixels)+20]);
             title("Number of Misclassified Pixels");
+            ylabel('$N_{misclass}$', 'interpreter', 'latex');
+            set(gca, 'FontSize', 13);
             saveas(gcf, 'numMisPixels.pdf');
             
             figure;
-            b = bar(x, obj.numRbPixels, 'b');
-            xtips1 = b(1).XEndPoints;
-            ytips1 = b(1).YEndPoints;
-            labels1 = string(b(1).YData);
-            text(xtips1,ytips1,labels1,'HorizontalAlignment','center',...
-                'VerticalAlignment','bottom');
-            xlabel(x_label);
+            plot(x, obj.numRbPixels, '--x');
+            xlabel('Image Index');
             ylim([0 max(obj.numRbPixels)+500]);
-            title("Number of Robust Pixels (Correctly Classified)");
+            ylabel('$N_{robust}$', 'interpreter', 'latex');
+            title("Number of Robust Pixels");
+            set(gca, 'FontSize', 13);
             saveas(gcf, 'numRbPixels.pdf');
+            
+            figure;
+            plot(x, obj.numUnkPixels, '--*');
+            xlabel('Image Index');
+            ylim([0 max(obj.numUnkPixels)+20]);
+            title("Number of Unknown Pixels");
+            ylabel('$N_{unknown}$', 'interpreter', 'latex');
+            set(gca, 'FontSize', 13);
+            saveas(gcf, 'numUnkPixels.pdf');
+            
+            figure;
+            plot(x, obj.numAttPixels, '--o');
+            xlabel('Image Index');
+            ylim([0 max(obj.numAttPixels)+10]);
+            title("Number of Attacked Pixels");
+            ylabel('$N_{attackedpixels}$', 'interpreter', 'latex');
+            set(gca, 'FontSize', 13);
+            saveas(gcf, 'numAttPixels.pdf');
         end
         
     end

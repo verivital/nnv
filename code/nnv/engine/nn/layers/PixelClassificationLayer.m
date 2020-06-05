@@ -138,48 +138,37 @@ classdef PixelClassificationLayer < handle
         end
         
         % reachability with imagestar
-        function [seg_im_id, seg_im_cat, mis_px_id] = reach_star_single_input(obj, IS, ~)
+        function seg_im_id = reach_star_single_input(obj, IS, ~)
             % @IS: imageStar input set
             % @seg_im_id: segmentation image with class index
-            % @seg_im_cat: segmentation image with class name (a
-            % categorical object)
-            % @mis_px_id: example of misclassified pixel class index
             
             % author: Dung Tran
             % date: 4/12/2020
-            % upate: 4/22/2020
+            % upate: 4/22/2020, 6/1/2020
             
+            h = IS.height;
+            w = IS.width;
+            seg_im_id = zeros(h,w);
             [im_lb, im_ub] = IS.estimateRanges;
-            [~,y1] = max(im_lb, [], 3);
-            [~,y2] = max(im_ub, [], 3);
-            classes = categories(obj.Classes);
-            
-            n = size(y1);
-            
-            S = cell(n(1),n(2));
-            X = zeros(n(1),n(2));
-            Y = cell(n(1), n(2));
-            for i=1:n(1)
-                for j=1:n(2)
-                    if y1(i,j) == y2(i,j)
-                        S{i, j} = classes{y1(i,j)};
-                        X(i,j) = y1(i,j);
+            for i=1:h
+                for j=1:w
+                    max_xmin = max(im_lb(i, j, :));
+                    c = (im_ub(i, j, :) >= max_xmin);
+                    pc = find(c);
+                    if length(pc) == 1
+                        seg_im_id(i,j) = pc;
                     else
-                        S{i,j} = 'unknown';
-                        X(i, j) = length(classes)-1; % unknown label index
-                        Y{i, j} = [y1(i,j) y2(i,j)]; % example of misclassified label
+                        seg_im_id(i,j) = length(obj.Classes) - 1;
                     end
                 end
             end
             
-            seg_im_cat = categorical(S);
-            seg_im_id = X;
-            mis_px_id = Y;
+            
         end
         
         
         % reachability with imagestar
-        function [seg_ims_ids, seg_ims_cats, mis_pix_ids] = reach_star_multipleInputs(obj, in_images, option)
+        function seg_ims_ids = reach_star_multipleInputs(obj, in_images, option)
             % @in_images: an array of imageStar input set
             % @seg_im_id: segmentation image with class index
             % @seg_im_cat: segmentation image with class name (a
@@ -193,15 +182,13 @@ classdef PixelClassificationLayer < handle
             
             n = length(in_images);
             seg_ims_ids = cell(n, 1);
-            seg_ims_cats = cell(n,1);
-            mis_pix_ids = cell(n,1);
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    [seg_ims_ids{i}, seg_ims_cats{i}, mis_pix_ids{i}] = obj.reach_star_single_input(in_images(i));
+                    seg_ims_ids{i} = obj.reach_star_single_input(in_images(i));
                 end
             elseif strcmp(option, 'single') || isempty(option)
                 for i=1:n
-                    [seg_ims_ids{i}, seg_ims_cats{i}, mis_pix_ids{i}] = obj.reach_star_single_input(in_images(i));
+                    seg_ims_ids{i} = obj.reach_star_single_input(in_images(i));
                 end
             else
                 error('Unknown computation option');
@@ -213,16 +200,13 @@ classdef PixelClassificationLayer < handle
         
         
         % main reach method
-        function [seg_ims_ids, seg_ims_cats, mis_pix_ids] = reach(varargin)
+        function seg_ims_ids = reach(varargin)
             % @in_images: an array of imageStar input set
             % @seg_im_id: segmentation image with class index
-            % @seg_im_cat: segmentation image with class name (a
-            % categorical object)
-            % @mis_px_id: example of misclassified pixel class index
             
             % author: Dung Tran
             % date: 4/22/2020
-            % upate: 
+            % upate: 6/1/2020
             
            switch nargin
                 case 4
@@ -246,7 +230,7 @@ classdef PixelClassificationLayer < handle
             end
          
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
-                [seg_ims_ids, seg_ims_cats, mis_pix_ids] = obj.reach_star_multipleInputs(in_images, option);
+                seg_ims_ids = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono') 
                 error('NNV have not support approx-zono method yet');
             else

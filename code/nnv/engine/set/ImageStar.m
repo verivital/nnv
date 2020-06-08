@@ -813,6 +813,24 @@ classdef ImageStar < handle
             
         end
         
+        % estimate the number of attacked pixels
+        function n_att = getNumAttackedPixels(obj)
+            % @n_att: number of attacked pixels in an imagestar
+            
+            % author: Dung Tran
+            % date: 5/29/2020
+            
+            V1 = zeros(obj.height, obj.width, obj.numChannel);
+            V3 = V1;
+            for i=2:obj.numPred + 1
+                V2 = (obj.V(:,:,i) ~= V1);
+                V3 = V3 + V2; 
+            end          
+            [V4, ~] = max(V3, [], 3);
+            n_att = sum(V4, 'all');
+            
+        end
+        
         
         % get local bound for Max Pooling operation
         function [lb, ub] = get_localBound(obj, startpoint, PoolSize, channel_id)

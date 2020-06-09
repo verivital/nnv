@@ -150,7 +150,7 @@ classdef FullyConnectedLayer < handle
             V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1);        
             for i=1:n+1
                 I = in_image.V(:,:,:,i);
-                I = reshape(I,N,1);
+                I = reshape(I,N,1); % flatten input
                 if i==1
                     V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
                 else
@@ -276,9 +276,6 @@ classdef FullyConnectedLayer < handle
                 otherwise
                     error('Invalid number of input arguments (should be 2 or 3)');
             end
-            
-            
-            n = length(in_images);
             
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
                 IS = obj.reach_star_multipleInputs(in_images, option);

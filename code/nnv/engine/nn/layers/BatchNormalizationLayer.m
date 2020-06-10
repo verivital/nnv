@@ -99,10 +99,11 @@ classdef BatchNormalizationLayer < handle
                 y = input;
             end
                                
-        end
-        
+        end       
         
     end
+    
+    
         
     % exact reachability analysis using ImageStar or ImageZono
     methods

@@ -150,7 +150,7 @@ classdef NonlinearNNCS < handle
                      lb = zeros(obj.plant.nI, 1); % at first step, U = 0.
                      U = Star(lb, lb);
                  else
-                    [U,~] = obj.controller.reach(input_set, reachPRM.reachMethod, n_cores); % control set at step i   
+                    [U,~] = obj.controller.reach(input_set, 'exact-star', n_cores); % control set at step i   
                  end
                  U1 = Star.get_hypercube_hull(U);
                  

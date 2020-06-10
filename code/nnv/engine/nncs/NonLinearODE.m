@@ -81,7 +81,7 @@ classdef NonLinearODE < handle
             option.errorOrder = 1;
             option.polytopeOrder = 2; % polytope order
             option.reductionInterval = 1e3;
-            option.maxError = 0.5*ones(obj.dim, 1);
+            option.maxError = 0.1*ones(obj.dim, 1);
             option.advancedLinErrorComp = 0;
             option.tensorOrder=2;
             option.uTrans = 0;

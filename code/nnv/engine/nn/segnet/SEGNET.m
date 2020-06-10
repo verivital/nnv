@@ -1103,8 +1103,18 @@ classdef SEGNET < handle
                             
             end
             
+            if isprop(net, 'InputNames')
+                inputNames = net.InputNames;
+            else
+                inputNames = 'in';
+            end
+            if isprop(net, 'OutputNames')
+                outputNames = net.OutputNames;
+            else
+                outputNames = 'out';
+            end
             
-            segnet = SEGNET(name, Ls, connects, net.InputNames, net.OutputNames);
+            segnet = SEGNET(name, Ls, connects, inputNames, outputNames);
             fprintf('\nParsing network is done successfully and %d Layers are neglected in the analysis phase', n - j);
             
             if ~isa(segnet.Layers{segnet.numLayers}, 'PixelClassificationLayer')

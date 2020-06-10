@@ -33,15 +33,15 @@ https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
 ## 2. Cores results
 
-### 2.1 Figure 2-a: The robustness, sensitivity and verification time (in second) of MNIST networks vs. the number of attacked pixels
+1) Figure 2-a: The robustness, sensitivity and verification time (in second) of MNIST networks vs. the number of attacked pixels
 
-### 2.2 Figure 2-b: The robustness, sensitivity and verification time (in second) of MNIST networks vs. input size
+2) Figure 2-b: The robustness, sensitivity and verification time (in second) of MNIST networks vs. input size
 
-### 2.3 Figure 3: Example of pixel-class reachable sets of MNIST networks
+3) Figure 3: Example of pixel-class reachable sets of MNIST networks
 
-### 2.4 Figure 4: The robustness, sensitivity, verification time (in second) and reach-times of M2NIST networks vs. the number of attacked pixels
+4) Figure 4: The robustness, sensitivity, verification time (in second) and reach-times of M2NIST networks vs. the number of attacked pixels
 
-### 2.5 Figure 5: Example of pixel-class reachable sets of M2NIST networks
+5) Figure 5: Example of pixel-class reachable sets of M2NIST networks
 
 
 ## 3. Run paper reproducibility

@@ -4,7 +4,7 @@ Author: Anomynous
 
 ## 1. Installation
 
-### 1-a0. System requirements
+### 1.1. System requirements
 
 OS: Window 10, Linux, (may work on MacOS, some bugs of MPT solvers have been reported)
 
@@ -14,11 +14,11 @@ For the first two steps, more details are available here:
 
 https://github.com/verivital/nnv#installation
 
-### 1.1. Clone NNV repository using the recursive option as it has submodules:
+### 1.2. Clone NNV repository using the recursive option as it has submodules:
 
 `git clone --recursive https://github.com/verivital/nnv.git`
 
-### 1.2. Install NNV (install.m)
+### 1.3. Install NNV (install.m)
 In Matlab, navigate to the `code/nnv/` folder. Execute the `install.m` script, which will set up various dependencies (mostly via tbxmanager). This should also set up the path correctly within Matlab so all dependencies are available.
 
 `install`

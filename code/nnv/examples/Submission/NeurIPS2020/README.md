@@ -4,7 +4,11 @@ Author: Anomynous
 
 ## 1. Installation
 
-### 1-a0. OS: Window 10, Linux, (may work on MacOS, some bugs of MPT solvers have been reported)
+### 1-a0. System requirements
+
+OS: Window 10, Linux, (may work on MacOS, some bugs of MPT solvers have been reported)
+
+RAM: at least 32 GB 
 
 For the first two steps, more details are available here:
 
@@ -27,9 +31,53 @@ If Matlab is restarted, to work again, either `install.m` or `startup_nnv.m` mus
 
 https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
-## 2. Run paper reproducibility
+## 2. Cores results
+
+### 2.1 Figure 2-a: The robustness, sensitivity and verification time (in second) of MNIST networks vs. the number of attacked pixels
+
+### 2.2 Figure 2-b: The robustness, sensitivity and verification time (in second) of MNIST networks vs. input size
+
+### 2.3 Figure 3: Example of pixel-class reachable sets of MNIST networks
+
+### 2.4 Figure 4: The robustness, sensitivity, verification time (in second) and reach-times of M2NIST networks vs. the number of attacked pixels
+
+### 2.5 Figure 5: Example of pixel-class reachable sets of M2NIST networks
+
+
+## 3. Run paper reproducibility
+
+### 3.1 Reproducing all results by a single run
 
 Navigate to NeurIPS2020/ (supplementary data provided by authors).
 
 Execute the `reproduce_NeurIPS2020.m` 
+
+### 3.2 Reproducing all results seprarately
+
+#### 3.2.1 Figure 2-a
+
+Navigate to NeurIPS2020/MNIST
+
+Execute the `compare_mnist_nets_vs_num_attackedpixels.m`
+
+#### 3.2.2 Figure 2-b and Figure 3
+
+Navigate to NeurIPS2020/MNIST
+
+Execute the `compare_mnist_nets_vs_inputsize.m`
+
+#### 3.2.3 Figure 4 and Figure 5
+
+Navigate to NeurIPS2020/M2NIST
+
+Execute the `compare_m2nist_nets_vs_num_attackedpixels.m`
+
+
+## 4 Memory Note ***
+
+Since we run the analysis on multiple images in parallel, users may run into memory problem if their computers have less than 32 GB RAM. 
+
+
+
+
 

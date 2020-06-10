@@ -490,7 +490,7 @@ classdef CNN < handle
             j = 0; % counter of number of layers
             for i=1:n
                 L = net.Layers(i);
-                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                   
+                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                  
                     fprintf('\nLayer %d is a %s class which is neglected in the analysis phase', i, class(L));                   
                     if isa(L, 'nnet.cnn.layer.ImageInputLayer')
                         inputSize = L.InputSize;
@@ -518,7 +518,11 @@ classdef CNN < handle
                         Li = FullyConnectedLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
                         Li = PixelClassificationLayer.parse(L);
-                    else                     
+                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer')
+                        Li = FlattenLayer.parse(L);
+                    elseif isa(L, 'nnet.keras.layer.SigmoidLayer')
+                        Li = SigmoidLayer.parse(L);
+                    else
                         fprintf('\nLayer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis', i, class(L));
                         error('\nUnsupported Class of Layer');                     
                     end

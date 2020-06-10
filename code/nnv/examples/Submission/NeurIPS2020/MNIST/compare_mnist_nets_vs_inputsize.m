@@ -176,6 +176,7 @@ legend(labels{1:L}, 'interpreter', 'latex');
 hold off;
 
 saveas(fig, 'compare_mnist_nets_vs_inputsize.pdf');
-%% save for plotting pixel-class reachable set
+%% plot verified output set
 
-save mnist_nets_results_inputsize.mat Nets;
+Nets(1).plotVerifiedOutputSet(2);
+Nets(2).plotVerifiedOutputSet(2);

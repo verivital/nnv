@@ -177,6 +177,16 @@ legend(labels{1:L}, 'interpreter', 'latex');
 hold off;
 
 saveas(fig, 'compare_mnist_nets_vs_num_attackedpixels.pdf');
-%%
+%% plot reach time
 
-save m2nist_net_results_attackedpixels.mat Nets;
+N1 = Nets(1);
+N2 = Nets(2);
+
+N1_relu_reachTime = N1.reachTime(4) + N1.reachTime(8) + N1.reachTime(12);
+N1_others_reachTime = sum(N1.reachTime) - N1_relu_reachTime; 
+
+relu_id = [3 5 8 10 13 15 17 19];
+N2_relu_reachTime = 0;
+for i=1:length(relu_id)
+    N2_relu_reachTime = N2_relu_reachTime + N2.reachTime(relu_id(i));
+end

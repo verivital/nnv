@@ -1,18 +1,20 @@
 # Semantic Segmentation Network Robustness Verification
 
+Author: Anomynous
+
 ## 1. Installation
 
-### 1a0. OS: Window 10, Linux, (may work on MacOS, some bugs for MPT glpk have been reported)
+### 1-a0. OS: Window 10, Linux, (may work on MacOS, some bugs of MPT solvers have been reported)
 
 For the first two steps, more details are available here:
 
 https://github.com/verivital/nnv#installation
 
-### 1a1. Clone NNV repository using the recursive option as it has submodules:
+### 1-a1. Clone NNV repository using the recursive option as it has submodules:
 
 `git clone --recursive https://github.com/verivital/nnv.git`
 
-### 1a2. Install NNV (install.m)
+### 1-a2. Install NNV (install.m)
 In Matlab, navigate to the `code/nnv/` folder. Execute the `install.m` script, which will set up various dependencies (mostly via tbxmanager). This should also set up the path correctly within Matlab so all dependencies are available.
 
 `install`

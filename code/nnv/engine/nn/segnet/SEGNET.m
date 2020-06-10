@@ -1106,12 +1106,12 @@ classdef SEGNET < handle
             if isprop(net, 'InputNames')
                 inputNames = net.InputNames;
             else
-                inputNames = 'in';
+                inputNames = {'in'};
             end
             if isprop(net, 'OutputNames')
                 outputNames = net.OutputNames;
             else
-                outputNames = 'out';
+                outputNames = {'out'};
             end
             
             segnet = SEGNET(name, Ls, connects, inputNames, outputNames);

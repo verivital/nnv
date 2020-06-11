@@ -10,6 +10,8 @@ OS: Window 10, Linux, (may work on MacOS, some bugs of MPT solvers have been rep
 
 RAM: at least 32 GB 
 
+Matlab version: 2019b or later
+
 For the first two steps, more details are available here:
 
 https://github.com/verivital/nnv#installation

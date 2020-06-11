@@ -37,6 +37,11 @@ rt1 = toc(t);
 lb1 = reshape(OS1.im_lb, [10 1]); % lower bound vector of the output
 ub1 = reshape(OS1.im_ub, [10 1]); % upper bound vector of the output
 
+[lb2, ub2] = OS1.getRanges;
+
+lb2 = reshape(lb2, [10 1]);
+ub2 = reshape(ub2, [10 1]);
+
 %% plot output ranges
 
 im_center1 = (lb1 + ub1)/2;

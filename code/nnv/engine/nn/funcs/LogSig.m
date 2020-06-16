@@ -364,7 +364,6 @@ classdef LogSig
 %             else
 %                 [l, u] = I.getRange(index);
 %             end
-            
             y_l = logsig(l);
             y_u = logsig(u);
             dy_l = logsig('dn', l);
@@ -535,7 +534,6 @@ classdef LogSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                
                 % update outer-zonotope
                 if ~isempty(I.Z)
                     c = I.Z.c;

@@ -136,7 +136,6 @@ classdef Star
                         if m1 ~=1 || m2 ~=1 
                             error('predicate lower- or upper-bounds vector should have one column');
                         end
-
                         if n1 ~= n2 || n1 ~= mC
                             error('Inconsistency between number of predicate variables and predicate lower- or upper-bounds vector');
                         end

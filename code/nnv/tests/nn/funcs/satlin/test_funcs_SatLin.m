@@ -10,7 +10,6 @@ I = ExamplePoly.randVrep;
 V = [0 0; 1 0; 0 1];
 I = Star(V', I.A, I.b); % input star
 I_poly = I.toPolyhedron;
-I_star=I;
 sample_size=25;
 
 %POTENTIAL QUESTION: do we want to draw different random variables for
@@ -35,7 +34,7 @@ assert(isequal(y, [0; 0.5; 1]))
 %tests below originally taken from test_SatLin_reach.m
 %% test 2:  SatLin Reach exact star
 S = SatLin.reach(I, 'exact-star'); % exach reach set using star
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -44,7 +43,7 @@ assert(res);
 
 %% test 3:  SatLin Reach approx star
 S = SatLin.reach(I, 'approx-star'); % over-approximate reach set using star
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -53,7 +52,7 @@ assert(res);
 
 %% test 4:  SatLin Reach abs dom
 S = SatLin.reach(I, 'abs-dom'); % over-approximate reach set using abstract-domain
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -65,7 +64,7 @@ assert(res);
 %tests below originally taken from test_SatLin_reach_abstract_domain.m
 %% test 5: SatLin Abstract Domain
 S = SatLin.reach_abstract_domain(I); % over-approximate reach set
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -74,7 +73,7 @@ assert(res);
 
 %% test 6:  SatLin Reach
 S = SatLin.reach(I); % exach reach set
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -88,7 +87,7 @@ assert(res);
 %it's a duplicate. see above (test 2)
 % test 7: SatLin Reach Exact Star
 %S = SatLin.reach(I, 'exact-star'); % exach reach set using star
-%[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+%[res, fail_in, fail_out]=random_search(I, S, sample_size);
 %if ~res
 %    display(fail_in)
 %    display(fail_out)
@@ -97,7 +96,7 @@ assert(res);
 
 %% test 7: SatLin Reach Exact Polyhedron
 S = SatLin.reach(I_poly, 'exact-polyhedron');
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -107,7 +106,7 @@ assert(res);
 %tests below originally taken from test_SatLin_reach_star_approx.m
 %% test 8: SatLin Reach Star Approx
 S = SatLin.reach_star_approx(I); % over-approximate reach set
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -118,7 +117,7 @@ assert(res);
 %TEST DISABLED BECAUSE:
 %it's a duplicate. see above (test 6)
 %S = SatLin.reach(I); % exach reach set
-%[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+%[res, fail_in, fail_out]=random_search(I, S, sample_size);
 %if ~res
 %    display(fail_in)
 %    display(fail_out)
@@ -159,7 +158,7 @@ title('Output set, inside is Star, outside is Zonotope');
 %tests below originally taken from test_SatLin_stepReach.m
 %% test 10: SatLin Step Reach 
 S = SatLin.stepReach(I, 1);
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -170,7 +169,7 @@ assert(res);
 %tests below originally taken from test_SatLin_stepReachAbstractDomain.m
 %% test 11: SatLin Step Reach Abstract Domain
 S = SatLin.stepReachAbstractDomain(I, 1);
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -193,7 +192,7 @@ assert(res);
 %it's a duplicate. see above (test 12)
 % test 13: SatLin Step Reach
 %S = SatLin.stepReach(I, 1);
-%[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+%[res, fail_in, fail_out]=random_search(I, S, sample_size);
 %if ~res
 %    display(fail_in)
 %    display(fail_out)
@@ -202,7 +201,7 @@ assert(res);
 
 %% test 13: SatLin Step Reach Polyhedron Exact
 S = SatLin.stepReachPolyhedronExact(I_poly, 1);
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)
@@ -214,7 +213,7 @@ assert(res);
 %tests below originally taken from test_SatLin_stepReachStarApprox.m
 %% test 14: SatLin Step Reach Star Approx
 S = SatLin.stepReachStarApprox(I, 1);
-[res, fail_in, fail_out]=random_search(I_star, S, sample_size);
+[res, fail_in, fail_out]=random_search(I, S, sample_size);
 if ~res
     display(fail_in)
     display(fail_out)

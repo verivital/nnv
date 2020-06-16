@@ -67,12 +67,16 @@ avg_numMisPixels = zeros(L, M); % average number of misclassified pixels
 avg_numAttPixels = zeros(L, M); % average number of attacked pixels
 avg_numUnkPixels = zeros(L, M); % average number of unknown pixels
 VT = zeros(L, M); % verification time
+
+c = parcluster('local');
+numCores = c.NumWorkers;
+
 % verify L networks in the Nets array
 t1 = tic;
 for i=1:L
     for k=1:M
         t = tic;
-        Nets(i).verify(IS{k}, GrTruth{k}, 'approx-star', 6);
+        Nets(i).verify(IS{k}, GrTruth{k}, 'approx-star', numCores);
         avg_RV(i, k) = sum(Nets(i).RV)/(N);
         avg_RS(i, k) = sum(Nets(i).RS)/(N);
         avg_numRbPixels(i,k) = sum(Nets(i).numRbPixels)/(N);
@@ -172,6 +176,7 @@ legend(labels{1:L}, 'interpreter', 'latex');
 hold off;
 
 saveas(fig, 'compare_mnist_nets_vs_inputsize.pdf');
-%% save for plotting pixel-class reachable set
+%% plot verified output set
 
-save mnist_nets_results_inputsize.mat Nets;
+Nets(1).plotVerifiedOutputSet(2);
+Nets(2).plotVerifiedOutputSet(2);

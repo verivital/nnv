@@ -618,6 +618,25 @@ classdef ImageStar < handle
             
                
             f = obj.V(vert_ind, horiz_ind, chan_ind, 2:obj.numPred + 1);
+            
+            % use Gorubi (linprog or linprog of Matlab)
+            
+%             options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
+%             
+%             [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
+%             if exitflag == 1
+%                xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+%             else
+%                 error('Cannot find an optimal solution, exitflag = %d', exitflag);
+%             end
+%             
+%             [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
+%             if exitflag == 1
+%                 xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+%             else
+%                 error('Cannot find an optimal solution exitflag = %d', exitflag);
+%             end
+%             
             [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
             if exitflag == 5
                 xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
@@ -703,11 +722,16 @@ classdef ImageStar < handle
                          
                 image_lb = zeros(obj.height, obj.width, obj.numChannel);
                 image_ub = zeros(obj.height, obj.width, obj.numChannel);
-
+                reverseStr = '';
+                N = obj.height*obj.width*obj.numChannel;
+                fprintf('\nEstimating Range: ')
                 for i=1:obj.height
                     for j=1:obj.width
-                        for k=1:obj.numChannel                     
+                        for k=1:obj.numChannel
+                            msg = sprintf('%d/%d', i*j*k, N);   
                             [image_lb(i, j, k), image_ub(i, j, k)] = obj.estimateRange(i,j,k);
+                            fprintf([reverseStr, msg]);
+                            reverseStr = repmat(sprintf('\b'), 1, length(msg));
                         end
                     end
                 end
@@ -736,10 +760,16 @@ classdef ImageStar < handle
             image_lb = zeros(obj.height, obj.width, obj.numChannel);
             image_ub = zeros(obj.height, obj.width, obj.numChannel);
             
+            reverseStr = '';
+            N = obj.height*obj.width*obj.numChannel;
+            fprintf('Optimizing ranges: ')
             for i=1:obj.height
                 for j=1:obj.width
-                    for k=1:obj.numChannel                     
-                        [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k);
+                    for k=1:obj.numChannel
+                        msg = sprintf('%d/%d', i*j*k, N);
+                        [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k);                       
+                        fprintf([reverseStr, msg]);
+                        reverseStr = repmat(sprintf('\b'), 1, length(msg));
                     end
                 end
             end

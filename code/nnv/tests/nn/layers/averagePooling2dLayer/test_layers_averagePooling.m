@@ -1,4 +1,4 @@
-%to run this as a test, use results_cnn_averagePooling=runtests('test_cnn_averagePooling')
+%to run this as a test, use results_layers_averagePooling=runtests('test_layers_averagePooling')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test
@@ -21,8 +21,8 @@
 I = [1 0 2 3; 4 6 6 8; 3 1 1 0; 1 2 2 4]; % input
 L = AveragePooling2DLayer([2 2], [2 2], [0 0 0 0]);
 averageMap = L.compute_averageMap(I);
-display(averageMap);
-display(I);
+%display(averageMap);
+%display(I);
 
 checker=[(I(1, 1)+I(1, 2)+I(2, 1)+I(2, 2))/4, (I(1, 3)+I(1, 4)+I(2, 3)+I(2, 4))/4; (I(3, 1)+I(3, 2)+I(4, 1)+I(4, 2))/4, (I(3, 3)+I(3, 4)+I(4, 3)+I(4, 4))/4];
 assert(isequal(checker, averageMap))
@@ -53,6 +53,17 @@ L = AveragePooling2DLayer([3 3], [2 2], [0 0 0 0]);
 y = L.evaluate(inputVol);
 
 for i=1:3
+    for j=1:2
+        for k=1:2
+            a=y(j, k, i);
+            b=sum(inputVol(2*j-1:2*j+1, 2*k-1:2*k+1, i), 'all')/9;
+            c=(a==b);
+            display(y(j, k, i))
+            display(sum(inputVol(2*j-1:2*j+1, 2*k-1:2*k+1, i), 'all')/9)
+            display(y(j, k, i)==sum(inputVol(2*j-1:2*j+1, 2*k-1:2*k+1, i), 'all')/9)
+            assert(y(j, k, i)==(sum(inputVol(2*j-1:2*j+1, 2*k-1:2*k+1, i), 'all')/9)); 
+        end
+    end
     display(y(:,:,i));
     display(inputVol(:,:,i));
 end
@@ -86,9 +97,9 @@ corners=[I(1, 1, :), I(1, end, :); I(end, 1, :), I(end, end, :)];
 top_bot=[I(1, 2:end-1, :); I(end, 2:end-1, :)];
 left_right=[I(2:end-1, 1, :), I(2:end-1, end, :)];
 
-assert(isempty(find(corners)))
-assert(isempty(find(top_bot)))
-assert(isempty(find(left_right)))
+assert(isempty(find(corners)));
+assert(isempty(find(top_bot)));
+assert(isempty(find(left_right)));
 
 
 %___________________________________________________________________________________________________

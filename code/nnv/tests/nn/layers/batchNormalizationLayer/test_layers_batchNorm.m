@@ -1,4 +1,4 @@
-%to run this as a test, use results_cnn_batchNorm=runtests('test_cnn_batchNorm')
+%to run this as a test, use results_layers_batchNorm=runtests('test_layers_batchNorm')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test

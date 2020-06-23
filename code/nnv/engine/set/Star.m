@@ -89,8 +89,8 @@ classdef Star
                     obj.predicate_ub = pred_ub;
                     obj.state_lb = state_lb;
                     obj.state_ub = state_ub;
-                    B = Box(state_lb, state_ub);
-                    obj.Z = B.toZono;
+                    %B = Box(state_lb, state_ub);
+                    %obj.Z = B.toZono;
                     
                 case 6
                     
@@ -353,7 +353,7 @@ classdef Star
                     X{1, i} = (ub(i) - lb(i)).*rand(2*N, 1) + lb(i);
                     V1 = vertcat(V1, X{1, i}');
                 end
-                
+                                
                 V = [];
                 for i=1:2*N
                     if obj.contains(V1(:, i))
@@ -361,7 +361,7 @@ classdef Star
                     end
                 end
                 
-                if size(V, 2) > N
+                if size(V, 2) > N               
                     V = V(:, 1:N);
                 end             
                 
@@ -944,6 +944,126 @@ classdef Star
 
             end
                         
+        end
+        
+        % get min
+        function xmin = getMin(obj, index)
+            % @index: position of the state
+            % xmin: min value of x[index]
+            
+            % author: Dung Tran
+            % date: 6/11/2018
+            
+            if index < 1 || index > obj.dim
+                error('Invalid index');
+            end
+            
+            
+            f = obj.V(index, 2:obj.nVar + 1);
+            if all(f(:)==0)
+                xmin = obj.V(index,1);
+            else
+                %options = optimset('Display','none');
+                %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                if exitflag > 0
+                    xmin = fval + obj.V(index, 1);
+                else
+                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                end          
+
+            end
+            
+        end
+        
+        % get mins 
+        function xmin = getMins(obj, map)
+            % @map: an array of indexes
+            % xmin: min values of x[indexes]
+            
+            % author: Dung Tran
+            % date: 6/11/2018
+            
+            n = length(map);
+            xmin = zeros(n, 1);
+            reverseStr = '';
+            for i = 1:n
+                xmin(i) = obj.getMin(map(i));
+                msg = sprintf('%d/%d', i, n);
+                fprintf([reverseStr, msg]);
+                reverseStr = repmat(sprintf('\b'), 1, length(msg));
+            end   
+        end
+                
+        % get max
+        function xmax = getMax(obj, index)
+            % @index: position of the state
+            % xmax: max value of x[index]
+            
+            % author: Dung Tran
+            % date: 6/11/2018
+            
+            if index < 1 || index > obj.dim
+                error('Invalid index');
+            end
+            
+            
+            f = obj.V(index, 2:obj.nVar + 1);
+            if all(f(:)==0)
+                xmax = obj.V(index,1);
+            else
+                %options = optimset('Display','none');
+                %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                if exitflag > 0
+                    xmax = -fval + obj.V(index, 1);
+                else
+                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                end          
+
+            end
+            
+        end
+        
+        % get maxs
+        function xmax = getMaxs(obj, map)
+            % @map: an array of indexes
+            % xmax: max values of x[indexes]
+            
+            % author: Dung Tran
+            % date: 6/11/2018
+            
+            n = length(map);
+            xmax = zeros(n, 1);
+            reverseStr = '';
+            for i = 1:n
+                xmax(i) = obj.getMax(map(i));
+                msg = sprintf('%d/%d', i, n);
+                fprintf([reverseStr, msg]);
+                reverseStr = repmat(sprintf('\b'), 1, length(msg));
+            end
+        end
+        
+        % reset a row of a star set to zero
+        function S = resetRow(obj, map)
+            % @map: an array of indexes
+            % xmax: max values of x[indexes]
+            
+            % author: Dung Tran
+            % date: 6/11/2018
+                
+            V1 = obj.V;
+            V1(map, :) = 0;
+            if ~isempty(obj.Z)
+                c2 = obj.Z.c;
+                c2(map, :) = 0;
+                V2 = obj.Z.V;
+                V2(map, :) = 0;
+                new_Z = Zono(c2, V2);
+            else
+                new_Z = [];
+            end
+            S = Star(V1, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub, new_Z);          
         end
         
         % get lower bound and upper bound vector of the state variables

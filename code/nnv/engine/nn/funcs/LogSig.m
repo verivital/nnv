@@ -365,15 +365,12 @@ classdef LogSig
 %             else
 %                 [l, u] = I.getRange(index);
 %             end
-<<<<<<< HEAD
-=======
-%           
+    
             fprintf('\nStepLogSig(Sigmoid)_NoSplit using approx-star at index %d', index);
             [l, u] = I.estimateRange(index);
             fprintf('\nEstimated Range at x[%d]:l = %.5f, u = %.5f', index, l, u);
             [l, u] = I.getRange(index);
-            fprintf('\nComputed Range at x[%d]: l = %.5f, u = %.5f', index, l, u);           
->>>>>>> 15a63faac16baa96683f71fab3bb4ff5b76cdc7b
+            fprintf('\nComputed Range at x[%d]: l = %.5f, u = %.5f', index, l, u);  
             y_l = logsig(l);
             y_u = logsig(u);
             dy_l = logsig('dn', l);

@@ -1,4 +1,4 @@
-%to run this as a test, use results_cnn_relu=runtests('test_cnn_relu')
+%to run this as a test, use results_layers_relu=runtests('test_layers_relu')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test

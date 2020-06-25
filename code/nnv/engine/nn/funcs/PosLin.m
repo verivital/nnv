@@ -815,13 +815,8 @@ classdef PosLin
                     map = find(ub <= 0); % computation map
                     V = I.V;
                     V(map, :) = 0;
-                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);                    
-<<<<<<< HEAD
-		    display(In)
-		    map = find(lb <0 & ub > 0);
-=======
+                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
                     map = find(lb <= 0 & ub > 0);
->>>>>>> 15a63faac16baa96683f71fab3bb4ff5b76cdc7b
                     m = length(map); 
                     for i=1:m
                         fprintf('\nPerforming approximate PosLin_%d operation using Abstract Domain', map(i));

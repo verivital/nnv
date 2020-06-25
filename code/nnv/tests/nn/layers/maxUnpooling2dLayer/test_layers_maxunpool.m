@@ -1,4 +1,4 @@
-%to run this as a test, use results_MaxUnPooling2DLayer=runtests('test_MaxUnPooling2DLayer')
+%to run this as a test, use results_layers_maxunpool=runtests('test_layers_maxunpool')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test

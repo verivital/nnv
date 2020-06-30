@@ -370,6 +370,12 @@ classdef TransposedConv2DLayer < handle
             % date: 7/16/2019
             
             switch nargin
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -386,7 +392,7 @@ classdef TransposedConv2DLayer < handle
                     method = 'approx-star';
                     option = 'single';
                 otherwise
-                    error('Invalid number of input arguments, should be 1, 2 or 3');
+                    error('Invalid number of input arguments, should be 1, 2, 3 or 4');
             end
          
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')

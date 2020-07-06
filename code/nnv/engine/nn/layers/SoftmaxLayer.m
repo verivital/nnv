@@ -114,8 +114,6 @@ classdef SoftmaxLayer < handle
                 end
 
             end
-                
-            
             
         end
         

@@ -47,3 +47,13 @@ Star.plots(R);
 hold on;
 plot(y(1, :), y(2, :), 'o');
 
+y1 = F.evaluate(lb);
+y2 = F.evaluate(ub);
+y3 = F.evaluate((lb+ub)/2);
+
+hold on;
+plot(y1(1,:), y1(2,:), 'x', 'Color', 'r');
+hold on;
+plot(y2(1,:), y2(2,:), 'x', 'Color', 'r');
+hold on;
+plot(y3(1,:), y3(2,:), 'x', 'Color', 'r');

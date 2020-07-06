@@ -1,9 +1,9 @@
 %% parse network into NNV
-% modelfile = 'model_MNIST_CNN_Small.json';
-% weightfile = 'model_MNIST_CNN_Small.h5';
+modelfile = 'model_MNIST_CNN_Small.json';
+weightfile = 'model_MNIST_CNN_Small.h5';
 
-modelfile = 'model_MNIST_CNN_Medium.json';
-weightfile = 'model_MNIST_CNN_Medium.h5';
+% modelfile = 'model_MNIST_CNN_Medium.json';
+% weightfile = 'model_MNIST_CNN_Medium.h5';
 
 % modelfile = 'model_MNIST_CNN_Large.json';
 % weightfile = 'model_MNIST_CNN_Large.h5';
@@ -23,10 +23,10 @@ im = im';
 
 % attack all pixels independently by some bounded disturbance d 
 % d = 0.001; % 63 seconds
-% d = 0.002; % 100 seconds
+d = 0.002; % 100 seconds
 % d = 0.003; % 160 seconds
 % d = 0.004; % 214 seconds
-d = 0.0001; 
+% d = 0.01; 
 attack_LB = -d*ones(28, 28);
 attack_UB = d*ones(28,28);
 
@@ -38,10 +38,19 @@ OS1 = nnvNet.reach(IS, 'approx-star'); % perfrom reachability analysis using app
 OS1.estimateRanges; % estimate ranges of all outputs
 rt1 = toc(t);
 
+t = tic;
+relaxFactor = 0.9;
+OS2 = nnvNet.reach(IS, 'approx-star', 1, relaxFactor); % perfrom reachability analysis using approx-star method
+OS2.estimateRanges; % estimate ranges of all outputs
+rt2 = toc(t);
+
 %% get output ranges
 % output ranges with ImageStar method
 lb1 = reshape(OS1.im_lb, [10 1]); % lower bound vector of the output
 ub1 = reshape(OS1.im_ub, [10 1]); % upper bound vector of the output
+
+lb2 = reshape(OS2.im_lb, [10 1]); % lower bound vector of the output
+ub2 = reshape(OS2.im_ub, [10 1]); % upper bound vector of the output
 
 %[lb_8, ub_8] = OS1.getRange(1,1,8); % digit 7
 

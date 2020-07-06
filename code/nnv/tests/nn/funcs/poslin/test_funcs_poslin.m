@@ -1,4 +1,4 @@
-%to run this as a test, use results_fnn_poslin=runtests('test_fnn_poslin')
+%to run this as a test, use results_funcs_poslin=runtests('test_funcs_poslin')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test

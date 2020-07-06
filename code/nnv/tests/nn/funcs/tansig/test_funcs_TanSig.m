@@ -59,7 +59,7 @@ if ~res
 end
 assert(res);
 
-%% test 5: TanSig reach star aprox
+%% test 5: TanSig reach star aprox zono
 S = TanSig.reach_zono_approx(I_zono);
 %[res, fail_in, fail_out]=random_search(I_zono, S, sample_size);
 %if ~res
@@ -67,6 +67,19 @@ S = TanSig.reach_zono_approx(I_zono);
 %    display(fail_out)
 %end
 %assert(res);
+
+
+%% test 6: TanSig reach star aprox relax
+I = ExamplePoly.randVrep;
+I.outerApprox;
+V = [0 0; 1 0; 0 1];
+I = Star(V', I.A, I.b, I.Internal.lb, I.Internal.ub); % input star
+
+S = TanSig.reach_star_approx(I);
+relaxFactor = 0.5;
+S2 = TanSig.reach_star_approx(I, 'approx-star', relaxFactor);
+X = I.sample(10);
+Y = TanSig.evaluate(X);
 
 
 

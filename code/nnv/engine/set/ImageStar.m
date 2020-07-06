@@ -90,6 +90,7 @@ classdef ImageStar < handle
         
         MaxIdxs = cell(1,1); % used for unmaxpooling operation in Segmentation network 
         InputSizes = cell(1,1); % used for unmaxpooling operation in Segmentation network 
+        
     end
     
     methods

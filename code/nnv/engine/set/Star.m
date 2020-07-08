@@ -234,8 +234,8 @@ classdef Star
                     B = Box(lb,ub);
                     S = B.toStar;
                     obj.V = S.V;
-                    obj.C = S.C;
-                    obj.d = S.d;
+                    obj.C = zeros(1, S.nVar); % initiate an obvious constraint
+                    obj.d = zeros(1, 1);
                     obj.dim = S.dim;
                     obj.nVar = S.nVar;
                     obj.state_lb = lb;
@@ -264,23 +264,25 @@ classdef Star
         
         % check is empty set
         function bool = isEmptySet(obj)
+            % author: Dung Tran
+            % date: 
+            % update: 6/16/2020
             
             %options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
-            f = ones(1, obj.nVar);
+            f = zeros(1, obj.nVar);
             
             %[~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-            if ~isempty(obj.C)
+            if isempty(obj.C) && isempty(obj.V)
+                bool = 1;
+            else
                 [~, ~, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                 if exitflag == 5 % use 1 for linprog
                     bool = 0;
                 else
                     bool = 1;
                 end 
-            else
-                if ~isempty(obj.V)
-                    bool = 1;
-                end
             end
+            
             
         end
         
@@ -648,8 +650,10 @@ classdef Star
         function P = toPolyhedron(obj)
             
             b = obj.V(:, 1);        
-            W = obj.V(:, 2:obj.nVar + 1);           
-            Pa = Polyhedron('A', obj.C, 'b', obj.d);
+            W = obj.V(:, 2:obj.nVar + 1);
+            C1 = [eye(obj.nVar); -eye(obj.nVar)];
+            d1 = [obj.predicate_ub; -obj.predicate_lb];
+            Pa = Polyhedron('A', [obj.C;C1], 'b', [obj.d;d1]);
             P = Pa.affineMap(W) + b;
         end
         
@@ -978,21 +982,37 @@ classdef Star
         end
         
         % get mins 
-        function xmin = getMins(obj, map)
+        function xmin = getMins(varargin)
             % @map: an array of indexes
             % xmin: min values of x[indexes]
             
             % author: Dung Tran
-            % date: 6/11/2018
+            % date: 6/16/2020
+            
+            switch nargin
+                case 3
+                    obj = varargin{1};
+                    map = varargin{2};
+                    dis_option = varargin{3};
+                case 2
+                    obj = varargin{1};
+                    map = varargin{2};
+                    dis_option = 'show-progress';                   
+                otherwise
+                    error('Invalid number of inputs');
+            end
             
             n = length(map);
             xmin = zeros(n, 1);
             reverseStr = '';
             for i = 1:n
                 xmin(i) = obj.getMin(map(i));
-                msg = sprintf('%d/%d', i, n);
-                fprintf([reverseStr, msg]);
-                reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                
+                if strcmp(dis_option, 'show-progress')
+                    msg = sprintf('%d/%d', i, n);
+                    fprintf([reverseStr, msg]);
+                    reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                end
             end   
         end
                 
@@ -1027,21 +1047,36 @@ classdef Star
         end
         
         % get maxs
-        function xmax = getMaxs(obj, map)
+        function xmax = getMaxs(varargin)
             % @map: an array of indexes
             % xmax: max values of x[indexes]
             
             % author: Dung Tran
             % date: 6/11/2018
             
+            switch nargin
+                case 3
+                    obj = varargin{1};
+                    map = varargin{2};
+                    dis_option = varargin{3};
+                case 2
+                    obj = varargin{1};
+                    map = varargin{2};
+                    dis_option = 'show-progress';                   
+                otherwise
+                    error('Invalid number of inputs');
+            end
+            
             n = length(map);
             xmax = zeros(n, 1);
             reverseStr = '';
             for i = 1:n
                 xmax(i) = obj.getMax(map(i));
-                msg = sprintf('%d/%d', i, n);
-                fprintf([reverseStr, msg]);
-                reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                if strcmp(dis_option, 'show-progress')
+                    msg = sprintf('%d/%d', i, n);
+                    fprintf([reverseStr, msg]);
+                    reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                end
             end
         end
         

@@ -85,13 +85,13 @@ assert(res);
 
 
 %% test 4: LogSig reach approx zono
-S = LogSig.reach(I_zono, 'approx-zono');
-%[res, fail_in, fail_out]=random_search(I_zono, S, sample_size);
-%if ~res
-%    display(fail_in)
-%    display(fail_out)
-%end
-%assert(res);
+Z = LogSig.reach(I_zono, 'approx-zono');
+[res, fail_in, fail_out]=random_search_zono(I_zono, Z, sample_size);
+if ~res
+    display(fail_in)
+    display(fail_out)
+end
+assert(res);
 
 
 %___________________________________________________________________________________________________
@@ -148,12 +148,12 @@ assert(res);
 
 %% test 7: LogSig reach zono approx 
 Z = LogSig.reach_zono_approx(I_zono);
-%[res, fail_in, fail_out]=random_search(I_zono, S, sample_size);
-%if ~res
-%    display(fail_in)
-%    display(fail_out)
-%end
-%assert(res);
+[res, fail_in, fail_out]=random_search_zono(I_zono, Z, sample_size);
+if ~res
+    display(fail_in)
+    display(fail_out)
+end
+assert(res);
 
 
 
@@ -225,17 +225,65 @@ function [res, fail_input, fail_output]=grid_search(original, shifted, search_pa
 end
 
 function [res, fail_input, fail_output]=random_search(original, shifted, num_sample)
-  sample_set=original.sample(num_sample);
-  sample_output=LogSig.evaluate(sample_set);
-  shifted.dim%this fails in certain tests, and i'm not sure why. specifically in tests number 3 and 6
-  res=true;
-  fail_input=NaN;
-  fail_output=NaN;
-  for i=1:size(sample_set, 2)
-    if  ~shifted.contains(sample_output(:, i))
-      res=false;
-      fail_input=sample_set(:, i);
-      fail_output=sample_output(:, i);
+    sample_set=original.sample(num_sample);
+    sample_output=LogSig.evaluate(sample_set);
+    shifted.dim%this fails in certain tests, and i'm not sure why. specifically in tests number 3 and 6
+    res=true;
+    fail_input=NaN;
+    fail_output=NaN;
+    for i=1:size(sample_set, 2)
+        if  ~shifted.contains(sample_output(:, i))
+            res=false;
+            fail_input=sample_set(:, i);
+            fail_output=sample_output(:, i);
+        end
     end
-  end
+end
+
+function [res, fail_input, fail_output]=random_search_zono(original, shifted, num_sample)
+    sample_set=zono_sample(original, num_sample);
+    sample_output=LogSig.evaluate(sample_set);
+    shifted.dim%this fails in certain tests, and i'm not sure why. specifically in tests number 3 and 6
+    res=true;
+    fail_input=NaN;
+    fail_output=NaN;
+    for i=1:size(sample_set, 2)
+        if  ~shifted.contains(sample_output(:, i))
+            res=false;
+            fail_input=sample_set(:, i);
+            fail_output=sample_output(:, i);
+        end
+    end
+end
+
+
+
+
+
+function [points]=zono_sample(original, num_sample)
+    vertices=original.getVertices();
+    dimensions=size(vertices, 1);
+    min_vals=min(dimensions, [], 2);
+    max_vals=max(dimensions, [], 2);
+    max_attempt=2*num_sample;
+    done=0;
+    attempt=0;
+    index=1;
+    
+    points=zeros(dimensions, num_sample);
+    while done==0
+        new_point=(max_vals-min_vals).*rand(dimensions, 1)+min_vals;
+        if original.contains(new_point)
+            points(:, index)=new_point;
+            index=index+1;
+        end
+        attempt=attempt+1;
+        if attempt>=max_attempt
+            done=1;
+            points=points(:, 1:index-1);
+        end
+        if index>=num_sample
+            done=1;
+        end
+    end
 end

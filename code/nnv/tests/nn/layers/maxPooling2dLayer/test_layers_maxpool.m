@@ -1,4 +1,4 @@
-%to run this as a test, use results_cnn_max_pool=runtests('test_cnn_max_pool')
+%to run this as a test, use results_layers_maxpool=runtests('test_layers_maxpool')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test
@@ -22,7 +22,7 @@ L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
 maxMap = L.compute_maxMap(I);
 
 
-I_out=[6 8; 3 4]
+I_out=[6 8; 3 4];
 
 assert(isequal(I_out, maxMap));
 

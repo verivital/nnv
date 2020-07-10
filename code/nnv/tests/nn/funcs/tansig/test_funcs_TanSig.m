@@ -40,13 +40,13 @@ end
 assert(res);
 
 %% test 3: TanSig reach approx zono
-S = TanSig.reach(I_zono, 'approx-zono');
-%[res, fail_in, fail_out]=random_search(I_zono, S, sample_size);
-%if ~res
-%    display(fail_in)
-%    display(fail_out)
-%end
-%assert(res);
+Z = TanSig.reach(I_zono, 'approx-zono');
+[res, fail_in, fail_out]=random_search_zono(I_zono, Z, sample_size);
+if ~res
+    display(fail_in)
+    display(fail_out)
+end
+assert(res);
 
 %__________________________________________________
 %below taken from test_TanSig_reach_star_zono_aprox.m
@@ -60,13 +60,13 @@ end
 assert(res);
 
 %% test 5: TanSig reach star aprox zono
-S = TanSig.reach_zono_approx(I_zono);
-%[res, fail_in, fail_out]=random_search(I_zono, S, sample_size);
-%if ~res
-%    display(fail_in)
-%    display(fail_out)
-%end
-%assert(res);
+Z = TanSig.reach_zono_approx(I_zono);
+[res, fail_in, fail_out]=random_search_zono(I_zono, Z, sample_size);
+if ~res
+    display(fail_in)
+    display(fail_out)
+end
+assert(res);
 
 
 %% test 6: TanSig reach star aprox relax
@@ -83,45 +83,9 @@ Y = TanSig.evaluate(X);
 
 
 
-function [res, fail_input, fail_output]=grid_search(original, shifted, search_params)
-  cur_loc=search_params(:, 1);
-  index_limit=size(search_params, 1);
-  cont=true;
-  res=true;
-  fail_input=NaN;
-  fail_output=NaN;
-  while cont
-    output=LogSig.evaluate(cur_loc);
-    if original.contains(cur_loc) ~= shifted.contains(output)
-      res=false;
-      fail_input=cur_loc;
-      fail_output=output;
-      return;
-    end
-
-    inc_fail=true;
-    index=1;
-    while inc_fail
-      inc_fail=false;
-      cur_loc(index)=cur_loc(index)+search_params(index, 2);
-      if cur_loc(index)>search_params(index, 3)
-	inc_fail=true;
-	cur_loc(index)=search_params(index, 1);
-	index=index+1;
-	if index>index_limit
-	  return
-	end
-	
-      end
-      
-    end
-    
-  end
-end
-
 function [res, fail_input, fail_output]=random_search(original, shifted, num_sample)
   sample_set=original.sample(num_sample);
-  sample_output=LogSig.evaluate(sample_set);
+  sample_output=TanSig.evaluate(sample_set);
   shifted.dim%this fails in certain tests, and i'm not sure why. specifically in tests number 3 and 6
   res=true;
   fail_input=NaN;
@@ -133,4 +97,53 @@ function [res, fail_input, fail_output]=random_search(original, shifted, num_sam
       fail_output=sample_output(:, i);
     end
   end
+end
+
+
+function [res, fail_input, fail_output]=random_search_zono(original, shifted, num_sample)
+    sample_set=zono_sample(original, num_sample);
+    sample_output=TanSig.evaluate(sample_set);
+    shifted.dim%this fails in certain tests, and i'm not sure why. specifically in tests number 3 and 6
+    res=true;
+    fail_input=NaN;
+    fail_output=NaN;
+    for i=1:size(sample_set, 2)
+        if  ~shifted.contains(sample_output(:, i))
+            res=false;
+            fail_input=sample_set(:, i);
+            fail_output=sample_output(:, i);
+        end
+    end
+end
+
+
+
+
+
+function [points]=zono_sample(original, num_sample)
+    vertices=original.getVertices();
+    dimensions=size(vertices, 1);
+    min_vals=min(dimensions, [], 2);
+    max_vals=max(dimensions, [], 2);
+    max_attempt=2*num_sample;
+    done=0;
+    attempt=0;
+    index=1;
+    
+    points=zeros(dimensions, num_sample);
+    while done==0
+        new_point=(max_vals-min_vals).*rand(dimensions, 1)+min_vals;
+        if original.contains(new_point)
+            points(:, index)=new_point;
+            index=index+1;
+        end
+        attempt=attempt+1;
+        if attempt>=max_attempt
+            done=1;
+            points=points(:, 1:index-1);
+        end
+        if index>=num_sample
+            done=1;
+        end
+    end
 end

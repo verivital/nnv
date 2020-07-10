@@ -1,4 +1,4 @@
-%to run this as a test, use results_fnn_relu=runtests('test_fnn_relu')
+%to run this as a test, use results_funcs_relu=runtests('test_funcs_relu')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test
@@ -25,7 +25,7 @@ ub = [2; 2];   % upper-bound vector of input set
 
 I = Star(lb, ub); % construct input set
 
-
+sample_size=25;
 
 %___________________________________________________________________________________________________
 %tests below originally taken from test.m
@@ -33,6 +33,12 @@ I = Star(lb, ub); % construct input set
 %% test 1: relu
 
 R1 = L1.reach_exact(I, 'single');
+[res, fail_in, fail_out]=random_search(I, R1, sample_size, L1);
+if ~res
+    display(fail_in)
+    display(fail_out)
+end
+assert(res);
 
 Star.plots(R1);
 
@@ -103,3 +109,25 @@ figure;
 R(1).plot;
 figure;
 R(2).plot;
+
+
+
+
+
+function [res, fail_input, fail_output]=random_search(original, shifted, num_sample, relu_layer)
+    sample_set=original.sample(num_sample);
+    %sample_output=relu_layer.evaluate(sample_set);
+    %shifted.dim%this fails in certain tests, and i'm not sure why. specifically in tests number 3 and 6
+    res=true;
+    fail_input=NaN;
+    fail_output=NaN;
+    for i=1:size(sample_set, 2)
+        output=relu_layer.evaluate(sample_set(:, i));
+        if  ~shifted.contains(output)
+            res=false;
+            fail_input=sample_set(:, i);
+            fail_output=output;
+        end
+    end
+end
+

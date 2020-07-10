@@ -26,16 +26,6 @@ ub = [-0.75; -0.43; 0.54; -0.28];
 offset = 0;
 scale_factor = 11;
 
-%% Simulate system
-% nncs = NonlinearNNCS(net,plant);
-% [sT,simTrace, controlTrace, sx0,srfi] = nncs.sample(controlPeriod,40, init_set,[],20);
-% figure;
-% hold on;
-% for i=1:length(simTrace)
-%     traj = simTrace{i};
-%     plot(traj(1,:),traj(2,:),'r');
-% end
-
 %% Reachability analysis
 B = Box(lb, ub);
 Bs = B.partition([1 2 3 4], [8 8 8 8]); % partition the box into smaller boxes at index 1, 2, 3, 4. At each index, we split one time
@@ -66,7 +56,10 @@ for i =1:10
     input_set = input_set(1).affineMap(scale_factor,-offset);
 end
 timing = toc(t);
-save('../../results/reachTora_sigmoid','reachAll','timing','-v7.3');
+%% Set output path
+path_out_t = ['..' filesep path_results() filesep 'tora_heterogeneous' filesep];
+mkdir(path_out_t);
+save([path_out_t 'sets_sigmoid'],'reachAll','timing','-v7.3');
 
 %% Visualize results
 goal = Box([-0.1;-0.9],[0.2;-0.6]);
@@ -81,4 +74,4 @@ goal.plot;
 title('Reachable sets for dimensions 1 and 2')
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/reachTora_sigmoid_plot.jpg');
+saveas(f,[path_out_t 'sigmoid_plot.jpg']);

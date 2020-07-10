@@ -47,7 +47,10 @@ for i =1:6
 end
 disp(' ');
 timing = toc(t);
-save('../../results/reach9','reachAll','timing','-v7.3')
+%% Set output path
+path_out_b9 = ['..' filesep path_results() filesep 'benchmark9' filesep];
+mkdir(path_out_b9);
+save([path_out_b9 'sets'],'reachAll','timing','-v7.3')
 
 %% Visualize results
 f = figure('visible','off');
@@ -59,7 +62,7 @@ grid;
 title('Reachable sets Benchmark 9 - TORA')
 xlabel('x1');
 ylabel('x3');
-saveas(f,'../../results/reach9_plot1v3.jpg');
+saveas(f,[path_out_b9 'plot1v3.jpg']);
 
 f1 = figure('visible','off');
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,2,4,'b');
@@ -70,7 +73,7 @@ grid;
 title('Reachable sets Benchmark 9 - TORA')
 xlabel('x2');
 ylabel('x4');
-saveas(f1,'../../results/reach9_plot3v4.jpg');
+saveas(f1,[path_out_b9 'plot3v4.jpg']);
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set)

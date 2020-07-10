@@ -33,25 +33,27 @@ reachPRM.numCores = 1;
 reachPRM.reachMethod = 'approx-star';
 [R,rT] = nncs.reach(reachPRM);
 
+%% Set output path
+path_out_acc = ['..' filesep path_results() filesep 'ACC' filesep];
+mkdir(path_out_acc);
 %% Visualize results
 t_gap = 1.4;
 D_default = 10;
 outAll = [];
 safe_dis = [];
-for i=1:length(plant.intermediate_reachSet)
-    outAll = [outAll plant.intermediate_reachSet(i).affineMap(output_mat,[])];
-    safe_dis = [safe_dis plant.intermediate_reachSet(i).affineMap([0 0 0 0 t_gap 0], D_default)];
+for i=1:length(R)
+    outAll = [outAll R(i).affineMap(output_mat,[])];
+    safe_dis = [safe_dis R(i).affineMap([0 0 0 0 t_gap 0], D_default)];
 end
-times = reachStep:reachStep:tF;
-save('../../results/ACC_distance','R','rT','outAll','safe_dis','-v7.3');
+save([path_out_acc 'sets'],'R','rT','outAll','safe_dis','-v7.3');
 f = figure('visible','off');
-Star.plotRanges_2D(outAll,2,times,'r');
+Star.plotRanges_2D(outAll,2,time,'r');
 hold on;
-Star.plotRanges_2D(safe_dis,1,times,'b');
+Star.plotRanges_2D(safe_dis,1,time,'b');
 title('Relative distance (red) vs. Safe distance (blue)');
 xlabel('Time (s)');
 ylabel('Distance (m)')
-saveas(f,'../../results/ACC_distance_sets.jpg');
-
+% saveas(f,'../../results/ACC_distance_sets.jpg');
+saveas(f, [path_out_acc 'plot_distance.jpg']);
 
 

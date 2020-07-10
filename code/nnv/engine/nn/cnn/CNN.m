@@ -15,7 +15,8 @@ classdef CNN < handle
         
         % properties for reach set computation
         
-        reachMethod = 'approx-star';    % reachable set computation scheme, default - 'star'
+        reachMethod = 'approx-star';    % reachable set computation scheme, default - 'approx-star'
+        relaxFactor = 0; % default - solve 100% LP optimization for finding bounds in 'approx-star' method
         reachOption = []; % parallel option, default - non-parallel computing
         numCores = 0; % number of cores (workers) using in computation
         reachSet = [];  % reachable set for each layers
@@ -132,7 +133,14 @@ classdef CNN < handle
                     obj = varargin{1};
                     inputSet = varargin{2};
                     obj.reachMethod = varargin{3};
-                    obj.numCores = varargin{4}; 
+                    obj.numCores = varargin{4};
+                    
+                case 5
+                    obj = varargin{1};
+                    inputSet = varargin{2};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = varargin{4};
+                    obj.relaxFactor = varargin{5};
                  
                 otherwise 
                     
@@ -156,7 +164,7 @@ classdef CNN < handle
             for i=2:obj.numLayers+1
                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 start_time = tic;
-                obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, obj.reachOption);
+                obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, obj.reachOption, obj.relaxFactor);
                 obj.reachTime(i-1) = toc(start_time);
                 fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
                 fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(obj.reachSet{i}));

@@ -316,24 +316,42 @@ classdef NonLinearODE < handle
             [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.options.tFinal);
             
             N = length(R);
-            Z = R{N,1}{1,1}; % get the last zonotope in the reach set
-            Z = Z.Z; % get c and V 
-            c = Z(:,1); % center vector
-            V = Z(:, 2:size(Z, 2)); % generators
-            
-            Z = Zono(c, V);
-            S = Z.toStar;
+%             Z = R{N,1}{1,1}; % get the last zonotope in the reach set
+            Z = R{N}; % get the last zonotope in the reach set
+            Nn = length(Z);
+            S = [];
+            for ik=1:Nn
+                try
+                    Z1 = Z{ik}.Z;
+                catch
+                    Z1 = Z.Z; % get c and V 
+                end
+                c = Z1(:,1); % center vector
+                V = Z1(:, 2:size(Z1, 2)); % generators
+
+                Zz = Zono(c, V);
+                S = [S Zz.toStar];
+            end
             
             for i=1:N
-                N = length(R);
-                Z = R{i,1}{1,1}; 
-                Z = Z.Z; % get c and V 
-                c = Z(:,1); % center vector
-                V = Z(:, 2:size(Z, 2)); % generators
+%                 N = length(R);
+                Z = R{i}; 
+                Nn = length(Z);
+                Ss = [];
+                for ik=1:Nn
+                    try
+                        Z1 = Z{ik}.Z;
+                    catch
+                        Z1 = Z.Z; % get c and V 
+                    end
+%                     Z = Z.Z; % get c and V 
+                    c = Z1(:,1); % center vector
+                    V = Z1(:, 2:size(Z1, 2)); % generators
 
-                Z = Zono(c, V);
-                S = Z.toStar;
-                obj.intermediate_reachSet = [obj.intermediate_reachSet S];
+                    Zz = Zono(c, V);
+                    Ss = [S Zz.toStar];
+                end
+                obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end
             
             % the last zonotope in the reach set is returned

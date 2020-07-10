@@ -1,0 +1,14 @@
+Initial states:
+
+x1 = [1.0, 1.3]
+x2 = [1.0, 1.3]
+x3 = [1.0, 1.3]
+x4 = [1.0, 1.3]
+
+t = 20 seconds
+
+Property:
+
+Each of the states should be in [−1.0, 1.7]
+
+Refer to this for more details: https://github.com/amaleki2/benchmark_closedloop_verification/blob/master/AINNC_benchmark.pdf

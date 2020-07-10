@@ -1,0 +1,47 @@
+Initial states:
+
+x1 = [-0.77, -0.75]
+x2 = [-0.45, -0.43]
+x3 = [0.51, 0.54]
+x4 = [-0.3, -0.28]
+
+t = 5 seconds
+steps = 10
+
+Goal states:
+
+x1 = [-0.1, 0.2]
+x2 = [-0.9, -0.6]
+
+Neural network specification:
+
+nn_tora_relu_tanh.txt:
+4                      # number of inputs
+1                      # number of outputs
+3                      # number of hidden layers
+20                     # number of neurons in the fisrt hidden layer
+20                     # number of neurons in the second hidden layer
+20                     # number of neurons in the third hidden layer
+# wegithts and bias of the neural network
+-0.12919427454471588
+...
+0                      # offset of the neural network
+11                     # scalar of the neural network
+
+The activation function used in the hidden layers is relu activation function. The output layer use tanh activation function.
+
+nn_tora_sigmoid.txt:
+4                      # number of inputs
+1                      # number of outputs
+3                      # number of hidden layers
+20                     # number of neurons in the fisrt hidden layer
+20                     # number of neurons in the second hidden layer
+20                     # number of neurons in the third hidden layer
+# wegithts and bias of the neural network
+-0.00012612085265573114
+...
+0                      # offset of the neural network
+11                     # scalar of the neural network
+
+
+The activation function used in the neural network is sigmoid activation function.

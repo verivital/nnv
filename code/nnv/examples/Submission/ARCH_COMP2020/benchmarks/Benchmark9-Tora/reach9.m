@@ -48,7 +48,7 @@ end
 disp(' ');
 timing = toc(t);
 %% Set output path
-path_out_b9 = ['..' filesep path_results() filesep 'benchmark9' filesep];
+path_out_b9 = [path_results() filesep 'benchmark9' filesep];
 mkdir(path_out_b9);
 save([path_out_b9 'sets'],'reachAll','timing','-v7.3')
 

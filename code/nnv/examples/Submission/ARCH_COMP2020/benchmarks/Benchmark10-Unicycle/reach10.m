@@ -51,7 +51,7 @@ end
 timing = toc(t);
 
 %% Set output path
-path_out_b10 = ['..' filesep path_results() filesep 'benchmark10' filesep];
+path_out_b10 = ['path_results() filesep 'benchmark10' filesep];
 mkdir(path_out_b10);
 save([path_out_b10 'sets'],'reachAll','timing','-v7.3')
 

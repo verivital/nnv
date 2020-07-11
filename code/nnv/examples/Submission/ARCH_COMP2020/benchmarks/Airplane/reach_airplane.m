@@ -42,7 +42,7 @@ for i=1:num_steps
 end
 timing = toc(t);
 %% Set output path
-path_out_airp = ['..' filesep path_results() filesep 'airplane' filesep];
+path_out_airp = [path_results() filesep 'airplane' filesep];
 mkdir(path_out_airp);
 save([path_out_airp 'sets'],'reachAll','timing','-v7.3');
 %% Visualize results

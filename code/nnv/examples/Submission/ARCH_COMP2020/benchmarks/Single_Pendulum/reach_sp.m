@@ -47,7 +47,7 @@ for i=1:num_steps
 end
 timing = toc(t);
 %% Set output path
-path_out_sp = ['..' filesep path_results() filesep 'single_pendulum' filesep];
+path_out_sp = [path_results() filesep 'single_pendulum' filesep];
 mkdir(path_out_sp);
 save([path_out_sp 'sets'],'reachAll','timing','-v7.3');
 %% Visualize results

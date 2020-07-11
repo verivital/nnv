@@ -34,7 +34,7 @@ reachPRM.reachMethod = 'approx-star';
 [R,rT] = nncs.reach(reachPRM);
 
 %% Set output path
-path_out_acc = ['..' filesep path_results() filesep 'ACC' filesep];
+path_out_acc = [path_results() filesep 'ACC' filesep];
 mkdir(path_out_acc);
 %% Visualize results
 t_gap = 1.4;

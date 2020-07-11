@@ -86,7 +86,7 @@ for i =1:steps
 end
 timing = toc(t);
 %% Set output path
-path_out_t = ['..' filesep path_results() filesep 'VCAS' filesep];
+path_out_t = [path_results() filesep 'VCAS' filesep];
 mkdir(path_out_t);
 save([path_out_t 'sets_worst25'],'reachAll','timing','-v7.3');
 

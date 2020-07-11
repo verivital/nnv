@@ -57,7 +57,7 @@ for i =1:10
 end
 timing = toc(t);
 %% Set output path
-path_out_t = ['..' filesep path_results() filesep 'tora_heterogeneous' filesep];
+path_out_t = [path_results() filesep 'tora_heterogeneous' filesep];
 mkdir(path_out_t);
 save([path_out_t 'sets_sigmoid'],'reachAll','timing','-v7.3');
 

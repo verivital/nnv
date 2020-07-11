@@ -34,6 +34,8 @@ else
     allpaths = split(string(allpaths),':');
     matches = find(contains(allpaths,'nnmt'));
     nnmtPath = char(allpaths(matches(1)));
+    %nnmtPath = '/code/nnv/nnvmt/'
+    nnmtPath = '/deps/nnvmt/'
     % Default opt value
     opt = [];
     % Check the input format

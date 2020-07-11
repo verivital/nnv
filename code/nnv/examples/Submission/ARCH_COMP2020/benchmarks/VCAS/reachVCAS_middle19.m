@@ -98,7 +98,7 @@ grid;
 title('VCAS reachable sets k=10')
 xlabel('Distance');
 ylabel('Tau');
-saveas(f,[out_path_t 'plot_middle19.jpg']);
+saveas(f,[path_out_t 'plot_middle19.jpg']);
 
 %% Helper Functions
 

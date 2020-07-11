@@ -1,6 +1,7 @@
-%% Reachability analysis of TORA (benchmark 9)
+%% Reachability analysis of ACC
 % Load components and set reachability parameters
-net = Load_nn('controller_5_20.onnx');
+% net = Load_nn('controller_5_20.onnx');
+net = Load_nn('controller_5_20_nnv.mat');
 reachStep = 0.01;
 controlPeriod = 0.1;
 output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity

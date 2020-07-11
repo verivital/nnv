@@ -1,8 +1,9 @@
 %% Reachability analysis of TORA (benchmark 9)
 % Load components and set reachability parameters
-net = Load_nn('controllerTora.onnx');
-reachStep = 0.005;
-% reachStep = 0.01;
+% net = Load_nn('controllerTora.onnx');
+net = Load_nn('controllerTora_nnv.mat');
+% reachStep = 0.005;
+reachStep = 0.01;
 controlPeriod = 1;
 plant = NonLinearODE(4,1,@dynamics9, reachStep, controlPeriod, eye(4));
 % noise = Star(-0.0001, 0.0001);

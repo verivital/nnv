@@ -6,19 +6,19 @@ allTime = tic;
 cd 'ACC';
 run reachACC;
 %% Airplane
-cd ..;
-cd 'Airplane'
-run reach_airplane;
+% cd ..;
+% cd 'Airplane'
+% run reach_airplane;
 %% Benchmark 9 - Tora
-cd ..;
-cd 'Benchmark9-Tora';
-run reach9;
+% cd ..;
+% cd 'Benchmark9-Tora';
+% run reach9;
 %% Benchmark 10 - Unicycle
-cd ..;
-cd 'Benchmark10-Unicycle';
-run reach10.m;
+% cd ..;
+% cd 'Benchmark10-Unicycle';
+% run reach10.m;
 %% Double Pendulum
-cd ..;
+% cd ..;
 cd 'Double_Pendulum';
 run reach_dp_less.m;
 run reach_dp_more.m;

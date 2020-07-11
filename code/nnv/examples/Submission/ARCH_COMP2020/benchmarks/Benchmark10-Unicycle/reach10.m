@@ -49,7 +49,12 @@ for i=1:steps
 %     end
 end
 timing = toc(t);
-save('../../results/reach10','timing','reachAll','-v7.3')
+
+%% Set output path
+path_out_b10 = ['..' filesep path_results() filesep 'benchmark10' filesep];
+mkdir(path_out_b10);
+save([path_out_b10 'sets'],'reachAll','timing','-v7.3')
+
 %% Visualize results
 f = figure('visible','off');
 % Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
@@ -59,7 +64,7 @@ grid;
 title('Benchmark 10 - Unicycle');
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/reach10_plot1v2.jpg');
+saveas(f,[path_out_b10 'plot1v2.jpg']);
 
 f1 = figure('visible','off');
 % Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,4,'b');
@@ -69,7 +74,7 @@ grid;
 title('Benchmark 10 - Unicycle');
 xlabel('x1');
 ylabel('x2');
-saveas(f1,'../../results/reach10_plot3v4.jpg');
+saveas(f1,[path_out_b10 'plot3v4.jpg']);
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set)

@@ -45,7 +45,11 @@ end
 init_set = plant.stepReachStar(init_set(1), input_set(1));
 reachAll = [reachAll init_set(1)];
 timing = toc(t);
-save('../../results/reachTora_reluTanh','timing','reachAll','-v7.3');
+%% Set output path
+path_out_t = ['..' filesep path_results() filesep 'tora_heterogeneous' filesep];
+mkdir(path_out_t);
+save([path_out_t 'sets_reluTanh'],'reachAll','timing','-v7.3');
+
 %% Visualize results
 f = figure('visible','off');
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
@@ -58,4 +62,4 @@ grid;
 title('Reachable sets for dimensions 1 and 2')
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/reachTora_reluTanh_plot.jpg');
+saveas(f,[path_out_t 'reluTanh_plot.jpg');

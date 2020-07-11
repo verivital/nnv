@@ -43,9 +43,9 @@ plant = DNonLinearODE(4,2,@planeDynamics, controlPeriod, out_mat);
 % plant.set_taylorTerms(10);
 % plant.set_zonotopeOrder(100);
 % plant.set_polytopeOrder(5);% error = 0.001;
-error = 0.01;
-plant.options.maxError = [error; error; error; error];
-time = 0:controlPeriod:20;
+% error = 0.01;
+% plant.options.maxError = [error; error; error; error];
+% time = 0:controlPeriod:20;
 % steps = length(time);
 % Initial set
 lb = [-133; -25.5; 25; 1];
@@ -85,7 +85,10 @@ for i =1:steps
     inp_all{i} = input_set;
 end
 timing = toc(t);
-save('../../results/reachVCAS_worst25','reachAll','timing','-v7.3')
+%% Set output path
+path_out_t = ['..' filesep path_results() filesep 'VCAS' filesep];
+mkdir(path_out_t);
+save([path_out_t 'sets_worst25'],'reachAll','timing','-v7.3');
 
 %% Visualize results
 f = figure('visible','off');
@@ -97,7 +100,7 @@ grid;
 title('VCAS reachable sets')
 xlabel('Distance');
 ylabel('Tau');
-saveas(f,'../../results/reachVCAS_worst25.jpg');
+saveas(f,[path_out_t 'plot_worst25.jpg']);
 
 %% Helper Functions
 

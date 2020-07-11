@@ -46,8 +46,10 @@ for i=1:num_steps
     input_set = net.reach(inp_nn,'approx-star');
 end
 timing = toc(t);
-save('../../results/SinglePendulum_reach','timing','reachAll','-v7.3');
-
+%% Set output path
+path_out_sp = ['..' filesep path_results() filesep 'single_pendulum' filesep];
+mkdir(path_out_sp);
+save([path_out_sp 'sets'],'reachAll','timing','-v7.3');
 %% Visualize results
 
 f = figure('visible','off');
@@ -56,7 +58,7 @@ grid;
 title('Single Pendulum reachable sets');
 xlabel('Time steps');
 ylabel('Theta');
-saveas(f,'../../results/SinglePendulum.jpg');
+saveas(f,[path_out_sp 'plot.jpg']);
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set)

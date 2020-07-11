@@ -1,6 +1,6 @@
-if ~exist('../results','dir')
-    mkdir('../results')
-end
+% if ~exist('../results','dir')
+%     mkdir('../results')
+% end
 allTime = tic;
 %% ACC
 cd 'ACC';
@@ -12,7 +12,7 @@ run reach_airplane;
 %% Benchmark 9 - Tora
 cd ..;
 cd 'Benchmark9-Tora';
-run reach10;
+run reach9;
 %% Benchmark 10 - Unicycle
 cd ..;
 cd 'Benchmark10-Unicycle';

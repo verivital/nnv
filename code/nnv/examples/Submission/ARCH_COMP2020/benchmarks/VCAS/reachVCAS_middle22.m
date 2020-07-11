@@ -82,7 +82,10 @@ for i =1:steps
     inp_all{i} = input_set;
 end
 timing = toc(t);
-save('../../results/reachVCAS_middle22','timing','reachAll','-v7.3')
+%% Set output path
+path_out_t = ['..' filesep path_results() filesep 'VCAS' filesep];
+mkdir(path_out_t);
+save([path_out_t 'sets_middle22'],'reachAll','timing','-v7.3');
 
 %% Visualize results
 f = figure('visible','off');
@@ -94,7 +97,7 @@ grid;
 title('VCAS reachable sets k=10')
 xlabel('Distance');
 ylabel('Tau');
-saveas(f,'../../results/reachVCAS_middle22.jpg');
+saveas(f,[path_out_t 'plot_middle22.jpg']);
 
 %% Helper Functions
 

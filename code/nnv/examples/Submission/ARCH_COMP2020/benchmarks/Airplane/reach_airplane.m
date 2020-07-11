@@ -41,7 +41,10 @@ for i=1:num_steps
     input_set = net.reach(init_set,'approx-star');
 end
 timing = toc(t);
-save('../../results/airplaneReach.mat','reachAll','timing','-v7.3');
+%% Set output path
+path_out_airp = ['..' filesep path_results() filesep 'airplane' filesep];
+mkdir(path_out_airp);
+save([path_out_airp 'sets'],'reachAll','timing','-v7.3');
 %% Visualize results
 
 f2 = figure('visible','off');
@@ -53,7 +56,8 @@ plot([0.5 0.5],[-2 2],'r');
 title('Airplane x_2 vs x_5');
 xlabel('y');
 ylabel('v');
-saveas(f2,'../../results/reachAirplane_plot2vs5_cP.jpg');
+saveas(f, [path_out_airp 'plot_2v5.jpg']);
+% saveas(f2,'../../results/reachAirplane_plot2vs5_cP.jpg');
 
 f4 = figure('visible','off');
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,7,10,'b');
@@ -64,7 +68,8 @@ plot([1 1],[-0.2 0.2],'r');
 title('Airplane x_7 vs. x_{10}');
 xlabel('x_7');
 ylabel('x_{10}');
-saveas(f4,'../../results/reachAirplane_plot7vs10.jpg');
+saveas(f4, [path_out_airp 'plot_7v10.jpg']);
+% saveas(f4,'../../results/reachAirplane_plot7vs10.jpg');
 
 f5 = figure('visible','off');
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,8,11,'b');
@@ -75,7 +80,8 @@ plot([1 1],[-0.2 0.2],'r');
 title('Airplane x_8 vs. x_{11}');
 xlabel('x_8');
 ylabel('x_{11}');
-saveas(f5,'../../results/reachAirplane_plotvs11.jpg');
+saveas(f5, [path_out_airp 'plot_8v11.jpg']);
+% saveas(f5,'../../results/reachAirplane_plotvs11.jpg');
 
 f6 = figure('visible','off');
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,9,12,'b');
@@ -86,7 +92,8 @@ plot([1 1],[-0.2 0.2],'r');
 title('Airplane x_9 vs. x_{12}');
 xlabel('x_9');
 ylabel('x_{12}');
-saveas(f6,'../../results/reachAirplane_plot9vs12.jpg');
+saveas(f6, [path_out_airp 'plot_9v12.jpg']);
+% saveas(f6,'../../results/reachAirplane_plot9vs12.jpg');
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set)

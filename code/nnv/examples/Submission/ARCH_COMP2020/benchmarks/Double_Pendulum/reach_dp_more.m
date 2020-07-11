@@ -39,7 +39,10 @@ for i=1:num_steps
     input_set = net.reach(init_set,'approx-star');
 end
 timing = toc(t);
-save('../../results/doublePendulum_more','reachAll','timing','-v7.3');
+%% Set output path
+path_out_dp = ['..' filesep path_results() filesep 'double_pendulum' filesep];
+mkdir(path_out_dp);
+save([path_out_dp 'sets_more'],'reachAll','timing','-v7.3');
 
 %% Visualize results
 f = figure('visible','off');
@@ -48,7 +51,7 @@ grid;
 title('Double Pendulum reachable sets');
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/DoublePendulum_more_1v2.jpg');
+saveas(f,[path_out_dp 'plot_more_1v2.jpg']);
 
 f1 = figure('visible','off');
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,4,'b');
@@ -56,7 +59,7 @@ grid;
 title('Double Pendulum reachable sets');
 xlabel('x3');
 ylabel('x4');
-saveas(f1,'../../results/DoublePendulum_more_3v4.jpg');
+saveas(f1,[path_out_dp 'plot_more_3v4.jpg']);
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set)

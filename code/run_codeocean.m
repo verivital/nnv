@@ -8,6 +8,12 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
+cd /code/nnv/examples/Submission/NeurIPS2020/
+produce_NeurIPS2020
+
+
+return
+
 % CAV 2020 tool paper reproducibility
 cd /code/nnv/examples/Submission/CAV2020/
 

@@ -1,0 +1,6 @@
+The set of initial states considered is as follows:
+h(0)∈[−133,−129], h0_dot(0)∈{−19.5,−22.5,−25.5,−28.5},τ(0) = 25 and adv(0) = COC
+
+Run for K = {1,...,8} steps.
+
+Safety property:  |Vertical separation| > 100 ft at all times.

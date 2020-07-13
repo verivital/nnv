@@ -856,20 +856,6 @@ classdef Star
             max_id = new_rs.get_localMax_index([1 1], [obj.dim 1], 1);
             max_ids = max_id(:, 1);
 
-%               max_ids = [];
-%               for i=1:obj.dim
-%                     
-%                   G1 = eye(obj.dim);
-%                   G1(i, :) = [];
-%                   G2 = zeros(obj.dim - 1, obj.dim);
-%                   G2(:, i) = 1;
-%                   G = G1 - G2;
-%                   g = zeros(obj.dim - 1, 1);
-%                   
-%                   if ~isempty(obj.intersectHalfSpace(G, g))
-%                       max_ids = [max_ids; i];
-%                   end
-%               end
         end
         
         % estimates ranges of state vector quickly
@@ -1236,6 +1222,36 @@ classdef Star
             
             lb = obj.V(:, 1) + xmin1 + xmin2;
             ub = obj.V(:, 1) + xmax1 + xmax2;
+            
+        end
+        
+        % check if a index is larger than other
+        function bool = is_p1_larger_than_p2(obj, p1_id, p2_id)
+            % @p1_id: index of point 1
+            % @p2_id: index of point 2
+            % @bool = 1 if there exists the case that p1 >= p2
+            %       = 0 if there is no case that p1 >= p2
+            
+            % author: Dung Tran
+            % date: 7/10/2020
+            
+            
+            if p1_id < 1 || p1_id > obj.dim
+                error('Invalid index for point 1');
+            end
+            
+            if p2_id < 1 || p2_id > obj.dim
+                error('Invalid index for point 2');
+            end
+                        
+            d1 = obj.V(p1_id, 1) - obj.V(p2_id, 1); 
+            C1 = obj.V(p2_id, 2: obj.nVar + 1) - obj.V(p1_id, 2:obj.nVar+1);
+            S = Star(obj.V, [obj.C; C1], [obj.d;d1], obj.predicate_lb, obj.predicate_ub);
+            if S.isEmptySet 
+                bool = 0;
+            else
+                bool = 1;
+            end 
             
         end
         

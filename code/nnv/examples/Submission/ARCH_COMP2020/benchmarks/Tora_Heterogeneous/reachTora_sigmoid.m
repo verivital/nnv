@@ -63,7 +63,7 @@ save([path_out_t 'sets_sigmoid'],'reachAll','timing','-v7.3');
 
 %% Visualize results
 goal = Box([-0.1;-0.9],[0.2;-0.6]);
-f = figure;
+f = figure('visible','off');
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
 grid;
 hold on;

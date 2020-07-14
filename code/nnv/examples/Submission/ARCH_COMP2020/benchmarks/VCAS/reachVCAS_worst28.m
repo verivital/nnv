@@ -89,7 +89,7 @@ mkdir(path_out_t);
 save([path_out_t 'sets_worst28'],'reachAll','timing','-v7.3');
 
 %% Visualize results
-f = figure;
+f = figure('visible','off');
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,3,'b');
 grid;
 hold on;

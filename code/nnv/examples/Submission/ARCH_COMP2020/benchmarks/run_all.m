@@ -14,11 +14,11 @@ cd ..;
 cd 'Benchmark9-Tora';
 run reach9;
 %% Benchmark 10 - Unicycle
-cd ..;
-cd 'Benchmark10-Unicycle';
-run reach10.m;
+% cd ..;
+% cd 'Benchmark10-Unicycle';
+% run reach10.m;
 %% Double Pendulum
-cd ..;
+% cd ..;
 cd 'Double_Pendulum';
 run reach_dp_less.m;
 run reach_dp_more.m;

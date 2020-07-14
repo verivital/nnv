@@ -98,7 +98,7 @@ RUN apt-get install -y libprotobuf-dev protobuf-compiler
 RUN pip install --user -r requirements.txt
 
 # there was an error related to version differences: 
-RUN pip install -y --upgrade onnx
+RUN pip install --upgrade onnx
 
 WORKDIR /
 

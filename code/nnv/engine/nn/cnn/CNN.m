@@ -20,6 +20,7 @@ classdef CNN < handle
         reachOption = []; % parallel option, default - non-parallel computing
         numCores = 0; % number of cores (workers) using in computation
         reachSet = [];  % reachable set for each layers
+        outputSet = [];
         reachTime = []; % computation time for each layers
         totalReachTime = 0; % total computation time
         
@@ -157,22 +158,25 @@ classdef CNN < handle
                 obj.reachOption = [];
             end
             
-            obj.reachSet = cell(1, obj.numLayers+1);
+            obj.reachSet = cell(1, obj.numLayers);
             obj.reachTime = zeros(1, obj.numLayers);
             fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
-            obj.reachSet{1} = inputSet;
+            rs = inputSet;
             for i=2:obj.numLayers+1
                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 start_time = tic;
-                obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, obj.reachOption, obj.relaxFactor);
+                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor);
                 obj.reachTime(i-1) = toc(start_time);
+                rs = rs_new;
+                obj.reachSet{i-1} = rs_new;
                 fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
-                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(obj.reachSet{i}));
+                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs_new));
             end
             fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
-            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet{obj.numLayers+1}));
+            fprintf('\nThe number ImageStar in the output sets is: %d', length(rs_new));
             obj.totalReachTime = sum(obj.reachTime);
-            IS = obj.reachSet{obj.numLayers+1};
+            IS = rs_new;
+            obj.outputSet = rs_new;
             reachTime = obj.totalReachTime;
         end
         
@@ -453,6 +457,215 @@ classdef CNN < handle
             
         end      
         
+        
+        
+    end
+    
+    methods % new robustness verification method using relaxed ImageStar
+        
+        % verify robustness of classification feedforward networks
+        function [robust, cE, cands, vt] = verifyRBN(varargin)
+            % @robust: = 1: the network is robust
+            %          = 0: the network is notrobust
+            %          = 2: robustness is uncertain
+            % @cE: a set of counter examples 
+            % @cands: candidate indexes in the case that the robustness is unknown
+            % @vt: verification time
+            
+            % author: Dung Tran
+            % date: 7/13/2020
+            
+            t = tic;
+            switch nargin                   
+                
+                case 3
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = 'approx-star';
+                    obj.numCores = 1; % numCores used for computation
+                    obj.relaxFactor = 0;  % only for the approx-star method
+                    
+                case 4
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = 1; 
+                    obj.relaxFactor = 0;  % only for the approx-star method
+                    
+                case 5
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = 0; % only for the approx-star method
+                                        
+                case 6
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method            
+                    
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, or 4');
+                     
+            end
+            
+            if correct_id < 1
+                error('Invalid correct id');
+            end
+            
+            if strcmp(method, 'exact-star')
+                error('\nThis method does not support exact-star reachability, please choose approx-star');
+            end
+            
+            robust = 2; % unknown first
+            cands = []; 
+            cE = [];
+            
+            if ~isempty(in_image.im_lb)
+                y_lb = obj.evaluate(in_image.im_lb);
+                [~,max_id] = max(y_lb);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.im_lb;
+                end
+
+                y_ub = obj.evaluate(in_image.im_ub);
+                [~,max_id] = max(y_ub);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.im_ub;
+                end
+            end
+            
+            if robust == 2
+                
+                % compute reachable set
+                [R, ~] = obj.reach(in_image, method, obj.numCores, obj.relaxFactor); 
+                R = R.toStar;
+                [lb, ub] = R.estimateRanges;
+
+                max_val = lb(correct_id);
+                max_cd = find(ub > max_val); % max point candidates
+                max_cd(max_cd == correct_id) = []; % delete the max_id
+
+                if isempty(max_cd)
+                    robust = 1;
+                else            
+
+                    n = length(max_cd);
+                    count = 0;
+                    for i=1:n
+                        if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                            cands = max_cd(i);
+                            break;
+                        else
+                            count = count + 1;
+                        end
+                    end
+
+                    if count == n
+                        robust = 1;
+                    end
+
+                end
+   
+            end
+            
+            vt = toc(t);
+           
+        end
+        
+        % evaluate robustness of a classification feedforward network on an array of input (test) sets
+        function [r, rb, cE, cands, vt] = evaluateRBN(varargin)
+            % @in_images: input sets
+            % @correct_ids: an array of correct labels corresponding to the input sets
+            % @method: reachability method: 'exact-star', 'approx-star',
+            % 'approx-zono' and 'abs-dom'
+            % @numCores: number of cores used in computation
+            % @r: robustness value (in percentage) 
+            % @rb: robustness results
+            % @cE: counterexamples
+            % @cands: candidate idexes
+            % @vt: verification times
+            
+            % author: Dung Tran
+            % date:7/13/2020
+            
+            switch nargin
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5};
+                    obj.relaxFactor = 0; % only for the approx-star method
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = 1;
+                    obj.relaxFactor = 0; % only for the approx-star method
+                otherwise
+                    error('Invalid number of input arguments, should be 3, 4 or 5');                    
+            end
+            
+            
+            N = length(in_images);
+            if length(correct_ids) ~= N
+                error('Inconsistency between the number of correct_ids and the number of input sets');
+            end
+            
+                      
+            count = zeros(1, N);
+            rb = zeros(1, N);
+            cE = cell(1,N);
+            cands = cell(1,N);
+            vt = zeros(1,N);
+            if ~strcmp(method, 'exact-star')                
+                
+                if N > 1
+                    parfor i=1:N
+                        [rb(i),cE{i}, cands{i}] = obj.verifyRBN(in_images(i), correct_ids(i), method, 1, obj.relaxFactor);
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end
+                    end                    
+                else
+                    
+                    for i=1:N
+                        [rb(i),cE{i}, cands{i}] = obj.verifyRBN(in_images(i), correct_ids(i), method, numOfCores, obj.relaxFactor);
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end
+                    end
+                    
+                end
+                
+   
+            end
+                        
+            r = sum(count)/N; 
+            
+        end      
         
         
     end

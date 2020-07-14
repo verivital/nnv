@@ -967,39 +967,104 @@ classdef Star
             
         end
         
-        % get mins 
+%         % get mins 
+%         function xmin = getMins(varargin)
+%             % @map: an array of indexes
+%             % xmin: min values of x[indexes]
+%             
+%             % author: Dung Tran
+%             % date: 6/16/2020
+%             
+%             switch nargin
+%                 case 3
+%                     obj = varargin{1};
+%                     map = varargin{2};
+%                     dis_option = varargin{3};
+%                 case 2
+%                     obj = varargin{1};
+%                     map = varargin{2};
+%                     dis_option = 'show-progress';                   
+%                 otherwise
+%                     error('Invalid number of inputs');
+%             end
+%             
+%             n = length(map);
+%             xmin = zeros(n, 1);
+%             reverseStr = '';
+%             for i = 1:n
+%                 xmin(i) = obj.getMin(map(i));
+%                 
+%                 if strcmp(dis_option, 'show-progress')
+%                     msg = sprintf('%d/%d', i, n);
+%                     fprintf([reverseStr, msg]);
+%                     reverseStr = repmat(sprintf('\b'), 1, length(msg));
+%                 end
+%             end   
+%         end
+        
+        % get maxs
         function xmin = getMins(varargin)
             % @map: an array of indexes
             % xmin: min values of x[indexes]
             
             % author: Dung Tran
-            % date: 6/16/2020
+            % date: 7/13/2018
             
             switch nargin
                 case 3
                     obj = varargin{1};
                     map = varargin{2};
-                    dis_option = varargin{3};
+                    par_option = varargin{3};
+                    dis_option = 'show-progress';
                 case 2
                     obj = varargin{1};
                     map = varargin{2};
-                    dis_option = 'show-progress';                   
+                    dis_option = 'show-progress';
+                    par_option = 'single';
                 otherwise
                     error('Invalid number of inputs');
             end
             
             n = length(map);
             xmin = zeros(n, 1);
-            reverseStr = '';
-            for i = 1:n
-                xmin(i) = obj.getMin(map(i));
-                
-                if strcmp(dis_option, 'show-progress')
-                    msg = sprintf('%d/%d', i, n);
-                    fprintf([reverseStr, msg]);
-                    reverseStr = repmat(sprintf('\b'), 1, length(msg));
+            if isempty(par_option) || strcmp(par_option, 'single') % get Maxs using single core
+                reverseStr = '';
+                for i = 1:n
+                    xmin(i) = obj.getMin(map(i));
+                    if strcmp(dis_option, 'show-progress')
+                        msg = sprintf('%d/%d', i, n);
+                        fprintf([reverseStr, msg]);
+                        reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                    end
                 end
-            end   
+            elseif strcmp(par_option, 'parallel') % get Maxs using multiple cores 
+                f = obj.V(map, 2:obj.nVar + 1);
+                V1 = obj.V(map, 1);
+                C1 = obj.C;
+                d1 = obj.d;
+                pred_lb = obj.predicate_lb;
+                pred_ub = obj.predicate_ub;               
+                parfor i=1:n                    
+                    if all(f(i,:)==0)
+                        xmin(i) = V1(i,1);
+                    else
+                        %options = optimset('Display','none');
+                        %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                        [~, fval, exitflag, ~] = glpk(f(i, :), C1, d1, pred_lb, pred_ub);
+                        if exitflag > 0
+                            xmin(i) = fval + V1(i, 1);
+                        else
+                            error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                        end          
+
+                    end
+                end
+  
+            else
+                error('Unknown parallel option');
+            end
+                
+            
         end
                 
         % get max
@@ -1044,26 +1109,60 @@ classdef Star
                 case 3
                     obj = varargin{1};
                     map = varargin{2};
-                    dis_option = varargin{3};
+                    par_option = varargin{3};
+                    dis_option = 'show-progress';
                 case 2
                     obj = varargin{1};
                     map = varargin{2};
-                    dis_option = 'show-progress';                   
+                    dis_option = 'show-progress';
+                    par_option = 'single';
                 otherwise
                     error('Invalid number of inputs');
             end
             
             n = length(map);
             xmax = zeros(n, 1);
-            reverseStr = '';
-            for i = 1:n
-                xmax(i) = obj.getMax(map(i));
-                if strcmp(dis_option, 'show-progress')
-                    msg = sprintf('%d/%d', i, n);
-                    fprintf([reverseStr, msg]);
-                    reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                        
+            if isempty(par_option) || strcmp(par_option, 'single') % get Maxs using single core
+                reverseStr = '';
+                for i = 1:n
+                    xmax(i) = obj.getMax(map(i));
+                    if strcmp(dis_option, 'show-progress')
+                        msg = sprintf('%d/%d', i, n);
+                        fprintf([reverseStr, msg]);
+                        reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                    end
                 end
+            elseif strcmp(par_option, 'parallel') % get Maxs using multiple cores 
+                f = obj.V(map, 2:obj.nVar + 1);
+                V1 = obj.V(map, 1);
+                C1 = obj.C;
+                d1 = obj.d;
+                pred_lb = obj.predicate_lb;
+                pred_ub = obj.predicate_ub;
+                
+                parfor i=1:n                    
+                    if all(f(i,:)==0)
+                        xmax(i) = V1(i,1);
+                    else
+                        %options = optimset('Display','none');
+                        %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
+                        [~, fval, exitflag, ~] = glpk(-f(i, :), C1, d1, pred_lb, pred_ub);
+                        if exitflag > 0
+                            xmax(i) = -fval + V1(i, 1);
+                        else
+                            error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                        end          
+
+                    end
+                    
+                end
+
+            else
+                error('Unknown parallel option');
             end
+                
+            
         end
         
         % reset a row of a star set to zero

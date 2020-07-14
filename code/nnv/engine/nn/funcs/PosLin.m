@@ -605,12 +605,25 @@ classdef PosLin
         
         % more efficient method by doing multiple stepReach at one time
         % over-approximate reachability analysis using Star
-        function S = reach_star_approx2(I)
+        function S = reach_star_approx2(varargin)
             % @I: star input set
+            % @option: 'parallel' or single
             % @S: star output set
 
             % author: Dung Tran
             % date: 4/3/2019
+            % update: 7/13/2020 : getMax parallel
+            
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    option = 'single';
+                case 2
+                    I = varargin{1};
+                    option = varargin{2};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');
+            end
 
             if ~isa(I, 'Star')
                 error('Input is not a star');
@@ -623,7 +636,6 @@ classdef PosLin
                 if isempty(lb) || isempty(ub)
                     S = [];
                 else
-                    
                     % find all indexes having ub <= 0, then reset the
                     % values of the elements corresponding to these indexes to 0
                     fprintf('\nFinding all neurons (in %d neurons) with ub <= 0...', length(ub));
@@ -632,7 +644,7 @@ classdef PosLin
 
                     map2 = find(lb < 0 & ub > 0);
                     fprintf('\nFinding neurons (in %d neurons) with ub <= 0 by optimizing ranges: ', length(map2));
-                    xmax = I.getMaxs(map2);
+                    xmax = I.getMaxs(map2, option);
                     map3 = find(xmax <= 0);
                     fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map2));
                     n = length(map3);
@@ -651,7 +663,7 @@ classdef PosLin
                     map6 = map2(map5(:)); % all indexes having ub > 0
                     xmax1 = xmax(map5(:)); % upper bound of all neurons having ub > 0
 
-                    xmin = I.getMins(map6); 
+                    xmin = I.getMins(map6, option); 
                     map7 = find(xmin < 0); 
                     map8 = map6(map7(:)); % all indexes having lb < 0 & ub > 0
                     lb1 = xmin(map7(:));  % lower bound of all indexes having lb < 0 & ub > 0
@@ -666,13 +678,26 @@ classdef PosLin
         end        
         
         % a relaxed star-approx method
-        function S = reach_relaxed_star_approx(I, relaxFactor)
+        function S = reach_relaxed_star_approx(varargin)
             % @I: star input set
             % @relaxFactor: a relaxFactor
             % @S: star output set
 
             % author: Dung Tran
             % date: 6/26/2020
+            
+            switch nargin
+                case 2
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    option = 'single';
+                case 3
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    option = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');
+            end
 
             if ~isa(I, 'Star')
                 error('Input is not a star');
@@ -704,7 +729,7 @@ classdef PosLin
                     lb1 = lb(map22);
                     ub1 = ub(map22); 
                     
-                    xmax = I.getMaxs(map21); 
+                    xmax = I.getMaxs(map21, option); 
                     map3 = find(xmax <= 0);
                     fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map21));
                     n = length(map3);
@@ -723,7 +748,7 @@ classdef PosLin
                     map6 = map21(map5(:)); % all indexes having ub > 0
                     xmax1 = xmax(map5(:)); % upper bound of all neurons having ub > 0
 
-                    xmin = I.getMins(map6); 
+                    xmin = I.getMins(map6, option); 
                     map7 = find(xmin < 0); 
                     map8 = map6(map7(:)); % all indexes having lb < 0 & ub > 0
                     lb2 = xmin(map7(:));  % lower bound of all indexes having lb < 0 & ub > 0
@@ -1143,12 +1168,12 @@ classdef PosLin
                 case 2
                     I = varargin{1};
                     method = varargin{2};
-                    option = [];
+                    option = 'parallel';
                     relaxFactor = 0; % used for aprox-star only
                 case 1
                     I = varargin{1};
                     method = 'exact-star';
-                    option = [];
+                    option = 'parallel';
                     relaxFactor = 0; % used for aprox-star only
                     
                 otherwise
@@ -1167,9 +1192,9 @@ classdef PosLin
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 
                 if relaxFactor == 0
-                    R = PosLin.reach_star_approx2(I);
+                    R = PosLin.reach_star_approx2(I, option);
                 else
-                    R = PosLin.reach_relaxed_star_approx(I, relaxFactor);
+                    R = PosLin.reach_relaxed_star_approx(I, relaxFactor, option);
                 end
                 
             elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope

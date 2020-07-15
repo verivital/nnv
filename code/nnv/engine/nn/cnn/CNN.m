@@ -636,31 +636,15 @@ classdef CNN < handle
             cE = cell(1,N);
             cands = cell(1,N);
             vt = zeros(1,N);
-            if ~strcmp(method, 'exact-star')                
-                
-                if N > 1
-                    parfor i=1:N
-                        [rb(i),cE{i}, cands{i}] = obj.verifyRBN(in_images(i), correct_ids(i), method, 1, obj.relaxFactor);
-                        if rb(i) == 1
-                            count(i) = 1;
-                        else
-                            count(i) = 0;
-                        end
-                    end                    
-                else
-                    
-                    for i=1:N
-                        [rb(i),cE{i}, cands{i}] = obj.verifyRBN(in_images(i), correct_ids(i), method, numOfCores, obj.relaxFactor);
-                        if rb(i) == 1
-                            count(i) = 1;
-                        else
-                            count(i) = 0;
-                        end
+            if ~strcmp(method, 'exact-star')                     
+                for i=1:N
+                    [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), method, numOfCores, obj.relaxFactor);
+                    if rb(i) == 1
+                        count(i) = 1;
+                    else
+                        count(i) = 0;
                     end
-                    
-                end
-                
-   
+                end  
             end
                         
             r = sum(count)/N; 
@@ -787,8 +771,87 @@ classdef CNN < handle
 
             if count == outputSet.numChannel - 1
                 bool = 1;
-            end             
+            end 
+            
 
+        end
+        
+        % check robustness using the outputSet
+        function [rb, cands] = checkRobust(outputSet, correct_id)
+            % @outputSet: the outputSet we need to check
+            % @correct_id: the correct_id of the classified output
+            
+            % @rb: = 1 -> robust
+            %      = 0 -> not robust
+            %      = 2 -> unknown
+            % @cand: possible candidates
+            
+            % author: Dung Tran
+            % date: 7/14/2020
+            
+            if correct_id > outputSet.numChannel || correct_id < 1
+                error('Invalid correct id');
+            end
+            
+            max_val = lb(correct_id);
+            max_cd = find(ub > max_val); % max point candidates
+            max_cd(max_cd == correct_id) = []; % delete the max_id
+
+            if isempty(max_cd)
+                robust = 1;
+            else            
+
+                n = length(max_cd);
+                count = 0;
+                for i=1:n
+                    if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                        cands = max_cd(i);
+                        break;
+                    else
+                        count = count + 1;
+                    end
+                end
+
+                if count == n
+                    robust = 1;
+                end
+
+            end
+            
+            S = outputSet.toStar; 
+            [lb, ub] = S.estimateRanges; 
+            [max_lb, max_lb_id] = max(lb);
+            [max_ub, max_ub_id] = max(ub);
+            
+            max_cands = find(ub > max_lb);
+            max_cands(max_ub_id) = [];
+            
+            rb = 2;
+            
+            % safe
+            if isempty(max_cands) && max_ub_id == correct_id
+                rb = 1;
+                cands = correct_id;
+            end
+            
+            
+            % unknown
+            if max_ub_id ~= correct_id 
+                if S.is_p1_larger_p2(max_ub_id, correct_id)
+                    rb = 2;
+                    cands = max_ub_id;
+                end               
+            end
+            
+            
+            
+            if rb == 2
+                
+                
+                
+            end
+            
+            
         end
         
         
@@ -834,9 +897,6 @@ classdef CNN < handle
             end
             
         end
-        
-        
-        
         
     end
     

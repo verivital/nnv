@@ -563,15 +563,31 @@ classdef MaxPooling2DLayer < handle
         % reachability analysis method using Stars
         % a star represent a set of images (2D matrix of h x w)           
  
-        function images = reach_star_exact(obj, in_image)
+        function images = reach_star_exact(varargin)
             % @in_image: an ImageStar input set
             % @option: = 'single' single core for computation
             %          = 'parallel' multiple cores for parallel computation
             % @images: an set of imagestar with number of channels = obj.NumFilters
+            % @dis_opt: display option: [] or 'display'
             
             % author: Dung Tran
             % date: 6/17/2019
             % updates: 7/25/2019, 4/28/2020
+            
+            % update: 7/15/2020: add display option
+            
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    dis_opt = [];
+                case 3
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    dis_opt = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');       
+            end
             
             if ~isa(in_image, 'ImageStar')
                 error('The input is not an ImageStar object');
@@ -606,7 +622,9 @@ classdef MaxPooling2DLayer < handle
             end
                         
             n = size(split_pos, 1);
-            fprintf('\nThere are splits happened at %d local regions when computing the exact max maps', n);
+            if strcmp(dis_opt, 'display')
+                fprintf('\nThere are splits happened at %d local regions when computing the exact max maps', n);
+            end
             images = ImageStar(maxMap_basis_V, pad_image.C, pad_image.d, pad_image.pred_lb, pad_image.pred_ub);
             images.addMaxIdx(obj.Name, maxidx);
             images.addInputSize(obj.Name, [pad_image.height pad_image.width]);
@@ -615,7 +633,9 @@ classdef MaxPooling2DLayer < handle
                     m1 = length(images);           
                     images = obj.stepSplitMultipleInputs(images, pad_image, split_pos(i, :, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
                     m2 = length(images);
-                    fprintf('\nSplit %d images into %d images', m1, m2);
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\nSplit %d images into %d images', m1, m2);
+                    end
                 end
             end
                         
@@ -700,26 +720,42 @@ classdef MaxPooling2DLayer < handle
         
         
         % reach exact star multiple inputs
-        function IS = reach_star_exact_multipleInputs(obj, in_images, option)
+        function IS = reach_star_exact_multipleInputs(varargin)
             % @in_images: an array of imagestar input sets
             % images: an array of imagestar output sets
             % option: '[]' or 'parallel'
+            % dis_opt: display option = [] or 'display'
             
             % author: Dung Tran
             % date: 7/24/2019
+            % update: 7/15/2020: add display option
             
+            switch nargin
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = varargin{3};
+                    dis_opt = [];
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = varargin{3};
+                    dis_opt = [];
+                otherwise
+                    error('Invalid number of input arguments');       
+            end
             
             n = length(in_images);
             IS = [];
             if strcmp(option, 'parallel')
                 
                 parfor i=1:n
-                    IS = [IS obj.reach_star_exact(in_images(i))];
+                    IS = [IS obj.(in_images(i), dis_oreach_star_exactpt)];
                 end
                 
             elseif isempty(option) || strcmp(option, 'single')
                 for i=1:n
-                    IS = [IS obj.reach_star_exact(in_images(i))];
+                    IS = [IS obj.reach_star_exact(in_images(i), dis_opt)];
                 end
             else
                 error('Unknown computation option');
@@ -737,7 +773,7 @@ classdef MaxPooling2DLayer < handle
     methods % Over approximate reachability analysis using imagestar
                 
         % reach star approx
-        function image = reach_star_approx(obj, in_image)
+        function image = reach_star_approx(varargin)
             % @in_image: input imageStar set
             % @channel_id: channel index
             % @image: output imagestar, an over-approximation of the exact
@@ -745,7 +781,20 @@ classdef MaxPooling2DLayer < handle
             
             % author: Dung Tran
             % date: 6/24/2019
+            % update: 7/15/2020: add display option
             
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    dis_opt = [];
+                case 3
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    dis_opt = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');       
+            end
             
             if ~isa(in_image, 'ImageStar')
                 error('Input image is not an imagestar');
@@ -776,8 +825,9 @@ classdef MaxPooling2DLayer < handle
             end
             
             % construct an over-approximate imagestar reachable set
-            fprintf('\n%d new variables are introduced\n', l);
-                                   
+            if strcmp(dis_opt, 'display')
+                fprintf('\n%d new variables are introduced\n', l);
+            end                   
             % update new basis matrix
             new_V(:,:,pad_image.numChannel,np+1) = zeros(h,w);
             new_pred_index = 0;
@@ -854,26 +904,43 @@ classdef MaxPooling2DLayer < handle
         end
         
         % reach approx-star with multiple inputs
-        function IS = reach_star_approx_multipleInputs(obj, in_images, option)
+        function IS = reach_star_approx_multipleInputs(varargin)
             % @in_images: an array of imagestar input sets
             % images: an array of imagestar output sets
             % option: '[]' or 'parallel'
+            % dis_opt: = [] -> no display, 'display' -> display
             
             % author: Dung Tran
             % date: 7/24/2019
+            % update: 7/15/2020: add display option
             
+            switch nargin
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = varargin{3};
+                    dis_opt = [];
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    option = varargin{3};
+                    dis_opt = [];
+                otherwise
+                    error('Invalid number of input arguments');
+                    
+            end
             
             n = length(in_images);
             IS(n) = ImageStar;
             if strcmp(option, 'parallel')
                 
                 parfor i=1:n
-                    IS(i) = obj.reach_star_approx(in_images(i));
+                    IS(i) = obj.reach_star_approx(in_images(i), dis_opt);
                 end
                 
             elseif isempty(option) || strcmp(option, 'single')
                 for i=1:n
-                    IS(i) = obj.reach_star_approx(in_images(i));
+                    IS(i) = obj.reach_star_approx(in_images(i), dis_opt);
                 end
             else
                 error('Unknown computation option');
@@ -893,6 +960,14 @@ classdef MaxPooling2DLayer < handle
             % date: 6/26/2019
              
             switch nargin
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    dis_opt = varargin{6}; do not use
                 
                 case 5
                     obj = varargin{1};
@@ -918,13 +993,13 @@ classdef MaxPooling2DLayer < handle
             end
             
             if strcmp(method, 'approx-star')
-                IS = obj.reach_star_approx_multipleInputs(in_images, option);
+                IS = obj.reach_star_approx_multipleInputs(in_images, option, dis_opt);
             elseif strcmp(method, 'exact-star')
-                IS = obj.reach_star_exact_multipleInputs(in_images, option);
+                IS = obj.reach_star_exact_multipleInputs(in_images, option, dis_opt);
             elseif strcmp(method, 'abs-dom')
                 % abs-domain works similarly to approx-star method for max
                 % pooling layer
-                IS = obj.reach_star_approx_multipleInputs(in_images, option);
+                IS = obj.reach_star_approx_multipleInputs(in_images, option, dis_opt);
             elseif strcmp(method, 'approx-zono')
                 IS = obj.reach_zono_multipleInputs(in_images, option);
             end

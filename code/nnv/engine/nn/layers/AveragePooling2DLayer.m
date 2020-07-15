@@ -505,6 +505,14 @@ classdef AveragePooling2DLayer < handle
              
             switch nargin
                 
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -524,7 +532,7 @@ classdef AveragePooling2DLayer < handle
                     method = varargin{3};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 2, 3 or 4)');
+                    error('Invalid number of input arguments (should be 2, 3, 4 or 5)');
             end
             
             

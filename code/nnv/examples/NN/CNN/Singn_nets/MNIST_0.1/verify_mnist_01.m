@@ -6,11 +6,11 @@ load mnist01.mat;
 
 numCores = 6; 
 N = 100; % number of Images tested maximum is 100
-% eps = [0.1];
-% relaxFactor = [0 0.5]; 
-eps = [0.1 0.15 0.2]; % epsilon for the disturbance
+eps = [0.1];
+relaxFactor = [0]; 
+% eps = [0.1 0.15 0.2]; % epsilon for the disturbance
 % timeout for eps = 0.25
-relaxFactor = [0 0.25 0.5 0.75 1]; % relax factor
+% relaxFactor = [0 0.25 0.5 0.75 1]; % relax factor
 K = length(relaxFactor);
 M = length(eps);
 

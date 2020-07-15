@@ -838,7 +838,7 @@ classdef ImageStar < handle
 
             n = size(points, 1);
             for i=1:n
-                fprintf('\nUpdate range at point: [h = %d, w = %d, c = %d]', points(i, 1), points(i,2), points(i, 3));
+                % fprintf('\nUpdate range at point: [h = %d, w = %d, c = %d]', points(i, 1), points(i,2), points(i, 3));
                 obj.getRange(points(i, 1), points(i,2), points(i, 3));
             end        
             

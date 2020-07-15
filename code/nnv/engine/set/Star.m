@@ -267,22 +267,11 @@ classdef Star
             % author: Dung Tran
             % date: 
             % update: 6/16/2020
+            % update: 7/15/2020 use isEmptySet of Polyhedron object, must
+            % faster
             
-            %options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
-            f = zeros(1, obj.nVar);
-            
-            %[~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], [], [], [], options);
-            if isempty(obj.C) && isempty(obj.V)
-                bool = 1;
-            else
-                [~, ~, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-                if exitflag == 5 % use 1 for linprog
-                    bool = 0;
-                else
-                    bool = 1;
-                end 
-            end
-            
+            P = Polyhedron('A', obj.C, 'b', obj.d, 'lb', obj.predicate_lb, 'ub', obj.predicate_ub);
+            bool = P.isEmptySet;
             
         end
         
@@ -1011,18 +1000,23 @@ classdef Star
             % date: 7/13/2018
             
             switch nargin
+                case 4
+                    obj = varargin{1};
+                    map = varargin{2};
+                    par_option = varargin{3};
+                    dis_option = varargin{4};
                 case 3
                     obj = varargin{1};
                     map = varargin{2};
                     par_option = varargin{3};
-                    dis_option = 'show-progress';
+                    dis_option = [];
                 case 2
                     obj = varargin{1};
                     map = varargin{2};
-                    dis_option = 'show-progress';
+                    dis_option = [];
                     par_option = 'single';
                 otherwise
-                    error('Invalid number of inputs');
+                    error('Invalid number of inputs, should be 1, 2, or 3');
             end
             
             n = length(map);
@@ -1031,7 +1025,7 @@ classdef Star
                 reverseStr = '';
                 for i = 1:n
                     xmin(i) = obj.getMin(map(i));
-                    if strcmp(dis_option, 'show-progress')
+                    if strcmp(dis_option, 'display')
                         msg = sprintf('%d/%d', i, n);
                         fprintf([reverseStr, msg]);
                         reverseStr = repmat(sprintf('\b'), 1, length(msg));
@@ -1106,15 +1100,20 @@ classdef Star
             % date: 6/11/2018
             
             switch nargin
+                case 4
+                    obj = varargin{1};
+                    map = varargin{2};
+                    par_option = varargin{3};
+                    dis_option = varargin{4};
                 case 3
                     obj = varargin{1};
                     map = varargin{2};
                     par_option = varargin{3};
-                    dis_option = 'show-progress';
+                    dis_option = [];
                 case 2
                     obj = varargin{1};
                     map = varargin{2};
-                    dis_option = 'show-progress';
+                    dis_option = [];
                     par_option = 'single';
                 otherwise
                     error('Invalid number of inputs');
@@ -1127,7 +1126,7 @@ classdef Star
                 reverseStr = '';
                 for i = 1:n
                     xmax(i) = obj.getMax(map(i));
-                    if strcmp(dis_option, 'show-progress')
+                    if strcmp(dis_option, 'display')
                         msg = sprintf('%d/%d', i, n);
                         fprintf([reverseStr, msg]);
                         reverseStr = repmat(sprintf('\b'), 1, length(msg));

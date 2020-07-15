@@ -25,6 +25,7 @@ classdef CNN < handle
         totalReachTime = 0; % total computation time
         
         features = {}; % outputs of each layer in an evaluation
+        dis_opt = []; % display option = 'display' or []
         
     end
     
@@ -113,6 +114,11 @@ classdef CNN < handle
             % @IS: output set is an ImageStar
             % @reachTime : reachable set computation time
             
+            % author: Dung Tran
+            % date: 
+            % update: 7/15/2020 : add display option "dis_opt = 'display'"
+            % -> display all messages
+            
             switch nargin 
                 
                 case 2
@@ -142,10 +148,18 @@ classdef CNN < handle
                     obj.reachMethod = varargin{3};
                     obj.numCores = varargin{4};
                     obj.relaxFactor = varargin{5};
-                 
+                    
+                case 6
+                    obj = varargin{1};
+                    inputSet = varargin{2};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = varargin{4};
+                    obj.relaxFactor = varargin{5};
+                    obj.dis_opt = varargin{6}; % use for debuging 
+                    
                 otherwise 
                     
-                    error('Invalid number of input arguments, the number should be 1, 2 or 3');
+                    error('Invalid number of input arguments, the number should be 1, 2, 3, 4, or 5');
                 
             end
             
@@ -160,20 +174,28 @@ classdef CNN < handle
             
             obj.reachSet = cell(1, obj.numLayers);
             obj.reachTime = zeros(1, obj.numLayers);
-            fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
+            end
             rs = inputSet;
             for i=2:obj.numLayers+1
+                if strcmp(obj.dis_opt, 'display')
                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
+                end
                 start_time = tic;
-                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor);
+                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt);
                 obj.reachTime(i-1) = toc(start_time);
                 rs = rs_new;
                 obj.reachSet{i-1} = rs_new;
-                fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
-                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs_new));
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
+                    fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs_new));
+                end
             end
-            fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
-            fprintf('\nThe number ImageStar in the output sets is: %d', length(rs_new));
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
+                fprintf('\nThe number ImageStar in the output sets is: %d', length(rs_new));
+            end
             obj.totalReachTime = sum(obj.reachTime);
             IS = rs_new;
             obj.outputSet = rs_new;
@@ -508,10 +530,19 @@ classdef CNN < handle
                     correct_id = varargin{3};
                     method = varargin{4};
                     obj.numCores = varargin{5};
-                    obj.relaxFactor = varargin{6}; % only for the approx-star method            
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    
+                case 7
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
                     
                 otherwise
-                    error('Invalid number of inputs, should be 2, 3, or 4');
+                    error('Invalid number of inputs, should be 2, 3, 4 or 6');
                      
             end
             
@@ -543,38 +574,10 @@ classdef CNN < handle
                 end
             end
             
-            if robust == 2
-                
+            if robust == 2             
                 % compute reachable set
-                [R, ~] = obj.reach(in_image, method, obj.numCores, obj.relaxFactor); 
-                R = R.toStar;
-                [lb, ub] = R.estimateRanges;
-
-                max_val = lb(correct_id);
-                max_cd = find(ub > max_val); % max point candidates
-                max_cd(max_cd == correct_id) = []; % delete the max_id
-
-                if isempty(max_cd)
-                    robust = 1;
-                else            
-
-                    n = length(max_cd);
-                    count = 0;
-                    for i=1:n
-                        if R.is_p1_larger_than_p2(max_cd(i), correct_id)
-                            cands = max_cd(i);
-                            break;
-                        else
-                            count = count + 1;
-                        end
-                    end
-
-                    if count == n
-                        robust = 1;
-                    end
-
-                end
-   
+                [R, ~] = obj.reach(in_image, method, obj.numCores, obj.relaxFactor, obj.dis_opt); 
+                [robust, cands] = CNN.checkRobust(R, correct_id);   
             end
             
             vt = toc(t);
@@ -598,6 +601,15 @@ classdef CNN < handle
             % date:7/13/2020
             
             switch nargin
+                case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7}; % display option
+                    
                 case 6
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -621,7 +633,7 @@ classdef CNN < handle
                     numOfCores = 1;
                     obj.relaxFactor = 0; % only for the approx-star method
                 otherwise
-                    error('Invalid number of input arguments, should be 3, 4 or 5');                    
+                    error('Invalid number of input arguments, should be 3, 4, 5 or 6');                    
             end
             
             
@@ -636,15 +648,29 @@ classdef CNN < handle
             cE = cell(1,N);
             cands = cell(1,N);
             vt = zeros(1,N);
-            if ~strcmp(method, 'exact-star')                     
-                for i=1:N
-                    [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), method, numOfCores, obj.relaxFactor);
-                    if rb(i) == 1
-                        count(i) = 1;
-                    else
-                        count(i) = 0;
+            if ~strcmp(method, 'exact-star')
+                if numOfCores > 1
+                    parfor i=1:N
+                        fprintf("\nVerifying %d^th image...",i);
+                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), method, 1, obj.relaxFactor, obj.dis_opt);
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end
                     end
-                end  
+                else
+                    for i=1:N
+                        fprintf("\nVerifying %d^th image...",i);
+                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), method, numOfCores, obj.relaxFactor, obj.dis_opt);
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end
+                    end  
+                end
+                
             end
                         
             r = sum(count)/N; 
@@ -793,63 +819,45 @@ classdef CNN < handle
                 error('Invalid correct id');
             end
             
-            max_val = lb(correct_id);
-            max_cd = find(ub > max_val); % max point candidates
-            max_cd(max_cd == correct_id) = []; % delete the max_id
+            R = outputSet.toStar;
+            [lb, ub] = R.estimateRanges;
+            
+            [~, max_ub_id] = max(ub);
+            cands = [];
+            if max_ub_id ~= correct_id
+                rb = 2;
+                cands = max_ub_id;
+            else                   
+                
+                max_val = lb(correct_id);
+                max_cd = find(ub > max_val); % max point candidates
+                max_cd(max_cd == correct_id) = []; % delete the max_id
 
-            if isempty(max_cd)
-                robust = 1;
-            else            
+                if isempty(max_cd)
+                    rb = 1;
+                else            
 
-                n = length(max_cd);
-                count = 0;
-                for i=1:n
-                    if R.is_p1_larger_than_p2(max_cd(i), correct_id)
-                        cands = max_cd(i);
-                        break;
-                    else
-                        count = count + 1;
+                    n = length(max_cd);
+                    count = 0;
+                    for i=1:n
+                        if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                            rb = 2;
+                            cands = max_cd(i);
+                            break;
+                        else
+                            count = count + 1;
+                        end
                     end
-                end
 
-                if count == n
-                    robust = 1;
+                    if count == n
+                        rb = 1;
+                    end
+
                 end
+   
 
             end
-            
-            S = outputSet.toStar; 
-            [lb, ub] = S.estimateRanges; 
-            [max_lb, max_lb_id] = max(lb);
-            [max_ub, max_ub_id] = max(ub);
-            
-            max_cands = find(ub > max_lb);
-            max_cands(max_ub_id) = [];
-            
-            rb = 2;
-            
-            % safe
-            if isempty(max_cands) && max_ub_id == correct_id
-                rb = 1;
-                cands = correct_id;
-            end
-            
-            
-            % unknown
-            if max_ub_id ~= correct_id 
-                if S.is_p1_larger_p2(max_ub_id, correct_id)
-                    rb = 2;
-                    cands = max_ub_id;
-                end               
-            end
-            
-            
-            
-            if rb == 2
-                
-                
-                
-            end
+
             
             
         end

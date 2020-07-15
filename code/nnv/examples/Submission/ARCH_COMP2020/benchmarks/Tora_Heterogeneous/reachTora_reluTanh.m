@@ -62,4 +62,4 @@ grid;
 title('Reachable sets for dimensions 1 and 2')
 xlabel('x1');
 ylabel('x2');
-saveas(f,[path_out_t 'reluTanh_plot.jpg');
+saveas(f,[path_out_t 'reluTanh_plot.jpg']);

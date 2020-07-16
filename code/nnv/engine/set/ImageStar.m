@@ -622,35 +622,35 @@ classdef ImageStar < handle
             
             % use Gorubi (linprog or linprog of Matlab)
             
-%             options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
-%             
-%             [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
-%             if exitflag == 1
-%                xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-%             else
-%                 error('Cannot find an optimal solution, exitflag = %d', exitflag);
-%             end
-%             
-%             [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
-%             if exitflag == 1
-%                 xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-%             else
-%                 error('Cannot find an optimal solution exitflag = %d', exitflag);
-%             end
-%             
-            [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
-            if exitflag == 5
-                xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+            options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
+            
+            [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
+            if exitflag == 1
+               xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
             else
                 error('Cannot find an optimal solution, exitflag = %d', exitflag);
-            end          
-
-            [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
-            if exitflag == 5
+            end
+            
+            [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
+            if exitflag == 1
                 xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
             else
                 error('Cannot find an optimal solution exitflag = %d', exitflag);
             end
+            
+%             [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+%             if exitflag == 5
+%                 xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+%             else
+%                 error('Cannot find an optimal solution, exitflag = %d', exitflag);
+%             end          
+
+%             [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+%             if exitflag == 5
+%                 xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+%             else
+%                 error('Cannot find an optimal solution exitflag = %d', exitflag);
+%             end
             
             obj.im_lb(vert_ind, horiz_ind, chan_ind) = xmin;
             obj.im_ub(vert_ind, horiz_ind, chan_ind) = xmax;
@@ -1192,14 +1192,23 @@ classdef ImageStar < handle
             new_d = [obj.d; d1];
            
             f = zeros(1, obj.numPred);
+            
+            options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
+            [~, ~, exitflag, ~] = linprog(f, new_C, new_d, [], [], obj.pred_lb, obj.pred_ub, options);
+            if exitflag == 1 % feasible solution exist
+                b = 1;
+            elseif exitflag == -2
+                b = 0;
+            else
+                error('ERROR, exitflag = %d', exitflag);
+            end
+%             [~,~,exitflag,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
 
-                [~,~,status,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
-
-                if status == 5 % feasible solution exist
-                    b = 1;
-                else
-                    b = 0;
-                end
+%             if exitflag == 5 % feasible solution exist
+%                 b = 1;
+%             else
+%                 b = 0;
+%             end
             
         end
                

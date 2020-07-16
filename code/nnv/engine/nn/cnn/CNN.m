@@ -559,18 +559,28 @@ classdef CNN < handle
             cE = [];
             
             if ~isempty(in_image.im_lb)
+                % check lower bound image
                 y_lb = obj.evaluate(in_image.im_lb);
                 [~,max_id] = max(y_lb);
                 if max_id ~= correct_id
                     robust = 0;
                     cE = in_image.im_lb;
                 end
-
+                
+                % check upper bound image
                 y_ub = obj.evaluate(in_image.im_ub);
                 [~,max_id] = max(y_ub);
-                if max_id ~= correct_id
+                if robust ~=0 && max_id ~= correct_id
                     robust = 0;
                     cE = in_image.im_ub;
+                end
+                
+                % check the center image
+                y_c = obj.evaluate(in_image.V(:,:,:,1));
+                [~,max_id] = max(y_c);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.V(:,:,:,1);
                 end
             end
             
@@ -821,7 +831,7 @@ classdef CNN < handle
             
             R = outputSet.toStar;
             [lb, ub] = R.estimateRanges;
-            
+
             [~, max_ub_id] = max(ub);
             cands = [];
             if max_ub_id ~= correct_id
@@ -836,25 +846,31 @@ classdef CNN < handle
                 if isempty(max_cd)
                     rb = 1;
                 else            
-
+                    
                     n = length(max_cd);
-                    count = 0;
-                    for i=1:n
-                        if R.is_p1_larger_than_p2(max_cd(i), correct_id)
-                            rb = 2;
-                            cands = max_cd(i);
-                            break;
-                        else
-                            count = count + 1;
+                    C1 = R.V(max_cd, 2:R.nVar+1) - ones(n,1)*R.V(correct_id, 2:R.nVar+1);
+                    d1 = -R.V(max_cd, 1) + ones(n,1)*R.V(correct_id,1);
+                    S = Star(R.V, [R.C;C1], [R.d;d1], R.predicate_lb, R.predicate_ub);
+                    if S.isEmptySet
+                        rb = 2;
+                        cands = max_cd;
+                    else                       
+                        count = 0;
+                        for i=1:n
+                            if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                                rb = 2;
+                                cands = max_cd(i);
+                                break;
+                            else
+                                count = count + 1;
+                            end
                         end
-                    end
-
-                    if count == n
-                        rb = 1;
-                    end
+                        if count == n
+                            rb = 1;
+                        end         
+                    end    
 
                 end
-   
 
             end
 

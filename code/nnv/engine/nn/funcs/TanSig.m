@@ -20,30 +20,40 @@ classdef TanSig
             % date: 3/19/2020
             
             % update: 7/15/2020: add display option
-            
+            %         7/16/2020: add lp_solver option
             switch nargin
                 case 1
                     I = varargin{1};
                     method = 'approx-star-no-split';
                     relaxFactor = 0; % for relaxed approx-star method
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = 0; % for relaxed approx-star method
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = varargin{3};
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = varargin{3};
                     dis_opt = varargin{4}; % display option
+                    lp_solver = 'linprog';
+                case 5
+                    I = varargin{1};
+                    method = varargin{2};
+                    relaxFactor = varargin{3};
+                    dis_opt = varargin{4}; % display option
+                    lp_solver = varargin{5}; 
                 otherwise
-                    error('Invalid number of input arguments');
+                    error('Invalid number of input arguments, should be 1, 2, 3, 4, or 5');
             end
             
             if ~isa(I, 'Star')
@@ -51,9 +61,9 @@ classdef TanSig
             end            
             if strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star')
                 if relaxFactor == 0
-                    S = TanSig.multiStepTanSig_NoSplit(I, dis_opt);
+                    S = TanSig.multiStepTanSig_NoSplit(I, dis_opt, lp_solver);
                 else
-                    S = TanSig.relaxedMultiStepTanSig_NoSplit(I, relaxFactor, dis_opt);
+                    S = TanSig.relaxedMultiStepTanSig_NoSplit(I, relaxFactor, dis_opt, lp_solver);
                 end
             elseif strcmp(method, 'approx-star-split')
                 S = TanSig.reach_star_approx_split(I);
@@ -596,11 +606,17 @@ classdef TanSig
                 case 1
                     I = varargin{1};
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     dis_opt = varargin{2};
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    dis_opt = varargin{2};
+                    lp_solver = varargin{3};
                 otherwise
-                    error('Invalid number of input arguments, should be 1 or 2');
+                    error('Invalid number of input arguments, should be 1, 2 or 3');
             end
             
             
@@ -609,11 +625,11 @@ classdef TanSig
             if strcmp(dis_opt, 'display')
                 fprintf('\nComputing lower-bounds: ');
             end
-            l = I.getMins(inds, [], dis_opt);
+            l = I.getMins(inds, [], dis_opt, lp_solver);
             if strcmp(dis_opt, 'display')
                 fprintf('\nComputing upper-bounds: ');
             end
-            u = I.getMaxs(inds, [], dis_opt);
+            u = I.getMaxs(inds, [], dis_opt, lp_solver);
 
             yl = tansig(l);
             yu = tansig(u);
@@ -781,18 +797,26 @@ classdef TanSig
             % author: Dung Tran
             % date: 6/26/2020
             % update: 7/15/2020: add display option
+            %         7/16/2020: add lp_solver option
             
             switch nargin
                 case 2
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     dis_opt = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
                 otherwise
-                    error('Invalid number of input arguments, should be 2 or 3');
+                    error('Invalid number of input arguments, should be 2, 3 or 4');
             end
             
             if ~isa(I, 'Star')
@@ -811,11 +835,11 @@ classdef TanSig
             if strcmp(dis_opt, 'display')
                 fprintf('\nComputing (1-%.3f) x %d = %d lower-bounds, i.e. relaxing %2.2f%%: ' , relaxFactor, length(l), n1, 100*relaxFactor);
             end
-            l2 = I.getMins(midx(1:n1), [], dis_opt);
+            l2 = I.getMins(midx(1:n1), [], dis_opt, lp_solver);
             if strcmp(dis_opt, 'display')
                 fprintf('\nComputing (1-%.3f) x %d = %d upper-bounds, i.e. relaxing %2.2f%%: ' , relaxFactor, length(l), n1, 100*relaxFactor);
             end
-            u2 = I.getMaxs(midx(1:n1), [], dis_opt);
+            u2 = I.getMaxs(midx(1:n1), [], dis_opt, lp_solver);
             l(midx(1:n1)) = l2;
             u(midx(1:n1)) = u2;
 
@@ -1248,8 +1272,17 @@ methods(Static) % main reach method
         % author: Dung Tran
         % date: 3/27/2019
         % update: 7/15/2020 : add display option
-
+        %         7/16/2020: add lp_solver option
+        
         switch nargin
+            
+            case 6
+                I = varargin{1};
+                method = varargin{2};
+                option = varargin{3};
+                relaxFactor = varargin{4}; % used for aprox-star only
+                dis_opt = varargin{5}; % display option
+                lp_solver = varargin{6};
             
             case 5
                 I = varargin{1};
@@ -1257,21 +1290,21 @@ methods(Static) % main reach method
                 option = varargin{3};
                 relaxFactor = varargin{4}; % used for aprox-star only
                 dis_opt = varargin{5}; % display option
-            
+                lp_solver = 'linprog';
             case 4
                 I = varargin{1};
                 method = varargin{2};
                 option = varargin{3};
                 relaxFactor = varargin{4}; % for relaxed approx-star method
                 dis_opt = [];
-
+                lp_solver = 'linprog';
             case 3
                 I = varargin{1};
                 method = varargin{2};
                 option = varargin{3};
                 relaxFactor = 0; % for relaxed approx-star method
                 dis_opt = [];
-                
+                lp_solver = 'linprog';
             case 2
                 I = varargin{1};
                 method = varargin{2};
@@ -1285,15 +1318,15 @@ methods(Static) % main reach method
                 option = [];
                 relaxFactor = 0; % for relaxed approx-star method
                 dis_opt = [];
-                
+                lp_solver = 'linprog';
             otherwise
-                error('Invalid number of input arguments (should be 1, 2, 3 or 4)');
+                error('Invalid number of input arguments (should be 1, 2, 3, 4 or 5)');
         end
 
 
         if strcmp(method, 'approx-star') % exact analysis using star
 
-            R = TanSig.reach_star_approx(I, method, relaxFactor, dis_opt);
+            R = TanSig.reach_star_approx(I, method, relaxFactor, dis_opt, lp_solver);
 
         elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
 

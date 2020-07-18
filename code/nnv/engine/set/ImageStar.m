@@ -589,7 +589,7 @@ classdef ImageStar < handle
         
         
         % get ranges of a state at specific position
-        function [xmin, xmax] = getRange(obj, vert_ind, horiz_ind, chan_ind)
+        function [xmin, xmax] = getRange(varargin)
             % @vert_ind: vectical index
             % @horiz_ind: horizontal index
             % @chan_ind : channel index
@@ -599,7 +599,24 @@ classdef ImageStar < handle
             
             % author: Dung Tran
             % date: 6/18/2019
-                                  
+            % update: 7/15/2020: add lp_solver option
+            
+            switch nargin
+                case 4
+                    obj = varargin{1};
+                    vert_ind = varargin{2};
+                    horiz_ind = varargin{3};
+                    chan_ind = varargin{4};
+                    lp_solver = 'linprog';
+                case 5
+                    obj = varargin{1};
+                    vert_ind = varargin{2};
+                    horiz_ind = varargin{3};
+                    chan_ind = varargin{4};
+                    lp_solver = varargin{5};
+                otherwise
+                    error('Invalid number of input arguments, should be 3 or 4');
+            end
             
             if isempty(obj.C) || isempty(obj.d)
                 error('The imagestar is empty');
@@ -622,36 +639,41 @@ classdef ImageStar < handle
             
             % use Gorubi (linprog or linprog of Matlab)
             
-            options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
-            
-            [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
-            if exitflag == 1
-               xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-            else
-                error('Cannot find an optimal solution, exitflag = %d', exitflag);
-            end
-            
-            [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
-            if exitflag == 1
-                xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-            else
-                error('Cannot find an optimal solution exitflag = %d', exitflag);
-            end
-            
-%             [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
-%             if exitflag == 5
-%                 xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-%             else
-%                 error('Cannot find an optimal solution, exitflag = %d', exitflag);
-%             end          
+            if strcmp(lp_solver, 'linprog')
+                options = optimoptions(@linprog, 'Display','none');
+                options.OptimalityTolerance = 1e-10; % set tolerance
+                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
+                if exitflag == 1
+                   xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+                else
+                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                end
 
-%             [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
-%             if exitflag == 5
-%                 xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-%             else
-%                 error('Cannot find an optimal solution exitflag = %d', exitflag);
-%             end
-            
+                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
+                if exitflag == 1
+                    xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+                else
+                    error('Cannot find an optimal solution exitflag = %d', exitflag);
+                end
+            elseif strcmp(lp_solver, 'glpk')
+                [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+                if exitflag == 5
+                    xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+                else
+                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                end          
+
+                [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+                if exitflag == 5
+                    xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+                else
+                    error('Cannot find an optimal solution exitflag = %d', exitflag);
+                end
+                
+            else
+                error('Unknown lp solver, should be linprog or glpk');
+            end
+                
             obj.im_lb(vert_ind, horiz_ind, chan_ind) = xmin;
             obj.im_ub(vert_ind, horiz_ind, chan_ind) = xmax;
                    
@@ -751,12 +773,24 @@ classdef ImageStar < handle
         
         
         % get lowew bound and upper bound images of an imagestar
-        function [image_lb, image_ub] = getRanges(obj)
+        function [image_lb, image_ub] = getRanges(varargin)
             % @image_lb: lower bound image
             % @image_ub: upper bound image
             
             % author: Dung Tran
             % date: 6/20/2019
+            % update: 7/15/2020: add lp_solver option
+            
+            switch nargin
+                case 1
+                    obj = varargin{1};
+                    lp_solver = 'linprog';
+                case 2
+                    obj = varargin{1};
+                    lp_solver = varargin{2};
+                otherwise
+                    error('Invalid number of input arguments');
+            end
             
             image_lb = zeros(obj.height, obj.width, obj.numChannel);
             image_ub = zeros(obj.height, obj.width, obj.numChannel);
@@ -768,7 +802,7 @@ classdef ImageStar < handle
                 for j=1:obj.width
                     for k=1:obj.numChannel
                         msg = sprintf('%d/%d', i*j*k, N);
-                        [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k);                       
+                        [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k, lp_solver);                       
                         fprintf([reverseStr, msg]);
                         reverseStr = repmat(sprintf('\b'), 1, length(msg));
                     end
@@ -829,17 +863,29 @@ classdef ImageStar < handle
         
         
         % update local ranges for Max Pooling operation
-        function updateRanges(obj, points)
+        function updateRanges(varargin)
             % @points: local points = [x1 y1 c1; x2 y2 c2; ...]
             
             % author: Dung Tran
             % date: 6/25/2019
             
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    points = varargin{2};
+                    lp_solver = 'linprog';
+                case 3
+                    obj = varargin{1};
+                    points = varargin{2};
+                    lp_solver = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 2 or 3');
+            end
 
             n = size(points, 1);
             for i=1:n
                 % fprintf('\nUpdate range at point: [h = %d, w = %d, c = %d]', points(i, 1), points(i,2), points(i, 3));
-                obj.getRange(points(i, 1), points(i,2), points(i, 3));
+                obj.getRange(points(i, 1), points(i,2), points(i, 3), lp_solver);
             end        
             
         end
@@ -864,7 +910,7 @@ classdef ImageStar < handle
         
         
         % get local bound for Max Pooling operation
-        function [lb, ub] = get_localBound(obj, startpoint, PoolSize, channel_id)
+        function [lb, ub] = get_localBound(varargin)
             % @startpoint: startpoint of the local(partial) image
             %               startpoint = [x1 y1];
             % @PoolSize: = [height width] the height and width of max pooling layer
@@ -874,12 +920,30 @@ classdef ImageStar < handle
             
             % author: Dung Tran
             % date: 6/25/2019
+            % update: 7/16/2020: add lp_solver option
+            
+            switch nargin
+                case 4
+                    obj = varargin{1};
+                    startpoint = varargin{2};
+                    PoolSize = varargin{3};
+                    channel_id = varargin{4};
+                    lp_solver = 'linprog';
+                case 5
+                    obj = varargin{1};
+                    startpoint = varargin{2};
+                    PoolSize = varargin{3};
+                    channel_id = varargin{4};
+                    lp_solver = 'linprog';
+                otherwise
+                    error('Invalid number of input arguments, should be 4 or 5');
+            end
             
             points = obj.get_localPoints(startpoint, PoolSize);
             n = length(points);
             % get lower bound and upper bound image
             if isempty(obj.im_lb) || isempty(obj.im_ub)
-                [image_lb, image_ub] = obj.getBox;
+                [image_lb, image_ub] = obj.getRanges(lp_solver);
             else
                 image_lb = obj.im_lb;
                 image_ub = obj.im_ub;
@@ -954,7 +1018,7 @@ classdef ImageStar < handle
         % get local max index, this medthod tries to find the maximum point
         % of a local image, used in over-approximate reachability analysis
         % of maxpooling operation
-        function max_id = get_localMax_index(obj, startpoint, PoolSize, channel_id)
+        function max_id = get_localMax_index(varargin)
             % @startpoint: startpoint of the local(partial) image
             %               startpoint = [x1 y1];
             % @PoolSize: = [height width] the height and width of max pooling layer
@@ -966,6 +1030,24 @@ classdef ImageStar < handle
             
             % author: Dung Tran
             % date: 6/24/2019
+            % update: 7/16/2020: ad lp_solver option 
+            
+            switch nargin
+                case 4
+                    obj = varargin{1};
+                    startpoint = varargin{2};
+                    PoolSize = varargin{3};
+                    channel_id = varargin{4};
+                    lp_solver = 'linprog';
+                case 5
+                    obj = varargin{1};
+                    startpoint = varargin{2};
+                    PoolSize = varargin{3};
+                    channel_id = varargin{4};
+                    lp_solver = varargin{5};
+                otherwise
+                    error('Invalid number of input arguments, should be 4 or 5');
+            end
             
             points = obj.get_localPoints(startpoint, PoolSize);          
             % get lower bound and upper bound image
@@ -1005,7 +1087,7 @@ classdef ImageStar < handle
                     new_points = [p channel_id];
                     new_points1(i, :) = p;
                 end
-                obj.updateRanges(new_points);
+                obj.updateRanges(new_points, lp_solver);
                                 
                 lb = zeros(1, m);
                 ub = zeros(1, m);
@@ -1031,7 +1113,7 @@ classdef ImageStar < handle
                     max_id1 = max_id;
                     for j=1:m
                         p1 = new_points1(candidates1(j), :);         
-                        if obj.is_p1_larger_p2([p1(1) p1(2) channel_id], [max_id(1) max_id(2) channel_id])
+                        if obj.is_p1_larger_p2([p1(1) p1(2) channel_id], [max_id(1) max_id(2) channel_id], lp_solver)
                             max_id1 = [max_id1; p1];
                         end
                     end                
@@ -1168,7 +1250,7 @@ classdef ImageStar < handle
         % compare between two specific points in the image
         % check if p1 > p2 is feasible or not
         % useful for max pooling operation
-        function b = is_p1_larger_p2(obj, p1, p2)
+        function b = is_p1_larger_p2(varargin)
             % @p1: the first point = [h1, w1, c1]
             % @p2: the second point = [h2, w2, c2]
             % h: height, w: width, c: channel index
@@ -1178,6 +1260,22 @@ classdef ImageStar < handle
             
             % author: Dung Tran
             % date: 7/23/2019
+            % update: 7/16/2020: add lp_solver option
+            
+            switch nargin
+                case 3
+                    obj = varargin{1};
+                    p1 = varargin{2};
+                    p2 = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    obj = varargin{1};
+                    p1 = varargin{2};
+                    p2 = varargin{3};
+                    lp_solver = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments, should be 2 or 3');
+            end
             
             % a*(V2 - V1) <= c1 - c2
             
@@ -1193,22 +1291,32 @@ classdef ImageStar < handle
            
             f = zeros(1, obj.numPred);
             
-            options = optimoptions(@linprog, 'Preprocess', 'none', 'Display','none');           
-            [~, ~, exitflag, ~] = linprog(f, new_C, new_d, [], [], obj.pred_lb, obj.pred_ub, options);
-            if exitflag == 1 % feasible solution exist
-                b = 1;
-            elseif exitflag == -2
-                b = 0;
+            if strcmp(lp_solver, 'linprog')
+                options = optimoptions(@linprog, 'Display','none');
+                options.OptimalityTolerance = 1e-10; % set tolerance
+                [~, ~, exitflag, ~] = linprog(f, new_C, new_d, [], [], obj.pred_lb, obj.pred_ub, options);
+                if exitflag == 1 % feasible solution exist
+                    b = 1;
+                elseif exitflag == -2
+                    b = 0;
+                else
+                    error('ERROR, exitflag = %d', exitflag);
+                end
+            elseif strcmp(lp_solver, 'glpk')
+                [~,~,exitflag,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
+                if exitflag == 5 || exitflag == 2 % feasible solution exist
+                    b = 1;
+                elseif exitflag == 4 || exitflag == 3 % no feasible solution exit
+                    b = 0;
+                else
+                    error('ERROR, exitflag = %d', exitflag);
+                end
             else
-                error('ERROR, exitflag = %d', exitflag);
+                error('Unknown lp solver, should be glpk or linprog');
             end
-%             [~,~,exitflag,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
+            
+            
 
-%             if exitflag == 5 % feasible solution exist
-%                 b = 1;
-%             else
-%                 b = 0;
-%             end
             
         end
                
@@ -1224,7 +1332,7 @@ classdef ImageStar < handle
         % check if a pixel value is the maximum value compared with others
         % this is core step for exactly performing maxpooling operation on an
         % imagestar set
-        function [new_C, new_d] = isMax(maxMap, ori_image, center, others)
+        function [new_C, new_d] = isMax(varargin)
             % @maxMap: the current maxMap ImageStar
             % @ori_image: the original ImageStar to compute the maxMap 
             % @center: is the center pixel position we want to check
@@ -1238,6 +1346,24 @@ classdef ImageStar < handle
             % author: Dung Tran
             % date: 6/20/2019
             % update: 7/25/2019
+            % update: 7/16/2020: add lp_solver option 
+            
+            switch nargin
+                case 4 
+                    maxMap = varargin{1};
+                    ori_image = varargin{2};
+                    center = varargin{3};
+                    others = varargin{4};
+                    lp_solver = 'linprog';
+                case 5
+                    maxMap = varargin{1};
+                    ori_image = varargin{2};
+                    center = varargin{3};
+                    others = varargin{4};
+                    lp_solver = 'linprog';
+                otherwise 
+                    error('Invalid number of input arguments, should be 4 or 5');
+            end
                        
             if maxMap.numPred ~= ori_image.numPred
                 error('Inconsistency between number of predicates in the current maxMap and the original image');
@@ -1278,15 +1404,33 @@ classdef ImageStar < handle
             d1 = E(:, ori_image.numPred + 1);
 
             f = zeros(1, ori_image.numPred);
+            
+            if strcmp(lp_solver, 'linprog')
+                options = optimoptions(@linprog, 'Display','none');  
+                options.OptimalityTolerance = 1e-10; % set tolerance
+                [~, ~, exitflag, ~] = linprog(f, C1,  d1, [], [], ori_image.pred_lb, ori_image.pred_ub, options);
+                if exitflag == 1 % feasible solution exist
+                    new_C = C1;
+                    new_d = d1;
+                else
+                    new_C = [];
+                    new_d = [];
+                end
+  
+            elseif strcmp(lp_solver, 'glpk')
+                
+                [~,~,status,~] = glpk(f, C1, d1, ori_image.pred_lb, ori_image.pred_ub);
 
-            [~,~,status,~] = glpk(f, C1, d1, ori_image.pred_lb, ori_image.pred_ub);
+                if status == 5 % feasible solution exist
+                    new_C = C1;
+                    new_d = d1;
+                else
+                    new_C = [];
+                    new_d = [];
+                end
 
-            if status == 5 % feasible solution exist
-                new_C = C1;
-                new_d = d1;
             else
-                new_C = [];
-                new_d = [];
+                error('Unknown lp solver, should be linprog or glpk');
             end
 
         end

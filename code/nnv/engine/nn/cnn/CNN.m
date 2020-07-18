@@ -26,6 +26,8 @@ classdef CNN < handle
         
         features = {}; % outputs of each layer in an evaluation
         dis_opt = []; % display option = 'display' or []
+        lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set
+        % user can choose 'glpk' or 'linprog' as an LP solver
         
     end
     
@@ -118,15 +120,37 @@ classdef CNN < handle
             % date: 
             % update: 7/15/2020 : add display option "dis_opt = 'display'"
             % -> display all messages
+            % update: 7/16/2020: add lp_solver option for user to choose
             
             switch nargin 
                 
                 case 2
                     
                     obj = varargin{1};
-                    inputSet = varargin{2};
-                    obj.reachMethod = 'approx-star';
-                    obj.numCores = 1; 
+                    if ~isstruct(varargin{2})
+                        error('Input should be a struct variable')
+                    else
+                       if isfield(varargin{2}, 'inputSet')
+                           inputSet = varargin{2}.inputSet;
+                       else
+                           error('No input set for reachability analysis');
+                       end
+                       if isfield(varargin{2}, 'reachMethod')
+                           obj.reachMethod = varargin{2}.reachMethod;
+                       end
+                       if isfield(varargin{2}, 'numCores')
+                           obj.numCores = varargin{2}.numCores;
+                       end
+                       if isfield(varargin{2}, 'relaxFactor')
+                           obj.relaxFactor = varargin{2}.relaxFactor;
+                       end
+                       if isfield(varargin{2}, 'dis_opt')
+                           obj.dis_opt = varargin{2}.dis_opt; % use for debuging
+                       end
+                       if isfield(varargin{2}, 'lp_solver')
+                           obj.lp_solver = varargin{2}.lp_solver;
+                       end
+                    end
                     
                 case 3 
                     
@@ -155,11 +179,20 @@ classdef CNN < handle
                     obj.reachMethod = varargin{3};
                     obj.numCores = varargin{4};
                     obj.relaxFactor = varargin{5};
-                    obj.dis_opt = varargin{6}; % use for debuging 
+                    obj.dis_opt = varargin{6}; % use for debuging
+                    
+                case 7
+                    obj = varargin{1};
+                    inputSet = varargin{2};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = varargin{4};
+                    obj.relaxFactor = varargin{5};
+                    obj.dis_opt = varargin{6}; % use for debuging
+                    obj.lp_solver = varargin{7}; 
                     
                 otherwise 
                     
-                    error('Invalid number of input arguments, the number should be 1, 2, 3, 4, or 5');
+                    error('Invalid number of input arguments, the number should be 1, 2, 3, 4, 5, or 6');
                 
             end
             
@@ -183,10 +216,10 @@ classdef CNN < handle
                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 end
                 start_time = tic;
-                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt);
+                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 obj.reachTime(i-1) = toc(start_time);
                 rs = rs_new;
-                obj.reachSet{i-1} = rs_new;
+                % obj.reachSet{i-1} = rs_new;
                 if strcmp(obj.dis_opt, 'display')
                     fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
                     fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs_new));
@@ -541,8 +574,18 @@ classdef CNN < handle
                     obj.relaxFactor = varargin{6}; % only for the approx-star method
                     obj.dis_opt = varargin{7};
                     
+                case 8
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                    
                 otherwise
-                    error('Invalid number of inputs, should be 2, 3, 4 or 6');
+                    error('Invalid number of inputs, should be 2, 3, 4, 5, 6 or 7');
                      
             end
             
@@ -586,7 +629,7 @@ classdef CNN < handle
             
             if robust == 2             
                 % compute reachable set
-                [R, ~] = obj.reach(in_image, method, obj.numCores, obj.relaxFactor, obj.dis_opt); 
+                [R, ~] = obj.reach(in_image, method, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver); 
                 [robust, cands] = CNN.checkRobust(R, correct_id);   
             end
             
@@ -609,8 +652,18 @@ classdef CNN < handle
             
             % author: Dung Tran
             % date:7/13/2020
+            % update: 7/16/2020: add display option + lp_solver option
             
             switch nargin
+                case 8
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7}; % display option
+                    obj.lp_solver = varargin{8}; 
                 case 7
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -642,8 +695,23 @@ classdef CNN < handle
                     method = varargin{4};
                     numOfCores = 1;
                     obj.relaxFactor = 0; % only for the approx-star method
+                case 2
+                    obj = varargin{1};
+                    if isstruct(varargin{2})
+                        in_images = varargin{2}.inputSets;
+                        correct_ids = varargin{2}.correct_ids;
+                        method = varargin{2}.reachMethod;
+                        numOfCores = varargin{2}.numCores;
+                        obj.relaxFactor = varargin{2}.relaxFactor; % only for the approx-star method
+                        obj.dis_opt = varargin{2}.dis_opt; % display option
+                        obj.lp_solver = varargin{2}.lp_solver; 
+                    else
+                        error('Input argument should be a struct variable');
+                    end
+                    
+                    
                 otherwise
-                    error('Invalid number of input arguments, should be 3, 4, 5 or 6');                    
+                    error('Invalid number of input arguments, should be 1, 3, 4, 5, 6 or 7');                    
             end
             
             

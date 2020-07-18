@@ -18,6 +18,7 @@ classdef FFNNS < handle
         
         reachMethod = 'exact-star';    % reachable set computation scheme, default - 'star'
         reachOption = []; % parallel option, default - non-parallel computing
+        relaxFactor = 0; % use only for approximate star method, 0 mean no relaxation
         numCores = 1; % number of cores (workers) using in computation
         inputSet = [];  % input set
         reachSet = [];  % reachable set for each layers
@@ -30,6 +31,9 @@ classdef FFNNS < handle
         getCounterExs = 0; % default, not getting counterexamples
         
         Operations = []; % flatten a network into a sequence of operations
+        
+        dis_opt = []; % display option
+        lp_solver = 'linprog'; % lp solver option, should be glpk or linprog
         
     end
     
@@ -212,39 +216,76 @@ classdef FFNNS < handle
             % author: Dung Tran
             % update: 7/10/2020: add the relaxed approx-star method for poslin,
             % logsig and tansig
-            
+            % update: 7/18/2020: add display option + lp_solver option
             
             % parse inputs 
             switch nargin
+                
+                 case 7
+                    obj = varargin{1}; % FFNNS object
+                    obj.inputSet = varargin{2}; % input set
+                    obj.reachMethod = varargin{3}; % reachability analysis method
+                    obj.numCores = varargin{4}; % number of cores used in computation
+                    obj.relaxFactor = varargin{5}; 
+                    obj.dis_opt = varargin{6};
+                    obj.lp_solver = varargin{7};
+          
+                case 6
+                    obj = varargin{1}; % FFNNS object
+                    obj.inputSet = varargin{2}; % input set
+                    obj.reachMethod = varargin{3}; % reachability analysis method
+                    obj.numCores = varargin{4}; % number of cores used in computation
+                    obj.relaxFactor = varargin{5}; 
+                    obj.dis_opt = varargin{6}; 
                 
                 case 5
                     obj = varargin{1}; % FFNNS object
                     obj.inputSet = varargin{2}; % input set
                     obj.reachMethod = varargin{3}; % reachability analysis method
                     obj.numCores = varargin{4}; % number of cores used in computation
-                    relaxFactor = varargin{5}; % used only for approx-star method
+                    obj.relaxFactor = varargin{5}; % used only for approx-star method
                 case 4
                     obj = varargin{1}; % FFNNS object
                     obj.inputSet = varargin{2}; % input set
                     obj.reachMethod = varargin{3}; % reachability analysis method
                     obj.numCores = varargin{4}; % number of cores used in computation
-                    relaxFactor = 0; % no relax by default
                 case 3
                     obj = varargin{1};
                     obj.inputSet = varargin{2};
                     obj.reachMethod = varargin{3};
                     obj.numCores = 1;
-                    relaxFactor = 0; % no relax by default
                     
                 case 2
                     obj = varargin{1};
-                    obj.inputSet = varargin{2};
-                    obj.reachMethod = 'exact-star';
-                    obj.numCores = 1;
-                    relaxFactor = 0; % no relax by default
+                    if ~isstruct(varargin{2})
+                        obj.inputSet = varargin{2};
+                        obj.reachMethod = 'exact-star';
+                        obj.numCores = 1;
+                    else
+                        if isfield(varargin{2}, 'inputSet')
+                            obj.inputSet = varargin{2}.inputSet;
+                        end
+                        if isfield(varargin{2}, 'numCores')
+                            obj.numCores = varargin{2}.numCores;
+                        end
+                        if isfield(varargin{2}, 'reachMethod')
+                            obj.reachMethod = varargin{2}.reachMethod;
+                        end
+                        if isfield(varargin{2}, 'dis_opt')
+                            obj.dis_opt = varargin{2}.dis_opt;
+                        end
+                        if isfield(varargin{2}, 'relaxFactor')
+                            obj.relaxFactor = varargin{2}.relaxFactor;
+                        end
+                        if isfield(varargin{2}, 'lp_solver')
+                            obj.lp_solver = varargin{2}.lp_solver;
+                        end
+                        
+                    end   
+                        
                     
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+                    error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
             end
             
             
@@ -273,29 +314,34 @@ classdef FFNNS < handle
             % compute reachable set
             In = obj.inputSet;
                         
-            for i=1:obj.nL               
+            for i=1:obj.nL
                 
-                fprintf('\nComputing reach set for Layer %d ...', i);
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nComputing reach set for Layer %d ...', i);
+                end
                 
                 st = tic;
-                In = obj.Layers(i).reach(In, obj.reachMethod, obj.reachOption, relaxFactor);
+                In = obj.Layers(i).reach(In, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 t1 = toc(st);
                 
                 %obj.reachSet{1, i} = In;
                 obj.numReachSet(i) = length(In);
                 obj.reachTime = [obj.reachTime t1];
                 
-                fprintf('\nExact computation time: %.5f seconds', t1);               
-                fprintf('\nNumber of reachable set at the output of layer %d: %d', i, length(In));               
-                               
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nExact computation time: %.5f seconds', t1);               
+                    fprintf('\nNumber of reachable set at the output of layer %d: %d', i, length(In));               
+                end           
             end
             
             obj.outputSet = In;
             obj.totalReachTime = sum(obj.reachTime);
             S = obj.outputSet;
-            t = obj.totalReachTime;                      
-            fprintf('\nTotal reach set computation time: %.5f seconds', obj.totalReachTime);
-            fprintf('\nTotal number of output reach sets: %d', length(obj.outputSet));
+            t = obj.totalReachTime;
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nTotal reach set computation time: %.5f seconds', obj.totalReachTime);
+                fprintf('\nTotal number of output reach sets: %d', length(obj.outputSet));
+            end
             
         end
         
@@ -1836,37 +1882,77 @@ classdef FFNNS < handle
                 case 3
                     obj = varargin{1};
                     in_image = varargin{2};
-                    correct_id = varargin{3};
-                    method = 'approx-star';
-                    numOfCores = 1;
-                    relaxFactor = 0;  % only for the approx-star method
-                    
+                    correct_id = varargin{3};                    
                 case 4
                     obj = varargin{1};
                     in_image = varargin{2};
                     correct_id = varargin{3};
-                    method = varargin{4};
-                    numOfCores = 1; 
-                    relaxFactor = 0;  % only for the approx-star method
+                    obj.reachMethod = varargin{4};
                     
                 case 5
                     obj = varargin{1};
                     in_image = varargin{2};
                     correct_id = varargin{3};
-                    method = varargin{4};
-                    numOfCores = varargin{5};
-                    relaxFactor = 0;  % only for the approx-star method
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
                     
                 case 6
                     obj = varargin{1};
                     in_image = varargin{2};
                     correct_id = varargin{3};
-                    method = varargin{4};
-                    numOfCores = varargin{5}; 
-                    relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                
+                case 7
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    
+                case 8
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                    
+                case 2
+                    obj = varargin{1};
+                    if ~isstruct(varargin{2})
+                        error('The second input should be a struct variable');
+                    else
+                        if isfield(varargin{2}, 'inputSet')
+                            in_image = varargin{2}.inputSet;
+                        end
+                        if isfield(varargin{2}, 'correct_id')
+                            correct_id = varargin{2}.correct_id;
+                        end
+                        if isfield(varargin{2}, 'reachMethod')
+                            obj.reachMethod = varargin{2}.reachMethod;
+                        end
+                        if isfield(varargin{2}, 'numCores')
+                            obj.numCores = varargin{2}.numCores;
+                        end
+                        if isfield(varargin{2}, 'relaxFactor')
+                            obj.relaxFactor = varargin{2}.relaxFactor;
+                        end
+                        if isfield(varargin{2}, 'dis_opt')
+                            obj.dis_opt = varargin{2}.dis_opt;
+                        end
+                        if isfield(varargin{2}, 'lp_solver')
+                            obj.lp_solver = varargin{2}.lp_solver;
+                        end
+                    end
                                         
                 otherwise
-                    error('Invalid number of inputs, should be 2, 3, or 4');
+                    error('Invalid number of inputs, should be 2, 3, 4, 5, 6, or 7');
                      
             end
             
@@ -1874,7 +1960,7 @@ classdef FFNNS < handle
                 error('Invalid correct id');
             end
             
-            if strcmp(method, 'exact-star')
+            if strcmp(obj.reachMethod, 'exact-star')
                 error('\nThis method does not support exact-star reachability, please choose approx-star');
             end
             
@@ -1900,7 +1986,7 @@ classdef FFNNS < handle
             
             if robust == 2
                 
-                obj.reach(in_image, method, numOfCores, relaxFactor);
+                obj.reach(in_image, obj.reachMethod, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 R = obj.outputSet; 
                 [lb, ub] = R.estimateRanges;
 
@@ -1950,32 +2036,78 @@ classdef FFNNS < handle
             
             % author: Dung Tran
             % date:7/10/2020
+            % update: 7/18/2020 : add dis_opt + lp_solver option
             
             switch nargin
+                
+                case 8
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                
+                case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
                 case 6
                     obj = varargin{1};
                     in_images = varargin{2};
                     correct_ids = varargin{3};
-                    method = varargin{4};
-                    numOfCores = varargin{5};
-                    relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
                     
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     correct_ids = varargin{3};
-                    method = varargin{4};
-                    numOfCores = varargin{5};
-                    relaxFactor = 0; % only for the approx-star method
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     correct_ids = varargin{3};
                     method = varargin{4};
-                    numOfCores = 1;
-                    relaxFactor = 0; % only for the approx-star method
+                    
+                case 2
+                    obj = varargin{1};
+                    if ~isstruct(varargin{2})
+                        error('The second input should be a struct variable');
+                    else
+                        if isfield(varargin{2}, 'inputSets')
+                            in_images = varargin{2}.inputSets;
+                        end
+                        if isfield(varargin{2}, 'correct_ids')
+                            correct_ids = varargin{2}.correct_ids;
+                        end
+                        if isfield(varargin{2}, 'reachMethod')
+                            obj.reachMethod = varargin{2}.reachMethod;
+                        end
+                        if isfield(varargin{2}, 'numCores')
+                            obj.numCores = varargin{2}.numCores;
+                        end
+                        if isfield(varargin{2}, 'relaxFactor')
+                            obj.relaxFactor = varargin{2}.relaxFactor;
+                        end
+                        if isfield(varargin{2}, 'dis_opt')
+                            obj.dis_opt = varargin{2}.dis_opt;
+                        end
+                        if isfield(varargin{2}, 'lp_solver')
+                            obj.lp_solver = varargin{2}.lp_solver;
+                        end
+                    end
+                    
                 otherwise
-                    error('Invalid number of input arguments, should be 3, 4 or 5');                    
+                    error('Invalid number of input arguments, should be 2, 3, 4, 5, 6, or 7');                    
             end
             
             
@@ -1990,13 +2122,13 @@ classdef FFNNS < handle
             cE = cell(1,N);
             cands = cell(1,N);
             vt = zeros(1,N);
-            if ~strcmp(method, 'exact-star')                
+            if ~strcmp(obj.reachMethod, 'exact-star')                
                 
                 % verify reachable set              
-                if numOfCores> 1
+                if obj.numCores > 1
                     parfor i=1:N
                         
-                        [rb(i), cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), method, 1, relaxFactor);                       
+                        [rb(i), cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, 1, obj.relaxFactor, obj.dis_opt, obj.lp_solver);                       
                         if rb(i) == 1
                             count(i) = 1;
                         else
@@ -2006,7 +2138,7 @@ classdef FFNNS < handle
                 else
                     for i=1:N
                         
-                        [rb(i),cE{i}, cands{i}] = obj.verifyRBN(in_images(i), correct_ids(i), method, 1, relaxFactor);
+                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, 1, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                         if rb(i) == 1
                             count(i) = 1;
                         else

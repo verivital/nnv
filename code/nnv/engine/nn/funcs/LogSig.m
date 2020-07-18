@@ -644,7 +644,7 @@ classdef LogSig
                 case 3
                     I = varargin{1};
                     dis_opt = varargin{2};
-                    lp_solver = varargin{2};
+                    lp_solver = varargin{3};
                 otherwise
                     error('Invalid number of input arguments, should be 1, 2 or 3');
             end

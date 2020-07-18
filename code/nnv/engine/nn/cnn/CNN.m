@@ -128,7 +128,7 @@ classdef CNN < handle
                     
                     obj = varargin{1};
                     if ~isstruct(varargin{2})
-                        error('Input should be a struct variable')
+                        inputSet = varargin{2};
                     else
                        if isfield(varargin{2}, 'inputSet')
                            inputSet = varargin{2}.inputSet;

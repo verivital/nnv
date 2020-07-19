@@ -2125,7 +2125,7 @@ classdef FFNNS < handle
             if ~strcmp(obj.reachMethod, 'exact-star')                
                 
                 % verify reachable set              
-                if obj.numCores > 1
+                if obj.numCores > 1 && N > 1
                     parfor i=1:N
                         
                         [rb(i), cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, 1, obj.relaxFactor, obj.dis_opt, obj.lp_solver);                       
@@ -2135,16 +2135,17 @@ classdef FFNNS < handle
                             count(i) = 0;
                         end                             
                     end
-                else
+                else 
                     for i=1:N
                         
-                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, 1, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                         if rb(i) == 1
                             count(i) = 1;
                         else
                             count(i) = 0;
                         end
                     end
+                
                 end
                 
             end

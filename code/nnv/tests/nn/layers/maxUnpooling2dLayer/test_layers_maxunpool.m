@@ -50,7 +50,6 @@ pred_lb = -2;
 pred_ub = 2;
 
 in_image = ImageStar(V, C, d, pred_lb, pred_ub);
-
 L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
 L1 = MaxUnpooling2DLayer;
 L1.PairedMaxPoolingName = L.Name;

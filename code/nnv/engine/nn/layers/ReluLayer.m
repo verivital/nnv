@@ -165,6 +165,61 @@ classdef ReluLayer < handle
             
         end
         
+        % reachability using ImageStar
+        function images = reach_star_single_input2(~, in_image, method, option, relaxFactor, dis_opt)
+            % @in_image: an ImageStar input set
+            % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
+            % @relaxFactor: of approx-star method
+            % @dis_opt: display option = [] or 'display'
+            % @images: an array of ImageStar (if we use 'exact-star' method)
+            %         or a single ImageStar set
+            
+            % author: Dung Tran
+            % date: 7/13/2020: change the way of doing parallel computing
+            % update: 7/15/2020: add display option
+                        
+            if ~isa(in_image, 'ImageStar')
+                error('input is not an ImageStar');
+            end
+            
+            
+            h = in_image.height;
+            w = in_image.width;
+            c = in_image.numChannel;
+            
+            Y = PosLin.reach(in_image.toStar, method, option, relaxFactor, dis_opt); % reachable set computation with ReLU
+            n = length(Y);
+            images(n) = ImageStar;
+            % transform back to ImageStar
+            for i=1:n
+                images(i) = Y(i).toImageStar(h,w,c);
+            end
+
+        end
+        
+        
+        % hangling multiple inputs
+        function images = reach_star_multipleInputs2(obj, in_images, method, option, relaxFactor, dis_opt)
+            % @in_images: an array of ImageStars
+            % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
+            % @option: = 'parallel' or 'single' or empty
+            % @relaxFactor: of approx-star method
+            % @dis_opt: display option = [] or 'display'
+            % @images: an array of ImageStar (if we use 'exact-star' method)
+            %         or a single ImageStar set
+            
+            % author: Dung Tran
+            % date: 7/13/2020
+            
+            images = [];
+            n = length(in_images);
+                        
+            for i=1:n
+                images = [images obj.reach_star_single_input2(in_images(i), method, option, relaxFactor, dis_opt)];
+            end
+            
+        end
+        
         
         % reachability using ImageZono
         function image = reach_zono(~, in_image)
@@ -222,8 +277,17 @@ classdef ReluLayer < handle
             
             % author: Dung Tran
             % date: 6/26/2019
+            % update: 7/15/2020: add display option
              
             switch nargin
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    relaxFactor = varargin{5}; % use for approx-star only
+                    dis_opt = varargin{6}; % display option
                 
                 case 5
                     obj = varargin{1};
@@ -251,7 +315,7 @@ classdef ReluLayer < handle
             end
             
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
-                images = obj.reach_star_multipleInputs(in_images, method, option, relaxFactor);
+                images = obj.reach_star_multipleInputs2(in_images, method, option, relaxFactor, dis_opt);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);
             end         

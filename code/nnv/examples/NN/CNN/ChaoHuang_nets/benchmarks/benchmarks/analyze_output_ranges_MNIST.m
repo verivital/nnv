@@ -23,20 +23,20 @@ im = im';
 
 % attack all pixels independently by some bounded disturbance d 
 % d = 0.001; % 63 seconds
-d = 0.002; % 100 seconds
+% d = 0.002; % 100 seconds
 % d = 0.003; % 160 seconds
 % d = 0.004; % 214 seconds
-% d = 0.01; 
+d = 0.01; 
 attack_LB = -d*ones(28, 28);
 attack_UB = d*ones(28,28);
 
 %% computing reachable set 
 
 IS = ImageStar(im, attack_LB, attack_UB); % construct an ImageStar input set
-t = tic;
-OS1 = nnvNet.reach(IS, 'approx-star'); % perfrom reachability analysis using approx-star method
-OS1.estimateRanges; % estimate ranges of all outputs
-rt1 = toc(t);
+% t = tic;
+% OS1 = nnvNet.reach(IS, 'approx-star'); % perfrom reachability analysis using approx-star method
+% OS1.estimateRanges; % estimate ranges of all outputs
+% rt1 = toc(t);
 
 t = tic;
 relaxFactor = 0.9;
@@ -46,8 +46,8 @@ rt2 = toc(t);
 
 %% get output ranges
 % output ranges with ImageStar method
-lb1 = reshape(OS1.im_lb, [10 1]); % lower bound vector of the output
-ub1 = reshape(OS1.im_ub, [10 1]); % upper bound vector of the output
+% lb1 = reshape(OS1.im_lb, [10 1]); % lower bound vector of the output
+% ub1 = reshape(OS1.im_ub, [10 1]); % upper bound vector of the output
 
 lb2 = reshape(OS2.im_lb, [10 1]); % lower bound vector of the output
 ub2 = reshape(OS2.im_ub, [10 1]); % upper bound vector of the output

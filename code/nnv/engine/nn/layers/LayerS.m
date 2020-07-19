@@ -80,20 +80,29 @@ classdef LayerS
             
             % author: Dung Tran
             % date: 27/2/2019
+            % update: 7/10/2020 add the relaxed approx-star method for poslin, logsig and tansig
             
              
             % parse inputs 
             switch nargin
+                case 5
+                    obj = varargin{1};
+                    I = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    relaxFactor = varargin{5}; % only use for approx-star method
                 case 4
                     obj = varargin{1};
                     I = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
+                    relaxFactor = 0;
                 case 3
                     obj = varargin{1};
                     I = varargin{2};
                     method = varargin{3};
                     option = [];
+                    relaxFactor = 0;
                 otherwise
                     error('Invalid number of input arguments (should be 2 or 3)');
             end
@@ -127,15 +136,15 @@ classdef LayerS
                     if strcmp(f1, 'purelin')
                         S = [S I1];
                     elseif strcmp(f1, 'poslin')
-                        S = [S PosLin.reach(I1, method)];
+                        S = [S PosLin.reach(I1, method, [], relaxFactor)];
                     elseif strcmp(f1, 'satlin')
                         S = [S SatLin.reach(I1, method)];
                     elseif strcmp(f1, 'satlins')
                         S = [S SatLins.reach(I1, method)];
                     elseif strcmp(f1, 'logsig')
-                        S = [S LogSig.reach(I1, method)];
+                        S = [S LogSig.reach(I1, method,[], relaxFactor)];
                     elseif strcmp(f1, 'tansig')
-                        S = [S TanSig.reach(I1, method)];
+                        S = [S TanSig.reach(I1, method, [], relaxFactor)];
                     elseif strcmp(f1, 'softmax')
                         fprintf("\nSoftmax reachability is neglected in verification");
                         S = [S I1];
@@ -159,15 +168,15 @@ classdef LayerS
                     if strcmp(f1, 'purelin')
                         S = [S I1];
                     elseif strcmp(f1, 'poslin')
-                        S = [S PosLin.reach(I1, method)];
+                        S = [S PosLin.reach(I1, method, [], relaxFactor)];
                     elseif strcmp(f1, 'satlin')
                         S = [S SatLin.reach(I1, method)];
                     elseif strcmp(f1, 'satlins')
                         S = [S SatLins.reach(I1, method)];
                     elseif strcmp(f1, 'logsig')
-                        S = [S LogSig.reach(I1, method)];
+                        S = [S LogSig.reach(I1, method, [], relaxFactor)];
                     elseif strcmp(f1, 'tansig')
-                        S = [S TanSig.reach(I1, method)];
+                        S = [S TanSig.reach(I1, method, [], relaxFactor)];
                     elseif strcmp(f1, 'softmax')
                         fprintf("\nSoftmax reachability is neglected in verification");
                         S = [S I1];

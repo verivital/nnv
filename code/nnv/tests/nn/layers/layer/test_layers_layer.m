@@ -1,4 +1,4 @@
-%to run this as a test, use results_fnn_layer=runtests('test_fnn_layer')
+%to run this as a test, use results_layers_layer=runtests('test_layers_layer')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test

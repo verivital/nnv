@@ -20,10 +20,10 @@ cd /deps/run_nnv_comparison
 
 chmod +x run_tools.sh
 # run tool comparisons, this will take some time (~20-40 minutes or so, depends on codeocean load as this is run on shared resources)
-./run_tools.sh > /results/run_nnv_comparison_log.txt 2>/results/run_nnv_comparison_err.txt
+#./run_tools.sh > /results/run_nnv_comparison_log.txt 2>/results/run_nnv_comparison_err.txt
 
-cd /results/logs
-pdflatex main.tex
+#cd /results/logs
+#pdflatex main.tex
 
 # start up matlab and run
 cd ~/

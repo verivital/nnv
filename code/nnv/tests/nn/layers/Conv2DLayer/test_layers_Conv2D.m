@@ -1,4 +1,4 @@
-%to run this as a test, use results_cnn_Conv2D=runtests('test_cnn_Conv2D')
+%to run this as a test, use results_layers_Conv2D=runtests('test_layers_Conv2D')
 %requirements: file must start or end with test
 %each test starts with two percent signs followed by the name
 %shared vairables must appear before first test

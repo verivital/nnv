@@ -476,6 +476,20 @@ classdef Zono
             ub = obj.c(index) + norm(obj.V(index, :), 1);
         end
         
+        % check if a index is larger than other
+        function bool = is_p1_larger_than_p2(obj, p1_id, p2_id)
+            % @p1_id: index of point 1
+            % @p2_id: index of point 2
+            % @bool = 1 if there exists the case that p1 >= p2
+            %       = 0 if there is no case that p1 >= p2
+            
+            % author: Dung Tran
+            % date: 7/10/2020
+            
+            S = obj.toStar;
+            bool = S.is_p1_larger_than_p2(p1_id, p2_id);
+        end
+        
         % get an oriented rectangular hull enclosing a zonotope
         function Z = getOrientedBox(obj)
             % this code is from MATTISE of Prof. Girard, in 2005. 

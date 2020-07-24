@@ -27,16 +27,34 @@ classdef LogSig
                     I = varargin{1};
                     method = 'approx-star-no-split';
                     relaxFactor = 0;
+                    dis_opt = [];
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = 0;
+                    dis_opt = [];
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = varargin{3};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    method = varargin{2};
+                    relaxFactor = varargin{3};
+                    dis_opt = varargin{4};
+                    lp_solver = 'linprog';
+                case 5
+                    I = varargin{1};
+                    method = varargin{2};
+                    relaxFactor = varargin{3};
+                    dis_opt = varargin{4};
+                    lp_solver = varargin{5};
                 otherwise
-                    error('Invalid number of input arguments');
+                    error('Invalid number of input arguments, should be 1, 2, 3, 4 or 5');
             end
             
             if ~isa(I, 'Star')
@@ -45,9 +63,9 @@ classdef LogSig
             
             if strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star')
                 if relaxFactor == 0
-                    S = LogSig.reach_star_approx_no_split(I);
+                    S = LogSig.reach_star_approx_no_split(I, dis_opt, lp_solver);
                 else
-                    S = LogSig.relaxedMultiStepLogSig_NoSplit(I, relaxFactor);
+                    S = LogSig.relaxedMultiStepLogSig_NoSplit(I, relaxFactor, dis_opt, lp_solver);
                 end
             elseif strcmp(method, 'approx-star-split')
                 S = LogSig.reach_star_approx_split(I);
@@ -59,15 +77,33 @@ classdef LogSig
         
         
         % reachability method with star
-        function S = reach_star_approx_no_split(I)
+        function S = reach_star_approx_no_split(varargin)
             % @I: the input star set
             % @S: a star set output
             
             % author: Dung Tran
             % date: 3/19/2020
             % update:4/2/2020, 6/12/2020
+            % update: 7/15/2020: add display option
+            %         7/16/2020: add lp_solver option
             
-            S = LogSig.multiStepLogSig_NoSplit(I);      % more efficient method compared with stepLogSig_NoSplit       
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 2
+                    I = varargin{1};
+                    dis_opt = varargin{2};
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    dis_opt = varargin{2};
+                    lp_solver = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');
+            end
+            S = LogSig.multiStepLogSig_NoSplit(I, dis_opt, lp_solver);      % more efficient method compared with stepLogSig_NoSplit       
 %             n = I.dim;
 %             S = I;
 %             for i=1:n
@@ -580,7 +616,7 @@ classdef LogSig
         
         
         % multistepLogSig
-        function S = multiStepLogSig_NoSplit(I)
+        function S = multiStepLogSig_NoSplit(varargin)
             % @I: input star set
             
             % @l: l = min(x[index]), lower bound at neuron x[index] 
@@ -594,17 +630,37 @@ classdef LogSig
             
             % author: Dung Tran
             % date: 6/12/2020
-            
-            
+            % update: 7/15/2020: add display option 
+            %         7/16/2020: add lp_solver option
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 2
+                    I = varargin{1};
+                    dis_opt = varargin{2};
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    dis_opt = varargin{2};
+                    lp_solver = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 1, 2 or 3');
+            end
+
             
            %[l, u] = I.estimateRanges;
             N = I.dim;
             inds = 1:N;
-            fprintf('\nComputing lower-bounds: ');
-            l = I.getMins(inds);
-            fprintf('\nComputing upper-bounds: ');
-            u = I.getMaxs(inds);
-
+            if strcmp(dis_opt, 'display')
+                fprintf('\nComputing lower-bounds: ');
+            end
+            l = I.getMins(inds, [], dis_opt, lp_solver);
+            if strcmp(dis_opt, 'display')
+                fprintf('\nComputing upper-bounds: ');  
+            end
+            u = I.getMaxs(inds, [], dis_opt, lp_solver);
             yl = logsig(l);
             yu = logsig(u);
             dyl = logsig('dn', l);
@@ -755,7 +811,7 @@ classdef LogSig
         
         
         % multistepLogSig
-        function S = relaxedMultiStepLogSig_NoSplit(I, relaxFactor)
+        function S = relaxedMultiStepLogSig_NoSplit(varargin)
             % @I: input star set
             % @relaxFactor: percentage of optimized ranges used for
             % constructing reachable set
@@ -771,6 +827,27 @@ classdef LogSig
             
             % author: Dung Tran
             % date: 6/12/2020
+            % update: 7/15/2020 add display option
+            
+            switch nargin
+                case 2 
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments, should be 2 or 3');
+            end
             
             if ~isa(I, 'Star')
                 error('Input is not a star');
@@ -784,10 +861,14 @@ classdef LogSig
             [~, midx] = sort(u - l, 'descend');
             
             N = I.dim;
-            fprintf('\nComputing (1-%.3f) x %d = %d lower-bounds, i.e. relaxing %2.2f%%: ' , relaxFactor, length(l), n1, 100*relaxFactor);
-            l2 = I.getMins(midx(1:n1));
-            fprintf('\nComputing (1-%.3f) x %d = %d upper-bounds, i.e. relaxing %2.2f%%: ' , relaxFactor, length(l), n1, 100*relaxFactor);
-            u2 = I.getMaxs(midx(1:n1));
+            if strcmp(dis_opt, 'display')
+                fprintf('\nComputing (1-%.3f) x %d = %d lower-bounds, i.e. relaxing %2.2f%%: ' , relaxFactor, length(l), n1, 100*relaxFactor);
+            end
+            l2 = I.getMins(midx(1:n1), [], dis_opt, lp_solver);
+            if strcmp(dis_opt, 'display')
+                fprintf('\nComputing (1-%.3f) x %d = %d upper-bounds, i.e. relaxing %2.2f%%: ' , relaxFactor, length(l), n1, 100*relaxFactor);
+            end
+            u2 = I.getMaxs(midx(1:n1), [], dis_opt, lp_solver);
             l(midx(1:n1)) = l2;
             u(midx(1:n1)) = u2;
             
@@ -1217,23 +1298,61 @@ methods(Static) % main reach method
         % date: 3/27/2019
         % update: 4/2/2020
         % update: 6/26/2020: add relaxed approx-star method
-        
+        % update 7/15/2020: add display option
+        %        7/16/2020: add lp_solver option
+            
         switch nargin
-            case 2
+            case 6
                 I = varargin{1};
                 method = varargin{2};
-                relaxFactor = 0;
+                option = varargin{3};
+                relaxFactor = varargin{4}; % used for aprox-star only
+                dis_opt = varargin{5}; % display option
+                lp_solver = varargin{6}; % lp solver option
+            case 5
+                I = varargin{1};
+                method = varargin{2};
+                option = varargin{3};
+                relaxFactor = varargin{4}; % used for aprox-star only
+                dis_opt = varargin{5}; % display option
+                lp_solver = 'linprog';
+            case 4
+                I = varargin{1};
+                method = varargin{2};
+                option = varargin{3};
+                relaxFactor = varargin{4}; % for relaxed approx-star method
+                dis_opt = [];
+                lp_solver = 'linprog';
+
             case 3
                 I = varargin{1};
                 method = varargin{2};
-                relaxFactor = varargin{3}; % for approx-star method
+                option = varargin{3};
+                relaxFactor = 0; % for relaxed approx-star method
+                dis_opt = [];
+                lp_solver = 'linprog';
+            case 2
+                I = varargin{1};
+                method = varargin{2};
+                option = [];
+                relaxFactor = 0; % for relaxed approx-star method
+                dis_opt = [];
+                lp_solver = 'linprog';
+            case 1
+                I = varargin{1};
+                method = 'approx-star';
+                option = [];
+                relaxFactor = 0; % for relaxed approx-star method
+                dis_opt = [];
+                lp_solver = 'linprog';
             otherwise
-                error('Invalid number of input arguments');
+                error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
         end
+
 
         if strcmp(method, 'approx-star') || strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star-split') 
             
-            R = LogSig.reach_star_approx(I, method, relaxFactor);
+            R = LogSig.reach_star_approx(I, method, relaxFactor, dis_opt, lp_solver);
 
         elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
 

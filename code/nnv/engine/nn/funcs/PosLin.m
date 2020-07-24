@@ -19,7 +19,7 @@ classdef PosLin
         end
         
         % stepReach method, compute reachable set for a single step
-        function S = stepReach(I, index)
+        function S = stepReach(varargin)
             % @I: single star set input
             % @index: index of the neuron performing stepPosLin
             % @xmin: minimum of x[index]
@@ -28,17 +28,31 @@ classdef PosLin
             
             % author: Dung Tran
             % date: 27/2/2019
+            % update: 7/16/2020: add lp_solver option
+            
+            switch nargin
+                case 2 
+                    I = varargin{1};
+                    index = varargin{2};
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    index = varargin{2};
+                    lp_solver = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 2 or 3');
+            end
             
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
             
-            xmin = I.getMin(index);
+            xmin = I.getMin(index, lp_solver);
                        
             if xmin >= 0
                 S = I; 
             else
-                xmax = I.getMax(index);
+                xmax = I.getMax(index, lp_solver);
                 
                 if xmax <= 0
                 
@@ -231,7 +245,7 @@ classdef PosLin
         
         
         % stepReach with multiple inputs
-        function S = stepReachMultipleInputs(I, index, option)
+        function S = stepReachMultipleInputs(varargin)
             % @I: an array of stars
             % @index: index where stepReach is performed
             % @option: = 'parallel' use parallel computing
@@ -240,6 +254,22 @@ classdef PosLin
             % author: Dung Tran
             % date: 27/2/2019
             % update: 4/2/2020
+            %       : 7/16/2020: add lp_solver option
+            
+            switch nargin
+                case 3
+                    I = varargin{1};
+                    index = varargin{2};
+                    option = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    index = varargin{2};
+                    option = varargin{3};
+                    lp_solver = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments');
+            end
             
             p = length(I);
             S = [];
@@ -247,13 +277,13 @@ classdef PosLin
             if isempty(option)
                 
                 for i=1:p
-                    S =[S, PosLin.stepReach(I(i), index)];
+                    S =[S, PosLin.stepReach(I(i), index, lp_solver)];
                 end
                 
             elseif strcmp(option, 'parallel')
                 
                 parfor i=1:p
-                    S =[S, PosLin.stepReach(I(i), index)];
+                    S =[S, PosLin.stepReach(I(i), index, lp_solver)];
                 end
                 
             else
@@ -266,14 +296,35 @@ classdef PosLin
                 
         
         % exact reachability analysis using star
-        function S = reach_star_exact(I, option)
+        function S = reach_star_exact(varargin)
             % @I: star input sets
             % @option: = 'parallel' using parallel computing
             %          = '[]'    do not use parallel computing
             
             % author: Dung Tran
             % date: 3/16/2019
+            % update: 7/15/2020: add display option
+            %         7/16/2020: add lp_solver option
             
+            switch nargin
+                case 2
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments');
+            end
             
              if ~isempty(I)
                             
@@ -300,8 +351,10 @@ classdef PosLin
                     map = find(lb < 0 & ub > 0);
                     m = length(map);                    
                     for i=1:m
-                        fprintf('\nPerforming exact PosLin_%d operation using Star', map(i));
-                        In = PosLin.stepReachMultipleInputs(In, map(i), option);
+                        if strcmp(dis_opt, 'display')
+                            fprintf('\nPerforming exact PosLin_%d operation using Star', map(i));
+                        end
+                        In = PosLin.stepReachMultipleInputs(In, map(i), option, lp_solver);
                     end               
                     S = In;
                 end
@@ -388,24 +441,45 @@ classdef PosLin
         
         
         % exact reachability analysis using star
-        function S = reach_star_exact_multipleInputs(In, option)
+        function S = reach_star_exact_multipleInputs(varargin)
             % @In: star input sets
             % @option: = 'parallel' using parallel computing
             %          = '[]'    do not use parallel computing
             
             % author: Dung Tran
             % date: 7/25/2019
+            % update: 7/16/2020: add display option + lp_solver option
+            
+            switch nargin
+                case 2
+                    In = varargin{1};
+                    option = varargin{2};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 3
+                    In = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    In = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments, should be 2, 3 or 4');
+            end
             
             
              n = length(In);
              S = [];
              if strcmp(option, 'parallel')
                  parfor i=1:n
-                     S = [S PosLin.reach_star_exact(In(i), [])];
+                     S = [S PosLin.reach_star_exact(In(i), [], dis_opt, lp_solver)];
                  end
              elseif isempty(option) || strcmp(option, 'single')
                  for i=1:n
-                     S = [S PosLin.reach_star_exact(In(i), [])];
+                     S = [S PosLin.reach_star_exact(In(i), [], dis_opt, lp_solver)];
                  end
              else
                  error('Unknown computation option');
@@ -605,12 +679,41 @@ classdef PosLin
         
         % more efficient method by doing multiple stepReach at one time
         % over-approximate reachability analysis using Star
-        function S = reach_star_approx2(I)
+        function S = reach_star_approx2(varargin)
             % @I: star input set
+            % @option: 'parallel' or single
             % @S: star output set
 
             % author: Dung Tran
             % date: 4/3/2019
+            % update: 7/13/2020 : getMax parallel
+            % update: 7/15/2020 : add display option
+            %         7/16/2020: add lp_solver option
+            
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    option = 'single';
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 2
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments, should be 1, 2, 3, or 4');
+            end
 
             if ~isa(I, 'Star')
                 error('Input is not a star');
@@ -623,18 +726,25 @@ classdef PosLin
                 if isempty(lb) || isempty(ub)
                     S = [];
                 else
-                    
                     % find all indexes having ub <= 0, then reset the
                     % values of the elements corresponding to these indexes to 0
-                    fprintf('\nFinding all neurons (in %d neurons) with ub <= 0...', length(ub));
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\nFinding all neurons (in %d neurons) with ub <= 0...', length(ub));
+                    end
                     map1 = find(ub <= 0); % computation map
-                    fprintf('\n%d neurons with ub <= 0 are found by estimating ranges', length(map1));
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\n%d neurons with ub <= 0 are found by estimating ranges', length(map1));
+                    end
 
                     map2 = find(lb < 0 & ub > 0);
-                    fprintf('\nFinding neurons (in %d neurons) with ub <= 0 by optimizing ranges: ', length(map2));
-                    xmax = I.getMaxs(map2);
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\nFinding neurons (in %d neurons) with ub <= 0 by optimizing ranges: ', length(map2));
+                    end
+                    xmax = I.getMaxs(map2, option, dis_opt, lp_solver);
                     map3 = find(xmax <= 0);
-                    fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map2));
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map2));
+                    end
                     n = length(map3);
                     map4 = zeros(n,1);
                     for i=1:n
@@ -642,23 +752,29 @@ classdef PosLin
                     end
                     map11 = [map1; map4];
                     In = I.resetRow(map11); % reset to zero at the element having ub <= 0
-                    fprintf('\n(%d+%d =%d)/%d neurons have ub <= 0', length(map1), length(map3), length(map11), length(ub));
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\n(%d+%d =%d)/%d neurons have ub <= 0', length(map1), length(map3), length(map11), length(ub));
+                    end
 
                     % find all indexes that have lb < 0 & ub > 0, then
                     % apply the over-approximation rule for ReLU
-                    fprintf("\nFinding all neurons (in %d neurons) with lb < 0 & ub >0: ", length(ub));
+                    if strcmp(dis_opt, 'display')
+                        fprintf("\nFinding all neurons (in %d neurons) with lb < 0 & ub >0: ", length(ub));
+                    end
                     map5 = find(xmax > 0);
                     map6 = map2(map5(:)); % all indexes having ub > 0
                     xmax1 = xmax(map5(:)); % upper bound of all neurons having ub > 0
 
-                    xmin = I.getMins(map6); 
+                    xmin = I.getMins(map6, option, dis_opt, lp_solver); 
                     map7 = find(xmin < 0); 
                     map8 = map6(map7(:)); % all indexes having lb < 0 & ub > 0
                     lb1 = xmin(map7(:));  % lower bound of all indexes having lb < 0 & ub > 0
                     ub1 = xmax1(map7(:)); % upper bound of all neurons having lb < 0 & ub > 0
-
-                    fprintf('\n%d/%d neurons have lb < 0 & ub > 0', length(map8), length(ub));
-                    fprintf('\nConstruct new star set, %d new predicate variables are introduced', length(map8));
+                    
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\n%d/%d neurons have lb < 0 & ub > 0', length(map8), length(ub));
+                        fprintf('\nConstruct new star set, %d new predicate variables are introduced', length(map8));
+                    end
                     S = PosLin.multipleStepReachStarApprox_at_one(In, map8, lb1, ub1); % one-shot approximation
                 end
             end
@@ -666,13 +782,44 @@ classdef PosLin
         end        
         
         % a relaxed star-approx method
-        function S = reach_relaxed_star_approx(I, relaxFactor)
+        function S = reach_relaxed_star_approx(varargin)
             % @I: star input set
             % @relaxFactor: a relaxFactor
             % @S: star output set
 
             % author: Dung Tran
             % date: 6/26/2020
+            % update: 7/15/2020 add display option
+            %       : 7/16/2020 add lp_solver option
+            
+            switch nargin
+                case 2
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    option = 'single';
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    option = varargin{3};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    option = varargin{3};
+                    dis_opt = varargin{4};
+                    lp_solver = 'linprog';
+                case 5
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    option = varargin{3};
+                    dis_opt = varargin{4};
+                    lp_solver = varargin{5};
+                otherwise
+                    error('Invalid number of input arguments, should be 2, 3, 4 or 5');
+            end
 
             if ~isa(I, 'Star')
                 error('Input is not a star');
@@ -691,22 +838,29 @@ classdef PosLin
                     
                     % find all indexes having ub <= 0, then reset the
                     % values of the elements corresponding to these indexes to 0
-                    fprintf('\nFinding all neurons (in %d neurons) with ub <= 0...', length(ub));
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\nFinding all neurons (in %d neurons) with ub <= 0...', length(ub));
+                    end
                     map1 = find(ub <= 0); % computation map
-                    fprintf('\n%d neurons with ub <= 0 are found by estimating ranges', length(map1));
-                    
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\n%d neurons with ub <= 0 are found by estimating ranges', length(map1));
+                    end
                     map2 = find(lb < 0 & ub > 0);
                     n1  = round((1-relaxFactor)*length(map2)); % number of LP need to solve
-                    fprintf('\nFinding neurons (in (1-%.3f) x %d neurons = %d) with ub <= 0 by optimizing ranges, i.e. relaxing %2.2f%%: ', relaxFactor, length(map2), n1, 100*relaxFactor);                 
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\nFinding neurons (in (1-%.3f) x %d neurons = %d) with ub <= 0 by optimizing ranges, i.e. relaxing %2.2f%%: ', relaxFactor, length(map2), n1, 100*relaxFactor);                 
+                    end
                     [~,midx] = sort(ub(map2)-lb(map2), 'descend');
                     map21 = map2(midx(1:n1)); % neurons with optimized ranged
                     map22 = map2(midx(n1+1:length(map2))); % neurons without optimized ranges
                     lb1 = lb(map22);
                     ub1 = ub(map22); 
                     
-                    xmax = I.getMaxs(map21); 
+                    xmax = I.getMaxs(map21, option, dis_opt, lp_solver); 
                     map3 = find(xmax <= 0);
-                    fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map21));
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map21));
+                    end
                     n = length(map3);
                     map4 = zeros(n,1);
                     for i=1:n
@@ -714,16 +868,20 @@ classdef PosLin
                     end
                     map11 = [map1; map4];
                     In = I.resetRow(map11); % reset to zero at the element having ub <= 0
-                    fprintf('\n(%d+%d =%d)/%d neurons have ub <= 0', length(map1), length(map3), length(map11), length(ub));
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\n(%d+%d =%d)/%d neurons have ub <= 0', length(map1), length(map3), length(map11), length(ub));
+                    end
 
                     % find all indexes that have lb < 0 & ub > 0, then
                     % apply the over-approximation rule for ReLU
-                    fprintf("\nFinding neurons (in %d neurons) with lb < 0 & ub >0: ", length(map21));
+                    if strcmp(dis_opt, 'display')
+                        fprintf("\nFinding neurons (in %d neurons) with lb < 0 & ub >0: ", length(map21));
+                    end
                     map5 = find(xmax > 0);
                     map6 = map21(map5(:)); % all indexes having ub > 0
                     xmax1 = xmax(map5(:)); % upper bound of all neurons having ub > 0
 
-                    xmin = I.getMins(map6); 
+                    xmin = I.getMins(map6, option, dis_opt, lp_solver); 
                     map7 = find(xmin < 0); 
                     map8 = map6(map7(:)); % all indexes having lb < 0 & ub > 0
                     lb2 = xmin(map7(:));  % lower bound of all indexes having lb < 0 & ub > 0
@@ -732,9 +890,10 @@ classdef PosLin
                     map9 = [map22; map8];
                     lb3 = [lb1; lb2];
                     ub3 = [ub1; ub2];
-
-                    fprintf('\n%d/%d neurons have lb < 0 & ub > 0', length(map9), length(ub));
-                    fprintf('\nConstruct new star set, %d new predicate variables are introduced', length(map9));
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\n%d/%d neurons have lb < 0 & ub > 0', length(map9), length(ub));
+                        fprintf('\nConstruct new star set, %d new predicate variables are introduced', length(map9));
+                    end
                     S = PosLin.multipleStepReachStarApprox_at_one(In, map9, lb3, ub3); % one-shot approximation
                 end
             end
@@ -848,7 +1007,7 @@ classdef PosLin
         
         
         % exact reachability analysis using Polyhedron
-        function R = reach_polyhedron_exact(I, option)
+        function R = reach_polyhedron_exact(varargin)
             
                         % @I: star input sets
             % @option: = 'parallel' using parallel computing
@@ -856,6 +1015,20 @@ classdef PosLin
             
             % author: Dung Tran
             % date: 3/16/2019
+            % update: 7/15/2020 : add display option
+            
+            switch nargin
+                case 2
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = [];
+                case 3
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 2 or 3');
+            end
             
              if ~isempty(I)
                 if isa(I, 'Polyhedron')            
@@ -873,7 +1046,9 @@ classdef PosLin
                     m = size(map, 1); % number of stepReach operations needs to be executed
                     In = I;
                     for i=1:m
-                        fprintf('\nPerforming exact PosLin_%d operation using Polyhedron', map(i));
+                        if strcmp(dis_opt, 'display')
+                            fprintf('\nPerforming exact PosLin_%d operation using Polyhedron', map(i));
+                        end
                         In = PosLin.stepReachMultipleInputs_Polyhedron(In, map(i), lb(map(i)), ub(map(i)), option);
                     end               
                     R = In;
@@ -940,7 +1115,7 @@ classdef PosLin
             
             
         % over-approximate reachability analysis use zonotope
-        function Z = reach_zono_approx(I)
+        function Z = reach_zono_approx(varargin)
             % @I: zonotope input
             % @Z: zonotope output
             
@@ -950,6 +1125,19 @@ classdef PosLin
             % reference: Fast and Effective Robustness Ceritification,
             % Gagandeep Singh, NIPS 2018
             
+            % update: 7/15/2020 : add display option
+            
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    dis_opt = [];
+                case 2
+                    I = varargin{1};
+                    dis_opt = varargin{2};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');
+            end
+            
             if ~isa(I, 'Zono')
                 error('Input is not a Zonotope');
             end
@@ -957,7 +1145,9 @@ classdef PosLin
             In = I;
             [lb, ub] = I.getBounds;
             for i=1:I.dim
-                fprintf('\nPerforming approximate PosLin_%d operation using Zonotope', i);
+                if strcmp(dis_opt, 'display')
+                    fprintf('\nPerforming approximate PosLin_%d operation using Zonotope', i);
+                end
                 In = PosLin.stepReachZonoApprox(In, i, lb(i), ub(i));
             end
             Z = In;
@@ -1065,14 +1255,27 @@ classdef PosLin
         
         
         % over-approximate reachability analysis using abstract-domain
-        function S = reach_abstract_domain(I)
+        function S = reach_abstract_domain(varargin)
             % @I: star input set
             % @S: star output set
 
             % author: Dung Tran
             % date: 4/3/2019
 
-
+            % update: 7/15/2020 : add display option
+            
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    dis_opt = [];
+                case 2
+                    I = varargin{1};
+                    dis_opt = varargin{2};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');
+            end
+            
+            
             if ~isa(I, 'Star')
                 error('Input is not a star');
             end
@@ -1091,7 +1294,9 @@ classdef PosLin
                     map = find(lb <= 0 & ub > 0);
                     m = length(map); 
                     for i=1:m
-                        fprintf('\nPerforming approximate PosLin_%d operation using Abstract Domain', map(i));
+                        if strcmp(dis_opt, 'display')
+                            fprintf('\nPerforming approximate PosLin_%d operation using Abstract Domain', map(i));
+                        end
                         In = PosLin.stepReachAbstractDomain(In, map(i), lb(map(i)), ub(map(i)));
                     end
                     S = In;
@@ -1125,60 +1330,83 @@ classdef PosLin
             
             % author: Dung Tran
             % date: 27/2/2019
+            % update: 7/15/2020: add display option
             
             switch nargin
+                
+                case 6
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = varargin{3};
+                    relaxFactor = varargin{4}; % used for aprox-star only
+                    dis_opt = varargin{5}; % display option
+                    lp_solver = varargin{6}; 
+                
+                case 5
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = varargin{3};
+                    relaxFactor = varargin{4}; % used for aprox-star only
+                    dis_opt = varargin{5}; % display option
+                    lp_solver = 'linprog';
                 
                 case 4
                     I = varargin{1};
                     method = varargin{2};
                     option = varargin{3};
                     relaxFactor = varargin{4}; % used for aprox-star only
-                
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                                    
                 case 3
                     I = varargin{1};
                     method = varargin{2};
                     option = varargin{3};
                     relaxFactor = 0; % used for aprox-star only
-                    
+                    dis_opt = [];
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
-                    option = [];
+                    option = 'parallel';
                     relaxFactor = 0; % used for aprox-star only
+                    dis_opt = [];
+                    lp_solver = 'linprog';
                 case 1
                     I = varargin{1};
                     method = 'exact-star';
-                    option = [];
+                    option = 'parallel';
                     relaxFactor = 0; % used for aprox-star only
-                    
+                    dis_opt = [];
+                    lp_solver = 'linprog';
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2, 3 or 4)');
+                    error('Invalid number of input arguments (should be 1, 2, 3, 4, or 5)');
             end
             
             
             if strcmp(method, 'exact-star') % exact analysis using star
                 
-                R = PosLin.reach_star_exact_multipleInputs(I, option);
+                R = PosLin.reach_star_exact_multipleInputs(I, option, dis_opt, lp_solver);
                 
             elseif strcmp(method, 'exact-polyhedron') % exact analysis using polyhedron
                 
-                R = PosLin.reach_polyhedron_exact(I, option);
+                R = PosLin.reach_polyhedron_exact(I, option, dis_opt);
                 
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 
                 if relaxFactor == 0
-                    R = PosLin.reach_star_approx2(I);
+                    R = PosLin.reach_star_approx2(I, option, dis_opt, lp_solver);
                 else
-                    R = PosLin.reach_relaxed_star_approx(I, relaxFactor);
+                    R = PosLin.reach_relaxed_star_approx(I, relaxFactor, option, dis_opt, lp_solver);
                 end
                 
             elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
                 
-                R = PosLin.reach_zono_approx(I);
+                R = PosLin.reach_zono_approx(I, dis_opt);
                 
             elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
                 
-                R = PosLin.reach_abstract_domain(I);
+                R = PosLin.reach_abstract_domain(I, dis_opt);
                 
             elseif strcmp(method, 'exact-face-latice') % exact analysis using face-latice
                 fprintf('\nNNV have not yet support Exact Face-Latice Method');

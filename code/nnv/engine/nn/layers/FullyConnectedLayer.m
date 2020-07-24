@@ -262,6 +262,23 @@ classdef FullyConnectedLayer < handle
              
             switch nargin
                 
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -281,7 +298,7 @@ classdef FullyConnectedLayer < handle
                     method = varargin{3};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 2, 3 or 4)');
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')

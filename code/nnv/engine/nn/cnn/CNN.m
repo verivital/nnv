@@ -213,13 +213,13 @@ classdef CNN < handle
             rs = inputSet;
             for i=2:obj.numLayers+1
                 if strcmp(obj.dis_opt, 'display')
-                fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
+                    fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 end
                 start_time = tic;
                 rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 obj.reachTime(i-1) = toc(start_time);
                 rs = rs_new;
-                % obj.reachSet{i-1} = rs_new;
+                obj.reachSet{i-1} = rs_new;
                 if strcmp(obj.dis_opt, 'display')
                     fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
                     fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs_new));
@@ -285,7 +285,7 @@ classdef CNN < handle
                 fprintf('\n=============================================');
                 obj.reach(in_image, method, numOfCores);
 
-                RS = obj.reachSet{obj.numLayers + 1};
+                RS = obj.outputSet;
                 n = length(RS);
                 label_id = cell(n, 1);
                 for i=1:n
@@ -362,7 +362,7 @@ classdef CNN < handle
                     
                     elseif strcmp(method, 'exact-star')
                         
-                        rs = obj.reachSet{obj.numLayers + 1}(i);
+                        rs = obj.outputSet(i);
                         L = length(id1); 
                         for l=1:L                    
                             [new_C, new_d] = ImageStar.addConstraint(rs, [1, 1, correct_id], [1, 1, id1(l)]);  

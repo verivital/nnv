@@ -727,7 +727,7 @@ classdef ImageStar < handle
         
         
         % estimate ranges quickly using only predicate bound information
-        function [image_lb, image_ub] = estimateRanges(obj)
+        function [image_lb, image_ub] = estimateRanges(varargin)
             % @h: height index
             % @w: width index
             % @c: channel index
@@ -736,6 +736,18 @@ classdef ImageStar < handle
             
             % author: Dung Tran
             % date: 7/22/2019
+            % update: 7/24/2020: add display option
+            
+            switch nargin
+                case 1
+                    obj = varargin{1};
+                    dis_opt = [];
+                case 2
+                    obj = varargin{1};
+                    dis_opt = varargin{2};
+                otherwise
+                    error('\nInvalid number of input arguments, should be 0 or 1');
+            end
             
             if isempty(obj.C) || isempty(obj.d)
                 error('The imagestar is empty');
@@ -747,14 +759,18 @@ classdef ImageStar < handle
                 image_ub = zeros(obj.height, obj.width, obj.numChannel);
                 reverseStr = '';
                 N = obj.height*obj.width*obj.numChannel;
-                fprintf('\nEstimating Range: ')
+                if strcmp(dis_opt, 'display')
+                    fprintf('\nEstimating Range: ');
+                end
                 for i=1:obj.height
                     for j=1:obj.width
                         for k=1:obj.numChannel
-                            msg = sprintf('%d/%d', i*j*k, N);   
                             [image_lb(i, j, k), image_ub(i, j, k)] = obj.estimateRange(i,j,k);
-                            fprintf([reverseStr, msg]);
-                            reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                            if strcmp(dis_opt, 'display')
+                                msg = sprintf('%d/%d', i*j*k, N);   
+                                fprintf([reverseStr, msg]);
+                                reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                            end
                         end
                     end
                 end
@@ -1482,6 +1498,7 @@ classdef ImageStar < handle
             new_d = in_IS.V(p2(1), p2(2), p2(3), 1) - in_IS.V(p1(1), p1(2), p1(3), 1);
             new_C = in_IS.V(p1(1), p1(2), p1(3), 2:in_IS.numPred + 1) - in_IS.V(p2(1), p2(2), p2(3), 2:in_IS.numPred + 1);
             
+            new_C = reshape(new_C, [1 in_IS.numPred]);
             new_C = [in_IS.C; new_C];
             new_d = [in_IS.d; new_d];
             

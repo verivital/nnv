@@ -652,7 +652,7 @@ classdef MaxPooling2DLayer < handle
         % step split of an image star
         % a single in_image can be splitted into several images in the
         % exact max pooling operation
-        function images = stepSplit(obj, in_image, ori_image, pos, split_index)
+        function images = stepSplit(varargin)
             % @in_image: the current maxMap ImageStar
             % @ori_image: the original ImageStar to compute the maxMap 
             % @pos: local position of the maxMap where splits may occur

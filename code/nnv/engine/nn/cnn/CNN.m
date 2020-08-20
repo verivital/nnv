@@ -195,9 +195,7 @@ classdef CNN < handle
                     error('Invalid number of input arguments, the number should be 1, 2, 3, 4, 5, or 6');
                 
             end
-            
-            
-            
+                       
             if  obj.numCores > 1
                 obj.start_pool;
                 obj.reachOption = 'parallel';

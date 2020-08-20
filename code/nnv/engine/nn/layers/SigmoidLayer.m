@@ -105,7 +105,6 @@ classdef SigmoidLayer < handle
                 error('input is not an ImageStar');
             end
             
-            
             h = in_image.height;
             w = in_image.width;
             c = in_image.numChannel;
@@ -136,7 +135,7 @@ classdef SigmoidLayer < handle
             
             images = [];
             n = length(in_images);
-                        
+            
             if strcmp(option, 'parallel')
                 parfor i=1:n
                     images = [images obj.reach_star_single_input(in_images(i), method, relaxFactor, dis_opt, lp_solver)];
@@ -260,7 +259,7 @@ classdef SigmoidLayer < handle
                 otherwise
                     error('Invalid number of input arguments (should be 2,3,4,5 or 6)');
             end
-            
+           
             if strcmp(method, 'approx-star') || strcmp(method, 'abs-dom')
                 images = obj.reach_star_multipleInputs(in_images, method, option, relaxFactor, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')

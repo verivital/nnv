@@ -508,7 +508,7 @@ classdef LinearODE
                 for j=1:m
                     V = [V Z{1, j}(:, i)];                  
                 end
-                R = [R Star(V, X0.C, X0.d)]; % reachable set
+                R = [R Star(V, X0.C, X0.d, X0.predicate_lb, X0.predicate_ub)]; % reachable set
             end
                         
         end
@@ -543,7 +543,7 @@ classdef LinearODE
                 for j=1:k
                     V = [V Z{1, j}(:, i)];                  
                 end
-                R = [R Star(V, X0.C, X0.d)]; % reachable set
+                R = [R Star(V, X0.C, X0.d, X0.predicate_lb, X0.predicate_ub)]; % reachable set
             end
                         
         end
@@ -577,7 +577,7 @@ classdef LinearODE
                 for j=1:m
                     V = [V Z{1, j}(:, i)];                  
                 end
-                R = [R Star(V, X0.C, X0.d)]; % reachable set
+                R = [R Star(V, X0.C, X0.d, X0.predicate_lb, X0.predicate_ub)]; % reachable set
             end
                         
         end

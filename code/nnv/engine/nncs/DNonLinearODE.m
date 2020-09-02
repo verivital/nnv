@@ -5,6 +5,7 @@ classdef DNonLinearODE < handle
     
     properties
         options = []; % option for recahable set computation
+        params = []; 
         dynamics_func = []; % function to describe dynamics of the system
         dim = 0; % dimension of the system (number of state variable)
         nI = 0; % number of control inputs
@@ -43,11 +44,11 @@ classdef DNonLinearODE < handle
             obj.Ts = Ts;
                         
             % default option
-            option.tStart = 0;
-            option.tFinal = Ts; % we provide method to change the option
+            param.tStart = 0;
+            param.tFinal = Ts; % we provide method to change the option
             
-            option.x0 = [];
-            option.R0 = []; % initial set for reachability analysis
+            param.x0 = [];
+            param.R0 = []; % initial set for reachability analysis
             option.timeStep = Ts; % time step for reachable set computation
             option.taylorTerms = 4; % number of taylor terms for reachable sets
             option.zonotopeOrder = 2; % zonotope order
@@ -62,6 +63,7 @@ classdef DNonLinearODE < handle
             option.uTrans = 0;
             
             obj.options = option; % default option
+            obj.params = param; % default parameters
             obj.set_output_mat(outputMat);
             
         end
@@ -173,12 +175,12 @@ classdef DNonLinearODE < handle
         
         % set input set U
         function set_U(obj, U)
-            obj.options.U = U;
+            obj.params.U = U;
         end
         
         % set initial set
         function set_R0(obj, R0)
-            obj.options.R0 = R0;
+            obj.params.R0 = R0;
         end
         
         % set tFinal
@@ -186,7 +188,7 @@ classdef DNonLinearODE < handle
             if tFinal <= 0
                 error('tFinal should be > 0');
             end
-            obj.options.tFinal = tFinal;
+            obj.params.tFinal = tFinal;
         end
         
         % set tStart
@@ -196,7 +198,7 @@ classdef DNonLinearODE < handle
                 error('Invalid tStart');
             end
             
-            obj.options.tStart = tStart;
+            obj.params.tStart = tStart;
         end
         
         % set time step 
@@ -213,7 +215,7 @@ classdef DNonLinearODE < handle
                 error('Dimension mismatch between initial state and the system');
             end
             
-            obj.options.x0 = x0;
+            obj.params.x0 = x0;
         end   
         
         % set output matrix
@@ -231,7 +233,7 @@ classdef DNonLinearODE < handle
     methods
         
          % reachability analysis using zonotope
-        function [R, reachTime] = reach_zono(obj, init_set, input_set, tFinal)
+        function [R, reachTime] = reach_zono(obj, init_set, input_set)
            % @init_set: initial set of state
            % @input_set: input set u
            % @timeStep: time step in reachable set computation
@@ -255,8 +257,8 @@ classdef DNonLinearODE < handle
            obj.set_R0(R0);
            obj.set_U(U);
                                 
-           sys = nonlinearSysDT(obj.dim, obj.nI, obj.dynamics_func, obj.options); % CORA nonlinearSys class
-           R = reach(sys, obj.options); % CORA reach method using zonotope and conservative linearization
+           sys = nonlinearSysDT(obj.dynamics_func, obj.options.timeStep, obj.dim, obj.nI); % CORA nonlinearSys class
+           R = reach(sys, obj.params, obj.options); % CORA reach method using zonotope and conservative linearization
                      
            reachTime = toc(start);
                    
@@ -279,27 +281,50 @@ classdef DNonLinearODE < handle
             I = init_set.getZono;
             U = input_set.getZono;
             
-            [R, ~] = obj.reach_zono(I, U, obj.options.tFinal);
+            [R, ~] = obj.reach_zono(I, U);
             
-            N = length(R);           
-            Z = R{N,1}; % get the last zonotope in the reach set
-            Z = Z.Z; % get c and V 
-            c = Z(:,1); % center vector
-            V = Z(:, 2:size(Z, 2)); % generators
-            
-            % Zono is the verivital zonotope class
-            Z = Zono(c, V);
-            S = Z.toStar;
+            N = length(R); % number of reachsets in the computation
+            Z = R(N).timePoint.set; % get the last reachset
+            Nn = length(Z); % number of sets in the last reachset
+            Z = Z{Nn}; % get the last set in the reachset
+            Nz = length(Z); % number of zonotopes in the last set
+            S = [];
+            for ik=1:Nz
+                try
+                    Z1 = Z{ik}.Z;
+                catch
+                    Z1 = Z.Z; % get c and V 
+                end
+                c = Z1(:,1); % center vector
+                V = Z1(:, 2:size(Z1, 2)); % generators
+
+                Zz = Zono(c, V);
+                S = [S Zz.toStar];
+            end
             
             for i=1:N
-                Z = R{i,1}; 
-                Z = Z.Z; % get c and V 
-                c = Z(:,1); % center vector
-                V = Z(:, 2:size(Z, 2)); % generators
+%                 N = length(R);
+                Z = R(i).timeInterval.set; % get the reachset                
+                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
+                Ss = [];
+                for ik=1:Nn
+                    Z1 = Z{ik};
+                    Nz = length(Z1);
+                    for iz=1:Nz
+                        try
+                            Z2 = Z1{ik}.Z;
+                        catch
+                            Z2 = Z1.Z; % get c and V 
+                        end
+    %                     Z = Z.Z; % get c and V 
+                        c = Z2(:,1); % center vector
+                        V = Z2(:, 2:size(Z2, 2)); % generators
 
-                Z = Zono(c, V);
-                S = Z.toStar;
-                obj.intermediate_reachSet = [obj.intermediate_reachSet S];
+                        Zz = Zono(c, V);
+                        Ss = [S Zz.toStar];
+                    end
+                end
+                obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end
             
             % the last zonotope in the reach set is returned
@@ -316,7 +341,8 @@ classdef DNonLinearODE < handle
             % author: Dung Tran
             % date: 1/29/2019
             
-            y = obj.dynamics_func([], x0, u, []);          
+            % y = obj.dynamics_func([], x0, u, []);
+            y = obj.dynamics_func(x0, u);
             
         end
         

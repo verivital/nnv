@@ -4,6 +4,7 @@ classdef NonLinearODE < handle
     
     properties
         options = []; % option for recahable set computation
+        params = [];
         dynamics_func = []; % function to describe dynamics of the system
         dim = 0; % dimension of the system (number of state variable)
         nI = 0; % number of control inputs
@@ -68,11 +69,11 @@ classdef NonLinearODE < handle
         % set default parameters
         function NonLinearODE_init(obj)
             % default option
-            option.tStart = 0;
-            option.tFinal = 0.1; % we provide method to change the option
+            param.tStart = 0;
+            param.tFinal = 0.1; % we provide method to change the option
             
-            option.x0 = [];
-            option.R0 = []; % initial set for reachability analysis
+            param.x0 = [];
+            param.R0 = []; % initial set for reachability analysis
             option.timeStep = 0.01; % time step for reachable set computation
             option.taylorTerms = 4; % number of taylor terms for reachable sets
             option.zonotopeOrder = 2; % zonotope order
@@ -85,8 +86,10 @@ classdef NonLinearODE < handle
             option.advancedLinErrorComp = 0;
             option.tensorOrder=2;
             option.uTrans = 0;
+            option.alg = 'lin';
             
             obj.options = option; % default option
+            obj.params = param; % default parameters
         end
         
         % set taylor terms
@@ -196,12 +199,12 @@ classdef NonLinearODE < handle
         
         % set input set U
         function set_U(obj, U)
-            obj.options.U = U;
+            obj.params.U = U;
         end
         
         % set initial set
         function set_R0(obj, R0)
-            obj.options.R0 = R0;
+            obj.params.R0 = R0;
         end
         
         % set tFinal
@@ -209,7 +212,7 @@ classdef NonLinearODE < handle
             if tFinal <= 0
                 error('tFinal should be > 0');
             end
-            obj.options.tFinal = tFinal;
+            obj.params.tFinal = tFinal;
         end
         
         % set tStart
@@ -219,7 +222,7 @@ classdef NonLinearODE < handle
                 error('Invalid tStart');
             end
             
-            obj.options.tStart = tStart;
+            obj.params.tStart = tStart;
         end
         
         % set inital state for simulation x0
@@ -228,7 +231,7 @@ classdef NonLinearODE < handle
                 error('Dimension mismatch between initial state and the system');
             end
             
-            obj.options.x0 = x0;
+            obj.params.x0 = x0;
         end
         
         % set time step 
@@ -285,8 +288,8 @@ classdef NonLinearODE < handle
            obj.set_timeStep(timeStep);
            obj.set_tFinal(tFinal);
            
-           sys = nonlinearSys(obj.dim, obj.nI, obj.dynamics_func, obj.options); % CORA nonlinearSys class
-           R = reach(sys, obj.options); % CORA reach method using zonotope and conservative linearization
+           sys = nonlinearSys(obj.dynamics_func, obj.dim, obj.nI); % CORA nonlinearSys class
+           R = reach(sys, obj.params, obj.options); % CORA reach method using zonotope and conservative linearization
                      
            reachTime = toc(start);
                    
@@ -313,14 +316,15 @@ classdef NonLinearODE < handle
             I = init_set.getZono;
             U = input_set.getZono;
             
-            [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.options.tFinal);
+            [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.params.tFinal);
             
-            N = length(R);
-%             Z = R{N,1}{1,1}; % get the last zonotope in the reach set
-            Z = R{N}; % get the last zonotope in the reach set
-            Nn = length(Z);
+            N = length(R); % number of reachsets in the computation
+            Z = R(N).timePoint.set; % get the last reachset
+            Nn = length(Z); % number of sets in the last reachset
+            Z = Z{Nn}; % get the last set in the reachset
+            Nz = length(Z); % number of zonotopes in the last set
             S = [];
-            for ik=1:Nn
+            for ik=1:Nz
                 try
                     Z1 = Z{ik}.Z;
                 catch
@@ -335,21 +339,25 @@ classdef NonLinearODE < handle
             
             for i=1:N
 %                 N = length(R);
-                Z = R{i}; 
-                Nn = length(Z);
+                Z = R(i).timeInterval.set; % get the reachset                
+                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
                 Ss = [];
                 for ik=1:Nn
-                    try
-                        Z1 = Z{ik}.Z;
-                    catch
-                        Z1 = Z.Z; % get c and V 
-                    end
-%                     Z = Z.Z; % get c and V 
-                    c = Z1(:,1); % center vector
-                    V = Z1(:, 2:size(Z1, 2)); % generators
+                    Z1 = Z{ik};
+                    Nz = length(Z1);
+                    for iz=1:Nz
+                        try
+                            Z2 = Z1{ik}.Z;
+                        catch
+                            Z2 = Z1.Z; % get c and V 
+                        end
+    %                     Z = Z.Z; % get c and V 
+                        c = Z2(:,1); % center vector
+                        V = Z2(:, 2:size(Z2, 2)); % generators
 
-                    Zz = Zono(c, V);
-                    Ss = [S Zz.toStar];
+                        Zz = Zono(c, V);
+                        Ss = [S Zz.toStar];
+                    end
                 end
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end

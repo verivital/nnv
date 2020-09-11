@@ -1,7 +1,7 @@
 classdef HybridA < handle
     %HYBRID AUTOMATA class is a wrapper of Hybrid Automaton class in CORA 
     %   Author: Diego Manzanas 05/07/2020
-    %   Last revision: Diego Manzanas 05/07/2020
+    %   Last revision: Diego Manzanas 09/11/2020
     % 
     %HYBRIDA Construct an instance of this class
     %      HA = HybridA(dum, nI,dynamics_func, modes);
@@ -72,23 +72,18 @@ classdef HybridA < handle
             end
             option.taylorTerms = 10;
             option.zonotopeOrder = 20;
-            option.polytopeOrder = 10;
             option.errorOrder = 2;
             option.reductionTechnique = 'girard';
-            option.isHyperplaneMap = 0;
             option.guardIntersect = 'polytope';
-            option.enclosureEnables = 5; %choose enclosure method(s)
-            option.originContained = 0;
-            option.maxProjectionError = inf;
-            option.linAlg = 'standard';
+            option.linAlg = 'adap';
             option.intermediateOrder = 2;
-            option.tensorOrder = 3;
+            option.tensorOrder = 2;
             option.reductionInterval = inf;
             option.maxError = 1e7*ones(obj.dim,1);
-            option.oldError = zeros(obj.dim,1);
-            option.advancedLinErrorComp = 0;
             option.enclose = {'box'};
             option.alg = 'lin';
+            option.guardOrder = 2;
+            option.intersectInvariant = 0;
             obj.options = option; % default options
             obj.params = param; % default parameters
         end
@@ -147,11 +142,6 @@ classdef HybridA < handle
         function set_uTrans(obj, uTrans, loc)
             obj.params.uLocTrans{loc} = uTrans;
         end
-        
-        % set input set U for specific location
-%         function set_Uloc(obj, U, loc)
-%             obj.params.Uloc{loc} = U;
-%         end
         
         % set input set U globally (same for each location)
         function set_U(obj, U)
@@ -231,14 +221,6 @@ classdef HybridA < handle
             obj.params.tStart = tStart;
         end
         
-        % set inital state for simulation x0
-%         function set_x0(obj, x0)
-%             if length(x0) ~= obj.dim
-%                 error('Dimension mismatch between initial state and the system');
-%             end
-%             obj.params.x0 = x0;
-%         end
-        
         % set start location
         function set_startLoc(obj,loc)
             obj.params.startLoc = loc;
@@ -255,9 +237,6 @@ classdef HybridA < handle
                 error('Invalid time step');
             end
             obj.options.timeStep = timeStep;
-%             for i=1:obj.modes
-%                 obj.options.timeStepLoc{i} = timeStep;
-%             end
         end
         
     end
@@ -380,16 +359,13 @@ classdef HybridA < handle
             simOpt = obj.options;
             simOpt.x0 = x0;
             for i=1:obj.modes
-%                 simOpt.uLoc{i} = u;
                 simOpt.uLocTrans{i} = u;
             end
-%             simOpt.tStart = obj.params.tStart;
+            simOpt.tStart = obj.params.tStart;
             simOpt.tFinal = obj.params.tFinal;
             simOpt.startLoc = obj.params.startLoc;
-%             simOpt.u = zeros(1,ceil((simOpt.tFinal - simOpt.tStart)/simOpt.timeStep));
             simOpt.u = u;
             [t,x,loc] = simulate(obj.sysCORA, simOpt);
-%             y = get(HAsim,'trajectory');
         end
         
     end

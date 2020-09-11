@@ -1,6 +1,8 @@
 classdef NonLinearODE < handle
     % Nonlinear ODE class is a grapper of nonlinearSys class in CORA
     %   Dung Tran: 11/19/2018
+    % Last Revision: September 3, 2020 - Diego Manzanas
+    %      - CORA 2020 updates
     
     properties
         options = []; % option for recahable set computation
@@ -72,7 +74,6 @@ classdef NonLinearODE < handle
             param.tStart = 0;
             param.tFinal = 0.1; % we provide method to change the option
             
-            param.x0 = [];
             param.R0 = []; % initial set for reachability analysis
             option.timeStep = 0.01; % time step for reachable set computation
             option.taylorTerms = 4; % number of taylor terms for reachable sets
@@ -80,12 +81,9 @@ classdef NonLinearODE < handle
             option.intermediateOrder = 5; 
             option.reductionTechnique = 'girard';
             option.errorOrder = 1;
-            option.polytopeOrder = 2; % polytope order
             option.reductionInterval = 1e3;
             option.maxError = 0.1*ones(obj.dim, 1);
-            option.advancedLinErrorComp = 0;
-            option.tensorOrder=2;
-            option.uTrans = 0;
+            option.tensorOrder=2; % Recommended 2 or 3
             option.alg = 'lin';
             
             obj.options = option; % default option
@@ -94,7 +92,6 @@ classdef NonLinearODE < handle
         
         % set taylor terms
         function set_taylorTerms(obj, taylorTerms)
-            
             if taylorTerms < 1
                 error('Invalid Taylor Terms');
             end
@@ -106,9 +103,7 @@ classdef NonLinearODE < handle
             if zonotopeOrder < 1
                 error('Invalid zonotope order');
             end
-            
             obj.options.zonotopeOrder = zonotopeOrder;
-            
         end
         
         % set intermediate order
@@ -116,9 +111,7 @@ classdef NonLinearODE < handle
             if intermediateOrder < 1
                 error('Invalid intermediate order');
             end
-            
             obj.options.intermediateOrder = intermediateOrder;
-            
         end
         
         % set reduction technique
@@ -135,36 +128,20 @@ classdef NonLinearODE < handle
             obj.options.errorOrder = errorOrder;
         end
         
-        % set polytope Order
-        function set_polytopeOrder(obj, polytopeOrder)
-            
-            if polytopeOrder < 1
-                error('Invalid polytope order');
-            end
-            
-            obj.options.polytopeOrder = polytopeOrder;
-        end
-        
         % set reduction Interval
         function set_reductionInterval(obj, reductionInterval)
-            
             if reductionInterval < 0
                 error('Invalid reduction interval');
             end
-            
             obj.options.reductionInterval = reductionInterval;
-            
         end
         
         % set max Error       
         function set_maxError(obj, maxError)
-            
             if size(maxError, 1) ~= obj.dim && size(maxError, 2) ~= 1
                 error('Invalid max error');
             end
-            
             obj.options.maxError = maxError;
-            
         end
         
         % set tensor Order
@@ -172,29 +149,7 @@ classdef NonLinearODE < handle
             if tensorOrder < 1
                 error('Invalid tensor Order');
             end
-            
             obj.options.tensorOrder = tensorOrder;
-            
-        end
-        
-        % set originContained
-        function set_originContained(obj, originContained)
-            obj.options.originContained = originContained;
-        end
-        
-        % set advancedLinErrorComp
-        function set_advancedLinErrorComp(obj, advancedLinErrorComp)
-            obj.options.advancedLinErrorComp = advancedLinErrorComp;
-        end
-        
-        % set plot Type
-        function set_plotType(obj, plotType)
-            obj.options.plotType = plotType;
-        end
-        
-        % set uTrans
-        function set_uTrans(obj, uTrans)
-            obj.options.uTrans = uTrans;
         end
         
         % set input set U
@@ -217,21 +172,10 @@ classdef NonLinearODE < handle
         
         % set tStart
         function set_tStart(obj, tStart)
-            
             if tStart < 0
                 error('Invalid tStart');
             end
-            
             obj.params.tStart = tStart;
-        end
-        
-        % set inital state for simulation x0
-        function set_x0(obj, x0)
-            if length(x0) ~= obj.dim
-                error('Dimension mismatch between initial state and the system');
-            end
-            
-            obj.params.x0 = x0;
         end
         
         % set time step 
@@ -247,11 +191,9 @@ classdef NonLinearODE < handle
             if size(output_mat, 2) ~= obj.dim
                 error('Invalid output matrix');
             end
-            
             obj.nO = size(output_mat, 1);
             obj.C = output_mat;
         end
-        
     end
     
     
@@ -320,6 +262,7 @@ classdef NonLinearODE < handle
             
             N = length(R); % number of reachsets in the computation
             Z = R(N).timePoint.set; % get the last reachset
+%             Z = R(N).timeInterval.set; % get the last reachset
             Nn = length(Z); % number of sets in the last reachset
             Z = Z{Nn}; % get the last set in the reachset
             Nz = length(Z); % number of zonotopes in the last set
@@ -339,7 +282,8 @@ classdef NonLinearODE < handle
             
             for i=1:N
 %                 N = length(R);
-                Z = R(i).timeInterval.set; % get the reachset                
+                Z = R(i).timeInterval.set; % get the reachset 
+%                 Z = R(i).timePoint.set;
                 Nn = length(Z); % number of sets in the reachset (1 x timeStep)
                 Ss = [];
                 for ik=1:Nn
@@ -347,7 +291,7 @@ classdef NonLinearODE < handle
                     Nz = length(Z1);
                     for iz=1:Nz
                         try
-                            Z2 = Z1{ik}.Z;
+                            Z2 = Z1{iz}.Z;
                         catch
                             Z2 = Z1.Z; % get c and V 
                         end
@@ -356,7 +300,7 @@ classdef NonLinearODE < handle
                         V = Z2(:, 2:size(Z2, 2)); % generators
 
                         Zz = Zono(c, V);
-                        Ss = [S Zz.toStar];
+                        Ss = [Ss Zz.toStar];
                     end
                 end
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
@@ -373,12 +317,20 @@ classdef NonLinearODE < handle
             % @x0: initial state
             % @u: control input
             % @tspan: time points
-            
+            % 
             % author: Dung Tran
             % date: 1/29/2019
+            % Last Revision: 
+            % 09/07/2020 - Diego Manzanas
             
-            [t, y] = ode45(@(t,x) obj.dynamics_func(t, x, u), tspan, x0);          
-            
+%             [t, y] = ode45(@(t,x) obj.dynamics_func(t, x, u), tspan, x0);          
+            simOpt = obj.options;
+            simOpt.x0 = x0;
+%             simOpt.tStart = obj.params.tStart;
+            simOpt.tFinal = obj.params.tFinal;
+            simOpt.u = u;
+            sys = nonlinearSys(obj.dynamics_func, obj.dim, obj.nI);
+            [t,y] = simulate(sys, simOpt);
         end
 
         

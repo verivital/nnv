@@ -104,11 +104,14 @@ classdef NonlinearNNCS < handle
         % output reach set of controller is a single star
         % the plant reachable set is a zonotope
         function [P, reachTime] = reach(obj, reachPRM)
+            % Syntax:
+            % [P, reachTime] = reach(obj, reachPRM)
+            %
              % @reachPRM: reachability parameters including following inputs
              %       1) @init_set: initial set of states of the plant
              %       2) @ref_input: reference input to the controller. it = [] if there is no reference input.
-             %       4) @numCores: number of cores used for computation
-             %       5) @numSteps: number of reachability steps
+             %       3) @numCores: number of cores used for computation
+             %       4) @numSteps: number of reachability steps
 
              % author: Dung Tran
              % date: 11/16/2018
@@ -256,6 +259,9 @@ classdef NonlinearNNCS < handle
         % verify safety after doing reachability analysis
         % unsafe region defined by: unsafe_mat * x <= unsafe_vec
         function [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
+            % Syntax:
+            % [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
+            %
             % @unsafe_mat: unsafe region matrix
             % @unsafe_vec: unsafe region vector
             % @numOfCores: number of cores using for checking safety
@@ -327,12 +333,15 @@ classdef NonlinearNNCS < handle
         
         % simulate (evaluate) the nncs with specific input and initial state of the plant
         function [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input)
+            % Syntax:
+            % [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input)
+            %
             % @step: control step size
-            % @N: number of control steps
+            % @n_steps: number of control steps
             % @x0: initial state of the plant
+            % @ref_input: reference input
             % @simTrace: simulation trace
-            % @controlTrace: control signal correpsonding to simulation
-            % trace
+            % @controlTrace: control signal correpsonding to simulation trace
             
             % author: Dung Tran
             % date: 1/29/2019
@@ -405,6 +414,9 @@ classdef NonlinearNNCS < handle
         
         % randomly simulate nncs
         function [sim_time, sim_traces, control_traces, sampled_init_states, sampled_ref_inputs] = sample(obj, step, n_steps, init_set, ref_input_set, n_samples)
+            % Syntax:
+            % [sim_time, sim_traces, control_traces, sampled_init_states, sampled_ref_inputs] = sample(obj, step, n_steps, init_set, ref_input_set, n_samples)
+            %
             % @step: control step
             % @n_steps: number of control steps
             % @init_set: initial state of plant, needed to be a box
@@ -479,6 +491,9 @@ classdef NonlinearNNCS < handle
         
         % automatically falsify nncs using random simulations
         function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, falsifyPRM)
+            % Syntax:
+            % [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, falsifyPRM)
+            %
             % @falsifyPRM: falsification parameters including following
             % inputs:
             %       1) @step: control step size
@@ -488,7 +503,7 @@ classdef NonlinearNNCS < handle
             %       5) @unsafe_mat: unsafe matrix
             %       6) @unsafe_vec: unsafe vector
             %       7) @n_samples: number of simulations used for falsification
-            
+            %
             % @falsify_result: = 1: counter example exist, = 0: counter
             % example does not exit, -> increase number of samples
             % @falsify_time: falsification time
@@ -562,6 +577,9 @@ classdef NonlinearNNCS < handle
          
         % check if a trace violates safety specification
         function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
+            % Syntax:
+            % violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
+            %
             % @simTrace: a single simulation trace
             % @unsafe_mat: unsafe matrix to specify unsafe region
             % @unsafe_vec: unsafe vector to specify unsafe region:
@@ -615,6 +633,9 @@ classdef NonlinearNNCS < handle
     methods
         % verify method
         function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
+            % Syntax:
+            % [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
+            %
             % @reachPRM: reachability parameters consists of following
             % inputs: 
             %       1) @reachPRM.init_set: initial set
@@ -623,7 +644,7 @@ classdef NonlinearNNCS < handle
             %       4) @reachPRM.numCores: number of cores used in reachability analysis
             % @unsafeRegion: a Halfpsace object
             % Usafe region is defined by: y: unsafe_mat * x <= unsafe_vec
-            
+            %
             % @safe: = unsafe
             %        = safe
             %        = unknown (due to conservativeness)

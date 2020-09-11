@@ -1,6 +1,8 @@
 classdef DNonLinearODE < handle
     % Discrete time nonlinear ODE class. Grapper of nonlinearSysDT in CORA.
     % Chelsea Sidrane April 25, 2019 && Dung Tran: 4/29/2019
+    % Last Revision: September 3, 2020 - Diego Manzanas
+    %      - CORA 2020 updates
     % Based on NonLinearODE.m
     
     properties
@@ -43,38 +45,18 @@ classdef DNonLinearODE < handle
             obj.dynamics_func = dynamics_func;
             obj.Ts = Ts;
                         
-            % default option
+            % default options and parameters
             param.tStart = 0;
             param.tFinal = Ts; % we provide method to change the option
-            
-            param.x0 = [];
             param.R0 = []; % initial set for reachability analysis
-            option.timeStep = Ts; % time step for reachable set computation
-            option.taylorTerms = 4; % number of taylor terms for reachable sets
             option.zonotopeOrder = 2; % zonotope order
-            option.intermediateOrder = 5; 
             option.reductionTechnique = 'girard';
             option.errorOrder = 1;
-            option.polytopeOrder = 2; % polytope order
-            option.reductionInterval = 1e3;
-            option.maxError = 0.5*ones(dim, 1);
-            option.advancedLinErrorComp = 0;
             option.tensorOrder=2;
-            option.uTrans = 0;
-            
+            % Store options and parameters
             obj.options = option; % default option
             obj.params = param; % default parameters
-            obj.set_output_mat(outputMat);
-            
-        end
-        
-        % set taylor terms
-        function set_taylorTerms(obj, taylorTerms)
-            
-            if taylorTerms < 1
-                error('Invalid Taylor Terms');
-            end
-            obj.options.taylorTerms = taylorTerms;
+            obj.set_output_mat(outputMat);  
         end
         
         % set zonotope order
@@ -82,9 +64,7 @@ classdef DNonLinearODE < handle
             if zonotopeOrder < 1
                 error('Invalid zonotope order');
             end
-            
             obj.options.zonotopeOrder = zonotopeOrder;
-            
         end
         
         % set intermediate order
@@ -92,9 +72,7 @@ classdef DNonLinearODE < handle
             if intermediateOrder < 1
                 error('Invalid intermediate order');
             end
-            
-            obj.options.intermediateOrder = intermediateOrder;
-            
+            obj.options.intermediateOrder = intermediateOrder;  
         end
         
         % set reduction technique
@@ -107,40 +85,7 @@ classdef DNonLinearODE < handle
             if errorOrder < 1
                 error('Invalid error order');
             end
-            
             obj.options.errorOrder = errorOrder;
-        end
-        
-        % set polytope Order
-        function set_polytopeOrder(obj, polytopeOrder)
-            
-            if polytopeOrder < 1
-                error('Invalid polytope order');
-            end
-            
-            obj.options.polytopeOrder = polytopeOrder;
-        end
-        
-        % set reduction Interval
-        function set_reductionInterval(obj, reductionInterval)
-            
-            if reductionInterval < 0
-                error('Invalid reduction interval');
-            end
-            
-            obj.options.reductionInterval = reductionInterval;
-            
-        end
-        
-        % set max Error       
-        function set_maxError(obj, maxError)
-            
-            if size(maxError, 1) ~= obj.dim && size(maxError, 2) ~= 1
-                error('Invalid max error');
-            end
-            
-            obj.options.maxError = maxError;
-            
         end
         
         % set tensor Order
@@ -148,29 +93,7 @@ classdef DNonLinearODE < handle
             if tensorOrder < 1
                 error('Invalid tensor Order');
             end
-            
-            obj.options.tensorOrder = tensorOrder;
-            
-        end
-        
-        % set originContained
-        function set_originContained(obj, originContained)
-            obj.options.originContained = originContained;
-        end
-        
-        % set advancedLinErrorComp
-        function set_advancedLinErrorComp(obj, advancedLinErrorComp)
-            obj.options.advancedLinErrorComp = advancedLinErrorComp;
-        end
-        
-        % set plot Type
-        function set_plotType(obj, plotType)
-            obj.options.plotType = plotType;
-        end
-        
-        % set uTrans
-        function set_uTrans(obj, uTrans)
-            obj.options.uTrans = uTrans;
+            obj.options.tensorOrder = tensorOrder;  
         end
         
         % set input set U
@@ -193,29 +116,10 @@ classdef DNonLinearODE < handle
         
         % set tStart
         function set_tStart(obj, tStart)
-            
             if tStart < 0
                 error('Invalid tStart');
             end
-            
             obj.params.tStart = tStart;
-        end
-        
-        % set time step 
-        function set_timeStep(obj, timeStep)
-            if timeStep <= 0
-                error('Invalid time step');
-            end
-            obj.options.timeStep = timeStep;
-        end
-        
-        % set inital state for simulation x0
-        function set_x0(obj, x0)
-            if length(x0) ~= obj.dim
-                error('Dimension mismatch between initial state and the system');
-            end
-            
-            obj.params.x0 = x0;
         end   
         
         % set output matrix
@@ -223,7 +127,6 @@ classdef DNonLinearODE < handle
             if size(output_mat, 2) ~= obj.dim
                 error('Invalid output matrix');
             end
-            
             obj.nO = size(output_mat, 1);
             obj.C = output_mat;
         end
@@ -234,9 +137,16 @@ classdef DNonLinearODE < handle
         
          % reachability analysis using zonotope
         function [R, reachTime] = reach_zono(obj, init_set, input_set)
-           % @init_set: initial set of state
-           % @input_set: input set u
-           % @timeStep: time step in reachable set computation
+            % Syntax:
+            % [R, reachTime] = reach_zono(obj, init_set, input_set)
+            %
+            % Inputs:
+           % init_set: initial set of state
+           % input_set: input set u
+           %
+           % Outputs: 
+           % R = reachable set of the states of the plant
+           % reachTime = total time during reachability computation
            
            % this is a grapper of reach method for DT nonlinear system in CORA
            % the initial set and input set are Zono in nnv
@@ -257,7 +167,7 @@ classdef DNonLinearODE < handle
            obj.set_R0(R0);
            obj.set_U(U);
                                 
-           sys = nonlinearSysDT(obj.dynamics_func, obj.options.timeStep, obj.dim, obj.nI); % CORA nonlinearSys class
+           sys = nonlinearSysDT(obj.dynamics_func, obj.Ts, obj.dim, obj.nI); % CORA nonlinearSys class
            R = reach(sys, obj.params, obj.options); % CORA reach method using zonotope and conservative linearization
                      
            reachTime = toc(start);
@@ -266,9 +176,15 @@ classdef DNonLinearODE < handle
         
        % step reach using star set used for neural network control system
         function S = stepReachStar(obj, init_set, input_set)
+            % Syntax:
+            % S = stepReachStar(obj, init_set, input_set)
+            % 
+            % Inputs:
             % @init_set: initial set, a star
             % @input_set: input set, a star
-            % @R: reachable set at the timeStep, a star
+            %
+            % Outputs:
+            % @R: reachable set, a star
             
             if ~isa(init_set, 'Star')
                 error('Initial set is not a star');
@@ -303,8 +219,7 @@ classdef DNonLinearODE < handle
             end
             
             for i=1:N
-%                 N = length(R);
-                Z = R(i).timeInterval.set; % get the reachset                
+                Z = R(i).timePoint.set; % get the reachset
                 Nn = length(Z); % number of sets in the reachset (1 x timeStep)
                 Ss = [];
                 for ik=1:Nn
@@ -326,22 +241,26 @@ classdef DNonLinearODE < handle
                 end
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end
-            
             % the last zonotope in the reach set is returned
-            
         end
         
         % evaluate (simulate) the plant with specific input and state
         % using ode45 solver
         function y = evaluate(obj, x0, u)
+            % Syntax:
+            % y = evaluate(obj, x0, u)
+            %
+            % Inputs:
             % @x0: initial state
             % @u: control input
-            % @tspan: time points
+            % 
+            % Outputs:
+            % y: state trajectory
             
             % author: Dung Tran
             % date: 1/29/2019
             
-            % y = obj.dynamics_func([], x0, u, []);
+            % y = obj.dynamics_func(x0, u);
             y = obj.dynamics_func(x0, u);
             
         end

@@ -355,6 +355,7 @@ classdef NonlinearNNCS < handle
             end
             
             if ~isempty(ref_input)
+                
                 if size(ref_input, 1) ~= obj.nI_ref
                     error('Inconsistent dimension between reference input vector and number of reference inputs');
                 end
@@ -664,7 +665,11 @@ classdef NonlinearNNCS < handle
             if isvector(reachPRM.ref_input)
                 falsifyPRM.ref_input = Box(reachPRM.ref_input, reachPRM.ref_input);
             else
-                falsifyPRM.ref_input = reachPRM.ref_input.getBox;
+                if ~isempty(reachPRM.ref_input)
+                    falsifyPRM.ref_input = reachPRM.ref_input.getBox;
+                else
+                    falsifyPRM.ref_input = [];
+                end
             end
             falsifyPRM.unsafeRegion = unsafeRegion;
             falsifyPRM.numTraces = 1000;

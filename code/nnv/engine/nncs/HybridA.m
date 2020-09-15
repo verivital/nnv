@@ -75,7 +75,7 @@ classdef HybridA < handle
             option.errorOrder = 2;
             option.reductionTechnique = 'girard';
             option.guardIntersect = 'polytope';
-            option.linAlg = 'adap';
+            option.linAlg = 'standard';
             option.intermediateOrder = 2;
             option.tensorOrder = 2;
             option.reductionInterval = inf;

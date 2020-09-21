@@ -3,7 +3,7 @@
 	url = https://github.com/verivital/hyst.git
 [submodule "code/nnv/engine/cora"]
 	path = code/nnv/engine/cora
-	url = https://github.com/verivital/CORA
+	url = https://github.com/dieman95/CORA
 [submodule "code/nnv/engine/nnmt"]
 	path = code/nnv/engine/nnmt
 	url = https://github.com/verivital/nnmt

@@ -500,10 +500,19 @@ classdef AveragePooling2DLayer < handle
             % author: Dung Tran
             % date: 6/26/2019
             % update: 1/6/2020   update reason: add zonotope method
-            %          
+            % update: 7/15/2020: add lp_solver option         
             
              
             switch nargin
+                
+                case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
                 
                 case 6
                     obj = varargin{1};
@@ -532,7 +541,7 @@ classdef AveragePooling2DLayer < handle
                     method = varargin{3};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 2, 3, 4 or 5)');
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
             

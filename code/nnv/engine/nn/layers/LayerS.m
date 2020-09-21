@@ -10,6 +10,11 @@ classdef LayerS
         b; % bias vector 
         f; % activation function;
         N; % number of neurons
+        
+        option = []; % parallel option, 'parallel' or []
+        dis_opt = []; % display option, 'display' or []
+        lp_solver = 'linprog'; % lp solver option, 'linprog' or 'glpk'
+        relaxFactor = 0; % use only for approx-star method
     end
     
     methods % constructor - evaluation - sampling
@@ -81,30 +86,44 @@ classdef LayerS
             % author: Dung Tran
             % date: 27/2/2019
             % update: 7/10/2020 add the relaxed approx-star method for poslin, logsig and tansig
-            
+            %         7/18/2020: add dis_play option + lp_solver option
              
             % parse inputs 
             switch nargin
+                
+                
+                case 7
+                    obj = varargin{1};
+                    I = varargin{2};
+                    method = varargin{3};
+                    obj.option = varargin{4};
+                    obj.relaxFactor = varargin{5}; % only use for approx-star method
+                    obj.dis_opt = varargin{6};
+                    obj.lp_solver = varargin{7};
+                case 6
+                    obj = varargin{1};
+                    I = varargin{2};
+                    method = varargin{3};
+                    obj.option = varargin{4};
+                    obj.relaxFactor = varargin{5}; % only use for approx-star method
+                    obj.dis_opt = varargin{6};
                 case 5
                     obj = varargin{1};
                     I = varargin{2};
                     method = varargin{3};
-                    option = varargin{4};
-                    relaxFactor = varargin{5}; % only use for approx-star method
+                    obj.option = varargin{4};
+                    obj.relaxFactor = varargin{5}; % only use for approx-star method
                 case 4
                     obj = varargin{1};
                     I = varargin{2};
                     method = varargin{3};
-                    option = varargin{4};
-                    relaxFactor = 0;
+                    obj.option = varargin{4};
                 case 3
                     obj = varargin{1};
                     I = varargin{2};
                     method = varargin{3};
-                    option = [];
-                    relaxFactor = 0;
                 otherwise
-                    error('Invalid number of input arguments (should be 2 or 3)');
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
             if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-star-fast') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom') && ~strcmp(method, 'exact-polyhedron') && ~strcmp(method, 'approx-star-split') && ~strcmp(method,'approx-star-no-split')
@@ -121,8 +140,11 @@ classdef LayerS
             W1 = obj.W;
             b1 = obj.b;
             f1 = obj.f;
-            if strcmp(option, 'parallel') % reachability analysis using star set
-                              
+            if strcmp(obj.option, 'parallel') % reachability analysis using star set
+                
+                rF = obj.relaxFactor;
+                dis = obj.dis_opt;
+                lps = obj.lp_solver;
                 parfor i=1:n
                     
                     % affine mapping y = Wx + b;
@@ -136,15 +158,15 @@ classdef LayerS
                     if strcmp(f1, 'purelin')
                         S = [S I1];
                     elseif strcmp(f1, 'poslin')
-                        S = [S PosLin.reach(I1, method, [], relaxFactor)];
+                        S = [S PosLin.reach(I1, method, [], rF, dis, lps)];
                     elseif strcmp(f1, 'satlin')
                         S = [S SatLin.reach(I1, method)];
                     elseif strcmp(f1, 'satlins')
                         S = [S SatLins.reach(I1, method)];
                     elseif strcmp(f1, 'logsig')
-                        S = [S LogSig.reach(I1, method,[], relaxFactor)];
+                        S = [S LogSig.reach(I1, method,[], rF, dis, lps)];
                     elseif strcmp(f1, 'tansig')
-                        S = [S TanSig.reach(I1, method, [], relaxFactor)];
+                        S = [S TanSig.reach(I1, method, [], rF, dis, lps)];
                     elseif strcmp(f1, 'softmax')
                         fprintf("\nSoftmax reachability is neglected in verification");
                         S = [S I1];
@@ -168,15 +190,15 @@ classdef LayerS
                     if strcmp(f1, 'purelin')
                         S = [S I1];
                     elseif strcmp(f1, 'poslin')
-                        S = [S PosLin.reach(I1, method, [], relaxFactor)];
+                        S = [S PosLin.reach(I1, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'satlin')
                         S = [S SatLin.reach(I1, method)];
                     elseif strcmp(f1, 'satlins')
                         S = [S SatLins.reach(I1, method)];
                     elseif strcmp(f1, 'logsig')
-                        S = [S LogSig.reach(I1, method, [], relaxFactor)];
+                        S = [S LogSig.reach(I1, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'tansig')
-                        S = [S TanSig.reach(I1, method, [], relaxFactor)];
+                        S = [S TanSig.reach(I1, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'softmax')
                         fprintf("\nSoftmax reachability is neglected in verification");
                         S = [S I1];

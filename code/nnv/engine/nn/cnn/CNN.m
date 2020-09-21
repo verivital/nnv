@@ -26,6 +26,8 @@ classdef CNN < handle
         
         features = {}; % outputs of each layer in an evaluation
         dis_opt = []; % display option = 'display' or []
+        lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set
+        % user can choose 'glpk' or 'linprog' as an LP solver
         
     end
     
@@ -118,15 +120,37 @@ classdef CNN < handle
             % date: 
             % update: 7/15/2020 : add display option "dis_opt = 'display'"
             % -> display all messages
+            % update: 7/16/2020: add lp_solver option for user to choose
             
             switch nargin 
                 
                 case 2
                     
                     obj = varargin{1};
-                    inputSet = varargin{2};
-                    obj.reachMethod = 'approx-star';
-                    obj.numCores = 1; 
+                    if ~isstruct(varargin{2})
+                        inputSet = varargin{2};
+                    else
+                       if isfield(varargin{2}, 'inputSet')
+                           inputSet = varargin{2}.inputSet;
+                       else
+                           error('No input set for reachability analysis');
+                       end
+                       if isfield(varargin{2}, 'reachMethod')
+                           obj.reachMethod = varargin{2}.reachMethod;
+                       end
+                       if isfield(varargin{2}, 'numCores')
+                           obj.numCores = varargin{2}.numCores;
+                       end
+                       if isfield(varargin{2}, 'relaxFactor')
+                           obj.relaxFactor = varargin{2}.relaxFactor;
+                       end
+                       if isfield(varargin{2}, 'dis_opt')
+                           obj.dis_opt = varargin{2}.dis_opt; % use for debuging
+                       end
+                       if isfield(varargin{2}, 'lp_solver')
+                           obj.lp_solver = varargin{2}.lp_solver;
+                       end
+                    end
                     
                 case 3 
                     
@@ -155,16 +179,23 @@ classdef CNN < handle
                     obj.reachMethod = varargin{3};
                     obj.numCores = varargin{4};
                     obj.relaxFactor = varargin{5};
-                    obj.dis_opt = varargin{6}; % use for debuging 
+                    obj.dis_opt = varargin{6}; % use for debuging
+                    
+                case 7
+                    obj = varargin{1};
+                    inputSet = varargin{2};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = varargin{4};
+                    obj.relaxFactor = varargin{5};
+                    obj.dis_opt = varargin{6}; % use for debuging
+                    obj.lp_solver = varargin{7}; 
                     
                 otherwise 
                     
-                    error('Invalid number of input arguments, the number should be 1, 2, 3, 4, or 5');
+                    error('Invalid number of input arguments, the number should be 1, 2, 3, 4, 5, or 6');
                 
             end
-            
-            
-            
+                       
             if  obj.numCores > 1
                 obj.start_pool;
                 obj.reachOption = 'parallel';
@@ -180,10 +211,10 @@ classdef CNN < handle
             rs = inputSet;
             for i=2:obj.numLayers+1
                 if strcmp(obj.dis_opt, 'display')
-                fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
+                    fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 end
                 start_time = tic;
-                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt);
+                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 obj.reachTime(i-1) = toc(start_time);
                 rs = rs_new;
                 obj.reachSet{i-1} = rs_new;
@@ -252,7 +283,7 @@ classdef CNN < handle
                 fprintf('\n=============================================');
                 obj.reach(in_image, method, numOfCores);
 
-                RS = obj.reachSet{obj.numLayers + 1};
+                RS = obj.outputSet;
                 n = length(RS);
                 label_id = cell(n, 1);
                 for i=1:n
@@ -329,7 +360,7 @@ classdef CNN < handle
                     
                     elseif strcmp(method, 'exact-star')
                         
-                        rs = obj.reachSet{obj.numLayers + 1}(i);
+                        rs = obj.outputSet(i);
                         L = length(id1); 
                         for l=1:L                    
                             [new_C, new_d] = ImageStar.addConstraint(rs, [1, 1, correct_id], [1, 1, id1(l)]);  
@@ -541,8 +572,18 @@ classdef CNN < handle
                     obj.relaxFactor = varargin{6}; % only for the approx-star method
                     obj.dis_opt = varargin{7};
                     
+                case 8
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                    
                 otherwise
-                    error('Invalid number of inputs, should be 2, 3, 4 or 6');
+                    error('Invalid number of inputs, should be 2, 3, 4, 5, 6 or 7');
                      
             end
             
@@ -559,24 +600,34 @@ classdef CNN < handle
             cE = [];
             
             if ~isempty(in_image.im_lb)
+                % check lower bound image
                 y_lb = obj.evaluate(in_image.im_lb);
                 [~,max_id] = max(y_lb);
                 if max_id ~= correct_id
                     robust = 0;
                     cE = in_image.im_lb;
                 end
-
+                
+                % check upper bound image
                 y_ub = obj.evaluate(in_image.im_ub);
                 [~,max_id] = max(y_ub);
-                if max_id ~= correct_id
+                if robust ~=0 && max_id ~= correct_id
                     robust = 0;
                     cE = in_image.im_ub;
+                end
+                
+                % check the center image
+                y_c = obj.evaluate(in_image.V(:,:,:,1));
+                [~,max_id] = max(y_c);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.V(:,:,:,1);
                 end
             end
             
             if robust == 2             
                 % compute reachable set
-                [R, ~] = obj.reach(in_image, method, obj.numCores, obj.relaxFactor, obj.dis_opt); 
+                [R, ~] = obj.reach(in_image, method, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver); 
                 [robust, cands] = CNN.checkRobust(R, correct_id);   
             end
             
@@ -599,8 +650,18 @@ classdef CNN < handle
             
             % author: Dung Tran
             % date:7/13/2020
+            % update: 7/16/2020: add display option + lp_solver option
             
             switch nargin
+                case 8
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    numOfCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7}; % display option
+                    obj.lp_solver = varargin{8}; 
                 case 7
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -632,8 +693,23 @@ classdef CNN < handle
                     method = varargin{4};
                     numOfCores = 1;
                     obj.relaxFactor = 0; % only for the approx-star method
+                case 2
+                    obj = varargin{1};
+                    if isstruct(varargin{2})
+                        in_images = varargin{2}.inputSets;
+                        correct_ids = varargin{2}.correct_ids;
+                        method = varargin{2}.reachMethod;
+                        numOfCores = varargin{2}.numCores;
+                        obj.relaxFactor = varargin{2}.relaxFactor; % only for the approx-star method
+                        obj.dis_opt = varargin{2}.dis_opt; % display option
+                        obj.lp_solver = varargin{2}.lp_solver; 
+                    else
+                        error('Input argument should be a struct variable');
+                    end
+                    
+                    
                 otherwise
-                    error('Invalid number of input arguments, should be 3, 4, 5 or 6');                    
+                    error('Invalid number of input arguments, should be 1, 3, 4, 5, 6 or 7');                    
             end
             
             
@@ -821,7 +897,7 @@ classdef CNN < handle
             
             R = outputSet.toStar;
             [lb, ub] = R.estimateRanges;
-            
+
             [~, max_ub_id] = max(ub);
             cands = [];
             if max_ub_id ~= correct_id
@@ -836,25 +912,31 @@ classdef CNN < handle
                 if isempty(max_cd)
                     rb = 1;
                 else            
-
+                    
                     n = length(max_cd);
-                    count = 0;
-                    for i=1:n
-                        if R.is_p1_larger_than_p2(max_cd(i), correct_id)
-                            rb = 2;
-                            cands = max_cd(i);
-                            break;
-                        else
-                            count = count + 1;
+                    C1 = R.V(max_cd, 2:R.nVar+1) - ones(n,1)*R.V(correct_id, 2:R.nVar+1);
+                    d1 = -R.V(max_cd, 1) + ones(n,1)*R.V(correct_id,1);
+                    S = Star(R.V, [R.C;C1], [R.d;d1], R.predicate_lb, R.predicate_ub);
+                    if S.isEmptySet
+                        rb = 2;
+                        cands = max_cd;
+                    else                       
+                        count = 0;
+                        for i=1:n
+                            if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                                rb = 2;
+                                cands = max_cd(i);
+                                break;
+                            else
+                                count = count + 1;
+                            end
                         end
-                    end
-
-                    if count == n
-                        rb = 1;
-                    end
+                        if count == n
+                            rb = 1;
+                        end         
+                    end    
 
                 end
-   
 
             end
 

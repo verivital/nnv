@@ -19,7 +19,7 @@ classdef PosLin
         end
         
         % stepReach method, compute reachable set for a single step
-        function S = stepReach(I, index)
+        function S = stepReach(varargin)
             % @I: single star set input
             % @index: index of the neuron performing stepPosLin
             % @xmin: minimum of x[index]
@@ -28,17 +28,31 @@ classdef PosLin
             
             % author: Dung Tran
             % date: 27/2/2019
+            % update: 7/16/2020: add lp_solver option
+            
+            switch nargin
+                case 2 
+                    I = varargin{1};
+                    index = varargin{2};
+                    lp_solver = 'linprog';
+                case 3
+                    I = varargin{1};
+                    index = varargin{2};
+                    lp_solver = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 2 or 3');
+            end
             
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
             
-            xmin = I.getMin(index);
+            xmin = I.getMin(index, lp_solver);
                        
             if xmin >= 0
                 S = I; 
             else
-                xmax = I.getMax(index);
+                xmax = I.getMax(index, lp_solver);
                 
                 if xmax <= 0
                 
@@ -231,7 +245,7 @@ classdef PosLin
         
         
         % stepReach with multiple inputs
-        function S = stepReachMultipleInputs(I, index, option)
+        function S = stepReachMultipleInputs(varargin)
             % @I: an array of stars
             % @index: index where stepReach is performed
             % @option: = 'parallel' use parallel computing
@@ -240,6 +254,22 @@ classdef PosLin
             % author: Dung Tran
             % date: 27/2/2019
             % update: 4/2/2020
+            %       : 7/16/2020: add lp_solver option
+            
+            switch nargin
+                case 3
+                    I = varargin{1};
+                    index = varargin{2};
+                    option = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    index = varargin{2};
+                    option = varargin{3};
+                    lp_solver = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments');
+            end
             
             p = length(I);
             S = [];
@@ -247,13 +277,13 @@ classdef PosLin
             if isempty(option)
                 
                 for i=1:p
-                    S =[S, PosLin.stepReach(I(i), index)];
+                    S =[S, PosLin.stepReach(I(i), index, lp_solver)];
                 end
                 
             elseif strcmp(option, 'parallel')
                 
                 parfor i=1:p
-                    S =[S, PosLin.stepReach(I(i), index)];
+                    S =[S, PosLin.stepReach(I(i), index, lp_solver)];
                 end
                 
             else
@@ -274,16 +304,24 @@ classdef PosLin
             % author: Dung Tran
             % date: 3/16/2019
             % update: 7/15/2020: add display option
+            %         7/16/2020: add lp_solver option
             
             switch nargin
                 case 2
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
                 otherwise
                     error('Invalid number of input arguments');
             end
@@ -316,7 +354,7 @@ classdef PosLin
                         if strcmp(dis_opt, 'display')
                             fprintf('\nPerforming exact PosLin_%d operation using Star', map(i));
                         end
-                        In = PosLin.stepReachMultipleInputs(In, map(i), option);
+                        In = PosLin.stepReachMultipleInputs(In, map(i), option, lp_solver);
                     end               
                     S = In;
                 end
@@ -410,18 +448,26 @@ classdef PosLin
             
             % author: Dung Tran
             % date: 7/25/2019
+            % update: 7/16/2020: add display option + lp_solver option
             
             switch nargin
                 case 2
                     In = varargin{1};
                     option = varargin{2};
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 3
                     In = varargin{1};
                     option = varargin{2};
-                    dis_opt = [];
+                    dis_opt = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    In = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
                 otherwise
-                    error('Invalid number of input arguments, should be 2 or 3');
+                    error('Invalid number of input arguments, should be 2, 3 or 4');
             end
             
             
@@ -429,11 +475,11 @@ classdef PosLin
              S = [];
              if strcmp(option, 'parallel')
                  parfor i=1:n
-                     S = [S PosLin.reach_star_exact(In(i), [], dis_opt)];
+                     S = [S PosLin.reach_star_exact(In(i), [], dis_opt, lp_solver)];
                  end
              elseif isempty(option) || strcmp(option, 'single')
                  for i=1:n
-                     S = [S PosLin.reach_star_exact(In(i), [], dis_opt)];
+                     S = [S PosLin.reach_star_exact(In(i), [], dis_opt, lp_solver)];
                  end
              else
                  error('Unknown computation option');
@@ -642,22 +688,31 @@ classdef PosLin
             % date: 4/3/2019
             % update: 7/13/2020 : getMax parallel
             % update: 7/15/2020 : add display option
+            %         7/16/2020: add lp_solver option
             
             switch nargin
                 case 1
                     I = varargin{1};
                     option = 'single';
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = varargin{3};
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
                 otherwise
-                    error('Invalid number of input arguments, should be 1 or 2');
+                    error('Invalid number of input arguments, should be 1, 2, 3, or 4');
             end
 
             if ~isa(I, 'Star')
@@ -685,7 +740,7 @@ classdef PosLin
                     if strcmp(dis_opt, 'display')
                         fprintf('\nFinding neurons (in %d neurons) with ub <= 0 by optimizing ranges: ', length(map2));
                     end
-                    xmax = I.getMaxs(map2, option);
+                    xmax = I.getMaxs(map2, option, dis_opt, lp_solver);
                     map3 = find(xmax <= 0);
                     if strcmp(dis_opt, 'display')
                         fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map2));
@@ -710,7 +765,7 @@ classdef PosLin
                     map6 = map2(map5(:)); % all indexes having ub > 0
                     xmax1 = xmax(map5(:)); % upper bound of all neurons having ub > 0
 
-                    xmin = I.getMins(map6, option); 
+                    xmin = I.getMins(map6, option, dis_opt, lp_solver); 
                     map7 = find(xmin < 0); 
                     map8 = map6(map7(:)); % all indexes having lb < 0 & ub > 0
                     lb1 = xmin(map7(:));  % lower bound of all indexes having lb < 0 & ub > 0
@@ -735,6 +790,7 @@ classdef PosLin
             % author: Dung Tran
             % date: 6/26/2020
             % update: 7/15/2020 add display option
+            %       : 7/16/2020 add lp_solver option
             
             switch nargin
                 case 2
@@ -742,18 +798,27 @@ classdef PosLin
                     relaxFactor = varargin{2};
                     option = 'single';
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
+                    lp_solver = 'linprog';
+                case 5
+                    I = varargin{1};
+                    relaxFactor = varargin{2};
+                    option = varargin{3};
+                    dis_opt = varargin{4};
+                    lp_solver = varargin{5};
                 otherwise
-                    error('Invalid number of input arguments, should be 2, 3, or 4');
+                    error('Invalid number of input arguments, should be 2, 3, 4 or 5');
             end
 
             if ~isa(I, 'Star')
@@ -791,7 +856,7 @@ classdef PosLin
                     lb1 = lb(map22);
                     ub1 = ub(map22); 
                     
-                    xmax = I.getMaxs(map21, option, dis_opt); 
+                    xmax = I.getMaxs(map21, option, dis_opt, lp_solver); 
                     map3 = find(xmax <= 0);
                     if strcmp(dis_opt, 'display')
                         fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map21));
@@ -816,7 +881,7 @@ classdef PosLin
                     map6 = map21(map5(:)); % all indexes having ub > 0
                     xmax1 = xmax(map5(:)); % upper bound of all neurons having ub > 0
 
-                    xmin = I.getMins(map6, option, dis_opt); 
+                    xmin = I.getMins(map6, option, dis_opt, lp_solver); 
                     map7 = find(xmin < 0); 
                     map8 = map6(map7(:)); % all indexes having lb < 0 & ub > 0
                     lb2 = xmin(map7(:));  % lower bound of all indexes having lb < 0 & ub > 0
@@ -1269,12 +1334,21 @@ classdef PosLin
             
             switch nargin
                 
+                case 6
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = varargin{3};
+                    relaxFactor = varargin{4}; % used for aprox-star only
+                    dis_opt = varargin{5}; % display option
+                    lp_solver = varargin{6}; 
+                
                 case 5
                     I = varargin{1};
                     method = varargin{2};
                     option = varargin{3};
                     relaxFactor = varargin{4}; % used for aprox-star only
                     dis_opt = varargin{5}; % display option
+                    lp_solver = 'linprog';
                 
                 case 4
                     I = varargin{1};
@@ -1282,6 +1356,7 @@ classdef PosLin
                     option = varargin{3};
                     relaxFactor = varargin{4}; % used for aprox-star only
                     dis_opt = [];
+                    lp_solver = 'linprog';
                                     
                 case 3
                     I = varargin{1};
@@ -1289,29 +1364,29 @@ classdef PosLin
                     option = varargin{3};
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
                     option = 'parallel';
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    
+                    lp_solver = 'linprog';
                 case 1
                     I = varargin{1};
                     method = 'exact-star';
                     option = 'parallel';
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    
+                    lp_solver = 'linprog';
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2, 3 or 4)');
+                    error('Invalid number of input arguments (should be 1, 2, 3, 4, or 5)');
             end
             
             
             if strcmp(method, 'exact-star') % exact analysis using star
                 
-                R = PosLin.reach_star_exact_multipleInputs(I, option, dis_opt);
+                R = PosLin.reach_star_exact_multipleInputs(I, option, dis_opt, lp_solver);
                 
             elseif strcmp(method, 'exact-polyhedron') % exact analysis using polyhedron
                 
@@ -1320,9 +1395,9 @@ classdef PosLin
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 
                 if relaxFactor == 0
-                    R = PosLin.reach_star_approx2(I, option, dis_opt);
+                    R = PosLin.reach_star_approx2(I, option, dis_opt, lp_solver);
                 else
-                    R = PosLin.reach_relaxed_star_approx(I, relaxFactor, option, dis_opt);
+                    R = PosLin.reach_relaxed_star_approx(I, relaxFactor, option, dis_opt, lp_solver);
                 end
                 
             elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope

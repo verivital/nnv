@@ -89,7 +89,7 @@ classdef SigmoidLayer < handle
     methods % reachability methods
         
         % reachability using ImageStar
-        function images = reach_star_single_input(~, in_image, method, relaxFactor)
+        function images = reach_star_single_input(~, in_image, method, relaxFactor, dis_opt, lp_solver)
             % @in_image: an ImageStar input set
             % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
             % @relaxFactor: for approx-star method
@@ -99,17 +99,17 @@ classdef SigmoidLayer < handle
             % author: Dung Tran
             % date: 6/9/2020
             % update: 6/26/2020: add relaxed approx-star method
+            %         7/16/2020: add display option + lp_solver option
             
             if ~isa(in_image, 'ImageStar')
                 error('input is not an ImageStar');
             end
             
-            
             h = in_image.height;
             w = in_image.width;
             c = in_image.numChannel;
             
-            Y = LogSig.reach(in_image.toStar, method, relaxFactor); % reachable set computation with ReLU
+            Y = LogSig.reach(in_image.toStar, method, relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
             n = length(Y);
             images(n) = ImageStar;
             % transform back to ImageStar
@@ -121,7 +121,7 @@ classdef SigmoidLayer < handle
         
         
         % hangling multiple inputs
-        function images = reach_star_multipleInputs(obj, in_images, method, option, relaxFactor)
+        function images = reach_star_multipleInputs(obj, in_images, method, option, relaxFactor, dis_opt, lp_solver)
             % @in_images: an array of ImageStars
             % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
             % @option: = 'parallel' or 'single' or empty
@@ -135,14 +135,14 @@ classdef SigmoidLayer < handle
             
             images = [];
             n = length(in_images);
-                        
+            
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    images = [images obj.reach_star_single_input(in_images(i), method, relaxFactor)];
+                    images = [images obj.reach_star_single_input(in_images(i), method, relaxFactor, dis_opt, lp_solver)];
                 end
             elseif strcmp(option, 'single') || isempty(option)
                 for i=1:n
-                    images = [images obj.reach_star_single_input(in_images(i), method, relaxFactor)];
+                    images = [images obj.reach_star_single_input(in_images(i), method, relaxFactor, dis_opt, lp_solver)];
                 end
             else
                 error('Unknown computation option');
@@ -209,34 +209,59 @@ classdef SigmoidLayer < handle
             % author: Dung Tran
             % date: 6/9/2020
             % update: 6/26/2020: add relaxed approx-method for ImageStar
+            %         7/16/2020: add display option + lp_solver option
              
             switch nargin
+                
+                case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    relaxFactor = varargin{5};
+                    dis_opt = varargin{6};
+                    lp_solver = varargin{7};
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    relaxFactor = varargin{5};
+                    dis_opt = varargin{6};
+                    lp_solver = 'linprog';
                 
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    relaxFactor = varargin{5}; 
-                
+                    relaxFactor = varargin{5};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                        
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
+                    dis_opt = [];
+                    lp_solver = 'linprog';
                 
                 case 3
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = 'single';
+                    dis_opt = [];
+                    lp_solver = 'linprog';
                     
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2, 3 or 4)');
+                    error('Invalid number of input arguments (should be 2,3,4,5 or 6)');
             end
-            
+           
             if strcmp(method, 'approx-star') || strcmp(method, 'abs-dom')
-                images = obj.reach_star_multipleInputs(in_images, method, option, relaxFactor);
+                images = obj.reach_star_multipleInputs(in_images, method, option, relaxFactor, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);
             else

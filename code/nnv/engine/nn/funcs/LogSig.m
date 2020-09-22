@@ -411,12 +411,12 @@ classdef LogSig
 %             else
 %                 [l, u] = I.getRange(index);
 %             end
-%           
+    
             fprintf('\nStepLogSig(Sigmoid)_NoSplit using approx-star at index %d', index);
             [l, u] = I.estimateRange(index);
             fprintf('\nEstimated Range at x[%d]:l = %.5f, u = %.5f', index, l, u);
             [l, u] = I.getRange(index);
-            fprintf('\nComputed Range at x[%d]: l = %.5f, u = %.5f', index, l, u);           
+            fprintf('\nComputed Range at x[%d]: l = %.5f, u = %.5f', index, l, u);  
             y_l = logsig(l);
             y_u = logsig(u);
             dy_l = logsig('dn', l);
@@ -590,7 +590,6 @@ classdef LogSig
                 % update predicate bound
                 new_predicate_lb = [I.predicate_lb; y_l]; 
                 new_predicate_ub = [I.predicate_ub; y_u];
-                
                 % update outer-zonotope
                 if ~isempty(I.Z)
                     c = I.Z.c;

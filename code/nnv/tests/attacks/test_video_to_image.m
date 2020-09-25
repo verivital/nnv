@@ -1,3 +1,11 @@
+%to run this as a test, use results_video_to_image=runtests('test_video_to_image')
+%requirements: file must start or end with test
+%each test starts with two percent signs followed by the name
+%shared vairables must appear before first test
+%variables made by a test are not available to other tests.
+
+
+%% test 1: video to image
 mkdir('shuttle_images');
 shuttleVideo = VideoReader('shuttle.avi');
 ii = 1;

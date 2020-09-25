@@ -1246,7 +1246,7 @@ classdef PosLin
                     new_pred_ub = [I.predicate_ub; ub];
                                         
                 end
-                
+		display(new_C)
                 S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
                 
             end
@@ -1275,7 +1275,6 @@ classdef PosLin
                     error('Invalid number of input arguments, should be 1 or 2');
             end
             
-            
             if ~isa(I, 'Star')
                 error('Input is not a star');
             end
@@ -1290,7 +1289,7 @@ classdef PosLin
                     map = find(ub <= 0); % computation map
                     V = I.V;
                     V(map, :) = 0;
-                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);                    
+                    In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub);
                     map = find(lb <= 0 & ub > 0);
                     m = length(map); 
                     for i=1:m

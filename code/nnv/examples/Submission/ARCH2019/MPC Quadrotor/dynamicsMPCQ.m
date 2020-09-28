@@ -1,4 +1,4 @@
-function [dx,y] = dynamicsMPCQ(t,x,u)
+function [dx,y] = dynamicsMPCQ(x,u)
 % dynamics of the MPC quadrotor
 % u(1) = pitch
 % u(2) = roll

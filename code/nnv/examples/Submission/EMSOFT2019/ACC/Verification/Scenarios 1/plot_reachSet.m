@@ -4,20 +4,19 @@ bias = network.bias;
 n = length(weights);
 Layers = [];
 for i=1:n - 1
-    L = Layer(weights{1, i}, bias{i, 1}, 'ReLU');
+    L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
     Layers = [Layers L];
 end
 
-L = Layer(weights{1, n}, bias{n, 1}, 'Linear');
+L = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
 
 Layers = [Layers L];
 
-Controller = FFNN(Layers); % feedforward neural network controller
-Plant = NonLinearODE(6, 1, @car_dynamics);
-Plant.set_timeStep(0.01); % time step for reachability analysis of the plant
-Plant.set_tFinal(0.1); % Ts = 0.1, sampling time for control signal from neural network controller
+Controller = FFNNS(Layers); % feedforward neural network controller
+reachStep = 0.01; % time step for reachability analysis of the plant
+controlPeriod = 0.1; % Ts = 0.1, sampling time for control signal from neural network controller
 output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity
-Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
+Plant = NonLinearODE(6, 1, @car_dynamics, reachStep, controlPeriod, output_mat);
 
 feedbackMap = [0]; % feedback map, y[k] 
 
@@ -43,8 +42,12 @@ input_ref = Star(lb1, ub1);
 N = 50;  % number of control steps
 
 n_cores = 4; % number of cores 
-
-[P1, reachTime1] = ncs.reach('approx-star', init_set, input_ref, n_cores, N);
+reachPRM.init_set = init_set;
+reachPRM.ref_input = input_ref;
+reachPRM.numCores = n_cores;
+reachPRM.numSteps = N;
+reachPRM.reachMethod = 'approx-star';
+[P1, reachTime1] = ncs.reach(reachPRM);
 
 % plot output relative distance, ego_car velocity and safe_distance
 % distance between two cars

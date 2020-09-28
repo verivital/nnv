@@ -1,4 +1,4 @@
-function [dx, y] = dynamicsAcrobot(t,x,u)
+function [dx, y] = dynamicsAcrobot(x,u)
 % Parameters
 l1 = 1; %length of link 1
 l2 = 1; %length of link 2

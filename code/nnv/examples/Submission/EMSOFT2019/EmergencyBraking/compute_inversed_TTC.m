@@ -1,4 +1,4 @@
-%load reachSet.mat;
+load reachSet.mat;
 %load exactReachSet.mat;
 n = length(S);
 start = tic;

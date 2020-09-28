@@ -2,16 +2,9 @@
 % Load components and set reachability parameters
 % net = Load_nn('controllerTora.onnx');
 net = Load_nn('controllerTora_nnv.mat');
-% reachStep = 0.005;
-reachStep = 0.01;
+reachStep = 0.05;
 controlPeriod = 1;
 plant = NonLinearODE(4,1,@dynamics9, reachStep, controlPeriod, eye(4));
-% noise = Star(-0.0001, 0.0001);
-% plant.set_taylorTerms(10);
-% plant.set_zonotopeOrder(100);
-% plant.set_polytopeOrder(5);% error = 0.001;
-% error = 0.01;
-% plant.options.maxError = [error; error; error; error];
 time = 0:controlPeriod:20;
 steps = length(time);
 % Initial set
@@ -48,13 +41,10 @@ for i =1:6
 end
 disp(' ');
 timing = toc(t);
-%% Set output path
-path_out_b9 = ['..' filesep path_results() filesep 'benchmark9' filesep];
-mkdir(path_out_b9);
-save([path_out_b9 'sets'],'reachAll','timing','-v7.3')
+% save('../../results/reach9','plant','reachAll','timing','-v7.3')
 
 %% Visualize results
-f = figure('visible','off');
+f = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
 grid;
 hold on;
@@ -63,9 +53,9 @@ grid;
 title('Reachable sets Benchmark 9 - TORA')
 xlabel('x1');
 ylabel('x3');
-saveas(f,[path_out_b9 'plot1v3.jpg']);
+% saveas(f,'../../results/reach9_plot1v3.jpg');
 
-f1 = figure('visible','off');
+f1 = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,2,4,'b');
 grid;
 hold on;
@@ -74,7 +64,7 @@ grid;
 title('Reachable sets Benchmark 9 - TORA')
 xlabel('x2');
 ylabel('x4');
-saveas(f1,[path_out_b9 'plot3v4.jpg']);
+% saveas(f1,'../../results/reach9_plot3v4.jpg');
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set)

@@ -1,7 +1,9 @@
-%% Reachability analysis of TORA (benchmark 9)
+%% Reachability analysis of TORA 
 % Load components and set reachability parameters
-net = Load_nn('nn_tora_relu_tanh.txt');
+% net = Load_nn('nn_tora_relu_tanh.txt');
+net = Load_nn('nn_tora_relu_tanh.mat');
 net.Layers(4).f = 'tansig';
+
 reachStep = 0.003;
 controlPeriod = 0.5;
 % controlPeriod = 1;
@@ -45,13 +47,9 @@ end
 init_set = plant.stepReachStar(init_set(1), input_set(1));
 reachAll = [reachAll init_set(1)];
 timing = toc(t);
-%% Set output path
-path_out_t = ['..' filesep path_results() filesep 'tora_heterogeneous' filesep];
-mkdir(path_out_t);
-save([path_out_t 'sets_reluTanh'],'reachAll','timing','-v7.3');
-
+% save('../../results/reachTora_reluTanh','timing','reachAll','plant','-v7.3');
 %% Visualize results
-f = figure('visible','off');
+f = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
 grid;
 hold on;
@@ -62,4 +60,4 @@ grid;
 title('Reachable sets for dimensions 1 and 2')
 xlabel('x1');
 ylabel('x2');
-saveas(f,[path_out_t 'reluTanh_plot.jpg']);
+% saveas(f,'../../results/reachTora_reluTanh_plot.jpg');

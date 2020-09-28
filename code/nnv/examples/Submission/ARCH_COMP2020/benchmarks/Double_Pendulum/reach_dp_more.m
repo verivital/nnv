@@ -10,10 +10,6 @@ controlPeriod = 0.02;
 
 % define the plant as specified by nnv
 plant = NonLinearODE(4,2,@dynamics_dp, reachStep, controlPeriod, eye(4));
-% plant.set_zonotopeOrder(50);
-% plant.set_polytopeOrder(20);
-% error = 0.01;
-% plant.options.maxError = [error; error;error;error];
 
 %% Reachability analysis
 % Initial set
@@ -39,27 +35,24 @@ for i=1:num_steps
     input_set = net.reach(init_set,'approx-star');
 end
 timing = toc(t);
-%% Set output path
-path_out_dp = ['..' filesep path_results() filesep 'double_pendulum' filesep];
-mkdir(path_out_dp);
-save([path_out_dp 'sets_more'],'reachAll','timing','-v7.3');
+% save('../../results/doublePendulum_more','plant','reachAll','timing','-v7.3');
 
 %% Visualize results
-f = figure('visible','off');
+f = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
 grid;
 title('Double Pendulum reachable sets');
 xlabel('x1');
 ylabel('x2');
-saveas(f,[path_out_dp 'plot_more_1v2.jpg']);
+% saveas(f,'../../results/DoublePendulum_more_1v2.jpg');
 
-f1 = figure('visible','off');
+f1 = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,4,'b');
 grid;
 title('Double Pendulum reachable sets');
 xlabel('x3');
 ylabel('x4');
-saveas(f1,[path_out_dp 'plot_more_3v4.jpg']);
+% saveas(f1,'../../results/DoublePendulum_more_3v4.jpg');
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set)

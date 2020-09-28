@@ -1,4 +1,4 @@
-function [dx]=dynamicsACC(t,x,a_ego)
+function [dx]=dynamicsACC(x,a_ego)
 
 mu=0.0001; % friction parameter
 

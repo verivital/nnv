@@ -1,4 +1,4 @@
-function [dstates] = dynamics(t,states,actions)
+function [dstates] = dynamics_airplane(states,actions)
 % Ex_airplane
 % constants as per the documentation Ix=Iy=Iz = 1; Ixz = 0; m = 1; g= 1;
 % description of the pararameters in these equations can be found here

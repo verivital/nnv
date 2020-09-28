@@ -1,4 +1,4 @@
-function dx = planeDynamics(t,x,u,T)
+function dx = planeDynamics(x,u,T)
 %PLANEDYNAMICS 
 %   These are the equations used to describe the VCAS airplane dynamics
 % 

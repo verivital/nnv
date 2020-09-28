@@ -166,8 +166,9 @@ classdef DNonLinearODE < handle
            
            obj.set_R0(R0);
            obj.set_U(U);
-                                
-           sys = nonlinearSysDT(obj.dynamics_func, obj.Ts, obj.dim, obj.nI); % CORA nonlinearSys class
+           dt  = obj.Ts;
+           fun = @(x,u) obj.dynamics_func(x,u,dt);
+           sys = nonlinearSysDT(fun, obj.Ts, obj.dim, obj.nI); % CORA nonlinearSys class
            R = reach(sys, obj.params, obj.options); % CORA reach method using zonotope and conservative linearization
                      
            reachTime = toc(start);
@@ -200,26 +201,36 @@ classdef DNonLinearODE < handle
             [R, ~] = obj.reach_zono(I, U);
             
             N = length(R); % number of reachsets in the computation
-            Z = R(N).timePoint.set; % get the last reachset
-            Nn = length(Z); % number of sets in the last reachset
-            Z = Z{Nn}; % get the last set in the reachset
-            Nz = length(Z); % number of zonotopes in the last set
+            max_parent = 0;
+            for pp=1:N
+                max_parent = max(max_parent,R(pp).parent);
+            end
             S = [];
-            for ik=1:Nz
-                try
-                    Z1 = Z{ik}.Z;
-                catch
-                    Z1 = Z.Z; % get c and V 
-                end
-                c = Z1(:,1); % center vector
-                V = Z1(:, 2:size(Z1, 2)); % generators
+            for mp=1:N
+                if R(mp).parent == max_parent
+                    Z = R(mp).timePoint.set; % get the last reachset
+                    Nn = length(Z); % number of sets in the last reachset
+                    Z = Z{Nn}; % get the last set in the reachset
+                    Nz = length(Z); % number of zonotopes in the last set
+                    for ik=1:Nz
+                        try
+                            Z1 = Z{ik}.Z;
+                        catch
+                            Z1 = Z.Z; % get c and V 
+                        end
+                        c = Z1(:,1); % center vector
+                        V = Z1(:, 2:size(Z1, 2)); % generators
 
-                Zz = Zono(c, V);
-                S = [S Zz.toStar];
+                        Zz = Zono(c, V);
+                        S = [S Zz.toStar];
+                    end
+                end
             end
             
             for i=1:N
-                Z = R(i).timePoint.set; % get the reachset
+%                 N = length(R);
+                Z = R(i).timePoint.set; % get the reachset 
+%                 Z = R(i).timePoint.set;
                 Nn = length(Z); % number of sets in the reachset (1 x timeStep)
                 Ss = [];
                 for ik=1:Nn
@@ -227,7 +238,7 @@ classdef DNonLinearODE < handle
                     Nz = length(Z1);
                     for iz=1:Nz
                         try
-                            Z2 = Z1{ik}.Z;
+                            Z2 = Z1{iz}.Z;
                         catch
                             Z2 = Z1.Z; % get c and V 
                         end
@@ -236,14 +247,12 @@ classdef DNonLinearODE < handle
                         V = Z2(:, 2:size(Z2, 2)); % generators
 
                         Zz = Zono(c, V);
-                        Ss = [S Zz.toStar];
+                        Ss = [Ss Zz.toStar];
                     end
                 end
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end
-            % the last zonotope in the reach set is returned
         end
-        
         % evaluate (simulate) the plant with specific input and state
         % using ode45 solver
         function y = evaluate(obj, x0, u)

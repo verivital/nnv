@@ -307,27 +307,36 @@ classdef HybridA < handle
             
             [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.params.tFinal);
             N = length(R); % number of reachsets in the computation
-            Z = R(N).timePoint.set; % get the last reachset
-            Nn = length(Z); % number of sets in the last reachset
-            Z = Z{Nn}; % get the last set in the reachset
-            Nz = length(Z); % number of zonotopes in the last set
+            max_parent = 0;
+            for pp=1:N
+                max_parent = max(max_parent,R(pp).parent);
+            end
             S = [];
-            for ik=1:Nz
-                try
-                    Z1 = Z{ik}.Z;
-                catch
-                    Z1 = Z.Z; % get c and V 
-                end
-                c = Z1(:,1); % center vector
-                V = Z1(:, 2:size(Z1, 2)); % generators
+            for mp=1:N
+                if R(mp).parent == max_parent
+                    Z = R(mp).timePoint.set; % get the last reachset
+                    Nn = length(Z); % number of sets in the last reachset
+                    Z = Z{Nn}; % get the last set in the reachset
+                    Nz = length(Z); % number of zonotopes in the last set
+                    for ik=1:Nz
+                        try
+                            Z1 = Z{ik}.Z;
+                        catch
+                            Z1 = Z.Z; % get c and V 
+                        end
+                        c = Z1(:,1); % center vector
+                        V = Z1(:, 2:size(Z1, 2)); % generators
 
-                Zz = Zono(c, V);
-                S = [S Zz.toStar];
+                        Zz = Zono(c, V);
+                        S = [S Zz.toStar];
+                    end
+                end
             end
             
             for i=1:N
 %                 N = length(R);
-                Z = R(i).timeInterval.set; % get the reachset                
+                Z = R(i).timeInterval.set; % get the reachset 
+%                 Z = R(i).timePoint.set;
                 Nn = length(Z); % number of sets in the reachset (1 x timeStep)
                 Ss = [];
                 for ik=1:Nn
@@ -349,7 +358,9 @@ classdef HybridA < handle
                 end
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end
+            
             % the last zonotope in the reach set is returned
+            
         end
         
         % evaluate (simulate) the plant

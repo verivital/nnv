@@ -1,4 +1,4 @@
-function [dx]=car_dynamics(t,x, a_ego)
+function [dx]=car_dynamics(x, a_ego)
 
 mu=0.0001; % friction parameter
 

@@ -2,108 +2,20 @@ load controller_3_20.mat;
 
 n = length(weights);
 Layers = [];
-for i=1:n - 1
-    L = Layer(weights{1, i}, bias{i, 1}, 'ReLU');
+for i=1:(n-1)
+    L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
     Layers = [Layers L];
 end
 
-L = Layer(weights{1, n}, bias{n, 1}, 'Linear');
+L = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
 
 Layers = [Layers L];
 
-Controller = FFNN(Layers); % feedforward neural network controller
-
-pwd
-
-[ha_cfg, ha_name] = createConfigFromSpaceEx('acc.xml', 'acc.cfg');
-
-ha_name
-ha_cfg
-
-% TODO: for now, assuming there is 1 network component and 1 child
-% automaton, generalize later, just want to pull out the ODEs for now
-ha = ha_cfg.root.template.children.entrySet().iterator().next().getValue().child;
-
-% TODO: also assume 1 mode, generalize later
-mode = ha.modes.entrySet().iterator().next().getValue();
-
-% TODO: iterator over all variables, get flows for each
-flows = mode.flowDynamics.entrySet().iterator();
-
-vnames = ha.variables.iterator();
-
-while vnames.hasNext()
-    syms(vnames.next());
-end
-
-constants = ha.constants.entrySet().iterator();
-
-while constants.hasNext()
-    syms(constants.next().getKey());
-end
-
-syms x; % todo: pull in vectorized prefix name
-
-f_ode_str = '';
-
-iflow = 1;
-while flows.hasNext()
-    f_next = flows.next();
-    vname = f_next.getKey()
-    f = char(f_next.getValue().toDefaultString())
-    
-    % TODO: generalize or add a renaming variable pass, this assumes all
-    % variables start with names like xN where N is a possibly multi-digit
-    % number
-    f_matlab = regexprep(f, 'x[0-9]*', 'x(${strrep($0, ''x'', '''')})')
-    
-    f_ode = strcat(vname, ' = ', f);
-    
-    %f_ode_sym(iflow) = str2sym(f_ode)
-    %f_ode_sym{iflow} = f;
-    f_ode_sym(iflow) = str2sym(f_matlab)
-    fh_sym(iflow) = symfun(f_ode_sym(iflow), [x1 x2 x3 x4 x5 x6 a_ego a_lead mu])
-    
-    funcstr{iflow} = str2func(char(f_ode_sym(iflow)));
-    
-    % char(13) = '\r'
-    f_ode_str = strcat(f_ode_str, newline, char(13), 'dx(', num2str(iflow), ', 1) = ', f_matlab, ';');
-
-%function [dx]=acc_St1_FlowEq(t,x,u)
-%dx(1,1) = x(2);
-%dx(2,1) = x(3);
-%dx(3,1) = 2*u(1) - 2*x(3) - u(3)*x(2)^2;
-%dx(4,1) = x(5);
-%dx(5,1) = x(6);
-%dx(6,1) = 2*u(2) - 2*x(6) - u(3)*x(5)^2;
-    
-    
-    iflow = iflow + 1;
-end
-
-%dx(1,1)=x(2);
-%dx(2,1) = x(3);
-%dx(3,1) = -2 * x(3) + 2 * a_lead - mu*x(2)^2;
-% ego car dyanmics
-%dx(4,1)= x(5); 
-%dx(5,1) = x(6);
-%dx(6,1) = -2 * x(6) + 2 * a_ego - mu*x(5)^2;
-
-%Plant = NonLinearODE(6, 1, @car_dynamics);
-
-%Plant = NonLinearODE(6, 1, symfun(f_ode_sym, [x1 x2 x3 x4 x5 x6 a_ego a_lead mu]));
-
-printDynamicsFile(pwd,'acc_dyn',f_ode_str);
-copyfile( strcat(pwd,filesep,'auxiliary', filesep, 'acc_dyn.m'), strcat(pwd, filesep));
-
-Plant = NonLinearODE(6, 1, @acc_dyn);
-
-%return
-
-Plant.set_timeStep(0.01); % time step for reachability analysis of the plant
-Plant.set_tFinal(0.1); % Ts = 0.1, sampling time for control signal from neural network controller
+Controller = FFNNS(Layers); % feedforward neural network controller
+reachStep = 0.01; % time step for reachability analysis of the plant
+controlPeriod = 0.1; % Ts = 0.1, sampling time for control signal from neural network controller
 output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity
-Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
+Plant = NonLinearODE(6, 1, @car_dynamics, reachStep, controlPeriod, output_mat);
 
 feedbackMap = [0]; % feedback map, y[k] 
 
@@ -178,8 +90,13 @@ safe = zeros(1, n); % safety status
 reachTime = zeros(1, n); % reach Time
 safetyCheckingTime = zeros(1,n); % safety checking Time
 verificationTime = zeros(1, n); % verification tim = reach time + safety checking time
+reachPRM.numSteps = N;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.ref_input = input_ref;
+reachPRM.numCores = n_cores;
 for i=1:n
-    [~, reachTime(i)] = ncs.reach('approx-star', init_set(i), input_ref, n_cores, N);
+    reachPRM.init_set = init_set(i);
+    [~, reachTime(i)] = ncs.reach(reachPRM);
     [safe(i), safetyCheckingTime(i)] = ncs.check_safety(unsafe_mat, unsafe_vec, n_cores);
     verificationTime(i) = reachTime(i) + safetyCheckingTime(i);
 end

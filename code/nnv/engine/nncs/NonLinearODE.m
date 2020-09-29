@@ -320,7 +320,7 @@ classdef NonLinearODE < handle
         
         % evaluate (simulate) the plant with specific input and state
         % using ode45 solver
-        function [t, y] = evaluate(obj, tspan, x0, u)
+        function [t, y] = evaluate(obj, x0, u)
             % @x0: initial state
             % @u: control input
             % @tspan: time points
@@ -330,10 +330,8 @@ classdef NonLinearODE < handle
             % Last Revision: 
             % 09/07/2020 - Diego Manzanas
             
-%             [t, y] = ode45(@(t,x) obj.dynamics_func(t, x, u), tspan, x0);          
             simOpt = obj.options;
             simOpt.x0 = x0;
-%             simOpt.tStart = obj.params.tStart;
             simOpt.tFinal = obj.params.tFinal;
             simOpt.u = u;
             sys = nonlinearSys(obj.dynamics_func, obj.dim, obj.nI);

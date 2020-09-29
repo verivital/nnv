@@ -14,6 +14,10 @@ L = Layer(weights{1, n}, bias{1, n}, 'Linear');
 Layers = [Layers L];
 
 Controller = FFNN(Layers); % feedforward neural network controller
+offset = 2;
+scale_factor = 1;
+controlPeriod = 0.1;
+reachStep = 0.01;
 Plant = NonLinearODE(2, 1, @dynamics);
 Plant.set_timeStep(0.02); % time step for reachability analysis of the plant
 Plant.set_tFinal(0.2); % Ts = 0.2, sampling time for control signal from neural network controller
@@ -30,7 +34,7 @@ ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 % reference input for neural network controller
 
 
-N = 10; % number of control steps   
+N = 100; % number of control steps   
 
 n_cores = 4; % number of cores
 

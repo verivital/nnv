@@ -15,7 +15,7 @@ acc_linear = LinearODE(A, B, C, D);
 Tr = 0.01; % reachability time step for the plant
 Tc = 0.1; % control period of the plant
 OutMat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % output matrix
-acc_nonlinear = NonLinearODE(6, 1, @car_dynamics, Tr, Tc, OutMat); % nonlinear
+acc_nonlinear = NonLinearODE(6, 1, @acc_dynamics, Tr, Tc, OutMat); % nonlinear
 
 % Controller
 NNcont = Load_nn('ACCcontroller5_20.mat');

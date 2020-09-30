@@ -1,4 +1,4 @@
-function xdot = mariner_uuv(t,x,ui)
+function xdot = mariner_uuv(x,ui)
 % [xdot,U] = mariner(x,ui) returns the speed U in m/s (optionally) and the 
 % time derivative of the state vector: x = [ u v r x y psi delta n ]'  for
 % the Mariner class vessel L = 160.93 m, where

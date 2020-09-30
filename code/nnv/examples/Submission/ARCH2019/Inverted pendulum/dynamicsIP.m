@@ -1,4 +1,4 @@
-function [dx] = dynamicsIP(t,x,u)
+function [dx] = dynamicsIP(x,u)
 % Inverted pendulum dynamics
 % x1 = position
 % x2 = velocity

@@ -4,15 +4,15 @@ load sysd.mat;
 n = length(weights);
 Layers = [];
 for i=1:n - 1
-    L = Layer(weights{1, i}, bias{i, 1}, 'ReLU');
+    L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
     Layers = [Layers L];
 end
 
-L = Layer(weights{1, n}, bias{n, 1}, 'Linear');
+L = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
 
 Layers = [Layers L];
 
-Controller = FFNN(Layers); % feedforward neural network controller
+Controller = FFNNS(Layers); % feedforward neural network controller
 Plant = DLinearODE(sysd.A, sysd.B, sysd.C, sysd.D, sysd.Ts);
 feedbackMap = [0]; % feedback map, y[k] 
 
@@ -29,8 +29,6 @@ B1 = Box(lb, ub);
 
 init_set = B1.toStar();
 
-%init_set = Polyhedron('lb', lb, 'ub', ub);
-
 % reference input for neural network controller
 % t_gap = 1.4; v_set = 30;
 
@@ -40,17 +38,20 @@ B1 = Box(lb, ub);
 
 input_ref = B1.toStar();
 
-%input_ref = Polyhedron('lb', [1.4; 30], 'ub', [1.4; 31]);
-
-
 %N = 10; % take 8 seconds
 %N = 20; % take 16 seconds 
 N = 40; % take 85 seconds, 
 
 
-n_cores = 4; % number of cores 
+n_cores = 4; % number of cores
+reachPRM.ref_input = input_ref;
+reachPRM.numCores = n_cores;
+reachPRM.numSteps = N;
+reachPRM.numSteps = N;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.init_set = init_set;
 
-[P1, reachTime1] = ncs.reach('approx-star', init_set, input_ref, n_cores, N);
+[P1, reachTime1] = ncs.reach(reachPRM);
 
 % plot output relative distance, ego_car velocity and safe_distance
 % distance between two cars

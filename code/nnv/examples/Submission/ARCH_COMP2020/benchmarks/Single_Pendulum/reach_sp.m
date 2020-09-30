@@ -4,16 +4,12 @@
 net = Load_nn('controller_single_pendulum.mat');
 
 % Specify the reach step, has to be smaller than the control period
-reachStep = 0.001;
+reachStep = 0.01;
 %% specify the control period as specified by the benchmark description
 controlPeriod = 0.05;
 
 % define the plant as specified by nnv
 plant = NonLinearODE(3,1,@dynamics_sp, reachStep, controlPeriod, eye(3));
-plant.set_zonotopeOrder(100);
-% plant.set_polytopeOrder(20);
-error = 0.01;
-plant.options.maxError = [error; error; error];
 
 %% Reachability analysis
 % Initial set
@@ -46,19 +42,28 @@ for i=1:num_steps
     input_set = net.reach(inp_nn,'approx-star');
 end
 timing = toc(t);
-%% Set output path
-path_out_sp = ['..' filesep path_results() filesep 'single_pendulum' filesep];
-mkdir(path_out_sp);
-save([path_out_sp 'sets'],'reachAll','timing','-v7.3');
-%% Visualize results
+% save('../../results/SinglePendulum_reach','plant','reachAll','-v7.3');
+%times = reachStep:reachStep:(num_steps*controlPeriod);
+%Star.plotRanges_2D(plant.intermediate_reachSet,1,times,'r')
 
-f = figure('visible','off');
+% times = 0:controlPeriod:(num_steps*controlPeriod);
+% Star.plotRanges_2D(reachAll,1,times,'r')
+
+%% Visualize results
+% f = figure;
+% Star.plotBoxes_2D_noFill(plant,1,2,'b');
+% grid;
+% title('Single Pendulum reachable sets');
+% xlabel('x1');
+% ylabel('x2');
+
+f = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,1,'b');
 grid;
 title('Single Pendulum reachable sets');
 xlabel('Time steps');
 ylabel('Theta');
-saveas(f,[path_out_sp 'plot.jpg']);
+% saveas(f,'../../results/SinglePendulum.jpg');
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set)

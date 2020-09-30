@@ -1,4 +1,4 @@
-%% Reachability analysis of TORA (benchmark 9)
+%% Reachability analysis of VCAS
 % Load components and set reachability parameters
 networks.vcas1 = Load_nn('nnv_networks/VertCAS_noResp_pra01_v9_20HU_200.mat');
 networks.vcas2 = Load_nn('nnv_networks/VertCAS_noResp_pra02_v9_20HU_200.mat');
@@ -33,18 +33,10 @@ h0.SDES2500 = -g/3;
 h0.SCL2500 = g/3;
 
 
-% reachStep = 0.01;
 controlPeriod = 1;
 out_mat = [1 0 0 0;0 1 0 0;0 0 1 0];
-% plant = NonLinearODE(4,2,@planeDynamics, 1, controlPeriod, out_mat);
 plant = DNonLinearODE(4,2,@planeDynamics, controlPeriod, out_mat);
-% plant.set_taylorTerms(10);
-% plant.set_zonotopeOrder(100);
-% plant.set_polytopeOrder(5);% error = 0.001;
-% error = 0.01;
-% plant.options.maxError = [error; error; error; error];
-% time = 0:controlPeriod:20;
-% steps = length(time);
+
 % Initial set
 lb = [-133; -28.5; 25; 1];
 ub = [-129; -28.5; 25; 1];
@@ -59,7 +51,7 @@ minIdx = 1;
 % Store all reachable sets
 reachAll = init_set;
 % Execute reachabilty analysis
-steps = 3;
+steps = 4;
 uNN_all = cell(1,steps);
 yNN_all = cell(1,steps);
 idx_all = cell(1,steps);
@@ -83,13 +75,11 @@ for i =1:steps
     inp_all{i} = input_set;
 end
 timing = toc(t);
-%% Set output path
-path_out_t = ['..' filesep path_results() filesep 'VCAS' filesep];
-mkdir(path_out_t);
-save([path_out_t 'sets_worst28'],'reachAll','timing','-v7.3');
+% save('../../results/reachVCAS_worst28','reachAll','timing','plant','-v7.3')
 
 %% Visualize results
-f = figure('visible','off');
+% times = reachStep:reachStep:steps;
+f = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,3,'b');
 grid;
 hold on;
@@ -98,7 +88,14 @@ grid;
 title('VCAS reachable sets')
 xlabel('Distance');
 ylabel('Tau');
-saveas(f,[path_out_t 'plot_worst28.jpg']);
+% f2 = figure;
+% Star.plotRanges_2D(plant.intermediate_reachSet,1,times,'b');
+% grid;
+% title('VCAS Distance vs Time')
+% xlabel('Time (s)');
+% ylabel('Distance (ft)');
+% saveas(f2,'../../results/reachVCAS_DvTime.jpg');
+% saveas(f,'../../results/reachVCAS_worst28.jpg');
 
 %% Helper Functions
 

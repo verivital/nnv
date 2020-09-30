@@ -196,7 +196,7 @@ classdef LayerS
                     elseif strcmp(f1, 'satlins')
                         S = [S SatLins.reach(I1, method)];
                     elseif strcmp(f1, 'logsig')
-                        S = [S LogSig.reach(I1, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
+                        S = [S LogSig.reach(I1, method, obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'tansig')
                         S = [S TanSig.reach(I1, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'softmax')

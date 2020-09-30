@@ -1,4 +1,4 @@
-function [dx] = dynamicsMC(t,x,u)
+function [dx] = dynamicsMC(x,u)
 % Mountain car dynamics
 % x(1) = position
 % x(2) = velocity

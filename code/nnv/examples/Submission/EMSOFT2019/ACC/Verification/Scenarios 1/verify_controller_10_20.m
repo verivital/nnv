@@ -4,21 +4,20 @@ weights = network.weights;
 bias = network.bias;
 n = length(weights);
 Layers = [];
-for i=1:n - 1
-    L = Layer(weights{1, i}, bias{i, 1}, 'ReLU');
+for i=1:(n-1)
+    L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
     Layers = [Layers L];
 end
 
-L = Layer(weights{1, n}, bias{n, 1}, 'Linear');
+L = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
 
 Layers = [Layers L];
 
-Controller = FFNN(Layers); % feedforward neural network controller
-Plant = NonLinearODE(6, 1, @car_dynamics);
-Plant.set_timeStep(0.01); % time step for reachability analysis of the plant
-Plant.set_tFinal(0.1); % Ts = 0.1, sampling time for control signal from neural network controller
+Controller = FFNNS(Layers); % feedforward neural network controller
+reachStep = 0.01; % time step for reachability analysis of the plant
+controlPeriod = 0.1; % Ts = 0.1, sampling time for control signal from neural network controller
 output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity
-Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
+Plant = NonLinearODE(6, 1, @car_dynamics, reachStep, controlPeriod, output_mat);
 
 feedbackMap = [0]; % feedback map, y[k] 
 
@@ -93,8 +92,13 @@ safe = zeros(1, n); % safety status
 reachTime = zeros(1, n); % reach Time
 safetyCheckingTime = zeros(1,n); % safety checking Time
 verificationTime = zeros(1, n); % verification tim = reach time + safety checking time
+reachPRM.numSteps = N;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.ref_input = input_ref;
+reachPRM.numCores = n_cores;
 for i=1:n
-    [~, reachTime(i)] = ncs.reach('approx-star', init_set(i), input_ref, n_cores, N);
+    reachPRM.init_set = init_set(i);
+    [~, reachTime(i)] = ncs.reach(reachPRM);
     [safe(i), safetyCheckingTime(i)] = ncs.check_safety(unsafe_mat, unsafe_vec, n_cores);
     verificationTime(i) = reachTime(i) + safetyCheckingTime(i);
 end

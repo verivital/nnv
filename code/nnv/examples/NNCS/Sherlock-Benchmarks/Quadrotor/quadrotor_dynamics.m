@@ -1,4 +1,4 @@
-function [dx]= quadrotor_dynamics(t,x,control_input)
+function [dx]= quadrotor_dynamics(x,control_input)
 
 % see paper: Reachability Analysis for Neural Feedback Systems using
 % Regressive Polynomial Rule Inference, Souradeep, HSCC 2019

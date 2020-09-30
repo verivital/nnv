@@ -1,4 +1,4 @@
-function [dx] = dynamics_sp(t,x,a)
+function [dx] = dynamics_sp(x,a)
 % Ex_single_pendulum
 % constants as per the documentation l=0.5, m=0.5; g= 1; c=0;
 % description of the pararameters in these equations can be found here

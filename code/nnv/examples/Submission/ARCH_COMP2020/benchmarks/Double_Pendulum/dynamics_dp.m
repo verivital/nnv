@@ -1,4 +1,4 @@
-function [dx] = dynamics_dp(t,x,T)
+function [dx] = dynamics_dp(x,T)
 % Ex_double pendulum 
 % constants as per the documentation m=0.5, L=0.5, c= 0, g=1.0
 % description of the pararameters in these equations can be found here

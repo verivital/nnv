@@ -8,6 +8,12 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
+cd /code/nnv/examples/Submission/ARCH_COMP2020/benchmarks
+run_all
+
+
+return
+
 cd /code/nnv/examples/Submission/NeurIPS2020/
 produce_NeurIPS2020
 

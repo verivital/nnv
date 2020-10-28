@@ -28,6 +28,8 @@ chmod +x run_tools.sh
 # start up matlab and run
 cd ~/
 
+
+
 matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); startup_nnv; savepath; run_codeocean;"
 
 #cd /results/logs/vgg

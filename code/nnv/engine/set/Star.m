@@ -433,7 +433,9 @@ classdef Star
                V3 = V1 + V2;
                new_V = horzcat(new_c, V3);
                S = Star(new_V, obj.C, obj.d); % new Star has the same number of basic vectors
-             
+               nV = S.nVar; 
+               S.predicate_lb = -ones(nV,1);
+               S.predicate_ub = ones(nV,1);
             else
                 
                 V3 = horzcat(V1, V2);
@@ -443,7 +445,9 @@ classdef Star
                 new_d = vertcat(obj.d, X.d);
 
                 S = Star(new_V, new_C, new_d); % new Star has more number of basic vectors
-                
+                nV = S.nVar; 
+                S.predicate_lb = -ones(nV,1);
+                S.predicate_ub = ones(nV,1);
             end
                 
         end
@@ -652,7 +656,11 @@ classdef Star
             b = obj.V(:, 1);        
             W = obj.V(:, 2:obj.nVar + 1);
             C1 = [eye(obj.nVar); -eye(obj.nVar)];
-            d1 = [obj.predicate_ub; -obj.predicate_lb];
+            if ~isempty(obj.predicate_ub)
+                d1 = [obj.predicate_ub; -obj.predicate_lb];
+            else
+                d1 = [ones(obj.nVar,1);ones(obj.nVar,1)];
+            end
             Pa = Polyhedron('A', [obj.C;C1], 'b', [obj.d;d1]);
             P = Pa.affineMap(W) + b;
         end
@@ -1859,7 +1867,7 @@ classdef Star
             
             U = PolyUnion(X);
             S = U.convexHull;
-            
+            S = Conversion.toStar(S);
         end
         
         % concatenate many stars

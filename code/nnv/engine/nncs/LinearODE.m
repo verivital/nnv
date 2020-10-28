@@ -213,6 +213,8 @@ classdef LinearODE
                         T = Ru(1);
                         for i = 2:length(R1)
                             R = [R Rx(i).MinkowskiSum(T)];
+%                             temp = Rx(i).MinkowskiSum(T);
+%                             R = R.MinkowskiSum(temp); % Works okay if small sets, runs out of memory fast
                             T = T.MinkowskiSum(Ru(i));
                         end
                         

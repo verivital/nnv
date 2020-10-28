@@ -319,7 +319,6 @@ classdef NonLinearODE < handle
         
         
         % evaluate (simulate) the plant with specific input and state
-        % using ode45 solver
         function [t, y] = evaluate(obj, x0, u)
             % @x0: initial state
             % @u: control input

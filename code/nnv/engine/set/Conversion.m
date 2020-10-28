@@ -68,7 +68,9 @@ classdef Conversion
              V = eye(dim);
              
              S = Star([c V], P1.A, P1.b);
-                          
+             nV = S.nVar; 
+             S.predicate_lb = -ones(nV,1);
+             S.predicate_ub = ones(nV,1);             
          end
          
          % to Box

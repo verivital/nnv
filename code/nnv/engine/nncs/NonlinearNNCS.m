@@ -366,7 +366,8 @@ classdef NonlinearNNCS < handle
             end
             
             %ts = obj.plant.reachStep;
-            [~,y1] = obj.plant.evaluate([0 step], x0, zeros(obj.plant.nI,1)); % first step simulation
+%             [~,y1] = obj.plant.evaluate([0 step], x0, zeros(obj.plant.nI,1)); % first step simulation
+            [~,y1] = obj.plant.evaluate(x0, zeros(obj.plant.nI,1)); % first step simulation
             n = size(y1, 1);
             obj.simTrace = [];
             obj.controlTrace = [];
@@ -400,7 +401,8 @@ classdef NonlinearNNCS < handle
                     % compute control signal
                     u = obj.controller.evaluate(I);
                     % compute states of the plant                  
-                    [~,y1] = obj.plant.evaluate([0 step], obj.simTrace(:, i-1), u); % first step simulation
+%                     [~,y1] = obj.plant.evaluate([0 step], obj.simTrace(:, i-1), u); % first step simulation
+                    [~,y1] = obj.plant.evaluate(obj.simTrace(:, i-1), u); % first step simulation
                     n = size(y1, 1);
                     obj.simTrace = [obj.simTrace y1(n, :)']; % store computed states to simTrace                    
                     obj.controlTrace = [obj.controlTrace u]; % store control input to controlTrace

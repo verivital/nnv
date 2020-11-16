@@ -249,8 +249,8 @@ classdef LinearODE_cora < handle
             end
             
             for i=1:N
-                Z = R(i).timeInterval.set; % get the reachset 
-%                 Z = R(i).timePoint.set;
+%                 Z = R(i).timeInterval.set; % get the reachset 
+                Z = R(i).timePoint.set;
                 Nn = length(Z); % number of sets in the reachset (1 x timeStep)
                 Ss = [];
                 for ik=1:Nn

@@ -153,17 +153,17 @@ classdef SatLins
             if ~isa(I, 'Star')
                 error('Input is not a star');
             end
-            try
-                [lb, ub] = I.getRange(index);
-            catch e % if getRanges fails due to exitflag = -3, try other method
-                if I.dim == 1
-                    [lb,ub] = I.estimateBounds;
-                    lb = min(lb);
-                    ub = max(ub);
-                else
-                    error(getReport(e));
-                end
-            end
+            % try
+            [lb, ub] = I.getRange(index);
+            % catch e % if getRanges fails due to exitflag = -3, try other method
+            %     if I.dim == 1
+            %         [lb,ub] = I.estimateBounds;
+            %         lb = min(lb);
+            %         ub = max(ub);
+            %     else
+            %         error(getReport(e));
+            %     end
+            % end
             
             if ub <= -1
                 V = I.V;

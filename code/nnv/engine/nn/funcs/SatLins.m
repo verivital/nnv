@@ -16,53 +16,172 @@ classdef SatLins
         end
         
         % stepReach method, compute reachable set for a single step
-        function S = stepReach(I, index)
+        function S = stepReach(varargin)
             % @I: single star set input
             % @index: index of the neural performing stepSatLin
             % @S: star output set
             
             % author: Dung Tran
             % date: 27/2/2019
+            % update: 11/20/2020
             
+            switch nargin
+                case 2 
+                    I = varargin{1};
+                    index = varargin{2};
+                    lp_solver = 'glpk';
+                case 3
+                    I = varargin{1};
+                    index = varargin{2};
+                    lp_solver = varargin{3};
+                otherwise
+                    error('Invalid number of input arguments, should be 2 or 3');
+            end
             
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
             
-            % case 1: x(index) <= -1, SatLin(x[index]) = -1
-            C0 = I.V(index, 2:I.nVar + 1);
-            d0 = I.V(index, 1);
-            C1 = [I.C; C0];
-            d1 = [I.d; -1-d0];
-            V1 = I.V;
-            V1(index, :) = zeros(1, I.nVar + 1);
-            V1(index, 1) = -1;
-            S1 = Star(V1, C1, d1);
-            if S1.isEmptySet
-                S1 = [];
+            xmin = I.getMin(index, lp_solver);
+            xmax = I.getMax(index, lp_solver);
+
+            C = I.C;
+            d = I.d;
+            c1 = I.V(index, 1);
+            V1 = I.V(index, 2:I.nVar+1);
+            
+            % case 1) only single set
+            if xmin >= -1 && xmax <=1
+                S = I;
             end
             
-            % case 2: -1 <= x(index) <= 1, SatLin(x[index]) = x[index]            
-            V2 = I.V;
-            C2 = [I.C; C0; -C0];
-            d2 = [I.d; 1-d0; d0+1];
-            S2 = Star(V2, C2, d2);
-            if S2.isEmptySet
-                S2 = [];
+            % case 2)
+            if xmin >=-1 && xmax > 1 
+                
+                % -1 <= x <= 1
+                new_C1 = [C; -V1; V1];
+                new_d1 = [d; 1 + c1; 1 - c1]; 
+                S1 = Star(I.V, new_C1, new_d1, I.predicate_lb, I.predicate_ub, I.Z);
+                
+                % x > 1
+                new_V2 = I.V;
+                new_V2(index, :) = 0;
+                new_V2(index, 1) = 1;
+                if ~isempty(I.Z)
+                    new_Z2 = I.Z;
+                    new_Z2.c(index) = 1;
+                    new_Z2.V(index, :) = 0;
+                else
+                    new_Z2 = [];
+                end
+                new_C2 = [C; -V1];
+                new_d2 = [d; -1 + c1]; 
+                S2 = Star(new_V2, new_C2, new_d2, I.predicate_lb, I.predicate_ub, new_Z2);
+                
+                S = [S1 S2];
+                
             end
             
-            % case 3: x(index) >= 1, SatLins(x[index]) = 1
-            C3 = [I.C; -C0];
-            d3 = [I.d; d0 - 1];
-            V3 = I.V;
-            V3(index, 1) = 1;
-            V3(index, 2:I.nVar + 1) = zeros(1, I.nVar);
-            S3 = Star(V3, C3, d3);
-            if S3.isEmptySet
-                S3 = [];
+            % case 3)
+            if xmin < -1 && xmax > -1 && xmax <= 1
+                
+                % x >= -1
+                new_C1 = [C; -V1];
+                new_d1 = [d; 1 + c1]; 
+                S1 = Star(I.V, new_C1, new_d1, I.predicate_lb, I.predicate_ub, I.Z);
+                
+                % x < -1
+                new_V2 = I.V;
+                new_V2(index, :) = 0;
+                new_V2(index, 1) = -1;
+                if ~isempty(I.Z)
+                    new_Z2 = I.Z;
+                    new_Z2.c(index) = -1;
+                    new_Z2.V(index, :) = 0;
+                else
+                    new_Z2 = [];
+                end
+                new_C2 = [C; V1];
+                new_d2 = [d; -1-c1]; 
+                S2 = Star(new_V2, new_C2, new_d2, I.predicate_lb, I.predicate_ub, new_Z2);
+                
+                S = [S1 S2];
+                
             end
             
-            S = [S1 S2 S3];
+            % case 4)
+            if xmin < -1 && xmax > 1
+                
+                % x < -1
+                new_C1 = [C; V1];
+                new_d1 = [d; -1 + c1];
+                new_V1 = I.V; 
+                new_V1(index, :) = 0;
+                new_V1(index, 1) = -1;
+                if ~isempty(I.Z)
+                    new_Z1 = I.Z;
+                    new_Z1.c(index) = -1;
+                    new_Z1.V(index, :) = 0;
+                else
+                    new_Z1 = [];
+                end
+                S1 = Star(new_V1, new_C1, new_d1, I.predicate_lb, I.predicate_ub, new_Z1);
+                
+                % -1 <= x <= 1 
+                new_C2 = [C; -V1; V1];
+                new_d2 = [d; 1+c1; 1-c1]; 
+                S2 = Star(I.V, new_C2, new_d2, I.predicate_lb, I.predicate_ub, I.Z);
+                
+                % x > 1
+                new_C3 = [C; -V1];
+                new_d3 = [d; -1+c1];
+                new_V3 = I.V;
+                new_V3(index, :) = 0;
+                new_V3(index, 1) = 1;
+                if ~isempty(I.Z)
+                    new_Z3 = I.Z;
+                    new_Z3.c(index) = 1;
+                    new_Z3.V(index, :) = 0;
+                else
+                    new_Z3 = [];
+                end
+                S3 = Star(new_V3, new_C3, new_d3, I.predicate_lb, I.predicate_ub, new_Z3);
+                
+                S = [S1 S2 S3];
+                
+            end
+            
+            % case 5)
+            if xmin >= 1
+                new_V = I.V;
+                new_V(index, :) = 0;
+                new_V(index, 1) = 1;
+                if ~isempty(I.Z)
+                    new_Z = I.Z;
+                    new_Z.c(index) = 1;
+                    new_Z.V(index, :) = 0;
+                else
+                    new_Z = [];
+                end
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+                
+            end
+            
+            % case 6)
+            if xmax <= -1
+                new_V = I.V;
+                new_V(index, :) = 0;
+                new_V(index, 1) = -1;
+                if ~isempty(I.Z)
+                    new_Z = I.Z;
+                    new_Z.c(index) = -1;
+                    new_Z.V(index, :) = 0;
+                else
+                    new_Z = [];
+                end
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+            end
+
                      
         end
         
@@ -76,59 +195,105 @@ classdef SatLins
             
             % author: Dung Tran
             % date: 27/2/2019
+            % update: 11/20/2020
             
             switch nargin
                 case 3
                     I = varargin{1};
                     index = varargin{2};
                     option = varargin{3};
-                case 2
+                    lp_solver = 'glpk';
+                case 4
                     I = varargin{1};
                     index = varargin{2};
-                    option = [];
+                    option = varargin{3};
+                    lp_solver = varargin{4};
                 otherwise
-                    error('Invalid number of input arguments (should be 2 or 3)');
+                    error('Invalid number of input arguments, should be 3 or 4');
             end
-                       
-            
+             
             p = length(I);
             S = [];
             
             if isempty(option)
                 
                 for i=1:p
-                    S =[S, SatLins.stepReach(I(i), index)];
+                    S =[S, SatLins.stepReach(I(i), index, lp_solver)];
                 end
                 
             elseif strcmp(option, 'parallel')
                 
                 parfor i=1:p
-                    S =[S, SatLins.stepReach(I(i), index)];
+                    S =[S, SatLins.stepReach(I(i), index, lp_solver)];
                 end
                 
             else
                 error('Unknown option');
-            end
-            
+            end     
             
         end
         
         
-        % function reachability analysis using Star
-        function S = reach_star_exact(I, option)
+                % function reachability analysis using Star
+        function S = reach_star_exact(varargin)
             % @I: an array of star input sets
             % @option: = 'parallel' use parallel option
             %          = '' do use parallel option
             
             % author: Dung Tran
             % date: 27/2/2019
+            % update: 11/20/2020
             
-            if ~isempty(I)       
-                dim = I(1).dim;
-                In = I;
-                for i=1:dim
-%                     fprintf('\nPerforming SatLins_%d operation', i);
-                    In = SatLins.stepReachMultipleInputs(In, i, option);
+            switch nargin
+                case 2
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = [];
+                    lp_solver = 'glpk';
+                case 3
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = 'glpk';
+                case 4
+                    I = varargin{1};
+                    option = varargin{2};
+                    dis_opt = varargin{3};
+                    lp_solver = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments, should be 2, 3 or 4');
+            end
+            
+            if ~isempty(I)
+                [lb, ub] = I.estimateRanges;
+                map1 = find(ub <= -1); % computation map
+                V = I.V;
+                V(map1, :) = 0;
+                V(map1, 1) = -1;
+                % update outer-zono
+                map2 = find(lb >= 1); 
+                V(map2, :) = 0;
+                V(map2, 1) = 1;
+                if ~isempty(I.Z)
+                    c1 = I.Z.c;
+                    c1(map1, :) = -1;
+                    V1 = I.Z.V;
+                    V1(map1, :) = 0;
+                    c1(map2) = 1;
+                    V1(map2, :) = 0;
+                    new_Z = Zono(c1, V1);
+                else
+                    new_Z = [];
+                end
+                
+                In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);                    
+                map = find(lb < 1 & ub > -1);
+                m = length(map);                
+                for i=1:m
+                    if strcmp(dis_opt, 'display')
+                        fprintf('\nPerforming exact SatLins_%d operation using Star', map(i));
+                    end
+                    In = SatLins.stepReachMultipleInputs(In, map(i), option, lp_solver);
                 end             
                 
                 S = In;

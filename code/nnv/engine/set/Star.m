@@ -1986,6 +1986,21 @@ classdef Star
             end
 
         end
+        
+        % generate random star set
+        function S = rand(dim)
+            % @dim: dimension of the random star set
+            % @S: the star set
+
+            % author: Dung Tran
+            % date: 9/16/2020
+
+            if dim <= 0 
+                error('Invalid dimension');
+            end
+            P = ExamplePoly.randHrep('d',dim); % random polyhedron
+            S = Star(P);  
+        end
            
     end
     

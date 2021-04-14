@@ -20,7 +20,7 @@ classdef LinearODE_cora < handle
     %     B = [1; 1];
     %     C = [1 0];
     %     D = [0];
-    %     LinearPlant = NonLinearODE_cora(A,B,C,D,0.05,0.2);
+    %     LinearPlant = LinearODE_cora(A,B,C,D,0.05,0.2);
     %
     % author: Diego Manzanas
     % date: 10/12/2020

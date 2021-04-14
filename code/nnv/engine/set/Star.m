@@ -1274,18 +1274,18 @@ classdef Star
             % author: Dung Tran
             % date: 7/19/2019
             
-            if ~obj.isEmptySet            
-                n = obj.dim;
-                lb = zeros(n,1);
-                ub = zeros(n,1);
-                for i=1:n
-                    fprintf('\nGet range at index %d', i);
-                    [lb(i), ub(i)] = obj.getRange(i);
-                end
-            else
-                lb = [];
-                ub = [];
+%             if ~obj.isEmptySet            
+            n = obj.dim;
+            lb = zeros(n,1);
+            ub = zeros(n,1);
+            for i=1:n
+%                     fprintf('\nGet range at index %d', i);
+                [lb(i), ub(i)] = obj.getRange(i);
             end
+%             else
+%                 lb = [];
+%                 ub = [];
+%             end
 
         end
         
@@ -1655,7 +1655,7 @@ classdef Star
         end
         
         % plot list of boxes in 2D with no fill
-        function plotBoxes_2D_noFill(stars, x_pos, y_pos, color)
+        function plotBoxes_2D_noFill(stars, x_pos, y_pos, varargin)
             % plot stars using two dimension boxes without filling
             % author: Dung Tran
             % date: 11/16/2018
@@ -1675,14 +1675,27 @@ classdef Star
                 end
             end
             
-                        
+            switch nargin
+                case 4
+                    % Only color of plot is specified
+                    color = varargin{1};
+                    transp = 1;
+                case 5
+                    % Color and transparency of sets specified
+                    color = varargin{1};
+                    transp = varargin{2};
+                otherwise
+                    error('Wrong number of inputs. Total inputs must be 4 or 5');
+            end
             for i=1:n
                                 
                 x = [xmin(i) xmax(i) xmax(i) xmin(i) xmin(i)];
                 y = [ymin(i) ymin(i) ymax(i) ymax(i) ymin(i)];
                 
                 hold on;
-                plot(x, y, color);
+                s = plot(x, y, 'Color', color);
+                s.Color(4) = transp;
+%                 alpha(s,transp);
                                 
             end
             

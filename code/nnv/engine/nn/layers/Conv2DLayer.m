@@ -207,7 +207,7 @@ classdef Conv2DLayer < handle
                     end
                     
                     p = size(padding_mat);
-                    if length(p) ~= 4 || p(1) ~= 1
+                    if  length(p) ~= 2 || p(2) ~= 4|| p(1) ~= 1
                         error('Invalid padding matrix');
                     end
                     obj.PaddingSize = padding_mat;

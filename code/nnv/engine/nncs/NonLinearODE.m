@@ -3,6 +3,17 @@ classdef NonLinearODE < handle
     %   Dung Tran: 11/19/2018
     % Last Revision: September 3, 2020 - Diego Manzanas
     %      - CORA 2020 updates
+    %
+    %
+    % obj = NonLinearODE(dim, nI, dynamics_func, reachTimeStep, controlPeriod, outputMat)
+            % obj = construct nonLinearODE plant
+            % @dim: dimension of the plant
+            % @nI: number of input
+            % @dynamics_func: dynamics of the plant, the input should have
+            % @ character to specify function, for example @car_dynamics
+            % @reachTimeStep: reachability step for the plant
+            % @controlPeriod: control period for the plant
+            % @outputMat: output matrix
     
     properties
         options = []; % option for recahable set computation
@@ -333,8 +344,9 @@ classdef NonLinearODE < handle
             simOpt.x0 = x0;
             simOpt.tFinal = obj.params.tFinal;
             simOpt.u = u;
+            odeOptions = odeset('RelTol',1e-8,'AbsTol',1e-8);
             sys = nonlinearSys(obj.dynamics_func, obj.dim, obj.nI);
-            [t,y] = simulate(sys, simOpt);
+            [t,y] = simulate(sys, simOpt,odeOptions);
         end
 
         

@@ -112,7 +112,7 @@ Execute the `mnist01_relax_star_area_vs_eran.m`
 
 ## 4 Memory Note ***
 
-Since we run the analysis on multiple images in parallel, users may run into memory problem if their computers have less than 32 GB RAM. 
+Since we run the analysis on multiple images in parallel, users may run into memory problem if their computers have less than 64 GB RAM. 
 
 
 

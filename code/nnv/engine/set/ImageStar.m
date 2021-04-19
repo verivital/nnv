@@ -607,7 +607,7 @@ classdef ImageStar < handle
                     vert_ind = varargin{2};
                     horiz_ind = varargin{3};
                     chan_ind = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     obj = varargin{1};
                     vert_ind = varargin{2};
@@ -800,7 +800,7 @@ classdef ImageStar < handle
             switch nargin
                 case 1
                     obj = varargin{1};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 2
                     obj = varargin{1};
                     lp_solver = varargin{2};
@@ -889,7 +889,7 @@ classdef ImageStar < handle
                 case 2
                     obj = varargin{1};
                     points = varargin{2};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     obj = varargin{1};
                     points = varargin{2};
@@ -944,13 +944,13 @@ classdef ImageStar < handle
                     startpoint = varargin{2};
                     PoolSize = varargin{3};
                     channel_id = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     obj = varargin{1};
                     startpoint = varargin{2};
                     PoolSize = varargin{3};
                     channel_id = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 otherwise
                     error('Invalid number of input arguments, should be 4 or 5');
             end
@@ -1054,7 +1054,7 @@ classdef ImageStar < handle
                     startpoint = varargin{2};
                     PoolSize = varargin{3};
                     channel_id = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     obj = varargin{1};
                     startpoint = varargin{2};
@@ -1313,7 +1313,7 @@ classdef ImageStar < handle
                 [~, ~, exitflag, ~] = linprog(f, new_C, new_d, [], [], obj.pred_lb, obj.pred_ub, options);
                 if exitflag == 1 % feasible solution exist
                     b = 1;
-                elseif exitflag == -2
+                elseif exitflag == -2 || exitflag == -5
                     b = 0;
                 else
                     error('ERROR, exitflag = %d', exitflag);
@@ -1322,7 +1322,7 @@ classdef ImageStar < handle
                 [~,~,exitflag,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
                 if exitflag == 5 || exitflag == 2 % feasible solution exist
                     b = 1;
-                elseif exitflag == 4 || exitflag == 3 % no feasible solution exit
+                elseif exitflag == 4 || exitflag == 3 || exitflag == 110 % no feasible solution exit
                     b = 0;
                 else
                     error('ERROR, exitflag = %d', exitflag);
@@ -1330,9 +1330,6 @@ classdef ImageStar < handle
             else
                 error('Unknown lp solver, should be glpk or linprog');
             end
-            
-            
-
             
         end
                
@@ -1370,13 +1367,13 @@ classdef ImageStar < handle
                     ori_image = varargin{2};
                     center = varargin{3};
                     others = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     maxMap = varargin{1};
                     ori_image = varargin{2};
                     center = varargin{3};
                     others = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 otherwise 
                     error('Invalid number of input arguments, should be 4 or 5');
             end

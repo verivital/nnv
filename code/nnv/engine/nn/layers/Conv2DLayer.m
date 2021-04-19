@@ -509,7 +509,7 @@ classdef Conv2DLayer < handle
             dilation_mat = conv2dLayer.DilationFactor;
             
             L = Conv2DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat, conv2dLayer.NumInputs, conv2dLayer.InputNames, conv2dLayer.NumOutputs, conv2dLayer.OutputNames);
-            %L = Conv2DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat, conv2DLayer.NumInputs, conv2DLayer.InputNames, conv2DLayer.NumOutputs, conv2DLayer.OutputNames);            
+                        
             fprintf('\nParsing a Matlab convolutional 2d layer is done successfully');
             
         end
@@ -848,10 +848,12 @@ classdef Conv2DLayer < handle
                     error('Invalid number of input arguments, should be 1, 2, 3, 4, 5 or 6');
             end
          
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')|| contains(method, "relax-star")
                 images = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
-                images = obj.reach_zono_multipleInputs(in_images, option);
+                images = obj.reach_zono_multipleInputs(in_images, option);                
+            else
+                error("Unknown reachability method");
             end
             
         end

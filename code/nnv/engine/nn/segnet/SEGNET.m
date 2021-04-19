@@ -19,6 +19,7 @@ classdef SEGNET < handle
         % properties for reachability analysis        
         reachMethod = 'approx-star';    % reachable set computation scheme, default - 'star'
         reachOption = []; % parallel option, default - non-parallel computing
+        relaxFactor = 0; % no relaxation by default
         numCores = 0; % number of cores (workers) using in computation
         reachSet = [];  % reachable set before the pixelClassification layer
         reachTime = []; % computation time for each layers
@@ -31,6 +32,7 @@ classdef SEGNET < handle
         numClasses = 0;
         
         % used for plot robustness information
+        RIoU = []; % robust IoU
         RV = []; % robustness value in percentage
         RS = []; % robustness sensitivity
         numMisPixels = []; % number of missclassified pixels
@@ -328,14 +330,14 @@ classdef SEGNET < handle
             % date:4/15/2020
             
             
-            switch nargin 
+            switch nargin
                 
                 case 2
                     
                     obj = varargin{1};
                     inputSet = varargin{2};
                     obj.reachMethod = 'approx-star';
-                    obj.numCores = 1; 
+                    obj.numCores = 1;
                     
                 case 3 
                     
@@ -349,11 +351,18 @@ classdef SEGNET < handle
                     obj = varargin{1};
                     inputSet = varargin{2};
                     obj.reachMethod = varargin{3};
-                    obj.numCores = varargin{4}; 
+                    obj.numCores = varargin{4};
+                    
+                case 5
+                    obj = varargin{1};
+                    inputSet = varargin{2};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = varargin{4};
+                    obj.relaxFactor = varargin{5};                   
                  
                 otherwise 
                     
-                    error('Invalid number of input arguments, the number should be 1, 2 or 3');
+                    error('Invalid number of input arguments, the number should be 1, 2, 3 or 4');
                 
             end       
             
@@ -376,13 +385,14 @@ classdef SEGNET < handle
                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 start_time = tic;
                 if ~isa(obj.Layers{i-1}, 'PixelClassificationLayer')
-                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption);
+                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor);
                 else
                     obj.reachSet = rs; % save reachable set before pixel classification layer
-                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption);
+                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor);
                     obj.pixelClassificationReachSet = rs_new;
                 end
                 rs = rs_new;
+                
                 obj.reachTime(i-1) = toc(start_time);
                 fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
                 fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs));
@@ -399,11 +409,13 @@ classdef SEGNET < handle
     
     methods % verifier
         
-        function [rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify(varargin)
+        function [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify(varargin)
             % @in_images: an array of input set
             % @ground_truths: an array of ground truth images (without attack)
             % @method: reachability method
             % @nCores: number of cores used for computation
+            
+            % @riou: robust iou
             % @rv: robustness value (percentage of correctly classified pixels)
             % @rs: robustness sensitivity (ratio of (misclassified + unknown pixels)/attacked pixels)
             % @n_rb: number of robust pixels
@@ -417,26 +429,37 @@ classdef SEGNET < handle
             % update: 5/29/2020
             
             switch nargin
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    ground_truths = varargin{3};
+                    method = varargin{4};
+                    nCores = varargin{5};
+                    rF = varargin{6}; % relaxFactor
+                
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     ground_truths = varargin{3};
                     method = varargin{4};
                     nCores = varargin{5};
+                    rF = 0;
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     ground_truths = varargin{3};
                     method = varargin{4};
                     nCores = 1;
+                    rF = 0;
                 case 3
                     obj = varargin{1};
                     in_images = varargin{2};
                     ground_truths = varargin{3};
                     method = 'approx-star';
                     nCores = 1;
+                    rF = 0;
                 otherwise
-                    error("Invalid number of input arguments");
+                    error("Invalid number of input arguments, should be 2, 3, 4, or 5");
             end
             
             n1 = length(ground_truths);
@@ -445,6 +468,7 @@ classdef SEGNET < handle
                 error("Inconsistent number of ground truth images and input sets");
             end
             
+            riou = zeros(1,n1);
             rv = zeros(1, n1);
             rs = zeros(1, n1);
             n_rb = zeros(1, n1);
@@ -454,7 +478,7 @@ classdef SEGNET < handle
             ver_rs = cell(1, n1);
                        
             % compute reachable set
-            obj.reach(in_images, method, nCores);
+            obj.reach(in_images, method, nCores, rF);
             
             % compute ground truth output segmentation image
             gr_seg_ims = obj.evaluate_parallel(ground_truths, nCores);
@@ -510,6 +534,9 @@ classdef SEGNET < handle
                     n_unk(i) = n_unk_ct;
                     n_rb_ct = n_pixels - n_mis_ct - n_unk_ct;
                     n_rb(i) = n_rb_ct;
+                    iou = jaccard(gr_seg_im, ver_im);
+                    iou = iou(~isnan(iou));
+                    riou(i) = sum(iou)/length(iou);
                     rv(i) = n_rb_ct/n_pixels;
                     rs(i) = (n_mis_ct + n_unk_ct)/n_att(i);
                 end
@@ -553,6 +580,9 @@ classdef SEGNET < handle
                     n_unk(i) = n_unk_ct;
                     n_rb_ct = n_pixels - n_mis_ct - n_unk_ct;
                     n_rb(i) = n_rb_ct;
+                    iou = jaccard(gr_seg_im, ver_im);
+                    iou = iou(~isnan(iou));
+                    riou(i) = sum(iou)/length(iou);
                     rv(i) = n_rb_ct/n_pixels;
                     rs(i) = (n_mis_ct + n_unk_ct)/n_att(i);
                 end
@@ -561,6 +591,7 @@ classdef SEGNET < handle
             
             obj.verifiedOutputSet = ver_rs;
             obj.groundTruthSegIms = gr_seg_ims;
+            obj.RIoU = riou;
             obj.RV = rv;
             obj.RS = rs;
             

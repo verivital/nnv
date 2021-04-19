@@ -27,25 +27,25 @@ classdef TanSig
                     method = 'approx-star-no-split';
                     relaxFactor = 0; % for relaxed approx-star method
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = 0; % for relaxed approx-star method
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = varargin{3};
                     dis_opt = varargin{4}; % display option
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     method = varargin{2};
@@ -606,11 +606,11 @@ classdef TanSig
                 case 1
                     I = varargin{1};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 2
                     I = varargin{1};
                     dis_opt = varargin{2};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     dis_opt = varargin{2};
@@ -804,12 +804,12 @@ classdef TanSig
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
@@ -1290,21 +1290,21 @@ methods(Static) % main reach method
                 option = varargin{3};
                 relaxFactor = varargin{4}; % used for aprox-star only
                 dis_opt = varargin{5}; % display option
-                lp_solver = 'linprog';
+                lp_solver = 'glpk';
             case 4
                 I = varargin{1};
                 method = varargin{2};
                 option = varargin{3};
                 relaxFactor = varargin{4}; % for relaxed approx-star method
                 dis_opt = [];
-                lp_solver = 'linprog';
+                lp_solver = 'glpk';
             case 3
                 I = varargin{1};
                 method = varargin{2};
                 option = varargin{3};
                 relaxFactor = 0; % for relaxed approx-star method
                 dis_opt = [];
-                lp_solver = 'linprog';
+                lp_solver = 'glpk';
             case 2
                 I = varargin{1};
                 method = varargin{2};
@@ -1318,7 +1318,7 @@ methods(Static) % main reach method
                 option = [];
                 relaxFactor = 0; % for relaxed approx-star method
                 dis_opt = [];
-                lp_solver = 'linprog';
+                lp_solver = 'glpk';
             otherwise
                 error('Invalid number of input arguments (should be 1, 2, 3, 4 or 5)');
         end
@@ -1330,11 +1330,11 @@ methods(Static) % main reach method
 
         elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
 
-            R = TanSig.reach_zono_approx(I, dis_opt);
+            R = TanSig.reach_zono_approx(I);
 
         elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
 
-            R = TanSig.reach_absdom_approx(I, dis_opt);
+            R = TanSig.reach_absdom_approx(I);
 
         else
             error('Unknown or unsupported reachability method for layer with LogSig activation function');

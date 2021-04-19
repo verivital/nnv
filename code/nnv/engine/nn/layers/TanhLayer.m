@@ -234,7 +234,7 @@ classdef TanhLayer < handle
                     option = varargin{4};
                     relaxFactor = varargin{5}; % for relaxed approx-star method
                     dis_opt = varargin{6};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -242,7 +242,7 @@ classdef TanhLayer < handle
                     option = varargin{4};
                     relaxFactor = varargin{5}; % for relaxed approx-star method
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -250,7 +250,7 @@ classdef TanhLayer < handle
                     option = varargin{4};
                     relaxFactor = 0;
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 3
                     obj = varargin{1};
@@ -259,12 +259,12 @@ classdef TanhLayer < handle
                     option = 'single';
                     relaxFactor = 0; 
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 otherwise
                     error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
             end
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
                 images = obj.reach_star_multipleInputs(in_images, method, option, relaxFactor, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);

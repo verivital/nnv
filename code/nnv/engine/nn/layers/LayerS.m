@@ -10,16 +10,33 @@ classdef LayerS
         b; % bias vector 
         f; % activation function;
         N; % number of neurons
+        gamma = 0; % used only for leakyReLU layer
         
         option = []; % parallel option, 'parallel' or []
         dis_opt = []; % display option, 'display' or []
-        lp_solver = 'linprog'; % lp solver option, 'linprog' or 'glpk'
+        lp_solver = 'glpk'; % lp solver option, 'linprog' or 'glpk'
         relaxFactor = 0; % use only for approx-star method
     end
     
     methods % constructor - evaluation - sampling
         % Constructor
-        function obj = LayerS(W, b, f)
+        function obj = LayerS(varargin)
+            
+            switch nargin
+                case 3
+                    W = varargin{1};
+                    b = varargin{2};
+                    f = varargin{3};
+                    gamma = 0;
+                case 4
+                    W = varargin{1};
+                    b = varargin{2};
+                    f = varargin{3};
+                    gamma = varargin{4};
+                otherwise
+                    error('Invalid number of input arguments, should be 3 or 4');
+            end
+            
             if size(W, 1) == size(b, 1)
                 obj.W = double(W);
                 obj.b = double(b);
@@ -27,8 +44,13 @@ classdef LayerS
             else
                 error('Inconsistent dimensions between Weights matrix and bias vector');
             end
+            
+            if gamma >= 1
+                error('Invalid parameter for leakyReLU, gamma should be <= 1');
+            end
                 
             obj.f = f;
+            obj.gamma = gamma;
                
         end
         
@@ -55,6 +77,11 @@ classdef LayerS
                 y = y1;
             elseif strcmp(obj.f, 'softmax')
                 y = softmax(y1);
+            elseif strcmp(obj.f, 'leakyrelu')
+                y = y1;
+                y(find(y < 0)) = obj.gamma*y(find(y<0));
+            else
+                error('Unknown or unsupported activation function');
             end 
 
         end
@@ -125,12 +152,12 @@ classdef LayerS
                 otherwise
                     error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
-            display(method)
+            
             if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-star-fast') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom') && ~strcmp(method, 'exact-polyhedron') && ~strcmp(method, 'approx-star-split') && ~strcmp(method,'approx-star-no-split')
                 error('Unknown reachability analysis method');
             end
             
-            if strcmp(method, 'exact-star') && (~strcmp(obj.f, 'purelin') && ~strcmp(obj.f, 'poslin') && ~strcmp(obj.f, 'satlin') && ~strcmp(obj.f, 'satlins'))
+            if strcmp(method, 'exact-star') && (~strcmp(obj.f, 'purelin') && ~strcmp(obj.f, 'leakyrelu') && ~strcmp(obj.f, 'poslin') && ~strcmp(obj.f, 'satlin') && ~strcmp(obj.f, 'satlins'))
                 method = 'approx-star';
                 fprintf('\nThe current layer has %s activation function -> cannot compute exact reachable set for the current layer, we use approx-star method instead', obj.f);
             end
@@ -140,6 +167,8 @@ classdef LayerS
             W1 = obj.W;
             b1 = obj.b;
             f1 = obj.f;
+            gamma1 = obj.gamma;
+            
             if strcmp(obj.option, 'parallel') % reachability analysis using star set
                 
                 rF = obj.relaxFactor;
@@ -151,7 +180,7 @@ classdef LayerS
                     if ~isa(I(i), 'Polyhedron')
                         I1 = I(i).affineMap(W1, b1);
                     else
-                        I1 = I(i).affineMap(W1) + b1;
+                        I1 = W1*I(i) + b1;
                     end
                     % apply activation function: y' = ReLU(y) or y' = 
 
@@ -160,9 +189,11 @@ classdef LayerS
                     elseif strcmp(f1, 'poslin')
                         S = [S PosLin.reach(I1, method, [], rF, dis, lps)];
                     elseif strcmp(f1, 'satlin')
-                        S = [S SatLin.reach(I1, method)];
+                        S = [S SatLin.reach(I1, method, [], dis, lps)];
                     elseif strcmp(f1, 'satlins')
                         S = [S SatLins.reach(I1, method)];
+                    elseif strcmp(f1, 'leakyrelu')
+                        S = [S LeakyReLU.reach(I1, gamma1, method, [], rF, dis, lps)];
                     elseif strcmp(f1, 'logsig')
                         S = [S LogSig.reach(I1, method,[], rF, dis, lps)];
                     elseif strcmp(f1, 'tansig')
@@ -182,7 +213,7 @@ classdef LayerS
                 for i=1:n
                     % affine mapping y = Wx + b;                     
                     if isa(I(i), 'Polyhedron')
-                        I1 = I(i).affineMap(W1) + b1;
+                        I1 = W1*I(i) + b1;
                     else                        
                         I1 = I(i).affineMap(W1, b1);
                     end
@@ -192,11 +223,13 @@ classdef LayerS
                     elseif strcmp(f1, 'poslin')
                         S = [S PosLin.reach(I1, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'satlin')
-                        S = [S SatLin.reach(I1, method)];
+                        S = [S SatLin.reach(I1, method, [], obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'satlins')
                         S = [S SatLins.reach(I1, method)];
+                    elseif strcmp(f1, 'leakyrelu')
+                        S = [S LeakyReLU.reach(I1, obj.gamma, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'logsig')
-                        S = [S LogSig.reach(I1, method, obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
+                        S = [S LogSig.reach(I1, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'tansig')
                         S = [S TanSig.reach(I1, method, [], obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     elseif strcmp(f1, 'softmax')

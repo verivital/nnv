@@ -301,10 +301,12 @@ classdef FullyConnectedLayer < handle
                     error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
                 IS = obj.reach_zono_multipleInputs(in_images, option);
+            else
+                error('Unknown reachability method');
             end
             
             

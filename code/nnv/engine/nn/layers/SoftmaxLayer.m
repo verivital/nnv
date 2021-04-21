@@ -118,11 +118,12 @@ classdef SoftmaxLayer < handle
         end
         
         % reachability with imagestar
-        function OS = reach(~, IS, ~, ~)
+        function OS = reach(~, IS, ~, ~, ~)
             % @IS: imageStar input set
             % @seg_im: segmentation image
             % @method: reachability method
             % @reachOption: 'parallel' or 'single'
+            % @relaxFactor: relaxation factor for reachability
             % @OS: imageStar output set = IS
             % we don't care method and reach option for softmax
             

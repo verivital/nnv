@@ -149,7 +149,8 @@ classdef PixelClassificationLayer < handle
             h = IS.height;
             w = IS.width;
             seg_im_id = zeros(h,w);
-            [im_lb, im_ub] = IS.estimateRanges;
+            [im_lb, im_ub] = IS.estimateRanges; 
+         
             for i=1:h
                 for j=1:w
                     max_xmin = max(im_lb(i, j, :));
@@ -166,6 +167,81 @@ classdef PixelClassificationLayer < handle
             
         end
         
+        % reachability with relaxed imagestar
+        
+        function seg_im_id = reach_relax_star_single_input(obj, IS, method, RF)
+            % @IS: imageStar input set
+            % @seg_im_id: segmentation image with class index
+            % @method: relax-star method
+            % @RF: relax factor
+            
+            % author: Dung Tran
+            % date: 1/10/2021
+            
+            h = IS.height;
+            w = IS.width;
+            nc = IS.numChannel;
+            seg_im_id = zeros(h,w);
+            
+            S = IS.toStar; 
+            [lb, ub] = S.estimateRanges; 
+            n1  = round((1-RF)*length(lb)); % number of LP need to solve
+            if strcmp(method, 'relax-star-range')                
+                [~,midx] = sort(ub-lb, 'descend');
+                map= midx(1:n1); % neurons with optimized ranged
+                xmin = S.getMins(map, 'single', 'display', 'glpk'); 
+                xmax = S.getMaxs(map, 'single', 'display', 'glpk');
+                lb(map) = xmin;
+                ub(map) = xmax;
+            elseif strcmp(method, 'relax-star-random')
+                midx = randperm(length(ub), n1);
+                midx = midx';             
+                xmin = S.getMins(midx, 'single', 'display', 'glpk'); 
+                xmax = S.getMaxs(midx, 'single', 'display', 'glpk');
+                lb(midx) = xmin;
+                ub(midx) = xmax;
+   
+            elseif strcmp(method, 'relax-star-area')
+                areas = 0.5*(abs(ub).*abs(lb)); % estimated areas of triangle overapproximation at all neurons
+                [~,midx] = sort(areas, 'descend');
+                map= midx(1:n1); % neurons with optimized ranged
+                xmin = S.getMins(map, 'single', 'display', 'glpk'); 
+                xmax = S.getMaxs(map, 'single', 'display', 'glpk');
+                lb(map) = xmin;
+                ub(map) = xmax;
+            elseif strcmp(method, 'relax-star-bound')
+                N = length(ub);
+                lu = [ub; abs(lb)];
+                [~,midx] = sort(lu, 'descend');
+                midx1 = midx(1:2*n1); % neurons with optimized ranges
+                ub_idx = midx1(midx1 <= N); % neurons having upperbound optimized
+                lb_idx = midx1(midx1 > N) - N;  % neurons having lowerbound optimized
+                xmin = S.getMins(ub_idx, 'single', 'display', 'glpk'); 
+                xmax = S.getMaxs(lb_idx, 'single', 'display', 'glpk');
+                lb(lb_idx) = xmin;
+                ub(ub_idx) = xmax;
+            else
+                error('Unknown relax-star method');
+            end
+                        
+            im_lb = reshape(lb, [h, w, nc]);
+            im_ub = reshape(ub, [h, w, nc]);
+
+            for i=1:h
+                for j=1:w
+                    max_xmin = max(im_lb(i, j, :));
+                    c = (im_ub(i, j, :) >= max_xmin);
+                    pc = find(c);
+                    if length(pc) == 1
+                        seg_im_id(i,j) = pc;
+                    else
+                        seg_im_id(i,j) = length(obj.Classes) - 1;
+                    end
+                end
+            end
+            
+            
+        end
         
         % reachability with imagestar
         function seg_ims_ids = reach_star_multipleInputs(obj, in_images, option)
@@ -199,6 +275,37 @@ classdef PixelClassificationLayer < handle
         end
         
         
+        % reachability with imagestar
+        function seg_ims_ids = reach_relax_star_multipleInputs(obj, in_images, method, RF, option)
+            % @in_images: an array of imageStar input set
+            % @method: relax-star method 'relax-star-area',
+            % 'relax-star-random', 'relax-star-bound', 'relax-star-range'
+            % @seg_im_id: segmentation image with class index
+                       
+            % author: Dung Tran
+            % date: 1/10/2020
+            % upate: 1/10/2020
+            
+            
+            n = length(in_images);
+            seg_ims_ids = cell(n, 1);
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    seg_ims_ids{i} = obj.reach_relax_star_single_input(in_images(i), method, RF);
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    seg_ims_ids{i} = obj.reach_relax_star_single_input(in_images(i), method, RF);
+                end
+            else
+                error('Unknown computation option');
+
+            end           
+            
+            
+        end
+        
+        
         % main reach method
         function seg_ims_ids = reach(varargin)
             % @in_images: an array of imageStar input set
@@ -214,7 +321,7 @@ classdef PixelClassificationLayer < handle
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
+                    relaxFactor = varargin{5};
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -235,7 +342,7 @@ classdef PixelClassificationLayer < handle
                     error('Invalid number of input arguments, should be 1, 2, 3 or 4');
             end
          
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
                 seg_ims_ids = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono') 
                 error('NNV have not support approx-zono method yet');

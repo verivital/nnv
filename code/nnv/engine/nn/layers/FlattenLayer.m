@@ -235,7 +235,7 @@ classdef FlattenLayer < handle
                     error('Invalid number of input arguments (should be 2, 3, 4, 5 or 6)');
             end
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || strcmp(method, 'approx-zono')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || strcmp(method, 'approx-zono') || contains(method, "relax-star")
                 IS = obj.reach_multipleInputs(in_images, option);
             else
                 error('Unknown reachability method');

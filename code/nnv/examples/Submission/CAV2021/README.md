@@ -1,6 +1,4 @@
-# Semantic Segmentation Network Robustness Verification
-
-Author: Anomynous
+# Semantic Segmentation Neural Network Robustness Verification
 
 ## 1. Installation
 
@@ -8,9 +6,9 @@ Author: Anomynous
 
 OS: Window 10, Linux, (may work on MacOS, some bugs of MPT solvers have been reported)
 
-RAM: at least 32 GB 
+RAM: at least 64 GB
 
-Matlab version: 2019b or later
+Matlab version: 2020a or later, with deep learning, optimization, and other toolboxes, see full list of Matlab toolbox requirements at the next link.
 
 For the first two steps, more details are available here:
 
@@ -33,7 +31,7 @@ If Matlab is restarted, to work again, either `install.m` or `startup_nnv.m` mus
 
 https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
-## 2. Cores results
+## 2. Core results
 
 1) Figure 4-a: The robustness, sensitivity and robust IoU of MNIST networks vs. the number of attacked pixels
 
@@ -58,7 +56,7 @@ https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
 ### 3.1 Reproducing all results by a single run
 
-Navigate to CAV2021/ (supplementary data provided by authors).
+Navigate to code\nnv\examples\Submission\CAV2021 (supplementary data provided by authors).
 
 Execute the `reproduce_CAV2021.m` 
 
@@ -110,11 +108,22 @@ Navigate to CAV2021/RelaxStarCompare
 
 Execute the `mnist01_relax_star_area_vs_eran.m`
 
-## 4 Memory Note ***
+## 4 Memory and Other Notes ***
 
-Since we run the analysis on multiple images in parallel, users may run into memory problem if their computers have less than 64 GB RAM. 
+Since we run the analysis on multiple images in parallel, users may run into memory problem if their computers have less than 64 GB RAM. Most results will reproduce with 32 GB, but some may yield out of memory with less than 64 GB depending on system load.
 
+For the classification robustness illustration of relaxed reachability, the comparison to ERAN is cached in the above files. It can be reproduced by following the instructions here:
 
+https://github.com/Neelanjana314/eran/tree/master/CAV2021
 
+The segmentation network training is not included above, as this requires on the order of a few days of computation with GPUs for all networks, but the networks can be reproduced with the instructions here:
 
+https://github.com/verivital/SemanticSegmentation
 
+Many other examples are available, for classification robustness, neural network control systems, etc., details on running other examples can be found in the repository or directly through these CodeOcean capsules:
+
+CAV'20 ImageStar paper: https://doi.org/10.24433/CO.3351375.v1
+
+CAV'20 NNV tool paper: https://doi.org/10.24433/CO.0221760.v1
+
+Unfortunately, CodeOcean only supports Matlab 2019a as its latest version, so we did not use it for this artifact evaluation package, as to support some of the segmentation network layer types (dilated/transposed convolution), Matlab 2020a or later is needed.

@@ -27,25 +27,25 @@ classdef TanSig
                     method = 'approx-star-no-split';
                     relaxFactor = 0; % for relaxed approx-star method
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = 0; % for relaxed approx-star method
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     method = varargin{2};
                     relaxFactor = varargin{3};
                     dis_opt = varargin{4}; % display option
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     method = varargin{2};

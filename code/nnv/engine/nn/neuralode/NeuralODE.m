@@ -206,7 +206,14 @@ classdef NeuralODE < handle
                     fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 end
                 start_time = tic;
-                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, 'glpk');
+                if contains(class(obj.Layers{i-1}),'ODE')
+                    rs_new = [];
+                    for sset = rs
+                        rs_new = [rs_new obj.Layers{i-1}.reach(sset, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, 'glpk')];
+                    end
+                else
+                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, 'glpk');
+                end
                 obj.reachTime(i-1) = toc(start_time);
                 rs = rs_new;
                 obj.reachSet{i-1} = rs_new;

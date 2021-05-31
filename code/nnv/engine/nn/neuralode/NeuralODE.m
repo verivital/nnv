@@ -93,7 +93,7 @@ classdef NeuralODE < handle
 %             y = x;
             for i=1:obj.numLayers
                 xt = [];
-                if isa(obj.Layers{i},'FFNNS') || contains(class(obj.Layers{i}),'ODE')
+                if isa(obj.Layers{i},'FFNNS') || contains(class(obj.Layers{i}),'ODE') || isa(obj.Layers{i},'LayerS')
                     for yp = 1:size(x,2)
                         y = obj.Layers{i}.evaluate(x(:,yp));
                         xt = [xt y];

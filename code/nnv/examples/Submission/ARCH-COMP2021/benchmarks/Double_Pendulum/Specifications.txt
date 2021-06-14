@@ -1,0 +1,20 @@
+Initial states:
+
+x1 = [1.0, 1.3]
+x2 = [1.0, 1.3]
+x3 = [1.0, 1.3]
+x4 = [1.0, 1.3]
+
+t = 20 steps
+
+1) controller double pendulum less robust:
+ - control step = 0.05
+ - Property:
+     - Each of the states should be in [−1.0, 1.7]
+
+2) controller double pendulum more robust
+ - control step = 0.02
+ - Property:
+     - Each of the states should be in [-0.5, 1.5]
+
+Refer to this for more details: https://github.com/amaleki2/benchmark_closedloop_verification/blob/master/AINNC_benchmark.pdf

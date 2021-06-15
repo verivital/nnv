@@ -607,7 +607,7 @@ classdef ImageStar < handle
                     vert_ind = varargin{2};
                     horiz_ind = varargin{3};
                     chan_ind = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     obj = varargin{1};
                     vert_ind = varargin{2};
@@ -639,40 +639,40 @@ classdef ImageStar < handle
             
             % use Gorubi (linprog or linprog of Matlab)
             
-%             if strcmp(lp_solver, 'linprog')
-%                 options = optimoptions(@linprog, 'Display','none');
-%                 options.OptimalityTolerance = 1e-10; % set tolerance
-%                 [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
-%                 if exitflag == 1
-%                    xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-%                 else
-%                     error('Cannot find an optimal solution, exitflag = %d', exitflag);
-%                 end
-% 
-%                 [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
-%                 if exitflag == 1
-%                     xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-%                 else
-%                     error('Cannot find an optimal solution exitflag = %d', exitflag);
-%                 end
-%             elseif strcmp(lp_solver, 'glpk')
-                [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
-            if exitflag == 5
-                xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-            else
-                error('Cannot find an optimal solution, exitflag = %d', exitflag);
-            end          
+            if strcmp(lp_solver, 'linprog')
+                options = optimoptions(@linprog, 'Display','none');
+                options.OptimalityTolerance = 1e-10; % set tolerance
+                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
+                if exitflag == 1
+                   xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+                else
+                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                end
 
-            [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
-            if exitflag == 5
-                xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-            else
-                error('Cannot find an optimal solution exitflag = %d', exitflag);
-            end
+                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, options);
+                if exitflag == 1
+                    xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+                else
+                    error('Cannot find an optimal solution exitflag = %d', exitflag);
+                end
+            elseif strcmp(lp_solver, 'glpk')
+                [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+                if exitflag == 5
+                    xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+                else
+                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                end          
+
+                [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+                if exitflag == 5
+                    xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+                else
+                    error('Cannot find an optimal solution exitflag = %d', exitflag);
+                end
                 
-%             else
-%                 error('Unknown lp solver, should be linprog or glpk');
-%             end
+            else
+                error('Unknown lp solver, should be linprog or glpk');
+            end
                 
             obj.im_lb(vert_ind, horiz_ind, chan_ind) = xmin;
             obj.im_ub(vert_ind, horiz_ind, chan_ind) = xmax;
@@ -800,7 +800,7 @@ classdef ImageStar < handle
             switch nargin
                 case 1
                     obj = varargin{1};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 2
                     obj = varargin{1};
                     lp_solver = varargin{2};
@@ -889,7 +889,7 @@ classdef ImageStar < handle
                 case 2
                     obj = varargin{1};
                     points = varargin{2};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     obj = varargin{1};
                     points = varargin{2};
@@ -944,13 +944,13 @@ classdef ImageStar < handle
                     startpoint = varargin{2};
                     PoolSize = varargin{3};
                     channel_id = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     obj = varargin{1};
                     startpoint = varargin{2};
                     PoolSize = varargin{3};
                     channel_id = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 otherwise
                     error('Invalid number of input arguments, should be 4 or 5');
             end
@@ -1054,7 +1054,7 @@ classdef ImageStar < handle
                     startpoint = varargin{2};
                     PoolSize = varargin{3};
                     channel_id = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     obj = varargin{1};
                     startpoint = varargin{2};
@@ -1307,32 +1307,29 @@ classdef ImageStar < handle
            
             f = zeros(1, obj.numPred);
             
-%             if strcmp(lp_solver, 'linprog')
-%                 options = optimoptions(@linprog, 'Display','none');
-%                 options.OptimalityTolerance = 1e-10; % set tolerance
-%                 [~, ~, exitflag, ~] = linprog(f, new_C, new_d, [], [], obj.pred_lb, obj.pred_ub, options);
-%                 if exitflag == 1 % feasible solution exist
-%                     b = 1;
-%                 elseif exitflag == -2
-%                     b = 0;
-%                 else
-%                     error('ERROR, exitflag = %d', exitflag);
-%                 end
-%             elseif strcmp(lp_solver, 'glpk')
-            [~,~,exitflag,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
-            if exitflag == 5 || exitflag == 2 % feasible solution exist
-                b = 1;
-            elseif exitflag == 4 || exitflag == 3 % no feasible solution exit
-                b = 0;
+            if strcmp(lp_solver, 'linprog')
+                options = optimoptions(@linprog, 'Display','none');
+                options.OptimalityTolerance = 1e-10; % set tolerance
+                [~, ~, exitflag, ~] = linprog(f, new_C, new_d, [], [], obj.pred_lb, obj.pred_ub, options);
+                if exitflag == 1 % feasible solution exist
+                    b = 1;
+                elseif exitflag == -2 || exitflag == -5
+                    b = 0;
+                else
+                    error('ERROR, exitflag = %d', exitflag);
+                end
+            elseif strcmp(lp_solver, 'glpk')
+                [~,~,exitflag,~] = glpk(f, new_C, new_d, obj.pred_lb, obj.pred_ub);
+                if exitflag == 5 || exitflag == 2 % feasible solution exist
+                    b = 1;
+                elseif exitflag == 4 || exitflag == 3 || exitflag == 110 % no feasible solution exit
+                    b = 0;
+                else
+                    error('ERROR, exitflag = %d', exitflag);
+                end
             else
-                error('ERROR, exitflag = %d', exitflag);
+                error('Unknown lp solver, should be glpk or linprog');
             end
-%             else
-%                 error('Unknown lp solver, should be glpk or linprog');
-%             end
-            
-            
-
             
         end
                
@@ -1370,13 +1367,13 @@ classdef ImageStar < handle
                     ori_image = varargin{2};
                     center = varargin{3};
                     others = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     maxMap = varargin{1};
                     ori_image = varargin{2};
                     center = varargin{3};
                     others = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 otherwise 
                     error('Invalid number of input arguments, should be 4 or 5');
             end
@@ -1421,33 +1418,33 @@ classdef ImageStar < handle
 
             f = zeros(1, ori_image.numPred);
             
-%             if strcmp(lp_solver, 'linprog')
-%                 options = optimoptions(@linprog, 'Display','none');  
-%                 options.OptimalityTolerance = 1e-10; % set tolerance
-%                 [~, ~, exitflag, ~] = linprog(f, C1,  d1, [], [], ori_image.pred_lb, ori_image.pred_ub, options);
-%                 if exitflag == 1 % feasible solution exist
-%                     new_C = C1;
-%                     new_d = d1;
-%                 else
-%                     new_C = [];
-%                     new_d = [];
-%                 end
-%   
-%             elseif strcmp(lp_solver, 'glpk')
+            if strcmp(lp_solver, 'linprog')
+                options = optimoptions(@linprog, 'Display','none');  
+                options.OptimalityTolerance = 1e-10; % set tolerance
+                [~, ~, exitflag, ~] = linprog(f, C1,  d1, [], [], ori_image.pred_lb, ori_image.pred_ub, options);
+                if exitflag == 1 % feasible solution exist
+                    new_C = C1;
+                    new_d = d1;
+                else
+                    new_C = [];
+                    new_d = [];
+                end
+  
+            elseif strcmp(lp_solver, 'glpk')
                 
-            [~,~,status,~] = glpk(f, C1, d1, ori_image.pred_lb, ori_image.pred_ub);
+                [~,~,status,~] = glpk(f, C1, d1, ori_image.pred_lb, ori_image.pred_ub);
 
-            if status == 5 % feasible solution exist
-                new_C = C1;
-                new_d = d1;
+                if status == 5 % feasible solution exist
+                    new_C = C1;
+                    new_d = d1;
+                else
+                    new_C = [];
+                    new_d = [];
+                end
+
             else
-                new_C = [];
-                new_d = [];
+                error('Unknown lp solver, should be linprog or glpk');
             end
-
-%             else
-%                 error('Unknown lp solver, should be linprog or glpk');
-%             end
 
         end
         
@@ -1519,4 +1516,5 @@ classdef ImageStar < handle
         
        
 end
+
 

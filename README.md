@@ -11,11 +11,13 @@ This toolbox makes use of the neural network model transformation tool ([nnmt](h
 nnv can be executed online without installing Matlab or other dependencies through [CodeOcean](https://www.codeocean.com) via the CodeOcean capsule DOI 10.24433/CO.1314285.v1: (https://doi.org/10.24433/CO.1314285.v1)
 
 # installation:
-    1) Install Matlab with at least the following toolboxes:
+    1) Install Matlab (2020a or newer) with at least the following toolboxes:
+       Computer Vision
        Control Systems
+       Deep Learning
+       Image Processing
        Optimization
        Parallel Processing
-       Deep Learning
        System Identification
 
     2) Clone or download the nnv toolbox from (https://github.com/verivital/nnv)
@@ -25,8 +27,10 @@ nnv can be executed online without installing Matlab or other dependencies throu
     git clone --recursive https://github.com/verivital/nnv.git
 
     3) Open matlab, then go to the directory where nnv exists on your machine, then run the `install.m` script located at /nnv/
+    
+    Note: if you restart Matlab, rerun either install.m or startup_nnv.m, which will add the necessary dependencies to the path; you alternatively can run savepath after installation to avoid this step after restarting Matlab, but this may require administrative privileges
 
-    4) To run verification for convolutional neural networks you may need additional packages installed
+    4) To run verification for convolutional neural networks (CNNs) on VGG16/VGG19, you may need additional support packages installed:
 
        4-1) https://www.mathworks.com/matlabcentral/fileexchange/61733-deep-learning-toolbox-model-for-vgg-16-network  
 

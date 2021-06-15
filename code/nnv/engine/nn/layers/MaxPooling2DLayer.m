@@ -1054,7 +1054,7 @@ classdef MaxPooling2DLayer < handle
                     option = varargin{4};
                     %relaxFactor = varargin{5}; do not use
                     dis_opt = varargin{6};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 5
                     obj = varargin{1};
@@ -1063,14 +1063,14 @@ classdef MaxPooling2DLayer < handle
                     option = varargin{4};
                     %relaxFactor = varargin{5}; do not use
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 3
                     obj = varargin{1};
@@ -1078,13 +1078,13 @@ classdef MaxPooling2DLayer < handle
                     method = varargin{3};
                     option = [];
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 otherwise
                     error('Invalid number of input arguments (should be 2, 3 or 4)');
             end
             
-            if strcmp(method, 'approx-star')
+            if strcmp(method, 'approx-star') || contains(method, 'relax-star')
                 IS = obj.reach_star_approx_multipleInputs(in_images, option, dis_opt, lp_solver);
             elseif strcmp(method, 'exact-star')
                 IS = obj.reach_star_exact_multipleInputs(in_images, option, dis_opt, lp_solver);
@@ -1094,6 +1094,8 @@ classdef MaxPooling2DLayer < handle
                 IS = obj.reach_star_approx_multipleInputs(in_images, option, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 IS = obj.reach_zono_multipleInputs(in_images, option);
+            else
+                error("Unknown reachability method");
             end
    
             

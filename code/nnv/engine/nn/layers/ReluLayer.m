@@ -302,7 +302,7 @@ classdef ReluLayer < handle
                     option = varargin{4};
                     relaxFactor = varargin{5}; % use for approx-star only
                     dis_opt = varargin{6}; % display option
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 5
                     obj = varargin{1};
@@ -311,7 +311,7 @@ classdef ReluLayer < handle
                     option = varargin{4};
                     relaxFactor = varargin{5}; % use for approx-star only
                      dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 4
                     obj = varargin{1};
@@ -320,7 +320,7 @@ classdef ReluLayer < handle
                     option = varargin{4};
                     relaxFactor = 0; % use for approx-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 3
                     obj = varargin{1};
@@ -329,15 +329,17 @@ classdef ReluLayer < handle
                     option = 'single';
                     relaxFactor = 0; % use for approx-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 otherwise
                     error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
             end
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
                 images = obj.reach_star_multipleInputs2(in_images, method, option, relaxFactor, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);
+            else
+                error("Uknown reachability method");
             end         
 
         end

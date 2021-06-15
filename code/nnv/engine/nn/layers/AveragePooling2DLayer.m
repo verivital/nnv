@@ -545,10 +545,12 @@ classdef AveragePooling2DLayer < handle
             end
             
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
-                IS = obj.reach_zono_multipleInputs(in_images, option);
+                IS = obj.reach_zono_multipleInputs(in_images, option);    
+            else
+                error("Unknown reachability method");
             end
             
         end

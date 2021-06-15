@@ -105,11 +105,12 @@ classdef SigmoidLayer < handle
                 error('input is not an ImageStar');
             end
             
+            
             h = in_image.height;
             w = in_image.width;
             c = in_image.numChannel;
-            
-            Y = LogSig.reach(in_image.toStar, method, relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
+                        
+            Y = LogSig.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
             n = length(Y);
             images(n) = ImageStar;
             % transform back to ImageStar
@@ -135,7 +136,7 @@ classdef SigmoidLayer < handle
             
             images = [];
             n = length(in_images);
-            
+                        
             if strcmp(option, 'parallel')
                 parfor i=1:n
                     images = [images obj.reach_star_single_input(in_images(i), method, relaxFactor, dis_opt, lp_solver)];
@@ -229,7 +230,7 @@ classdef SigmoidLayer < handle
                     option = varargin{4};
                     relaxFactor = varargin{5};
                     dis_opt = varargin{6};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 5
                     obj = varargin{1};
@@ -238,7 +239,7 @@ classdef SigmoidLayer < handle
                     option = varargin{4};
                     relaxFactor = varargin{5};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                         
                 case 4
                     obj = varargin{1};
@@ -246,7 +247,7 @@ classdef SigmoidLayer < handle
                     method = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 3
                     obj = varargin{1};
@@ -254,13 +255,13 @@ classdef SigmoidLayer < handle
                     method = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                     
                 otherwise
                     error('Invalid number of input arguments (should be 2,3,4,5 or 6)');
             end
-           
-            if strcmp(method, 'approx-star') || strcmp(method, 'abs-dom')
+            
+            if strcmp(method, 'approx-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
                 images = obj.reach_star_multipleInputs(in_images, method, option, relaxFactor, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);

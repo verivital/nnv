@@ -328,7 +328,7 @@ classdef MaxUnpooling2DLayer < handle
                     error('Invalid number of input arguments (should be 2, 3 or 4)');
             end
             
-            if strcmp(method, 'approx-star')||strcmp(method, 'exact-star')
+            if strcmp(method, 'approx-star')||strcmp(method, 'exact-star') || contains(method, 'relax-star')
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'abs-dom')
                 % abs-domain works similarly to approx-star method for unmax
@@ -336,6 +336,8 @@ classdef MaxUnpooling2DLayer < handle
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
                 error('NNV havenot yet support approx-zono method');
+            else
+                error('Unknown reachability method');
             end
    
         end

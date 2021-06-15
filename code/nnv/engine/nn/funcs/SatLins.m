@@ -234,7 +234,7 @@ classdef SatLins
         end
         
         
-                % function reachability analysis using Star
+        % function reachability analysis using Star
         function S = reach_star_exact(varargin)
             % @I: an array of star input sets
             % @option: = 'parallel' use parallel option
@@ -272,8 +272,8 @@ classdef SatLins
                 V(map1, 1) = -1;
                 % update outer-zono
                 map2 = find(lb >= 1); 
-                V(map2, :) = 0;
-                V(map2, 1) = 1;
+                V(map1, :) = 0;
+                V(map1, 1) = 1;
                 if ~isempty(I.Z)
                     c1 = I.Z.c;
                     c1(map1, :) = -1;

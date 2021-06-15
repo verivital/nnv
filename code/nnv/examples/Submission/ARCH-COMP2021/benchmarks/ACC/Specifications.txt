@@ -1,0 +1,21 @@
+Parameters:
+
+a_lead = -2
+T_gap = 1.4
+D_default = 10
+
+Initial states:
+x_lead = x(1) = [90, 110]
+v_lead = x(2) = [32, 32.2]
+γ_lead = x(3) = 0
+x_ego  = x(4) = [10, 11]
+v_ego  = x(5) = [30, 30.2]
+γ_ego  = x(6) = 0
+
+t = 5 seconds
+control period = 0.1 s
+
+Safety Property:
+
+x_lead - x_ego >= D_safe, where D_safe = D_default + T_gap * v_ego;
+ 

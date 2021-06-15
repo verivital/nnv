@@ -94,8 +94,8 @@ classdef NonLinearODE < handle
             option.errorOrder = 1;
             option.reductionInterval = 1e3;
             option.maxError = 0.1*ones(obj.dim, 1);
-            option.tensorOrder=2; % Recommended 2 or 3
-            option.alg = 'lin';
+            option.tensorOrder=3; % Recommended 2 or 3
+            option.alg = 'lin'; % 'lin' or 'poly' recommended
             
             obj.options = option; % default option
             obj.params = param; % default parameters
@@ -248,15 +248,78 @@ classdef NonLinearODE < handle
                    
         end
         
+        % reachability analysis using polynomial zonotopes
+        function [R, reachTime] = reach_polyZono(obj, init_set, input_set, timeStep, tFinal)
+           % @init_set: initial set of state
+           % @input_set: input set u
+           % @timeStep: time step in reachable set computation
+           % @num_steps: number of steps in reachable set computation
+           
+           % this is a grapper of reach method for nonlinear system in CORA
+           % the initial set and input set are Zono in nnv
+           
+           % author: Diego Manzanas
+           % date: 06/07/2021
+           
+           start = tic;
+           if ~isa(init_set, 'Zono')
+               error('Initial set is not a zonotope');
+           end
+           
+           if ~isa(input_set, 'Zono')
+               error('Input set is not a zonotope');
+           end
+           
+           R0 = zonotope([init_set.c, init_set.V]);
+           U = zonotope([input_set.c, input_set.V]);
+           
+           obj.set_R0(polyZonotope(R0));
+           obj.set_U(U);
+%            obj.set_U(polyZonotope(U));
+           obj.set_timeStep(timeStep);
+           obj.set_tFinal(tFinal);
+           
+           % special settings for polynomial zonotopes
+           polyZono.maxDepGenOrder = 50;
+           polyZono.maxPolyZonoRatio = 0.01;
+           polyZono.restructureTechnique = 'reducePca';
+           obj.options.polyZono = polyZono;
+           
+           sys = nonlinearSys(obj.dynamics_func, obj.dim, obj.nI); % CORA nonlinearSys class
+           R = reach(sys, obj.params, obj.options); % CORA reach method using zonotope and conservative linearization
+                     
+           reachTime = toc(start);
+           % convert all polyzonotope to zonotope
+           nSet = length(R);
+           R2 = R;
+           for sps = 1:nSet
+               nZ = length(R(sps).timePoint.set);
+               aaa = cell(nZ,1);
+               aaa_interval = cell(nZ,1);
+               % Convert reachset point and interval to zonotope
+               for st=1:length(R(sps).timePoint.set)
+                   aaa{st} = zonotope(R(sps).timePoint.set{st});
+                   aaa_interval{st} = zonotope(R(sps).timeInterval.set{st});
+               end
+               % Add it back to the reach set
+               R2(sps) = R(sps);
+               R2(sps).timePoint.set = aaa;
+               R2(sps).timeInterval.set = aaa_interval;
+           end
+           R = R2;
+        end
+        
         
         % step reach using star set used for neural network control system
-        function S = stepReachStar(obj, init_set, input_set)
+        function S = stepReachStar(obj, init_set, input_set, varargin)
             % @init_set: initial set, a star
             % @input_set: input set, a star
             % @R: reachable set at the timeStep, a star
             
             % author: Dung Tran
             % date: 11/20/2018
+            % Update: Diego Manzanas - 06/07/2021
+            %     - Add 'poly' reachability analysis (varargin)
             
             if ~isa(init_set, 'Star')
                 error('Initial set is not a star');
@@ -269,7 +332,19 @@ classdef NonLinearODE < handle
             I = init_set.getZono;
             U = input_set.getZono;
             
-            [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.params.tFinal);
+            if ~isempty(varargin)
+                if string(varargin{1}) == "poly" || string(varargin{1}) == "lin"
+                    obj.options.alg = varargin{1};
+                else
+                    error('Incorrect reach variable options')
+                end
+            end
+                
+            if contains(obj.options.alg,'lin')
+                [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.params.tFinal);
+            else
+                [R, ~] = obj.reach_polyZono(I, U, obj.options.timeStep, obj.params.tFinal);
+            end
             
             N = length(R); % number of reachsets in the computation
             max_parent = 0;

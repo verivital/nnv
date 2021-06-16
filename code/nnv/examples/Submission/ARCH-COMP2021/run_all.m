@@ -19,8 +19,8 @@ run reach.m
 
 % Run Benchmark 9 - Tora
 cd ../Benchmark9-Tora;
-if not(isfolder('../../results/Benchmark9-Tora'))
-    mkdir ../../results/Benchmark9-Tora; % Create directory to store results
+if not(isfolder('../../results/benchmark9-tora'))
+    mkdir ../../results/benchmark9-tora; % Create directory to store results
 end
 run reach.m;
 

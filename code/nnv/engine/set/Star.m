@@ -833,10 +833,10 @@ classdef Star
                             ub(i) = obj.V(i,1);
                         else
                             % **** linprog is much faster than glpk
-                            options = optimoptions(@linprog, 'Display','none');
-                            options.OptimalityTolerance = 1e-10; % set tolerance
-                            [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-                            %[~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+%                             options = optimoptions(@linprog, 'Display','none');
+%                             options.OptimalityTolerance = 1e-10; % set tolerance
+%                             [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+                            [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                             if exitflag > 0
                                 lb(i) = fval + obj.V(i, 1);
                             else
@@ -844,8 +844,8 @@ classdef Star
                                 ub = [];
                                 break;
                             end
-                            [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-                            %[~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+%                             [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+                            [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                             if exitflag > 0
                                 ub(i) = -fval + obj.V(i, 1);
                             else

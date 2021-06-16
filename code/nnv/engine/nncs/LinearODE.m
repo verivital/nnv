@@ -196,7 +196,8 @@ classdef LinearODE
                 A1 = [obj.A obj.B; zeros(obj.nI, obj.dim) zeros(obj.nI, obj.nI)];
                 k = size(U.V, 2);
                 % initial condition for x1' = A1 * x1
-                X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d);
+%                 X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d);  % How it was before
+                X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d, U.predicate_lb,U.predicate_ub);
                 W = [eye(obj.dim) zeros(obj.dim, obj.nI)]; % mapping matrix
                             
                 if strcmp(method, 'direct')
@@ -601,4 +602,3 @@ classdef LinearODE
     
     
 end
-

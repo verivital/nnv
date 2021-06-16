@@ -458,8 +458,11 @@ classdef Star
                 new_V = horzcat(new_c, V3);        
                 new_C = blkdiag(obj.C, X.C);        
                 new_d = vertcat(obj.d, X.d);
+                new_pred_lb = [obj.predicate_lb; X.predicate_lb];
+                new_pred_ub = [obj.predicate_ub; X.predicate_ub];
 
-                S = Star(new_V, new_C, new_d); % new Star has more number of basic vectors
+%                 S = Star(new_V, new_C, new_d); % new Star has more number of basic vectors
+                S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub); % new Star has more number of basic vectors
                 
             end
                 
@@ -1484,8 +1487,8 @@ classdef Star
             for i=1:obj.dim
                 f = S(i, :);
                           
-                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-                %[~,fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+                [~,fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                 
                 if exitflag > 0
                     lb(i) = fval;
@@ -1493,8 +1496,8 @@ classdef Star
                     error('Cannot find an optimal solution, exitflag = %d', exitflag);
                 end
  
-                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-                %[~,fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+                [~,fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                 if exitflag > 0
                     ub(i) = -fval;
                 else
@@ -1689,7 +1692,7 @@ classdef Star
         end
         
         % plot list of boxes in 2D with no fill
-        function plotBoxes_2D_noFill(stars, x_pos, y_pos, color)
+         function plotBoxes_2D_noFill(stars, x_pos, y_pos, varargin)
             % plot stars using two dimension boxes without filling
             % author: Dung Tran
             % date: 11/16/2018
@@ -1708,18 +1711,31 @@ classdef Star
                     error('%d th input object is not a star', i);
                 end
             end
-            
-                        
+
+            switch nargin
+                case 4
+                    % Only color of plot is specified
+                    color = varargin{1};
+                    transp = 1;
+                case 5
+                    % Color and transparency of sets specified
+                    color = varargin{1};
+                    transp = varargin{2};
+                otherwise
+                    error('Wrong number of inputs. Total inputs must be 4 or 5');
+            end
             for i=1:n
-                                
+
                 x = [xmin(i) xmax(i) xmax(i) xmin(i) xmin(i)];
                 y = [ymin(i) ymin(i) ymax(i) ymax(i) ymin(i)];
-                
+
                 hold on;
-                plot(x, y, color);
-                                
+                s = plot(x, y, 'Color', color);
+                s.Color(4) = transp;
+%                 alpha(s,transp);
+
             end
-            
+
         end
         
         

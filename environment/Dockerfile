@@ -54,8 +54,6 @@ WORKDIR /deps
 RUN git clone https://github.com/verivital/nnvmt.git
 
 # these ls commands are just to force a new build so that the cloned repo is latest and not the cached one in the prior docker container image
-RUN ls
-RUN ls
 
 RUN git clone https://github.com/verivital/run_nnv_comparison.git
 WORKDIR /deps/run_nnv_comparison 
@@ -63,7 +61,44 @@ RUN ls
 RUN chmod +x setup_tools.sh
 
 # setting up all the tools will take several minutes at least, so comment out if comparison is not needed
-RUN ./setup_tools.sh
+#RUN ./setup_tools.sh
+
+WORKDIR /deps/nnvmt
+RUN ln -s /code/nnv/nnmt /deps/nnvmt 
+
+# nnmt needs anaconda
+# #https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh
+RUN wget https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh
+RUN bash Anaconda3-2020.02-Linux-x86_64.sh -b
+RUN rm Anaconda3-2020.02-Linux-x86_64.sh
+
+# Set path to conda
+ENV PATH /root/anaconda3/bin:$PATH
+#ENV PATH /home/ubuntu/anaconda3/bin:$PATH
+
+RUN ls /
+RUN ls /home/
+RUN ls /usr
+RUN ls /root
+
+# Updating Anaconda packages
+RUN conda update conda
+RUN conda update anaconda
+RUN conda update --all
+
+
+WORKDIR /deps/nnvmt
+RUN conda create -n nnmt python=3.6
+RUN conda init bash
+#RUN source ~/anaconda3/etc/profile.d/conda.sh
+#RUN conda activate nnmt
+
+RUN apt-get install -y libprotobuf-dev protobuf-compiler
+
+RUN pip install --user -r requirements.txt
+
+# there was an error related to version differences: 
+RUN pip install --upgrade onnx
 
 WORKDIR /
 
@@ -71,8 +106,8 @@ COPY postInstall /
 RUN /postInstall
 
 # set up matlab support packages (for vgg)
-WORKDIR /MATLAB/bin/glnxa64
-RUN ls
+#WORKDIR /MATLAB/bin/glnxa64
+#RUN ls
 #RUN ./SupportSoftwareInstaller -downloadfolder /data/matlab_sp -inputfile /data/matlab_sp/ssi_input.txt
 # previous gives error:
 # 

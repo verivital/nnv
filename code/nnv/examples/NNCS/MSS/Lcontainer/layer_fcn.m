@@ -1,9 +1,9 @@
 function fcn = layer_fcn(activation_fcn)
     fcn = activation_fcn;
     if fcn == 'relu  '
-        fcn = 'ReLU';
+        fcn = 'poslin';
     elseif fcn == 'linear'
-        fcn = 'Linear';
+        fcn = 'purelin';
     end
 end
 

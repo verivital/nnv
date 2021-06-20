@@ -1,3 +1,6 @@
+% Can find all the Sherlock benchmarks:
+% https://github.com/souradeep-111/Neural-Network-Controller-Verification-Benchmarks-HSCC-2019/tree/master/Benchmarks
+
 load controller.mat;
 
 weights = network.weights;
@@ -14,9 +17,11 @@ L = Layer(weights{1, n}, bias{1, n}, 'Linear');
 Layers = [Layers L];
 
 Controller = FFNN(Layers); % feedforward neural network controller
+offset = 4;
+scale_factor = 1;
+controlPeriod = 0.2;
+reachStep = 0.02;
 Plant = NonLinearODE(2, 1, @dynamics);
-Plant.set_timeStep(0.01); % time step for reachability analysis of the plant
-Plant.set_tFinal(0.2); % Ts = 0.2, sampling time for control signal from neural network controller
 output_mat = [1 0; 0 1]; % feedback 
 Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
 

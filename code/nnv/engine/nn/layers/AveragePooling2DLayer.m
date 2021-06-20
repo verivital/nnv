@@ -21,6 +21,11 @@ classdef AveragePooling2DLayer < handle
         PaddingMode = 'manual'; 
         PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
         
+        NumInputs = 1;
+        InputNames = {'in'};
+        NumOutputs = 1;
+        OutputNames = {'out'};
+        
     end
     
     
@@ -31,9 +36,45 @@ classdef AveragePooling2DLayer < handle
         function obj = AveragePooling2DLayer(varargin)           
             % author: Dung Tran
             % date: 6/17/2019    
-            % update: 
+            % update: 4/19/2020
             
             switch nargin
+                
+                case 8 % used for parsing a matlab averagePooling2DLayer
+                    
+                    name = varargin{1};
+                    poolSize = varargin{2};
+                    stride = varargin{3};
+                    paddingSize = varargin{4};
+                    
+                    obj.NumInputs = varargin{5};
+                    obj.InputNames = varargin{6};
+                    obj.NumOutputs = varargin{7};
+                    obj.OutputNames = varargin{8};
+                    
+                    if ~ischar(name)
+                        error('Name is not char');
+                    else
+                        obj.Name = name;
+                    end                    
+                    
+                    if size(poolSize, 1) ~= 1 || size(poolSize, 2) ~= 2
+                        error('Invalid pool size');
+                    else
+                        obj.PoolSize = poolSize;
+                    end
+                    
+                    if size(stride, 1) ~= 1 || size(stride, 2) ~= 2
+                        error('Invalid stride');
+                    else 
+                        obj.Stride = stride; 
+                    end
+                    
+                    if size(paddingSize, 1) ~= 1 || size(paddingSize, 2) ~= 4
+                        error('Invalide padding size');
+                    else
+                        obj.PaddingSize = paddingSize;
+                    end
                 
                 case 4
                     
@@ -384,7 +425,7 @@ classdef AveragePooling2DLayer < handle
         end
         
         % handle multiple inputs
-        function S = reach_star_mutipleInputs(obj, inputs, option)
+        function S = reach_star_multipleInputs(obj, inputs, option)
             % @inputs: an array of ImageStars
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar
@@ -426,7 +467,7 @@ classdef AveragePooling2DLayer < handle
         end
         
         % handle multiple inputs
-        function S = reach_zono_mutipleInputs(obj, inputs, option)
+        function S = reach_zono_multipleInputs(obj, inputs, option)
             % @inputs: an array of ImageZonos
             % @option: = 'parallel' or 'single'
             % @S: output ImageZono
@@ -459,10 +500,34 @@ classdef AveragePooling2DLayer < handle
             % author: Dung Tran
             % date: 6/26/2019
             % update: 1/6/2020   update reason: add zonotope method
-            %          
+            % update: 7/15/2020: add lp_solver option         
             
              
             switch nargin
+                
+                case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
                 
                 case 4
                     obj = varargin{1};
@@ -476,14 +541,16 @@ classdef AveragePooling2DLayer < handle
                     method = varargin{3};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 2 or 3)');
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
-                IS = obj.reach_zono_multipleInputs(in_images, option);
+                IS = obj.reach_zono_multipleInputs(in_images, option);    
+            else
+                error("Unknown reachability method");
             end
             
         end
@@ -493,8 +560,8 @@ classdef AveragePooling2DLayer < handle
 
     methods(Static)
         % parse a trained averagePooling2dLayer from matlab
-        function L = parse(average_Pooling_2d_Layer)
-            % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep
+        function L = parse(layer)
+            % @layer: a average pooling 2d layer from matlab deep
             % neural network tool box
             % @L : a AveragePooling2DLayer obj for reachability analysis purpose
 
@@ -502,11 +569,11 @@ classdef AveragePooling2DLayer < handle
             % date: 7/26/2019
 
 
-            if ~isa(average_Pooling_2d_Layer, 'nnet.cnn.layer.AveragePooling2DLayer')
+            if ~isa(layer, 'nnet.cnn.layer.AveragePooling2DLayer')
                 error('Input is not a Matlab nnet.cnn.layer.AveragePooling2DLayer class');
             end
 
-            L = MaxPooling2DLayer(average_Pooling_2d_Layer.Name, average_Pooling_2d_Layer.PoolSize, average_Pooling_2d_Layer.Stride, average_Pooling_2d_Layer.PaddingSize);
+            L = AveragePooling2DLayer(layer.Name, layer.PoolSize, layer.Stride, layer.PaddingSize, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
 
         end

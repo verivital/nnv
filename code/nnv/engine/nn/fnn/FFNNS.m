@@ -18,6 +18,7 @@ classdef FFNNS < handle
         
         reachMethod = 'exact-star';    % reachable set computation scheme, default - 'star'
         reachOption = []; % parallel option, default - non-parallel computing
+        relaxFactor = 0; % use only for approximate star method, 0 mean no relaxation
         numCores = 1; % number of cores (workers) using in computation
         inputSet = [];  % input set
         reachSet = [];  % reachable set for each layers
@@ -30,6 +31,9 @@ classdef FFNNS < handle
         getCounterExs = 0; % default, not getting counterexamples
         
         Operations = []; % flatten a network into a sequence of operations
+        
+        dis_opt = []; % display option
+        lp_solver = 'glpk'; % lp solver option, should be glpk or linprog
         
     end
     
@@ -209,15 +213,42 @@ classdef FFNNS < handle
             % your local clusters with installed MPT toolbox also. see: 
             % https://www.mathworks.com/help/distcomp/discover-clusters-and-use-cluster-profiles.html
            
+            % author: Dung Tran
+            % update: 7/10/2020: add the relaxed approx-star method for poslin,
+            % logsig and tansig
+            % update: 7/18/2020: add display option + lp_solver option
             
             % parse inputs 
             switch nargin
+                
+                 case 7
+                    obj = varargin{1}; % FFNNS object
+                    obj.inputSet = varargin{2}; % input set
+                    obj.reachMethod = varargin{3}; % reachability analysis method
+                    obj.numCores = varargin{4}; % number of cores used in computation
+                    obj.relaxFactor = varargin{5}; 
+                    obj.dis_opt = varargin{6};
+                    obj.lp_solver = varargin{7};
+          
+                case 6
+                    obj = varargin{1}; % FFNNS object
+                    obj.inputSet = varargin{2}; % input set
+                    obj.reachMethod = varargin{3}; % reachability analysis method
+                    obj.numCores = varargin{4}; % number of cores used in computation
+                    obj.relaxFactor = varargin{5}; 
+                    obj.dis_opt = varargin{6}; 
+                
+                case 5
+                    obj = varargin{1}; % FFNNS object
+                    obj.inputSet = varargin{2}; % input set
+                    obj.reachMethod = varargin{3}; % reachability analysis method
+                    obj.numCores = varargin{4}; % number of cores used in computation
+                    obj.relaxFactor = varargin{5}; % used only for approx-star method
                 case 4
                     obj = varargin{1}; % FFNNS object
                     obj.inputSet = varargin{2}; % input set
                     obj.reachMethod = varargin{3}; % reachability analysis method
                     obj.numCores = varargin{4}; % number of cores used in computation
-                    
                 case 3
                     obj = varargin{1};
                     obj.inputSet = varargin{2};
@@ -226,12 +257,35 @@ classdef FFNNS < handle
                     
                 case 2
                     obj = varargin{1};
-                    obj.inputSet = varargin{2};
-                    obj.reachMethod = 'exact-star';
-                    obj.numCores = 1;
+                    if ~isstruct(varargin{2})
+                        obj.inputSet = varargin{2};
+                        obj.reachMethod = 'exact-star';
+                        obj.numCores = 1;
+                    else
+                        if isfield(varargin{2}, 'inputSet')
+                            obj.inputSet = varargin{2}.inputSet;
+                        end
+                        if isfield(varargin{2}, 'numCores')
+                            obj.numCores = varargin{2}.numCores;
+                        end
+                        if isfield(varargin{2}, 'reachMethod')
+                            obj.reachMethod = varargin{2}.reachMethod;
+                        end
+                        if isfield(varargin{2}, 'dis_opt')
+                            obj.dis_opt = varargin{2}.dis_opt;
+                        end
+                        if isfield(varargin{2}, 'relaxFactor')
+                            obj.relaxFactor = varargin{2}.relaxFactor;
+                        end
+                        if isfield(varargin{2}, 'lp_solver')
+                            obj.lp_solver = varargin{2}.lp_solver;
+                        end
+                        
+                    end   
+                        
                     
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2 or 3)');
+                    error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
             end
             
             
@@ -260,46 +314,34 @@ classdef FFNNS < handle
             % compute reachable set
             In = obj.inputSet;
                         
-            for i=1:obj.nL               
+            for i=1:obj.nL
                 
-                fprintf('\nComputing reach set for Layer %d ...', i);
-                
-%                 % estimate reachability analysis time from the second layer
-%                 if i > 1
-%                     nP = length(obj.reachSet{1, i - 1});
-%                     if i==2
-%                         nP1 = 1;
-%                     else
-%                         nP1 = length(obj.reachSet{1, i-2});
-%                     end
-%                     rt = obj.reachTime(i-1);
-%                     
-%                     estimatedTime = rt*(nP/nP1)*(obj.Layers(i).N / obj.Layers(i-1).N);
-%                     if isnan(estimatedTime)
-%                         estimatedTime = 0.0;
-%                     end
-%                     fprintf('\nEstimated computation time: ~ %.5f seconds', estimatedTime);
-%                 end
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nComputing reach set for Layer %d ...', i);
+                end
                 
                 st = tic;
-                In = obj.Layers(i).reach(In, obj.reachMethod, obj.reachOption);
+                In = obj.Layers(i).reach(In, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 t1 = toc(st);
                 
                 %obj.reachSet{1, i} = In;
                 obj.numReachSet(i) = length(In);
                 obj.reachTime = [obj.reachTime t1];
                 
-                fprintf('\nExact computation time: %.5f seconds', t1);               
-                fprintf('\nNumber of reachable set at the output of layer %d: %d', i, length(In));               
-                               
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nExact computation time: %.5f seconds', t1);               
+                    fprintf('\nNumber of reachable set at the output of layer %d: %d', i, length(In));               
+                end           
             end
             
             obj.outputSet = In;
             obj.totalReachTime = sum(obj.reachTime);
             S = obj.outputSet;
-            t = obj.totalReachTime;                      
-            fprintf('\nTotal reach set computation time: %.5f seconds', obj.totalReachTime);
-            fprintf('\nTotal number of output reach sets: %d', length(obj.outputSet));
+            t = obj.totalReachTime;
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nTotal reach set computation time: %.5f seconds', obj.totalReachTime);
+                fprintf('\nTotal number of output reach sets: %d', length(obj.outputSet));
+            end
             
         end
         
@@ -1821,6 +1863,298 @@ classdef FFNNS < handle
             
 
         end
+        
+        % verify robustness of classification feedforward networks
+        function [robust, cE, cands, vt] = verifyRBN(varargin)
+            % @robust: = 1: the network is robust
+            %          = 0: the network is notrobust
+            %          = 2: robustness is uncertain
+            % @cE: a set of counter examples 
+            % @cands: candidate indexes in the case that the robustness is unknown
+            % @vt: verification time
+            
+            % author: Dung Tran
+            % date: 7/10/2020
+            
+            t = tic;
+            switch nargin                   
+                
+                case 3
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};                    
+                case 4
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    
+                case 5
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    
+                case 6
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                
+                case 7
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    
+                case 8
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                    
+                case 2
+                    obj = varargin{1};
+                    if ~isstruct(varargin{2})
+                        error('The second input should be a struct variable');
+                    else
+                        if isfield(varargin{2}, 'inputSet')
+                            in_image = varargin{2}.inputSet;
+                        end
+                        if isfield(varargin{2}, 'correct_id')
+                            correct_id = varargin{2}.correct_id;
+                        end
+                        if isfield(varargin{2}, 'reachMethod')
+                            obj.reachMethod = varargin{2}.reachMethod;
+                        end
+                        if isfield(varargin{2}, 'numCores')
+                            obj.numCores = varargin{2}.numCores;
+                        end
+                        if isfield(varargin{2}, 'relaxFactor')
+                            obj.relaxFactor = varargin{2}.relaxFactor;
+                        end
+                        if isfield(varargin{2}, 'dis_opt')
+                            obj.dis_opt = varargin{2}.dis_opt;
+                        end
+                        if isfield(varargin{2}, 'lp_solver')
+                            obj.lp_solver = varargin{2}.lp_solver;
+                        end
+                    end
+                                        
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, 4, 5, 6, or 7');
+                     
+            end
+            
+            if correct_id > obj.nO || correct_id < 1
+                error('Invalid correct id');
+            end
+            
+            if strcmp(obj.reachMethod, 'exact-star')
+                error('\nThis method does not support exact-star reachability, please choose approx-star');
+            end
+            
+            robust = 2; % unknown first
+            cands = []; 
+            cE = [];
+            
+            if ~isempty(in_image.state_lb)
+                y_lb = obj.evaluate(in_image.state_lb);
+                [~,max_id] = max(y_lb);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.state_lb;
+                end
+
+                y_ub = obj.evaluate(in_image.state_ub);
+                [~,max_id] = max(y_ub);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.state_ub;
+                end
+            end
+            
+            if robust == 2
+                
+                obj.reach(in_image, obj.reachMethod, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                R = obj.outputSet; 
+                [lb, ub] = R.estimateRanges;
+
+                max_val = lb(correct_id);
+                max_cd = find(ub > max_val); % max point candidates
+                max_cd(max_cd == correct_id) = []; % delete the max_id
+
+                if isempty(max_cd)
+                    robust = 1;
+                else            
+
+                    n = length(max_cd);
+                    count = 0;
+                    for i=1:n
+                        if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                            cands = max_cd(i);
+                            break;
+                        else
+                            count = count + 1;
+                        end
+                    end
+
+                    if count == n
+                        robust = 1;
+                    end
+
+                end
+   
+            end
+            
+            vt = toc(t);
+           
+        end
+        
+        % evaluate robustness of a classification feedforward network on an array of input (test) sets
+        function [r, rb, cE, cands, vt] = evaluateRBN(varargin)
+            % @in_images: input sets
+            % @correct_ids: an array of correct labels corresponding to the input sets
+            % @method: reachability method: 'exact-star', 'approx-star',
+            % 'approx-zono' and 'abs-dom'
+            % @numCores: number of cores used in computation
+            % @r: robustness value (in percentage) 
+            % @rb: robustness results
+            % @cE: counterexamples
+            % @cands: candidate idexes
+            % @vt: verification times
+            
+            % author: Dung Tran
+            % date:7/10/2020
+            % update: 7/18/2020 : add dis_opt + lp_solver option
+            
+            switch nargin
+                
+                case 8
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                
+                case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    method = varargin{4};
+                    
+                case 2
+                    obj = varargin{1};
+                    if ~isstruct(varargin{2})
+                        error('The second input should be a struct variable');
+                    else
+                        if isfield(varargin{2}, 'inputSets')
+                            in_images = varargin{2}.inputSets;
+                        end
+                        if isfield(varargin{2}, 'correct_ids')
+                            correct_ids = varargin{2}.correct_ids;
+                        end
+                        if isfield(varargin{2}, 'reachMethod')
+                            obj.reachMethod = varargin{2}.reachMethod;
+                        end
+                        if isfield(varargin{2}, 'numCores')
+                            obj.numCores = varargin{2}.numCores;
+                        end
+                        if isfield(varargin{2}, 'relaxFactor')
+                            obj.relaxFactor = varargin{2}.relaxFactor;
+                        end
+                        if isfield(varargin{2}, 'dis_opt')
+                            obj.dis_opt = varargin{2}.dis_opt;
+                        end
+                        if isfield(varargin{2}, 'lp_solver')
+                            obj.lp_solver = varargin{2}.lp_solver;
+                        end
+                    end
+                    
+                otherwise
+                    error('Invalid number of input arguments, should be 2, 3, 4, 5, 6, or 7');                    
+            end
+            
+            
+            N = length(in_images);
+            if length(correct_ids) ~= N
+                error('Inconsistency between the number of correct_ids and the number of input sets');
+            end
+            
+                      
+            count = zeros(1, N);
+            rb = zeros(1, N);
+            cE = cell(1,N);
+            cands = cell(1,N);
+            vt = zeros(1,N);
+            if ~strcmp(obj.reachMethod, 'exact-star')                
+                
+                % verify reachable set              
+                if obj.numCores > 1 && N > 1
+                    parfor i=1:N
+                        
+                        [rb(i), cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, 1, obj.relaxFactor, obj.dis_opt, obj.lp_solver);                       
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end                             
+                    end
+                else 
+                    for i=1:N
+                        
+                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end
+                    end
+                
+                end
+                
+            end
+                        
+            r = sum(count)/N; 
+            
+        end      
+        
+        
         
         % evaluate robustness of a classification feedforward network on an array of input (test) sets
         function r = evaluateRobustness(varargin)

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -ex
 
+# This is the master script for the capsule. When you click "Reproducible Run", the code in this file will execute.
+
 pwd
 
 # unfortunately, the git files do not exist when running the capsule, so this cannot be done to pull in the submodules
@@ -12,16 +14,11 @@ pwd
 #git submodule init
 #git submodule update
 
-# This is the master script for the capsule. When you click "Reproducible Run", the code in this file will execute.
-ls
-
 cd /deps
 
-ls
+cd /deps/run_nnv_comparison
 
-#cd /deps/run_nnv_comparison
-
-#chmod +x run_tools.sh
+chmod +x run_tools.sh
 # run tool comparisons, this will take some time (~20-40 minutes or so, depends on codeocean load as this is run on shared resources)
 #./run_tools.sh > /results/run_nnv_comparison_log.txt 2>/results/run_nnv_comparison_err.txt
 
@@ -30,6 +27,8 @@ ls
 
 # start up matlab and run
 cd ~/
+
+
 
 matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); startup_nnv; savepath; run_codeocean;"
 

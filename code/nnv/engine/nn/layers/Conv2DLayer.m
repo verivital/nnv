@@ -26,6 +26,11 @@ classdef Conv2DLayer < handle
         % Learnable Parmeters/ Used for reachability analysis
         Weights = [];
         Bias = [];
+        
+        NumInputs = 1;
+        InputNames = {'in'};
+        NumOutputs = 1;
+        OutputNames = {'out'};
     end
     
     
@@ -39,6 +44,67 @@ classdef Conv2DLayer < handle
             % update: 
             
             switch nargin
+                
+                case 10 % used for parsing a Matlab conv2dlayer 
+                    
+                    layer_name = varargin{1}; 
+                    filter_weights = varargin{2};
+                    filter_bias = varargin{3};
+                    padding_mat = varargin{4};
+                    stride_mat = varargin{5};
+                    dilation_mat = varargin{6};
+                    obj.NumInputs = varargin{7};
+                    obj.InputNames = varargin{8};
+                    obj.NumOutputs = varargin{9};
+                    obj.OutputNames = varargin{10};
+                    
+                    if ischar(layer_name)
+                        obj.Name = layer_name;
+                    else
+                        error('Layer name should be a char array');
+                    end
+                    
+                    
+                    w = size(filter_weights);
+                    b = size(filter_bias);
+                    
+                    if length(w) ~= 4
+                        error('Invalid weights array');
+                    end
+                    if length(b) ~= 3
+                        error('Invalid biases array');
+                    end
+
+                    if w(4) ~= b(3)
+                        error('Inconsistency between filter weights and filter biases');
+                    end
+                    
+                    obj.NumFilters = w(4);
+                    obj.NumChannels = w(3);
+                    obj.FilterSize = [w(1) w(2)];
+                    obj.Weights = filter_weights;
+                    obj.Bias = filter_bias;
+                                        
+                    p = size(padding_mat);
+                   
+                    if  length(p) ~= 2 || p(2) ~= 4|| p(1) ~= 1
+                        error('Invalid padding matrix');
+                    end
+                    obj.PaddingSize = padding_mat;
+                    
+                    s = size(stride_mat);
+                    if length(s) ~= 2 || s(1) ~= 1
+                        error('Invalid stride matrix');
+                    end
+                    obj.Stride = stride_mat;
+                    
+                    d = size(dilation_mat);
+                    if length(d) ~= 2 || d(1) ~= 1
+                        error('Invalid dilation matrix');
+                    end                
+                    obj.DilationFactor = dilation_mat;
+                    
+                    
                 
                 case 6
                     
@@ -442,7 +508,7 @@ classdef Conv2DLayer < handle
             stride_mat = conv2dLayer.Stride;
             dilation_mat = conv2dLayer.DilationFactor;
             
-            L = Conv2DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat);
+            L = Conv2DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat, conv2dLayer.NumInputs, conv2dLayer.InputNames, conv2dLayer.NumOutputs, conv2dLayer.OutputNames);
                         
             fprintf('\nParsing a Matlab convolutional 2d layer is done successfully');
             
@@ -738,6 +804,30 @@ classdef Conv2DLayer < handle
             % date: 7/16/2019
             
             switch nargin
+                
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -748,14 +838,22 @@ classdef Conv2DLayer < handle
                     in_images = varargin{2}; 
                     method = varargin{3};
                     option = 'single';
+                case 2
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = 'approx-star';
+                    option = 'single';
+                    
                 otherwise
-                    error('Invalid number of input arguments, should be 2 or 3');
+                    error('Invalid number of input arguments, should be 1, 2, 3, 4, 5 or 6');
             end
          
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')|| contains(method, "relax-star")
                 images = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
-                images = obj.reach_zono_multipleInputs(in_images, option);
+                images = obj.reach_zono_multipleInputs(in_images, option);                
+            else
+                error("Unknown reachability method");
             end
             
         end

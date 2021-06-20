@@ -150,7 +150,7 @@ classdef FullyConnectedLayer < handle
             V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1);        
             for i=1:n+1
                 I = in_image.V(:,:,:,i);
-                I = reshape(I,N,1);
+                I = reshape(I,N,1); % flatten input
                 if i==1
                     V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
                 else
@@ -262,6 +262,30 @@ classdef FullyConnectedLayer < handle
              
             switch nargin
                 
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2}; 
@@ -274,16 +298,15 @@ classdef FullyConnectedLayer < handle
                     method = varargin{3};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 2 or 3)');
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
-            
-            n = length(in_images);
-            
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
                 IS = obj.reach_zono_multipleInputs(in_images, option);
+            else
+                error('Unknown reachability method');
             end
             
             

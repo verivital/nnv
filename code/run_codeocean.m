@@ -8,45 +8,19 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
-cd /code/nnv/examples/Submission/CAV2020_ImageStar/
-
-cd MNIST_NETS/Small
-%plot_ranges
-%saveas(gcf, '/results/figure8_mnist_small.png')
-%compare_star_absdom_short % ~ 5 min
-%compare_star_absdom % full version: 10:41 total
-
-% next together: > 1.5 hours for short version
-cd ../Medium
-%compare_star_absdom_short
-%compare_star_absdom  % full version: 10:41 total
-
-cd ../Large
-%compare_star_absdom_short
-%compare_star_absdom  % full version: 10:41 total
-
-
-cd /code/nnv/examples/Submission/CAV2020_ImageStar/
-
-cd VGG16/Compare_Polytope_ImageStar
-%verify_VGG16 % takes ~1:38 hours:min
-
-cd ../Compare_Exact_vs_Approx
-%verify_robustness_delta_2e_07 % ~15 min
-
-%verify_robustness_delta_e_07 % ~15 min
-
-cd /code/nnv/examples/Submission/CAV2020_ImageStar/
-
-cd VGG19/Compare_Polytope_ImageStar
-%verify_VGG19 % 1:10
-
-cd ../Compare_Exact_vs_Approx
+cd /code/nnv/examples/Submission/ARCH_COMP2020/benchmarks
+run_all
 
 
 return
 
+cd /code/nnv/examples/Submission/NeurIPS2020/
+produce_NeurIPS2020
 
+
+return
+
+% CAV 2020 tool paper reproducibility
 cd /code/nnv/examples/Submission/CAV2020/
 
 % examples to manually run nnv on acas-xu, these (and many more) are 
@@ -62,9 +36,24 @@ pwd
 % run all closed-loop CPS examples
 reproduce % will take ~32.5 minutes (see run 140515 or 152224)
 
+% CAV 2020 ImageStar paper reproducibility
+cd /code/nnv/examples/Submission/CAV2020_ImageStar/
+
+% see details in this script for each figure/table recreation
+reproduce_CAV2020_ImageStar;
+
+% short test (uncomment and comment the above reproduce_CAV2020_ImageStar)
+%cd MNIST_NETS/Small/
+%plot_ranges
+%saveas(gcf, '/results/figure8_mnist_small.png');
 
 
-%return; % stop here, comment/remove this to run all tests, other examples, etc.
+%return % end of CAV 2020 ImageStar reproducibility
+
+% if interested, one can also look at these others, as well as how to manually run new examples in CodeOcean below
+
+
+return; % stop here, comment/remove this to run all tests, other examples, etc.
 % if you run all these, it will add another ~15 minutes of runtime
 
 cd /code/nnv/tests/set/zono

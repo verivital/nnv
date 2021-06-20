@@ -1,4 +1,4 @@
-function [dx] = dynamicsCP(t,x,u)
+function [dx] = dynamicsCP(x,u)
 % x1 = position of cart (x)
 % x2 = velocity of cart (v)
 % x3 = pendulum angle (theta)

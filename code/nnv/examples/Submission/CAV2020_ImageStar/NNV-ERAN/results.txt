@@ -1,0 +1,2 @@
+delta,avr_num_att_pixels,rb,n_correct,vt
+0.008,25,0.979166666666667,47,265.0743188

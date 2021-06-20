@@ -22,7 +22,7 @@ Norm = Load_nn('FNNsensor.mat');
 % Controller
 Cont = Load_nn('FNNcontroller.mat');
 % Controller output normalization NN
-Cont2 = Load_nn('','','','','','FNNnorm.mat');
+Cont2 = Load_nn('FNNnorm.mat');
 % Gazebo data
 load('data_exp2.mat');% (28 variables, 1Hz)
 % Obstacle locations
@@ -34,7 +34,7 @@ ida = iddata([data(1:6,6:7) data(1:6,17)],[data(1:6,28) data(1:6,5)],1);
 % x, y, yaw, heading change, speed
 ipoint = data(1,6:7);
 ihea = data(1,17);
-fpoint = ipoint + [50*cos(ihea) 50*sin(ihea)];
+fpoint = ipoint + [53*cos(ihea) 53*sin(ihea)];
 x0 = findstates(sys,ida);
 % outtou = lsim(sys,ida.u,[],x0);
 m = size(data,1); % length of data points
@@ -43,7 +43,7 @@ t = [0; 1];
 u = ida.u(1,:);
 
 % Following same steps as reachability analysis algorithm
-for i=1:size(data,1)-1
+for i=1:size(data,1)+1
     [y,temp,x] = lsim(sys,[u;u],[],x,'zoh');
     y = y(1,:);x = x(2,:);
     out(i,:) = y;
@@ -69,21 +69,25 @@ init_set = Star(lb,ub); % initial set of states (Star)
 
 % Begin loop to compute the reachable sets of all the components
 ReachSystem = []; % To store all output sets of the plant
+% Obstacle position
+x_obsS = Star(obstacle(1,2),obstacle(1,2));
+y_obsS = Star(obstacle(1,1),obstacle(1,1));
+met = 'approx-star';
 
 for i=1:m+1
     % Step 1.
     OutPlant = init_set.affineMap(sys.C,[]);
     ReachSystem = [ReachSystem OutPlant];
     % Step 2.
-    In_Norm = OutPlant.affineMap(eye(3),[obstacle(1,1);obstacle(1,1);0]);
+    In_Norm = relObstacle(x_obsS,y_obsS,OutPlant);
     % Step 3.
-    Out_Norm = Norm.reach(In_Norm,'exact-star',4);
+    Out_Norm = Norm.reach(In_Norm,met,4);
     % Step 4.
-    Out_Lec = Cont.reach(Out_Norm,'exact-star',4);
+    Out_Lec = Cont.reach(Out_Norm,met,4);
     % Step 5.
-    In_Plant = Cont2.reach(Out_Lec,'exact-star',4);
+    In_Plant = Cont2.reach(Out_Lec,met,4);
     % Step 6.
-    init_set = stepReachPlant(sys.A,sys.B, init_set, In_Plant);
+    init_set = reachPlantStep(Plant,init_set,In_Plant);
     % Step 7. Start loop again
 end
 
@@ -108,11 +112,48 @@ set(gca,'FontSize',16);
 set(gca,'DataAspectRatio',[1 1 1]);
 title('Experiment 2');
 grid;
-saveas(aa,'figures/CaseStudy2','png');
+saveas(aa,'figures/CaseStudy2_new','png');
 
 
 % Helper Functions
+function X = relObstacle(xobs,yobs,OutPlant)
+    [xo(1),xo(2)] = xobs.getRanges;
+    [yo(1),yo(2)] = yobs.getRanges;
+    [m,M] = OutPlant.getRanges;
+    xd = [];
+    xd(1) = m(1)-xo(1);
+    xd(2) = m(1)-xo(2);
+    xd(3) = M(1)-xo(1);
+    xd(4) = M(1)-xo(2);
+    yd = [];
+    yd(1) = m(2)-yo(1);
+    yd(2) = m(2)-yo(2);
+    yd(3) = M(2)-yo(1);
+    yd(4) = M(2)-yo(2);
+    m(1) = min(xd);
+    M(1) = max(xd);
+    m(2) = min(yd);
+    M(2) = max(yd);
+    X = Star(m,M);
+end
 
+function Y = reachPlantStep(plant,X0,controls)
+    n = length(controls);
+    Y = [];
+    for i=1:n
+        U = controls(i).orderReduction_box(length(X0.V));
+        try
+            yz =  stepReachPlant(Plant.A, Plant.B, X0, controls(i));
+            Y = [Y yz];
+        catch
+            yz = plant.stepReachZono(X0.Z,controls(i).Z);
+            Y = [Y yz.toStar];
+        end
+    end
+    X = Star.get_hypercube_hull(Y);
+%     X = Star.get_convex_hull(Y);
+    X = X.toStar; 
+end
 % Discrete-time Systems
 function X = stepReachPlant(A, B, X0, controls)
     

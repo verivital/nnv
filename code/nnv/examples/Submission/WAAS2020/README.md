@@ -12,3 +12,5 @@ To run the system validation, just run Validate_SysID.m.
 ### See results
 All the figures will be saved in the [figures](https://github.com/dieman95/nnv/tree/master/code/nnv/examples/Submission/AutoCPS2020/figures) folder.
 
+### Note
+There was a bug in the original code submitted. Code has been updated since the submission of the paper, as well as added four new experiments, similar to the ones in the paper, but with some uncertainty added to the obstacle's location.

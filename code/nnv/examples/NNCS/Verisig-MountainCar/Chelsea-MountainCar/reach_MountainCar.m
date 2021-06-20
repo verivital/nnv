@@ -8,19 +8,18 @@ b = nnetwork.b; % bias vectors
 n = length(W);
 Layers = [];
 for i=1:n - 1
-    L = Layer(W{1, i}, b{1, i}, 'ReLU');
+    L = LayerS(W{1, i}, b{1, i}, 'poslin');
     Layers = [Layers L];
 end
 
-L = Layer(W{1, n}, b{1, n}, 'Linear');
+L = LayerS(W{1, n}, b{1, n}, 'purelin');
 
 Layers = [Layers L];
 
 Ts = 0.1; 
-Controller = FFNN(Layers); % feedforward neural network controller
-Plant = DNonLinearODE(2, 1, @discrete_car_dynamics, Ts); % two states and one input
-output_mat = [1 0; 0 1];
-Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
+output_mat = [1 0; 0 1]; % Define the outputs that is feedback to the controller
+Controller = FFNNS(Layers); % feedforward neural network controller
+Plant = DNonLinearODE(2, 1, @discrete_car_dynamics, Ts, output_mat); % two states and one input
 
 feedbackMap = [0]; % feedback map, y[k] = [p[k]; v[k]], feedback both position and velocity with no delay 
 
@@ -58,6 +57,10 @@ reachSet = cell(13, 1);
 input_ref = []; % empty input reference in this case study
 N = 10;  % takes 20 seconds 
 n_cores = 4; % number of cores 
+reachPRM.numSteps = N;
+reachPRM.ref_input = input_ref;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.numCores = n_cores;
 
 for i=1:1 % test for first initial set
     init_pos = p0{i, 1};
@@ -66,8 +69,8 @@ for i=1:1 % test for first initial set
     lb = [init_pos(1); init_vel(1)];
     ub = [init_pos(2); init_vel(2)];
     
-    init_set = Star(lb, ub); 
-    [reachSet{i, 1}, reachTime(i)] = ncs.reach('approx-star', init_set, input_ref, n_cores, N);
+    reachPRM.init_set = init_set;
+    [reachSet{i, 1}, reachTime(i)] = ncs.reach(reachPRM);
 end
 
 S = reachSet{1,1};

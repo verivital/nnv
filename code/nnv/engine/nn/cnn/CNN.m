@@ -15,14 +15,19 @@ classdef CNN < handle
         
         % properties for reach set computation
         
-        reachMethod = 'approx-star';    % reachable set computation scheme, default - 'star'
+        reachMethod = 'approx-star';    % reachable set computation scheme, default - 'approx-star'
+        relaxFactor = 0; % default - solve 100% LP optimization for finding bounds in 'approx-star' method
         reachOption = []; % parallel option, default - non-parallel computing
-        numCores = 0; % number of cores (workers) using in computation
+        numCores = 1; % number of cores (workers) using in computation
         reachSet = [];  % reachable set for each layers
+        outputSet = [];
         reachTime = []; % computation time for each layers
         totalReachTime = 0; % total computation time
         
         features = {}; % outputs of each layer in an evaluation
+        dis_opt = []; % display option = 'display' or []
+        lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set
+        % user can choose 'glpk' or 'linprog' as an LP solver
         
     end
     
@@ -62,7 +67,7 @@ classdef CNN < handle
         
         % Evaluation of a CNN
         function y = evaluate(obj, x)
-            % Evaluation of this FFNN
+            % Evaluation of this CNN
             % @x: input vector x
             % @y: output vector y
             % @features: output of all layers
@@ -72,7 +77,7 @@ classdef CNN < handle
                 y = obj.Layers{i}.evaluate(y);
                 obj.features{i} = y;
             end
-            features = obj.features;      
+       
         end
         
         
@@ -111,14 +116,41 @@ classdef CNN < handle
             % @IS: output set is an ImageStar
             % @reachTime : reachable set computation time
             
+            % author: Dung Tran
+            % date: 
+            % update: 7/15/2020 : add display option "dis_opt = 'display'"
+            % -> display all messages
+            % update: 7/16/2020: add lp_solver option for user to choose
+            
             switch nargin 
                 
                 case 2
                     
                     obj = varargin{1};
-                    inputSet = varargin{2};
-                    obj.reachMethod = 'approx-star';
-                    obj.numCores = 1; 
+                    if ~isstruct(varargin{2})
+                        inputSet = varargin{2};
+                    else
+                       if isfield(varargin{2}, 'inputSet')
+                           inputSet = varargin{2}.inputSet;
+                       else
+                           error('No input set for reachability analysis');
+                       end
+                       if isfield(varargin{2}, 'reachMethod')
+                           obj.reachMethod = varargin{2}.reachMethod;
+                       end
+                       if isfield(varargin{2}, 'numCores')
+                           obj.numCores = varargin{2}.numCores;
+                       end
+                       if isfield(varargin{2}, 'relaxFactor')
+                           obj.relaxFactor = varargin{2}.relaxFactor;
+                       end
+                       if isfield(varargin{2}, 'dis_opt')
+                           obj.dis_opt = varargin{2}.dis_opt; % use for debuging
+                       end
+                       if isfield(varargin{2}, 'lp_solver')
+                           obj.lp_solver = varargin{2}.lp_solver;
+                       end
+                    end
                     
                 case 3 
                     
@@ -132,11 +164,35 @@ classdef CNN < handle
                     obj = varargin{1};
                     inputSet = varargin{2};
                     obj.reachMethod = varargin{3};
-                    obj.numCores = varargin{4}; 
-                 
+                    obj.numCores = varargin{4};
+                    
+                case 5
+                    obj = varargin{1};
+                    inputSet = varargin{2};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = varargin{4};
+                    obj.relaxFactor = varargin{5};
+                    
+                case 6
+                    obj = varargin{1};
+                    inputSet = varargin{2};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = varargin{4};
+                    obj.relaxFactor = varargin{5};
+                    obj.dis_opt = varargin{6}; % use for debuging
+                    
+                case 7
+                    obj = varargin{1};
+                    inputSet = varargin{2};
+                    obj.reachMethod = varargin{3};
+                    obj.numCores = varargin{4};
+                    obj.relaxFactor = varargin{5};
+                    obj.dis_opt = varargin{6}; % use for debuging
+                    obj.lp_solver = varargin{7}; 
+                    
                 otherwise 
                     
-                    error('Invalid number of input arguments, the number should be 1, 2 or 3');
+                    error('Invalid number of input arguments, the number should be 1, 2, 3, 4, 5, or 6');
                 
             end
             
@@ -149,22 +205,33 @@ classdef CNN < handle
                 obj.reachOption = [];
             end
             
-            obj.reachSet = cell(1, obj.numLayers+1);
+            obj.reachSet = cell(1, obj.numLayers);
             obj.reachTime = zeros(1, obj.numLayers);
-            fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
-            obj.reachSet{1} = inputSet;
-            for i=2:obj.numLayers+1
-                fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
-                start_time = tic;
-                obj.reachSet{i} = obj.Layers{i-1}.reach(obj.reachSet{i-1}, obj.reachMethod, obj.reachOption);
-                obj.reachTime(i-1) = toc(start_time);
-                fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
-                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(obj.reachSet{i}));
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
             end
-            fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
-            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet{obj.numLayers+1}));
+            rs = inputSet;
+            for i=2:obj.numLayers+1
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
+                end
+                start_time = tic;
+                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                obj.reachTime(i-1) = toc(start_time);
+                rs = rs_new;
+                obj.reachSet{i-1} = rs_new;
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
+                    fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs_new));
+                end
+            end
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
+                fprintf('\nThe number ImageStar in the output sets is: %d', length(rs_new));
+            end
             obj.totalReachTime = sum(obj.reachTime);
-            IS = obj.reachSet{obj.numLayers+1};
+            IS = rs_new;
+            obj.outputSet = rs_new;
             reachTime = obj.totalReachTime;
         end
         
@@ -206,7 +273,7 @@ classdef CNN < handle
                      
             
             if ~isa(in_image, 'ImageStar')
-                [y, ~] = obj.evaluate(in_image);
+                y = obj.evaluate(in_image);
                 y = reshape(y, [obj.OutputSize, 1]);
                 [~, label_id] = max(y); 
             else
@@ -218,7 +285,7 @@ classdef CNN < handle
                 fprintf('\n=============================================');
                 obj.reach(in_image, method, numOfCores);
 
-                RS = obj.reachSet{obj.numLayers + 1};
+                RS = obj.outputSet;
                 n = length(RS);
                 label_id = cell(n, 1);
                 for i=1:n
@@ -295,7 +362,7 @@ classdef CNN < handle
                     
                     elseif strcmp(method, 'exact-star')
                         
-                        rs = obj.reachSet{obj.numLayers + 1}(i);
+                        rs = obj.outputSet(i);
                         L = length(id1); 
                         for l=1:L                    
                             [new_C, new_d] = ImageStar.addConstraint(rs, [1, 1, correct_id], [1, 1, id1(l)]);  
@@ -449,6 +516,249 @@ classdef CNN < handle
         
     end
     
+    methods % new robustness verification method using relaxed ImageStar
+        
+        % verify robustness of classification feedforward networks
+        function [robust, cE, cands, vt] = verifyRBN(varargin)
+            % @robust: = 1: the network is robust
+            %          = 0: the network is notrobust
+            %          = 2: robustness is uncertain
+            % @cE: a set of counter examples 
+            % @cands: candidate indexes in the case that the robustness is unknown
+            % @vt: verification time
+            
+            % author: Dung Tran
+            % date: 7/13/2020
+            
+            t = tic;
+            switch nargin                   
+                
+                case 3
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = 'approx-star';
+                    obj.numCores = 1; % numCores used for computation
+                    obj.relaxFactor = 0;  % only for the approx-star method
+                    
+                case 4
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = 1; 
+                    obj.relaxFactor = 0;  % only for the approx-star method
+                    
+                case 5
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = 0; % only for the approx-star method
+                                        
+                case 6
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    
+                case 7
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    
+                case 8
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    method = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                    
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, 4, 5, 6 or 7');
+                     
+            end
+            
+            if correct_id < 1
+                error('Invalid correct id');
+            end
+            
+            if strcmp(method, 'exact-star')
+                error('\nThis method does not support exact-star reachability, please choose approx-star');
+            end
+            
+            robust = 2; % unknown first
+            cands = []; 
+            cE = [];
+            
+            if ~isempty(in_image.im_lb)
+                % check lower bound image
+                y_lb = obj.evaluate(in_image.im_lb);
+                [~,max_id] = max(y_lb);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.im_lb;
+                end
+                
+                % check upper bound image
+                y_ub = obj.evaluate(in_image.im_ub);
+                [~,max_id] = max(y_ub);
+                if robust ~=0 && max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.im_ub;
+                end
+                
+                % check the center image
+                y_c = obj.evaluate(in_image.V(:,:,:,1));
+                [~,max_id] = max(y_c);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = in_image.V(:,:,:,1);
+                end
+            end
+            
+            if robust == 2             
+                % compute reachable set
+                [R, ~] = obj.reach(in_image, method, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver); 
+                [robust, cands] = CNN.checkRobust(R, correct_id);   
+            end
+            
+            vt = toc(t);
+           
+        end
+        
+        % evaluate robustness of a classification feedforward network on an array of input (test) sets
+        function [r, rb, cE, cands, vt] = evaluateRBN(varargin)
+            % @in_images: input sets
+            % @correct_ids: an array of correct labels corresponding to the input sets
+            % @method: reachability method: 'exact-star', 'approx-star',
+            % 'approx-zono' and 'abs-dom'
+            % @numCores: number of cores used in computation
+            % @r: robustness value (in percentage) 
+            % @rb: robustness results
+            % @cE: counterexamples
+            % @cands: candidate idexes
+            % @vt: verification times
+            
+            % author: Dung Tran
+            % date:7/13/2020
+            % update: 7/16/2020: add display option + lp_solver option
+            
+            switch nargin
+                case 8
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7}; % display option
+                    obj.lp_solver = varargin{8}; 
+                case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7}; % display option
+                    
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = 0; % only for the approx-star method
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = 1;
+                    obj.relaxFactor = 0; % only for the approx-star method
+                case 2
+                    obj = varargin{1};
+                    if isstruct(varargin{2})
+                        in_images = varargin{2}.inputSets;
+                        correct_ids = varargin{2}.correct_ids;
+                        obj.reachMethod = varargin{2}.reachMethod;
+                        obj.numCores = varargin{2}.numCores;
+                        obj.relaxFactor = varargin{2}.relaxFactor; % only for the approx-star method
+                        obj.dis_opt = varargin{2}.dis_opt; % display option
+                        obj.lp_solver = varargin{2}.lp_solver; 
+                    else
+                        error('Input argument should be a struct variable');
+                    end
+                    
+                    
+                otherwise
+                    error('Invalid number of input arguments, should be 1, 3, 4, 5, 6 or 7');                    
+            end
+            
+            
+            N = length(in_images);
+            if length(correct_ids) ~= N
+                error('Inconsistency between the number of correct_ids and the number of input sets');
+            end
+            
+                      
+            count = zeros(1, N);
+            rb = zeros(1, N);
+            cE = cell(1,N);
+            cands = cell(1,N);
+            vt = zeros(1,N);
+            if ~strcmp(obj.reachMethod, 'exact-star')
+                if obj.numCores > 1
+                    obj.start_pool;
+                    parfor i=1:N
+                        fprintf("\nVerifying %d^th image...",i);
+                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, 1, obj.relaxFactor, obj.dis_opt);
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end
+                    end
+                else
+                    for i=1:N
+                        fprintf("\nVerifying %d^th image...",i);
+                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN(in_images(i), correct_ids(i), obj.reachMethod, 1, obj.relaxFactor, obj.dis_opt);
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end
+                    end  
+                end
+                
+            end
+                        
+            r = sum(count)/N; 
+            
+        end      
+        
+        
+    end
+    
     
     methods(Static)
        
@@ -490,7 +800,7 @@ classdef CNN < handle
             j = 0; % counter of number of layers
             for i=1:n
                 L = net.Layers(i);
-                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                   
+                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                  
                     fprintf('\nLayer %d is a %s class which is neglected in the analysis phase', i, class(L));                   
                     if isa(L, 'nnet.cnn.layer.ImageInputLayer')
                         inputSize = L.InputSize;
@@ -518,7 +828,11 @@ classdef CNN < handle
                         Li = FullyConnectedLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
                         Li = PixelClassificationLayer.parse(L);
-                    else                     
+                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer')
+                        Li = FlattenLayer.parse(L);
+                    elseif isa(L, 'nnet.keras.layer.SigmoidLayer')
+                        Li = SigmoidLayer.parse(L);
+                    else
                         fprintf('\nLayer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis', i, class(L));
                         error('\nUnsupported Class of Layer');                     
                     end
@@ -551,18 +865,85 @@ classdef CNN < handle
             count = 0;
             for i=1:outputSet.numChannel
                 if correct_id ~= i
-                    if outputSet.is_p1_larger_p2([1 1 i], [1 1 correct_id]);
-                       bool = 0;
-                       break;
-                    else
-                        count = count + 1;
-                    end
+                        if outputSet.is_p1_larger_p2([1 1 i], [1 1 correct_id])
+                           bool = 0;
+                           break;
+                        else
+                            count = count + 1;
+                        end
                 end
             end
-            
+
             if count == outputSet.numChannel - 1
                 bool = 1;
+            end 
+            
+
+        end
+        
+        % check robustness using the outputSet
+        function [rb, cands] = checkRobust(outputSet, correct_id)
+            % @outputSet: the outputSet we need to check
+            % @correct_id: the correct_id of the classified output
+            
+            % @rb: = 1 -> robust
+            %      = 0 -> not robust
+            %      = 2 -> unknown
+            % @cand: possible candidates
+            
+            % author: Dung Tran
+            % date: 7/14/2020
+            
+            if correct_id > outputSet.numChannel || correct_id < 1
+                error('Invalid correct id');
             end
+            
+            R = outputSet.toStar;
+            [lb, ub] = R.estimateRanges;
+
+            [~, max_ub_id] = max(ub);
+            cands = [];
+            if max_ub_id ~= correct_id
+                rb = 2;
+                cands = max_ub_id;
+            else                   
+                
+                max_val = lb(correct_id);
+                max_cd = find(ub > max_val); % max point candidates
+                max_cd(max_cd == correct_id) = []; % delete the max_id
+
+                if isempty(max_cd)
+                    rb = 1;
+                else            
+                    
+                    n = length(max_cd);
+                    C1 = R.V(max_cd, 2:R.nVar+1) - ones(n,1)*R.V(correct_id, 2:R.nVar+1);
+                    d1 = -R.V(max_cd, 1) + ones(n,1)*R.V(correct_id,1);
+                    S = Star(R.V, [R.C;C1], [R.d;d1], R.predicate_lb, R.predicate_ub);
+                    if S.isEmptySet
+                        rb = 2;
+                        cands = max_cd;
+                    else                       
+                        count = 0;
+                        for i=1:n
+                            if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                                rb = 2;
+                                cands = max_cd(i);
+                                break;
+                            else
+                                count = count + 1;
+                            end
+                        end
+                        if count == n
+                            rb = 1;
+                        end         
+                    end    
+
+                end
+
+            end
+
+            
             
         end
         
@@ -579,28 +960,36 @@ classdef CNN < handle
             
             % author: Dung Tran
             % date: 1/10/2020
+            % update: 5/4/2020
             
             if ~isa(outputSet, 'ImageStar') && ~isa(outputSet, 'ImageZono')
                 error('Output set is not an ImageStar or an ImageZono');
             end           
   
-            [lb, ub] = outputSet.getRanges; 
-     
-            
+            [lb, ub] = outputSet.estimateRanges; 
             [max_lb, max_lb_id] = max(lb);
-            ub(max_lb_id) = [];
-            ub = (ub > max_lb); 
+            n = size(lb, 1); % number of outputs
             
-            if sum(ub) == 0
+            ub1 = ub;
+            ub1(max_lb_id) = [];
+            ub1 = (ub1 > max_lb);
+                        
+            if sum(ub1) == 0
                 classified_id = max_lb_id;
             else
-                classified_id = [];
+                classified_id = max_lb_id;
+                [act_lb, ~] = outputSet.getRange(1, 1, max_lb_id);
+                for i=1:n
+                    if ub(i) > max_lb && i ~= max_lb_id
+                        [~, ubi] = outputSet.getRange(1, 1, i);
+                        if ubi > act_lb
+                            classified_id = [classified_id i];
+                        end
+                    end
+                end
             end
             
         end
-        
-        
-        
         
     end
     

@@ -16,6 +16,12 @@ classdef BatchNormalizationLayer < handle
         % Learnable parameters
         Offset = [];
         Scale = [];
+        
+        % layer properties
+        NumInputs = 1;
+        InputNames = {'in'};
+        NumOutputs = 1;
+        OutputNames = {'out'};
                
     end
     
@@ -52,6 +58,14 @@ classdef BatchNormalizationLayer < handle
                         obj.Offset = double(varargin{i+1});
                     elseif strcmp(varargin{i}, 'Scale')
                         obj.Scale = double(varargin{i+1});
+                    elseif strcmp(varargin{i}, 'NumInputs')
+                        obj.NumInputs = double(varargin{i+1});
+                    elseif strcmp(varargin{i}, 'InputNames')
+                        obj.InputNames = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'NumOutputs')
+                        obj.NumOutputs = double(varargin{i+1});
+                    elseif strcmp(varargin{i}, 'OutputNames')
+                        obj.OutputNames = varargin{i+1};
                     end
                     
                 end
@@ -85,10 +99,11 @@ classdef BatchNormalizationLayer < handle
                 y = input;
             end
                                
-        end
-        
+        end       
         
     end
+    
+    
         
     % exact reachability analysis using ImageStar or ImageZono
     methods
@@ -215,6 +230,30 @@ classdef BatchNormalizationLayer < handle
              
             switch nargin
                 
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -227,14 +266,16 @@ classdef BatchNormalizationLayer < handle
                     method = varargin{3};
                     option = [];
                 otherwise
-                    error('Invalid number of input arguments (should be 2 or 3)');
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')|| contains(method, "relax-star")
                 images = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);
+            else
+                error("Unknown reachability method");
             end
           
         end
@@ -256,7 +297,7 @@ classdef BatchNormalizationLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.BatchNormalizationLayer class');
             end
                        
-            L = BatchNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels, 'TrainedMean', layer.TrainedMean, 'TrainedVariance', layer.TrainedVariance, 'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale);
+            L = BatchNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels, 'TrainedMean', layer.TrainedMean, 'TrainedVariance', layer.TrainedVariance, 'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale, 'NumInputs', layer.NumInputs, 'InputNames', layer.InputNames, 'NumOutputs', layer.NumOutputs, 'OutputNames', layer.OutputNames);
             fprintf('\nParsing a Matlab batch normalization layer is done successfully');
             
         end

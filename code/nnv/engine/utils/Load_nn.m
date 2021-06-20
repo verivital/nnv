@@ -31,7 +31,11 @@ else
     sh = filesep;
     [~,e,~] = pyversion;
     allpaths = path;
-    allpaths = split(string(allpaths),':');
+    if ispc && contains(version,'2020a')
+        allpaths = split(string(allpaths),';');
+    else
+        allpaths = split(string(allpaths),':');
+    end
     matches = find(contains(allpaths,'nnmt'));
     nnmtPath = char(allpaths(matches(1)));
     % Default opt value

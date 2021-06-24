@@ -828,9 +828,9 @@ classdef CNN < handle
                         Li = FullyConnectedLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
                         Li = PixelClassificationLayer.parse(L);
-                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer')
+                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer') || isa(L, 'nnet.onnx.layer.FlattenLayer')
                         Li = FlattenLayer.parse(L);
-                    elseif isa(L, 'nnet.keras.layer.SigmoidLayer')
+                    elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer')
                         Li = SigmoidLayer.parse(L);
                     else
                         fprintf('\nLayer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis', i, class(L));

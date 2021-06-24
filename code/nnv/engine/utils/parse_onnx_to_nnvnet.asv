@@ -1,0 +1,56 @@
+ function nnv_net = parse_onnx_to_nnvnet(onnxfile)
+ %% loads an onnx model and parses it to nnv network
+ %  as of now works for vnncomp2021 benchmarks:
+ %                                      verivital, 
+ %                                      eran, 
+ %                                      cifar2020(except pgd),
+ %                                      oval21 
+ % need to check for others
+ 
+  lgraph = importONNXLayers(onnxfile,'OutputLayerType','classification','ImportWeights',true);  
+  [placeholderLayers, indices_P] = findPlaceholderLayers(lgraph);
+  [elementwiseAffineLayers, indices_E] = findElementwiseAffineLayers(lgraph)
+  if isempty(placeholderLayers) && isempty(elementwiseAffineLayers)
+          matlabnet = assembleNetwork(lgraph);
+  elseif isempty(placeholderLayers) && ~isempty(elementwiseAffineLayers)
+     layers = removeElementwiseAffineLayers(lgraph,indices_P); 
+     modif_lgraph = layerGraph(layers);
+     matlabnet = assembleNetwork(modif_lgraph);
+  elseif ~isempty(placeholderLayers) && isempty(elementwiseAffineLayers)
+     layers = removePlaceholderLayers(lgraph,indices_P);
+     modif_lgraph = layerGraph(layers);
+     matlabnet = assembleNetwork(modif_lgraph);
+  else
+     layers = removePlaceholderLayers(lgraph,indices_P);
+     modif_lgraph = layerGraph(layers);
+     layers2 = removeElementwiseAffineLayers(modif_lgraph,indices_P);
+     modif_lgraph2 = layerGraph(layers2);
+     matlabnet = assembleNetwork(modif_lgraph2);
+     %if class(layers(1,1)) ~= 'nnet.cnn.layer.ImageInputLayer'
+  end
+  nnv_net = CNN.parse(matlabnet);
+ end
+ 
+ function layers = removePlaceholderLayers(lgraph,indices_P)
+    numPH = length(indices_P)+1;
+    idx = 1;
+    for i=1:length(lgraph.Layers)
+         if ~ismember(i,indices_P) && idx < numPH && i< indices(idx) 
+            layers(i-idx+1,1) = lgraph.Layers(i,1);
+         elseif ismember(i,indices_P) && idx < numPH && i == indices(idx)
+             idx = idx + 1;
+         elseif ~ismember(i,indices_P) && i> indices(numPH-1)
+            layers(i-idx+1,1) = lgraph.Layers(i,1);
+         end
+     end
+ end
+ 
+ function layers = removeElementwiseAffineLayers(lgraph,indices_P)
+    numEA = length(indices_P)+1;
+    idx = 1;
+    for i=1:length(lgraph.Layers-1)
+         if class(lgraph.Layers(i+1
+         end
+    end
+    if i ==
+ end

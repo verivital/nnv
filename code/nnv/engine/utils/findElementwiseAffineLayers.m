@@ -1,4 +1,5 @@
- function [elementwiseAffineLayers, indices] = findElementwiseAffineLayers(lgraph)
+% neelanjana pal 
+function [elementwiseAffineLayers, indices] = findElementwiseAffineLayers(lgraph)
  elementwiseAffineLayers=[];
  indices = [];
      for i = length(lgraph.Layers)

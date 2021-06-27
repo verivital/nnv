@@ -64,13 +64,9 @@ classdef HybridA < handle
 %             param.x0 = []; %initial state for simulation
             param.R0 = []; %initial state for reachability analysis
             for i=1:obj.modes
-%                 option.timeStepLoc{i} = 0.05; %time step size for reachable set computation in location i
-                % Initialize inputs (no inputs)
-%                 param.uLoc{i} = 0;
                 param.uLocTrans{i} = 0;
-%                 param.Uloc{i} = zonotope(0);
             end
-            option.taylorTerms = 10;
+            option.taylorTerms = 20;
             option.zonotopeOrder = 20;
             option.errorOrder = 2;
             option.reductionTechnique = 'girard';
@@ -343,17 +339,40 @@ classdef HybridA < handle
                     Z1 = Z{ik};
                     Nz = length(Z1);
                     for iz=1:Nz
-                        try
-                            Z2 = Z1{iz}.Z;
-                        catch
-                            Z2 = Z1.Z; % get c and V 
-                        end
-    %                     Z = Z.Z; % get c and V 
-                        c = Z2(:,1); % center vector
-                        V = Z2(:, 2:size(Z2, 2)); % generators
+                        if contains(class(Z1),'zonotope')
+                            try
+                                Z2 = Z1{iz}.Z;
+                            catch
+                                Z2 = Z1.Z; % get c and V 
+                            end
+%                             Z = Z.Z; % get c and V
+                            c = Z2(:,1); % center vector
+                            V = Z2(:, 2:size(Z2, 2)); % generators
 
-                        Zz = Zono(c, V);
-                        Ss = [Ss Zz.toStar];
+                            Zz = Zono(c, V);
+                            Ss = [Ss Zz.toStar];
+                        elseif contains(class(Z1),'zonoBundle')
+                            disp(Z1);
+                            Z2 = Z1.Z;
+                            Nz2 = length(Z2);
+                            for zb=1:Nz2
+                                Z3 = Z2{zb};
+                                try
+                                    Z4 = Z3{zb}.Z;
+                                catch
+                                    Z4 = Z3.Z; % get c and V 
+                                end
+    %                             Z = Z.Z; % get c and V
+                                c = Z4(:,1); % center vector
+                                V = Z4(:, 2:size(Z3, 2)); % generators
+
+                                Zz = Zono(c, V);
+                                Ss = [Ss Zz.toStar];
+                            end
+                        else
+                            warning(Z1);
+                            error('Unknown CORA reach class');
+                        end
                     end
                 end
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];

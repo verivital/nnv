@@ -196,11 +196,13 @@ classdef LinearODE
                 A1 = [obj.A obj.B; zeros(obj.nI, obj.dim) zeros(obj.nI, obj.nI)];
                 k = size(U.V, 2);
                 % initial condition for x1' = A1 * x1
-                X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d);
+%                 X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d);  % How it was before
+                X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d, U.predicate_lb,U.predicate_ub);
                 W = [eye(obj.dim) zeros(obj.dim, obj.nI)]; % mapping matrix
                             
                 if strcmp(method, 'direct')
                     
+%                     R1 = LinearODE.simReachDirect(A1, X1, h, N); % Ru = W*R1 = [I O] * [x u]^T
                     R1 = LinearODE.simReachDirect(A1, X1, h, N); % Ru = W*R1 = [I O] * [x u]^T
                     Ru = [];
                     for i=1:length(R1)
@@ -210,19 +212,22 @@ classdef LinearODE
                     if ~isempty(X0)
                         Rx = LinearODE.simReachDirect(obj.A, X0, h, N);
                         R = [Rx(1)];
-                        T = Ru(1);
+%                         T = Ru(1);
                         for i = 2:length(R1)
+                            T = Ru(i);
+%                             T = T.MinkowskiSum(Ru(i));
                             R = [R Rx(i).MinkowskiSum(T)];
-                            T = T.MinkowskiSum(Ru(i));
+%                             T = T.MinkowskiSum(Ru(i));
                         end
                         
                     else
                         
                         R = [];
                         T = Ru(1);
-                        for i = 2:length(R1)                          
+                        for i = 2:length(R1)
+                            T = Ru(i);
                             R = [R T];
-                            T = T.MinkowskiSum(Ru(i));
+%                             T = T.MinkowskiSum(Ru(i));
                         end
                                                 
                     end
@@ -238,19 +243,21 @@ classdef LinearODE
                     if ~isempty(X0)
                         Rx = LinearODE.simReachOde45(obj.A, X0, h, N);
                         R = [Rx(1)];
-                        T = Ru(1);
+%                         T = Ru(1);
                         for i = 2:length(R1)
+                            T = Ru(i);
                             R = [R Rx(i).MinkowskiSum(T)];
-                            T = T.MinkowskiSum(Ru(i));
+%                             T = T.MinkowskiSum(Ru(i));
                         end
                         
                     else
                         
                         R = [];
                         T = Ru(1);
-                        for i = 2:length(R1)                          
+                        for i = 2:length(R1)
+                            T = Ru(i);
                             R = [R T];
-                            T = T.MinkowskiSum(Ru(i));
+%                             T = T.MinkowskiSum(Ru(i));
                         end
                                                 
                     end
@@ -277,7 +284,7 @@ classdef LinearODE
                         
                         R = [];
                         T = Ru(1);
-                        for i = 2:length(R1)                          
+                        for i = 2:length(R1)
                             R = [R T];
                             T = T.MinkowskiSum(Ru(i));
                         end
@@ -370,7 +377,6 @@ classdef LinearODE
             % date : May/30/2017
             
             n = size(A,1);
-
             E = expm(h*A);
             X = zeros(n,N);
             x01 = x0;
@@ -596,4 +602,3 @@ classdef LinearODE
     
     
 end
-

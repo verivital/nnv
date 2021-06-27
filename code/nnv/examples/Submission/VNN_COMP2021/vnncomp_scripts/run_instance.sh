@@ -30,4 +30,4 @@ export PYTHONPATH="$PYTHONPATH:$DIR/src"
 #export OMP_NUM_THREADS=1
 
 # run the tool to produce the results file
-python3 -m execute_runs.py "$ONNX_FILE" "$VNNLIB_FILE" "$RESULTS_FILE"  "$TIMEOUT"
+python3 ../execute_runs.py "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE" 

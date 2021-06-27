@@ -8,7 +8,7 @@
 TOOL_NAME= nnv
 VERSION_STRING=v1
 
-# check arguments
+# # check arguments
 if [ "$1" != ${VERSION_STRING} ]; then
 	echo "Expected first argument (version string) '$VERSION_STRING', got '$1'"
 	exit 1
@@ -25,13 +25,14 @@ killall -q python3
 pgrep -f matlab | xargs kill -9
 
 # script returns a 0 exit code if successful. If you want to skip a benchmark category you can return non-zero.
-if ["$2" == ${'cifar10_resnet'}] || ["$2" == ${'nn4sys'}] || ["$2" == ${'marabou-cifar10'}]
-    echo "NNV is not participating in category '$CATEGORY' " 
-    exit 2
+if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-cifar10' ]; then
+	echo "NNV is not participating in category '$CATEGORY' " 
+	exit 2
+fi
 
-python3 -m get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
+python3 ../get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
 
-matlab -nodisplay -r "addpath(genpath('../../../../../../code')); preProcessing($ONNX_FILE,$VNNLIB_FILE);" 
+matlab -nodisplay -r "addpath(genpath('../../../../../../code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE');exit;" 
 
 # kill any zombie processes
 killall -q python3

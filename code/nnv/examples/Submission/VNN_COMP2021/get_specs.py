@@ -9,9 +9,10 @@ June 2021
 modified : Neelanjana
 June 25 2021
 '''
-
+import argparse
 from copy import deepcopy
 import re
+import os
 
 import numpy as np
 
@@ -259,15 +260,12 @@ def main():
         boxdict = rv_tuple[0]
         matrhs = (rv_tuple[1], rv_tuple[2])
 
-        key = str(boxdict) # merge based on string representation of input box... accurate enough for now
+        key = str(boxdict)
 
         if key in merged_rv:
             merged_rv[key][1].append(matrhs)
         else:
             merged_rv[key] = (boxdict, [matrhs])
-
-    # finalize objects (convert dicts to lists and lists to np.array)
-    final_rv = []
 
     for rv_tuple in merged_rv.values():
         ip_bounds_dict = rv_tuple[0]
@@ -280,7 +278,6 @@ def main():
             assert r[0] != -np.inf and r[1] != np.inf, f"input X_{d} was unbounded: {r}"
             ip_bounds.append(r)
             
-        #spec_list = []
         op_specs_mat = []
         op_specs_vec = []
         
@@ -290,18 +287,13 @@ def main():
             op_specs_mat.append(list(mat[0]))
             op_specs_vec.append(list(rhs))
 
-
-        #final_rv.append((box, spec_list))
-
-    #for i, (box, spec_list) in enumerate(final_rv):
-    #    print(f"-----\n{i+1}. {box}\nspec:{spec_list}")
     
     specs = {"ip_bounds": ip_bounds, "op_specs_mat": op_specs_mat,"op_specs_vec": op_specs_vec,"num_inputs" : num_inputs,
-        "num_outputs": num_outputs,"inp_dtype": inp_dtype }
+        "num_outputs": num_outputs}
     
-    filename = os.path.basename(vnnlib_filename)
+    filename = os.path.basename(args.vnnlibfile)
     filename = filename.replace('.vnnlib','.mat')
     savemat(filename, specs)
-    
-    #return ip_bounds, op_specs_mat, op_specs_vec, num_inputs, num_outputs, inp_dtype
 
+if __name__ == "__main__":
+    main()

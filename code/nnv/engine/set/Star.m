@@ -476,11 +476,7 @@ classdef Star
             
             [nH, mH] = size(H);
             [ng, mg] = size(g);
-            nH
-            ng
-            mH
-            mg
-            obj.dim
+        
             if mg ~= 1
                 error('Halfspace vector should have one column');
             end

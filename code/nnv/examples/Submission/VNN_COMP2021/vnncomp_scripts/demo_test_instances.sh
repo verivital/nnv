@@ -22,6 +22,6 @@ chmod +x run_instance.sh
 ./run_instance.sh  v1 'cifar' '../test_benchmarks/cifar2020/nets/cifar10_2_255_simplified.onnx' '../test_benchmarks/cifar2020/specs/cifar10/cifar10_spec_idx_0_eps_0.00784_n1.vnnlib' '../results/cifar2020' 100
 
 #eran
-./prepare_instance.sh  v1 'mnist' '../test_benchmarks/eran/nets/mnist_relu_9_200.onnx' '../test_benchmarks/specs/mnist/mnist_spec_idx_1989_eps_0.01200.vnnlib'
+./prepare_instance.sh  v1 'mnist' '../test_benchmarks/eran/nets/mnist_relu_9_200.onnx' '../test_benchmarks/eran/specs/mnist/mnist_spec_idx_1989_eps_0.01200.vnnlib'
 
-./run_instance.sh  v1 'mnist' '../test_benchmarks/eran/nets/mnist_relu_9_200.onnx' '../test_benchmarks/specs/mnist/mnist_spec_idx_1989_eps_0.01200.vnnlib' '../results/eran' 300
+./run_instance.sh  v1 'mnist' '../test_benchmarks/eran/nets/mnist_relu_9_200.onnx' '../test_benchmarks/eran/specs/mnist/mnist_spec_idx_1989_eps_0.01200.vnnlib' '../results/eran' 300

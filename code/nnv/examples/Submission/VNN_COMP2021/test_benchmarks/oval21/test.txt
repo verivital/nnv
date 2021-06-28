@@ -1,0 +1,3 @@
+nets/cifar_base_kw.onnx
+vnnlib/cifar_base_kw-img4537-eps0.012679738562091505.vnnlib
+720

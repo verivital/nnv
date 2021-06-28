@@ -832,6 +832,8 @@ classdef CNN < handle
                         Li = FlattenLayer.parse(L);
                     elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer')
                         Li = SigmoidLayer.parse(L);
+                    elseif isa(L, 'nnet.onnx.layer.ElementwiseAffineLayer')
+                        Li = ElementwiseAffineLayer.parse(L);
                     else
                         fprintf('\nLayer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis', i, class(L));
                         error('\nUnsupported Class of Layer');                     

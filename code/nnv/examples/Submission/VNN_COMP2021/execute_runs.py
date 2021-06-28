@@ -30,10 +30,10 @@ def main():
     
     try: 
         [status, total_time] = future.result(timeout=args.timeout)
-        print('extra time = ',int(toc-tic))
+        #print('extra time = ',int(toc-tic))
     except matlab.engine.TimeoutError:
         print("timeout")
-        print('extra time = ',int(toc-tic))
+        #print('extra time = ',int(toc-tic))
         total_time = args.timeout
         status = 3
         

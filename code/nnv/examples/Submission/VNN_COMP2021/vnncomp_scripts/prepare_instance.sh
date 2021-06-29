@@ -25,7 +25,7 @@ killall -q python3
 pgrep -f matlab | xargs kill -9
 
 # script returns a 0 exit code if successful. If you want to skip a benchmark category you can return non-zero.
-if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-cifar10' ]; then
+if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-cifar10' ] || [ "$2" == 'test' ] || || [ "$2" == 'mnistfc' ]; then
 	echo "NNV is not participating in category '$CATEGORY' " 
 	exit 2
 fi

@@ -68,17 +68,17 @@ classdef ElementwiseAffineLayer < handle
             
             y = input;
             % assuming Scale or Object is with dim 1x1xinput.numChannel
-            if obj.Scale~=1 && size(obj.Scale, 3) ~= in_image.numChannel
+            if ~isscalar(obj.Scale) && size(obj.Scale, 3) ~= size(input,3)%in_image.numChannel
                 error('Inconsistent number of channels between Scale array and the ImageStar');
-            elseif obj.Scale~=1 && size(obj.Scale, 3) == in_image.numChannel
+            elseif ~isscalar(obj.Scale) && size(obj.Scale, 3) == size(input,3)%in_image.numChannel
                 for i=1:size(obj.Scale, 3)
                     y(:,:,i)=input(:,:,i)*obj.Scale(i);
                 end
             end
-            obj.Offset~=0
-            if obj.Offset~=0 && size(obj.Offset, 3) ~= in_image.numChannel
+            
+            if ~isscalar(obj.Offset) && size(obj.Offset, 3) ~= size(input,3)%in_image.numChannel
                 error('Inconsistent number of channels between Offset array and the ImageStar');
-            elseif obj.Offset~=0 && size(obj.Offset, 3) == in_image.numChannel
+            elseif ~isscalar(obj.Offset) && size(obj.Offset, 3) == size(input,3)%in_image.numChannel
                 for i=1:size(obj.Offset, 3)
                     y(:,:,i)=input(:,:,i)+obj.Offset(i);
                 end

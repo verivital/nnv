@@ -41,11 +41,11 @@ def main():
     eng.quit() 
     
     if status == 0:
-        result = 'Holds' #Unknown
+        result = 'Unknown' #Holds : exact-star; #Unknown: approx-star 
         #print('Unknown and time: ',total_time)
     elif status == 1:
         result = 'Violates'
-        #print('Holds and time: ',total_time)
+        #print('Violates and time: ',total_time)
     elif status == 3:
         result = 'Timeout'
         #print('Timed Out and time: ',total_time)

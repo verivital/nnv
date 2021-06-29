@@ -25,7 +25,7 @@ classdef CNN < handle
         totalReachTime = 0; % total computation time
         
         features = {}; % outputs of each layer in an evaluation
-        dis_opt = 'display'; % display option = 'display' or []
+        dis_opt = []; % display option = 'display' or []
         lp_solver = 'glpk'; % choose linprog as default LP solver for constructing reachable set
         % user can choose 'glpk' or 'linprog' as an LP solver
         

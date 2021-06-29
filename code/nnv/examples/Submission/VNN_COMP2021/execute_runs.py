@@ -41,13 +41,13 @@ def main():
     eng.quit() 
     
     if status == 0:
-        result = 'Unknown' #Holds : exact-star; #Unknown: approx-star 
+        result = 'unknown' #Holds : exact-star; #Unknown: approx-star 
         #print('Unknown and time: ',total_time)
     elif status == 1:
-        result = 'Violates'
+        result = 'violated'
         #print('Violates and time: ',total_time)
     elif status == 3:
-        result = 'Timeout'
+        result = 'timeout'
         #print('Timed Out and time: ',total_time)
     
     resultfile = args.outputlocation +'/result.txt'

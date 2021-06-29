@@ -25,7 +25,7 @@ def main():
    
     status = 0 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
-    print('timestep :',toc) 
+    #print('timestep :',toc) 
     future = eng.run_reachability(args.onnxfile,args.vnnlibfile,nargout=2,background=True)
     
     try: 
@@ -41,13 +41,13 @@ def main():
     eng.quit() 
     
     if status == 0:
-        result = 'Holds' #Unknown
+        result = 'unknown' #Holds : exact-star; #Unknown: approx-star 
         #print('Unknown and time: ',total_time)
     elif status == 1:
-        result = 'Violates'
-        #print('Holds and time: ',total_time)
+        result = 'violated'
+        #print('Violates and time: ',total_time)
     elif status == 3:
-        result = 'Timeout'
+        result = 'timeout'
         #print('Timed Out and time: ',total_time)
     
     resultfile = args.outputlocation +'/result.txt'

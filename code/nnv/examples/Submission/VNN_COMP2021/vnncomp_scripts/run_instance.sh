@@ -5,8 +5,8 @@
 
 # modified: Neelanjana , June 25, 2021 
 
-TOOL_NAME= nnv
-VERSION_STRING=v1
+TOOL_NAME= "nnv"
+VERSION_STRING="v1"
 
 # check arguments
 if [ "$1" != ${VERSION_STRING} ]; then

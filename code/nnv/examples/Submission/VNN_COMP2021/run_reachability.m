@@ -16,7 +16,7 @@ function [status, total_time] = run_reachability(onnxfile,vnnlibfile)%)%ip_shape
     load(netfilename);
 
     % Op Imagrstar
-    [op_bounds, total_time] = net.reach(imagestar_set);
+    [op_bounds, total_time] = net.reach(imagestar_set,'approx-star');;
 
     if isempty(op_bounds.toStar.intersectHalfSpace(op_specs_mat, op_specs_vec))%(:,j)(i,j) for exact star
         status = 1; % Safe if no intersection with the op_spec/unsafe region--- violates the counter-ex spec

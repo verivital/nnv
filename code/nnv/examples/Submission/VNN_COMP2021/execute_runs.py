@@ -25,7 +25,7 @@ def main():
    
     status = 0 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
-    print('timestep :',toc) 
+    #print('timestep :',toc) 
     future = eng.run_reachability(args.onnxfile,args.vnnlibfile,nargout=2,background=True)
     
     try: 

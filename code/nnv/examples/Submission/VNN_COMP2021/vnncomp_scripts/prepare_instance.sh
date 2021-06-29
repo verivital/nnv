@@ -5,7 +5,7 @@
 
 # modified: Neelanjana , June 25, 2021
 
-TOOL_NAME= "nnv"
+TOOL_NAME="nnv"
 VERSION_STRING="v1"
 
 # # check arguments
@@ -22,10 +22,13 @@ echo "Preparing $TOOL_NAME for benchmark instance in category '$CATEGORY' with o
 
 # kill any zombie processes
 killall -q python3
-pgrep -f matlab | xargs kill -9
+killall -q matlab
+# pgrep -f matlab | xargs kill -9
+#kill -9 $(ps aux | grep '[m]atlab' | awk '{print $2}')
+#ps aux  |  grep -i matlab |  awk '{print $2}'  |  xargs kill -9
 
 # script returns a 0 exit code if successful. If you want to skip a benchmark category you can return non-zero.
-if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-cifar10' ] || [ "$2" == 'test' ] || || [ "$2" == 'mnistfc' ]; then
+if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-cifar10' ] || [ "$2" == 'test' ] || [ "$2" == 'mnistfc' ]; then
 	echo "NNV is not participating in category '$CATEGORY' " 
 	exit 2
 fi
@@ -36,6 +39,10 @@ matlab -nodisplay -r "addpath(genpath('../../../../../../code')); preProcessing(
 
 # kill any zombie processes
 killall -q python3
-pgrep -f matlab | xargs kill -9
+killall -q matlab
+#pgrep -f matlab | xargs kill -9
+#kill -9 $(ps aux | grep '[m]atlab' | awk '{print $2}')
+#ps aux  |  grep -i matlab |  awk '{print $2}'  |  xargs kill -9
+
 
 exit 0

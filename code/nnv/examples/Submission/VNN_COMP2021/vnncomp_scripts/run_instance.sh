@@ -5,7 +5,7 @@
 
 # modified: Neelanjana , June 25, 2021 
 
-TOOL_NAME= "nnv"
+TOOL_NAME="nnv"
 VERSION_STRING="v1"
 
 # check arguments

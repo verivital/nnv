@@ -116,7 +116,17 @@ classdef FlattenLayer < handle
                     flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)]);
                 else
                     error('Invalid input image');
-                end      
+                end 
+            elseif strcmp(obj.Type, 'nnet.onnx.layer.FlattenLayer')     
+                if length(n) == 2
+                    image = permute(image,[2 1]);
+                    flatten_im = reshape(image, [1 1 n(1)*n(2)]);
+                elseif length(n) == 3
+                    image = permute(image,[2 1 3]);
+                    flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)]);
+                else
+                    error('Invalid input image');
+                end 
             else
                 error('Unknown type of flatten layer');
             end
@@ -257,7 +267,7 @@ classdef FlattenLayer < handle
             % author: Dung Tran
             % date: 4/14/2020
                       
-            if ~isa(layer, 'nnet.keras.layer.FlattenCStyleLayer') && ~isa(layer, 'nnet.cnn.layer.FlattenLayer')
+            if ~isa(layer, 'nnet.keras.layer.FlattenCStyleLayer') && ~isa(layer, 'nnet.cnn.layer.FlattenLayer') && ~isa(layer, 'nnet.onnx.layer.FlattenLayer')
                 error('Input is not a flatten layer');
             end
             

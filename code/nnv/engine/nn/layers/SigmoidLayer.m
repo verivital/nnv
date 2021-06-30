@@ -282,8 +282,7 @@ classdef SigmoidLayer < handle
             % author: Dung Tran
             % date: 6/9/2020
             
-            
-            if ~isa(layer, 'nnet.keras.layer.SigmoidLayer') 
+            if ~isa(layer, 'nnet.keras.layer.SigmoidLayer') && ~isa(layer,'nnet.onnx.layer.SigmoidLayer')
                 error('Input is not a sigmoid layer');
             end
             

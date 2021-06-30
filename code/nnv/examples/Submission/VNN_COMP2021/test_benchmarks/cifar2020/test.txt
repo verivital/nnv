@@ -1,0 +1,3 @@
+nets/cifar10_2_255_simplified.onnx	
+specs/cifar10/cifar10_spec_idx_0_eps_0.00784_n1.vnnlib	
+100

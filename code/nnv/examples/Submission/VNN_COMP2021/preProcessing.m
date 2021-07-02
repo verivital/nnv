@@ -1,24 +1,38 @@
-function preProcessing(onnxfile, vnnlibfile)
-[~,vnnfile,~] = fileparts(vnnlibfile);
-vnnfile = vnnfile + ".mat";
-load(vnnfile);
+function preProcessing(varargin)
+    switch nargin
+        case 3
+          onnxfile =  varargin{1};
+          vnnlibfile = varargin{2};
+          ip_shape =  varargin{3};
+        case 2
+          onnxfile =  varargin{1};
+          vnnlibfile = varargin{2};
+    end
 
-net = parse_onnx_to_nnvnet(onnxfile);
+    [~,vnnfile,~] = fileparts(vnnlibfile);
+    vnnfile = vnnfile + ".mat";
+    load(vnnfile);
 
-imagestar_set = prepare_input(ip_bounds, net);
+    if nargin == 3
+        net = parse_onnx_to_nnvnet(onnxfile,ip_shape);
+    else
+        net = parse_onnx_to_nnvnet(onnxfile);
+    end
 
-[~,netfilename,~] = fileparts(onnxfile);
-netfilename = netfilename + ".mat";
+    imagestar_set = prepare_input(ip_bounds, net);
 
-save(netfilename,'net');
-save(vnnfile,'imagestar_set' ,'-append');
+    [~,netfilename,~] = fileparts(onnxfile);
+    netfilename = netfilename + ".mat";
+
+    save(netfilename,'net');
+    save(vnnfile,'imagestar_set' ,'-append');
 end
 
 %% creates star set from ip bounds for reachability analysis
-function imagestar_set = prepare_input(ip_bounds, nnv_net)
+function imagestar_set = prepare_input(ip_bounds,net)
     lb_i = ip_bounds(:,1);
     ub_i = ip_bounds(:,2);
-    inputSize = nnv_net.Layers{1,1}.InputSize;
+    inputSize = net.Layers{1,1}.InputSize;
     
      % need to change for cifar10
     if length(inputSize)==3 && inputSize(3)==1

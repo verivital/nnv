@@ -67,7 +67,9 @@ for i =1:10
     input_set = input_set.affineMap(scale_factor,-offset);
 end
 tpoly = toc(t);
-save('../../results/Tora_Heterogeneous/reach_sigmoid.mat','tlin','tpoly','reachPoly','reachLin','-v7.3');
+path_out = [path_results(), filesep, 'Tora_Heterogeneous', filesep];
+mkdir(path_out)
+save([path_out, 'reach_sigmoid.mat'],'tlin','tpoly','reachPoly','reachLin','-v7.3');
 
 %% Visualize results
 goal = Box([-0/1;-0.9],[0.2;-0.6]);
@@ -79,7 +81,7 @@ Star.plotBoxes_2D_noFill(reachLin,1,2,'m');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/Tora_Heterogeneous/reach_sigmoid.pdf');
+saveas(f,[path_out, 'reach_sigmoid.pdf']);
 
 f = figure;
 Star.plotBoxes_2D_noFill(plant2.intermediate_reachSet,1,2,'b');
@@ -89,4 +91,4 @@ Star.plotBoxes_2D_noFill(reachPoly,1,2,'m');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/Tora_Heterogeneous/reach_sigmoid_poly.pdf');
+saveas(f,[path_out, 'reach_sigmoid_poly.pdf']);

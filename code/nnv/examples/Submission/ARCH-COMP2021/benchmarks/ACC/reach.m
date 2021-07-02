@@ -40,14 +40,15 @@ for i=1:length(plant.intermediate_reachSet)
     safe_dis = [safe_dis plant.intermediate_reachSet(i).affineMap([0 0 0 0 t_gap 0], D_default)];
 end
 times = reachStep:reachStep:tF;
-save('../../results/ACC/reach.mat','R','rT','-v7.3');
+mkdir([path_results(), filesep, 'ACC'])
+save([path_results(), filesep, '/ACC/reach.mat'],'R','rT','-v7.3');
 f = figure;
 Star.plotRanges_2D(outAll,2,times,'r');
 hold on;
 Star.plotRanges_2D(safe_dis,1,times,'b');
 xlabel('Time (s)');
 ylabel('Distance (m)')
-saveas(f,'../../results/ACC/reach.pdf');
+saveas(f,[path_results(), filesep, '/ACC/reach.pdf']);
 
 
 

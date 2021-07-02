@@ -60,7 +60,9 @@ for i=1:num_steps
     input_set = net.reach(init_set,'approx-star');
 end
 tpoly = toc(t);
-save('../../results/DoublePendulum/reach_more.mat','reachLin','reachPoly','tpoly','tlin','-v7.3');
+path_out = [path_results(), filesep, 'DoublePendulum', filesep];
+mkdir(path_out)
+save([path_out, 'reach_more.mat'],'reachLin','reachPoly','tpoly','tlin','-v7.3');
 
 %% Visualize results
 f = figure;
@@ -68,28 +70,28 @@ Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/DoublePendulum/reach_more_1v2.pdf');
+saveas(f,[path_out, 'reach_more_1v2.pdf']);
 
 f1 = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,4,'b');
 grid;
 xlabel('x3');
 ylabel('x4');
-saveas(f1,'../../results/DoublePendulum/reach_more_3v4.pdf');
+saveas(f1,[path_out, 'reach_more_3v4.pdf']);
 
 f = figure;
 Star.plotBoxes_2D_noFill(plant2.intermediate_reachSet,1,2,'b');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/DoublePendulum/reach_more_1v2_poly.pdf');
+saveas(f,[path_out, 'reach_more_1v2_poly.pdf']);
 
 f1 = figure;
 Star.plotBoxes_2D_noFill(plant2.intermediate_reachSet,3,4,'b');
 grid;
 xlabel('x3');
 ylabel('x4');
-saveas(f1,'../../results/DoublePendulum/reach_more_3v4_poly.pdf');
+saveas(f1,[path_out, 'reach_more_3v4_poly.pdf']);
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

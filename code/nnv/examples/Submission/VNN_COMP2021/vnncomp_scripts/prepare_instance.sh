@@ -5,7 +5,7 @@
 
 # modified: Neelanjana , June 25, 2021
 
-TOOL_NAME= "nnv"
+TOOL_NAME="nnv"
 VERSION_STRING="v1"
 
 # # check arguments
@@ -22,7 +22,10 @@ echo "Preparing $TOOL_NAME for benchmark instance in category '$CATEGORY' with o
 
 # kill any zombie processes
 killall -q python3
-pgrep -f matlab | xargs kill -9
+killall -q matlab
+# pgrep -f matlab | xargs kill -9
+#kill -9 $(ps aux | grep '[m]atlab' | awk '{print $2}')
+#ps aux  |  grep -i matlab |  awk '{print $2}'  |  xargs kill -9
 
 # script returns a 0 exit code if successful. If you want to skip a benchmark category you can return non-zero.
 if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-cifar10' ] || [ "$2" == 'test' ]; then
@@ -32,7 +35,7 @@ fi
 
 python3 ../get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
 
-if [ "$2" == 'mnistfc' ]
+if [ "$2" == 'mnistfc' ]; then
     matlab -nodisplay -r "addpath(genpath('../../../../../../code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE',[784,1]);exit;" 
 else
     matlab -nodisplay -r "addpath(genpath('../../../../../../code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE');exit;"
@@ -40,6 +43,10 @@ fi
 
 # kill any zombie processes
 killall -q python3
-pgrep -f matlab | xargs kill -9
+killall -q matlab
+#pgrep -f matlab | xargs kill -9
+#kill -9 $(ps aux | grep '[m]atlab' | awk '{print $2}')
+#ps aux  |  grep -i matlab |  awk '{print $2}'  |  xargs kill -9
+
 
 exit 0

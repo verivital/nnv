@@ -94,6 +94,9 @@ classdef FlattenLayer < handle
             
             % author: Dung Tran
             % date: 6/9/2020
+            % modified: added onnx flatten layer
+            %       by: Neelanjana Pal
+            % date: 6/25/2021
      
             n = size(image);
             
@@ -266,6 +269,9 @@ classdef FlattenLayer < handle
                         
             % author: Dung Tran
             % date: 4/14/2020
+            % modified: added onnx flatten and sigmoid layers
+            %       by: Neelanjana Pal
+            % date: 6/25/2021
                       
             if ~isa(layer, 'nnet.keras.layer.FlattenCStyleLayer') && ~isa(layer, 'nnet.cnn.layer.FlattenLayer') && ~isa(layer, 'nnet.onnx.layer.FlattenLayer')
                 error('Input is not a flatten layer');

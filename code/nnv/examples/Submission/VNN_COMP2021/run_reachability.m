@@ -1,4 +1,4 @@
-function [status, total_time] = run_reachability(onnxfile,vnnlibfile)%)%ip_shape(net,imagestar_set,op_specs_mat, op_specs_vec
+function [status, total_time] = run_reachability(onnxfile,vnnlibfile,category)%)%ip_shape(net,imagestar_set,op_specs_mat, op_specs_vec
     
     status = 2 ; %intially Unknown
 
@@ -14,14 +14,21 @@ function [status, total_time] = run_reachability(onnxfile,vnnlibfile)%)%ip_shape
     [~,netfilename,~] = fileparts(onnxfile);
     netfilename = netfilename + ".mat";
     load(netfilename);
-
-    % Op Imagrstar
-    [op_bounds, total_time] = net.reach(imagestar_set,'approx-star');
-
-    if isempty(op_bounds.toStar.intersectHalfSpace(op_specs_mat, op_specs_vec))%(:,j)(i,j) for exact star
-        status = 1; % Safe if no intersection with the op_spec/unsafe region--- violates the counter-ex spec
+    
+    if category == "acasxu" || category == "test"
+        method = 'exact-star';
     else
-        status = 0; %Unknown if intersection with the op_spec/unsafe region; for approx-star-- holds/unknown for the counter-ex spec
-        %break
+        method = 'approx-star';
     end
+    % Op Imagrstar
+    [op_bounds, total_time] = net.reach(imagestar_set,method);
+
+   for i = 1: size(op_bounds,2)
+       if isempty(op_bounds(1,i).toStar.intersectHalfSpace(op_specs_mat, op_specs_vec(:,1)))%(:,j)(i,j) for exact star
+            status = 1; % Safe if no intersection with the op_spec/unsafe region--- violates the counter-ex spec
+       else
+            status = 0; %Unknown if intersection with the op_spec/unsafe region; for approx-star-- holds/unknown for the counter-ex spec
+            break
+       end
+   end
 end

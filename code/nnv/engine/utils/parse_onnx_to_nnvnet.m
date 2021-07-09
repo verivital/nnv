@@ -2,12 +2,9 @@
  function nnv_net = parse_onnx_to_nnvnet(varargin)
  %% loads an onnx model and parses it to nnv network
  %  as of now works for vnncomp2021 benchmarks:
- %                                      verivital, 
- %                                      eran, 
- %                                      cifar2020,
- %                                      oval21 
- % need to check for others
- %ip_shape = []; 
+ %                   verivital,eran,cifar2020,oval21, mnistfc 
+ % need to check for others: marabou and nn4sys
+
  switch nargin
     case 2
       onnxfile =  varargin{1};

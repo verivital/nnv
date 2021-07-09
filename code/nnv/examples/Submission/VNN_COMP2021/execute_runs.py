@@ -14,6 +14,7 @@ def main():
     parser.add_argument('vnnlibfile')
     parser.add_argument('timeout', type = int, default = 100)
     parser.add_argument('outputlocation')
+    parser.add_argument('category')
     args = parser.parse_args()
     
     #tic = time.perf_counter()
@@ -26,7 +27,7 @@ def main():
     status = 0 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
     #print('timestep :',toc) 
-    future = eng.run_reachability(args.onnxfile,args.vnnlibfile,nargout=2,background=True)
+    future = eng.run_reachability(args.onnxfile,args.vnnlibfile,args.category,nargout=2,background=True)
     
     try: 
         [status, total_time] = future.result(timeout=args.timeout)
@@ -41,11 +42,11 @@ def main():
     eng.quit() 
     
     if status == 0:
-        result = 'unknown' #Holds : exact-star; #Unknown: approx-star 
+        result = 'violated' #Unknown
         #print('Unknown and time: ',total_time)
     elif status == 1:
-        result = 'violated'
-        #print('Violates and time: ',total_time)
+        result = 'holds'
+        #print('Holds and time: ',total_time)
     elif status == 3:
         result = 'timeout'
         #print('Timed Out and time: ',total_time)

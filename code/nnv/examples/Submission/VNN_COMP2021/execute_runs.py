@@ -42,7 +42,7 @@ def main():
     eng.quit() 
     
     if status == 0:
-        result = 'violated' #Unknown
+        result = 'unknown' #Unknown
         #print('Unknown and time: ',total_time)
     elif status == 1:
         result = 'holds'

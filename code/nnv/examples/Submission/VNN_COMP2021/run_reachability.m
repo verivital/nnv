@@ -7,21 +7,21 @@ function [status, total_time] = run_reachability(onnxfile,vnnlibfile,category)%)
     
     %variables: imagestar_set,op_specs_mat, op_specs_vec,ip_bounds 
     [~,vnnfile,~] = fileparts(vnnlibfile);
-    vnnfile = vnnfile + ".mat";
+    vnnfile = "../nnv/code/nnv/examples/Submission/VNN_COMP2021/intermediateFiles/"+ vnnfile + ".mat";
     load(vnnfile);
     
     %variables: net for nnv format 
     [~,netfilename,~] = fileparts(onnxfile);
-    netfilename = netfilename + ".mat";
+    netfilename = "../nnv/code/nnv/examples/Submission/VNN_COMP2021/intermediateFiles/"+netfilename + ".mat";
     load(netfilename);
     
-    if category == "acasxu" || category == "test"
-        method = 'exact-star';
-    else
-        method = 'approx-star';
-    end
+%     if category == "acasxu" || category == "test"
+%         method = 'exact-star';
+%     else
+%         method = 'approx-star';
+%     end
     % Op Imagrstar
-    [op_bounds, total_time] = net.reach(imagestar_set,method);
+   [op_bounds, total_time] = net.reach(imagestar_set,'approx-star');
 
    for i = 1: size(op_bounds,2)
        if isempty(op_bounds(1,i).toStar.intersectHalfSpace(op_specs_mat, op_specs_vec(:,1)))%(:,j)(i,j) for exact star

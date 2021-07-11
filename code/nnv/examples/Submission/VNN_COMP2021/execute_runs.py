@@ -22,7 +22,7 @@ def main():
     # start matlab engine
     eng = matlab.engine.start_matlab()
     eng.addpath(os.getcwd())
-    eng.addpath(eng.genpath('../../../../../../code'))
+    eng.addpath(eng.genpath('../nnv/code'))
    
     status = 0 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
@@ -42,7 +42,7 @@ def main():
     eng.quit() 
     
     if status == 0:
-        result = 'violated' #Unknown
+        result = 'unknown' #Unknown
         #print('Unknown and time: ',total_time)
     elif status == 1:
         result = 'holds'
@@ -51,7 +51,7 @@ def main():
         result = 'timeout'
         #print('Timed Out and time: ',total_time)
     
-    resultfile = args.outputlocation +'/result.txt'
+    resultfile = args.outputlocation
     with open(resultfile, 'w') as f:
         f.write(result)
     

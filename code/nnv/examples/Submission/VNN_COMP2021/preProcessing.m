@@ -10,7 +10,7 @@ function preProcessing(varargin)
     end
 
     [~,vnnfile,~] = fileparts(vnnlibfile);
-    vnnfile = vnnfile + ".mat";
+    vnnfile = "../nnv/code/nnv/examples/Submission/VNN_COMP2021/intermediateFiles/"+vnnfile + ".mat";
     load(vnnfile);
 
     if nargin == 3
@@ -22,7 +22,7 @@ function preProcessing(varargin)
     imagestar_set = prepare_input(ip_bounds, net);
 
     [~,netfilename,~] = fileparts(onnxfile);
-    netfilename = netfilename + ".mat";
+    netfilename ="../nnv/code/nnv/examples/Submission/VNN_COMP2021/intermediateFiles/"+ netfilename + ".mat";
 
     save(netfilename,'net');
     save(vnnfile,'imagestar_set' ,'-append');

@@ -51,7 +51,7 @@ def main():
         result = 'timeout'
         #print('Timed Out and time: ',total_time)
     
-    resultfile = args.outputlocation +'/result.txt'
+    resultfile = args.outputlocation
     with open(resultfile, 'w') as f:
         f.write(result)
     

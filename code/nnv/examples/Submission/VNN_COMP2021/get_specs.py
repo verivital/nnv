@@ -291,7 +291,7 @@ def main():
     specs = {"ip_bounds": ip_bounds, "op_specs_mat": op_specs_mat,"op_specs_vec": op_specs_vec,"num_inputs" : num_inputs,
         "num_outputs": num_outputs, "inp_shape": inp_shape }
     
-    filename = os.path.basename(args.vnnlibfile)
+    filename = '../nnv/code/nnv/examples/Submission/VNN_COMP2021/intermediateFiles/'+os.path.basename(args.vnnlibfile)
     filename = filename.replace('.vnnlib','.mat')
     savemat(filename, specs)
 

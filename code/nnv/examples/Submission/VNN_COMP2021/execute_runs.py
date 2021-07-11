@@ -22,7 +22,7 @@ def main():
     # start matlab engine
     eng = matlab.engine.start_matlab()
     eng.addpath(os.getcwd())
-    eng.addpath(eng.genpath('../../../../../../code'))
+    eng.addpath(eng.genpath('../nnv/code'))
    
     status = 0 #initialize with an 'Unknown' status
     #toc = time.perf_counter()

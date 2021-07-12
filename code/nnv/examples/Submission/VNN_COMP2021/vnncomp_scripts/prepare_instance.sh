@@ -42,12 +42,12 @@ if [ "$file" == 'test_nano.onnx' ] || [ "$file" == 'test_small.onnx' ] || [ "$fi
 fi
 
 
-python3 ../nnv12/nnv/code/nnv/examples/Submission/VNN_COMP2021/get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
+python3 /home/ubuntu/work/nnv/code/nnv/examples/Submission/VNN_COMP2021/get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
 
 if [ "$2" == 'mnistfc' ]; then
-    matlab -nodisplay -r "addpath(genpath('../nnv12/nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE',[784,1]);exit;" 
+    matlab -nodisplay -r "addpath(genpath('/home/ubuntu/work/nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE',[784,1]);exit;" 
 else
-    matlab -nodisplay -r "addpath(genpath('../nnv12/nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE');exit;"
+    matlab -nodisplay -r "addpath(genpath('/home/ubuntu/work/nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE');exit;"
 fi
 
 # kill any zombie processes

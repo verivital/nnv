@@ -13,26 +13,14 @@ if [ "$1" != ${VERSION_STRING} ]; then
 fi
 
 echo "Installing $TOOL_NAME dependencies"
-DIR=$(dirname $(dirname $(dirname $(dirname $(dirname $(realpath $0))))))
 
-mkdir -p $DIR/deps
-cd deps 
+sudo apt install -y python3-pip
+pip install numpy onnxruntime onnx scipy
 
-sudo apt install python3-pip
-pip3 install numpy
-pip3 install numpy
-pip3 install pybind11
+# remove paths from any prior installation
+matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 
-apt-get install -y libprotobuf-dev protobuf-compiler
+matlab -nodisplay -r "cd '/home/ubuntu/work/nnv/code/nnv/'; install; addpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 
-apt-get install -y psmisc && # for killall, used in prepare_instance.sh script
-pip3 install -r "$DIR/dep_requirements.txt"
-
-mkdir -p $DIR/tbxmanager && cd tbxmanager
-> install.m
-
-matlab -nodisplay -r "install; addpath(genpath('../../deps')); savepath"
-
-matlab -nodisplay -r "addpath(genpath('$DIR/deps')); addpath(genpath('$DIR./code')); savepath;"
 
 

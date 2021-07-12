@@ -33,12 +33,21 @@ if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-ci
 	exit 2
 fi
 
-python3 ../nnv/code/nnv/examples/Submission/VNN_COMP2021/get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
+file=${ONNX_FILE##*/} 
+#echo " file name: $file "
+
+if [ "$file" == 'test_nano.onnx' ] || [ "$file" == 'test_small.onnx' ] || [ "$file" == 'test_tiny.onnx' ]; then
+	echo "NNV does not support the '$file' network " 
+	exit 3
+fi
+
+
+python3 ../nnv12/nnv/code/nnv/examples/Submission/VNN_COMP2021/get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
 
 if [ "$2" == 'mnistfc' ]; then
-    matlab -nodisplay -r "addpath(genpath('../nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE',[784,1]);exit;" 
+    matlab -nodisplay -r "addpath(genpath('../nnv12/nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE',[784,1]);exit;" 
 else
-    matlab -nodisplay -r "addpath(genpath('../nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE');exit;"
+    matlab -nodisplay -r "addpath(genpath('../nnv12/nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE');exit;"
 fi
 
 # kill any zombie processes

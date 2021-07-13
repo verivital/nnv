@@ -12,7 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description ='script to run vnncomp2021 instance')
     parser.add_argument('onnxfile')
     parser.add_argument('vnnlibfile')
-    parser.add_argument('timeout', type = int, default = 100)
+    parser.add_argument('timeout', type = float, default = 100)
     parser.add_argument('outputlocation')
     parser.add_argument('category')
     args = parser.parse_args()

@@ -30,7 +30,11 @@
      
   
   if isempty(placeholderLayers) 
-     layers = lgraph.Layers;
+      if string(class(lgraph)) == 'nnet.cnn.layer.Layer'
+          layers = lgraph;
+      else
+          layers = lgraph.Layers;
+      end
      %modif_lgraph = lgraph;
      %matlabnet = assembleNetwork(lgraph);
   elseif ~isempty(placeholderLayers)
@@ -54,6 +58,11 @@
         newInputlayer = imageInputLayer(ip_shape,'Name',inputlayer.Name,'Normalization',inputlayer.Normalization);
         layers(1,1)=newInputlayer;
       end
+  end
+  for i = 1:length(layers)
+     if string(layers(i,1).Name) == ''
+        layers(i,1).Name = 'newNode';
+     end
   end
   modif_lgraph = layerGraph(layers);
   matlabnet = assembleNetwork(modif_lgraph);

@@ -8,7 +8,11 @@ This toolbox implements reachability methods for analyzing neural networks, part
 This toolbox makes use of the neural network model transformation tool ([nnmt](https://github.com/verivital/nnmt)) and for closed-loop systems analysis, the hybrid systems model transformation and translation tool ([HyST](https://github.com/verivital/hyst)).
 
 # execution without installation:
-nnv can be executed online without installing Matlab or other dependencies through [CodeOcean](https://www.codeocean.com) via the CodeOcean capsule DOI 10.24433/CO.1314285.v1: (https://doi.org/10.24433/CO.1314285.v1)
+nnv can be executed online without installing Matlab or other dependencies through [CodeOcean](https://www.codeocean.com) via the following CodeOcean capsules:
+
+* CAV 2020 ImageStar paper version: https://doi.org/10.24433/CO.3351375.v1
+* CAV 2020 Tool paper version: https://doi.org/10.24433/CO.0221760.v1
+* Earliest version: DOI 10.24433/CO.1314285.v1: https://doi.org/10.24433/CO.1314285.v1
 
 # installation:
     1) Install Matlab (2020a or newer) with at least the following toolboxes:
@@ -143,9 +147,11 @@ A recent video demonstration of NNV is available.
 
 The methods implemented in nnv are based upon the following papers.
 
+* Hoang-Dung Tran, Neelanjana Pal, Patrick Musau, Xiaodong Yang, Nathaniel P. Hamilton, Diego Manzanas Lopez, Stanley Bak, Taylor T. Johnson, "Robustness Verification of Semantic Segmentation Neural Networks using Relaxed Reachability", In 33rd International Conference on Computer-Aided Verification (CAV), Springer, 2021. [http://www.taylortjohnson.com/research/tran2021cav.pdf]
+
 * Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "NNV: A Tool for Verification of Deep Neural Networks and Learning-Enabled Autonomous Cyber-Physical Systems", 32nd International Conference on Computer-Aided Verification (CAV), 2020. [http://taylortjohnson.com/research/tran2020cav_tool.pdf]
 
-* Hoang-Dung Tran, Stanley Bak, Weiming Xiang, Taylor T.Johnson, "Towards Verification of Large Convolutional Neural Networks Using ImageStars", 32nd International Conference on Computer-Aided Verification (CAV), 2020. [http://taylortjohnson.com/research/tran20120cav.pdf]
+* Hoang-Dung Tran, Stanley Bak, Weiming Xiang, Taylor T.Johnson, "Towards Verification of Large Convolutional Neural Networks Using ImageStars", 32nd International Conference on Computer-Aided Verification (CAV), 2020. [http://taylortjohnson.com/research/tran2021cav.pdf]
 
 * Stanley Bak, Hoang-Dung Tran, Kerianne Hobbs, Taylor T. Johnson, "Improved Geometric Path Enumeration for Verifying ReLU Neural Networks", In 32nd International Conference on Computer-Aided Verification (CAV), 2020. [http://www.taylortjohnson.com/research/bak2020cav.pdf]
 

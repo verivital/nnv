@@ -28,14 +28,27 @@ killall -q matlab
 #ps aux  |  grep -i matlab |  awk '{print $2}'  |  xargs kill -9
 
 # script returns a 0 exit code if successful. If you want to skip a benchmark category you can return non-zero.
-if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-cifar10' ] || [ "$2" == 'test' ] || [ "$2" == 'mnistfc' ]; then
+if [ "$2" == 'cifar10_resnet' ] || [ "$2" == 'nn4sys' ] || [ "$2" == 'marabou-cifar10' ]; then
 	echo "NNV is not participating in category '$CATEGORY' " 
 	exit 2
 fi
 
-python3 ../get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
+file=${ONNX_FILE##*/} 
+#echo " file name: $file "
 
-matlab -nodisplay -r "addpath(genpath('../../../../../../code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE');exit;" 
+if [ "$file" == 'test_nano.onnx' ] || [ "$file" == 'test_small.onnx' ] || [ "$file" == 'test_tiny.onnx' ]; then
+	echo "NNV does not support the '$file' network " 
+	exit 3
+fi
+
+
+python3 /home/ubuntu/work/nnv/code/nnv/examples/Submission/VNN_COMP2021/get_specs.py "$ONNX_FILE" "$VNNLIB_FILE"
+
+if [ "$2" == 'mnistfc' ]; then
+    matlab -nodisplay -r "addpath(genpath('/home/ubuntu/work/nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE',[784,1,1]);exit;" 
+else
+    matlab -nodisplay -r "addpath(genpath('/home/ubuntu/work/nnv/code')); preProcessing('$ONNX_FILE','$VNNLIB_FILE');exit;"
+fi
 
 # kill any zombie processes
 killall -q python3

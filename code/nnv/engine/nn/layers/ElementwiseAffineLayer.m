@@ -1,6 +1,8 @@
 classdef ElementwiseAffineLayer < handle
     % The ElementwiseAffineLayer layer class in CNN
-
+    % author: Neelanjana Pal
+    % date: 6/28/2021
+    
     properties
         Name = 'elementwise_affine_layer';
         % Hyperparameters
@@ -19,9 +21,8 @@ classdef ElementwiseAffineLayer < handle
         
         % constructor of the class
         function obj = ElementwiseAffineLayer(varargin)           
-            % author: Dung Tran
-            % date: 6/26/2019    
-            % update: 
+            % author: Neelanjana Pal
+            % date: 6/28/2021     
             
             switch nargin
                 
@@ -63,8 +64,8 @@ classdef ElementwiseAffineLayer < handle
             % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
             % @y: 2 or 3-dimensional array, for example, y(:, :, :
             
-            % author: Dung Tran
-            % date: 6/26/2019
+            % author: Neelanjana Pal
+            % date: 6/28/2021
             
             y = input;
             % assuming Scale or Object is with dim 1x1xinput.numChannel
@@ -93,8 +94,8 @@ classdef ElementwiseAffineLayer < handle
             % @in_image: input imagestar
             % @image: output set
             
-            % author: Dung Tran
-            % date: 6/9/2020
+            % author: Neelanjana Pal
+            % date: 6/28/2021
             
             
             if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'ImageZono')
@@ -117,8 +118,8 @@ classdef ElementwiseAffineLayer < handle
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar
             
-            % author: Dung Tran
-            % date: 1/6/2020
+            % author: Neelanjana Pal
+            % date: 6/28/2021
             
             n = length(inputs);
             if isa(inputs(1), 'ImageStar')
@@ -150,8 +151,8 @@ classdef ElementwiseAffineLayer < handle
             % @image: output set
             % @option: = 'single' or 'parallel' 
             
-            % author: Dung Tran
-            % date: 6/9/2020
+            % author: Neelanjana Pal
+            % date: 6/28/2021
            
              
             switch nargin

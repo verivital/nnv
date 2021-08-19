@@ -777,6 +777,9 @@ classdef CNN < handle
             % author: Dung Tran
             % date: 7/16/2019
             % update: 4/10/2020
+            % modified: added onnx flatten, sigmoid and elementwiseaffine layers
+            %       by: Neelanjana Pal
+            % date: 6/25/2021
             
             switch nargin
                 case 1

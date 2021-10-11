@@ -574,7 +574,7 @@ classdef AveragePooling2DLayer < handle
             end
 
             L = AveragePooling2DLayer(layer.Name, layer.PoolSize, layer.Stride, layer.PaddingSize, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
-            fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
+            fprintf('\nParsing a Matlab avg pooling 2d layer is done successfully');
 
         end
         

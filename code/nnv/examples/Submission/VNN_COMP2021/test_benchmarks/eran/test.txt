@@ -1,0 +1,3 @@
+nets/mnist_relu_9_200.onnx	
+specs/mnist/mnist_spec_idx_9366_eps_0.01500.vnnlib	
+300

@@ -26,7 +26,7 @@ classdef CNN < handle
         
         features = {}; % outputs of each layer in an evaluation
         dis_opt = []; % display option = 'display' or []
-        lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set
+        lp_solver = 'glpk'; % choose linprog as default LP solver for constructing reachable set
         % user can choose 'glpk' or 'linprog' as an LP solver
         
     end
@@ -777,6 +777,9 @@ classdef CNN < handle
             % author: Dung Tran
             % date: 7/16/2019
             % update: 4/10/2020
+            % modified: added onnx flatten, sigmoid and elementwiseaffine layers
+            %       by: Neelanjana Pal
+            % date: 6/25/2021
             
             switch nargin
                 case 1
@@ -828,10 +831,12 @@ classdef CNN < handle
                         Li = FullyConnectedLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
                         Li = PixelClassificationLayer.parse(L);
-                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer')
+                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer') || isa(L, 'nnet.onnx.layer.FlattenLayer')
                         Li = FlattenLayer.parse(L);
-                    elseif isa(L, 'nnet.keras.layer.SigmoidLayer')
+                    elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer')
                         Li = SigmoidLayer.parse(L);
+                    elseif isa(L, 'nnet.onnx.layer.ElementwiseAffineLayer')
+                        Li = ElementwiseAffineLayer.parse(L);
                     else
                         fprintf('\nLayer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis', i, class(L));
                         error('\nUnsupported Class of Layer');                     

@@ -121,7 +121,8 @@ classdef ODEblockLayer
                 U = Star(0,0);
                 R = obj.odemodel.stepReachStar(X,U);
                 if obj.time_series
-                    Rf = obj.odemodel.intermediate_reachSet;
+%                     Rf = obj.odemodel.intermediate_reachSet;
+                    Rf = obj.odemodel.intermediate_pointSet;
                 else
                     Rf = R;
                 end

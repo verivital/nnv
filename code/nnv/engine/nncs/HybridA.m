@@ -77,7 +77,7 @@ classdef HybridA < handle
             option.reductionInterval = inf;
             option.maxError = 1e7*ones(obj.dim,1);
             option.enclose = {'box'};
-            option.alg = 'lin';
+            option.alg = 'poly-adaptive';
             option.guardOrder = 2;
             option.intersectInvariant = 0;
             obj.options = option; % default options

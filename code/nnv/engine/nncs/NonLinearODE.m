@@ -24,7 +24,8 @@ classdef NonLinearODE < handle
         nO = 0; % number of outputs
         C; % output matrix y = Cx
         controlPeriod = 0.1; % control period
-        intermediate_reachSet = []; % intermediate reachable set between steps
+        intermediate_reachSet = []; % intermediate reachable set between steps 
+        intermediate_pointSet = []; % intermediate reachable set between steps at a single point in time
         reachStep = 0.01; % reachability step for the plant
         % this is used to store all intermediate reachable sets of NNCS
     end
@@ -94,8 +95,8 @@ classdef NonLinearODE < handle
             option.errorOrder = 1;
             option.reductionInterval = 1e3;
             option.maxError = 0.1*ones(obj.dim, 1);
-            option.tensorOrder = 2; % Recommended 2 or 3
-            option.alg = 'lin'; % 'lin' or 'poly' recommended
+            option.tensorOrder=2; % Recommended 2 or 3
+            option.alg = 'lin'; % 'lin-adaptive' or 'poly-adaptive' recommended (no need to select other parameters)
             
             obj.options = option; % default option
             obj.params = param; % default parameters
@@ -345,7 +346,6 @@ classdef NonLinearODE < handle
             else
                 [R, ~] = obj.reach_polyZono(I, U, obj.options.timeStep, obj.params.tFinal);
             end
-            
             N = length(R); % number of reachsets in the computation
             max_parent = 0;
             for pp=1:N
@@ -383,10 +383,11 @@ classdef NonLinearODE < handle
 %                 end
             end
             
+            % Get interval reach set
             for i=1:N
 %                 N = length(R);
-                Z = R(i).timeInterval.set; % get the reachset 
-%                 Z = R(i).timePoint.set;
+                Z = R(i).timeInterval.set; % get the interval reachset 
+%                 Z_int = R(i).timePoint.set; % get the timepoint reachset
                 Nn = length(Z); % number of sets in the reachset (1 x timeStep)
                 Ss = [];
                 for ik=1:Nn
@@ -407,6 +408,33 @@ classdef NonLinearODE < handle
                     end
                 end
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
+            end
+            
+            % Get interval reach set
+            for i=1:N
+%                 N = length(R);
+                Z = R(i).timePoint.set; % get the interval reachset 
+%                 Z_int = R(i).timePoint.set; % get the timepoint reachset
+                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
+                Ss = [];
+                for ik=1:Nn
+                    Z1 = Z{ik};
+                    Nz = length(Z1);
+                    for iz=1:Nz
+                        try
+                            Z2 = Z1{iz}.Z;
+                        catch
+                            Z2 = Z1.Z; % get c and V 
+                        end
+    %                     Z = Z.Z; % get c and V 
+                        c = Z2(:,1); % center vector
+                        V = Z2(:, 2:size(Z2, 2)); % generators
+
+                        Zz = Zono(c, V);
+                        Ss = [Ss Zz.toStar];
+                    end
+                end
+                obj.intermediate_pointSet = [obj.intermediate_pointSet Ss];
             end
             
             % the last zonotope in the reach set is returned

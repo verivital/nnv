@@ -24,6 +24,7 @@ nnv can be executed online without installing Matlab or other dependencies throu
        Parallel Processing
        Symbolic Math
        System Identification
+       Statistics and Machine Learning
 
     2) Clone or download the nnv toolbox from (https://github.com/verivital/nnv)
     

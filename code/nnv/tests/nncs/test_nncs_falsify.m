@@ -15,11 +15,10 @@ Layers = [Layers L];
 Ts = 0.1; % control period
 
 Controller = FFNN(Layers); % feedforward neural network controller
-Plant = NonLinearODE(6, 1, @car_dynamics);
-Plant.set_timeStep(0.01); % time step for reachability analysis of the plant
-Plant.set_tFinal(Ts); % Ts = 0.1, sampling time for control signal from neural network controller, this is also control period of the controller
+timeStep = 0.01;
+tFinal = Ts;
 output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity
-Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
+Plant = NonLinearODE(6, 1, @car_dynamics, timeStep, tFinal, output_mat);
 
 feedbackMap = [0]; % feedback map, y[k] 
 

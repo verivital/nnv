@@ -88,13 +88,13 @@ classdef NonLinearODE < handle
             param.R0 = []; % initial set for reachability analysis
             option.timeStep = 0.01; % time step for reachable set computation
             option.taylorTerms = 4; % number of taylor terms for reachable sets
-            option.zonotopeOrder = 2; % zonotope order
-            option.intermediateOrder = 5; 
+            option.zonotopeOrder = 20; % zonotope order
+            option.intermediateOrder = 20; 
             option.reductionTechnique = 'girard';
             option.errorOrder = 1;
             option.reductionInterval = 1e3;
             option.maxError = 0.1*ones(obj.dim, 1);
-            option.tensorOrder=3; % Recommended 2 or 3
+            option.tensorOrder = 2; % Recommended 2 or 3
             option.alg = 'lin'; % 'lin' or 'poly' recommended
             
             obj.options = option; % default option
@@ -352,11 +352,21 @@ classdef NonLinearODE < handle
                 max_parent = max(max_parent,R(pp).parent);
             end
             S = [];
-            for mp=1:N
-                if R(mp).parent == max_parent
-                    Z = R(mp).timePoint.set; % get the last reachset
-                    Nn = length(Z); % number of sets in the last reachset
-                    Z = Z{Nn}; % get the last set in the reachset
+            cP = obj.controlPeriod;
+            Rf = find((R),'time',cP);
+%             cpsets = []; % Reach sets at control perios / final time
+            for mp=1:length(Rf)
+%                 if R(mp).parent == max_parent
+%                     Z = R(mp).timePoint.set; % get the last reachset
+                    Z = Rf(mp).timePoint.set;
+                    % Check to make sure the time of the reach sets is the
+                    % same as the control period
+%                     idxZ = find([R(mp).timePoint.time{:}] == cP); % Create list to check index of reach sets
+%                     lastSets = query(R,'finalSet');
+%                     lastsets = find((R),'time',cP);
+%                     cpsets = [cpsets lastsets]
+%                     Nn = length(Z); % number of sets in the last reachset
+%                     Z = Z{Nn}; % get the last set in the reachset
                     Nz = length(Z); % number of zonotopes in the last set
                     for ik=1:Nz
                         try
@@ -370,7 +380,7 @@ classdef NonLinearODE < handle
                         Zz = Zono(c, V);
                         S = [S Zz.toStar];
                     end
-                end
+%                 end
             end
             
             for i=1:N

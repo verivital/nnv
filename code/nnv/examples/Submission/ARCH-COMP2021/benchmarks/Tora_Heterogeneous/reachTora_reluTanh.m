@@ -4,7 +4,7 @@
 net = Load_nn('nn_tora_relu_tanh.mat');
 net.Layers(4).f = 'tansig';
 
-reachStep = 0.003;
+reachStep = 0.005;
 controlPeriod = 0.5;
 % controlPeriod = 1;
 plant = NonLinearODE(4,1,@dynamicsTora, reachStep, controlPeriod, eye(4));
@@ -64,13 +64,13 @@ reachPoly = init_set;
 t = tic;
 for i = 1:9
     % Compute plant reachable set
-    init_set = plant.stepReachStar(init_set(1), input_set(1),'poly');
+    init_set = plant2.stepReachStar(init_set(1), input_set(1),'poly');
     reachPoly = [reachPoly init_set(1)];
     % Compute controller output set
     input_set = net.reach(init_set(1),'approx-star',1);
     input_set = input_set(1).affineMap(scale_factor,-offset);
 end
-init_set = plant.stepReachStar(init_set(1), input_set(1),'poly');
+init_set = plant2.stepReachStar(init_set(1), input_set(1),'poly');
 reachPoly = [reachPoly init_set(1)];
 tpoly = toc(t);
 save('../../results/Tora_Heterogeneous/reach_reluTanh.mat','tlin','tpoly','reachLin','reachPoly','-v7.3');

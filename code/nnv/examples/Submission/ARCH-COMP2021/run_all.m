@@ -8,51 +8,96 @@ cd benchmarks/ACC;
 if not(isfolder('../../results/ACC'))
     mkdir ../../results/ACC; % Create directory to store results
 end
-run reach.m;
+try
+    run reach.m
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
 
 % Run Airplane
 cd ../Airplane;
 if not(isfolder('../../results/Airplane'))
     mkdir ../../results/Airplane; % Create directory to store results
 end
-run reach.m
+try
+    run reach.m
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
 
 % Run Benchmark 9 - Tora
 cd ../Benchmark9-Tora;
 if not(isfolder('../../results/benchmark9-tora'))
     mkdir ../../results/benchmark9-tora; % Create directory to store results
 end
-run reach.m;
+try
+    run reach.m
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
 
 % Run Benchmark10 = Unicycle
 cd ../Benchmark10-Unicycle;
 if not(isfolder('../../results/Unicycle'))
     mkdir ../../results/Unicycle; % Create directory to store results
 end
-run reach.m;
+try
+    run reach.m
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
 
 % Run Double Pendulum
 cd ../Double_Pendulum;
 if not(isfolder('../../results/DoublePendulum'))
     mkdir ../../results/DoublePendulum; % Create directory to store results
 end
-run reach_dp_less.m;
-run reach_dp_more.m;
+try
+    run reach_dp_less.m;
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
+try
+    run reach_dp_more.m;
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
 
 % Run Single Pendulum
 cd ../Single_Pendulum;
 if not(isfolder('../../results/SinglePendulum'))
     mkdir ../../results/SinglePendulum; % Create directory to store results
 end
-run reach.m;
+try
+    run reach.m
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
 
 % Run Tora Heterogeneous
 cd ../Tora_Heterogeneous;
 if not(isfolder('../../results/Tora_Heterogeneous'))
     mkdir ../../results/Tora_Heterogeneous; % Create directory to store results
 end
-run reachTora_reluTanh.m;
-run reachTora_sigmoid.m;
+try
+    run reachTora_reluTanh.m;
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
+try
+    run reachTora_sigmoid.m;
+catch e %e is an MException struct
+    fprintf(1,'The identifier was:\n%s',e.identifier);
+    fprintf(1,'There was an error! The message was:\n%s',e.message);
+end
 
 %% Run VCAS
 cd ../VCAS;

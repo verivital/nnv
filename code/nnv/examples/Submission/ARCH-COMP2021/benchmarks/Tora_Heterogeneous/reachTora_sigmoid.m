@@ -46,7 +46,7 @@ end
 tlin = toc(t);
 
 % Reach 2
-plant = NonLinearODE(4,1,@dynamicsTora, reachStep, controlPeriod, eye(4));
+plant2 = NonLinearODE(4,1,@dynamicsTora, reachStep, controlPeriod, eye(4));
 lb = [-0.77; -0.45; 0.51; -0.3];
 ub = [-0.75; -0.43; 0.54; -0.28];
 init_set = Star(lb,ub);
@@ -60,7 +60,7 @@ reachPoly = init_set;
 t = tic;
 for i =1:10
     % Compute plant reachable set
-    init_set = plant.stepReachStar(init_set, input_set,'poly');
+    init_set = plant2.stepReachStar(init_set, input_set,'poly');
     reachPoly = [reachPoly init_set];
     % Compute controller output set
     input_set = net.reach(init_set,'approx-star');

@@ -95,7 +95,7 @@ classdef NonLinearODE < handle
             option.errorOrder = 1;
             option.reductionInterval = 1e3;
             option.maxError = 0.1*ones(obj.dim, 1);
-            option.tensorOrder=2; % Recommended 2 or 3
+            option.tensorOrder=3; % Recommended 2 or 3
             option.alg = 'lin'; % 'lin-adaptive' or 'poly-adaptive' recommended (no need to select other parameters)
             
             obj.options = option; % default option
@@ -339,6 +339,10 @@ classdef NonLinearODE < handle
                 else
                     error('Incorrect reach variable options')
                 end
+            end
+
+            if contains(obj.options.alg,'adaptive')
+                warning("Some possible numerical errors in the conversion from Star sets to Zono and polyZono may affect adaptive reachability. We recommend using 'lin' or 'poly' with fixed time steps and parameters.")
             end
                 
             if contains(obj.options.alg,'lin')

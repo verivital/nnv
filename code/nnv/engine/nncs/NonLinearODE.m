@@ -95,7 +95,7 @@ classdef NonLinearODE < handle
             option.errorOrder = 1;
             option.reductionInterval = 1e3;
             option.maxError = 0.1*ones(obj.dim, 1);
-            option.tensorOrder=3; % Recommended 2 or 3
+            option.tensorOrder=2; % Recommended 2 or 3
             option.alg = 'lin'; % 'lin-adaptive' or 'poly-adaptive' recommended (no need to select other parameters)
             
             obj.options = option; % default option
@@ -334,7 +334,7 @@ classdef NonLinearODE < handle
             U = input_set.getZono;
             
             if ~isempty(varargin)
-                if string(varargin{1}) == "poly" || string(varargin{1}) == "lin"
+                if string(varargin{1}) == "poly" || string(varargin{1}) == "lin" || string(varargin{1}) == "lin-adaptive" || string(varargin{1}) == "poly-adaptive"
                     obj.options.alg = varargin{1};
                 else
                     error('Incorrect reach variable options')

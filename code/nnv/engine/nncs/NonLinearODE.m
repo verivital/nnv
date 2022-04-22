@@ -24,7 +24,8 @@ classdef NonLinearODE < handle
         nO = 0; % number of outputs
         C; % output matrix y = Cx
         controlPeriod = 0.1; % control period
-        intermediate_reachSet = []; % intermediate reachable set between steps
+        intermediate_reachSet = []; % intermediate reachable set between steps 
+        intermediate_pointSet = []; % intermediate reachable set between steps at a single point in time
         reachStep = 0.01; % reachability step for the plant
         % this is used to store all intermediate reachable sets of NNCS
     end
@@ -88,14 +89,14 @@ classdef NonLinearODE < handle
             param.R0 = []; % initial set for reachability analysis
             option.timeStep = 0.01; % time step for reachable set computation
             option.taylorTerms = 4; % number of taylor terms for reachable sets
-            option.zonotopeOrder = 2; % zonotope order
-            option.intermediateOrder = 5; 
+            option.zonotopeOrder = 20; % zonotope order
+            option.intermediateOrder = 20; 
             option.reductionTechnique = 'girard';
             option.errorOrder = 1;
             option.reductionInterval = 1e3;
             option.maxError = 0.1*ones(obj.dim, 1);
             option.tensorOrder=3; % Recommended 2 or 3
-            option.alg = 'lin'; % 'lin' or 'poly' recommended
+            option.alg = 'lin'; % 'lin-adaptive' or 'poly-adaptive' recommended (no need to select other parameters)
             
             obj.options = option; % default option
             obj.params = param; % default parameters
@@ -333,11 +334,15 @@ classdef NonLinearODE < handle
             U = input_set.getZono;
             
             if ~isempty(varargin)
-                if string(varargin{1}) == "poly" || string(varargin{1}) == "lin"
+                if string(varargin{1}) == "poly" || string(varargin{1}) == "lin" || string(varargin{1}) == "lin-adaptive" || string(varargin{1}) == "poly-adaptive"
                     obj.options.alg = varargin{1};
                 else
                     error('Incorrect reach variable options')
                 end
+            end
+
+            if contains(obj.options.alg,'adaptive')
+                warning("Some possible numerical errors in the conversion from Star sets to Zono and polyZono may affect adaptive reachability. We recommend using 'lin' or 'poly' with fixed time steps and parameters.")
             end
                 
             if contains(obj.options.alg,'lin')
@@ -345,18 +350,27 @@ classdef NonLinearODE < handle
             else
                 [R, ~] = obj.reach_polyZono(I, U, obj.options.timeStep, obj.params.tFinal);
             end
-            
             N = length(R); % number of reachsets in the computation
             max_parent = 0;
             for pp=1:N
                 max_parent = max(max_parent,R(pp).parent);
             end
             S = [];
-            for mp=1:N
-                if R(mp).parent == max_parent
-                    Z = R(mp).timePoint.set; % get the last reachset
-                    Nn = length(Z); % number of sets in the last reachset
-                    Z = Z{Nn}; % get the last set in the reachset
+            cP = obj.controlPeriod;
+            Rf = find((R),'time',cP);
+%             cpsets = []; % Reach sets at control perios / final time
+            for mp=1:length(Rf)
+%                 if R(mp).parent == max_parent
+%                     Z = R(mp).timePoint.set; % get the last reachset
+                    Z = Rf(mp).timePoint.set;
+                    % Check to make sure the time of the reach sets is the
+                    % same as the control period
+%                     idxZ = find([R(mp).timePoint.time{:}] == cP); % Create list to check index of reach sets
+%                     lastSets = query(R,'finalSet');
+%                     lastsets = find((R),'time',cP);
+%                     cpsets = [cpsets lastsets]
+%                     Nn = length(Z); % number of sets in the last reachset
+%                     Z = Z{Nn}; % get the last set in the reachset
                     Nz = length(Z); % number of zonotopes in the last set
                     for ik=1:Nz
                         try
@@ -370,13 +384,14 @@ classdef NonLinearODE < handle
                         Zz = Zono(c, V);
                         S = [S Zz.toStar];
                     end
-                end
+%                 end
             end
             
+            % Get interval reach set
             for i=1:N
 %                 N = length(R);
-                Z = R(i).timeInterval.set; % get the reachset 
-%                 Z = R(i).timePoint.set;
+                Z = R(i).timeInterval.set; % get the interval reachset 
+%                 Z_int = R(i).timePoint.set; % get the timepoint reachset
                 Nn = length(Z); % number of sets in the reachset (1 x timeStep)
                 Ss = [];
                 for ik=1:Nn
@@ -397,6 +412,33 @@ classdef NonLinearODE < handle
                     end
                 end
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
+            end
+            
+            % Get interval reach set
+            for i=1:N
+%                 N = length(R);
+                Z = R(i).timePoint.set; % get the interval reachset 
+%                 Z_int = R(i).timePoint.set; % get the timepoint reachset
+                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
+                Ss = [];
+                for ik=1:Nn
+                    Z1 = Z{ik};
+                    Nz = length(Z1);
+                    for iz=1:Nz
+                        try
+                            Z2 = Z1{iz}.Z;
+                        catch
+                            Z2 = Z1.Z; % get c and V 
+                        end
+    %                     Z = Z.Z; % get c and V 
+                        c = Z2(:,1); % center vector
+                        V = Z2(:, 2:size(Z2, 2)); % generators
+
+                        Zz = Zono(c, V);
+                        Ss = [Ss Zz.toStar];
+                    end
+                end
+                obj.intermediate_pointSet = [obj.intermediate_pointSet Ss];
             end
             
             % the last zonotope in the reach set is returned

@@ -1,0 +1,4 @@
+docker build . -t flowstar
+docker run -i --name fst_docker flowstar:latest ./run_all.sh
+docker cp fst_docker:flowstar/flowstar-2.1.0/outputs results
+docker cp fst_docker:flowstar/flowstar-2.1.0/images images

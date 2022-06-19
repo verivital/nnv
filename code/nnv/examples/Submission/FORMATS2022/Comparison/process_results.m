@@ -1,21 +1,19 @@
 %% Process and plot all reachability results
 % Load all reachability results and generate plots for paper
 %% 1 - Load JuliaReach
-julia_path = "juliareach/results/";
+julia_path = "juliaresults/";
 % Cartpole
-% cartpole_julia_1 = load(julia_path + "cartpole1.mat");
 cartpole_julia_2 = load(julia_path + "cartpole2.mat");
-% % Damped Forced Pendulum
-% dfp_julia_1 = load(julia_path+'dfp1.mat');
-dfp_julia_2 = load(julia_path+'dfp2.mat');
+% FPA
+fpa_julia_2 = load(julia_path+'fpa2.mat');
 
 %% 2 - Load Gotube
-gotube_path = "/home/manzand/Documents/Python/GoTube/saved_outputs/";
+gotube_path = "/gotuberesults/";
 % Damped Forced Pendulum
-dfp1_gotube = "dfpCTRNN_10.0_0.01_1000_0.01_0.01_1.5_GoTube.txt";
-dfp1_gotube = gotube_path+dfp1_gotube; 
-fileID = fopen(dfp1_gotube,'r');
-dfp_GT = fscanf(fileID, "%f", [32, 1001]);
+fpa1_gotube = "fpaCTRNN_10.0_0.01_1000_0.01_0.01_1.5_GoTube.txt";
+fpa1_gotube = gotube_path+fpa1_gotube; 
+fileID = fopen(fpa1_gotube,'r');
+fpa_GT = fscanf(fileID, "%f", [32, 1001]);
 fclose(fileID);
 % Cartpole
 cartpole_gotube = "cartpoleCTRNN_2.0_0.02_10000_0.0001_0.01_1.5_GoTube.txt";
@@ -27,21 +25,21 @@ fclose(fileID);
 
 
 %% 3 - Load NNV results
-nnv_path = "results/";
+nnv_path = "nnvresults/";
 % Damped Forced Pendulum
-dfp_nnv = "dfp_reach.mat";
-dfp_nnv = load(nnv_path+dfp_nnv);
+fpa_nnv = "fpa_reach.mat";
+fpa_nnv = load(nnv_path+fpa_nnv);
 % Cartpole
 cartpole_nnv = "cartpole_reach.mat";
 cartpole_nnv = load(nnv_path+cartpole_nnv);
 
 
-%% 5 - Plot Damped Forced Pendulum reach sets
-f_dfp = figure;
+%% 5 - Plot FPA reach sets
+f_fpa = figure;
 hold on;
-plot_gotube(dfp_GT,1,2,5,'r'); 
-Star.plotBoxes_2D_noFill(dfp_nnv.Rall,1,2,'k');
-plot_juliareach(dfp_julia_2,1,2,'b');
+plot_gotube(fpa_GT,1,2,5,'r'); 
+Star.plotBoxes_2D_noFill(fpa_nnv.Rall,1,2,'k');
+plot_juliareach(fpa_julia_2,1,2,'b');
 % Add legend and labels
 xlabel('x_1');
 ylabel('x_2');
@@ -55,13 +53,13 @@ ax = gca; % Get current axis
 ax.XAxis.FontSize = 15; % Set font size of axis
 ax.YAxis.FontSize = 15;
 legend([pg pn pj],{'GoTube', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',14);
-saveas(f_dfp,'dfp_compare.pdf');
+saveas(f_fpa,'fpa_compare.pdf');
 pause(0.1); % Make sure figure is saved before modifying axis (zooming in)
 xlim([-1.5 -1.3])
 ylim([-2.14 -1.98])
 % legend('off');
 % legend([pg pn pj],{'GoTube', 'NNV (ours)', 'Juliareach'},"Location","best");
-saveas(f_dfp,'dfp_compare_zoom.pdf');
+saveas(f_fpa,'fpa_compare_zoom.pdf');
 
 
 %% 6 - Plot Cartpole reachsets
@@ -91,14 +89,14 @@ ylim([0.27 0.37])
 saveas(f_cp,'cartpole_compare_zoom.pdf');
 
 %% 7 - Plot Damped Oscillator reachsets
-zonoF0 = load("results/DampedOsc_ilnodenl_true_0_zonoF.mat");
-zonoA0 = load("results/DampedOsc_ilnodenl_true_0_zonoA.mat");
-polyF0 = load("results/DampedOsc_ilnodenl_true_0_polyF.mat");
-polyA0 = load("results/DampedOsc_ilnodenl_true_0_polyA.mat");
-zonoF1 = load("results/DampedOsc_ilnodenl_true_1_zonoF.mat");
-zonoA1 = load("results/DampedOsc_ilnodenl_true_1_zonoA.mat");
-polyF1 = load("results/DampedOsc_ilnodenl_true_1_polyF.mat");
-polyA1 = load("results/DampedOsc_ilnodenl_true_1_polyA.mat");
+zonoF0 = load("nnvresults/DampedOsc_ilnodenl_true_0_zonoF.mat");
+zonoA0 = load("nnvresults/DampedOsc_ilnodenl_true_0_zonoA.mat");
+polyF0 = load("nnvresults/DampedOsc_ilnodenl_true_0_polyF.mat");
+polyA0 = load("nnvresults/DampedOsc_ilnodenl_true_0_polyA.mat");
+zonoF1 = load("nnvresults/DampedOsc_ilnodenl_true_1_zonoF.mat");
+zonoA1 = load("nnvresults/DampedOsc_ilnodenl_true_1_zonoA.mat");
+polyF1 = load("nnvresults/DampedOsc_ilnodenl_true_1_polyF.mat");
+polyA1 = load("nnvresults/DampedOsc_ilnodenl_true_1_polyA.mat");
 
 fosc0 = figure;
 hold on;

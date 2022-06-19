@@ -48,7 +48,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
             time = 'NA';
         end
 %     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-        save("../../results/"+name+"_zonoF.mat",'time','Rall');
+        save("../../nnvresults/"+name+"_zonoF.mat",'time','Rall');
         disp('ZonoF has finished');
         disp("Time elapsed is "+string(time) + " seconds");
     end
@@ -84,7 +84,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
         disp('ZonoA has finished');
         disp("Time elapsed is "+string(time) + " seconds");
     %     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-        save("../../results/"+name+"_zonoA.mat",'time','Rall');
+        save("../../nnvresults/"+name+"_zonoA.mat",'time','Rall');
     end
     %% Reachability run #3 (Star + polyA)
     odeblock = NonLinearODE(2+dim,1,dynamics,reachStep,controlPeriod,C); % Nonlinear ODE plant
@@ -110,7 +110,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
         disp('PolyA has finished');
         disp("Time elapsed is "+string(time) + " seconds");
     %     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-        save("../../results/"+name+"_polyA.mat",'time','Rall');
+        save("../../nnvresults/"+name+"_polyA.mat",'time','Rall');
     end
 
     %% Reachability run #3 (Star + polyA)
@@ -134,7 +134,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
         time = 'NA';
     end
 %     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-    save("../../results/"+name+"_polyF.mat",'time','Rall');
+    save("../../nnvresults/"+name+"_polyF.mat",'time','Rall');
     disp('PolyF has finished');
     disp("Time elapsed is "+string(time) + " seconds");
 

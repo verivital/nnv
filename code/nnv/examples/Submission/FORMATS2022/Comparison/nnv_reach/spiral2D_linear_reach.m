@@ -38,14 +38,14 @@ R0 = Star(lb,ub);
 t = tic;
 Rall = neuralode.reach(R0); % Reachability
 time = toc(t);
-save('../results/spiral_0.01.mat','Rall','time')
+save('../nnvresults/spiral_0.01.mat','Rall','time')
 
 % Plot results
-f = figure;
-hold on;
-Star.plotBoxes_2D_noFill(Rall,1,2,'b');
-xlabel('x_1');
-ylabel('x_2');
+% f = figure;
+% hold on;
+% Star.plotBoxes_2D_noFill(Rall,1,2,'b');
+% xlabel('x_1');
+% ylabel('x_2');
 
 %% Reachability run #1
 % Setup
@@ -57,14 +57,14 @@ R0 = Star(lb,ub);
 t = tic;
 Rall = neuralode.reach(R0); % Reachability
 time = toc(t);
-save('../results/spiral_0.05.mat','Rall','time')
+save('../nnvresults/spiral_0.05.mat','Rall','time')
 
 % Plot results
-f = figure;
-hold on;
-Star.plotBoxes_2D_noFill(Rall,1,2,'b');
-xlabel('x_1');
-ylabel('x_2');
+% f = figure;
+% hold on;
+% Star.plotBoxes_2D_noFill(Rall,1,2,'b');
+% xlabel('x_1');
+% ylabel('x_2');
 
 %% Reachability run #3
 % Setup
@@ -76,11 +76,11 @@ R0 = Star(lb,ub);
 t = tic;
 Rall = neuralode.reach(R0); % Reachability
 time = toc(t);
-save('../results/spiral_0.1.mat','Rall','time')
+save('../nnvresults/spiral_0.1.mat','Rall','time')
 
 % Plot results
-f = figure;
-hold on;
-Star.plotBoxes_2D_noFill(Rall,1,2,'b');
-xlabel('x_1');
-ylabel('x_2');
+% f = figure;
+% hold on;
+% Star.plotBoxes_2D_noFill(Rall,1,2,'b');
+% xlabel('x_1');
+% ylabel('x_2');

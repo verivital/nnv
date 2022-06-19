@@ -14,15 +14,15 @@ function main()
         mkdir(TARGET_FOLDER)
     end
 
-    println("Running HSCC_comparison benchmarks...")
+    println("Running comparison benchmarks...")
 
     # Spiral 2D
     println("###\nRunning Spiral 2D benchmark\n###")
     include("models/spiral_benchmark.jl")
 
     # CTRNN Damped Forced Pendulum
-    println("###\nRunning CTRNN DFP benchmark\n###")
-    include("models/DFP_benchmark.jl")
+    println("###\nRunning CTRNN FPA benchmark\n###")
+    include("models/FPA_benchmark.jl")
 
     # CTRNN Cartpole
     println("###\nRunning CTRNN Cartpole benchmark\n###")

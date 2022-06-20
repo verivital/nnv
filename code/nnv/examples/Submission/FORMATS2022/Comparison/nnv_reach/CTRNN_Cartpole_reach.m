@@ -1,12 +1,6 @@
 %% Reachability analysis of the CTRNN Cartpole (12 dimensions)
 % Idea is to compare to Gotube and other tools
 
-% There is some dimension mismatch when trying to process the dynamics...
-% Not sure what is happening... Try simply simulating the function using an
-% ode solver
-
-addpath('../benchmark_dynamics/');
-
 reachstep = 0.01; % step size to compute reach sets
 final_time = 2.0; % Time horizon
 % MU = 1.3; % What is MU in Gotube?
@@ -33,17 +27,17 @@ R = model.stepReachStar(init_set,input_set);
 time = toc(t);
 Rall = model.intermediate_reachSet;
 
-save('../results/cartpole_reach.mat','Rall','time')
+save('../nnvresults/cartpole_reach.mat','Rall','time')
 
 % Plot reachable sets
-f = figure;
-Star.plotBoxes_2D_noFill(model.intermediate_reachSet,1,2,'b');
-grid;
-hold on;
-% for sets = model.intermediate_reachSet
-%     Zono.plots(sets.Z); % This is super slow, try saving using CORA
-%     zonotopes and use their plotting routines (Tho this plots the actual reach set, not an overapproximation)
-% end
-xlabel('x1');
-ylabel('x2');
-saveas(f,'../results/CTRNN_Cartpole_nnv.png');
+% f = figure;
+% Star.plotBoxes_2D_noFill(model.intermediate_reachSet,1,2,'b');
+% grid;
+% hold on;
+% % for sets = model.intermediate_reachSet
+% %     Zono.plots(sets.Z); % This is super slow, try saving using CORA
+% %     zonotopes and use their plotting routines (Tho this plots the actual reach set, not an overapproximation)
+% % end
+% xlabel('x1');
+% ylabel('x2');
+% saveas(f,'../nnvresults/CTRNN_Cartpole_nnv.png');

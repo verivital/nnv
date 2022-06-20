@@ -1,0 +1,6 @@
+#!/bin/bash
+docker build . -t formats
+docker run --name toolformats formats:latest ./run_tools_short
+docker cp toolformats:/flowstar/flowstar-2.1.0/short_outputs flowresults
+docker cp toolformats:/juliareach/results juliaresults
+docker cp toolformats:/GoTube-main/saved_outputs gotuberesults

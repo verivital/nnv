@@ -26,14 +26,14 @@ t = tic;
 R = model.stepReachStar(init_set,input_set);
 time = toc(t);
 Rall = model.intermediate_reachSet;
-save('../results/spiral_nl_0.01.mat','Rall','time')
+save('../nnvresults/spiral_nl_0.01.mat','Rall','time')
 
 % Plot results
-f = figure;
-hold on;
-Star.plotBoxes_2D_noFill(Rall,1,2,'b');
-xlabel('x_1');
-ylabel('x_2');
+% f = figure;
+% hold on;
+% Star.plotBoxes_2D_noFill(Rall,1,2,'b');
+% xlabel('x_1');
+% ylabel('x_2');
 % ax = gca; % Get current axis
 % ax.XAxis.FontSize = 15; % Set font size of axis
 % ax.YAxis.FontSize = 15;
@@ -67,14 +67,14 @@ t = tic;
 R = model.stepReachStar(init_set,input_set);
 time = toc(t);
 Rall = model.intermediate_reachSet;
-save('../results/spiral_nl_0.05.mat','Rall','time')
+save('../nnvresults/spiral_nl_0.05.mat','Rall','time')
 
 % Plot results
-f = figure;
-hold on;
-Star.plotBoxes_2D_noFill(Rall,1,2,'b');
-xlabel('x_1');
-ylabel('x_2');
+% f = figure;
+% hold on;
+% Star.plotBoxes_2D_noFill(Rall,1,2,'b');
+% xlabel('x_1');
+% ylabel('x_2');
 % ax = gca; % Get current axis
 % ax.XAxis.FontSize = 15; % Set font size of axis
 % ax.YAxis.FontSize = 15;
@@ -107,14 +107,14 @@ t = tic;
 R = model.stepReachStar(init_set,input_set);
 time = toc(t);
 Rall = model.intermediate_reachSet;
-save('../results/spiral_nl_0.1.mat','Rall','time')
+save('../nnvresults/spiral_nl_0.1.mat','Rall','time')
 
 % Plot results
-f = figure;
-hold on;
-Star.plotBoxes_2D_noFill(Rall,1,2,'b');
-xlabel('x_1');
-ylabel('x_2');
+% f = figure;
+% hold on;
+% Star.plotBoxes_2D_noFill(Rall,1,2,'b');
+% xlabel('x_1');
+% ylabel('x_2');
 % ax = gca; % Get current axis
 % ax.XAxis.FontSize = 15; % Set font size of axis
 % ax.YAxis.FontSize = 15;

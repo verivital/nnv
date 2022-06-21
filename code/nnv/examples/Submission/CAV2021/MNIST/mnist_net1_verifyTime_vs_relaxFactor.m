@@ -127,7 +127,7 @@ N1_verifyTime.de_02 = vt;
 N1_verifyTime
 
 fprintf("*** NOTE FOR EACH DELTA (de) ***\n");
-fprintf("The firt column is the verification time of the relax-star-random method \n")
+fprintf("The first column is the verification time of the relax-star-random method \n")
 fprintf("The second column is the verification time of the relax-star-area method \n");
 fprintf("The third column is the verification time of the relax-star-range method \n");
 fprintf("The last column is the verification time of the relax-star-bound method \n");
@@ -168,7 +168,7 @@ writetable(N1_verifyTime_improve);
 
 %% Print latex table1
 
-fileID = fopen('N1_verifyTime_vs_relaxFactor.tex', 'w');
+fileID = fopen([path_results(), filesep, 'N1_verifyTime_vs_relaxFactor.tex'], 'w');
 
 N = size(N1_verifyTime, 1);
 for i=1:N

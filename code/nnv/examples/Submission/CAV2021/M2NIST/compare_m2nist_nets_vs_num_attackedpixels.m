@@ -71,7 +71,8 @@ avg_numUnkPixels = zeros(L, M); % average number of unknown pixels
 VT = zeros(L, M); % verification time
 
 c = parcluster('local');
-numCores = c.NumWorkers;
+%numCores = c.NumWorkers;
+numCores = 1; % some error in codeocean latest release using auto-detect
 poolobj = gcp('nocreate');
 delete(poolobj); % reset parpool
 
@@ -180,7 +181,7 @@ end
 legend(labels{1:L}, 'interpreter', 'latex');
 hold off;
 
-saveas(fig, 'compare_m2nist_nets_vs_num_attackedpixels.pdf');
+saveas(fig, [path_results(), filesep,'compare_m2nist_nets_vs_num_attackedpixels.pdf']);
 %% plot reach time
 
 N1 = Nets(1);

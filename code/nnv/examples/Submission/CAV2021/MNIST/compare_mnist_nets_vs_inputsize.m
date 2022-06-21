@@ -71,7 +71,8 @@ avg_numUnkPixels = zeros(L, M); % average number of unknown pixels
 VT = zeros(L, M); % verification time
 
 c = parcluster('local');
-numCores = c.NumWorkers;
+%numCores = c.NumWorkers;
+numCores = 1; % some error in codeocean latest release using auto-detect
 
 % verify L networks in the Nets array
 t1 = tic;
@@ -178,7 +179,7 @@ end
 legend(labels{1:L}, 'interpreter', 'latex');
 hold off;
 
-saveas(fig, 'compare_mnist_nets_vs_inputsize.pdf');
+saveas(fig, [path_results(), filesep,'compare_mnist_nets_vs_inputsize.pdf']);
 
 fig2 = figure;
 for i=1:L
@@ -193,7 +194,7 @@ legend(labels{1:L}, 'interpreter', 'latex', 'FontSize', 13);
 hold off;
 ax = gca;
 ax.FontSize = 13;
-saveas(fig2, 'VT_mnist_nets_vs_inputsize.pdf');
+saveas(fig2, [path_results(), filesep, 'VT_mnist_nets_vs_inputsize.pdf']);
 
 %% plot verified output set
 

@@ -70,8 +70,7 @@ VT = zeros(N1, N2, N3);
 
 c = parcluster('local');
 %numCores = c.NumWorkers;
-numCores = 1;
-
+numCores = 1; % some error in codeocean latest release using auto-detect
 
 
 % verify N1 networks in the Nets array using the relax-star approach
@@ -163,7 +162,7 @@ writetable(N5_verifyTime_improve);
 
 %% Print latex table1
 
-fileID = fopen('N5_verifyTime_vs_relaxFactor.tex', 'w');
+fileID = fopen([path_results(), filesep, 'N5_verifyTime_vs_relaxFactor.tex'], 'w');
 
 N = size(N5_verifyTime, 1);
 for i=1:N

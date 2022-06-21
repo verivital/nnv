@@ -3,7 +3,9 @@ load mnist01.mat;
 
 %% verify the image
 
-numCores = 8; 
+%numCores = 8; 
+numCores = 1; % some error in codeocean latest release using auto-detect
+
 N = 100; % number of Images tested maximum is 100
 %
 relaxFactor = [0 0.25 0.5 0.75 1]; % relax factor

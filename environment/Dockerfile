@@ -1,5 +1,13 @@
-# hash:sha256:f622d7353e92f49ac2e11234b75ba3e52d96df0222aa7e2bf36ad6cd44b3be51
-FROM registry.codeocean.com/codeocean/matlab:2019a-ubuntu18.04
+# hash:sha256:5f616c6f66b2c7c0f5e3b8d5b21214210b9d8d1dbe6b703011b15b8d65208c91
+FROM registry.codeocean.com/codeocean/matlab:2021b-ubuntu20.04
+
+# old 2020b version
+# hash:sha256:eb133fa6ef390c8a024c045858d448a3c7a34f140ef89a10c693182c8e4e31c7
+#FROM registry.codeocean.com/codeocean/matlab:2020b-ubuntu20.04
+
+# old 2019a version
+## hash:sha256:f622d7353e92f49ac2e11234b75ba3e52d96df0222aa7e2bf36ad6cd44b3be51
+#FROM registry.codeocean.com/codeocean/matlab:2019a-ubuntu18.04
 
 # codeocean does not seem to support multi-stage builds, so python set up is below versus using this image
 # hash:sha256:1f62953520a0e0fb91a3b47349bfbecf2b530ada4a23f795534f50d6d9db554b
@@ -26,7 +34,6 @@ RUN apt-get update \
         python3 \
         python3-dev \
         wget \
-        python-pip \
         python3-pip \
         software-properties-common
 
@@ -38,7 +45,7 @@ RUN pip3 install numpy
 RUN pip install pybind11
 RUN pip3 install pybind11
 
-RUN pkg-config --cflags python
+#RUN pkg-config --cflags python
 
 # set up comparison scripts (for ReluVal, Reluplex, Marabou)
 

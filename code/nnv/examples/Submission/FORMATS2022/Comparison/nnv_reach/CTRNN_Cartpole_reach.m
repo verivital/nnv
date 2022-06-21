@@ -8,11 +8,11 @@ Initial_radius = 1e-4; % Uncertainty in dynamics.
 model = NonLinearODE(12,1,@CartpoleCTRNN, reachstep, final_time,eye(12));
 
 % Change default options
-% model.options.timeStep = 0.05;
-% model.options.taylorTerms = 4;
-% model.options.zonotopeOrder = 50;
-% model.options.alg = 'lin-adaptive';
-% model.options.tensorOrder = 3;
+model.options.timeStep = 0.01;
+model.options.taylorTerms = 4;
+model.options.zonotopeOrder = 20;
+model.options.alg = 'lin';
+model.options.tensorOrder = 2;
 
 % Initial states
 x0 = [0, 0, 0.001, 0, 0, 0, 0, 0, 0, 0, 0, 0]';

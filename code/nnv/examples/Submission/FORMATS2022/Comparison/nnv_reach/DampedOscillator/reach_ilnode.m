@@ -23,6 +23,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     end
     odeblock = NonLinearODE(2+dim,1,dynamics,reachStep,controlPeriod,C); % Nonlinear ODE plant 
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
+    odeblock.options.tensorOrder = 2;
     neuralode = NeuralODE({layer1, odelayer, layerOut});
 %     neuralode = NeuralODE({odelayer});
     if tfl
@@ -67,7 +68,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     % odeblock.options.taylorTerms = 4;
     % odeblock.options.zonotopeOrder = 50;
     odeblock.options.alg = 'lin-adaptive';
-    % odeblock.options.tensorOrder = 3;
+    odeblock.options.tensorOrder = 2;
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
     neuralode = NeuralODE({layer1, odelayer, layerOut});
     if dim ~= 2

@@ -63,7 +63,9 @@ for i=1:num_steps
     input_set = net.reach(init_set,'approx-star');
 end
 tpoly = toc(t);
-save('../../results/Airplane/reach.mat','reachPoly','reachLin','tlin','tpoly','-v7.3');
+path_out = [path_results(), filesep, 'Airplane', filesep];
+mkdir(path_out)
+save([path_out, 'reach.mat'],'reachPoly','reachLin','tlin','tpoly','-v7.3');
 %% Visualize results
 
 f2 = figure;
@@ -74,7 +76,7 @@ plot([-0.5 -0.5],[-2 2],'r');
 plot([0.5 0.5],[-2 2],'r');
 xlabel('y');
 ylabel('v');
-saveas(f2,'../../results/Airplane/reach2vs5_cP.pdf');
+saveas(f2,[path_out, 'reach2vs5_cP.pdf']);
 
 f4 = figure;
 % Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,7,10,'b');
@@ -84,7 +86,7 @@ plot([-1 -1],[-0.2 0.2],'r');
 plot([1 1],[-0.2 0.2],'r');
 xlabel('x_7');
 ylabel('x_{10}');
-saveas(f4,'../../results/Airplane/reach7vs10.pdf');
+saveas(f4,[path_out, 'reach7vs10.pdf']);
 
 f5 = figure;
 % Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,8,11,'b');
@@ -94,7 +96,7 @@ plot([-1 -1],[-0.2 0.2],'r');
 plot([1 1],[-0.2 0.2],'r');
 xlabel('x_8');
 ylabel('x_{11}');
-saveas(f5,'../../results/Airplane/reach8vs11.pdf');
+saveas(f5,[path_out, 'reach8vs11.pdf']);
 
 f6 = figure;
 % Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,9,12,'b');
@@ -104,7 +106,7 @@ plot([-1 -1],[-0.2 0.2],'r');
 plot([1 1],[-0.2 0.2],'r');
 xlabel('x_9');
 ylabel('x_{12}');
-saveas(f6,'../../results/Airplane/reach9vs12.pdf');
+saveas(f6,[path_out, 'reach9vs12.pdf']);
 
 %%% Visualize Poly results
 f2 = figure;
@@ -114,7 +116,7 @@ plot([-0.5 -0.5],[-2 2],'r');
 plot([0.5 0.5],[-2 2],'r');
 xlabel('y');
 ylabel('v');
-saveas(f2,'../../results/Airplane/reach2vs5_cP_poly.pdf');
+saveas(f2,[path_out, 'reach2vs5_cP_poly.pdf']);
 
 f4 = figure;
 grid;hold on;
@@ -123,7 +125,7 @@ plot([-1 -1],[-0.2 0.2],'r');
 plot([1 1],[-0.2 0.2],'r');
 xlabel('x_7');
 ylabel('x_{10}');
-saveas(f4,'../../results/Airplane/reach7vs10_poly.pdf');
+saveas(f4,[path_out, 'reach7vs10_poly.pdf']);
 
 f5 = figure;
 grid;hold on;
@@ -132,7 +134,7 @@ plot([-1 -1],[-0.2 0.2],'r');
 plot([1 1],[-0.2 0.2],'r');
 xlabel('x_8');
 ylabel('x_{11}');
-saveas(f5,'../../results/Airplane/reach8vs11_poly.pdf');
+saveas(f5,[path_out, 'reach8vs11_poly.pdf']);
 
 f6 = figure;
 % Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,9,12,'b');
@@ -143,7 +145,7 @@ plot([1 1],[-0.2 0.2],'r');
 title('Airplane x_9 vs. x_{12}');
 xlabel('x_9');
 ylabel('x_{12}');
-saveas(f6,'../../results/Airplane/reach9vs12_poly.pdf');
+saveas(f6,[path_out, 'reach9vs12_poly.pdf']);
 toc(t);
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

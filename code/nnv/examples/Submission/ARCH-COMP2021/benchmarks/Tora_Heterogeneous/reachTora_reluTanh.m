@@ -73,7 +73,9 @@ end
 init_set = plant2.stepReachStar(init_set(1), input_set(1),'poly');
 reachPoly = [reachPoly init_set(1)];
 tpoly = toc(t);
-save('../../results/Tora_Heterogeneous/reach_reluTanh.mat','tlin','tpoly','reachLin','reachPoly','-v7.3');
+path_out = [path_results(), filesep, 'Tora_Heterogeneous', filesep];
+mkdir(path_out)
+save([path_out, 'reach_reluTanh.mat'],'tlin','tpoly','reachLin','reachPoly','-v7.3');
 %% Visualize results
 f = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
@@ -85,7 +87,7 @@ Box.plotBoxes_2D(goal,1,2,'r');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/Tora_Heterogeneous/reach_reluTanh.pdf');
+saveas(f,[path_out, 'reach_reluTanh.pdf']);
 
 f = figure;
 Star.plotBoxes_2D_noFill(plant2.intermediate_reachSet,1,2,'b');
@@ -97,4 +99,4 @@ Box.plotBoxes_2D(goal,1,2,'r');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/Tora_Heterogeneous/reach_reluTanh_poly.pdf');
+saveas(f,[path_out, 'reach_reluTanh_poly.pdf']);

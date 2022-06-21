@@ -71,7 +71,10 @@ for i =1:6
     end
 end
 tpoly = toc(t);
-save('../../results/benchmark9-tora/reach.mat','reachPoly','reachLin','tlin','tpoly','-v7.3')
+
+path_out = [path_results(), filesep, 'benchmark9-tora', filesep];
+mkdir(path_out)
+save([path_out, 'reach.mat'],'reachPoly','reachLin','tlin','tpoly','-v7.3')
 
 %% Visualize results
 f = figure;
@@ -82,7 +85,7 @@ Star.plotBoxes_2D_noFill(reachLin,1,2,'m');
 grid;
 xlabel('x1');
 ylabel('x3');
-saveas(f,'../../results/benchmark9-tora/reach1vs3.pdf');
+saveas(f,[path_out, 'reach1vs3.pdf']);
 
 f1 = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,2,4,'b');
@@ -92,7 +95,7 @@ Star.plotBoxes_2D_noFill(reachLin,2,4,'m');
 grid;
 xlabel('x2');
 ylabel('x4');
-saveas(f1,'../../results//benchmark9-tora/reach3vs4.pdf');
+saveas(f1,[path_out, 'reach3vs4.pdf']);
 
 % Poly results
 f = figure;
@@ -103,7 +106,7 @@ Star.plotBoxes_2D_noFill(reachLin,1,2,'m');
 grid;
 xlabel('x1');
 ylabel('x3');
-saveas(f,'../../results/benchmark9-tora/reach1vs3_poly.pdf');
+saveas(f,[path_out, 'reach1vs3_poly.pdf']);
 
 f1 = figure;
 Star.plotBoxes_2D_noFill(plant2.intermediate_reachSet,2,4,'b');
@@ -113,7 +116,7 @@ Star.plotBoxes_2D_noFill(reachLin,2,4,'m');
 grid;
 xlabel('x2');
 ylabel('x4');
-saveas(f1,'../../results//benchmark9-tora/reach3vs4_poly.pdf');
+saveas(f1,[path_out, 'reach3vs4_poly.pdf']);
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

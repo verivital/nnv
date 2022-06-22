@@ -8,6 +8,18 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
+% default output path for path_results, ensure logs subdirectory there
+mkdir('/results/logs/')
+
+cd /code/nnv/examples/Submission/CAV2021/
+reproduce_CAV2021
+
+% arch-comp 2021 next
+return
+cd /code/nnv/examples/Submission/ARCH-COMP2021
+run_all
+
+return
 cd /code/nnv/examples/Submission/ARCH_COMP2020/benchmarks
 run_all
 

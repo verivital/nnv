@@ -70,8 +70,18 @@ avg_numAttPixels = zeros(L, M); % average number of attacked pixels
 avg_numUnkPixels = zeros(L, M); % average number of unknown pixels
 VT = zeros(L, M); % verification time
 
+% see: https://www.mathworks.com/matlabcentral/answers/196549-failed-to-start-a-parallel-pool-in-matlab2015a
+distcomp.feature('LocalUseMpiexec', true); % false gave error
+
 c = parcluster('local');
-numCores = c.NumWorkers;
+% see: https://www.mathworks.com/help/matlab/ref/maxnumcompthreads.html
+% and: https://www.mathworks.com/matlabcentral/answers/463068-number-of-cores-by-default
+%numCores = maxNumCompThreads;
+%numCores = maxNumCompThreads('automatic');
+%numCores = c.NumWorkers; % causes error
+numCores = 1; % use if error from autodetect, for whatever reason this is showing up on latest codeocean versions
+
+numCores
 
 % verify L networks in the Nets array
 t1 = tic;
@@ -178,7 +188,7 @@ end
 legend(labels{1:L}, 'interpreter', 'latex');
 hold off;
 
-saveas(fig, 'compare_mnist_nets_vs_num_attackedpixels.pdf');
+saveas(fig, [path_results(), filesep,'compare_mnist_nets_vs_num_attackedpixels.pdf']);
 
 fig2 = figure;
 for i=1:L
@@ -193,6 +203,6 @@ legend(labels{1:L}, 'interpreter', 'latex', 'FontSize', 13);
 hold off;
 ax = gca;
 ax.FontSize = 13;
-saveas(fig2, 'VT_mnist_nets_vs_num_attackedpixels.pdf');
+saveas(fig2, [path_results(), filesep,'VT_mnist_nets_vs_num_attackedpixels.pdf']);
 %%
 

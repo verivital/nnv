@@ -104,6 +104,10 @@ cd ../VCAS;
 if not(isfolder('../../results/VCAS'))
     mkdir ../../results/VCAS; % Create directory to store results
 end
+
+path_out = [path_results(), filesep, 'VCAS', filesep];
+mkdir(path_out)
+
 run reachVCAS_middle19.m
 run reachVCAS_middle22.m
 run reachVCAS_middle25.m

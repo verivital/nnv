@@ -71,7 +71,9 @@ for i=1:steps
     input_set = inp_set(1).affineMap(eye(2),-offsetM);
 end
 tpoly = toc(t);
-save('../../results/Unicycle/reach.mat','tlin','tpoly','reachPoly','reachLin','-v7.3')
+path_out = [path_results(), filesep, 'Unicycle', filesep];
+mkdir(path_out)
+save([path_out, 'reach.mat'],'tlin','tpoly','reachPoly','reachLin','-v7.3')
 %% Visualize results
 f = figure;
 hold on;
@@ -79,7 +81,7 @@ Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/Unicycle/reach1v2.pdf');
+saveas(f,[path_out, 'reach1v2.pdf']);
 
 f1 = figure;
 hold on;
@@ -87,7 +89,7 @@ Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,4,'b');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f1,'../../results/Unicycle/reach3v4.pdf');
+saveas(f1,[path_out, 'reach3v4.pdf']);
 
 f = figure;
 hold on;
@@ -95,7 +97,7 @@ Star.plotBoxes_2D_noFill(plant2.intermediate_reachSet,1,2,'b');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f,'../../results/Unicycle/reach1v2_poly.pdf');
+saveas(f,[path_out, 'reach1v2_poly.pdf']);
 
 f1 = figure;
 hold on;
@@ -103,7 +105,7 @@ Star.plotBoxes_2D_noFill(plant2.intermediate_reachSet,3,4,'b');
 grid;
 xlabel('x1');
 ylabel('x2');
-saveas(f1,'../../results/Unicycle/reach3v4_poly.pdf');
+saveas(f1,[path_out, 'reach3v4_poly.pdf']);
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

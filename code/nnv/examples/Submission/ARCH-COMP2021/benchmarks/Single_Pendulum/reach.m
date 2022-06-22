@@ -75,7 +75,9 @@ for i=1:num_steps
     input_set = net.reach(inp_nn,'approx-star');
 end
 tpoly = toc(t);
-save('../../results/SinglePendulum/reach.mat','reachPoly','reachLin','tpoly','tlin','-v7.3');
+path_out = [path_results(), filesep, 'SinglePendulum', filesep];
+mkdir(path_out)
+save([path_out, 'reach.mat'],'reachPoly','reachLin','tpoly','tlin','-v7.3');
 
 %% Visualize results
 % f = figure;
@@ -90,14 +92,14 @@ Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,1,'b');
 grid;
 xlabel('Time steps');
 ylabel('Theta');
-saveas(f,'../../results/SinglePendulum/reach.pdf');
+saveas(f,[path_out, 'reach.pdf']);
 
 f = figure;
 Star.plotBoxes_2D_noFill(plant2.intermediate_reachSet,3,1,'b');
 grid;
 xlabel('Time steps');
 ylabel('Theta');
-saveas(f,'../../results/SinglePendulum/reach_poly.pdf');
+saveas(f,[path_out, 'reach_poly.pdf']);
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

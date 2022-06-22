@@ -173,7 +173,7 @@ writetable(N2_verifyTime_improve);
 
 %% Print latex table1
 
-fileID = fopen('N2_verifyTime_vs_relaxFactor.tex', 'w');
+fileID = fopen([path_results(), filesep, 'N2_verifyTime_vs_relaxFactor.tex'], 'w');
 
 N = size(N2_verifyTime, 1);
 for i=1:N

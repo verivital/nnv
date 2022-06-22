@@ -77,7 +77,9 @@ for i =1:steps
     inp_all{i} = input_set;
 end
 timing = toc(t);
-save('../../results/VCAS/worst28','reachAll','timing','-v7.3')
+path_out = [path_results(), filesep, 'VCAS', filesep];
+
+save([path_out, 'worst28'],'reachAll','timing','-v7.3')
 
 %% Visualize results
 times = 0:controlPeriod:(steps-1)*controlPeriod;
@@ -95,8 +97,8 @@ Star.plotRanges_2D(reachAll,1,times,'b');
 grid;
 xlabel('Time (s)');
 ylabel('Distance (ft)');
-saveas(f2,'../../results/VCAS/worst28_DvTime.pdf');
-saveas(f,'../../results/VCAS/worst28.pdf');
+saveas(f2,[path_out, 'worst28_DvTime.pdf']);
+saveas(f,[path_out, 'worst28.pdf']);
 
 %% Helper Functions
 

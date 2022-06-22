@@ -21,7 +21,7 @@ continuous reachability
   cutoff 1e-15
   precision 256
   output spiralL1
-  print on
+  print off
  }
  
 

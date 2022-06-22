@@ -2,11 +2,13 @@
 mkdir /results/logs/
 # Run juliareach
 cd juliareach
-julia startup.jl
+julia startup_subset.jl
+mv results /results/logs/juliaresults
 # Run Gotube
 cd ../GoTube-main
 mkdir saved_outputs
-./paper_submission_short.sh
+./run_formats_subset.sh
+mv saved_outputs /results/logs/gotuberesults
 # Run flowstar
 cd ../flowstar/flowstar-2.1.0/
-./run_short.sh
+./run_subset.sh

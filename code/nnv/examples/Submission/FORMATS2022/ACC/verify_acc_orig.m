@@ -6,6 +6,7 @@ reachStep = 0.01;
 controlPeriod = 0.1;
 output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity
 plant = NonLinearODE(6,1,@dynamicsACC, reachStep, controlPeriod, output_mat);
+plant.options.tensorOrder = 2;
 
 %% Reachability analysis
 tF = 5; % seconds
@@ -64,30 +65,30 @@ legend([pr,pb],{'rel dist','safe dist'},"Location","best",'FontSize',14);
 exportgraphics(f,'reach_orig.pdf','ContentType','vector');
 % Visualize all variables
 % trajR = plant.intermediate_reachSet;
-trajR = R;
-f = figure;
-subplot(2,3,1)
-Star.plotRanges_2D(trajR,1,times,'r');
-xlabel('Time (s)');
-ylabel('xlead');
-subplot(2,3,2)
-Star.plotRanges_2D(trajR,2,times,'b');
-xlabel('Time (s)')
-ylabel('vlead')
-subplot(2,3,3)
-Star.plotRanges_2D(trajR,3,times,'b');
-xlabel('Time (s)')
-ylabel('alead')
-subplot(2,3,4)
-Star.plotRanges_2D(trajR,4,times,'b');
-xlabel('Time (s)')
-ylabel('xego')
-subplot(2,3,5)
-Star.plotRanges_2D(trajR,5,times,'b');
-xlabel('Time (s)')
-ylabel('vego')
-subplot(2,3,6)
-Star.plotRanges_2D(trajR,6,times,'b');
-xlabel('Time (s)')
-ylabel('aego')
-saveas(f,'reach_orig_all.png');
+% trajR = R;
+% f = figure;
+% subplot(2,3,1)
+% Star.plotRanges_2D(trajR,1,times,'r');
+% xlabel('Time (s)');
+% ylabel('xlead');
+% subplot(2,3,2)
+% Star.plotRanges_2D(trajR,2,times,'b');
+% xlabel('Time (s)')
+% ylabel('vlead')
+% subplot(2,3,3)
+% Star.plotRanges_2D(trajR,3,times,'b');
+% xlabel('Time (s)')
+% ylabel('alead')
+% subplot(2,3,4)
+% Star.plotRanges_2D(trajR,4,times,'b');
+% xlabel('Time (s)')
+% ylabel('xego')
+% subplot(2,3,5)
+% Star.plotRanges_2D(trajR,5,times,'b');
+% xlabel('Time (s)')
+% ylabel('vego')
+% subplot(2,3,6)
+% Star.plotRanges_2D(trajR,6,times,'b');
+% xlabel('Time (s)')
+% ylabel('aego')
+% saveas(f,'reach_orig_all.png');

@@ -38,21 +38,19 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     lb = x0-unc;
     ub = x0+unc;
     R0 = Star(lb,ub);
-    if dim ~= 2
-        try
-            t = tic;
-            Rall = neuralode.reach(R0); % Reachability
-            time = toc(t);
-        catch ME
-            warning('Reachability of ZonoF failed');
-            Rall = ME;
-            time = 'NA';
-        end
-%     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-        save("../../nnvresults/"+name+"_zonoF.mat",'time','Rall');
-        disp('ZonoF has finished');
-        disp("Time elapsed is "+string(time) + " seconds");
+    try
+        t = tic;
+        Rall = neuralode.reach(R0); % Reachability
+        time = toc(t);
+    catch ME
+        warning('Reachability of ZonoF failed');
+        Rall = ME;
+        time = 'NA';
     end
+%     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
+    save("../../nnvresults/"+name+"_zonoF.mat",'time','Rall');
+    disp('ZonoF has finished');
+    disp("Time elapsed is "+string(time) + " seconds");
     % Plot results
 %     f = figure;
 %     hold on;
@@ -124,21 +122,21 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     odeblock.options.tensorOrder = 3;
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
     neuralode = NeuralODE({layer1, odelayer, layerOut});
-
-    try
-        t = tic;
-        Rall = neuralode.reach(R0); % Reachability
-        time = toc(t);
-    catch ME
-        warning('Reachability of PolyzonoF failed');
-        Rall = ME;
-        time = 'NA';
-    end
-%     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-    save("../../nnvresults/"+name+"_polyF.mat",'time','Rall');
-    disp('PolyF has finished');
+    if dim ~= 2
+        try
+            t = tic;
+            Rall = neuralode.reach(R0); % Reachability
+            time = toc(t);
+        catch ME
+            warning('Reachability of PolyzonoF failed');
+            Rall = ME;
+            time = 'NA';
+        end
+    %     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
+        save("../../nnvresults/"+name+"_polyF.mat",'time','Rall');
+        disp('PolyF has finished');
     disp("Time elapsed is "+string(time) + " seconds");
-
+    end
     %% Save results
     % May want to set equal axes so that the set representations are equally
     % visualized

@@ -136,30 +136,30 @@ legend([pr,pb],{'safe dist','rel dist'},"Location","best",'FontSize',14);
 % saveas(f,'reach_plant.png');
 exportgraphics(f,'reach_plant.pdf','ContentType','vector');
 
-
-f = figure;
-subplot(2,3,1)
-Star.plotRanges_2D(trajR,1,times,'b');
-xlabel('Time (s)');
-ylabel('xlead');
-subplot(2,3,2)
-Star.plotRanges_2D(trajR,2,times,'b');
-xlabel('Time (s)')
-ylabel('vlead')
-subplot(2,3,3)
-Star.plotRanges_2D(trajR,3,times,'b');
-xlabel('Time (s)')
-ylabel('alead')
-subplot(2,3,4)
-Star.plotRanges_2D(trajR,4,times,'b');
-xlabel('Time (s)')
-ylabel('xego')
-subplot(2,3,5)
-Star.plotRanges_2D(trajR,5,times,'b');
-xlabel('Time (s)')
-ylabel('vego')
-subplot(2,3,6)
-Star.plotRanges_2D(trajR,6,times,'b');
-xlabel('Time (s)')
-ylabel('aego')
-saveas(f,'reach_plant_all.png');
+% 
+% f = figure;
+% subplot(2,3,1)
+% Star.plotRanges_2D(trajR,1,times,'b');
+% xlabel('Time (s)');
+% ylabel('xlead');
+% subplot(2,3,2)
+% Star.plotRanges_2D(trajR,2,times,'b');
+% xlabel('Time (s)')
+% ylabel('vlead')
+% subplot(2,3,3)
+% Star.plotRanges_2D(trajR,3,times,'b');
+% xlabel('Time (s)')
+% ylabel('alead')
+% subplot(2,3,4)
+% Star.plotRanges_2D(trajR,4,times,'b');
+% xlabel('Time (s)')
+% ylabel('xego')
+% subplot(2,3,5)
+% Star.plotRanges_2D(trajR,5,times,'b');
+% xlabel('Time (s)')
+% ylabel('vego')
+% subplot(2,3,6)
+% Star.plotRanges_2D(trajR,6,times,'b');
+% xlabel('Time (s)')
+% ylabel('aego')
+% saveas(f,'reach_plant_all.png');

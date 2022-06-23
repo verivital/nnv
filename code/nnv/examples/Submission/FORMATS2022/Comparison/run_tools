@@ -1,4 +1,5 @@
 #!/bin/bash
+mkdir /results/logs/
 # Run juliareach
 cd juliareach
 julia startup.jl

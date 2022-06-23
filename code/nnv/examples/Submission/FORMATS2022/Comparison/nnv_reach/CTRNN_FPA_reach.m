@@ -7,11 +7,11 @@ Initial_radius = 0.01; % Uncertainty in dynamics.
 model = NonLinearODE(5,1,@CTRNN_FPA, reachstep, final_time,eye(5));
 
 % Change default options
-% model.options.timeStep = 0.05;
-% model.options.taylorTerms = 4;
-% model.options.zonotopeOrder = 50;
-% model.options.alg = 'lin-adaptive';
-% model.options.tensorOrder = 2;
+model.options.timeStep = 0.05;
+model.options.taylorTerms = 4;
+model.options.zonotopeOrder = 20;
+model.options.alg = 'lin';
+model.options.tensorOrder = 2;
 
 % Initial states
 x0 = [0.21535, -0.58587, 0.8, 0.52323, 0.5]';

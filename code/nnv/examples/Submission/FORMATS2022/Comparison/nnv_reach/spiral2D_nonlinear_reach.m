@@ -8,11 +8,11 @@ Initial_radius = 0.01; % Uncertainty in dynamics (initial states)
 model = NonLinearODE(2,1,@spiral_non,reachstep,final_time,C); % Nonlinear ODE plant 
 
 % Change default options
-% model.options.timeStep = 0.05;
-% model.options.taylorTerms = 4;
-% model.options.zonotopeOrder = 50;
-% model.options.alg = 'lin-adaptive';
-% model.options.tensorOrder = 3;
+model.options.timeStep = 0.01;
+model.options.taylorTerms = 2;
+model.options.zonotopeOrder = 20;
+model.options.alg = 'lin';
+model.options.tensorOrder = 2;
 
 % Initial states
 x0 = [2.0;0.0]; % This is like the initial input to the ODEblock (initial state)
@@ -49,11 +49,11 @@ Initial_radius = 0.05; % Uncertainty in dynamics (initial states)
 model = NonLinearODE(2,1,@spiral_non,reachstep,final_time,C); % Nonlinear ODE plant 
 
 % Change default options
-% model.options.timeStep = 0.05;
-% model.options.taylorTerms = 4;
-% model.options.zonotopeOrder = 50;
-% model.options.alg = 'lin-adaptive';
-% model.options.tensorOrder = 3;
+model.options.timeStep = 0.01;
+model.options.taylorTerms = 2;
+model.options.zonotopeOrder = 20;
+model.options.alg = 'lin';
+model.options.tensorOrder = 2;
 
 % Initial states
 % x0 = [10.0;0.0]; % This is like the initial input to the ODEblock (initial state)
@@ -89,11 +89,11 @@ Initial_radius = 0.1; % Uncertainty in dynamics (initial states)
 model = NonLinearODE(2,1,@spiral_non,reachstep,final_time,C); % Nonlinear ODE plant 
 
 % Change default options
-% model.options.timeStep = 0.05;
-% model.options.taylorTerms = 4;
-% model.options.zonotopeOrder = 50;
-% model.options.alg = 'lin-adaptive';
-% model.options.tensorOrder = 3;
+model.options.timeStep = 0.01;
+model.options.taylorTerms = 2;
+model.options.zonotopeOrder = 20;
+model.options.alg = 'lin';
+model.options.tensorOrder = 2;
 
 % Initial states
 % x0 = [2.0;0.0]; % This is like the initial input to the ODEblock (initial state)

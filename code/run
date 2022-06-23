@@ -25,10 +25,23 @@ chmod +x run_tools.sh
 #cd /results/logs
 #pdflatex main.tex
 
+ls /code
+
+ls /code/nnv/examples/Submission/FORMATS2022/Comparison/
+
+# copy flowstar and juliareach scripts for formats'22 comparison
+#cp -r /code/nnv/examples/Submission/FORMATS2022/Comparison/flowstar/ /flowstar/flowstar-2.1.0/
+#cp -r /code/nnv/examples/Submission/FORMATS2022/Comparison/juliareach/ /juliareach
+# may need to chmod some things
+
+cd /code/nnv/examples/Submission/FORMATS2022/Comparison
+chmod +x run_tools_short
+chmod +x run_tools_subset
+./run_tools_short
+./run_tools_subset
+
 # start up matlab and run
 cd ~/
-
-
 
 matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); startup_nnv; savepath; run_codeocean;"
 

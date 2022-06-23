@@ -12,10 +12,14 @@ end
 mkdir('/results/logs/')
 
 cd /code/nnv/examples/Submission/FORMATS2022/
+% run_all_nnv
+
+% individual examples
+%return
 cd ACC
 verify_acc_orig % error with time, apparently is a bug in cora fixed in our fork
-verify_acc_plant
-verify_acc_tanhplant
+%verify_acc_plant
+%verify_acc_tanhplant
 return
 
 % cav 2021 segmentation

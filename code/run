@@ -3,6 +3,10 @@ set -ex
 
 # This is the master script for the capsule. When you click "Reproducible Run", the code in this file will execute.
 
+# set path to flowstar executable so relative directories not necessary
+export PATH="/flowstar/flowstar-2.1.0/:$PATH"
+
+
 pwd
 
 # unfortunately, the git files do not exist when running the capsule, so this cannot be done to pull in the submodules
@@ -30,8 +34,8 @@ ls /code
 ls /code/nnv/examples/Submission/FORMATS2022/Comparison/
 
 # copy flowstar and juliareach scripts for formats'22 comparison
-#cp -r /code/nnv/examples/Submission/FORMATS2022/Comparison/flowstar/ /flowstar/flowstar-2.1.0/
-#cp -r /code/nnv/examples/Submission/FORMATS2022/Comparison/juliareach/ /juliareach
+#cp -rf /code/nnv/examples/Submission/FORMATS2022/Comparison/flowstar/ /flowstar/flowstar-2.1.0/
+#cp -rf /code/nnv/examples/Submission/FORMATS2022/Comparison/juliareach/ /juliareach
 # may need to chmod some things
 
 cd /code/nnv/examples/Submission/FORMATS2022/Comparison

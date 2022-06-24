@@ -11,6 +11,21 @@ end
 % default output path for path_results, ensure logs subdirectory there
 mkdir('/results/logs/')
 
+cd /code/nnv/examples/Submission/FORMATS2022/
+run_all_nnv
+
+return
+
+% individual examples
+%return
+cd ACC
+verify_acc_orig % error with time, apparently is a bug in cora fixed in our fork
+%verify_acc_plant
+%verify_acc_tanhplant
+return
+
+% cav 2021 segmentation
+
 cd /code/nnv/examples/Submission/CAV2021/
 reproduce_CAV2021
 

@@ -7,8 +7,9 @@ cd deps
 #curl -LO https://tumcps.github.io/CORA/data/CORA_2018.zip
 #unzip CORA_2018.zip && rm CORA_2018.zip
 
-curl -LO https://tumcps.github.io/CORA/data/CORA_2020.zip
-unzip CORA_2020.zip && rm CORA_2020.zip
+# handled via submodule for now, as there are some bugs fixed in our repository
+#curl -LO https://tumcps.github.io/CORA/data/CORA_2020.zip
+#unzip CORA_2020.zip && rm CORA_2020.zip
 
 mkdir tbxmanager && cd tbxmanager
 

@@ -41,11 +41,15 @@ ls /code/nnv/examples/Submission/FORMATS2022/Comparison/
 cd /code/nnv/examples/Submission/FORMATS2022/Comparison
 chmod +x run_tools_short
 chmod +x run_tools_subset
+
+echo "STARTING COMPARISONS"
 ./run_tools_short
 ./run_tools_subset
 
 # start up matlab and run
 cd ~/
+
+echo "STARTING MATLAB"
 
 matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); startup_nnv; savepath; run_codeocean;"
 

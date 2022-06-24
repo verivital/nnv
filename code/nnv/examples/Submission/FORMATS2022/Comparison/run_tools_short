@@ -2,7 +2,7 @@
 mkdir /results/logs/
 # Run juliareach
 cd juliareach
-#julia startup.jl # disabled for now
+julia startup.jl # disabled for now
 
 pwd
 ls
@@ -13,22 +13,27 @@ ls /code/nnv/examples/Submission/FORMATS2022/Comparison/
 
 ls ../
 
+ls /
+
 # Run Gotube
-#cd ../GoTube-main
-cd ../Gotube
+echo "STARTING GOTUBE"
+cd /GoTube-main
+#cd ../Gotube
 pwd
 ls
 mkdir saved_outputs
-./paper_submission_short.sh # file missing
+./paper_submission_short.sh
 # Run flowstar
 #cd ../flowstar/flowstar-2.1.0/
 pwd
 ls
 ls ../
-ls ../flowstar
+#ls ../flowstar
 pwd
-ls ../flowstar/flowstar/
-cd ../flowstar
+#ls ../flowstar/flowstar/
+#cd ../flowstar
+echo "STARTING FLOWSTAR"
+cd /code/nnv/examples/Submission/FORMATS2022/Comparison/flowstar/
 pwd
 ls
 #cd ../flowstar/flowstar/

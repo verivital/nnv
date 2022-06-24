@@ -12,7 +12,7 @@ end
 mkdir('/results/logs/')
 
 cd /code/nnv/examples/Submission/FORMATS2022/
-% run_all_nnv
+run_all_nnv
 
 % individual examples
 %return

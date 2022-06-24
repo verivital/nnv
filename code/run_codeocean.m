@@ -14,6 +14,8 @@ mkdir('/results/logs/')
 cd /code/nnv/examples/Submission/FORMATS2022/
 run_all_nnv
 
+return
+
 % individual examples
 %return
 cd ACC

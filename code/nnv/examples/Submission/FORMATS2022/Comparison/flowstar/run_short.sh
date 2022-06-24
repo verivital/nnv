@@ -13,4 +13,6 @@ mkdir -p /results/logs/flowresults
 { timeout 30 flowstar < Benchmarks/CTRNN_FPA_mid.model ; } > /results/logs/flowresults/fpa_time_mid.txt
 { timeout 30 flowstar < Benchmarks/CTRNN_Cartpole_mid.model ; } > /results/logs/flowresults/cartpole_time_mid.txt
 
-#mv /flowstar/flowstar-2.1.0/outputs /results/logs/flowresults/
+#mv /flowstar/flowstar-2.1.0/outputs /results/logs/flowresults/ # error
+
+exit 1

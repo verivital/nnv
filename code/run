@@ -44,7 +44,8 @@ chmod +x run_tools_subset
 
 echo "STARTING COMPARISONS"
 ./run_tools_short
-./run_tools_subset
+#echo "STARTING SUBSET"
+#./run_tools_subset
 
 # start up matlab and run
 cd ~/

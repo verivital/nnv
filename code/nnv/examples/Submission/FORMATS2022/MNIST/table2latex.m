@@ -67,7 +67,7 @@ function table2latex(T, filename)
                 if isstruct(value), error('Table must not contain structs.'); end
                 while iscell(value), value = value{1,1}; end
                 if class(value) == 'string'
-                    temp{1,col} = value;
+                    temp{1,col} = char(value);
                 else
                     if isinf(value), value = '$\infty$'; end
                     temp{1,col} = num2str(value);

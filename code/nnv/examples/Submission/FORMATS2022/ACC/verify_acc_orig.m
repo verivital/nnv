@@ -62,7 +62,11 @@ xlabel('Time (s)');
 ylabel('Distance (m)')
 legend([pr,pb],{'rel dist','safe dist'},"Location","best",'FontSize',14);
 % saveas(f,'reach_orig.png');
-exportgraphics(f,'reach_orig.pdf','ContentType','vector');
+if is_codeocean
+    exportgraphics(f,'/results/logs/acc_orig.pdf','ContentType','vector');
+else
+    exportgraphics(f,'reach_orig.pdf','ContentType','vector');
+end
 % Visualize all variables
 % trajR = plant.intermediate_reachSet;
 % trajR = R;

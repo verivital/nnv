@@ -83,5 +83,8 @@ timeA6 = [fns.timeT/fns.numT;fnm.timeT/fnm.numT;fnl.timeT/fnl.numT;cns.timeT/cns
 T = table(acc,robs,timeA,robs2,timeA2,robs3,timeA3,robs4,timeA4,robs5,timeA5,robs6,timeA6);
 
 % T.Properties.VariableNames = colmns;
-
-table2latex(T,'mnist_res.tex')
+if is_codeocean
+    table2latex(T,'/results/logs/table4.tex')
+else
+    table2latex(T,'table4.tex')
+end

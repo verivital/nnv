@@ -3,7 +3,8 @@ mkdir /results/logs/
 # Run juliareach
 cd juliareach
 
-#julia startup.jl # disabled for now, works but doesn't generate results in /results, need to copy or something
+julia startup.jl # disabled for now, works but doesn't generate results in /results, need to copy or something
+mv results /results/logs/juliaresults
 
 pwd
 ls
@@ -24,8 +25,8 @@ pwd
 ls
 mkdir saved_outputs
 
-#./paper_submission_short.sh # works, uncomment for full run
-
+./paper_submission_short.sh # works, uncomment for full run
+mv /GoTube-main/saved_outputs /results/logs/tuberesults
 
 
 # Run flowstar

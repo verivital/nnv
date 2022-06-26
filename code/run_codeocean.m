@@ -12,6 +12,10 @@ end
 mkdir('/results/logs/')
 
 cd /code/nnv/examples/Submission/FORMATS2022/
+
+run_subset
+
+return
 run_all_nnv
 
 return

@@ -30,7 +30,7 @@ fpa3_gt = get_time_gotube([gotubeLpath, tubefiles(end-2).name]);
 %% Flowstar
 flowLpath = 'flowstar/results/';
 if is_codeocean
-    flowLpath = ['results/logs/flowresults/'];
+    flowLpath = ['/results/logs/flowresults/'];
 end
 l1_f = get_time_flowstar([flowLpath, 'spiral_L1.txt']);
 l2_f = get_time_flowstar([flowLpath, 'spiral_L2.txt']);

@@ -3,7 +3,7 @@
 
 %% Gotube
 if is_codeocean
-    gotube_path = "GoTube/saved_outputs/";
+    gotube_path = "/results/logs/tuberesults/";
 else
     gotube_path = "GoTube/saved_outputs/";
 end

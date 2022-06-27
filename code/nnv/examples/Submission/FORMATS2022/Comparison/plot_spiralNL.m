@@ -69,27 +69,31 @@ else
     saveas(f1,'spiral_compare_0.1_nl.pdf');
 end
 
-% f1 = figure;
-% hold on;
-% plot_gotube(sp3_gt(:,end),1,2,2,'r'); 
-% Star.plotBoxes_2D_noFill(sp3_nnv.Rall(end-1),1,2,'k');
-% plot_juliareach(sp3_julia,1,2,'b',"last");
-% % Add legend and labels
-% xlabel('x_1');
-% ylabel('x_2');
-% legend('off')
-% grid;
-% pg = plot(2, 0,'r');
-% pn = plot(2, 0,'k');
-% pj = plot(2, 0,'b');
-% % pf = plot(2, 0,'Color',[0 0.4 0]);
-% ax = gca; % Get current axis
-% ax.XAxis.FontSize = 14; % Set font size of axis
-% ax.YAxis.FontSize = 14;
-% xlim([0.2 0.9])
-% ylim([0.2 0.8])
-% legend([pg pn pj],{'GoTube', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-% saveas(f1,'spiral_compare_0.1_nl_last.pdf');
+f1 = figure;
+hold on;
+plot_gotube(sp3_gt(:,end),1,2,2,'r'); 
+Star.plotBoxes_2D_noFill(sp3_nnv.Rall(end-1),1,2,'k');
+plot_juliareach(sp3_julia,1,2,'b',"last");
+% Add legend and labels
+xlabel('x_1');
+ylabel('x_2');
+legend('off')
+grid;
+pg = plot(2, 0,'r');
+pn = plot(2, 0,'k');
+pj = plot(2, 0,'b');
+% pf = plot(2, 0,'Color',[0 0.4 0]);
+ax = gca; % Get current axis
+ax.XAxis.FontSize = 14; % Set font size of axis
+ax.YAxis.FontSize = 14;
+xlim([0.2 0.9])
+ylim([0.2 0.8])
+legend([pg pn pj],{'GoTube', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',13);
+if is_codeocean
+    saveas(f1,'/results/logs/spiral_compare_0.1_nl_last.pdf');
+else
+    saveas(f1,'spiral_compare_0.1_nl_last.pdf');
+end
 
 % f1 = figure;
 % hold on;
@@ -173,4 +177,4 @@ end
 % ax.XAxis.FontSize = 14; % Set font size of axis
 % ax.YAxis.FontSize = 14;
 % legend([pg pn pj],{'GoTube', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-saveas(f1,'spiral_compare_0.01_nl_last.pdf');
+% saveas(f1,'spiral_compare_0.01_nl_last.pdf');

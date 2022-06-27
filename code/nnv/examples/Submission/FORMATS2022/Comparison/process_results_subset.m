@@ -49,7 +49,11 @@ ax = gca; % Get current axis
 ax.XAxis.FontSize = 15; % Set font size of axis
 ax.YAxis.FontSize = 15;
 legend([pg pn pj],{'GoTube', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',14);
-saveas(f_fpa,'fpa_compare.pdf');
+if is_codeocean
+    saveas(f_fpa,'/results/logs/fpa_compare.pdf');
+else
+    saveas(f_fpa,'fpa_compare.pdf');
+end
 pause(0.1); % Make sure figure is saved before modifying axis (zooming in)
 xlim([-1.5 -1.3])
 ylim([-2.14 -1.98])
@@ -58,4 +62,3 @@ if is_codeocean
 else
     saveas(f_fpa,'fpa_compare_zoom.pdf');
 end
-saveas(fosc1,'dampedOsc_compare1_zoomed.pdf');

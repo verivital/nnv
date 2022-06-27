@@ -11,5 +11,5 @@ mkdir -p /results/logs/flowresults
 { timeout 7200 ./flowstar < Benchmarks/CTRNN_FPA_short.model ; } > /results/logs/flowresults/fpa_time_short.txt
 { timeout 7200 ./flowstar < Benchmarks/CTRNN_Cartpole_short.model ; } > /results/logs/flowresults/cartpole_time_short.txt
 { timeout 7200 ./flowstar < Benchmarks/CTRNN_FPA_mid.model ; } > /results/logs/flowresults/fpa_time_mid.txt
-{ timeout 7200 ./flowstar < Benchmarks/CTRNN_Cartpole_mid.model ; } > /results/logs/flowresults/artpole_time_mid.txt
+{ timeout 7200 ./flowstar < Benchmarks/CTRNN_Cartpole_mid.model ; } > /results/logs/flowresults/cartpole_time_mid.txt
 mv /flowstar/flowstar-2.1.0/outputs /results/logs/flowresults/

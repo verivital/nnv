@@ -15,7 +15,7 @@ run CTRNN_Cartpole_reach_mid.m
 run CTRNN_Cartpole_reach.m
 % Spiral
 run spiral2D_linear_reach.m
-% run spiral2D_nonlinear_reach.m
+run spiral2D_nonlinear_reach.m
 %% FPA
 run CTRNN_FPA_short.m
 run CTRNN_FPA_mid.m

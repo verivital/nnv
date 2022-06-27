@@ -5,14 +5,14 @@
 
 
 %% NNV
-% sp1_nnv = load("results/spiral_0.01.mat");
-% sp2_nnv = load("results/spiral_0.05.mat");
-sp3_nnv = load("results/spiral_0.1.mat");
+sp3_nnv = load("nnvresults/spiral_0.1.mat");
 
 %% JuliaReach
-julia_path = "juliareach/results/";
-% sp1_julia = load(julia_path + "spiral4.mat");
-% sp2_julia = load(julia_path + "spiral5.mat");
+if is_codeocean
+    julia_path = "/results/logs/juliaresults/";
+else
+    julia_path = "juliareach/results/";
+end
 sp3_julia = load(julia_path + "spiral6.mat");
 
 
@@ -21,159 +21,120 @@ sp3_julia = load(julia_path + "spiral6.mat");
 figure;
 hold on;
 Star.plotBoxes_2D_noFill(sp3_nnv.Rall(1:end-1),1,2,'k');
-% plot_juliareach(sp3_julia,1,2,'b');
 plot_juliareach(sp3_julia,1,2,'b');
 % Add legend and labels
 xlabel('x_1');
 ylabel('x_2');
 legend('off')
 grid;
-% pg = plot(2, 0,'r');
-% pn = plot(2, 0,'k');
-% pj = plot(2, 0,'b');
-% pf = plot(2, 0,'Color',[0 0.4 0]);
 ax = gca; % Get current axis
 ax.XAxis.FontSize = 14; % Set font size of axis
 ax.YAxis.FontSize = 14;
-% legend([pf pn pj],{'Flow*', 'NNV (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-run flowstar/results/spiralL3.m
+if is_codeocean
+    run /flowresults/outputs/spiralL3.m
+else
+    run flowstar/results/spiralL3.m
+end
 legend('off')
 hold on;
 pn = plot(2, 0,'k');
 pj = plot(2, 0,'b');
 pf = plot(2, 0,'Color',[0 0.4 0]);
 legend([pf pn pj],{'Flow*', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-saveas(gcf,'spiralL_compare_0.1.pdf');
+if is_codeocean
+    saveas(gcf,'/results/logs/spiralL_compare_0.1.pdf');
+else
+    saveas(gcf,'spiralL_compare_0.1.pdf');
+end
 pause(0.01);
 xlim([0.23 0.49]);
 ylim([0.48 0.7]);
-saveas(gcf,'spiralL_compare_0.1_zoom.pdf');
+if is_codeocean
+    saveas(gcf,'/results/logs/spiralL_compare_0.1_zoom.pdf');
+else
+    saveas(gcf,'spiralL_compare_0.1_zoom.pdf');
+end
+% -----------------------------------------------------------------------------
+% -----------------------------------------------------------------------------
 
-% f1 = figure;
+% % NNV
+% sp2_nnv = load("results/spiral_0.05.mat");
+
+% % JuliaReach
+% julia_path = "juliareach/results/";
+% sp2_julia = load(julia_path + "spiral5.mat");
+
+% figure;
 % hold on;
-% plot_gotube(sp3_gt(:,end),1,2,2,'r'); 
-% Star.plotBoxes_2D_noFill(sp3_nnv.Rall(end-1),1,2,'k');
-% plot_juliareach(sp3_julia,1,2,'b',"last");
+% % plot_gotube(sp2_gt,1,2,2,'r'); 
+% Star.plotBoxes_2D_noFill(sp2_nnv.Rall(1:end-1),1,2,'k');
+% plot_juliareach(sp2_julia,1,2,'b');
+% % Add legend and labels
+% xlabel('x_1');
+% ylabel('x_2');
+% % legend('off')
+% grid;
+% % pg = plot(2, 0,'r');
+% % pn = plot(2, 0,'k');
+% % pj = plot(2, 0,'b');
+% % pf = plot(2, 0,'Color',[0 0.4 0]);
+% ax = gca; % Get current axis
+% ax.XAxis.FontSize = 14; % Set font size of axis
+% ax.YAxis.FontSize = 14;
+% % legend([pf pn pj],{'Flow*', 'NNV (ours)', 'Juliareach'},"Location","best",'FontSize',13);
+% run flowstar/results/spiralL2.m
+% legend('off')
+% hold on;
+% pn = plot(2, 0,'k');
+% pj = plot(2, 0,'b');
+% pf = plot(2, 0,'Color',[0 0.4 0]);
+% legend([pf pn pj],{'Flow*', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',13);
+% saveas(gcf,'spiralL_compare_0.05.pdf');
+% pause(0.01);
+% xlim([0.23 0.49]);
+% ylim([0.48 0.7]);
+% saveas(gcf,'spiralL_compare_0.05_zoom.pdf');
+
+% -----------------------------------------------------------------------------
+% -----------------------------------------------------------------------------
+
+% % NNV
+% sp1_nnv = load("results/spiral_0.01.mat");
+
+% % JuliaReach
+% julia_path = "juliareach/results/";
+% sp1_julia = load(julia_path + "spiral4.mat");
+
+% figure;
+% hold on;
+% % plot_gotube(sp1_gt,1,2,2,'r'); 
+% Star.plotBoxes_2D_noFill(sp1_nnv.Rall(1:end-1),1,2,'k');
+% plot_juliareach(sp1_julia,1,2,'b');
 % % Add legend and labels
 % xlabel('x_1');
 % ylabel('x_2');
 % legend('off')
 % grid;
-% pg = plot(2, 0,'r');
-% pn = plot(2, 0,'k');
-% pj = plot(2, 0,'b');
-% % pf = plot(2, 0,'Color',[0 0.4 0]);
+% % pg = plot(2, 0,'r');
+% % pn = plot(2, 0,'k');
+% % pj = plot(2, 0,'b');
 % ax = gca; % Get current axis
 % ax.XAxis.FontSize = 14; % Set font size of axis
 % ax.YAxis.FontSize = 14;
-% xlim([0.2 0.9])
-% ylim([0.2 0.8])
-% legend([pg pn pj],{'GoTube', 'NNV (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-% saveas(f1,'spiralL_compare_0.1_last.pdf');
-
-% -----------------------------------------------------------------------------
-% -----------------------------------------------------------------------------
-
-% NNV
-sp2_nnv = load("results/spiral_0.05.mat");
-
-% JuliaReach
-julia_path = "juliareach/results/";
-sp2_julia = load(julia_path + "spiral5.mat");
-
-figure;
-hold on;
-% plot_gotube(sp2_gt,1,2,2,'r'); 
-Star.plotBoxes_2D_noFill(sp2_nnv.Rall(1:end-1),1,2,'k');
-plot_juliareach(sp2_julia,1,2,'b');
-% Add legend and labels
-xlabel('x_1');
-ylabel('x_2');
+% % pf = plot(2, 0,'Color',[0 0.4 0]);
+% % legend([pf pn pj],{'Flow*', 'NNV (ours)', 'Juliareach'},"Location","best",'FontSize',13);
+% run flowstar/results/spiralL1.m
 % legend('off')
-grid;
-% pg = plot(2, 0,'r');
-% pn = plot(2, 0,'k');
-% pj = plot(2, 0,'b');
-% pf = plot(2, 0,'Color',[0 0.4 0]);
-ax = gca; % Get current axis
-ax.XAxis.FontSize = 14; % Set font size of axis
-ax.YAxis.FontSize = 14;
-% legend([pf pn pj],{'Flow*', 'NNV (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-run flowstar/results/spiralL2.m
-legend('off')
-hold on;
-pn = plot(2, 0,'k');
-pj = plot(2, 0,'b');
-pf = plot(2, 0,'Color',[0 0.4 0]);
-legend([pf pn pj],{'Flow*', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-saveas(gcf,'spiralL_compare_0.05.pdf');
-pause(0.01);
-xlim([0.23 0.49]);
-ylim([0.48 0.7]);
-saveas(gcf,'spiralL_compare_0.05_zoom.pdf');
-
-% f1 = figure;
 % hold on;
-% plot_gotube(sp2_gt(:,end),1,2,2,'r'); 
-% Star.plotBoxes_2D_noFill(sp2_nnv.Rall(end-1),1,2,'k');
-% plot_juliareach(sp2_julia,1,2,'b',"last");
-% % Add legend and labels
-% xlabel('x_1');
-% ylabel('x_2');
-% legend('off')
-% grid;
-% pg = plot(2, 0,'r');
 % pn = plot(2, 0,'k');
 % pj = plot(2, 0,'b');
-% % pf = plot(2, 0,'Color',[0 0.4 0]);
-% ax = gca; % Get current axis
-% ax.XAxis.FontSize = 14; % Set font size of axis
-% ax.YAxis.FontSize = 14;
-% xlim([0.45 0.7])
-% ylim([0.41 0.56])
-% legend([pg pn pj],{'GoTube', 'NNV (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-% saveas(f1,'spiralL_compare_0.05_last.pdf');
-
-% -----------------------------------------------------------------------------
-% -----------------------------------------------------------------------------
-
-% NNV
-sp1_nnv = load("results/spiral_0.01.mat");
-
-% JuliaReach
-julia_path = "juliareach/results/";
-sp1_julia = load(julia_path + "spiral4.mat");
-
-figure;
-hold on;
-% plot_gotube(sp1_gt,1,2,2,'r'); 
-Star.plotBoxes_2D_noFill(sp1_nnv.Rall(1:end-1),1,2,'k');
-plot_juliareach(sp1_julia,1,2,'b');
-% Add legend and labels
-xlabel('x_1');
-ylabel('x_2');
-legend('off')
-grid;
-% pg = plot(2, 0,'r');
-% pn = plot(2, 0,'k');
-% pj = plot(2, 0,'b');
-ax = gca; % Get current axis
-ax.XAxis.FontSize = 14; % Set font size of axis
-ax.YAxis.FontSize = 14;
 % pf = plot(2, 0,'Color',[0 0.4 0]);
-% legend([pf pn pj],{'Flow*', 'NNV (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-run flowstar/results/spiralL1.m
-legend('off')
-hold on;
-pn = plot(2, 0,'k');
-pj = plot(2, 0,'b');
-pf = plot(2, 0,'Color',[0 0.4 0]);
-legend([pf pn pj],{'Flow*', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',13);
-saveas(gcf,'spiralL_compare_0.01.pdf');
-pause(0.01);
-xlim([0.23 0.49]);
-ylim([0.48 0.7]);
-saveas(gcf,'spiralL_compare_0.01_zoom.pdf');
+% legend([pf pn pj],{'Flow*', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',13);
+% saveas(gcf,'spiralL_compare_0.01.pdf');
+% pause(0.01);
+% xlim([0.23 0.49]);
+% ylim([0.48 0.7]);
+% saveas(gcf,'spiralL_compare_0.01_zoom.pdf');
 
 % f1 = figure;
 % hold on;

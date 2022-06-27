@@ -12,6 +12,11 @@ end
 mkdir('/results/logs/')
 
 cd /code/nnv/examples/Submission/FORMATS2022/
+
+run_subset % run a subset of all FORMATS results, much faster
+% run_all_nnv % run the complete results of the FORMATS paper
+
+return
 run_all_nnv
 
 return

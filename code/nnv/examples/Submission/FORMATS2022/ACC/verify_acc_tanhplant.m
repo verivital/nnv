@@ -98,7 +98,11 @@ ylabel('Distance (m)')
 ylim([40 110])
 legend([pr,pb],{'rel dist','safe dist'},"Location","best",'FontSize',14);
 % saveas(f,'reach_plant.png');
-exportgraphics(f,'reach_tanhplant.pdf','ContentType','vector');
+if is_codeocean
+    exportgraphics(f,'/results/logs/acc_nl.pdf','ContentType','vector');
+else
+    exportgraphics(f,'acc_nl.pdf','ContentType','vector');
+end
 
 % f = figure;
 % subplot(2,3,1)

@@ -32,22 +32,22 @@ classdef ODEblockLayer
                 obj.odemodel = varargin{1};
                 obj.tfinal = 1;
                 obj.tstep = 1/10;
-                obj.time_series = boolean(false);
+                obj.time_series = logical(false);
             elseif nargin == 2
                 obj.odemodel = varargin{1};
                 obj.tfinal = varargin{2};
                 obj.tstep = 1/10;
-                obj.time_series = boolean(false);
+                obj.time_series = logical(false);
             elseif nargin == 3
                 obj.odemodel = varargin{1};
                 obj.tfinal = varargin{2};
                 obj.tstep = varargin{3};
-                obj.time_series = boolean(false);
+                obj.time_series = logical(false);
             elseif nargin == 4
                 obj.odemodel = varargin{1};
                 obj.tfinal = varargin{2};
                 obj.tstep = varargin{3};
-                obj.time_series = boolean(varargin{4});
+                obj.time_series = logical(varargin{4});
             else
                 error('Wrong number of inputs.');
             end

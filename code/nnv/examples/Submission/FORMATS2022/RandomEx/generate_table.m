@@ -16,5 +16,8 @@ end
 rt_vals = reshape(rt_vals,[3,6]);
 fm = [rt_vals(:,5) rt_vals(:,3) rt_vals(:,2) rt_vals(:,1) rt_vals(:,4) rt_vals(:,6)];
 T = table(fm);
-
-table2latex(T,'randEx_res.tex')
+if is_codeocean
+    table2latex(T,'/results/logs/table5.tex')
+else
+    table2latex(T,'table5.tex')
+end

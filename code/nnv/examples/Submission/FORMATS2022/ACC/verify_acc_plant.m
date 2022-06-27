@@ -134,7 +134,11 @@ xlabel('Time (s)');
 ylabel('Distance (m)')
 legend([pr,pb],{'safe dist','rel dist'},"Location","best",'FontSize',14);
 % saveas(f,'reach_plant.png');
-exportgraphics(f,'reach_plant.pdf','ContentType','vector');
+if is_codeocean
+    exportgraphics(f,'/results/logs/acc_linear.pdf','ContentType','vector');
+else
+    exportgraphics(f,'acc_linear.pdf','ContentType','vector');
+end
 
 % 
 % f = figure;

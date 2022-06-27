@@ -4,19 +4,19 @@
 % Time of these files are saved in a json file under the logged directory
 % These files are simply numbered in the order they are produced, so
 % assuming that the last file we run was the run_formats_subset one, we get
-% the last 6 json files from this repo
+% the last 3 json files from this repo
 gotubeLpath = 'GoTube/logged/';
 if is_codeocean
-    gotubeLpath = [path_results(), 'tuberesults/'];
+    gotubeLpath = ['/results/logs/tuberesults/logged/'];
 end
 tubefiles = dir(gotubeLpath);
 % Order of execution is
 % 1) fpa3
 % 2) fpa2
 % 3) fpa1
-% 4) spiralNL1
-% 5) spiral NL2
-% 6) spiralNL3
+% 4) spiralL1
+% 5) spiralL2
+% 6) spiralL3
 % l3_gt = get_time_gotube([gotubeLpath, tubefiles(end).name]);
 % l2_gt = get_time_gotube([gotubeLpath, tubefiles(end-1).name]);
 % l1_gt = get_time_gotube([gotubeLpath, tubefiles(end-2).name]);
@@ -30,7 +30,7 @@ fpa3_gt = get_time_gotube([gotubeLpath, tubefiles(end-2).name]);
 %% Flowstar
 flowLpath = 'flowstar/results/';
 if is_codeocean
-    flowLpath = [path_results(), 'flowresults/'];
+    flowLpath = ['results/logs/flowresults/'];
 end
 l1_f = get_time_flowstar([flowLpath, 'spiral_L1.txt']);
 l2_f = get_time_flowstar([flowLpath, 'spiral_L2.txt']);
@@ -42,7 +42,7 @@ l3_f = get_time_flowstar([flowLpath, 'spiral_L3.txt']);
 %% Juliareach
 juliaLpath = 'juliareach/results/';
 if is_codeocean
-    juliaLpath = [path_results(), 'juliaresults/'];
+    juliaLpath = ['/results/logs/juliaresults/'];
 end
 spiral = load([juliaLpath, 'spiral_time.mat']);
 l1_jl = spiral.time_4;
@@ -71,10 +71,14 @@ fpa3_nnv = load([nnvLpath, 'fpa_reach.mat']);
 fpa3_nnv = fpa3_nnv.time;
 
 %% Create table
-flowstar = [string(l1_f); string(l2_f); string(l3_f); " -- "; " --", "--"];
-gotube = [" -- "; " --", "--"; string(fpa1_gt); string(fpa2_gt); string(fpa3_gt)];
+flowstar = [string(l1_f); string(l2_f); string(l3_f); " -- "; " --"; "--"];
+gotube = [" -- "; " --"; "--"; string(fpa1_gt); string(fpa2_gt); string(fpa3_gt)];
 juliareach = [l1_jl; l2_jl; l3_jl; fpa1_jl; fpa2_jl; fpa3_jl];
 nnvode = [l1_nnv; l2_nnv; l3_nnv; fpa1_nnv; fpa2_nnv; fpa3_nnv];
 % generate table
-T = table(floswtar,gotube, juliareach, nnvode);
-table2latex(T,'/results/logs/table3.tex');
+T = table(flowstar, gotube, juliareach, nnvode)
+if is_codeocean
+    table2latex(T,'/results/logs/table3.tex');
+else
+    table2latex(T,'table3.tex');
+end

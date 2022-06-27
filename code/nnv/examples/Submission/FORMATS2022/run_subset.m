@@ -27,5 +27,7 @@ cd Comparison
 cd nnv_reach
 run run_subset.m
 cd ..
-run generate_table_subset.m
+run generate_table_subset.m % create Table 3
+run process_results_subset.m % plot FPA
+run plot_spiralL.m
 cd ../..

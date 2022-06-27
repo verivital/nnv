@@ -39,13 +39,13 @@ ls /code/nnv/examples/Submission/FORMATS2022/Comparison/
 # may need to chmod some things
 
 cd /code/nnv/examples/Submission/FORMATS2022/Comparison
-chmod +x run_tools_short
+chmod +x run_tools
 chmod +x run_tools_subset
 
 echo "STARTING COMPARISONS"
-# ./run_tools_short
+# ./run_tools # Longer version, paper results (all benchmarks, table 3)
 #echo "STARTING SUBSET"
-./run_tools_subset
+./run_tools_subset # Default, faster (linear spiral and FPA, table 3)
 
 # start up matlab and run
 cd ~/

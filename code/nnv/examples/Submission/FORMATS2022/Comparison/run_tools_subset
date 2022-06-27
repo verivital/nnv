@@ -28,6 +28,7 @@ mkdir saved_outputs
 chmod +x run_formats_subset.sh
 ./run_formats_subset.sh # works, uncomment for full run
 mv /GoTube-main/saved_outputs /results/logs/tuberesults
+mv /GoTube-main/logged /results/logs/tuberesults
 
 
 # Run flowstar

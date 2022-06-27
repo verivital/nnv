@@ -1,14 +1,22 @@
 %% Process and plot all reachability results
 % Load all reachability results and generate plots for paper
 %% 1 - Load JuliaReach
-julia_path = "juliaresults/";
+if is_codeocean
+    julia_path = "/results/logs/juliaresults/";
+else
+    julia_path = "juliaresults/";
+end
 % Cartpole
 cartpole_julia_2 = load(julia_path + "cartpole2.mat");
 % FPA
 fpa_julia_2 = load(julia_path+'fpa2.mat');
 
 %% 2 - Load Gotube
-gotube_path = "/gotuberesults/";
+if is_codeocean
+    gotube_path = "/results/logs/tuberesults/";
+else
+    gotube_path = "Gotube/results/"
+end
 % Damped Forced Pendulum
 fpa1_gotube = "fpaCTRNN_10.0_0.01_1000_0.01_0.01_1.5_GoTube.txt";
 fpa1_gotube = gotube_path+fpa1_gotube; 
@@ -53,14 +61,19 @@ ax = gca; % Get current axis
 ax.XAxis.FontSize = 15; % Set font size of axis
 ax.YAxis.FontSize = 15;
 legend([pg pn pj],{'GoTube', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',14);
-saveas(f_fpa,'fpa_compare.pdf');
+if is_codeocean
+    saveas(f_fpa,'/results/logs/fpa_compare.pdf');
+else
+    saveas(f_fpa,'fpa_compare.pdf');
+end
 pause(0.1); % Make sure figure is saved before modifying axis (zooming in)
 xlim([-1.5 -1.3])
 ylim([-2.14 -1.98])
-% legend('off');
-% legend([pg pn pj],{'GoTube', 'NNV (ours)', 'Juliareach'},"Location","best");
-saveas(f_fpa,'fpa_compare_zoom.pdf');
-
+if is_codeocean
+    saveas(f_fpa,'/results/logs/fpa_compare_zoom.pdf');
+else
+    saveas(f_fpa,'fpa_compare_zoom.pdf');
+end
 
 %% 6 - Plot Cartpole reachsets
 f_cp = figure;
@@ -80,13 +93,21 @@ ax = gca; % Get current axis
 ax.XAxis.FontSize = 15; % Set font size of axis
 ax.YAxis.FontSize = 15;
 legend([pg pn pj],{'GoTube', 'NNVODE (ours)', 'Juliareach'},"Location","best",'FontSize',14);
-saveas(f_cp,'cartpole_compare.pdf');
+if is_codeocean
+    saveas(f_fpa,'/results/logs/cartpole_compare.pdf');
+else
+    saveas(f_cp,'cartpole_compare.pdf');
+end
 pause(0.1); % Make sure figure is saved before modifying axis (zooming in)
 xlim([0.6 0.68])
 ylim([0.27 0.37])
 % legend('off');
 % legend([pg pn pj],{'GoTube', 'NNV (ours)', 'Juliareach'},"Location","best");
-saveas(f_cp,'cartpole_compare_zoom.pdf');
+if is_codeocean
+    saveas(f_fpa,'/results/logs/cartpole_compare_zoom.pdf');
+else
+    saveas(f_cp,'cartpole_compare_zoom.pdf');
+end
 
 %% 7 - Plot Damped Oscillator reachsets
 zonoF0 = load("nnvresults/DampedOsc_ilnodenl_true_0_zonoF.mat");
@@ -121,11 +142,19 @@ ax = gca; % Get current axis
 ax.XAxis.FontSize = 15; % Set font size of axis
 ax.YAxis.FontSize = 15;
 legend([p1 p2 p3 p4],{'ZonoF','ZonoA', 'PolyF', 'PolyA'},"Location","best",'FontSize',14);
-saveas(fosc0,'dampedOsc_compare0.pdf');
+if is_codeocean
+    saveas(fosc0,'/results/logs/dampedOsc_compare0.pdf');
+else
+    saveas(fosc0,'dampedOsc_compare0.pdf');
+end
 pause(0.1);
 xlim([-1.1891 -1.18898])
 ylim([0.93732 0.93759])
-saveas(fosc0,'dampedOsc_compare0_zoomed.pdf');
+if is_codeocean
+    saveas(fosc0,'/results/logs/dampedOsc_compare0_zoomed.pdf');
+else
+    saveas(fosc0,'dampedOsc_compare0_zoomed.pdf');
+end
 
 fosc1 = figure;
 hold on;
@@ -151,8 +180,16 @@ ax = gca; % Get current axis
 ax.XAxis.FontSize = 15; % Set font size of axis
 ax.YAxis.FontSize = 15;
 legend([p1 p2 p3 p4],{'ZonoF','ZonoA', 'PolyF', 'PolyA'},"Location","best",'FontSize',14);
-saveas(fosc1,'dampedOsc_compare1.pdf');
+if is_codeocean
+    saveas(fosc0,'/results/logs/dampedOsc_compare1.pdf');
+else
+    saveas(fosc1,'dampedOsc_compare1.pdf');
+end
 pause(0.1);
 xlim([-1.17825 -1.17815])
 ylim([0.98400 0.98414])
-saveas(fosc1,'dampedOsc_compare1_zoomed.pdf');
+if is_codeocean
+    saveas(fosc0,'/results/logs/dampedOsc_compare1_zoomed.pdf');
+else
+    saveas(fosc1,'dampedOsc_compare1_zoomed.pdf');
+end

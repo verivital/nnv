@@ -31,7 +31,7 @@ ax = gca; % Get current axis
 ax.XAxis.FontSize = 14; % Set font size of axis
 ax.YAxis.FontSize = 14;
 if is_codeocean
-    run /flowresults/outputs/spiralL3.m
+    run /results/logs/flowresults/outputs/spiralL3.m
 else
     run flowstar/results/spiralL3.m
 end

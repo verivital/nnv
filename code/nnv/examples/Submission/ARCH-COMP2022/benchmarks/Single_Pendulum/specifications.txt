@@ -1,0 +1,12 @@
+Initial states:
+
+x1 = [1.0, 1.2]
+x2 = [0.0, 0.2]
+
+The controller timestep (control period) = 0.05 (seconds).
+
+Property:
+
+x1 in [0.0,1.0] for 0.5 <= t <=1
+
+Refer to this for more details: https://github.com/amaleki2/benchmark_closedloop_verification/blob/master/AINNC_benchmark.pdf

@@ -50,7 +50,7 @@ minIdx = 1;
 % Store all reachable sets
 reachAll = init_set;
 % Execute reachabilty analysis
-steps = 11;
+steps = 10;
 uNN_all = cell(1,steps);
 yNN_all = cell(1,steps);
 idx_all = cell(1,steps);
@@ -59,11 +59,6 @@ rand_idx = cell(1,steps);
 t = tic;
 reachMethod = 'approx-star';
 for i =1:steps
-    % Compute plant reachable set
-    if i > 1
-        init_set = plantReach(plant, init_set, input_set);
-        reachAll = [reachAll init_set];
-    end
     % Compute controller output set
     uNN = plantOut(init_set,out_mat);
     yNN = reach_nn(minIdx, uNN, networks, reachMethod);
@@ -73,6 +68,9 @@ for i =1:steps
     yNN_all{i} = yNN;
     idx_all{i} = minIdx;
     inp_all{i} = input_set;
+    % Compute plant reachable set
+    init_set = plantReach(plant, init_set, input_set);
+    reachAll = [reachAll init_set];
 end
 timing = toc(t);
 path_out = [path_results(), filesep, 'VCAS', filesep];
@@ -80,7 +78,7 @@ path_out = [path_results(), filesep, 'VCAS', filesep];
 save([path_out, 'middle28'],'timing','reachAll','-v7.3')
 
 %% Visualize results
-times = 0:controlPeriod:(steps-1)*controlPeriod;
+times = 0:controlPeriod:steps*controlPeriod;
 f = figure;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,3,'b');
 grid;
@@ -91,6 +89,8 @@ xlabel('Distance');
 ylabel('Tau');
 
 f2 = figure;
+rectangle('Position',[0,-100,10,200],'FaceColor',[0.5 0 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
+hold on;
 Star.plotRanges_2D(reachAll,1,times,'b');
 grid;
 xlabel('Time (s)');

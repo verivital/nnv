@@ -25,10 +25,10 @@ function controller = load_docking_controller(onnxfile)
     if exist('LayerS','class')
         % n = 5; % pre + 3 layers + post
         Lpre = LayerS(pre,zeros(4,1),'purelin');
-        L1 = LayerS(w1,b1,'purelin');
+        L1 = LayerS(w1,b1,'tansig');
         L2 = LayerS(w2,b2,'tansig');
         L3 = LayerS(w3,b3,'purelin');
-        Lpost = LayerS(post,zeros(4,1),'purelin');
+        Lpost = LayerS(post,zeros(4,1),'tansig');
         Layers = [Lpre,L1,L2,L3,Lpost];
         controller = FFNNS(Layers);
     else
@@ -40,15 +40,15 @@ function controller = load_docking_controller(onnxfile)
     if ~isfile('model.mat')
         W = {}; b = {};
         % weights
-        W{1} = pre; W{2} = w1; W{3} = w2; W{4} = w3; W{5} = post;
+        W{1} = pre; W{2} = w1; W{3} = w2; W{4} = w3; W{5} = post(1:2,:);
         % bias
-        b{1} = zeros(4,1); b{2} = b1; b{3} = b2; b{4} = b3; b{5} = zeros(4,1);
+        b{1} = zeros(4,1); b{2} = b1; b{3} = b2; b{4} = b3; b{5} = zeros(2,1);
         % activation functions
-        act_fcns = ['linear';'linear';'tanh  '; 'linear'; 'linear'];
+        act_fcns = ['linear';'tanh  ';'tanh  '; 'linear'; 'linear'];
         % Save model
         save('model.mat','W','b','act_fcns');
     end
     if ~isfile('bias_model.onnx')
-        ToONNX('model.mat','redo_model.onnx');
+        ToONNX('model.mat','bias_model.onnx');
     end
 end

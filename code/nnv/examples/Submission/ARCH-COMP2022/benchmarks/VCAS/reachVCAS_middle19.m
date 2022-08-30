@@ -21,7 +21,7 @@ networks.vcas9 = Load_nn('nnv_networks/VertCAS_noResp_pra09_v9_20HU_200.mat');
 % 9) SCL2500
 
 % Accelerations
-g = 32.2; %ft/s
+g = 32.2; %ft/s^2
 h0.COC = [-g/8, 0, g/8];
 h0.DNC = [-g/3, -7*g/24, -g/4];
 h0.DND = [g/4, 7*g/24, g/3];
@@ -31,12 +31,6 @@ h0.SDES1500 = -g/3;
 h0.SCL1500 = g/3;
 h0.SDES2500 = -g/3;
 h0.SCL2500 = g/3;
-
-% Ranges and means
-% minIV = [-8000.0,-100.0,-100.0,0.0];               % Minimum Input Values
-% maxIV = [8000.0,100.0,100.0,40.0];                 % Maximum Input Values
-% means = [0.0,0.0,0.0,20.0,-0.432599379632];        % Means
-% ranges =[16000.0,200.0,200.0,40.0,3.102300001];    % Ranges
 
 controlPeriod = 1;
 out_mat = [1 0 0 0;0 1 0 0;0 0 1 0];
@@ -55,7 +49,7 @@ minIdx = 1;
 % Store all reachable sets
 reachAll = init_set;
 % Execute reachabilty analysis
-steps = 11;
+steps = 10;
 uNN_all = cell(1,steps);
 yNN_all = cell(1,steps);
 idx_all = cell(1,steps);
@@ -64,11 +58,6 @@ rand_idx = cell(1,steps);
 t = tic;
 reachMethod = 'approx-star';
 for i=1:steps
-    % Compute plant reachable set
-    if i > 1
-        init_set = plantReach(plant, init_set, input_set);
-        reachAll = [reachAll init_set];
-    end
     % Compute controller output set
     uNN = plantOut(init_set,out_mat);
     yNN = reach_nn(minIdx, uNN, networks, reachMethod);
@@ -78,24 +67,30 @@ for i=1:steps
     yNN_all{i} = yNN;
     idx_all{i} = minIdx;
     inp_all{i} = input_set;
+    % Compute plant reachable set
+    init_set = plantReach(plant, init_set, input_set);
+    reachAll = [reachAll init_set];
 end
 timing = toc(t);
 path_out = [path_results(), filesep, 'VCAS', filesep];
-
+mkdir(path_out);
 save([path_out, 'middle19'],'timing','reachAll','-v7.3')
 
 %% Visualize results
-times = 0:controlPeriod:(steps-1)*controlPeriod;
+times = 0:controlPeriod:steps*controlPeriod;
 f = figure;
+rectangle('Position',[-100,10,200,20],'FaceColor',[0.5 0 0 0.5],'EdgeColor','y', 'LineWidth',0.1);
+hold on;
 Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,3,'b');
 grid;
-hold on;
 Star.plotBoxes_2D_noFill(reachAll,1,3,'m');
 grid;
 xlabel('Distance');
 ylabel('Tau');
 
 f2 = figure;
+rectangle('Position',[0,-100,10,200],'FaceColor',[0.5 0 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
+hold on;
 Star.plotRanges_2D(reachAll,1,times,'b');
 grid;
 xlabel('Time (s)');

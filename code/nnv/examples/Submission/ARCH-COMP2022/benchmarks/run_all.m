@@ -1,45 +1,45 @@
 % ACC (final)
 cd ACC;
-run reach.m; 
-cd ..;
-
-% Aircraft
-cd Aircraft;
-
+run reach.m; % verified
 cd ..;
 
 % Airplane
 cd Airplane;
-
-cd ..;
-
-% Tora
-cd Tora_Heterogeneous;
-
-cd ../Benchmark9-Tora;
-
-cd ..;
-
-% Unicycle
-cd Benchmark10-Unicycle;
-
-cd ..;
-
-% Docking
-cd Docking;
-
+run reach.m; % Falsified
 cd ..;
 
 % Double Pendulum (final)
 cd Double_Pendulum;
-run reach_more2.m;
-run reach_less2.m;
+run reach_more.m; % falsified
+run reach_less.m; % falsified
 cd ..;
 
 % Single Pendulum (final)
 cd Single_Pendulum;
-run reach2.m;
+run reach.m; % verified
 cd ..;
 
 % VCAS
 cd VCAS;
+run run_vcas.m; % verified
+cd ..;
+
+% Tora
+cd Tora_Heterogeneous;
+run reachTora_reluTanh.m;
+% sigmoid -> running
+% relu+tanh -> verified
+% Tora relu -> unknown 
+% cd ..;
+
+% Quad
+% Unknown
+
+% Attitude
+% Unknown 
+
+% Unicycle
+% unknown -> overapproximation
+
+% Docking 
+% unknown -> overapproximation

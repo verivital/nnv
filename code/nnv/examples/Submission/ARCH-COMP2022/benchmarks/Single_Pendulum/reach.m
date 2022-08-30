@@ -14,7 +14,7 @@ plant = NonLinearODE(3,1,@dynamics_sp, reachStep, controlPeriod, eye(3));
 %% Reachability analysis
 % Initial set
 % lb = [1.0; 0.0; 0];
-lb = [1.19; 0.19; 0];
+lb = [1.1999; 0.1999; 0];
 ub = [1.2; 0.2; 0];
 init_set = Star(lb,ub);
 % Input set
@@ -30,22 +30,22 @@ reachAll = init_set;
 num_steps = 11;
 t = tic;
 for i=1:num_steps
-    % Compute plant reachable set
-    init_set = plantReach(plant,init_set, input_set,'lin');
-    reachAll = [reachAll init_set];
-%     reachCell{i+1} = init_set;
     % Compute controller output set
     inp_nn = [];
     for i = 1:length(init_set)
         inp_nn = [inp_nn init_set(i).affineMap([1 0 0;0 1 0],[])];
     end
     input_set = net.reach(inp_nn,'approx-star');
+    % Compute plant reachable set
+    init_set = plantReach(plant,init_set, input_set,'lin');
+    reachAll = [reachAll init_set];
+%     reachCell{i+1} = init_set;
 end
 t = toc(t);
 
 %% Random simulations
 % Initial region
-lb = [1.19; 0.19];
+lb = [1.1999; 0.1999];
 ub = [1.2; 0.2];
 N = 20; % number of simulations
 r1 = unifrnd(lb(1),ub(1),[N 1]);
@@ -57,9 +57,9 @@ for k=1:N
     sims(:,k,1) = rT(end,:);
     cA = 0; % control action
     for s = 2:num_steps+1
+        cA = net.evaluate(rT(end,1:2)');
         [~,rT] = plant.evaluate(rT(end,:), cA);
         sims(:,k,s) = rT(end,:);
-        cA = net.evaluate(rT(end,1:2)');
     end
 end
 
@@ -80,7 +80,7 @@ grid;
 xlabel('Time (s)');
 ylabel('\Theta');
 xlim([0 0.6])
-ylim([1 1.25])
+ylim([0.95 1.25])
 saveas(f,[path_out, 'reach.pdf']);
 
 

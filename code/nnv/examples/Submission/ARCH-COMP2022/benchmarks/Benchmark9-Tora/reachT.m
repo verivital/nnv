@@ -10,7 +10,7 @@ steps = length(time);
 % Initial set
 lb = [0.6; -0.7; -0.4; 0.5];
 % ub = [0.7; -0.6; -0.3; 0.6];
-ub = [0.61; -0.69; -0.39; 0.51];
+ub = [0.6; -0.7; -0.4; 0.5];
 % ub = [0.7; -0.69; -0.39; 0.51];
 % init_set = Box(lb,ub);
 offset = 10;
@@ -19,7 +19,7 @@ scale_factor = 1;
 plant.options.intermediateOrder = 20;
 plant.options.zonotopeOrder = 20;
 plant.options.taylorTerms  = 5;
-% plant.set_maxError(0.01*ones(4,1))
+% plant.set_maxError(0.001*ones(4,1))
 
 %% Reachability analysis
 init_set = Star(lb,ub);
@@ -32,16 +32,16 @@ reachLin = init_set;
 % Execute reachabilty analysis
 % for i =1:steps
 t = tic;
-for i=1:4
-    % Compute plant reachable set
-    init_set = plantReach(plant,init_set,input_set,'lin');
-    reachLin = [reachLin init_set];
+for i=1:15
     % Compute controller output set
-    inp_set = net.reach(init_set,'exact-star');
+    inp_set = net.reach(init_set,'approx-star');
     input_set = [];
     for k = 1:length(inp_set)
         input_set = [input_set inp_set(k).affineMap(1,-offset)];
     end
+    % Compute plant reachable set
+    init_set = plantReach(plant,init_set,input_set,'lin');
+    reachLin = [reachLin init_set];
 end
 tlin = toc(t);
 
@@ -86,6 +86,11 @@ function init_set = plantReach(plant,init_set,input_set,algoC)
     end
     init_set = ss;
 end
+
+%% Notes
+
+% Even when we start with no uncertainty, it just builds up very quickly,
+% unable to verify the system.
 
 % Reduce the number of star sets by checking if one is contained in the others
 % We'll do by using the ranges function

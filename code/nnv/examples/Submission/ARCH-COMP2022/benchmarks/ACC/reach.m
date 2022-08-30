@@ -1,7 +1,7 @@
 %% Reachability analysis of ACC
 % Load components and set reachability parameters
 net = Load_nn('controller_5_20.mat');
-reachStep = 0.01;
+reachStep = 0.02;
 controlPeriod = 0.1;
 output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity
 plant = NonLinearODE(6,1,@dynamicsACC, reachStep, controlPeriod, output_mat);
@@ -43,9 +43,9 @@ times = reachStep:reachStep:tF;
 mkdir([path_results(), filesep, 'ACC'])
 save([path_results(), filesep, '/ACC/reach.mat'],'R','rT','-v7.3');
 f = figure;
-Star.plotRanges_2D(outAll,2,times,'r');
+Star.plotRanges_2D(outAll,2,times,'b');
 hold on;
-Star.plotRanges_2D(safe_dis,1,times,'b');
+Star.plotRanges_2D(safe_dis,1,times,'r');
 xlabel('Time (s)');
 ylabel('Distance (m)')
 saveas(f,[path_results(), filesep, '/ACC/reach.pdf']);

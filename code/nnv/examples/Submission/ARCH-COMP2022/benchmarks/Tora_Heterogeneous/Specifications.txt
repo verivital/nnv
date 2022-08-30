@@ -6,7 +6,7 @@ x3 = [0.51, 0.54]
 x4 = [-0.3, -0.28]
 
 t = 5 seconds
-steps = 10
+steps = 10 (control period = 0.5s)
 
 Goal states:
 

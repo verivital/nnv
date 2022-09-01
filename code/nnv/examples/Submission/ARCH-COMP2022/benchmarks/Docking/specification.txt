@@ -1,0 +1,10 @@
+Initial States:
+    x1 = [70, 106]
+    x2 = [70, 106]
+    x3 = [-0.28, 0.28]
+    x4 = [-0.28, 0.28]
+
+control step = 1 second
+
+Property:
+    sqrt(x3^2 + x4^2) <= 0.2 + 2*0.001027*sqrt(x1^2 + x2^2)

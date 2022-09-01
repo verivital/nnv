@@ -286,14 +286,15 @@ classdef Star
             % update: 7/15/2020 The isEmptySet method in Polyhedron object
             % has bug
             
-            options = optimoptions(@linprog, 'Display','none'); 
-            options.OptimalityTolerance = 1e-10; % set tolerance
+%             options = optimoptions(@linprog, 'Display','none'); 
+%             options.OptimalityTolerance = 1e-10; % set tolerance
             f = zeros(1, obj.nVar);
-            [~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-            if exitflag == 1
+%             [~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+            [~, ~ , exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+            if exitflag > 0
                 bool = 0;
-            elseif exitflag == -2
-                bool = 1;
+%             elseif exitflag == -2
+%                 bool = 1;
             else
                 error('Error, exitflag = %d', exitflag);
             end
@@ -996,26 +997,31 @@ classdef Star
             if all(f(:)==0)
                 xmin = obj.V(index,1);
             else               
-                if strcmp(lp_solver, 'linprog')
-                    options = optimoptions(@linprog, 'Display','none');
-                    options.OptimalityTolerance = 1e-10; % set tolerance
-                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options); 
-                    if exitflag == 1
-                        xmin = fval + obj.V(index, 1);
-                    else
-                        error('Cannot find an optimal solution, exitflag = %d', exitflag);
-                    end    
-                elseif strcmp(lp_solver, 'glpk')
+%                 if strcmp(lp_solver, 'linprog')
+                options = optimoptions(@linprog, 'Display','none');
+                options.OptimalityTolerance = 1e-10; % set tolerance
+                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options); 
+                if exitflag == 1
+                    xmin = fval + obj.V(index, 1);
+                else
                     [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                     if exitflag == 5
                         xmin = fval + obj.V(index, 1);
                     else
                         error('Cannot find an optimal solution, exitflag = %d', exitflag);
                     end
+                end    
+%                 elseif strcmp(lp_solver, 'glpk')
+%                     [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+%                     if exitflag == 5
+%                         xmin = fval + obj.V(index, 1);
+%                     else
+%                         error('Cannot find an optimal solution, exitflag = %d', exitflag);
+%                     end
                     
-                else
-                    error('Unknown lp solver, should be glpk or linprog'); 
-                end
+%                 else
+%                     error('Unknown lp solver, should be glpk or linprog'); 
+%                 end
 
             end
             
@@ -1144,26 +1150,19 @@ classdef Star
             if all(f(:)==0)
                 xmax = obj.V(index,1);
             else
-                if strcmp(lp_solver, 'linprog')
-                    options = optimoptions(@linprog, 'Display','none');
-                    options.OptimalityTolerance = 1e-10; % set tolerance
-                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options); 
-                    if exitflag == 1
-                        xmax = -fval + obj.V(index, 1);
-                    else
-                        error('Cannot find an optimal solution, exitflag = %d', exitflag);
-                    end    
-                elseif strcmp(lp_solver, 'glpk')
+                options = optimoptions(@linprog, 'Display','none');
+                options.OptimalityTolerance = 1e-10; % set tolerance
+                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options); 
+                if exitflag == 1
+                    xmax = -fval + obj.V(index, 1);
+                else
                     [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                     if exitflag == 5
                         xmax = -fval + obj.V(index, 1);
                     else
                         error('Cannot find an optimal solution, exitflag = %d', exitflag);
                     end
-                    
-                else
-                    error('Unknown lp solver, should be glpk or linprog'); 
-                end   
+                end  
 
             end
             

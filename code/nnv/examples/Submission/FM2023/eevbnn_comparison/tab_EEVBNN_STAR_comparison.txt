@@ -1,0 +1,17 @@
+\begin{table}[]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l@{\hskip 0.2in}l@{\hskip 0.2in}cc@{\hskip 0.15in}cc@{\hskip 0.2in}cс@{\hskip 0.15in}ccc} \hline
+\multirow{3}{*}{\textbf{Network}} & \multirow{3}{*}{$\delta$}& \multicolumn{4}{c}{\textbf{EEVBNN}} & \multicolumn{6}{c}{\textbf{Approx-Star}} \\ 
+& & \multicolumn{2}{l}{Time(s)} & \multicolumn{2}{l}{\#Sol} & \multicolumn{3}{c}{Time(s)} & \multicolumn{3}{c}{\#Sol} \\  & & UN & S & UN & S & UN & S & UK & UN & S & UK \\ \hline
+\multirow{2}{*}{\textbf{mnist-s-adv0.1}} & 0.1 & 0.021 & 0.022 & 436 & 64 & 0.053 & 0.047 & 0.043 & 42 & 227 & 231 \\ 
+ & 0.1 & 0.164 & 0.177 & 454 & 46 & 1.411 & 1.114 & 1.276 & 42 & 408 & 50 \\ \hline
+ \multirow{2}{*}{\textbf{mnist-s-adv0.3}} & 0.3 & 0.027 & 0.029 & 312 & 188 & 0.07 & 0.064 & 0.054 & 42 & 233 & 225 \\ 
+ & 0.3 & 0.169 & 0.171 & 379 & 121 & 2.653 & 2.185 & 1.69 & 42 & 394 & 64 \\ \hline
+ \multirow{2}{*}{\textbf{cifar10-s-adv2}} & 0.0078431 & 0.046 & 0.047 & 128 & 372 & 0.221 & 0.22 & 0.217 & 57 & 383 & 60 \\ 
+ & 0.0078431 & 0.304 & 0.341 & 147 & 353 & 4.565 & 4.5 & 4.492 & 57 & 405 & 38 \\ \hline
+ \multirow{2}{*}{\textbf{cifar10-s-adv8}} & 0.031373 & 0.064 & 0.068 & 94 & 406 & 1.013 & 1.02 & 1.019 & 57 & 334 & 109 \\ 
+ & 0.031373 & 0.342 & 0.372 & 123 & 377 & 10.365 & 10.789 & 10.637 & 57 & 378 & 65 \\ \hline
+ \end{tabular}} 
+ \caption{ Verification results for MLP1-4. \textit{Notation}:}\label{tab:eevbnn_star_001} 
+ \end{table}

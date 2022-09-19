@@ -119,11 +119,11 @@ classdef TanSig
             % @index: index of the neuron
             % @l: l = min(x[index]), lower bound at neuron x[index] 
             % @u: u = min(x[index]), upper bound at neuron x[index]
-            % @y_l: = logsig(l); output of logsig at lower bound
-            % @y_u: = logsig(u); output of logsig at upper bound
-            % @dy_l: derivative of LogSig at the lower bound
-            % @dy_u: derivative of LogSig at the upper bound
-            
+            % @y_l: = tansig(l); output of tansig at lower bound
+            % @y_u: = tansig(u); output of tansig at upper bound
+            % @dy_l: derivative of TanSig at the lower bound
+            % @dy_u: derivative of TanSig at the upper bound
+
             % @S: output star set
             
             % author: Dung Tran
@@ -1257,9 +1257,9 @@ classdef TanSig
 
         end
 
-    
+
     end
-    
+
 
 methods(Static) % main reach method
 
@@ -1336,8 +1336,24 @@ methods(Static) % main reach method
 
             R = TanSig.reach_absdom_approx(I);
 
+        elseif strcmp(method, 'approx-rstar-2') % over-approximate analysis using relaxed star with 2 constraints
+
+            R = TanSig.reach_relaxed_star_approx(I);
+
+        elseif strcmp(method, 'approx-rstar-4') % over-approximate analysis using relaxed star with 4 constraints
+
+            R = TanSig.reach_relaxed_star_four_constraints_approx(I);
+
+        elseif strcmp(method, 'approx-rstar-0')
+
+            R = TanSig.reach_relaxed_star_bound_approx(I);
+
+        elseif strcmp(method, 'approx-rstar-config')
+
+            R = TanSig.reach_relaxed_star_config_approx(I);
+
         else
-            error('Unknown or unsupported reachability method for layer with LogSig activation function');
+            error('Unknown or unsupported reachability method for layer with TanSig activation function');
         end
 
     end

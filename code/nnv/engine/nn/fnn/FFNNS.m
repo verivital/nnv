@@ -1865,6 +1865,218 @@ classdef FFNNS < handle
         end
         
         % verify robustness of classification feedforward networks
+        function [robust, cE, cands, vt] = verifyRBN_sigmoidal(varargin)
+            % @robust: = 1: the network is robust
+            %          = 0: the network is notrobust
+            %          = 2: robustness is uncertain
+            % @cE: a set of counter examples 
+            % @cands: candidate indexes in the case that the robustness is unknown
+            % @vt: verification time
+            
+            % author: Sung Woo Choi
+            
+            t = tic;
+            switch nargin                   
+                
+                case 3
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};                    
+                case 4
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    
+                case 5
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    
+                case 6
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                
+                case 7
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    
+                case 8
+                    obj = varargin{1};
+                    in_image = varargin{2};
+                    correct_id = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5}; 
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                    
+                case 2
+                    obj = varargin{1};
+                    if ~isstruct(varargin{2})
+                        error('The second input should be a struct variable');
+                    else
+                        if isfield(varargin{2}, 'inputSet')
+                            in_image = varargin{2}.inputSet;
+                        end
+                        if isfield(varargin{2}, 'correct_id')
+                            correct_id = varargin{2}.correct_id;
+                        end
+                        if isfield(varargin{2}, 'reachMethod')
+                            obj.reachMethod = varargin{2}.reachMethod;
+                        end
+                        if isfield(varargin{2}, 'numCores')
+                            obj.numCores = varargin{2}.numCores;
+                        end
+                        if isfield(varargin{2}, 'relaxFactor')
+                            obj.relaxFactor = varargin{2}.relaxFactor;
+                        end
+                        if isfield(varargin{2}, 'dis_opt')
+                            obj.dis_opt = varargin{2}.dis_opt;
+                        end
+                        if isfield(varargin{2}, 'lp_solver')
+                            obj.lp_solver = varargin{2}.lp_solver;
+                        end
+                    end
+                                        
+                otherwise
+                    error('Invalid number of inputs, should be 2, 3, 4, 5, 6, or 7');
+                     
+            end
+            
+            if correct_id > obj.nO || correct_id < 1
+                error('Invalid correct id');
+            end
+            
+            if strcmp(obj.reachMethod, 'exact-star')
+                error('\nThis method does not support exact-star reachability, please choose approx-star');
+            end
+            
+            robust = 2; % unknown first
+            cands = []; 
+            cE = [];
+            
+            if isa(in_image, 'Star')
+                state_lb = in_image.state_lb;
+                state_ub = in_image.state_ub;
+            elseif isa(in_image, 'RStar') || isa(in_image, 'RStar0')
+                state_lb = in_image.lb{1};
+                state_ub = in_image.ub{1};
+            elseif isa(in_image, 'Zono')
+                [state_lb, state_ub] = in_image.getRanges;
+            end
+            
+            if ~isempty(state_lb)
+                y_lb = obj.evaluate(state_lb);
+                [~,max_id] = max(y_lb);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = state_lb;
+                end
+
+                y_ub = obj.evaluate(state_ub);
+                [~,max_id] = max(y_ub);
+                if max_id ~= correct_id
+                    robust = 0;
+                    cE = state_ub;
+                end
+            end
+            
+            if robust == 2               
+                empty_set = 0;
+                obj.reach(in_image, obj.reachMethod, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                R = obj.outputSet;
+                if isa(R, 'Zono') || isa(R, 'RStar0')
+                    [lb, ub] = R.getRanges;
+                    R = R.toStar;
+                elseif isa(R, 'RStar')
+                    if strcmp(obj.reachMethod, 'approx-rstar-2') || strcmp(obj.reachMethod, 'approx-rstar-4')
+                        [lb, ub] = R.getRanges;
+                        empty_set = R.isEmptySet;
+                    else
+                        error('Only approx-rstar is supported')
+                    end
+                else
+                    if ~R.isEmptySet
+                        N = R.dim;
+                        lb = R.getMins(1:N, [], [], obj.lp_solver);
+                        ub = R.getMaxs(1:N, [], [], obj.lp_solver);
+                    else
+                        empty_set = 1;
+                        lb = [];
+                        ub = [];
+                        error('Star is an empty set');
+                    end
+                end
+               
+                max_val = lb(correct_id);
+                max_cd = find(ub > max_val); % max point candidates
+                max_cd(max_cd == correct_id) = []; % delete the max_id
+
+                if isempty(max_cd)
+                    robust = 1;
+                else
+                    if ~empty_set
+                        % first verify with outter-box only
+                        if isa(R, 'RStar') || isa(R, 'Star')
+                            S = Star(lb, ub);
+                            n = length(max_cd);
+                            count = 0;
+                            for i=1:n
+
+                                if S.is_p1_larger_than_p2(max_cd(i), correct_id)
+                                    cands = max_cd(i);
+                                    break;
+                                else
+                                    count = count + 1;
+                                end
+                            end
+
+                            if count == n
+                                robust = 1;
+                            end
+                        end
+                    else
+                        error('Infeasible set');
+                    end
+                    
+                    if robust ~= 1
+                        n = length(max_cd);
+                        count = 0;
+                        for i=1:n
+                            if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                                cands = max_cd(i);
+                                break;
+                            else
+                                count = count + 1;
+                            end
+                        end
+
+                        if count == n
+                            robust = 1;
+                        end
+                    end
+                end
+   
+            end
+            
+            vt = toc(t);
+           
+        end
+        
+        
+        % verify robustness of classification feedforward networks
         function [robust, cE, cands, vt] = verifyRBN(varargin)
             % @robust: = 1: the network is robust
             %          = 0: the network is notrobust
@@ -2021,6 +2233,7 @@ classdef FFNNS < handle
            
         end
         
+        
         % evaluate robustness of a classification feedforward network on an array of input (test) sets
         function [r, rb, cE, cands, vt] = evaluateRBN(varargin)
             % @in_images: input sets
@@ -2037,8 +2250,20 @@ classdef FFNNS < handle
             % author: Dung Tran
             % date:7/10/2020
             % update: 7/18/2020 : add dis_opt + lp_solver option
+            % update: 09/18/2022 : added evaluation for sigmoidal NN
             
             switch nargin
+                
+                case 9
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    correct_ids = varargin{3};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = varargin{5};
+                    obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    obj.dis_opt = varargin{7};
+                    obj.lp_solver = varargin{8};
+                    sigmoidal = varargin{9}; % set to 1 for sigmoidal neural network
                 
                 case 8
                     obj = varargin{1};
@@ -2049,6 +2274,7 @@ classdef FFNNS < handle
                     obj.relaxFactor = varargin{6}; % only for the approx-star method
                     obj.dis_opt = varargin{7};
                     obj.lp_solver = varargin{8};
+                    sigmoidal = 0;
                 
                 case 7
                     obj = varargin{1};
@@ -2058,6 +2284,8 @@ classdef FFNNS < handle
                     obj.numCores = varargin{5};
                     obj.relaxFactor = varargin{6}; % only for the approx-star method
                     obj.dis_opt = varargin{7};
+                    sigmoidal = 0;
+                    
                 case 6
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -2065,6 +2293,7 @@ classdef FFNNS < handle
                     obj.reachMethod = varargin{4};
                     obj.numCores = varargin{5};
                     obj.relaxFactor = varargin{6}; % only for the approx-star method
+                    sigmoidal = 0;
                     
                 case 5
                     obj = varargin{1};
@@ -2072,11 +2301,15 @@ classdef FFNNS < handle
                     correct_ids = varargin{3};
                     obj.reachMethod = varargin{4};
                     obj.numCores = varargin{5};
+                    sigmoidal = 0;
+                    
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     correct_ids = varargin{3};
-                    method = varargin{4};
+                    obj.reachMethod = varargin{4};
+                    obj.numCores = 1;
+                    sigmoidal = 0;
                     
                 case 2
                     obj = varargin{1};
@@ -2105,6 +2338,7 @@ classdef FFNNS < handle
                             obj.lp_solver = varargin{2}.lp_solver;
                         end
                     end
+                    sigmoidal = 0;
                     
                 otherwise
                     error('Invalid number of input arguments, should be 2, 3, 4, 5, 6, or 7');                    
@@ -2122,7 +2356,33 @@ classdef FFNNS < handle
             cE = cell(1,N);
             cands = cell(1,N);
             vt = zeros(1,N);
-            if ~strcmp(obj.reachMethod, 'exact-star')                
+            
+            if sigmoidal == 1
+                % verify reachable set of sigmoidal neural network             
+                if obj.numCores > 1 && N > 1
+                    parfor i=1:N
+                        
+                        [rb(i), cE{i}, cands{i}, vt(i)] = obj.verifyRBN_sigmoidal(in_images(i), correct_ids(i), obj.reachMethod, 1, obj.relaxFactor, obj.dis_opt, obj.lp_solver);                       
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end                             
+                    end
+                else 
+                    for i=1:N
+                        
+                        [rb(i),cE{i}, cands{i}, vt(i)] = obj.verifyRBN_sigmoidal(in_images(i), correct_ids(i), obj.reachMethod, obj.numCores, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                        if rb(i) == 1
+                            count(i) = 1;
+                        else
+                            count(i) = 0;
+                        end
+                    end
+                
+                end
+                
+            elseif ~strcmp(obj.reachMethod, 'exact-star')                
                 
                 % verify reachable set              
                 if obj.numCores > 1 && N > 1

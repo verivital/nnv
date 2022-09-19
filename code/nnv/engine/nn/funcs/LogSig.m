@@ -792,18 +792,38 @@ classdef LogSig
                 d32 = dmin.*(I.V(map1, 1) - u(map1)) + b;
 
 
-                y1 = dmin.*(-l(map1)) + a;
-                y2 = dmin.*(-u(map1)) + b;
-                g2 = (y2 - a)./(-l(map1));
-                g1 = (y1 - b)./(-u(map1));
+%                 y1 = dmin.*(-l(map1)) + a;
+%                 y2 = dmin.*(-u(map1)) + b;
+%                 g2 = (y2 - a)./(-l(map1));
+%                 g1 = (y1 - b)./(-u(map1));
+% 
+%                 % constraint 3: y <= g2 * x + y2
+%                 C33 = [-g2.*I.V(map1, 2:nv) V2(map1, :)];
+%                 d33 = g2.*I.V(map1, 1) + y2;
+% 
+%                 % constraint 4: y >= g1 * x + y1
+%                 C34 = [g1.*I.V(map1, 2:nv) -V2(map1, :)];
+%                 d34 = -g1.*I.V(map1, 1) - y1;
 
-                % constraint 3: y <= g2 * x + y2
-                C33 = [-g2.*I.V(map1, 2:nv) V2(map1, :)];
-                d33 = g2.*I.V(map1, 1) + y2;
+                l_map = l(map1);
+                u_map = u(map1);
+                y0 = logsig(0);
+                dy0 = logsig('dn', 0);
+                gu_x = (b - dmin .* u_map - y0) ./ (dy0 - dmin); % upper intersect x
+                gu_y = dy0.* gu_x + y0;% upper intersect y
+                gl_x = (a - dmin .* l_map - y0) ./ (dy0 - dmin); % lower intersect x
+                gl_y = dy0.* gl_x + y0; % lower intersect y
+                
+                m_u = (a - gu_y)./(l_map - gu_x);
+                m_l = (b - gl_y)./(u_map - gl_x);
 
-                % constraint 4: y >= g1 * x + y1
-                C34 = [g1.*I.V(map1, 2:nv) -V2(map1, :)];
-                d34 = -g1.*I.V(map1, 1) - y1;
+                % constraint 3: y[index] >= m_l * x[index] - m_l*u + y_u
+                C33 = [m_l.*I.V(map1, 2:nv) -V2(map1, :)];
+                d33 = -m_l.*I.V(map1, 1) + m_l.*u_map - b;
+                
+                % constraint 4: y[index] <= m_u * x[index] - m_u*l + y_l
+                C34 = [-m_u.*I.V(map1, 2:nv) V2(map1, :)];
+                d34 = m_u.*I.V(map1, 1) - m_u.*l_map + a;
 
                 C3 = [C31; C32; C33; C34]; 
                 d3 = [d31; d32; d33; d34];
@@ -1374,7 +1394,23 @@ methods(Static) % main reach method
         elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
 
             R = LogSig.reach_absdom_approx(I);
-
+            
+        elseif strcmp(method, 'approx-rstar-2') % over-approximate analysis using relaxed star with 2 constraints
+           
+            R = LogSig.reach_relaxed_star_approx(I);
+            
+        elseif strcmp(method, 'approx-rstar-4') % over-approximate analysis using relaxed star with 4 constraints
+            
+            R = LogSig.reach_relaxed_star_four_constraints_approx(I);
+            
+        elseif strcmp(method, 'approx-rstar-0')
+            
+            R = LogSig.reach_relaxed_star_bound_approx(I);
+            
+        elseif strcmp(method, 'approx-rstar-config')
+            
+            R = LogSig.reach_relaxed_star_config_approx(I);
+            
         else
             error('Unknown or unsupported reachability method for layer with LogSig activation function');
         end

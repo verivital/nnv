@@ -11,6 +11,11 @@ end
 % default output path for path_results, ensure logs subdirectory there
 mkdir('/results/logs/')
 
+% ARCH-COMP 2022
+cd /code/nnv/examples/Submission/ARCH-COMP2022/benchmarks/
+run_all
+
+return 
 cd /code/nnv/examples/Submission/FORMATS2022/
 
 run_subset % run a subset of all FORMATS results, much faster

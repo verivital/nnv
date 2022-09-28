@@ -55,6 +55,9 @@ classdef LayerS
         end
         
         % Evaluation method
+        %
+        %%% updated by: Mykhailo Ivashchenko
+        %%% date: 09/17/2022 
         function y = evaluate(obj, x)  % evaluation of this layer with a specific vector
             if size(x, 1) ~= size(obj.W, 2) || size(x, 2) ~= 1
                 error('Invalid or inconsistent input vector')
@@ -76,7 +79,11 @@ classdef LayerS
             elseif strcmp(obj.f, 'purelin')   
                 y = y1;
             elseif strcmp(obj.f, 'softmax')
-                y = softmax(y1);
+                if isa(y1, 'dlarray')
+                    y = softmax(y1, 'DataFormat', 'C');
+                else
+                    y = softmax(y1);
+                end
             elseif strcmp(obj.f, 'leakyrelu')
                 y = y1;
                 y(find(y < 0)) = obj.gamma*y(find(y<0));
@@ -153,7 +160,7 @@ classdef LayerS
                     error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
-            if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-star-fast') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom') && ~strcmp(method, 'exact-polyhedron') && ~strcmp(method, 'approx-star-split') && ~strcmp(method,'approx-star-no-split')
+            if ~strcmp(method, 'exact-star') && ~strcmp(method, 'approx-star') && ~strcmp(method, 'approx-star-fast') && ~strcmp(method, 'approx-zono') && ~strcmp(method, 'abs-dom') && ~strcmp(method, 'exact-polyhedron') && ~strcmp(method, 'approx-star-split') && ~strcmp(method,'approx-star-no-split') && ~strcmp(method, 'approx-rstar-0') && ~strcmp(method, 'approx-rstar-2') && ~strcmp(method, 'approx-rstar-4')
                 error('Unknown reachability analysis method');
             end
             

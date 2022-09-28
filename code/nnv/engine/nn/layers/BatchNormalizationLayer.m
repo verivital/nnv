@@ -81,7 +81,7 @@ classdef BatchNormalizationLayer < handle
     % evaluation method
     methods
         
-        function y = evaluate(obj, input)
+        function y = evaluate_old(obj, input)
             % @input: input image
             % @y: output image with normalization
             
@@ -101,6 +101,45 @@ classdef BatchNormalizationLayer < handle
                                
         end       
         
+        function y = evaluate(obj, input)
+            % @input: input image
+            % @y: output image with normalization
+            
+            % author: Mykhailo Ivashchenko
+            % date: 9/17/2022
+            
+            if(length(size(input)) == 2) && size(obj.TrainedMean, 1) == 1 && size(obj.TrainedMean, 2) == 1 && length(size(obj.TrainedMean)) == 3
+                obj.TrainedMean = reshape(obj.TrainedMean, [size(obj.TrainedMean, 3) 1]);
+                obj.TrainedVariance = reshape(obj.TrainedVariance, [size(obj.TrainedVariance, 3) 1]);
+                obj.Epsilon = reshape(obj.Epsilon, [size(obj.Epsilon, 3) 1]);
+                obj.Offset = reshape(obj.Offset, [size(obj.Offset, 3) 1]);
+                obj.Scale = reshape(obj.Scale, [size(obj.Scale, 3) 1]);
+                obj.NumChannels = 1;
+            end
+            
+            if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
+                y = input - obj.TrainedMean;
+                for i=1:obj.NumChannels
+                    y(:,:,i) = y(:,:,i)./(sqrt(obj.TrainedVariance(:,:,i) + obj.Epsilon));
+                    y(:,:,i) = obj.Scale(:, :, i).*y(:,:,i) + obj.Offset(:,:,i);
+                end
+                
+            elseif ~isempty(obj.Scale) && ~isempty(obj.Offset) && isempty(obj.TrainedVariance) && isempty(obj.TrainedMean)
+                y = input;
+                if obj.NumChannels == 1
+                    y = obj.Scale.*y + obj.Offset;
+                else
+                    for i=1:obj.NumChannels
+                        y(:,:,i) = obj.Scale(:, :, i).*y(:,:,i) + obj.Offset(:,:,i);
+                    end
+                end
+            else
+                y = input;
+            end
+            
+            
+        end 
+        
     end
     
     
@@ -109,7 +148,7 @@ classdef BatchNormalizationLayer < handle
     methods
         
         
-        function image = reach_star_single_input(obj, in_image)
+        function image = reach_star_single_input_old(obj, in_image)
             % @in_image: an input imagestar
             % @image: output set
             
@@ -136,6 +175,62 @@ classdef BatchNormalizationLayer < handle
             
             x = in_image.affineMap(l, -l.*mean);
             image = x.affineMap(scale, offset);
+            
+        end
+        
+        function image = reach_star_single_input(obj, in_image)
+            % @in_image: an input imagestar
+            % @image: output set
+            
+            % author: Mykhailo Ivashchenko
+            % date: 9/17/2022
+            
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star') % CHANGED
+                error('Input is not a Star or ImageStar');
+            end
+                       
+            var = obj.TrainedVariance;
+            eps = obj.Epsilon;
+            mean = obj.TrainedMean;
+            scale = obj.Scale; 
+            offset = obj.Offset;
+                        
+            image = in_image;
+            
+            if isa(image, 'ImageStar')
+                if(length(size(obj.TrainedMean)) == 2) && size(image.V, 1) == 1 && size(image.V, 2) == 1 && length(size(image.V)) == 4
+                    obj.TrainedMean = reshape(obj.TrainedMean, [1 1 size(obj.TrainedMean, 1)]);
+                    obj.TrainedVariance = reshape(obj.TrainedVariance, [1 1 size(obj.TrainedVariance, 1)]);
+                    obj.Epsilon = reshape(obj.Epsilon, [1 1 size(obj.Epsilon, 1)]);
+                    
+                    if length(size(obj.Offset)) ~= 3
+                        obj.Offset = reshape(obj.Offset, [1 1 size(obj.Offset, 1)]);
+                    end
+                    
+                    if length(size(obj.Scale)) ~= 3
+                        obj.Scale = reshape(obj.Scale, [1 1 size(obj.Scale, 1)]);
+                    end
+                    obj.NumChannels = 1;
+                end
+                
+                x = in_image;
+                
+                if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
+                    l(1,1, obj.NumChannels) = 0;
+                    for i=1:obj.NumChannels
+                        l(1,1,i) = 1/sqrt(obj.TrainedVariance(1,1,i) + obj.Epsilon);
+                    end
+                    x = x.affineMap(l, -l.*obj.TrainedMean);
+                end   
+                
+                image = x.affineMap(obj.Scale, obj.Offset);
+            elseif isa(image, 'Star')
+                l = scale ./ sqrt(var + eps);
+                
+                for i=1:size(image.V, 2)
+                    image.V(:, i) = ((image.V(:, i) - mean) .* l + offset);
+                end
+            end
             
         end
         
@@ -177,7 +272,11 @@ classdef BatchNormalizationLayer < handle
             % date: 1/7/2020
             
             n = length(in_images);
-            images(n) = ImageStar; 
+            if isa(in_images(n), 'ImageStar')
+                images(n) = ImageStar; 
+            else
+                images(n) = Star; 
+            end 
             
             if strcmp(option, 'parallel')
                 parfor i=1:n

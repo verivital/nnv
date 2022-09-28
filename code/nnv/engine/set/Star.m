@@ -260,6 +260,11 @@ classdef Star
                         b1 = [I.be; -I.be];
                         obj = Star(V, [I.A; A1], [I.b; b1]);
                     end
+                    [lb, ub] = obj.getRanges;
+                    obj.predicate_lb = lb;
+                    obj.predicate_ub = ub;
+                    B = Box(lb, ub);
+                    obj.Z = B.toZono;
                 
                 case 0
                     % create empty Star (for preallocation an array of star)
@@ -286,15 +291,14 @@ classdef Star
             % update: 7/15/2020 The isEmptySet method in Polyhedron object
             % has bug
             
-%             options = optimoptions(@linprog, 'Display','none'); 
-%             options.OptimalityTolerance = 1e-10; % set tolerance
+            options = optimoptions(@linprog, 'Display','none'); 
+            options.OptimalityTolerance = 1e-10; % set tolerance
             f = zeros(1, obj.nVar);
-%             [~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-            [~, ~ , exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-            if exitflag > 0
+            [~, ~, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+            if exitflag == 1
                 bool = 0;
-%             elseif exitflag == -2
-%                 bool = 1;
+            elseif exitflag == -2 || exitflag == -9 || exitflag == -5 || exitflag == 0
+                bool = 1;
             else
                 error('Error, exitflag = %d', exitflag);
             end
@@ -343,7 +347,7 @@ classdef Star
             Ae = obj.V(:, 2:obj.nVar+1);
             be = s - obj.V(:,1);
             
-            P = Polyhedron('A', A, 'b', b, 'Ae', Ae, 'be', be);
+            P = Polyhedron('A', A, 'b', b, 'Ae', Ae, 'be', be, 'lb', obj.predicate_lb, 'ub', obj.predicate_ub);
             
             bool = ~P.isEmptySet;
                      
@@ -459,15 +463,48 @@ classdef Star
                 new_V = horzcat(new_c, V3);        
                 new_C = blkdiag(obj.C, X.C);        
                 new_d = vertcat(obj.d, X.d);
-                new_pred_lb = [obj.predicate_lb; X.predicate_lb];
-                new_pred_ub = [obj.predicate_ub; X.predicate_ub];
 
-%                 S = Star(new_V, new_C, new_d); % new Star has more number of basic vectors
-                S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub); % new Star has more number of basic vectors
+                S = Star(new_V, new_C, new_d); % new Star has more number of basic vectors
                 
             end
                 
         end
+        
+         % New Minkowski Sum (used for Recurrent Layer reachability)
+        function S = Sum(obj, X)
+            % @X: another star with same dimension
+            % @S: new star
+            
+            if ~isa(X, 'Star')
+                error('Input matrix is not a Star');
+            else
+                if X.dim ~= obj.dim
+                    error('Input star and current star have different dimensions');
+                end
+            end
+            
+            m1 = size(obj.V, 2);
+            m2 = size(X.V, 2);
+            
+            V1 = obj.V(:, 2:m1);
+            V2 = X.V(:, 2:m2);
+            
+            V3 = horzcat(V1, V2);
+            new_c = obj.V(:, 1) + X.V(:, 1);
+            new_V = horzcat(new_c, V3);        
+            new_C = blkdiag(obj.C, X.C);        
+            new_d = vertcat(obj.d, X.d);
+            
+            if ~isempty(obj.predicate_lb) && ~isempty(X.predicate_lb)
+                new_predicate_lb = [obj.predicate_lb; X.predicate_lb];
+                new_predicate_ub = [obj.predicate_ub; X.predicate_ub];
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+            else
+                S = Star(new_V, new_C, new_d); % new Star has more number of basic vectors
+            end
+       
+        end
+        
         
         % intersection with a half space: H(x) := Hx <= g
         function S = intersectHalfSpace(obj, H, g)
@@ -837,10 +874,10 @@ classdef Star
                             ub(i) = obj.V(i,1);
                         else
                             % **** linprog is much faster than glpk
-%                             options = optimoptions(@linprog, 'Display','none');
-%                             options.OptimalityTolerance = 1e-10; % set tolerance
-%                             [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-                            [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                            options = optimoptions(@linprog, 'Display','none');
+                            options.OptimalityTolerance = 1e-10; % set tolerance
+                            [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+                            %[~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                             if exitflag > 0
                                 lb(i) = fval + obj.V(i, 1);
                             else
@@ -848,8 +885,8 @@ classdef Star
                                 ub = [];
                                 break;
                             end
-%                             [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-                            [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                            [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+                            %[~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                             if exitflag > 0
                                 ub(i) = -fval + obj.V(i, 1);
                             else
@@ -997,31 +1034,26 @@ classdef Star
             if all(f(:)==0)
                 xmin = obj.V(index,1);
             else               
-%                 if strcmp(lp_solver, 'linprog')
-                options = optimoptions(@linprog, 'Display','none');
-                options.OptimalityTolerance = 1e-10; % set tolerance
-                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options); 
-                if exitflag == 1
-                    xmin = fval + obj.V(index, 1);
-                else
+                if strcmp(lp_solver, 'linprog')
+                    options = optimoptions(@linprog, 'Display','none');
+                    options.OptimalityTolerance = 1e-10; % set tolerance
+                    [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options); 
+                    if exitflag == 1
+                        xmin = fval + obj.V(index, 1);
+                    else
+                        error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                    end    
+                elseif strcmp(lp_solver, 'glpk')
                     [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                     if exitflag == 5
                         xmin = fval + obj.V(index, 1);
                     else
                         error('Cannot find an optimal solution, exitflag = %d', exitflag);
                     end
-                end    
-%                 elseif strcmp(lp_solver, 'glpk')
-%                     [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-%                     if exitflag == 5
-%                         xmin = fval + obj.V(index, 1);
-%                     else
-%                         error('Cannot find an optimal solution, exitflag = %d', exitflag);
-%                     end
                     
-%                 else
-%                     error('Unknown lp solver, should be glpk or linprog'); 
-%                 end
+                else
+                    error('Unknown lp solver, should be glpk or linprog'); 
+                end
 
             end
             
@@ -1150,19 +1182,26 @@ classdef Star
             if all(f(:)==0)
                 xmax = obj.V(index,1);
             else
-                options = optimoptions(@linprog, 'Display','none');
-                options.OptimalityTolerance = 1e-10; % set tolerance
-                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options); 
-                if exitflag == 1
-                    xmax = -fval + obj.V(index, 1);
-                else
+                if strcmp(lp_solver, 'linprog')
+                    options = optimoptions(@linprog, 'Display','none');
+                    options.OptimalityTolerance = 1e-10; % set tolerance
+                    [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options); 
+                    if exitflag == 1
+                        xmax = -fval + obj.V(index, 1);
+                    else
+                        error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                    end    
+                elseif strcmp(lp_solver, 'glpk')
                     [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                     if exitflag == 5
                         xmax = -fval + obj.V(index, 1);
                     else
                         error('Cannot find an optimal solution, exitflag = %d', exitflag);
                     end
-                end  
+                    
+                else
+                    error('Unknown lp solver, should be glpk or linprog'); 
+                end   
 
             end
             
@@ -1441,6 +1480,24 @@ classdef Star
             
         end
         
+        % estimate quickly max-point candidates
+        function max_cands = get_max_point_candidates(obj)
+            %@max_cands: an array of indexes of max-point candidates
+            
+            % author: Dung Tran
+            % date: 7/29/2021
+            
+            [lb, ub] = obj.estimateRanges();
+            [a, id] = max(lb);
+            b = (ub >= a);
+            if sum(b) == 1
+                max_cands = id;
+            else
+                max_cands = find(b);
+            end
+                   
+        end
+        
         % check if a index is larger than other
         function bool = is_p1_larger_than_p2(obj, p1_id, p2_id)
             % @p1_id: index of point 1
@@ -1486,8 +1543,8 @@ classdef Star
             for i=1:obj.dim
                 f = S(i, :);
                           
-                %[~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-                [~,fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+                %[~,fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                 
                 if exitflag > 0
                     lb(i) = fval;
@@ -1495,8 +1552,8 @@ classdef Star
                     error('Cannot find an optimal solution, exitflag = %d', exitflag);
                 end
  
-                %[~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
-                [~,fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);
+                %[~,fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
                 if exitflag > 0
                     ub(i) = -fval;
                 else
@@ -1691,7 +1748,7 @@ classdef Star
         end
         
         % plot list of boxes in 2D with no fill
-         function plotBoxes_2D_noFill(stars, x_pos, y_pos, varargin)
+        function plotBoxes_2D_noFill(stars, x_pos, y_pos, color)
             % plot stars using two dimension boxes without filling
             % author: Dung Tran
             % date: 11/16/2018
@@ -1710,31 +1767,18 @@ classdef Star
                     error('%d th input object is not a star', i);
                 end
             end
-
-            switch nargin
-                case 4
-                    % Only color of plot is specified
-                    color = varargin{1};
-                    transp = 1;
-                case 5
-                    % Color and transparency of sets specified
-                    color = varargin{1};
-                    transp = varargin{2};
-                otherwise
-                    error('Wrong number of inputs. Total inputs must be 4 or 5');
-            end
+            
+                        
             for i=1:n
-
+                                
                 x = [xmin(i) xmax(i) xmax(i) xmin(i) xmin(i)];
                 y = [ymin(i) ymin(i) ymax(i) ymax(i) ymin(i)];
-
+                
                 hold on;
-                s = plot(x, y, 'Color', color);
-                s.Color(4) = transp;
-%                 alpha(s,transp);
-
+                plot(x, y, color);
+                                
             end
-
+            
         end
         
         
@@ -2054,3 +2098,4 @@ classdef Star
     end
     
 end
+

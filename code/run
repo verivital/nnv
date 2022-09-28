@@ -31,21 +31,21 @@ chmod +x run_tools.sh
 
 ls /code
 
-ls /code/nnv/examples/Submission/FORMATS2022/Comparison/
+# ls /code/nnv/examples/Submission/FORMATS2022/Comparison/
 
 # copy flowstar and juliareach scripts for formats'22 comparison
 #cp -rf /code/nnv/examples/Submission/FORMATS2022/Comparison/flowstar/ /flowstar/flowstar-2.1.0/
 #cp -rf /code/nnv/examples/Submission/FORMATS2022/Comparison/juliareach/ /juliareach
 # may need to chmod some things
 
-cd /code/nnv/examples/Submission/FORMATS2022/Comparison
-chmod +x run_tools
-chmod +x run_tools_subset
+# cd /code/nnv/examples/Submission/FORMATS2022/Comparison
+# chmod +x run_tools
+# chmod +x run_tools_subset
 
 echo "STARTING COMPARISONS"
 # ./run_tools # Longer version, paper results (all benchmarks, table 3)
 #echo "STARTING SUBSET"
-./run_tools_subset # Default, faster (linear spiral and FPA, table 3)
+# ./run_tools_subset # Default, faster (linear spiral and FPA, table 3)
 
 # start up matlab and run
 cd ~/

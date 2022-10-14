@@ -78,10 +78,16 @@ classdef NN < handle
 
                     % update object properties
                     obj.Name = name;                % Name of the network
-                    obj.Layers = Layers;             % Layers in NN
+                    obj.Layers = Layers;            % Layers in NN
                     obj.numLayers = nL;             % number of layers
                     obj.InputSize = inputsize;      % input size
-                    obj.OutputSize = outputsize; % output size
+                    obj.OutputSize = outputsize;    % output size
+
+                case 2 % only layers and connections defined
+                    Layers = varargin{1};
+                    conns = varargin{2};
+                    obj.Layers = Layers;
+                    obj.Connections = conns;
 
                 case 0
                     obj.Layers = {};

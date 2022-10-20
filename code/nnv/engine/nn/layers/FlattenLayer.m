@@ -2,6 +2,10 @@ classdef FlattenLayer < handle
     % Flatten Layer object
     % Author: Dung Tran
     % Date: 6/9/2020
+    % modified
+    %   - author: Diego Manzanas Lopez
+    %   - date: October 19 2022
+    %   - notes: add support for onnx flatten into 2d layer
     
     properties
         Name = 'FlattenLayer';
@@ -120,7 +124,8 @@ classdef FlattenLayer < handle
                 else
                     error('Invalid input image');
                 end 
-            elseif strcmp(obj.Type, 'nnet.onnx.layer.FlattenLayer')     
+            elseif strcmp(obj.Type, 'nnet.onnx.layer.FlattenLayer') || strcmp(obj.Type, 'nnet.onnx.layer.FlattenInto2dLayer') 
+                % C-style flatten
                 if length(n) == 2
                     image = permute(image,[2 1]);
                     flatten_im = reshape(image, [1 1 n(1)*n(2)]);
@@ -273,7 +278,8 @@ classdef FlattenLayer < handle
             %       by: Neelanjana Pal
             % date: 6/25/2021
                       
-            if ~isa(layer, 'nnet.keras.layer.FlattenCStyleLayer') && ~isa(layer, 'nnet.cnn.layer.FlattenLayer') && ~isa(layer, 'nnet.onnx.layer.FlattenLayer')
+            if ~isa(layer, 'nnet.keras.layer.FlattenCStyleLayer') && ~isa(layer, 'nnet.cnn.layer.FlattenLayer') ...
+                    && ~isa(layer, 'nnet.onnx.layer.FlattenLayer') && ~isa(layer, 'nnet.onnx.layer.FlattenInto2dLayer')
                 error('Input is not a flatten layer');
             end
             

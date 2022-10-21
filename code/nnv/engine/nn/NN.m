@@ -12,13 +12,14 @@ classdef NN < handle
     % Date: 09/28/2022
     % Notes: Code is based on the previous CNN and FFNNS classes written by
     %             Dung Tran
-    % This is a generalized class, created after the refactoring of NNV in 2022
+    % This is a generalized class, created in the refactoring of NNV in 2022 (NNV 2.0)
     
     properties
         
         Name = 'nn'; % name of the network
         Layers = {}; % An array of Layers, eg, Layers = [L1 L2 ...Ln]
         Connections = []; % A table specifying source and destination layers
+        name2number = containers.Map; % hashmap to match layers name to its number in Layers array (facilitate reach computation graph)
         numLayers = 0; % number of Layers
         numNeurons = 0; % number of Neurons
         InputSize = 0; % number of Inputs
@@ -50,19 +51,21 @@ classdef NN < handle
             switch nargin
                 % if connections undefined, assume NN is fullyconnected
                 % No skipped connections, no multiple connections from any layer
-                case 5
+                case 6
                     % parse inputs
                     Layers = varargin{1};
                     cons = varargin{2}; % connections
-                    inputsize = varargin{3};
-                    outputsize = varargin{4};
-                    name = varargin{5};
+                    name2number = varargin{3};
+                    inputsize = varargin{4};
+                    outputsize = varargin{5};
+                    name = varargin{6};
                     nL = length(Layers); % number of Layers
 
                     % update object properties
                     obj.Name = name;                % Name of the network
                     obj.Layers = Layers;             % Layers in NN
                     obj.Connections = cons;       % Connections in NN
+                    obj.name2number = name2number; % hasmap to match name to index in layer array
                     obj.numLayers = nL;             % number of layers
                     obj.InputSize = inputsize;      % input size
                     obj.OutputSize = outputsize; % output size
@@ -83,11 +86,13 @@ classdef NN < handle
                     obj.InputSize = inputsize;      % input size
                     obj.OutputSize = outputsize;    % output size
 
-                case 2 % only layers and connections defined
+                case 3 % only layers and connections defined
                     Layers = varargin{1};
                     conns = varargin{2};
+                    name2number = varargin{3};
                     obj.Layers = Layers;
                     obj.Connections = conns;
+                    obj.name2number = name2number;
 
                 case 0
                     obj.Layers = {};
@@ -98,13 +103,13 @@ classdef NN < handle
 
                     
                 otherwise
-                    error('Invalid number of inputs, should be 0, 4 or 5');
+                    error('Invalid number of inputs, should be 0, 3, 4 or 6');
             end
                       
         end
                 
         
-        % Evaluation of a NN
+        % Evaluation of a NN (update this to make use of the connections graph)
         function y = evaluate(obj, x)
             % Evaluation of a NN (compute output of NN given an input)
             % @x: input vector x
@@ -112,12 +117,17 @@ classdef NN < handle
             % @features: output of all layers
             
             y = x;
+%             obj.features is used to initialize cell array for evaluation values for each layer
             for i=1:obj.numLayers
-                y = obj.Layers{i}.evaluate(y); 
+                % steps:
+                % 1) get the source of current layer
+                % 2) if that is all we need, then get the output of source layer
+                % 3) compute the output of current layer
+                % may need to add a source name to each layer to speed this up, instead of the connections
+                y = obj.Layers{i}.evaluate(y);
                 obj.features{i} = y;
             end
         end
-        
         
         % start parallel pool for computing
         function start_pool(obj)
@@ -140,6 +150,11 @@ classdef NN < handle
     
     methods % reachability analysis method
         
+        % Update this function to make use of the computational graph
+        % (connections) newly introduced. Can access the computed reach set
+        % for each layer using the obj.reachSet property (cell array, same
+        % size as the layer array
+
         % Define the reachability function for any general NN
         function outputSet = reach(obj, inputSet, reachOptions)            
             % inputSet: input set (type -> Star, ImageStar, Zono or ImageZono)   
@@ -190,13 +205,13 @@ classdef NN < handle
             obj.reachTime = zeros(1, obj.numLayers);
             % Debugging option
             if strcmp(obj.dis_opt, 'display')
-                fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
+                fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
             end
             % Begin reachability computation
             rs = inputSet;
             for i=2:obj.numLayers+1
                 if strcmp(obj.dis_opt, 'display')
-                    fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
+                    fprintf('\nPerforming analysis for Layer %d (%s)... \n', i-1, obj.Layers{i-1}.Name);
                 end
                 % Compute reachable set layer by layer
                 start_time = tic;
@@ -207,13 +222,13 @@ classdef NN < handle
                 % Store computed reach set
                 obj.reachSet{i-1} = rs_new;
                 if strcmp(obj.dis_opt, 'display')
-                    fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
-                    fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs_new));
+                    fprintf('Reachability analysis for Layer %d (%s) is done in %.5f seconds \n', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
+                    fprintf('The number of reachable sets at Layer %d (%s) is: %d \n', i-1, obj.Layers{i-1}.Name, length(rs_new));
                 end
             end
             if strcmp(obj.dis_opt, 'display')
-                fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
-                fprintf('\nThe number ImageStar in the output sets is: %d', length(rs_new));
+                fprintf('Reachability analysis for the network %s is done in %.5f seconds \n', obj.Name, sum(obj.reachTime));
+                fprintf('The number ImageStar in the output sets is: %d \n', length(rs_new));
             end
             % Output of the function
             obj.totalReachTime = sum(obj.reachTime);
@@ -373,87 +388,6 @@ classdef NN < handle
             
         end
         
-    end
-    
-    
-    methods(Static)
-       
-        % parse a network from matlab for reachability analysis
-        function nn = parse(net, name)
-            % nn = NN.parse(net, name = 'parsed_net')
-            % @inputNN: input network (from MATLAB), can be layerGraph,
-            % SeriesNetwork or DAGNetwork
-            % @nn: the neural network for reachability analysis
-            
-            % the constructed NN for reachability analysis get rid of the
-            % these following layers:
-            % 1) InputImageLayer
-            % 2) Dropout Layer (is not used for prediction phase)
-            % 3) Softmax Layer
-            % 4) Classification Output Layer       
-            % And transforms the following layers:
-            %
-            
-            n = length(net.Layers); % number of layers
-                                   
-            Ls = {};
-            inputSize = [];
-            outputSize = [];
-            
-            j = 0; % counter of number of layers
-            for i=1:n
-                L = net.Layers(i);
-                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                  
-                    fprintf('\nLayer %d is a %s class which is neglected in the analysis phase', i, class(L));                   
-                    if isa(L, 'nnet.cnn.layer.ImageInputLayer')
-                        inputSize = L.InputSize;
-                    elseif isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')
-                        outputSize = L.OutputSize;
-                    end
-                    
-                else
-                    
-                    fprintf('\nParsing Layer %d...', i);
-                    
-                    if isa(L, 'nnet.cnn.layer.ImageInputLayer')
-                        Li = ImageInputLayer.parse(L);
-                    elseif isa(L, 'nnet.cnn.layer.Convolution2DLayer') 
-                        Li = Conv2DLayer.parse(L);
-                    elseif isa(L, 'nnet.cnn.layer.ReLULayer')
-                        Li = ReluLayer.parse(L);
-                    elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
-                        Li = BatchNormalizationLayer.parse(L);
-                    elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
-                        Li = MaxPooling2DLayer.parse(L);
-                    elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')
-                        Li = AveragePooling2DLayer.parse(L);
-                    elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
-                        Li = FullyConnectedLayer.parse(L);
-                    elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
-                        Li = PixelClassificationLayer.parse(L);
-                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer') || isa(L, 'nnet.onnx.layer.FlattenLayer')
-                        Li = FlattenLayer.parse(L);
-                    elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer')
-                        Li = SigmoidLayer.parse(L);
-                    elseif isa(L, 'nnet.onnx.layer.ElementwiseAffineLayer')
-                        Li = ElementwiseAffineLayer.parse(L);
-                    else
-                        fprintf('\nLayer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis', i, class(L));
-                        error('\nUnsupported Class of Layer');                     
-                    end
-                    
-                    j = j + 1;
-                    Ls{j} = Li;
-                    
-                end
-                             
-            end
-            
-            nn = NN(name, Ls, inputSize, outputSize);
-            fprintf('\nParsing network is done successfully and %d Layers are neglected in the analysis phase', n - j);
-            
-        end
-
     end
     
 end

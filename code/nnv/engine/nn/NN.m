@@ -19,7 +19,7 @@ classdef NN < handle
         Name = 'nn'; % name of the network
         Layers = {}; % An array of Layers, eg, Layers = [L1 L2 ...Ln]
         Connections = []; % A table specifying source and destination layers
-        name2number = containers.Map; % hashmap to match layers name to its number in Layers array (facilitate reach computation graph)
+%         name2number = containers.Map; % hashmp to match layers name to its number in Layers array (facilitate reach computation graph)
         numLayers = 0; % number of Layers
         numNeurons = 0; % number of Neurons
         InputSize = 0; % number of Inputs
@@ -36,6 +36,8 @@ classdef NN < handle
 %         totalReachTime = 0; % total computation time
 %         type = 'nn'; % default type is nn (general neural network), other options: 'neuralODE', 'bnn_xnor', 'cnn', 'segmentation', 
         features = {}; % outputs of each layer in an evaluation
+        input_vals = {}; % input values to each layer
+        input_sets = {}; % input set values for each layer
         dis_opt = []; % display option = 'display' or []
         lp_solver = 'glpk'; % choose linprog as default LP solver for constructing reachable set
         % user can choose 'glpk' or 'linprog' as an LP solver
@@ -51,21 +53,19 @@ classdef NN < handle
             switch nargin
                 % if connections undefined, assume NN is fullyconnected
                 % No skipped connections, no multiple connections from any layer
-                case 6
+                case 5
                     % parse inputs
                     Layers = varargin{1};
                     cons = varargin{2}; % connections
-                    name2number = varargin{3};
-                    inputsize = varargin{4};
-                    outputsize = varargin{5};
-                    name = varargin{6};
+                    inputsize = varargin{3};
+                    outputsize = varargin{4};
+                    name = varargin{5};
                     nL = length(Layers); % number of Layers
 
                     % update object properties
                     obj.Name = name;                % Name of the network
                     obj.Layers = Layers;             % Layers in NN
                     obj.Connections = cons;       % Connections in NN
-                    obj.name2number = name2number; % hasmap to match name to index in layer array
                     obj.numLayers = nL;             % number of layers
                     obj.InputSize = inputsize;      % input size
                     obj.OutputSize = outputsize; % output size
@@ -86,13 +86,11 @@ classdef NN < handle
                     obj.InputSize = inputsize;      % input size
                     obj.OutputSize = outputsize;    % output size
 
-                case 3 % only layers and connections defined
+                case 2 % only layers and connections defined
                     Layers = varargin{1};
                     conns = varargin{2};
-                    name2number = varargin{3};
                     obj.Layers = Layers;
                     obj.Connections = conns;
-                    obj.name2number = name2number;
 
                 case 0
                     obj.Layers = {};
@@ -103,7 +101,7 @@ classdef NN < handle
 
                     
                 otherwise
-                    error('Invalid number of inputs, should be 0, 3, 4 or 6');
+                    error('Invalid number of inputs, should be 0, 2, 3 or 5');
             end
                       
         end
@@ -116,16 +114,21 @@ classdef NN < handle
             % @y: output vector y
             % @features: output of all layers
             
-            y = x;
-%             obj.features is used to initialize cell array for evaluation values for each layer
-            for i=1:obj.numLayers
-                % steps:
-                % 1) get the source of current layer
-                % 2) if that is all we need, then get the output of source layer
-                % 3) compute the output of current layer
-                % may need to add a source name to each layer to speed this up, instead of the connections
-                y = obj.Layers{i}.evaluate(y);
-                obj.features{i} = y;
+            for i=1:height(obj.Connections)
+                if i > 1
+                    x = obj.input_vals{obj.Connections.Source(i)}; % need to update this to right name, not features
+                end
+                y = obj.Layers{obj.Connections.Source(i)}.evaluate(x);
+                % Work on this statement after adding support for residual networks
+%                 if isfield(obj.Layers{obj.Connections(i).Destination}, 'input_val')
+%                     obj.Layers{obj.Connections(i).Destination}.input_val{end+1} = y; % store layer input (from all sources)
+%                 else
+%                     obj.Layers{obj.Connections(i).Destination}.input_val = {y}; % store layer input 
+%                 end
+                % Keep it simple for now 
+                if i < height(obj.Connections) % (Last number in destinations is the output)
+                    obj.input_vals{obj.Connections.Destination(i)} = y; % store layer input 
+                end
             end
         end
         

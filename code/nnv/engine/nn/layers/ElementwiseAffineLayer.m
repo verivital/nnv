@@ -69,19 +69,35 @@ classdef ElementwiseAffineLayer < handle
             
             y = input;
             % assuming Scale or Object is with dim 1x1xinput.numChannel
-            if ~isscalar(obj.Scale) && size(obj.Scale, 3) ~= size(input,3)%in_image.numChannel
-                error('Inconsistent number of channels between Scale array and the ImageStar');
-            elseif ~isscalar(obj.Scale) && size(obj.Scale, 3) == size(input,3)%in_image.numChannel
-                for i=1:size(obj.Scale, 3)
-                    y(:,:,i)=input(:,:,i)*obj.Scale(i);
+            if isnumeric(obj.Scale) && all(obj.Scale ~=  1)
+                if size(obj.Scale, 3) ~= size(input,3)%in_image.numChannel
+                    error('Inconsistent number of channels between Scale array and the ImageStar');
+                elseif ~isscalar(obj.Scale) && size(obj.Scale, 3) == size(input,3)%in_image.numChannel
+                    for i=1:size(obj.Scale, 3)
+                        y(:,:,i)=input(:,:,i)*obj.Scale(i);
+                    end
                 end
             end
             
-            if ~isscalar(obj.Offset) && size(obj.Offset, 3) ~= size(input,3)%in_image.numChannel
-                error('Inconsistent number of channels between Offset array and the ImageStar');
-            elseif ~isscalar(obj.Offset) && size(obj.Offset, 3) == size(input,3)%in_image.numChannel
-                for i=1:size(obj.Offset, 3)
-                    y(:,:,i)=input(:,:,i)+obj.Offset(i);
+            if isnumeric(obj.Offset) && all(obj.Offset ~=  0)
+                if size(obj.Offset, 3) ~= size(input,3)%in_image.numChannel
+                    try 
+                        offset = reshape(obj.Offset, size(input));
+%                         obj.Offset = offset;
+                        if size(offset,1) == size(offset, 2) == size(input,1) == size(input,2) == 1
+                            y = input + offset;
+                        else
+                            for i=1:size(offset, 3)
+                                y(:,:,i)=input(:,:,i)+offset(i);
+                            end
+                        end
+                    catch
+                        error('Inconsistent sizes of the Offset array and the input to the layer');
+                    end
+                elseif ~isscalar(obj.Offset) && size(obj.Offset, 3) == size(input,3)%in_image.numChannel
+                    for i=1:size(obj.Offset, 3)
+                        y(:,:,i)=input(:,:,i)+obj.Offset(i);
+                    end
                 end
             end
         end 

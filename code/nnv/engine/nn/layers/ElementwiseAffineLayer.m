@@ -2,17 +2,16 @@ classdef ElementwiseAffineLayer < handle
     % The ElementwiseAffineLayer layer class in CNN
     % author: Neelanjana Pal
     % date: 6/28/2021
+    % update: Diego Manzanas
+    %              10/31/2022
+    %              Refactor properies and evaluation to mirror nnet.onnx.layer.ElementwiseAffineLayer
     
     properties
         Name = 'elementwise_affine_layer';
-        % Hyperparameters
-        NumInputs = 1; % default
-        InputNames = {'in'}; % default
-        NumOutputs = 1; % default
-        OutputNames = {'out'}; % default
-        
-        Scale = []; % Scale vector
-        Offset  = []; % Offset vector
+        Scale
+        Offset
+        DoScale
+        DoOffset
     end
     
     
@@ -26,31 +25,19 @@ classdef ElementwiseAffineLayer < handle
             
             switch nargin
                 
-                case 7
+                case 5
                     obj.Name = varargin{1};
-                    obj.NumInputs = varargin{2};
-                    obj.InputNames = varargin{3};
-                    obj.NumOutputs = varargin{4};
-                    obj.OutputNames = varargin{5};
-                    obj.Scale = varargin{6};
-                    obj.Offset = varargin{7};
-                    %prevL = varargin{4};
-                case 3
-                    obj.Name = varargin{1} ; 
                     obj.Scale = varargin{2};
                     obj.Offset = varargin{3};
-                case 2
+                    obj.DoScale = varargin{4};
+                    obj.DoOffset = varargin{5};
+                case 4
                     obj.Scale = varargin{1};
                     obj.Offset = varargin{2};
-                    
-                    obj.Name = 'elementwise_affine_layer';              
-                    
-                case 0
-                    
-                    obj.Name = 'elementwise_affine_layer';
-                           
+                    obj.DoScale = varargin{3};
+                    obj.DoOffset = varargin{4};
                 otherwise
-                    error('Invalid number of inputs (should be 0 or 1)');
+                    error('Invalid number of inputs (should be 4 or 5)');
             end 
              
         end
@@ -60,99 +47,110 @@ classdef ElementwiseAffineLayer < handle
     % evaluation method
     methods
         
-        function y = evaluate(obj, input)
-            % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
-            % @y: 2 or 3-dimensional array, for example, y(:, :, :
-            
-            % author: Neelanjana Pal
-            % date: 6/28/2021
-            
-            y = input;
-            % assuming Scale or Object is with dim 1x1xinput.numChannel
-            if isnumeric(obj.Scale) && all(obj.Scale ~=  1)
-                if size(obj.Scale, 3) ~= size(input,3)%in_image.numChannel
-                    error('Inconsistent number of channels between Scale array and the ImageStar');
-                elseif ~isscalar(obj.Scale) && size(obj.Scale, 3) == size(input,3)%in_image.numChannel
-                    for i=1:size(obj.Scale, 3)
-                        y(:,:,i)=input(:,:,i)*obj.Scale(i);
-                    end
-                end
+        function y = evaluate(obj, x)
+            % evaluate elementwise affine layer
+            y = x;
+            if obj.DoScale
+                    y = y.*obj.Scale;
             end
-            
-            if isnumeric(obj.Offset) && all(obj.Offset ~=  0)
-                if size(obj.Offset, 3) ~= size(input,3)%in_image.numChannel
-                    try 
-                        offset = reshape(obj.Offset, size(input));
-%                         obj.Offset = offset;
-                        if size(offset,1) == size(offset, 2) == size(input,1) == size(input,2) == 1
-                            y = input + offset;
-                        else
-                            for i=1:size(offset, 3)
-                                y(:,:,i)=input(:,:,i)+offset(i);
-                            end
-                        end
-                    catch
-                        error('Inconsistent sizes of the Offset array and the input to the layer');
-                    end
-                elseif ~isscalar(obj.Offset) && size(obj.Offset, 3) == size(input,3)%in_image.numChannel
-                    for i=1:size(obj.Offset, 3)
-                        y(:,:,i)=input(:,:,i)+obj.Offset(i);
-                    end
-                end
-            end
+            if obj.DoOffset
+                y = y + reshape(obj.Offset, size(y));
+            end          
         end 
        
     end   
      
  methods % reachability method
         
-        function image = reach_single_input(obj, in_image)
+        %(reachability analysis using imagestar)
+        function image = reach_star_single_input(obj, in_image)
             % @in_image: input imagestar
             % @image: output set
             
-            % author: Neelanjana Pal
-            % date: 6/28/2021
-            
-            
-            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'ImageZono')
-                error('Input set is not an ImageStar or ImageZono');
+            if ~isa(in_image, 'ImageStar')
+                error('Input set is not an ImageStar');
             end
             
-            if ~isempty(obj.Scale) || ~isempty(obj.Offset)
-                new_V = obj.evaluate(in_image.V);
-            else
-                new_V = in_image.V;
+            V = in_image.V; % Initialize value dimensions
+%             n = in_image.numPred;
+            % Process scaling first
+            if obj.DoScale
+                if isscalar(obj.Scale)
+                    V = double(obj.Scale)*in_image.V;
+                elseif length(size(obj.Scale)) == length(size(in_image.V)) && size(obj.Scale) == size(in_image.V)
+                    V = double(obj.Scale).*in_image;
+                elseif length(obj.Scale) == size(in_image.V,1)
+                    for k=1:length(obj.Scale)
+                        V(k, : , : , :) = V(k, : , : , :) * obj.Scale(k);
+                    end
+                elseif length(obj.Scale) == size(in_image.V,2)
+                    for k=1:length(obj.Scale)
+                        V(:, k , : , :) = V(:, k , : , :) * obj.Scale(k);
+                    end
+                elseif length(obj.Scale) == size(in_image.V,3)
+                    for k=1:length(obj.Scale)
+                        V(:, : , k , :) = V(:, : , k , :) * obj.Scale(k);
+                    end
+                elseif length(obj.Scale) == size(in_image.V,4)
+                    for k=1:length(obj.Scale)
+                        V(:, : , : , k) = V(:, : , : , k) * obj.Scale(k);
+                    end
+                else
+                    error('TODO: add support for other tensor shapes (Scale)')
+                end
             end
-                     
-            image = ImageStar(new_V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);            
+
+            % Process offset last
+            if obj.DoOffset
+                offset = squeeze(obj.Offset);
+                a = size(offset);
+                if isscalar(obj.Offset)
+                    V = V + obj.Offset;
+                elseif length(obj.Offset) == size(in_image.V,1)
+                    for k=1:length(obj.Offset)
+                        V(k, : , : , :) = V(k, : , : , :) + obj.Offset(k);
+                    end
+                elseif length(obj.Offset) == size(in_image.V,2)
+                    for k=1:length(obj.Offset)
+                        V(:, k , : , :) = V(:, k , : , :) + obj.Offset(k);
+                    end
+                elseif length(obj.Offset) == size(in_image.V,3)
+                    for k=1:length(obj.Offset)
+                        V(:, : , k , :) = V(:, : , k , :) + obj.Offset(k);
+                    end
+                elseif length(obj.Offset) == size(in_image.V,4)
+                    for k=1:length(obj.Offset)
+                        V(:, : , : , k) = V(:, : , : , k) + obj.Offset(k);
+                    end
+%                 elseif size(in_image,1) ==1 && size(in_image,2) == 1 % this case applies to adding bias in feedforward-type network (other cases are more general even if slower, code easier to read)
+%                     for i=1:n
+%                         V(: , :, :, i) = V(: , :, :, i) + cast(reshape(obj.Offset, size(in_image.V, [1 2 3])), 'like', V);
+%                     end
+                else
+                    error('TODO: add support for other tensor shapes (Offset).')
+                end
+            end
+
+            % return output set
+            image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
             
         end
         
         % handle multiple inputs
-        function S = reach_multipleInputs(obj, inputs, option)
+        function S = reach_star_multipleInputs(obj, inputs, option)
             % @inputs: an array of ImageStars
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar
             
-            % author: Neelanjana Pal
-            % date: 6/28/2021
-            
             n = length(inputs);
-            if isa(inputs(1), 'ImageStar')
-                S(n) = ImageStar;
-            elseif isa(inputs(1), 'ImageZono')
-                S(n) = ImageZono;
-            else
-                error('Unknown input data set');
-            end
-          
+            S(n) = ImageStar;
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    S(i) = obj.reach_single_input(inputs(i));
+                    S(i) = obj.reach_star_single_input(inputs(i));
                 end
             elseif strcmp(option, 'single') || isempty(option)
                 for i=1:n
-                    S(i) = obj.reach_single_input(inputs(i));
+                    S(i) = obj.reach_star_single_input(inputs(i));
                 end
             else
                 error('Unknown computation option, should be parallel or single');
@@ -212,10 +210,14 @@ classdef ElementwiseAffineLayer < handle
                     error('Invalid number of input arguments (should be 2, 3, 4, 5 or 6)');
             end
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || strcmp(method, 'approx-zono') || contains(method, "relax-star")
-                IS = obj.reach_multipleInputs(in_images, option);
+            if obj.DoScale || obj.DoOffset
+                if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || contains(method, "relax-star")
+                    IS = obj.reach_star_multipleInputs(in_images, option);
+                else
+                    error('Unknown reachability method');
+                end
             else
-                error('Unknown reachability method');
+                IS = in_images;
             end
   
         end
@@ -242,7 +244,8 @@ classdef ElementwiseAffineLayer < handle
                 error('Input is not a Matlab nnet.onnx.layer.ElementwiseAffineLayer class');
             end
                         
-            L = ElementwiseAffineLayer(elementwise_affine_layer.Name, elementwise_affine_layer.Scale, elementwise_affine_layer.Offset);         
+            L = ElementwiseAffineLayer(elementwise_affine_layer.Name, elementwise_affine_layer.Scale, elementwise_affine_layer.Offset, ...
+                elementwise_affine_layer.DoScale, elementwise_affine_layer.DoOffset);         
             fprintf('\nParsing a Matlab elementwise affine layer is done successfully');
             
         end

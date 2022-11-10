@@ -32,7 +32,7 @@ classdef NN < handle
         numCores = 1; % number of cores (workers) using in computation
         reachSet = [];  % reachable set for each layers
 %         outputSet = [];
-%         reachTime = []; % computation time for each layers
+        reachTime = []; % computation time for each layers
 %         totalReachTime = 0; % total computation time
 %         type = 'nn'; % default type is nn (general neural network), other options: 'neuralODE', 'bnn_xnor', 'cnn', 'segmentation', 
         features = {}; % outputs of each layer in an evaluation
@@ -116,7 +116,7 @@ classdef NN < handle
             
             for i=1:height(obj.Connections)
                 if i > 1
-                    x = obj.input_vals{obj.Connections.Source(i)}; % need to update this to right name, not features
+                    x = obj.input_vals{obj.Connections.Source(i)}; % 
                 end
                 y = obj.Layers{obj.Connections.Source(i)}.evaluate(x);
                 % Work on this statement after adding support for residual networks
@@ -173,6 +173,8 @@ classdef NN < handle
 
             % Parse the inputs
 
+            % TODOs: update display functions
+
             % Ensure input set is a valid type
             if ~ isa(inputSet,"Star") && ~ isa(inputSet,"ImageStar") && ~ isa(inputSet,"ImageZono") && ~ isa(inputSet,"Zono") 
                 error('Wrong input set type. Input set must be of type "Star", "ImageStar", "ImageZono", or "Zono"')
@@ -204,37 +206,39 @@ classdef NN < handle
                 obj.reachOption = 'parallel';
             end
             % Initialize variables to store reachable sets and computation time
-            obj.reachSet = cell(1, obj.numLayers);
-            obj.reachTime = zeros(1, obj.numLayers);
+            obj.reachSet = cell(1, height(obj.Connections)); % store input reach sets for each layer
+            obj.reachTime = zeros(1, height(obj.Connections)); % store computation time for each connection 
             % Debugging option
             if strcmp(obj.dis_opt, 'display')
                 fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
             end
             % Begin reachability computation
-            rs = inputSet;
-            for i=2:obj.numLayers+1
-                if strcmp(obj.dis_opt, 'display')
-                    fprintf('\nPerforming analysis for Layer %d (%s)... \n', i-1, obj.Layers{i-1}.Name);
-                end
+            obj.reachSet{1} = inputSet;
+            for i=1:height(obj.Connections)
+%                 if strcmp(obj.dis_opt, 'display')
+%                     fprintf('\nPerforming analysis for Layer %d (%s)... \n', i-1, obj.Layers{i-1}.Name);
+%                 end
+                rs = obj.reachSet{obj.Connections.Source(i)}; 
                 % Compute reachable set layer by layer
                 start_time = tic;
-                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
-                obj.reachTime(i-1) = toc(start_time);
-                % Update input set to the next layer
-                rs = rs_new;
+                rs_new = obj.Layers{obj.Connections.Source(i)}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                obj.reachTime(i) = toc(start_time);
                 % Store computed reach set
-                obj.reachSet{i-1} = rs_new;
-                if strcmp(obj.dis_opt, 'display')
-                    fprintf('Reachability analysis for Layer %d (%s) is done in %.5f seconds \n', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
-                    fprintf('The number of reachable sets at Layer %d (%s) is: %d \n', i-1, obj.Layers{i-1}.Name, length(rs_new));
+                if i < height(obj.Connections) % (Last number in destinations is the output)
+                    obj.reachSet{obj.Connections.Destination(i)} = rs_new; % store layer input 
                 end
+%                 obj.reachSet{i-1} = rs_new;
+%                 if strcmp(obj.dis_opt, 'display')
+%                     fprintf('Reachability analysis for Layer %d (%s) is done in %.5f seconds \n', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
+%                     fprintf('The number of reachable sets at Layer %d (%s) is: %d \n', i-1, obj.Layers{i-1}.Name, length(rs_new));
+%                 end
             end
             if strcmp(obj.dis_opt, 'display')
                 fprintf('Reachability analysis for the network %s is done in %.5f seconds \n', obj.Name, sum(obj.reachTime));
                 fprintf('The number ImageStar in the output sets is: %d \n', length(rs_new));
             end
             % Output of the function
-            obj.totalReachTime = sum(obj.reachTime);
+%             obj.totalReachTime = sum(obj.reachTime);
             outputSet = rs_new;
 
         end

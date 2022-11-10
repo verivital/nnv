@@ -319,7 +319,7 @@ classdef FullyConnectedLayer < handle
     methods(Static)
         
          
-        % parse a trained averagePooling2dLayer from matlab
+        % parse a trained FullyConnectedLayer from matlab
         function L = parse(fully_connected_layer)
             % @fully_connecteted_Layer: a fully connected layer from matlab deep
             % neural network tool box

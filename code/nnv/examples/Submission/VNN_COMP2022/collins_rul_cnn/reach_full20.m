@@ -3,7 +3,9 @@
 %% 1) Load network
 vnnFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/";
 rulFull20File = "collins_rul_cnn/onnx/NN_rul_full_window_20.onnx";
+t = tic;
 rulFull20 = onnx2nnv(vnnFolder+rulFull20File);
+t = toc(t);
 
 %% 2) Set reachability parameters
 % This is the idea
@@ -20,9 +22,14 @@ rulFull20 = onnx2nnv(vnnFolder+rulFull20File);
 X = ImageStar(lb_x',ub_x');
 reachOptions = struct;
 reachOptions.reachMethod = 'approx-star';
+rT = tic;
 Y = rulFull20.reach(X, reachOptions); % Seems to be working
+rT = toc(rT);
 % Evaluate property
 [y_lb,y_ub] = Y.getRanges;
+disp(' ');
+disp('RESULTS')
+disp(' ')
 if (y_lb >= 469.74957275390625 && y_ub <= 574.1383666992188)
     disp(' ');
     disp('Property is satisfied');
@@ -30,6 +37,8 @@ else
     disp(' ');
     disp('Verification failed');
 end
+disp("Reachability computation time = "+string(rT) + " seconds")
+disp("Time to load network into NNV = "+string(t) + " seconds")
 
 %% Helper functions
 

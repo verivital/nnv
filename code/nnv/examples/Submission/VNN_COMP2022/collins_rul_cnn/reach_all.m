@@ -1,5 +1,6 @@
 %% Run all properties of collins benchmarks
-benchmarkFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/collins_rul_cnn/";
+% benchmarkFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/collins_rul_cnn/";
+benchmarkFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/collins_rul_cnn/";
 
 %% 1) Load the networks
 [networks, name2idx] = load_collins_NNs();

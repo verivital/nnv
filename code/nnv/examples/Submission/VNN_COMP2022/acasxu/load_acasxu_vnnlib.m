@@ -6,20 +6,19 @@ function [lb_input, ub_input, output] = load_acasxu_vnnlib(propertyFile)
     % We know the size of the input from the neural network architecture,
     % but we can just avoid memory allocation and dynamically update the
     % input bounds, reshape afterwards
-%     lb_input = zeros(5,1);
-%     ub_input = zeros(5,1); % define this after declaration
     property = {};
     output = {}; % define output property in a cell matrix (undefined how we want to express this moving forward)
     property_count = 1;
+    j = 1;
     while ischar(tline)
-        if isempty(tline) % line contains no information
+        if isempty(tline) || startsWith(tline, ';')    % line contains no information
             % Go to next line (no matter which phase we are in)
             tline = fgetl(fileID);
             continue;
         elseif phase == "DeclareInput" % start updating input variables
             % Get input dimensions
             if contains(tline, "declare-const") && contains(tline, "X_")
-                dim = dm + 1; % only have seen inputs defined as vectors, so this should work
+                dim = dim + 1; % only have seen inputs defined as vectors, so this should work
                 % the more general approach would require some extra work, but should be easy as well
             elseif contains(tline, "declare-const") && contains(tline, "Y_")
                 lb_input = zeros(dim,1);
@@ -31,19 +30,33 @@ function [lb_input, ub_input, output] = load_acasxu_vnnlib(propertyFile)
         elseif phase == "DeclareOutput"
             % get output dimensions
             if contains(tline, "declare-const") && contains(tline, "Y_")
-                dim = dm + 1; % only have seen inputs defined as vectors, so this should work
+                dim = dim + 1; % only have seen inputs defined as vectors, so this should work
                 % the more general approach would require some extra work, but should be easy as well
             elseif contains(tline, "assert")
                 lb_output = zeros(dim,1);
                 ub_output = zeros(dim,1);
-                dim = 0; % reset dimension counter
-                phase = "DeclareOutput";
+                dim = 1; % reset dimension counter
+                phase = "DefineInput";
                 continue;  % redo this line in correct phase
             end
-        elseif phase == "DefineInput"
+        elseif phase == "DefineInput" % This only works for properties with one input set
             % assign values to each input dimension
             if contains(tline, ">=") || contains(tline, "<=")
                 if contains(tline, "X_")
+                    s = split(tline, '(');
+                    s = s(3:end);
+                    for k=1:length(s)
+                        t = split(s{k});
+                        dim = split(t{2},'_');
+                        dim = str2double(dim{2})+1;
+                        value = split(t{3},')');
+                        value = str2double(value{1});
+                        if contains(t{1},">=")
+                            lb_input(dim) = value;
+                        else
+                            ub_input(dim) = value;
+                        end
+                    end
                     % assign bounds to each input variable
                 else
                     phase = "DefineOutput";
@@ -52,6 +65,58 @@ function [lb_input, ub_input, output] = load_acasxu_vnnlib(propertyFile)
             end
         elseif phase == "DefineOutput"
             % assign output conditions
+            if contains(tline, 'assert')
+                if ~isempty(property)
+                    output{property_count} = property; % add last property to list of property/conditions to verify
+                    property_count = property_count + 1;
+                end
+                property = {}; % cell array of conditions to meet
+            end
+            if contains(tline, '>=') || contains(tline, '<=')
+                s = split(tline);
+%                 n = length(s);
+                if contains(s{1},'assert')
+                    s = s(2:end);
+                elseif isempty(s{1})
+                    s = s(2:end);
+                end
+                s = strjoin(s); % expression with just conditions and keywords like "and"
+                s = split(s, '('); % get number of conditions to evaluate
+                s = s(2:end);
+                for ex=1:length(s) % iterate though each expression
+                    if contains(s{ex}, 'or') % have not seen this yet, but just in case throw an error if encountered
+                        error('We do not support the OR operator here, only AND for now.');
+                    elseif contains(s{ex}, 'and')
+                        j = 1; % condition counter for each property
+                    elseif contains(tline, '>=') || contains(tline, '<=')
+                        condition = split(s{ex});
+                        n = length(condition);
+                        if contains(condition{n}, 'Y') % Comparison on the index (first idx value smaller than 2nd)
+                            property{j,1} = 'index';
+                            var1 = condition{n-1};
+                            var1 = split(var1,'_');
+                            property{j,2} = str2double(var1{end});
+                            property{j,3} = condition{1}; % conditional operator
+                            var2 = split(condition{n},')');
+                            var2 = var2{1};
+                            var2 = split(var2,'_');
+                            property{j,4} = str2double(var2{end});
+%                             j = j+1; % move to next property or value within same property
+                        else
+                            property{j,1} = 'value'; % one value of the output must be smaller than a value
+                            var1 = condition{n-1};
+                            var1 = split(var1,'_');
+                            property{j,2} = str2double(var1{end}); % index to verify
+                            property{j,3} = condition{1}; % conditional operator
+                            var2 = split(condition{n},')');
+                            var2 = var2{1};
+                            var2 = split(var2,'_');
+                            property{j,4} = str2double(var2{end}); % upper or lower bound
+%                             j = j+1;
+                        end
+                    end
+                end
+            end
         else
             % initializing (no phase)
             if contains(tline, "declare-const") && contains(tline, "X_")
@@ -130,7 +195,9 @@ function [lb_input, ub_input, output] = load_acasxu_vnnlib(propertyFile)
 %                 end
         % Go to next line
         tline = fgetl(fileID);
+        disp(tline);
     end % end while loop
+    output{property_count} = property;
     fclose(fileID); % close vnnlib file
 end % end function
 

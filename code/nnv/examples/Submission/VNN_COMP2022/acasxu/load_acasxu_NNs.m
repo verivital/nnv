@@ -1,6 +1,7 @@
 function [networks, names2idxs] = load_acasxu_NNs()
 %% 1) Load networks (collins benchmarks)
-vnnFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/";
+% vnnFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/";
+vnnFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/";
 benchmarkFolder = "acasxu/onnx/";
 listNN = dir(vnnFolder+benchmarkFolder);
 loadOptions = struct;

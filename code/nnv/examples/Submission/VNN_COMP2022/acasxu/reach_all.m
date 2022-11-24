@@ -1,12 +1,15 @@
 %% Run all properties of acas xu benchmarks
-benchmarkFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/";
+% benchmarkFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/";
+benchmarkFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/";
 
 %% 1) Load the networks
-[networks, name2idx] = load_acasxu_NNs();
+% [networks, name2idx] = load_acasxu_NNs();
 
 %% 2) Verify all properties
 csvFile = "instances.csv";
-NNs_props_timeout = readtable(benchmarkFolder+csvFile);
+opts = detectImportOptions(benchmarkFolder+csvFile);
+opts.Delimiter = ',';
+NNs_props_timeout = readtable(benchmarkFolder+csvFile, opts);
 % run each instance in MATLAB
 % ideally, for the competition, we'll create a matlab function that
 % iterates through each csv and sets a timeout for each instance (column 3)
@@ -14,7 +17,7 @@ verified = 0;
 verfied = zeros(height(NNs_props_timeout),1);
 errorMsgs = [];
 reachTimes = zeros(height(NNs_props_timeout),1);
-for i=1:height(NNs_props_timeout)
+for i=181:height(NNs_props_timeout)
     name = split(NNs_props_timeout.Var1{i},'/');
     name = name{2};
     net = networks{name2idx(name)};

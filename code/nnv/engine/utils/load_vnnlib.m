@@ -1,4 +1,4 @@
-function [lb_input, ub_input, output] = load_acasxu_vnnlib(propertyFile)
+function [lb_input, ub_input, output] = load_vnnlib(propertyFile)
     fileID = fopen(propertyFile,'r'); % open vnnlib file
     tline = fgetl(fileID); % Reading file line-by-line
     % initialize variables to track which variables to update (input or output)

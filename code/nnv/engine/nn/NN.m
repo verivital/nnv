@@ -11,8 +11,8 @@ classdef NN < handle
     % Author: Diego Manzanas Lopez
     % Date: 09/28/2022
     % Notes: Code is based on the previous CNN and FFNNS classes written by
-    %             Dung Tran
-    % This is a generalized class, created in the refactoring of NNV in 2022 (NNV 2.0)
+    %             Dr. Hoang Dung Tran
+    % This is a generalized class, created in the refactoring of NNV in 2022/2023 (NNV 2.0)
     
     properties
         
@@ -152,6 +152,24 @@ classdef NN < handle
     
     
     methods % reachability analysis method
+
+        function reachOptions = check_reachability_method(obj, reachOptions)
+            reach_method = reachOptions.reachMethod;
+            if contains(reach_method, "exact")
+                for i=1:length(obj.Layers)
+                    if isa(obj.Layers{i}, "ODEblockLayer")
+                        if ~isa(obj.Layers{i}.odemodel,'LinearODE')
+                            warning("Exact reachability is not possible with a neural ODE layer (" + class(obj.Layers{i}.odemodel) + "). Switching to approx-star.");
+                            reachOptions.reachMethod = "approx-star";
+                        end
+                    end
+                    if isa(obj.Layers{i}, "SigmoidLayer") || isa(obj.Layers{i}, "TanhLayer")
+                        warning("Exact reachability is not possible with layer " + class(obj.Layers{i} + ". Switching to approx-star.");
+                        reachOptions.reachMethod = "approx-star";
+                    end
+                end
+            end
+        end
         
         % Update this function to make use of the computational graph
         % (connections) newly introduced. Can access the computed reach set
@@ -179,6 +197,8 @@ classdef NN < handle
             if ~ isa(inputSet,"Star") && ~ isa(inputSet,"ImageStar") && ~ isa(inputSet,"ImageZono") && ~ isa(inputSet,"Zono") 
                 error('Wrong input set type. Input set must be of type "Star", "ImageStar", "ImageZono", or "Zono"')
             end
+            % Check validity of reachability method
+            reachOptions = check_reachability_method(obj, reachOptions);
             % Process reachability options
             if ~isstruct(reachOptions)
                 error("The reachability parameters must be specified as a struct.")
@@ -246,6 +266,42 @@ classdef NN < handle
     end
     
     methods % clasification and verification methods
+
+        function result = verify_vnnlib(obj, propertyFile, reachOptions)
+            % Load specification to verify
+            [lb_x, ub_x, property] = load_vnnlib(propertyFile);
+            % Create reachability parameters and options
+            if contains(reachOptions.reachMethod, "zono")
+                X = ImageZono(lb_x', ub_x');
+            else
+                X = ImageStar(lb_x',ub_x');
+            end
+            % Compute reachability
+            rT = tic;
+            Y = obj.reach(X, reachOptions); % Seems to be working
+            rT = toc(rT);
+            result = verify_specification(Y, property); 
+            % Evaluate property
+            disp(' ');
+            disp('===============================')
+            disp('RESULTS')
+            disp(' ')
+            
+            if result == 2
+                if contains(net.reachMethod, "exact")
+                    result = 0;
+                    disp('Property is UNSAT');
+                else
+                    disp('Property is UNKNOWN');
+                end
+            elseif result == 1
+                disp('Property is SAT');
+            else
+                disp('Property is UNSAT')
+            end
+    
+            disp("Reachability computation time = "+string(rT) + " seconds")
+        end
         
         function label_id = classify(obj, inputValue, reachOptions)
             % label_id = classify(inputValue, reachOptions = 'default')
@@ -293,108 +349,7 @@ classdef NN < handle
                     label_id{i} = max_id(:, 1);
                 end
             end
-        end
-        
-        % To generalize things like this, it may be a little more
-        % complicated, have to double check if we could do counterexamples
-        % with any sets and any NN type
-        %%%%%%%%%%%%%%%%%%%%%%%
-%  THIS NEEDS FIXING, HOW TO DO COUNTER EXAMPLES WITH ANY SET AND ANY NN 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [robust, counterExamples] = verifyRobustness(obj, inputValue, targetID, reachOptions)
-            % [robust, counterExamples] = verifyRobustness(obj, inputValue, targetID, reachOptions)
-            % @robust: = 1: the network is robust
-            %          = 0: the network is notrobust
-            %          = 2: robustness is uncertain
-            % @counterExamples: a set of counter examples 
-            % @inputValue = input to NN, i.e. ImageStar, Star...
-            % @targetID = label (class) target of the inputValue
-            % @reachOptions = reachability options for the robustness analysis
-            
-            switch nargin
-                case 3
-                    reachOptions.method = 'approx-star';
-                    reachOptions.numOfCores = 1;
-                case 4
-                    if ~isstruct(reachOptions)
-                        error('Reachability options must be defined as a struct.')
-                    end
-                otherwise
-                    error('Invalid number of inputs, should be 2, 3, or 4');
-            end
-                        
-            label_id = obj.classify(inputValue, reachOptions);      
-            n = length(label_id); 
-            % check the correctness of classifed label
-            counterExamples = [];
-            incorrect_id_list = []; 
-            for i=1:n
-                ids = label_id{i};
-                m = length(ids);
-                id1 = [];
-                for j=1:m
-                    if ids(j) ~= targetID
-                       id1 = [id1 ids(j)];
-                    end
-                end
-                incorrect_id_list = [incorrect_id_list id1];             
-                
-                % construct counter example set
-                if ~isempty(id1) % Check for incorrect classifications
-                    % if it's not a set, return the example input
-                    if ~isa(inputValue, 'ImageStar') && ~isa(inputValue, 'Star') && ~isa(inputValue, 'Zono') && ~isa(inputValue, 'ImageZono')
-                        counterExamples = in_image; 
-                    elseif strcmp(reachOptions.method, 'exact-star') && isa(inputValue, 'ImageStar') % Can only return counter examples if method used was exact
-                        rs = obj.outputSet(i);
-                        L = length(id1); 
-                        for l=1:L                    
-                            [new_C, new_d] = ImageStar.addConstraint(rs, [1, 1, correct_id], [1, 1, id1(l)]);  
-                            counter_IS = ImageStar(in_image.V, new_C, new_d, in_image.pred_lb, in_image.pred_ub);
-                            counterExamples = [counterExamples counter_IS];
-                        end
-                    end
-                end
-            end
-            
-            
-            if isempty(incorrect_id_list)
-                robust = 1;
-                fprintf('\n=============================================');
-                fprintf('\nTHE NETWORK IS ROBUST');
-                fprintf('\nClassified index: %d', correct_id);
-                
-            else
-                
-                if strcmp(method, 'exact-star')
-                    robust = 0;
-                    fprintf('\n=============================================');
-                    fprintf('\nTHE NETWORK IS NOT ROBUST');
-                    fprintf('\nLabel index: %d', correct_id);
-                    fprintf('\nClassified index:');
-                    
-                    n = length(incorrect_id_list);
-                    for i=1:n
-                        fprintf('%d ', incorrect_id_list(i));
-                    end
-                    
-                else
-                    robust = 2;
-                    fprintf('\n=============================================');
-                    fprintf('\nThe robustness of the network is UNCERTAIN due to the conservativeness of approximate analysis');
-                    fprintf('\nLabel index: %d', correct_id);
-                    fprintf('\nPossible classified index: ');
-                                       
-                    n = length(incorrect_id_list);
-                    for i=1:n
-                        fprintf('%d ', incorrect_id_list(i));
-                    end                   
-                    fprintf('\nPlease try to verify the robustness with exact-star (exact analysis) option');
-                end
-                
-            end
-            
-        end
-        
+        end       
     end
     
 end

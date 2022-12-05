@@ -11,15 +11,29 @@ function [result] = verify_specification(reachSet, property)
 %             1 ->  property satisfied
 %             2 ->  unknown
 
-[r_lb, r_ub] = reachSet.getRanges(); % get ranges of reach set
-i = 1;
-condition = string();
-while i <= length(properties) % we are going to use eval('expression') to evaluate the properties
-    % Idea: 
-    % convert entire property to string, then run it inside eval. May need to do this 
-    % iteratively to add the || and && conditions, that may be a little more complex.
-    
-end % end while loop
-
+    [lb, ub] = reachSet.getRanges(); % get ranges of reach set
+    disp(' ');
+    i = 1;
+    result = ones(length(property),1);
+    for i = 1:length(property)
+        result(i) = eval(property{i}{1}); % Verification result (1: sat, 0: unsat or unknown)
+        if ~result(i) % check it property is sat
+            result(i) = eval(property{i}{2}); % if result = 1, this means we prove unsat
+            if ~ result(i)
+                result(i) = 2; % unknown
+            else
+                result(i) = 0; % unsat
+                break;
+            end
+        end
+    end % end while loop
+    % check the global result of the specifications
+    if all(result == 1)
+        result = 1;
+    elseif any(result== 0)
+        result = 0;
+    else
+        result = 2;
+    end
 end % close function
 

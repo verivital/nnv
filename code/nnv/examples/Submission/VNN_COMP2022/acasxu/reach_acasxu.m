@@ -6,6 +6,7 @@ function [result,rT] = reach_acasxu(net, propertyFile)
     % Create reachability parameters and options
     X = ImageStar(lb_x',ub_x');
     reachOptions = struct;
+%     reachOptions.reachMethod = 'approx-star';
     reachOptions.reachMethod = 'approx-star';
     % Compute reachability
     rT = tic;

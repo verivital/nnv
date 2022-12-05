@@ -38,9 +38,11 @@ disp(' ')
 disp('=============================')
 disp('ACAS Xu Benchmarks');
 disp('=============================')
-disp('Total number of properties verified = '+string(sum(verified==1)) + " out of "+height(NNs_props_timeout));
-disp("UNSAT = "+string(sum(verified==0)))
-disp("Error/timeout = "+string(sum(verified==-1)))
+disp('Total number of properties = ' + string(height(NNs_props_timeout)));
+disp("SAT = " +string(sum(verified==1)));
+disp("UNSAT = "+string(sum(verified==0)));
+disp("UNKNOWN = " + string(sum(verified==2)));
+disp("Error/timeout = "+string(sum(verified==-1)));
 disp("Total computation time = " + string(sum(reachTimes)) + " seconds")
 % Could take a look into the unsat ones and redo the reachability analysis
 % with exact star

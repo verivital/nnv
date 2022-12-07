@@ -1,4 +1,4 @@
-classdef ReluLayer < handle
+classdef ReluLayer < ActivationFunctionLayer
     % The Relu layer class in CNN
     %   Contain constructor and reachability analysis methods
     % Main references:
@@ -183,7 +183,6 @@ classdef ReluLayer < handle
             if ~isa(in_image, 'ImageStar')
                 error('input is not an ImageStar');
             end
-            
             
             h = in_image.height;
             w = in_image.width;

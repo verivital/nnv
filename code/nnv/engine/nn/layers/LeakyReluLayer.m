@@ -4,10 +4,6 @@ classdef LeakyReluLayer < handle
     
     %   Diego Manzanas: 12/06/2022
     %
-    %   TODO:
-    %       Add Exact and approx reach methods
-    %       LeakyReLU is more complex than the other functions, make sure
-    %       all the methods in LeakyReLU are supported through here
     
     properties
         Name = 'relu_layer';
@@ -30,7 +26,7 @@ classdef LeakyReluLayer < handle
             
             switch nargin
                 
-                case 5 % used for parsing a matlab relu layer
+                case 6 % used for parsing a matlab relu layer
                     obj.Name = varargin{1};
                     obj.NumInputs = varargin{2};
                     obj.InputNames = varargin{3};
@@ -80,7 +76,7 @@ classdef LeakyReluLayer < handle
     methods % reachability methods
         
         % reachability using ImageStar
-        function images = reach_star_single_input(~, in_image, method, relaxFactor)
+        function images = reach_star_single_input(obj, in_image, method, relaxFactor)
             % @in_image: an ImageStar input set
             % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
             % @relaxFactor: of approx-star method
@@ -95,7 +91,7 @@ classdef LeakyReluLayer < handle
             w = in_image.width;
             c = in_image.numChannel;
             
-            Y = LeakyReLU.reach(in_image.toStar, method, [], relaxFactor); % reachable set computation with ReLU
+            Y = LeakyReLU.reach(in_image.toStar, obj.gamma, method, [], relaxFactor); % reachable set computation with LeakyReLU
             n = length(Y);
             images(n) = ImageStar;
             % transform back to ImageStar
@@ -106,7 +102,7 @@ classdef LeakyReluLayer < handle
         end
         
         
-        % hangling multiple inputs (this is the same in many layers, can we
+        % handling multiple inputs (this is the same in many layers, can we
         % just create a main class with sahred code and then inherit from
         % there and just add the non-shareable functions?
         function images = reach_star_multipleInputs(obj, in_images, method, option, relaxFactor)
@@ -135,7 +131,7 @@ classdef LeakyReluLayer < handle
         end
         
         % reachability using ImageStar
-        function images = reach_star_single_input2(~, in_image, method, option, relaxFactor, dis_opt, lp_solver)
+        function images = reach_star_single_input2(obj, in_image, method, option, relaxFactor, dis_opt, lp_solver)
             % @in_image: an ImageStar input set
             % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
             % @relaxFactor: of approx-star method
@@ -153,7 +149,7 @@ classdef LeakyReluLayer < handle
             w = in_image.width;
             c = in_image.numChannel;
             
-            Y = LeakyReLU.reach(in_image.toStar, method, option, relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
+            Y = LeakyReLU.reach(in_image.toStar, obj.gamma, method, option, relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
             n = length(Y);
             images(n) = ImageStar;
             % transform back to ImageStar
@@ -186,7 +182,7 @@ classdef LeakyReluLayer < handle
         
         
         % reachability using ImageZono
-        function image = reach_zono(~, in_image)
+        function image = reach_zono(obj, in_image)
             % @in_image: an ImageZono input set
             
             if ~isa(in_image, 'ImageZono')
@@ -197,7 +193,7 @@ classdef LeakyReluLayer < handle
             w = in_image.width;
             c = in_image.numChannels;
             In = in_image.toZono;
-            Y = LeakyReLU.reach(In, 'approx-zono');
+            Y = LeakyReLU.reach(In, obj.gamma, 'approx-zono');
             image = Y.toImageZono(h,w,c);
             
         end
@@ -280,13 +276,13 @@ classdef LeakyReluLayer < handle
                     dis_opt = [];
                     lp_solver = 'glpk';
                 otherwise
-                    error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
-                images = obj.reach_star_multipleInputs2(in_images, method, option, relaxFactor, dis_opt, lp_solver);
+                images = obj.reach_star_multipleInputs2(in_images, obj.gamma, method, option, relaxFactor, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')
-                images = obj.reach_zono_multipleInputs(in_images, option);
+                images = obj.reach_zono_multipleInputs(in_images, obj.gamma, option);
             else
                 error("Uknown reachability method");
             end         
@@ -298,19 +294,14 @@ classdef LeakyReluLayer < handle
     methods(Static)
          % parse a trained leaky relu Layer from matlab
         function L = parse(layer)
-            
-            if ~isa(relu_layer, 'nnet.cnn.layer.LeakyReLULayer')
+            if ~isa(layer, 'nnet.cnn.layer.LeakyReLULayer')
                 error('Input is not a Matlab nnet.cnn.layer.LeakyReLULayer class');
             end
-            
-            L = LeakyReluLayer(layer.Name, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
+            L = LeakyReluLayer(layer.Name, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames, layer.Scale);
             fprintf('\nParsing a Matlab leaky relu layer is done successfully');
-            
         end
         
     end
-    
-    
     
 end
 

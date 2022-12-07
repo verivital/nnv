@@ -18,9 +18,11 @@ classdef ActivationFunctionLayer < handle
         % constructor of the class
         function obj = ActivationFunctionLayer(varargin)           
             % author: Diego Mazanas Lopez
-            % date: 12/06/2022   
+            % date: 12/06/2022
+
+            varargin = varargin{1}; % inheritance (this layer only makes sense for that)
             
-            switch nargin
+            switch length(varargin) % cell array with input arguments
                 
                 case 5 % used for parsing a matlab layer
                     obj.Name = varargin{1};
@@ -160,7 +162,7 @@ classdef ActivationFunctionLayer < handle
                     error('Invalid number of input arguments (should be 2,3,4,5 or 6)');
             end
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
                 images = obj.reach_star_multipleInputs(in_images, method, option, relaxFactor, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 images = obj.reach_zono_multipleInputs(in_images, option);

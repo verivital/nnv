@@ -1,4 +1,4 @@
-classdef LeakyReluLayer < handle
+classdef LeakyReluLayer < ActivationFunctionLayer
     % The LeakyRelu layer class in NN
     %   Contain constructor and reachability analysis methods
     
@@ -6,17 +6,10 @@ classdef LeakyReluLayer < handle
     %
     
     properties
-        Name = 'relu_layer';
-        
-        NumInputs = 1;
-        InputNames = {'in'};
-        NumOutputs = 1;
-        OutputNames = {'out'};
         gamma = 0.01; % MATLAB default scale value
     end
     
-    
-    % setting hyperparameters method
+    % setting hyperparameters method (custom to account for gamma)
     methods
         
         % constructor of the class
@@ -71,67 +64,11 @@ classdef LeakyReluLayer < handle
         end
         
     end
-        
     
     methods % reachability methods
         
         % reachability using ImageStar
-        function images = reach_star_single_input(obj, in_image, method, relaxFactor)
-            % @in_image: an ImageStar input set
-            % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
-            % @relaxFactor: of approx-star method
-            % @images: an array of ImageStar (if we use 'exact-star' method)
-            %         or a single ImageStar set
-            
-            if ~isa(in_image, 'ImageStar')
-                error('input is not an ImageStar');
-            end
-            
-            h = in_image.height;
-            w = in_image.width;
-            c = in_image.numChannel;
-            
-            Y = LeakyReLU.reach(in_image.toStar, obj.gamma, method, [], relaxFactor); % reachable set computation with LeakyReLU
-            n = length(Y);
-            images(n) = ImageStar;
-            % transform back to ImageStar
-            for i=1:n
-                images(i) = Y(i).toImageStar(h,w,c);
-            end
-
-        end
-        
-        
-        % handling multiple inputs (this is the same in many layers, can we
-        % just create a main class with sahred code and then inherit from
-        % there and just add the non-shareable functions?
-        function images = reach_star_multipleInputs(obj, in_images, method, option, relaxFactor)
-            % @in_images: an array of ImageStars
-            % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
-            % @option: = 'parallel' or 'single' or empty
-            % @relaxFactor: of approx-star method
-            % @images: an array of ImageStar (if we use 'exact-star' method)
-            %         or a single ImageStar set
-            
-            images = [];
-            n = length(in_images);
-                        
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    images = [images obj.reach_star_single_input(in_images(i), method, relaxFactor)];
-                end
-            elseif strcmp(option, 'single') || isempty(option)
-                for i=1:n
-                    images = [images obj.reach_star_single_input(in_images(i), method, relaxFactor)];
-                end
-            else
-                error('Unknown computation option');
-            end
-            
-        end
-        
-        % reachability using ImageStar
-        function images = reach_star_single_input2(obj, in_image, method, option, relaxFactor, dis_opt, lp_solver)
+        function images = reach_star_single_input(obj, in_image, method, option, relaxFactor, dis_opt, lp_solver)
             % @in_image: an ImageStar input set
             % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
             % @relaxFactor: of approx-star method
@@ -143,7 +80,6 @@ classdef LeakyReluLayer < handle
             if ~isa(in_image, 'ImageStar')
                 error('input is not an ImageStar');
             end
-            
             
             h = in_image.height;
             w = in_image.width;
@@ -158,28 +94,6 @@ classdef LeakyReluLayer < handle
             end
 
         end
-        
-        
-        % hangling multiple inputs
-        function images = reach_star_multipleInputs2(obj, in_images, method, option, relaxFactor, dis_opt, lp_solver)
-            % @in_images: an array of ImageStars
-            % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
-            % @option: = 'parallel' or 'single' or empty
-            % @relaxFactor: of approx-star method
-            % @dis_opt: display option = [] or 'display'
-            % @lp_solver: lp solver
-            % @images: an array of ImageStar (if we use 'exact-star' method)
-            %         or a single ImageStar set
-            
-            images = [];
-            n = length(in_images);
-                        
-            for i=1:n
-                images = [images obj.reach_star_single_input2(in_images(i), method, option, relaxFactor, dis_opt, lp_solver)];
-            end
-            
-        end
-        
         
         % reachability using ImageZono
         function image = reach_zono(obj, in_image)
@@ -196,96 +110,6 @@ classdef LeakyReluLayer < handle
             Y = LeakyReLU.reach(In, obj.gamma, 'approx-zono');
             image = Y.toImageZono(h,w,c);
             
-        end
-        
-        % handling multiple inputs
-        function images = reach_zono_multipleInputs(obj, in_images, option)
-            % @in_images: an array of ImageStars
-            % @option: = 'parallel' or 'single' or empty
-            % @images: an array of ImageStar (if we use 'exact-star' method)
-            %         or a single ImageStar set
-            
-            n = length(in_images);
-            images(n) = ImageZono;
-                        
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    images(i) = obj.reach_zono(in_images(i));
-                end
-            elseif strcmp(option, 'single') || isempty(option)
-                for i=1:n
-                    images(i) = obj.reach_zono(in_images(i));
-                end
-            else
-                error('Unknown computation option');
-            end
-            
-        end
-        
-        
-        % MAIN REACHABILITY METHOD
-        function images = reach(varargin)
-            % @in_image: an input imagestar
-            % @image: output set
-            % @option: = 'single' or 'parallel' 
-             
-            switch nargin
-                
-                case 7
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    relaxFactor = varargin{5};
-                    dis_opt = varargin{6}; 
-                    lp_solver = varargin{7}; 
-                
-                case 6
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    relaxFactor = varargin{5}; % use for approx-star only
-                    dis_opt = varargin{6}; % display option
-                    lp_solver = 'glpk';
-                
-                case 5
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    relaxFactor = varargin{5}; % use for approx-star only
-                     dis_opt = [];
-                    lp_solver = 'glpk';
-                
-                case 4
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    relaxFactor = 0; % use for approx-star only
-                    dis_opt = [];
-                    lp_solver = 'glpk';
-                
-                case 3
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = 'single';
-                    relaxFactor = 0; % use for approx-star only
-                    dis_opt = [];
-                    lp_solver = 'glpk';
-                otherwise
-                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
-            end
-            
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
-                images = obj.reach_star_multipleInputs2(in_images, obj.gamma, method, option, relaxFactor, dis_opt, lp_solver);
-            elseif strcmp(method, 'approx-zono')
-                images = obj.reach_zono_multipleInputs(in_images, obj.gamma, option);
-            else
-                error("Uknown reachability method");
-            end         
         end
                  
     end

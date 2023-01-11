@@ -1,22 +1,18 @@
-classdef SigmoidLayer < ActivationFunctionLayer
-    % The SigmoidLayer class in NN
+classdef HardSigmoidLayer < ActivationFunctionLayer
+    % The HardSigmoidLayer class in NN
     %   Contain constructor and reachability analysis methods
-    %   Dung Tran: 6/9/2020
-    %   
-    %   update: Diego Manzanas, 12/07/2022
-    %          - Inheritance using ActivationFunctionLayer
+    %   Diego Manzanas: 12/06/202
     
     % setting hyperparameters method
     methods
         
         % constructor of the class
-        function obj = SigmoidLayer(varargin)           
+        function obj = HardSigmoidLayer(varargin)           
             % author: Dung Tran
-            % date: 6/9/2020   
-            % update: Diego Manzanas, 12/07/2022
-            %   - Inheritance using ActivationFunctionLayer
+            % date: 12/06/2022  
             obj = obj@ActivationFunctionLayer(varargin);
         end
+        
     end
         
     % evaluation method
@@ -26,8 +22,8 @@ classdef SigmoidLayer < ActivationFunctionLayer
             % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
             % @y: 2 or 3-dimensional array, for example, y(:, :, :)
             
-            % author: Dung Tran
-            % date: 6/26/2019
+            % author: Diego Manzanas
+            % date: 12/06/2022
             
             % @y: high-dimensional array (output volume)
             
@@ -38,7 +34,7 @@ classdef SigmoidLayer < ActivationFunctionLayer
             end
             
             I = reshape(input, [N 1]);
-            y = LogSig.evaluate(I);
+            y = HardSig.evaluate(I);
             y = reshape(y, n);
                    
         end
@@ -56,10 +52,8 @@ classdef SigmoidLayer < ActivationFunctionLayer
             % @images: an array of ImageStar (if we use 'exact-star' method)
             %         or a single ImageStar set
             
-            % author: Dung Tran
-            % date: 6/9/2020
-            % update: 6/26/2020: add relaxed approx-star method
-            %         7/16/2020: add display option + lp_solver option
+            % author: Diego Manzanas
+            % date: 12/06/2022
             
             if ~isa(in_image, 'ImageStar')
                 error('input is not an ImageStar');
@@ -69,7 +63,7 @@ classdef SigmoidLayer < ActivationFunctionLayer
             w = in_image.width;
             c = in_image.numChannel;
                         
-            Y = LogSig.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
+            Y = HardSig.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
             n = length(Y);
             images(n) = ImageStar;
             % transform back to ImageStar
@@ -82,9 +76,6 @@ classdef SigmoidLayer < ActivationFunctionLayer
         % reachability using ImageZono
         function image = reach_zono(~, in_image)
             % @in_image: an ImageZono input set
-            
-            % author: Dung Tran
-            % date: 6/9/2020
             
             if ~isa(in_image, 'ImageZono')
                 error('input is not an ImageZono');
@@ -99,28 +90,6 @@ classdef SigmoidLayer < ActivationFunctionLayer
             
         end
                  
-    end
-    
-    
-    methods(Static)
-         % parse a trained simoid layer from matlab
-        function L = parse(layer)
-            % @sigmoid_layer: 
-                        
-            % author: Dung Tran
-            % date: 6/9/2020
-            % modified: added onnx flatten sigmoid layers
-            %       by: Neelanjana Pal
-            % date: 6/25/2021
-            if ~isa(layer, 'nnet.keras.layer.SigmoidLayer') && ~isa(layer,'nnet.onnx.layer.SigmoidLayer')
-                error('Input is not a sigmoid layer');
-            end
-            
-            L = SigmoidLayer(layer.Name, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
-            fprintf('\nParsing a keras sigmoid layer is done successfully');
-            
-        end
-        
     end
     
 end

@@ -127,7 +127,7 @@ classdef SignLayer < handle
             
             n = length(I);
             S = [];
-            gamma1 = obj.gamma;
+%             gamma1 = obj.gamma;
             
             I1 = I;
             
@@ -140,9 +140,9 @@ classdef SignLayer < handle
                 rF = obj.relaxFactor;
                 dis = obj.dis_opt;
                 lps = obj.lp_solver;
-                mode = obj.mode;
+                mode_ = obj.mode;
                 parfor i=1:n
-                    S = [S Sign.reach(I1(i), method, [], rF, dis, lps, mode)];
+                    S = [S Sign.reach(I1(i), method, [], rF, dis, lps, mode_)];
                 end
             else
                 

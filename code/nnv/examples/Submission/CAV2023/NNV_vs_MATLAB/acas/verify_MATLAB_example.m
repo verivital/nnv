@@ -1,5 +1,6 @@
 %% Verify ACAS Xu Networks in MATLAB
-vnnFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/";
+% vnnFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/";
+vnnFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/";
 
 %% Load Model
 % Load the network
@@ -22,13 +23,25 @@ Layers(elem_idxs) = []; % remove elementwiselayer
 acas24 = dlnetwork([input_layer; Layers]); % create dlnetwork for verification
 
 %% Verification
-% Run a verification example
-X = [0;0;0;0;0];
-perturbation = 0.01;
-XLower = dlarray(X - perturbation, "CB");
-XUpper = dlarray(X + perturbation, "CB");
+% % Run a verification example
+% X = [0;0;0;0;0];
+% perturbation = 0.01;
+% XLower = dlarray(X - perturbation, "CB");
+% XUpper = dlarray(X + perturbation, "CB");
+% 
+% % result = verifyNetworkRobustness(net, XLower, XUpper, label);
+% t = tic;
+% [YLower, YUpper] = estimateNetworkOutputBounds(acas24, XLower, XUpper);
+% mT = toc(t);
 
-% result = verifyNetworkRobustness(net, XLower, XUpper, label);
-t = tic;
+% Property 2 - Unsafe if COC is maximal
+XLower = [0.6; -0.5; -0.5; 0.45; -0.5];
+XUpper = [0.679857769; 0.5; 0.5; 0.5; -0.45];
+label = 1;
+XLower = dlarray(XLower, "CB");
+XUpper = dlarray(XUpper, "CB");
+
+result = verifyNetworkRobustness(acas24, XLower, XUpper, label);
 [YLower, YUpper] = estimateNetworkOutputBounds(acas24, XLower, XUpper);
-mT = toc(t);
+
+% Bounds are way too large, probably won't be able to verify any properties (at least ACAS Xu, maybe property 1?)

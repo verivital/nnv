@@ -12,6 +12,8 @@ function [resMAT,resNNV, timeMAT, timeNNV] = verifyP2()
     % NNV
 %     IS = Star(XLower, XUpper); % Input set
     IS = ImageStar(XLower, XUpper);
+    H = [1 -1 0 0 0; 1 0 -1 0 0; 1 0 0 -1 0; 1 0 0 0 -1];
+    g = [0;0;0;0];
     reachOpt = struct;
     reachOpt.reachMethod = 'approx-star';
     
@@ -53,7 +55,7 @@ function [resMAT,resNNV, timeMAT, timeNNV] = verifyP2()
         t = tic;
         R = netNNV.reach(IS, reachOpt);
         timeNNV(i-2) = toc(t);
-        res = verifyNNV(R);
+        res = verifyNNV(R, H, g);
         resNNV = [resNNV; res];
     end
 
@@ -63,17 +65,28 @@ function [resMAT,resNNV, timeMAT, timeNNV] = verifyP2()
 end
 
 %% Helper Function
-function result = verifyNNV(R) % simple (work on the VNNLIB and intersection with halfspaces to automate this process)
+% function result = verifyNNV(R) % simple (work on the VNNLIB and intersection with halfspaces to automate this process)
+% 
+%     [YLower, YUpper] = R.getRanges();
+%     if YUpper(1) < YLower(2) || YUpper(1) < YLower(3) || YUpper(1) < YLower(4) || YUpper(1) < YLower(5)
+%         result = categorical("violated"); % violated = safe
+% 
+%     elseif YLower(1) > YUpper(2) && YLower(1) > YUpper(3) && YLower(1) > YUpper(4) && YLower(1) > YUpper(5)
+%         result = categorical("verified"); % verified = unsafe
+%     
+%     else
+%         result = categorical("unproven"); % if approx methods used, then unproven, otherwise (exact) violated
+%     end
+% 
+% end
 
-    [YLower, YUpper] = R.getRanges();
-    if YUpper(1) < YLower(2) || YUpper(1) < YLower(3) || YUpper(1) < YLower(4) || YUpper(1) < YLower(5)
-        result = categorical("violated"); % violated = safe
-
-    elseif YLower(1) > YUpper(2) && YLower(1) > YUpper(3) && YLower(1) > YUpper(4) && YLower(1) > YUpper(5)
-        result = categorical("verified"); % verified = unsafe
-    
+function result = verifyNNV(Set, H, b)
+    S = Set.intersectHalfSpace(H,b);
+    if isempty(S)
+        result = categorical("violated");
+    elseif S.isSubSet(Set) && Set.isSubSet(S)
+        result = categorical("verified");
     else
-        result = categorical("unproven"); % if approx methods used, then unproven, otherwise (exact) violated
+        result = categorical("unproven");
     end
-
 end

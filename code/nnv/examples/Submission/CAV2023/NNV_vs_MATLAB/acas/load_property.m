@@ -11,7 +11,7 @@ switch tool
                 spec.XLower = [0.6; -0.5; -0.5; 0.45; -0.5];
                 spec.XUpper = [0.679857769; 0.5; 0.5; 0.5; -0.45];
                 spec.H = [1 0 0 0 0];
-                spec.g = 1500;
+                spec.g = 3.991125645861615;
             case 'prop2' % Unsafe if COC is maximal
                 spec.XLower = [0.6; -0.5; -0.5; 0.45; -0.5];
                 spec.XUpper = [0.679857769; 0.5; 0.5; 0.5; -0.45];

@@ -1,11 +1,12 @@
-function verifyP2()
+function verifyP2(reachOptionsList)
 
     % Setup the property
     resMAT = [];
     resNNV = [];
     timeMAT = zeros(45,1);
-    timeNNV = zeros(45,1);
-    timeNNVver = zeros(45,1);
+    n = length(reachOptionsList);
+    timeNNV = zeros(45,n);
+    timeNNVver = zeros(45,n);
     
     XLower = [0.6; -0.5; -0.5; 0.45; -0.5];
     XUpper = [0.679857769; 0.5; 0.5; 0.5; -0.45];
@@ -15,8 +16,8 @@ function verifyP2()
     IS = ImageStar(XLower, XUpper);
     H = [1 -1 0 0 0; 1 0 -1 0 0; 1 0 0 -1 0; 1 0 0 0 -1];
     g = [0;0;0;0];
-    reachOpt = struct;
-    reachOpt.reachMethod = 'approx-star';
+%     reachOpt = struct;
+%     reachOpt.reachMethod = 'approx-star';
     
     % MATLAB
     label = 1;
@@ -24,8 +25,8 @@ function verifyP2()
     XUpper = dlarray(XUpper, "CB");
     
     % Iterate through all the networks to verify
-%     acasFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
-    acasFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
+    acasFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
+%     acasFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
     networks = dir(acasFolder);
     
     for i = 3:length(networks)
@@ -54,15 +55,16 @@ function verifyP2()
         resMAT = [resMAT; res];
         
         % Verify NNV
-        t = tic;
-        R = netNNV.reach(IS, reachOpt);
-        timeNNV(i-2) = toc(t);
-        R = R.toStar;
-        t = tic;
-        disp(' ');
-        disp("Verification of " + string(networks(i).name));
-        res = verifyNNV(R, H, g);
-        timeNNVver(i-2) = toc(t);
+        res = [];
+        for r = 1:reachOptionsList
+            t = tic;
+            R = netNNV.reach(IS, reachOpt);
+            timeNNV(i-2,r) = toc(t);
+            R = R.toStar;
+            t = tic;
+            res = [res, verifyNNV(R, H, g)];
+            timeNNVver(i-2,r) = toc(t);
+        end
         resNNV = [resNNV; res];
         
         
@@ -74,28 +76,23 @@ function verifyP2()
 end
 
 %% Helper Function
-% function result = verifyNNV(R) % simple (work on the VNNLIB and intersection with halfspaces to automate this process)
-% 
-%     [YLower, YUpper] = R.getRanges();
-%     if YUpper(1) < YLower(2) || YUpper(1) < YLower(3) || YUpper(1) < YLower(4) || YUpper(1) < YLower(5)
-%         result = categorical("violated"); % violated = safe
-% 
-%     elseif YLower(1) > YUpper(2) && YLower(1) > YUpper(3) && YLower(1) > YUpper(4) && YLower(1) > YUpper(5)
-%         result = categorical("verified"); % verified = unsafe
-%     
-%     else
-%         result = categorical("unproven"); % if approx methods used, then unproven, otherwise (exact) violated
-%     end
-% 
-% end
 
 function result = verifyNNV(Set, H, b)
-    S = Set.intersectHalfSpace(H,b);
+    S = Set.intersectHalfSpace(-H,-b);
     if isempty(S)
-        result = categorical("violated");
-    elseif Set.isSubSet(S)
         result = categorical("verified");
     else
         result = categorical("unproven");
     end
 end
+
+% function result = verifyNNV(Set, H, b)
+%     S = Set.intersectHalfSpace(H,b);
+%     if isempty(S)
+%         result = categorical("violated");
+%     elseif Set.isSubSet(S) % Set <= S (reachable set is a contained in S (result of the intersection of Set and property))
+%         result = categorical("verified");
+%     else
+%         result = categorical("unproven");
+%     end
+% end

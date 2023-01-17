@@ -1,10 +1,11 @@
-function [resMAT,resNNV, timeMAT, timeNNV] = verifyP2()
+function verifyP2()
 
     % Setup the property
     resMAT = [];
     resNNV = [];
     timeMAT = zeros(45,1);
     timeNNV = zeros(45,1);
+    timeNNVver = zeros(45,1);
     
     XLower = [0.6; -0.5; -0.5; 0.45; -0.5];
     XUpper = [0.679857769; 0.5; 0.5; 0.5; -0.45];
@@ -23,7 +24,8 @@ function [resMAT,resNNV, timeMAT, timeNNV] = verifyP2()
     XUpper = dlarray(XUpper, "CB");
     
     % Iterate through all the networks to verify
-    acasFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
+%     acasFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
+    acasFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
     networks = dir(acasFolder);
     
     for i = 3:length(networks)
@@ -55,12 +57,19 @@ function [resMAT,resNNV, timeMAT, timeNNV] = verifyP2()
         t = tic;
         R = netNNV.reach(IS, reachOpt);
         timeNNV(i-2) = toc(t);
+        R = R.toStar;
+        t = tic;
+        disp(' ');
+        disp("Verification of " + string(networks(i).name));
         res = verifyNNV(R, H, g);
+        timeNNVver(i-2) = toc(t);
         resNNV = [resNNV; res];
+        
+        
     end
 
     % Save results
-    save("results_prop2", "resMAT", "resNNV", "timeMAT", "timeNNV");
+    save("results_p2", "resMAT", "resNNV", "timeMAT", "timeNNV", "timeNNVver");
 
 end
 
@@ -84,7 +93,7 @@ function result = verifyNNV(Set, H, b)
     S = Set.intersectHalfSpace(H,b);
     if isempty(S)
         result = categorical("violated");
-    elseif S.isSubSet(Set) && Set.isSubSet(S)
+    elseif Set.isSubSet(S)
         result = categorical("verified");
     else
         result = categorical("unproven");

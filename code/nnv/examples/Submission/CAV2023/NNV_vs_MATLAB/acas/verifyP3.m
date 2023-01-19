@@ -6,7 +6,6 @@ function verifyP3(reachOptionsList)
     timeMAT = zeros(45,1);
     n = length(reachOptionsList);
     timeNNV = zeros(45,n);
-    timeNNVver = zeros(45,n);
     
     XLower = [-0.303531156; -0.009549297; 0.493380324; 0.3; 0.3];
     XUpper = [-0.298552812; 0.009549297; 0.5; 0.5; 0.5];
@@ -25,8 +24,7 @@ function verifyP3(reachOptionsList)
     XUpper = dlarray(XUpper, "CB");
     
     % Iterate through all the networks to verify
-    acasFolder = "/home/manzand/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
-%     acasFolder = "/home/dieman95/Documents/MATLAB/vnncomp2022_benchmarks/benchmarks/acasxu/onnx/";
+    acasFolder = "onnx/";
     networks = dir(acasFolder);
     
     for i = 3:length(networks)
@@ -58,14 +56,16 @@ function verifyP3(reachOptionsList)
         
         % Verify NNV
         res = [];
-        for r = 1:reachOptionsList
+        for r = 1:n
+            reachOpt = reachOptionsList(r);
+            Rstar = [];
             t = tic;
             R = netNNV.reach(IS, reachOpt);
+            for k = 1:length(R)
+                Rstar = [Rstar R.toStar];
+            end
+            res = [res, verifyNNV(Rstar, H, g)];
             timeNNV(i-2,r) = toc(t);
-            R = R.toStar;
-            t = tic;
-            res = [res, verifyNNV(R, H, g)];
-            timeNNVver(i-2,r) = toc(t);
         end
         resNNV = [resNNV; res];
         
@@ -73,7 +73,7 @@ function verifyP3(reachOptionsList)
     end
 
     % Save results
-    save("results_p3", "resMAT", "resNNV", "timeMAT", "timeNNV", "timeNNVver");
+    save("results_p3", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
 
 end
 
@@ -90,21 +90,16 @@ function result = verifyMAT(YLower, YUpper)
 end
 
 function result = verifyNNV(Set, H, b)
-    S = Set.intersectHalfSpace(-H,-b);
-    if isempty(S)
-        result = categorical("verified");
-    else
-        result = categorical("unproven");
+    for k = 1:length(Set)
+        S = Set(k).intersectHalfSpace(H,b); % Violated?
+        if isempty(S)
+            result = categorical("verified"); % Does not interesct unsafe region (safe)
+        elseif isempty(Set(k).intersectHalfSpace(-H,-b))
+            result = categorical("violated");
+            break;
+        else
+            result = categorical("nope");
+            break;
+        end
     end
 end
-
-% function result = verifyNNV(Set, H, b)
-%     S = Set.intersectHalfSpace(H,b);
-%     if isempty(S)
-%         result = categorical("violated");
-%     elseif Set.isSubSet(S) % Set <= S (reachable set is a contained in S (result of the intersection of Set and property))
-%         result = categorical("verified");
-%     else
-%         result = categorical("unproven");
-%     end
-% end

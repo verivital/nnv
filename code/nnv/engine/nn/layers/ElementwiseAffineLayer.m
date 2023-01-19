@@ -116,7 +116,7 @@ classdef ElementwiseAffineLayer < handle
                     end
                 elseif length(obj.Offset) == size(in_image.V,3)
                     for k=1:length(obj.Offset)
-                        V(:, : , k , :) = V(:, : , k , :) + obj.Offset(k);
+                        V(:, : , k , 1) = V(:, : , k , 1) + obj.Offset(k); % bias only added to first column
                     end
                 elseif length(obj.Offset) == size(in_image.V,4)
                     for k=1:length(obj.Offset)

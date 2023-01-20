@@ -19,9 +19,9 @@
 % s2 = load("TestStar3.mat");
 % s3 = load("TestStar4.mat");
 rng(0);
-nVar = 12345;
+nVar = 6345;
 dim = 5;
-cns = 1200;
+cns = 900;
 s4 = Star;
 s4.dim = dim;
 s4.nVar = nVar;

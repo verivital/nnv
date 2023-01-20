@@ -39,7 +39,7 @@ classdef NN < handle
         input_vals = {}; % input values to each layer
         input_sets = {}; % input set values for each layer
         dis_opt = []; % display option = 'display' or []
-        lp_solver = 'glpk'; % choose linprog as default LP solver for constructing reachable set
+        lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set
         % user can choose 'glpk' or 'linprog' as an LP solver
         
     end

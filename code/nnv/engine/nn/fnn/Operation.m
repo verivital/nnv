@@ -162,7 +162,7 @@ classdef Operation
                 S = SatLins.stepReach(I, obj.index);
             elseif strcmp(obj.Name, 'SatLins_approxReachStar')
                 S = SatLins.reach_star_approx(I);
-            elseif strcmp(obj.Name, 'SatLin_approxReachZono')
+            elseif strcmp(obj.Name, 'SatLins_approxReachZono')
                 S = SatLins.reach_zono_approx(I);
             elseif strcmp(obj.Name, 'SatLins_approxReachAbsDom')
                 S = SatLins.reach_abstract_domain(I);
@@ -180,10 +180,7 @@ classdef Operation
                 error('Unknown operation')
             end
             
-            
         end
-        
-        
         
     end
     

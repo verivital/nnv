@@ -395,7 +395,7 @@ classdef RStar
                 bool = 1;
             else
                 error('Error, exitflag = %d', exitflag);
-            end            
+            end
         end
         
         % get exact lower bound and upper bound vector of the state variables
@@ -420,7 +420,7 @@ classdef RStar
 
         end
         
-        % get exact lower and upper bounds at specific position using glpk
+        % get exact lower and upper bounds at specific position
         function [xmin, xmax] = getExactRange(obj, index)
             % @index: position of the state
             % range: min and max values of x[index]
@@ -438,23 +438,18 @@ classdef RStar
                 xmin = obj.V(index,1);
                 xmax = obj.V(index,1);
             else
-                % **** linprog is much faster than glpk
-                options = optimoptions(@linprog, 'Display','none'); 
-                options.OptimalityTolerance = 1e-10; % set tolerance
-                [~, fval, exitflag, ~] = linprog(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);             
-%                 [~, fval, exitflag, ~] = glpk(f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-                if exitflag > 0
+                [fval, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub); 
+                if ismember(exitflag, ["l1", "g2", "g5"])
                     xmin = fval + obj.V(index, 1);
                 else
-                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                    error("Cannot find an optimal solution, exitflag = " +string(exitflag));
                 end          
           
-                [~, fval, exitflag, ~] = linprog(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);   
-%                 [~, fval, exitflag, ~] = glpk(-f, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
-                if exitflag > 0
+                [fval, exitflag] = lpsolver(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, options);   
+                if ismember(exitflag, ["l1", "g2", "g5"])
                     xmax = -fval + obj.V(index, 1);
                 else
-                    error('Cannot find an optimal solution');
+                    error("Cannot find an optimal solution, exitflag = " +string(exitflag));
                 end
 
             end

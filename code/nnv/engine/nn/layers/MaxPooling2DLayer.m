@@ -1054,7 +1054,7 @@ classdef MaxPooling2DLayer < handle
                     option = varargin{4};
                     %relaxFactor = varargin{5}; do not use
                     dis_opt = varargin{6};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 
                 case 5
                     obj = varargin{1};
@@ -1063,14 +1063,14 @@ classdef MaxPooling2DLayer < handle
                     option = varargin{4};
                     %relaxFactor = varargin{5}; do not use
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 
                 case 3
                     obj = varargin{1};
@@ -1078,7 +1078,7 @@ classdef MaxPooling2DLayer < handle
                     method = varargin{3};
                     option = [];
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 
                 otherwise
                     error('Invalid number of input arguments (should be 2, 3 or 4)');

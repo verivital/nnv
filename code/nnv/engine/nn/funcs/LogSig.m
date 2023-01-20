@@ -29,35 +29,35 @@ classdef LogSig
                     reachOption = [];
                     relaxFactor = 0;
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
                     reachOption = [];
                     relaxFactor = 0;
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     method = varargin{2};
                     reachOption = varargin{3};
                     relaxFactor = 0;
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     method = varargin{2};
                     reachOption = varargin{3};
                     relaxFactor = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     method = varargin{2};
                     reachOption = varargin{3};
                     relaxFactor = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 6
                     I = varargin{1};
                     method = varargin{2};
@@ -103,11 +103,11 @@ classdef LogSig
                 case 1
                     I = varargin{1};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     dis_opt = varargin{2};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     dis_opt = varargin{2};
@@ -648,11 +648,11 @@ classdef LogSig
                 case 1
                     I = varargin{1};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     dis_opt = varargin{2};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     dis_opt = varargin{2};
@@ -866,12 +866,12 @@ classdef LogSig
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
@@ -1870,14 +1870,14 @@ methods(Static) % main reach method
                 reachOption = varargin{3};
                 relaxFactor = varargin{4}; % used for aprox-star only
                 dis_opt = varargin{5}; % display option
-                lp_solver = 'glpk';
+                lp_solver = 'linprog';
             case 4
                 I = varargin{1};
                 method = varargin{2};
                 reachOption = varargin{3};
                 relaxFactor = varargin{4}; % used for aprox-star only
                 dis_opt = []; % display option
-                lp_solver = 'glpk';
+                lp_solver = 'linprog';
 
             case 3
                 I = varargin{1};
@@ -1885,21 +1885,21 @@ methods(Static) % main reach method
                 reachOption = varargin{3};
                 relaxFactor = 0; % used for aprox-star only
                 dis_opt = []; % display option
-                lp_solver = 'glpk';
+                lp_solver = 'linprog';
             case 2
                 I = varargin{1};
                 method = varargin{2};
                 reachOption = [];
                 relaxFactor = 0; % used for aprox-star only
                 dis_opt = []; % display option
-                lp_solver = 'glpk';
+                lp_solver = 'linprog';
             case 1
                 I = varargin{1};
                 method = 'approx-star';
                 reachOption = [];
                 relaxFactor = 0; % for relaxed approx-star method
                 dis_opt = [];
-                lp_solver = 'glpk';
+                lp_solver = 'linprog';
             otherwise
                 error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
         end
@@ -1931,13 +1931,10 @@ methods(Static) % main reach method
         else
             error('Unknown or unsupported reachability method for layer with LogSig activation function');
         end
-            
-
 
     end
     
 end
-
     
 end
 

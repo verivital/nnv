@@ -189,15 +189,15 @@ classdef PixelClassificationLayer < handle
             if strcmp(method, 'relax-star-range')                
                 [~,midx] = sort(ub-lb, 'descend');
                 map= midx(1:n1); % neurons with optimized ranged
-                xmin = S.getMins(map, 'single', 'display', 'glpk'); 
-                xmax = S.getMaxs(map, 'single', 'display', 'glpk');
+                xmin = S.getMins(map, 'single', 'display', 'linprog'); 
+                xmax = S.getMaxs(map, 'single', 'display', 'linprog');
                 lb(map) = xmin;
                 ub(map) = xmax;
             elseif strcmp(method, 'relax-star-random')
                 midx = randperm(length(ub), n1);
                 midx = midx';             
-                xmin = S.getMins(midx, 'single', 'display', 'glpk'); 
-                xmax = S.getMaxs(midx, 'single', 'display', 'glpk');
+                xmin = S.getMins(midx, 'single', 'display', 'linprog'); 
+                xmax = S.getMaxs(midx, 'single', 'display', 'linprog');
                 lb(midx) = xmin;
                 ub(midx) = xmax;
    
@@ -205,8 +205,8 @@ classdef PixelClassificationLayer < handle
                 areas = 0.5*(abs(ub).*abs(lb)); % estimated areas of triangle overapproximation at all neurons
                 [~,midx] = sort(areas, 'descend');
                 map= midx(1:n1); % neurons with optimized ranged
-                xmin = S.getMins(map, 'single', 'display', 'glpk'); 
-                xmax = S.getMaxs(map, 'single', 'display', 'glpk');
+                xmin = S.getMins(map, 'single', 'display', 'linprog'); 
+                xmax = S.getMaxs(map, 'single', 'display', 'linprog');
                 lb(map) = xmin;
                 ub(map) = xmax;
             elseif strcmp(method, 'relax-star-bound')
@@ -216,8 +216,8 @@ classdef PixelClassificationLayer < handle
                 midx1 = midx(1:2*n1); % neurons with optimized ranges
                 ub_idx = midx1(midx1 <= N); % neurons having upperbound optimized
                 lb_idx = midx1(midx1 > N) - N;  % neurons having lowerbound optimized
-                xmin = S.getMins(ub_idx, 'single', 'display', 'glpk'); 
-                xmax = S.getMaxs(lb_idx, 'single', 'display', 'glpk');
+                xmin = S.getMins(ub_idx, 'single', 'display', 'linprog'); 
+                xmax = S.getMaxs(lb_idx, 'single', 'display', 'linprog');
                 lb(lb_idx) = xmin;
                 ub(ub_idx) = xmax;
             else

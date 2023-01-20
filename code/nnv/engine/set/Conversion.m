@@ -108,27 +108,24 @@ classdef Conversion
                 dim = P.Dim;
                 f = zeros(1, dim);
                 f(index) = 1;
-                options = optimset('Display','none');
-                [~, fval, exitflag, ~] = linprog(f, P.A, P.b, P.Ae, P.be, [], [], [], options);
+                [fval, exitflag] = lpsolver(f,P.A, P.b, P.Ae, P.be, [], []);
             
-                if exitflag > 0
+                if strcmp(exitflag, "l1")
                     xmin(i) = fval;
                 else
                     error('Cannot find an optimal solution');
                 end          
 
-                [~, fval, exitflag, ~] = linprog(-f, P.A, P.b, P.Ae, P.be, [], [], [], options);
-                if exitflag > 0
+                [fval, exitflag] = lpsolver(-f, P.A, P.b, P.Ae, P.be, [], []);
+                if strcmp(exitflag, "l1")
                     xmax(i) = -fval;
                 else
                     error('Cannot find an optimal solution');
                 end
                 
              end
-             
                           
          end
-         
          
     end
     

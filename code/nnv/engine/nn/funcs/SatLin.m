@@ -29,7 +29,7 @@ classdef SatLin
                 case 2 
                     I = varargin{1};
                     index = varargin{2};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     index = varargin{2};
@@ -196,7 +196,7 @@ classdef SatLin
                     I = varargin{1};
                     index = varargin{2};
                     option = varargin{3};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     index = varargin{2};
@@ -247,12 +247,12 @@ classdef SatLin
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     option = varargin{2};
@@ -439,11 +439,11 @@ classdef SatLin
                 case 1
                     I = varargin{1};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     dis_opt = varargin{2};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     dis_opt = varargin{2};
@@ -941,11 +941,11 @@ classdef SatLin
                 case 1
                     I = varargin{1};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     dis_opt = varargin{2};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     dis_opt = varargin{2};
@@ -1012,26 +1012,26 @@ classdef SatLin
                     method = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                                     
                 case 3
                     I = varargin{1};
                     method = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
                     option = [];
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 1
                     I = varargin{1};
                     method = 'approx-star';
                     option = [];
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 otherwise
                     error('Invalid number of input arguments (should be 1, 2, 3, or 4)');
             end

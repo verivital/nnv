@@ -32,7 +32,7 @@ classdef LeakyReLU
                     I = varargin{1};
                     index = varargin{2};
                     gamma = varargin{3};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                     
                 case 4
                     I = varargin{1};
@@ -121,13 +121,13 @@ classdef LeakyReLU
                     index = varargin{2};
                     gamma = varargin{3};
                     option = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     index = varargin{2};
                     gamma = varargin{3};
                     option = varargin{4};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     index = varargin{2};
@@ -179,13 +179,13 @@ classdef LeakyReLU
                     gamma = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
@@ -251,7 +251,7 @@ classdef LeakyReLU
                     I = varargin{1};
                     index = varargin{2};
                     gamma = varargin{3};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     index = varargin{2};
@@ -352,13 +352,13 @@ classdef LeakyReLU
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                     
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
@@ -485,19 +485,19 @@ classdef LeakyReLU
                     gamma = varargin{2};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
@@ -590,28 +590,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -723,28 +723,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -851,28 +851,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1021,28 +1021,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1194,28 +1194,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1321,28 +1321,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1767,12 +1767,12 @@ classdef LeakyReLU
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1863,7 +1863,7 @@ classdef LeakyReLU
                     option = varargin{4};
                     relaxFactor = varargin{5}; % used for aprox-star only
                     dis_opt = varargin{6}; % display option
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 
                 case 5
                     I = varargin{1};
@@ -1872,7 +1872,7 @@ classdef LeakyReLU
                     option = varargin{4};
                     relaxFactor = varargin{5}; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                                     
                 case 4
                     I = varargin{1};
@@ -1881,7 +1881,7 @@ classdef LeakyReLU
                     option = varargin{4};
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1889,7 +1889,7 @@ classdef LeakyReLU
                     option = [];
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 case 2
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1897,7 +1897,7 @@ classdef LeakyReLU
                     option = [];
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'glpk';
+                    lp_solver = 'linprog';
                 otherwise
                     error('Invalid number of input arguments (should be 2,3,4,5,6 or 7)');
             end

@@ -15,11 +15,24 @@
 % diagnostics = optimize(constraints, objective) % possible 3rd argument to specify solver options
 % fval = value(x);
 
-s1 = load("TestStar1.mat");
-s2 = load("TestStar3.mat");
-s3 = load("TestStar4.mat");
+% s1 = load("TestStar1.mat");
+% s2 = load("TestStar3.mat");
+% s3 = load("TestStar4.mat");
+rng(0);
+nVar = 12345;
+dim = 5;
+cns = 1200;
+s4 = Star;
+s4.dim = dim;
+s4.nVar = nVar;
+s4.V = rand(dim, nVar+1);
+s4.C = rand(cns, nVar);
+s4.d = rand(cns,1);
+s4.predicate_lb = -ones(nVar,1);
+s4.predicate_ub = ones(nVar, 1);
 
-stars = [s1.Rstar; s2.Rstar; s3.Rstar];
+% stars = [s1.Rstar; s2.Rstar; s3.Rstar; s4];
+stars = s4;
 
 [time, fvals, flags] = test_solvers(stars);
 
@@ -29,7 +42,7 @@ stars = [s1.Rstar; s2.Rstar; s3.Rstar];
 %% Helper functions
 function [time, fvals, flags] = test_solvers(stars)
     % Setup evaluation
-    number_of_solvers = 3; % number of solvers
+    number_of_solvers = 6; % number of solvers
     dim = 5; % dimensionality for all stars
     number_of_stars = length(stars);
     % linprog specific
@@ -37,8 +50,10 @@ function [time, fvals, flags] = test_solvers(stars)
     linprogOptions.OptimalityTolerance = 1e-10; % set tolerance
     % yalmip specific
     ops = sdpsettings('solver','linprog', 'verbose', 0);
-    ops2 = sdpsettings('solver','mosek','verbose',1);
+    ops1 = sdpsettings('solver','linprog', 'verbose', 1);
+    ops2 = sdpsettings('solver','glpk', 'verbose', 0);
     ops3 = sdpsettings('solver','glpk', 'verbose', 1);
+    ops_list = [ops; ops1; ops2; ops3];
 
     % Memory allocation
     time = zeros(dim*number_of_stars, number_of_solvers); % timing
@@ -68,17 +83,19 @@ function [time, fvals, flags] = test_solvers(stars)
             flags((rs-1)*i+i,2) = exitflag;
             
             % yalmip
-            t = tic;
-            x = sdpvar(length(stars(rs).predicate_lb),1);
-            constraints = [stars(rs).C*x <= stars(rs).d, stars(rs).predicate_lb <= x , x <= stars(rs).predicate_ub];
-            diagnostics = optimize(constraints, f*x, ops3);
-            x = value(x);
-            t = toc(t);
-            fval = f*x;
-            % results
-            time((rs-1)*i+i,3) = t; 
-            fvals((rs-1)*i+i,3) = fval; 
-            flags((rs-1)*i+i,3) = diagnostics.problem;
+            for opsK = 1:length(ops_list)
+                t = tic;
+                x = sdpvar(length(stars(rs).predicate_lb),1);
+                constraints = [stars(rs).C*x <= stars(rs).d, stars(rs).predicate_lb <= x , x <= stars(rs).predicate_ub];
+                diagnostics = optimize(constraints, f*x, ops_list(opsK));
+                x = value(x);
+                t = toc(t);
+                fval = f*x;
+                % results
+                time((rs-1)*i+i,2+opsK) = t; 
+                fvals((rs-1)*i+i,2+opsK) = fval; 
+                flags((rs-1)*i+i,2+opsK) = diagnostics.problem;
+            end
         end
     end
 end

@@ -13,7 +13,7 @@ function verifyP3(reachOptionsList)
     % NNV
 %     IS = Star(XLower, XUpper); % Input set
     IS = ImageStar(XLower, XUpper);
-    H = [-1 1 0 0 0; -1 0 1 0 0; -1 0 0 1 0; -1 0 0 0 1];
+    H = [1 -1 0 0 0; 1 0 -1 0 0; 1 0 0 -1 0; 1 0 0 0 -1];
     g = [0;0;0;0];
 %     reachOpt = struct;
 %     reachOpt.reachMethod = 'approx-star';
@@ -62,7 +62,7 @@ function verifyP3(reachOptionsList)
             t = tic;
             R = netNNV.reach(IS, reachOpt);
             for k = 1:length(R)
-                Rstar = [Rstar R.toStar];
+                Rstar = [Rstar R(k).toStar];
             end
             res = [res, verifyNNV(Rstar, H, g)];
             timeNNV(i-2,r) = toc(t);

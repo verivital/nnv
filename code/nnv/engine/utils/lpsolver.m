@@ -18,38 +18,39 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver)
         options.OptimalityTolerance = 1e-10; % set tolerance
         % first try solving using linprog
         [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);
-        if exitflag ~= 1 % solution not found, try glpk
+        if ~ismember(exitflag, [1,-2, -5]) % found (1), not feasible point found (-2), infeasible (-5)
             if ~isempty(Aeq) || ~isempty(Beq)
                 error("Problem cannot be solved by linprog, and task not supported by glpk.")
+            else
+                warning("Could not solve lp task using linprog, trying glpk now. Exitflag = " + string(exitflag));
+                [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
+                if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
+                    error("LP solver error. Task failed to be solved by linprog and glpk. GLPK exitflag = " + string(exitflag));
+                end
+                exitflag = "g" + string(exitflag); % e.g. g2 or g5
             end
-            warning("Could not solve lp task using linprog, trying glpk now. Exitflag = " + string(exitflag));
-            [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
-            if exitflag ~= 2 || exitflag ~= 5 % feasible  or optimal
-                error("LP solver error. Task failed to be solved by linprog and glpk. GLPK exitflag = " + string(exitflag));
-            end
-            exitflag = "g" + string(exitflag); % g2 or g5
         else
-            exitflag = "l" + string(exitflag); % l1 
+            exitflag = "l" + string(exitflag); % e.g. l1 
         end
 
     % solve using glpk (linprog as backup)
     elseif strcmp(lp_solve, 'glpk')
         [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
-        if exitflag ~= 2 || exitflag ~= 5 % feasible  or optimal
+        if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
             warning("Task failed to be solved glpk. Trying linprog now. GLPK exitflag = " + string(exitflag));
             options = optimoptions(@linprog, 'Display','none'); 
             options.OptimalityTolerance = 1e-10; % set tolerance
             % first try solving using linprog
             [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);
-            if exitflag ~= 1 % solution not found
+            if ~ismember(exitflag, [1,-2, -5]) % found (1), not feasible point found (-2), infeasible (-5)
                 error("Problem cannot be solved by linprog, and task not supported by glpk. LINPROG exitflag = " + string(exitflag));
             end
-            exitflag = "l" + string(exitflag); % l1 
+            exitflag = "l" + string(exitflag); % e.g. l1 
         else
-            exitflag = "g" + string(exitflag); % g2 or g5
+            exitflag = "g" + string(exitflag); % e.g. g5
         end
 
-    else % Try using yalmip, much slower, but could work
+    else % Try using yalmip with defined solver, much slower in our tests
         ops = sdpsettings('solver',lp_solver, 'verbose', 0);
         x = sdpvar(length(stars(rs).predicate_lb),1);
         if isempty(Aeq) && isempty(Beq)

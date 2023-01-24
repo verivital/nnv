@@ -62,7 +62,7 @@ function verifyP4(reachOptionsList)
             t = tic;
             R = netNNV.reach(IS, reachOpt);
             for k = 1:length(R)
-                Rstar = [Rstar R.toStar];
+                Rstar = [Rstar R(k).toStar];
             end
             res = [res, verifyNNV(Rstar, H, g)];
             timeNNV(i-2,r) = toc(t);

@@ -1284,7 +1284,7 @@ classdef ImageStar < handle
             [~, exitflag] = lpsolver(f, new_C, new_d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
             if ismember(exitflag, ["l1", "g2", "g5"]) % feasible solution exist
                 b = 1;
-            elseif ismember(exitflag, ["l-2", "l-5", "g3", "g4"])
+            elseif ismember(exitflag, ["l-2", "l-5", "g3", "g4", "g110"])
                 b = 0;
             else
                 error("ERROR, exitflag = " + string(exitflag));

@@ -291,10 +291,10 @@ classdef Star
             % has bug
             
             f = zeros(1, obj.nVar); % objective function
-            [~, ~, exitflag, ~] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub);
+            [~, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub);
             if ismember(exitflag,["l1", "g2", "g5"])
                 bool = 0;
-            elseif ismember(exitflag, ["l-2", "l-5", "g3", "g4"])
+            elseif ismember(exitflag, ["l-2", "l-5", "g3", "g4", "g110"])
                 bool = 1;
             else
                 error('Error, exitflag = %d', exitflag);

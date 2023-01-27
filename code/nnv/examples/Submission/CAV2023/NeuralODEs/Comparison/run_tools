@@ -1,0 +1,45 @@
+#!/bin/bash
+mkdir /results/logs/
+# Run juliareach
+cd juliareach
+
+julia startup.jl
+mv results /results/logs/juliaresults
+
+# Run Gotube
+echo "STARTING GOTUBE"
+cd /GoTube-main
+#cd ../Gotube
+pwd
+ls
+mkdir saved_outputs
+
+chmod +x paper_submission_compare.sh
+./paper_submission_compare.sh 
+mv /GoTube-main/saved_outputs /results/logs/tuberesults
+mv /GoTube-main/logged /results/logs/tuberesults
+
+
+# Run flowstar
+ls /flowstar
+cd /flowstar/flowstar-2.1.0/
+pwd
+ls
+ls ../
+#ls ../flowstar
+pwd
+#ls ../flowstar/flowstar/
+#cd ../flowstar
+echo "STARTING FLOWSTAR"
+
+cp -rf /code/nnv/examples/Submission/FORMATS2022/Comparison/flowstar/* .
+
+pwd
+ls
+#cd ../flowstar/flowstar/
+pwd
+chmod +x run_all.sh
+./run_all.sh 
+
+
+echo "DONE FLOWSTAR"

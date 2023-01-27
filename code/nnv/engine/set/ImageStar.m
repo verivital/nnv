@@ -643,7 +643,7 @@ classdef ImageStar < handle
             end
             % max
             [fval, exitflag] = lpsolver(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
-            if exitflag == 1
+            if ismember(exitflag, ["l1","g5"])
                 xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
             else
                 error("Cannot find an optimal solution, exitflag = " + string(exitflag));

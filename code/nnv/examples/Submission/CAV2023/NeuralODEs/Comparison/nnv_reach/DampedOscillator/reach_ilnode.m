@@ -8,10 +8,10 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
         reachStep = 0.01;
     else
         controlPeriod = 30.0; % total seconds
-%         controlPeriod = 0.05; % total seconds
-        reachStep = 0.05; % smaller reachStep, more accurate, longer computation
+        reachStep = 0.05; % reach time step
     end
     C = eye(2+dim); % Want to get both of the outputs from NeuralODE
+
     % Load neural network parameters
     load(nnpath);
     if dim == 3
@@ -25,7 +25,6 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
     odeblock.options.tensorOrder = 2;
     neuralode = NeuralODE({layer1, odelayer, layerOut});
-%     neuralode = NeuralODE({odelayer});
     if tfl
         name = "DampedOsc_ilnodenl_true_"+string(dim);
     else
@@ -47,19 +46,11 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
         Rall = ME;
         time = 'NA';
     end
-%     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
     save("../../nnvresults/"+name+"_zonoF.mat",'time','Rall');
-    disp('ZonoF has finished');
-    disp("Time elapsed is "+string(time) + " seconds");
-    % Plot results
-%     f = figure;
-%     hold on;
-%     Star.plotBoxes_2D_noFill(Rall,1,2,'b');
-%     xlabel('x_1');
-%     ylabel('x_2');
-%     saveas(f,name+"_traj1.png");
+
 
     %% Reachability run #2 (Star + zonoA)
+
     odeblock = NonLinearODE(2+dim,1,dynamics,reachStep,controlPeriod,C); % Nonlinear ODE plant
     % Change default options
     % odeblock.options.timeStep = 0.05;
@@ -69,23 +60,21 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     odeblock.options.tensorOrder = 2;
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
     neuralode = NeuralODE({layer1, odelayer, layerOut});
-    if dim ~= 2
-        try
-            t = tic;
-            Rall = neuralode.reach(R0); % Reachability
-            time = toc(t);
-        catch ME
-            warning('Reachability of ZonoA failed');
-            Rall = ME;
-            time = 'NA';
-        end
-    
-        disp('ZonoA has finished');
-        disp("Time elapsed is "+string(time) + " seconds");
-    %     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-        save("../../nnvresults/"+name+"_zonoA.mat",'time','Rall');
+
+    try
+        t = tic;
+        Rall = neuralode.reach(R0); % Reachability
+        time = toc(t);
+    catch ME
+        warning('Reachability of ZonoA failed');
+        Rall = ME;
+        time = 'NA';
     end
+    save("../../nnvresults/"+name+"_zonoA.mat",'time','Rall');
+    
+    
     %% Reachability run #3 (Star + polyA)
+
     odeblock = NonLinearODE(2+dim,1,dynamics,reachStep,controlPeriod,C); % Nonlinear ODE plant
     % Change default options
     % odeblock.options.timeStep = 0.05;
@@ -96,21 +85,16 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
     neuralode = NeuralODE({layer1, odelayer, layerOut});
 
-    if dim ~= 2
-        try
-            t = tic;
-            Rall = neuralode.reach(R0); % Reachability
-            time = toc(t);
-        catch ME
-            warning('Reachability of PolyzonoA failed');
-            Rall = ME;
-            time = 'NA';
-        end
-        disp('PolyA has finished');
-        disp("Time elapsed is "+string(time) + " seconds");
-    %     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-        save("../../nnvresults/"+name+"_polyA.mat",'time','Rall');
+    try
+        t = tic;
+        Rall = neuralode.reach(R0); % Reachability
+        time = toc(t);
+    catch ME
+        warning('Reachability of PolyzonoA failed');
+        Rall = ME;
+        time = 'NA';
     end
+    save("../../nnvresults/"+name+"_polyA.mat",'time','Rall');
 
     %% Reachability run #3 (Star + polyA)
     odeblock = NonLinearODE(2+dim,1,dynamics,reachStep,controlPeriod,C); % Nonlinear ODE plant
@@ -122,24 +106,17 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     odeblock.options.tensorOrder = 3;
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
     neuralode = NeuralODE({layer1, odelayer, layerOut});
-    if dim ~= 2
-        try
-            t = tic;
-            Rall = neuralode.reach(R0); % Reachability
-            time = toc(t);
-        catch ME
-            warning('Reachability of PolyzonoF failed');
-            Rall = ME;
-            time = 'NA';
-        end
-    %     pointSets = neuralode.Layers{1,2}.odemodel.intermediate_pointSet;
-        save("../../nnvresults/"+name+"_polyF.mat",'time','Rall');
-        disp('PolyF has finished');
-    disp("Time elapsed is "+string(time) + " seconds");
+    try
+        t = tic;
+        Rall = neuralode.reach(R0); % Reachability
+        time = toc(t);
+    catch ME
+        warning('Reachability of PolyzonoF failed');
+        Rall = ME;
+        time = 'NA';
     end
-    %% Save results
-    % May want to set equal axes so that the set representations are equally
-    % visualized
-%     save("reach"+string(dim)+".mat",'ta','tb','tc');
+    
+    save("../../nnvresults/"+name+"_polyF.mat",'time','Rall');
+
 end
 

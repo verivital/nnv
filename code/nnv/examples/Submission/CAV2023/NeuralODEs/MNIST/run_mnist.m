@@ -1,16 +1,18 @@
-%% Run all MNIST related experiments
-cd cnn;
-run run_all.m;
-run run_all_inf.m
+function run_mnist()
+    
+    %% Run all MNIST related experiments
+    cd cnn;
+    run_cnn_all;
+    run_cnn_all_inf;
+    eval_cnn_all;
+        
+    cd ..;
+    cd ffnn;
+    run_ffnn_all;
+    run_ffnn_all_inf;
+    eval_ffnn_all;
+        
+    cd ..
+    mnist_table;
 
-disp('Done with CNN experiments');
-
-cd ..;
-cd ffnn;
-run run_all.m;
-run run_all_inf.m;
-
-disp('Finish all experiments');
-
-cd ..
-run create_table.m
+end

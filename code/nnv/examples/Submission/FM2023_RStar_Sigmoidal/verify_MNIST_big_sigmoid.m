@@ -75,28 +75,7 @@ for i=1:K
     US = [US; unsafe];
     UK = [UK; unknown];
     VT = [VT; total_vt(i,:)'];
-endN = size(IM_data, 2);
-K = length(relaxFactor);
-M = length(eps);
-
-r = zeros(K, M); % percentage of images that are robust
-rb = cell(K, M); % detail robustness verification result
-cE = cell(K, M); % detail counterexamples
-vt = cell(K, M); % detail verification time
-cands = cell(K,M); % counterexample
-total_vt = zeros(K, M); % total verification time
-
-for i=1:K
-    for j=1:M
-        fprintf('\tepsilon: %f\n',eps(j)');
-        images = attack_images(IM_data, eps(j), reachMethod, normalized); 
-        labels = IM_labels + 1;
-        t = tic;
-        [r(i,j), rb{i,j}, cE{i,j}, cands{i,j}, vt{i,j}] = nnv_net.evaluateRBN(images(1:N), labels(1:N), reachMethod, numCores, relaxFactor , disp_opt, lp_solver, sigmoidal);
-        total_vt(i,j) = toc(t);
-    end
 end
-
 T.epsilon = ep;
 T.robustness = RB;
 T.unsafe = US;

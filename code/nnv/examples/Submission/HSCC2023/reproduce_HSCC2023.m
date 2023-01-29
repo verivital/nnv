@@ -1,7 +1,7 @@
 % produce all results of HSCC2023
 
 pwd;
-cd small_RNN\;
+cd small_RNN;
 
 %% run robustness verification of the small RNN network
 verify_small_RNN; % produce Figure 3, Table 1, Figure 4.

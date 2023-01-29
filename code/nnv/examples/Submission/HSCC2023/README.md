@@ -1,7 +1,7 @@
 # Verification of Recurrent Neural Networks with Star Reachability
 Hoang Dung Tran, Sung Woo Choi, Xiaodong Yang, Tomoya Yamaguchi, Bardh Hoxha and Danil Prokhorov
 
-## HSCC2022
+## HSCC2023
 
 ## Source Code:
 https://github.com/verivital/nnv

@@ -58,11 +58,23 @@ classdef LayerS
         %
         %%% updated by: Mykhailo Ivashchenko
         %%% date: 09/17/2022 
+        %%% updated by: Sung Woo Choi
+        %%% date: 01/28/2023
+        %%% detail: removed || size(x, 2) ~= 1 in line 66 and added lines 69~77.
+
         function y = evaluate(obj, x)  % evaluation of this layer with a specific vector
-            if size(x, 1) ~= size(obj.W, 2) || size(x, 2) ~= 1
-                error('Invalid or inconsistent input vector')
+            if size(x, 1) ~= size(obj.W, 2)
+                error('Inconsistent input vector')
             end
-            y1 = obj.W * x + obj.b;            
+            y1 = obj.W * x;
+            if size(x, 2) ~= 1
+                n = size(x, 2);
+                for i=1:n
+                    y1(:,i) = y1(:,i) + obj.b;
+                end
+            else
+                y1 = y1 + obj.b;
+            end                 
 
             if strcmp(obj.f, 'poslin')
                 y = poslin(y1);

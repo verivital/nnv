@@ -149,8 +149,8 @@ end
 % load RnnVerify Result
 load RnnVerify_result.mat;
 
-RnnVerify_VT = T.rnn4_5fc32_avg_time;
-RnnVerify_robust = T.rnn4_5fc32_result;
+RnnVerify_VT = T.rnn8_5fc32_avg_time;
+RnnVerify_robust = T.rnn8_5fc32_result;
 RnnV_rb = RnnVerify_robust([4 9 14 19]);
 RnnV_vt = RnnVerify_VT([4 9 14 19]);
 N_8_0 = table;

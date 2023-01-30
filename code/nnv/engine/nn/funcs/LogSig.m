@@ -1250,7 +1250,7 @@ methods(Static) % over-approximate reachability analysis using abstract domain
         
     end
     
-    function S = reach_absdom_approx(I)
+        function S = reach_absdom_approx(varargin)
         % @I: star input set
         % @Z: Star output set
 
@@ -1260,11 +1260,33 @@ methods(Static) % over-approximate reachability analysis using abstract domain
         % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
         % Gagandeep Singh, POPL, 2019
 
-        if ~isa(I, 'Star')
-            error('Input set is not a Star');
-        end
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    lp_solver = 'linprog';
+                case 2
+                    I = varargin{1};
+                    lp_solver = varargin{2};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');
+            end
 
-        [l, u] = I.estimateRanges;  
+            if ~isa(I, 'Star')
+                error('Input set is not a Star');
+            end
+
+            if strcmp(lp_solver, 'glpk') || strcmp(lp_solver, 'linprog')
+                if ~I.isEmptySet
+                    N = I.dim;
+                    l = I.getMins(1:N, [], [], lp_solver);
+                    u = I.getMaxs(1:N, [], [], lp_solver);
+                else
+                    l = [];
+                    u = [];
+                end
+            elseif strcmp(lp_solver, 'estimate')
+                [l, u] = I.estimateRanges;
+            end
 
         y_l = logsig(l);
         y_u = logsig(u);
@@ -1508,7 +1530,7 @@ methods(Static) % over-approximate reachability analysis using abstract-domain (
         % @dy_l: derivative of LogSig at the lower bound
         % @dy_u: derivative of LogSig at the upper bound
 
-        % @A: rstar output set
+        % @R: rstar output set
 
         % author: Sung Woo Choi
         % date: 01/29/2021

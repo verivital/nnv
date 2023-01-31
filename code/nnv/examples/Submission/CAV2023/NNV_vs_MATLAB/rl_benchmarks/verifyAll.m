@@ -1,4 +1,4 @@
-function verifyAll()
+% function verifyAll()
     
     % Load network/property combinations
     csvFile = "instances.csv";
@@ -33,4 +33,4 @@ function verifyAll()
     end
     % Save results
     save("results_rl.mat","res");
-end
+% end

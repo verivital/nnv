@@ -15,7 +15,16 @@ function [networks, names2idxs] = load_rl_NNs()
                 Layers = net.Layers([1,4:end-1]);
                 net = dlnetwork(Layers);
             else
-                net = dlnetwork(net.Layers(1:end-1));
+                Layers = net.Layers;
+                ils = [];
+                for k=1:length(Layers)-1
+                    if isa(Layers(k), "nnet.onnx.layer.ElementwiseAffineLayer")
+                        Layers(k-1).Bias = Layers(k).Offset;
+                    else
+                        ils = [ils k];
+                    end
+                end
+                net = dlnetwork(net.Layers(ils));
             end
             nn = matlab2nnv(net);
             % store networks

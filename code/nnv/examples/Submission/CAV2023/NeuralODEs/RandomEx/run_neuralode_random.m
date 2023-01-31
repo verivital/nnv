@@ -21,6 +21,6 @@ function run_neuralode_random()
     reach_XXL;
 
     disp("Create table results")
-    grandomEx_table;
+    randomEx_table;
 
 end

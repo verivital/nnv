@@ -1,4 +1,4 @@
-function reach_medium(pix,numT,noise,XTest,YTest,cora,perturbation)
+function reach_cnn_medium(pix,numT,noise,XTest,YTest,cora,perturbation)
 %% Reachability analysis of an image classification ODE_FFNN (MNIST)
 % Architecture of first ffnn mnist model:
 %  - Inputs = 28x28 images 
@@ -48,7 +48,8 @@ layer7 = FlattenLayer;
 layer7.Type = 'nnet.cnn.layer.FlattenLayer';
 % layer7.Type = 'nnet.keras.layer.FlattenCStyleLayer';
 layers = {layer1, layer2, layer3, layer4, layer5, layer6, layer7};
-net1 = CNN('cnn',layers,1,1); % neural network controller
+% net1 = CNN('cnn',layers,1,1); % neural network controller
+net1 = NN(layers);
 % ODEBlock only linear layers
 % Convert in form of a linear ODE model
 states = 1690;
@@ -66,8 +67,10 @@ numSteps = 20;
 odeblock = LinearODE(Aout,Bout,Cout,D,tfinal,numSteps);
 reachStep = tfinal/numSteps;
 % Output layers 
-layerout = LayerS(Wb{13},Wb{14}','purelin');
-layer_out = FFNNS(layerout);
+% layerout = LayerS(Wb{13},Wb{14}','purelin');
+layerout = FullyConnectedLayer(Wb{13}, Wb{14}');
+% layer_out = FFNNS(layerout);
+layer_out = NN(layerout); % Only for the CORA reachability comparison
 
 odelayer = ODEblockLayer(odeblock,1,reachStep);
 neuralLayers = {layer1, layer2, layer3, layer4, layer5, layer6, layer7, odelayer, layerout};
@@ -76,18 +79,11 @@ neuralode = NeuralODE(neuralLayers);
 %% Part 2. Load data and prepare experiments
 
 noise = noise*255; % noise 1/10 of max pixel value
-% pixels_attack = randi([28 28],1,pix);
 pixels_attack = randperm(784,pix);
-% pred = zeros(numT,1);
 time = zeros(numT,1);
-% pred_ode = zeros(numT,1);
 time_ode = zeros(numT,1);
-% InpSS = []; % Array of input sets
 rob_ode = zeros(numT,1);
 for i=1:numT
-%     img_flat = double(XTest(:,:,:,i));
-%     img_flat = extractdata(img_flat)';
-%     img_flat = reshape(img_flat', [1 784])';
     img_flat = XTest(:,:,:,i)';
     lb = img_flat;
     ub = img_flat;
@@ -108,7 +104,7 @@ for i=1:numT
     lb = lb./255;
     ub = ub./255;
     inpS = ImageStar(lb,ub);
-%     img_inp = img_flat./255;
+
     %% Part 3. Reachability and Simulation
     t = tic;
     Rode = neuralode.reach(inpS);
@@ -141,7 +137,7 @@ if cora
     %% Part 2. Load data and prepare experiments
 
     pred = zeros(numT,1);
-    timeC = zeros(numT,1);
+    time = zeros(numT,1);
     for i=1:numT
 %         img_flat = double(XTest(:,:,:,i));
 %         img_flat = extractdata(img_flat)';
@@ -162,14 +158,13 @@ if cora
         % Divide reachability into steps
         U = Star(0,0);
         t = tic;
-        R1 = net1.reach(inpS,'approx-star');
+        R1 = net1.reach(inpS);
         R1 = R1.toStar;
         R2 = odeblockC.stepReachStar(R1,U);
-        R3 = layer_out.reach(R2,'approx-star');
+        R3 = layer_out.reach(R2);
         time(i) = toc(t);
-        [lb_out,ub_out] = R3.getRanges;
-        [maxO,max_idx] = max(ub_out);
-        pred(i) = max_idx;
+        [rv,~] = NN.checkRobust(R3,YTest(i));
+        pred(i) = rv;
     end
 
 

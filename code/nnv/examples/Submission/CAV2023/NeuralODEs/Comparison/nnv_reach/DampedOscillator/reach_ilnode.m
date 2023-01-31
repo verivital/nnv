@@ -15,16 +15,16 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     % Load neural network parameters
     load(nnpath);
     if dim == 3
-        layer1 = LayerS(double(w1),double(b1)','purelin');
-        layerOut = LayerS(double(w5),double(b5)','purelin');
+        layer1 = FullyConnectedLayer(double(w1),double(b1)');
+        layerOut = FullyConnectedLayer(double(w5),double(b5)');
     else
-        layer1 = LayerS(double(Wb{1}),double(Wb{2})','purelin');
-        layerOut = LayerS(double(Wb{9}),double(Wb{10})','purelin');
+        layer1 = FullyConnectedLayer(double(Wb{1}),double(Wb{2})');
+        layerOut = FullyConnectedLayer(double(Wb{9}),double(Wb{10}'));
     end
     odeblock = NonLinearODE(2+dim,1,dynamics,reachStep,controlPeriod,C); % Nonlinear ODE plant 
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
     odeblock.options.tensorOrder = 2;
-    neuralode = NeuralODE({layer1, odelayer, layerOut});
+    neuralode = NN({layer1, odelayer, layerOut});
     if tfl
         name = "DampedOsc_ilnodenl_true_"+string(dim);
     else
@@ -59,7 +59,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     odeblock.options.alg = 'lin-adaptive';
     odeblock.options.tensorOrder = 2;
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
-    neuralode = NeuralODE({layer1, odelayer, layerOut});
+    neuralode = NN({layer1, odelayer, layerOut});
 
     try
         t = tic;
@@ -83,7 +83,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     odeblock.options.alg = 'poly-adaptive';
     % odeblock.options.tensorOrder = 3;
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
-    neuralode = NeuralODE({layer1, odelayer, layerOut});
+    neuralode = NN({layer1, odelayer, layerOut});
 
     try
         t = tic;
@@ -105,7 +105,7 @@ function reach_ilnode(nnpath,dynamics, dim, unc, tfl)
     odeblock.options.alg = 'poly';
     odeblock.options.tensorOrder = 3;
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
-    neuralode = NeuralODE({layer1, odelayer, layerOut});
+    neuralode = NN({layer1, odelayer, layerOut});
     try
         t = tic;
         Rall = neuralode.reach(R0); % Reachability

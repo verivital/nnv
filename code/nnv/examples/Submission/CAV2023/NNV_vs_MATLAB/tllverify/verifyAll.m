@@ -1,10 +1,11 @@
-% function verifyAll()
+function verifyAll()
     % Load network/property combinations
     csvFile = "instances.csv";
     opts = detectImportOptions(csvFile);
     opts.Delimiter = ',';
     NNs_props_timeout = readtable(csvFile, opts);
-    N = height(NNs_props_timeout);
+%     N = height(NNs_props_timeout);
+    N = 4;
     % Init result variable
     res = zeros(N,6); % res, time, res, time, res, time
     % Specify NNV reachbility options
@@ -20,7 +21,7 @@
         [res(i,5), res(i,6)] = verify_tllverify_nnv(NNs_props_timeout.Var1{i}, NNs_props_timeout.Var2{i}, reachOpt2); % exact-star
     end
     save('results_tllverify.mat', 'res');
-% end
+end
 
 % Example to load networks
 %     net = importONNXNetwork("onnx/tllBench_n=2_N=M=8_m=1_instance_0_0.onnx", InputDataFormats="BC");

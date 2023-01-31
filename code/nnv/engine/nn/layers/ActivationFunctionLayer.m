@@ -59,8 +59,8 @@ classdef ActivationFunctionLayer < handle
             % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
             % @option: = 'parallel' or 'single' or empty
             % @relaxFactor: of approx-star method
-            % @images: an array of ImageStar (if we use 'exact-star' method)
-            %         or a single ImageStar set
+            % @images: an array of ImageStar/Star (if we use 'exact-star' method)
+            %         or a single ImageStar/Star set
             
             % author: Diego Manzanas Lopez
             % date: 12/06/2022
@@ -84,13 +84,11 @@ classdef ActivationFunctionLayer < handle
         
         % handling multiple inputs
         function images = reach_zono_multipleInputs(obj, in_images, option)
-            % @in_images: an array of ImageStars
+            % @in_images: an array of ImageZono or Zono
             % @option: = 'parallel' or 'single' or empty
-            % @images: an array of ImageStar (if we use 'exact-star' method)
-            %         or a single ImageStar set
+            % @images: an array of ImageZono or Zono 
             
             n = length(in_images);
-            images(n) = ImageZono;
                         
             if strcmp(option, 'parallel')
                 parfor i=1:n

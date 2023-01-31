@@ -81,7 +81,7 @@ function reach_acc_orig()
     if is_codeocean
         exportgraphics(f,'/results/logs/acc_orig.pdf','ContentType','vector');
     else
-        exportgraphics(f,'reach_orig.pdf','ContentType','vector');
+        exportgraphics(f,'acc_orig.pdf','ContentType','vector');
     end
 
 end

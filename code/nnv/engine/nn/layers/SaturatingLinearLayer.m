@@ -51,20 +51,24 @@ classdef SaturatingLinearLayer < ActivationFunctionLayer
             % @images: an array of ImageStar (if we use 'exact-star' method)
             %         or a single ImageStar set
             
-            if ~isa(in_image, 'ImageStar')
-                error('input is not an ImageStar');
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
+                error('input is not an ImageStar or Star');
             end
             
-            h = in_image.height;
-            w = in_image.width;
-            c = in_image.numChannel;
-                        
-            Y = SatLin.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
-            n = length(Y);
-            images(n) = ImageStar;
-            % transform back to ImageStar
-            for i=1:n
-                images(i) = Y(i).toImageStar(h,w,c);
+            if isa(in_image, "ImageStar")
+                h = in_image.height;
+                w = in_image.width;
+                c = in_image.numChannel;
+                            
+                Y = SatLin.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
+                n = length(Y);
+                images(n) = ImageStar;
+                % transform back to ImageStar
+                for i=1:n
+                    images(i) = Y(i).toImageStar(h,w,c);
+                end
+            else
+                images = SatLin.reach(in_image, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with SatLin
             end
 
         end
@@ -73,17 +77,20 @@ classdef SaturatingLinearLayer < ActivationFunctionLayer
         function image = reach_zono(~, in_image)
             % @in_image: an ImageZono input set
             
-            if ~isa(in_image, 'ImageZono')
-                error('input is not an ImageZono');
+            if ~isa(in_image, 'ImageZono') && ~isa(in_image, "Zono")
+                error('input is not an ImageZono or Zono');
             end
             
-            h = in_image.height;
-            w = in_image.width;
-            c = in_image.numChannels;
-            In = in_image.toZono;
-            Y = SatLin.reach(In, 'approx-zono');
-            image = Y.toImageZono(h,w,c);
-            
+            if isa(in_image, "ImageZono")
+                h = in_image.height;
+                w = in_image.width;
+                c = in_image.numChannels;
+                In = in_image.toZono;
+                Y = SatLin.reach(In, 'approx-zono');
+                image = Y.toImageZono(h,w,c);
+            else
+                image = SatLin.reach(in_image, 'approx-zono');
+            end
         end
                  
     end

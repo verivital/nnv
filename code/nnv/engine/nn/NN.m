@@ -77,18 +77,32 @@ classdef NN < handle
                     outputsize = varargin{3};
                     name = varargin{4};
                     nL = length(Layers); % number of Layers
-                    warning('No connections were specified, we assume each layer is connected to the next layer in the order they were defined in the Layers array');
-
+%                     warning('No connections were specified, we assume each layer is connected to the next layer in the order they were defined in the Layers array');
+                    N = length(Layers);
+                    sources = 1:N;
+                    dests = 2:N+1;
+                    conns = table(sources', dests', 'VariableNames', {'Source', 'Destination'});
+                    
                     % update object properties
                     obj.Name = name;                % Name of the network
                     obj.Layers = Layers;            % Layers in NN
                     obj.numLayers = nL;             % number of layers
                     obj.InputSize = inputsize;      % input size
                     obj.OutputSize = outputsize;    % output size
+                    obj.Connections = conns;
 
                 case 2 % only layers and connections defined
                     Layers = varargin{1};
                     conns = varargin{2};
+                    obj.Layers = Layers;
+                    obj.Connections = conns;
+
+                case 1 % only layers, assume no sparse connections
+                    Layers = varargin{1};
+                    N = length(Layers);
+                    sources = 1:N;
+                    dests = 2:N+1;
+                    conns = table(sources', dests', 'VariableNames', {'Source', 'Destination'});
                     obj.Layers = Layers;
                     obj.Connections = conns;
 
@@ -101,7 +115,7 @@ classdef NN < handle
 
                     
                 otherwise
-                    error('Invalid number of inputs, should be 0, 2, 3 or 5');
+                    error('Invalid number of inputs, should be 0, 1, 2, 3 or 5');
             end
                       
         end
@@ -168,6 +182,14 @@ classdef NN < handle
                         reachOptions.reachMethod = "approx-star";
                     end
                 end
+            elseif contains(reach_method, "relax-star")
+                if ~isfield(reachOptions, "relaxFactor")
+                    error("Please, specify a relax factor value to perform relax-star reachability analysis")
+                else
+                    if reachOptions.relaxFactor < 0 || reachOptions.relaxFactor > 1
+                        error('Invalid relaxFactor. The value of relax factor must be between 0 and 1');
+                    end
+                end
             end
         end
         
@@ -197,8 +219,14 @@ classdef NN < handle
             if ~ isa(inputSet,"Star") && ~ isa(inputSet,"ImageStar") && ~ isa(inputSet,"ImageZono") && ~ isa(inputSet,"Zono") 
                 error('Wrong input set type. Input set must be of type "Star", "ImageStar", "ImageZono", or "Zono"')
             end
+
             % Check validity of reachability method
-            reachOptions = check_reachability_method(obj, reachOptions);
+            if exist("reachOptions",'var')
+                reachOptions = check_reachability_method(obj, reachOptions);
+            else
+                reachOptions = struct; % empty options, run with default values
+            end
+
             % Process reachability options
             if ~isstruct(reachOptions)
                 error("The reachability parameters must be specified as a struct.")
@@ -225,6 +253,7 @@ classdef NN < handle
                 obj.start_pool;
                 obj.reachOption = 'parallel';
             end
+
             % Initialize variables to store reachable sets and computation time
             obj.reachSet = cell(1, height(obj.Connections)); % store input reach sets for each layer
             obj.reachTime = zeros(1, height(obj.Connections)); % store computation time for each connection 
@@ -232,6 +261,7 @@ classdef NN < handle
             if strcmp(obj.dis_opt, 'display')
                 fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
             end
+
             % Begin reachability computation
             obj.reachSet{1} = inputSet;
             for i=1:height(obj.Connections)
@@ -259,7 +289,15 @@ classdef NN < handle
             end
             % Output of the function
 %             obj.totalReachTime = sum(obj.reachTime);
-            outputSet = rs_new;
+            if length(obj.reachSet) < obj.Connections.Destination(end)
+                rs = rs_new; 
+                % Compute reachable set layer by layer
+                start_time = tic;
+                outputSet = obj.Layers{obj.Connections.Destination(end)}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                obj.reachTime(i) = toc(start_time);
+            else
+                outputSet = rs_new;
+            end
 
         end
         
@@ -302,6 +340,70 @@ classdef NN < handle
     
             disp("Reachability computation time = "+string(rT) + " seconds")
         end
+        
+        % Check robustness of output set given a target label
+        function [rb, cands] = checkRobust(~, outputSet, correct_id)
+            % @outputSet: the outputSet we need to check
+            % @correct_id: the correct_id of the classified output
+            % @rb: = 1 -> robust
+            %      = 0 -> not robust
+            %      = 2 -> unknown
+            % @cand: possible candidates
+            
+            R = outputSet;
+            
+            if contains(class(outputSet),'Image')
+                if correct_id > outputSet.numChannel || correct_id < 1
+                    error('Invalid correct id');
+                end
+
+                R = R.toStar;
+            end
+
+            [lb, ub] = R.getRanges;
+            [~, max_ub_id] = max(ub);
+            cands = [];
+            if max_ub_id ~= correct_id
+                rb = 2;
+                cands = max_ub_id;
+            else                   
+                
+                max_val = lb(correct_id);
+                max_cd = find(ub > max_val); % max point candidates
+                max_cd(max_cd == correct_id) = []; % delete the max_id
+
+                if isempty(max_cd)
+                    rb = 1;
+                else            
+                    
+                    n = length(max_cd);
+                    C1 = R.V(max_cd, 2:R.nVar+1) - ones(n,1)*R.V(correct_id, 2:R.nVar+1);
+                    d1 = -R.V(max_cd, 1) + ones(n,1)*R.V(correct_id,1);
+                    S = Star(R.V, [R.C;C1], [R.d;d1], R.predicate_lb, R.predicate_ub);
+                    if S.isEmptySet
+                        rb = 2;
+                        cands = max_cd;
+                    else                       
+                        count = 0;
+                        for i=1:n
+                            if R.is_p1_larger_than_p2(max_cd(i), correct_id)
+                                rb = 2;
+                                cands = max_cd(i);
+                                break;
+                            else
+                                count = count + 1;
+                            end
+                        end
+                        if count == n
+                            rb = 1;
+                        end         
+                    end    
+
+                end
+
+            end
+
+        end % end check robust
         
         function label_id = classify(obj, inputValue, reachOptions)
             % label_id = classify(inputValue, reachOptions = 'default')

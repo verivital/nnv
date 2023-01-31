@@ -17,7 +17,7 @@ function process_results_neuralode()
     if is_codeocean
         gotube_path = "/results/logs/tuberesults/";
     else
-        gotube_path = "Gotube/results/"
+        gotube_path = "Gotube/results/";
     end
     % Damped Forced Pendulum
     fpa1_gotube = "fpaCTRNN_10.0_0.01_1000_0.01_0.01_1.5_GoTube.txt";

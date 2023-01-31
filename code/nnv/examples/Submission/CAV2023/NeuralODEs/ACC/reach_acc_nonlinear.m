@@ -57,7 +57,7 @@ function reach_acc_nonlinear()
         trajR = [trajR X0]; % Keep track of trajectory of NNCS
         ppp = X0.affineMap(map_mat,[]);
         Uin = U_fix.concatenate(ppp);
-        Rc = net.reach(Uin,'approx-star');
+        Rc = net.reach(Uin);
         trajU = [trajU Rc];
         x08 = X0.affineMap([0 0 0 0 0 0 0 1],[]);
         X0 = X0.affineMap(C(1:6,:),[]); % Get set for variables 1 to 6

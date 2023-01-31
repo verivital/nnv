@@ -46,7 +46,7 @@ function nn = load_NN_from_mat(matfile)
     Connections = table(sources', dests', 'VariableNames', {'Source', 'Destination'});
     
     % Create the NN object 
-    nn = NN(Layers, Connections); % neural network (NN)
+    nn = NN(Layers, Connections, Layers{1}.InputSize, Layers{N}.OutputSize, 'nn'); % cell array of layer, connection table, input size, output size, name
 end
 
 %% Helper function

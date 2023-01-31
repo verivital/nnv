@@ -137,28 +137,33 @@ classdef FullyConnectedLayer < handle
             % date: 6/26/2019
             
             
-            if ~isa(in_image, 'ImageStar')
-                error('Input set is not an ImageStar');
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
+                error('Input set is not an ImageStar or Star');
             end
             
-            N = in_image.height*in_image.width*in_image.numChannel;
-            if N~= obj.InputSize
-                error('Inconsistency between the size of the input image and the InputSize of the network');
-            end
-                       
-            n = in_image.numPred;
-            V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1);        
-            for i=1:n+1
-                I = in_image.V(:,:,:,i);
-                I = reshape(I,N,1); % flatten input
-                if i==1
-                    V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
-                else
-                    V(1, 1,:,i) = double(obj.Weights)*I;
+            if isa(in_image, 'ImageStar')
+                % reach using ImageStar
+                N = in_image.height*in_image.width*in_image.numChannel;
+                if N~= obj.InputSize
+                    error('Inconsistency between the size of the input image and the InputSize of the network');
                 end
+                           
+                n = in_image.numPred;
+                V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1);        
+                for i=1:n+1
+                    I = in_image.V(:,:,:,i);
+                    I = reshape(I,N,1); % flatten input
+                    if i==1
+                        V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
+                    else
+                        V(1, 1,:,i) = double(obj.Weights)*I;
+                    end
+                end
+                % output set
+                image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+            else % reach Star set
+                image = in_image.affineMap(obj.Weights, obj.Bias);
             end
-            
-            image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
             
         end
         
@@ -172,7 +177,14 @@ classdef FullyConnectedLayer < handle
             % date: 1/6/2020
             
             n = length(inputs);
-            S(n) = ImageStar;
+            if isa(inputs, "ImageStar")
+                S(n) = ImageStar;
+            elseif isa(inputs, "Star")
+                S(n) = Star;
+            else
+                error("Input must be ImageStar or Star");
+            end
+            
             if strcmp(option, 'parallel')
                 parfor i=1:n
                     S(i) = obj.reach_star_single_input(inputs(i));
@@ -198,28 +210,33 @@ classdef FullyConnectedLayer < handle
             % date: 1/2/2020
             
             
-            if ~isa(in_image, 'ImageZono')
-                error('Input set is not an ImageZono');
+            if ~isa(in_image, 'ImageZono') && ~isa(in_image, 'Zono')
+                error('Input set is not an ImageZono or Zono');
             end
+
+            if isa(in_image, 'ImageZono')
             
-            N = in_image.height*in_image.width*in_image.numChannels;
-            if N~= obj.InputSize
-                error('Inconsistency between the size of the input image and the InputSize of the network');
-            end
-                       
-            n = in_image.numPreds;
-            V(1, 1, :, in_image.numPreds + 1) = zeros(obj.OutputSize, 1);        
-            for i=1:n+1
-                I = in_image.V(:,:,:,i);
-                I = reshape(I,N,1);
-                if i==1
-                    V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
-                else
-                    V(1, 1,:,i) = double(obj.Weights)*I;
+                N = in_image.height*in_image.width*in_image.numChannels;
+                if N~= obj.InputSize
+                    error('Inconsistency between the size of the input image and the InputSize of the network');
                 end
+                           
+                n = in_image.numPreds;
+                V(1, 1, :, in_image.numPreds + 1) = zeros(obj.OutputSize, 1);        
+                for i=1:n+1
+                    I = in_image.V(:,:,:,i);
+                    I = reshape(I,N,1);
+                    if i==1
+                        V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
+                    else
+                        V(1, 1,:,i) = double(obj.Weights)*I;
+                    end
+                end
+                
+                image = ImageZono(V);
+            else
+                image = in_image.affineMap(obj.Weights, obj.Bias);
             end
-            
-            image = ImageZono(V);
             
         end
         
@@ -232,8 +249,15 @@ classdef FullyConnectedLayer < handle
             % author: Dung Tran
             % date: 1/6/2020
             
-            n = length(inputs);
-            S(n) = ImageZono;
+            n = length(in_images);
+            if isa(in_images, 'ImageZono')
+                S(n) = ImageZono;
+            elseif isa(in_images, 'Zono')
+                S(n) = Zono;
+            else
+                error('Wrong input set. It must be ImageZono or Zono')
+            end
+
             if strcmp(option, 'parallel')
                 parfor i=1:n
                     S(i) = obj.reach_zono(inputs(i));

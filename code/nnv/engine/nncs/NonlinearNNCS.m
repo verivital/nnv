@@ -1,6 +1,8 @@
 classdef NonlinearNNCS < handle
     %Neural network control system class 
     %   Dung Tran: 10/21/2018
+    % Update: Change controller class from FFNNS to NN
+    %       01/30/2023 - Diego Manzanas Lopez
     
     properties
         controller = []; % nerual-network controller
@@ -77,8 +79,8 @@ classdef NonlinearNNCS < handle
             end
             
             
-            if ~isa(controller, 'FFNN') && ~isa(controller, 'FFNNS')
-                error('The controller is not a feedforward neural network');
+            if ~isa(controller, 'NN')
+                error('The controller is not a neural network');
             end     
                         
             [nO, nI] = size(feedbackMap);
@@ -86,7 +88,7 @@ classdef NonlinearNNCS < handle
             if nI ~= 1
                 error('FeedbackMap should have one column');
             end
-            if nO * plant.nO > controller.nI
+            if nO * plant.nO > controller.InputSize
                 error('Two many feedback inputs');
             end
                         
@@ -94,9 +96,9 @@ classdef NonlinearNNCS < handle
             obj.plant = plant;
             obj.feedbackMap = feedbackMap;
             obj.nO = plant.nO;
-            obj.nI = controller.nI;
+            obj.nI = controller.InputSize;
             obj.nI_fb = nO * plant.nO;
-            obj.nI_ref = controller.nI - obj.nI_fb;
+            obj.nI_ref = obj.nI - obj.nI_fb;
             
         end
                        
@@ -116,14 +118,32 @@ classdef NonlinearNNCS < handle
              % author: Dung Tran
              % date: 11/16/2018
              
-             start_time = tic; 
+             % Check input correctness and assign values
+             if ~isstruct(reachPRM)
+                 error("reachPRM must be s struct defining reachability options")
+             end
+             if ~isfield(reachPRM, "init_set") || ~isfield(reachPRM, "numSteps")
+                 error("Fields init_set and numSteps are mandatory to perform reachability analysis of nncs.")
+             end
              initSet = reachPRM.init_set;
-             ref_inputSet = reachPRM.ref_input;
-             n_cores = reachPRM.numCores;
              n_steps = reachPRM.numSteps;
-             
-             if ~strcmp(reachPRM.reachMethod, 'approx-star')
-                 error('Only approx-star method is supported for nonlinear NNCS');
+
+             if isfield(reachPRM, "ref_input")
+                ref_inputSet = reachPRM.ref_input;
+             else
+                 ref_inputSet = [];
+             end
+
+             if isfield(reachPRM, 'numCores')
+                n_cores = reachPRM.numCores;
+             else
+                 n_cores = 1;
+             end
+
+             if isfield(reachPRM, 'reachMethod')
+                 reach_method = reachPRM.reachMethod;
+             else
+                 reach_method = 'approx-star';
              end
              
              if ~isa(initSet, 'Star')
@@ -138,10 +158,18 @@ classdef NonlinearNNCS < handle
                  error('Number of steps should be >= 1');
              end
              
+             start_time = tic; 
              obj.reachSetTree = SetTree(n_steps + 1); % initialize reach set tree
              obj.init_set = initSet;
              obj.ref_I = ref_inputSet;
              obj.reachSetTree.addReachSet(initSet, 1); % add the init_set to the reachSetTree
+
+             % Create reachOptions for controller
+             reachOpt.numCores = n_cores;
+             reachOpt.reachMethod = reach_method;
+             if n_cores > 1
+                 reachOpt.reachOption = 'parallel';
+             end
              
              for i=2:n_steps + 1
                  
@@ -153,13 +181,16 @@ classdef NonlinearNNCS < handle
                      lb = zeros(obj.plant.nI, 1); % at first step, U = 0.
                      U = Star(lb, lb);
                  else
-                    [U,~] = obj.controller.reach(input_set, 'exact-star', n_cores); % control set at step i   
+                    U = obj.controller.reach(input_set, reachOpt); % control set at step i   
                  end
-                 U1 = Star.get_hypercube_hull(U);
-                 
+                 if length(U) > 1
+                    U1 = Star.get_hypercube_hull(U);
+                    U1 = U1.toStar();
+                 else
+                    U1 = U;
+                 end
                  % reachability analysis for plant
                  fprintf('\nReachability analysis for the plant \n');
-                 U1 = U1.toStar();
                  obj.controlSet = [obj.controlSet U1];
                  R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
                  obj.reachSetTree.addReachSet(R, i);                 

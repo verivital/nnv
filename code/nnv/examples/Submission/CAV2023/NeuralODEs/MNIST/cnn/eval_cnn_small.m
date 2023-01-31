@@ -1,4 +1,4 @@
-function accP = eval_small(XTest,YTest)
+function accP = eval_cnn_small(XTest,YTest)
 %% Reachability analysis of an image classification ODE_FFNN (MNIST)
 % Architecture of first ffnn mnist model:
 %  - Inputs = 28x28 images 

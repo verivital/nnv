@@ -24,11 +24,15 @@ function reach_ffnn_large(pix,numT,noise,XTest,YTest,cora,perturbation)
 file_path = '../networks/odeffnn_mnist_large.mat';
 load(file_path); % Load neuralODe parameters 
 % Contruct NeuralODE
-layer1 = LayerS(Wb{1},Wb{2}','poslin');
-layer2 = LayerS(Wb{3},Wb{4}','poslin');
-layer3 = LayerS(Wb{5},Wb{6}','poslin');
-layer4 = LayerS(Wb{7},Wb{8}','poslin');
-layer5 = LayerS(Wb{9},Wb{10}','purelin');
+layer1 = FullyConnectedLayer(Wb{1}, Wb{2}');
+layer1a = ReluLayer;
+layer2 = FullyConnectedLayer(Wb{3}, Wb{4}');
+layer2a = ReluLayer;
+layer3 = FullyConnectedLayer(Wb{5}, Wb{6}');
+layer3a = ReluLayer;
+layer4 = FullyConnectedLayer(Wb{7}, Wb{8}');
+layer4a = ReluLayer;
+layer5 = FullyConnectedLayer(Wb{9}, Wb{10}');
 % ODEBlock only linear layers
 % Convert in form of a linear ODE model
 states = 16;
@@ -49,11 +53,13 @@ tfinal = 1;
 numSteps = 20;
 odeblock = LinearODE(Aout,Bout,Cout,D,tfinal,numSteps);
 reachStep = tfinal/numSteps;
-% Output layers 
-layer7 = LayerS(Wb{19},Wb{20}','purelin');
 odelayer = ODEblockLayer(odeblock,tfinal,reachStep,false);
-neuralLayers = {layer1, layer2, layer3, layer4, layer5, odelayer, layer7};
-neuralode = NeuralODE(neuralLayers);
+% Output layer
+layer7 = FullyConnectedLayer(Wb{19}, Wb{20}');
+% Create neuralode (NN)
+neuralLayers = {layer1, layer1a, layer2, layer2a, layer3, layer3a, layer4, ...
+    layer4a, layer5, odelayer, layer7};
+neuralode = NN(neuralLayers);
 
 %% Part 2. Load data and prepare experiments
 

@@ -100,7 +100,7 @@ classdef ReshapeLayer < handle
             % TODO: implement this function, just need to modify the
             % dimensions of an ImageStar or convert a Star to an ImageStar
             % Should also support ImageZono and Zono
-            
+            error("TODO, Working on adding support for this layer.")
         end
         
         % handle multiple inputs

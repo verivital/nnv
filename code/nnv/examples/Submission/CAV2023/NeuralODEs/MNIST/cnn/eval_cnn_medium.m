@@ -1,4 +1,4 @@
-function accP = eval_medium(XTest,YTest)
+function accP = eval_cnn_medium(XTest,YTest)
 % Architecture of first ffnn mnist model:
 %  - Inputs = 28x28 images 
 %  - Outputs = 10 (One hot vector)
@@ -44,7 +44,6 @@ layer6 = ReluLayer;
 layer7 = FlattenLayer;
 layer7.Type = 'nnet.cnn.layer.FlattenLayer';
 % layer7.Type = 'nnet.keras.layer.FlattenCStyleLayer';
-layers = {layer1, layer2, layer3, layer4, layer5, layer6, layer7};
 % ODEBlock only linear layers
 % Convert in form of a linear ODE model
 states = 1690;
@@ -62,11 +61,12 @@ numSteps = 20;
 odeblock = LinearODE(Aout,Bout,Cout,D,tfinal,numSteps);
 reachStep = tfinal/numSteps;
 % Output layers 
-layerout = LayerS(Wb{13},Wb{14}','purelin');
+% layerout = LayerS(Wb{13},Wb{14}','purelin'); % either way works
+layerout = FullyConnectedLayer(Wb{13}, Wb{14}');
 
 odelayer = ODEblockLayer(odeblock,1,reachStep);
 neuralLayers = {layer1, layer2, layer3, layer4, layer5, layer6, layer7, odelayer, layerout};
-neuralode = NeuralODE(neuralLayers);
+neuralode = NN(neuralLayers);
 
 %% Part 2. Load data and prepare experiments
 numT = length(YTest);

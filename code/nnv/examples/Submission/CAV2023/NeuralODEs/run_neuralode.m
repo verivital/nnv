@@ -9,7 +9,7 @@ function run_neuralode()
     
     % MNIST
     cd MNIST
-    run run_mnist.m
+    run_mnist;
     cd ..
     
     % ACC
@@ -22,12 +22,13 @@ function run_neuralode()
     % NODE Comparison
     cd Comparison
     cd nnv_reach
-    run run_nnv.m
+    run_comparison;
+
     cd ..
-    run generate_table.m % create Table 3
-    run process_results.m % plot FPA, Cartpole and Damped Oscillator
-    run plot_spiralL.m % plot spiral results
-    run plot_spiralNL.m % plot nonlinear spiral results
-    cd ../..
+    tool_comparison_table.m    % create Table 3
+    process_results_neuralode; % plot FPA, Cartpole and Damped Oscillator
+    plot_spiralL;              % plot spiral results
+    plot_spiralNL;             % plot nonlinear spiral results
+    cd ..;
 
 end

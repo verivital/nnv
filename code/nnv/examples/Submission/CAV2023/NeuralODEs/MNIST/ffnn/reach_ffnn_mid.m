@@ -1,4 +1,4 @@
-function reach_ffnn(pix,numT,noise,XTest,YTest,cora,perturbation)
+function reach_ffnn_mid(pix,numT,noise,XTest,YTest,cora,perturbation)
 %% Reachability analysis of an image classification ODE_FFNN (MNIST)
 % Architecture of first ffnn mnist model:
 %  - Inputs = 784 (Flatten images to 1D, original 28x28)
@@ -20,9 +20,11 @@ function reach_ffnn(pix,numT,noise,XTest,YTest,cora,perturbation)
 file_path = '../networks/odeffnn_mnist.mat';
 load(file_path); % Load neuralODe parameters 
 % Contruct NeuralODE
-layer1 = LayerS(Wb{1},Wb{2}','poslin');
-layer2 = LayerS(Wb{3},Wb{4}','poslin');
-layer3 = LayerS(Wb{5},Wb{6}','purelin');
+layer1 = FullyConnectedLayer(Wb{1}, Wb{2}');
+layer1a = ReluLayer;
+layer2 = FullyConnectedLayer(Wb{3}, Wb{4}');
+layer2a = ReluLayer;
+layer3 = FullyConnectedLayer(Wb{5}, Wb{6}');
 % ODEBlock only linear layers
 % Convert in form of a linear ODE model
 states = 16;
@@ -40,10 +42,10 @@ numSteps = 20;
 odeblock = LinearODE(Aout,Bout,Cout,D,tfinal,numSteps);
 reachStep = tfinal/numSteps;
 % Output layers 
-layer5 = LayerS(Wb{11},Wb{12}','purelin');
+layer5 = FullyConnectedLayer(Wb{11}, Wb{12}');
 odelayer = ODEblockLayer(odeblock,tfinal,reachStep,false);
-neuralLayers = {layer1, layer2, layer3, odelayer, layer5};
-neuralode = NeuralODE(neuralLayers);
+neuralLayers = {layer1, layer1a, layer2, layer2a, layer3, odelayer, layer5};
+neuralode = NN(neuralLayers);
 
 %% Part 2. Load data and prepare experiments
 

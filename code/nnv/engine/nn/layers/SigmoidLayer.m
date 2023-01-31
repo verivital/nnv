@@ -61,20 +61,24 @@ classdef SigmoidLayer < ActivationFunctionLayer
             % update: 6/26/2020: add relaxed approx-star method
             %         7/16/2020: add display option + lp_solver option
             
-            if ~isa(in_image, 'ImageStar')
-                error('input is not an ImageStar');
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
+                error('input is not an ImageStar or Star');
             end
-            
-            h = in_image.height;
-            w = in_image.width;
-            c = in_image.numChannel;
-                        
-            Y = LogSig.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
-            n = length(Y);
-            images(n) = ImageStar;
-            % transform back to ImageStar
-            for i=1:n
-                images(i) = Y(i).toImageStar(h,w,c);
+
+            if isa(in_image, "ImageStar")
+                h = in_image.height;
+                w = in_image.width;
+                c = in_image.numChannel;
+                            
+                Y = LogSig.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with sigmoid (logsig)
+                n = length(Y);
+                images(n) = ImageStar;
+                % transform back to ImageStar
+                for i=1:n
+                    images(i) = Y(i).toImageStar(h,w,c);
+                end
+            else
+                images = LogSig.reach(in_image, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with sigmoid (logsig)
             end
 
         end
@@ -86,17 +90,20 @@ classdef SigmoidLayer < ActivationFunctionLayer
             % author: Dung Tran
             % date: 6/9/2020
             
-            if ~isa(in_image, 'ImageZono')
-                error('input is not an ImageZono');
+            if ~isa(in_image, 'ImageZono') && ~isa(in_image, 'Zono')
+                error('Input is not an ImageZono or Zono');
             end
             
-            h = in_image.height;
-            w = in_image.width;
-            c = in_image.numChannels;
-            In = in_image.toZono;
-            Y = LogSig.reach(In, 'approx-zono');
-            image = Y.toImageZono(h,w,c);
-            
+            if isa(in_image, 'ImageZono')
+                h = in_image.height;
+                w = in_image.width;
+                c = in_image.numChannels;
+                In = in_image.toZono;
+                Y = LogSig.reach(In, 'approx-zono');
+                image = Y.toImageZono(h,w,c);
+            else
+                image = LogSig.reach(in_image, 'approx-zono');
+            end
         end
                  
     end

@@ -15,11 +15,13 @@ function accP = eval_ffnn_small(XTest,YTest)
 %% Part 1. Loading and constructing the NeuralODE
 
 % Load network parameters
-file_path = '../../../../Python/neuralODE_examples/mnist/odeffnn_mnist_small.mat';
+file_path = '../networks/odeffnn_mnist_small.mat';
 load(file_path); % Load neuralODe parameters 
 % Contruct NeuralODE
-layer1 = LayerS(Wb{1},Wb{2}','poslin');
-layer2 = LayerS(Wb{3},Wb{4}','poslin');
+layer1 = FullyConnectedLayer(Wb{1}, Wb{2}');
+layer1a = ReluLayer;
+layer2 = FullyConnectedLayer(Wb{3}, Wb{4}');
+layer2a = ReluLayer;
 % ODEBlock only linear layers
 % Convert in form of a linear ODE model
 states = 10;
@@ -35,10 +37,10 @@ numSteps = 20;
 odeblock = LinearODE(Aout,Bout,Cout,D,tfinal,numSteps);
 reachStep = tfinal/numSteps;
 % Output layers 
-layer4 = LayerS(Wb{7},Wb{8}','purelin');
+layer4 = FullyConnectedLayer(Wb{7},Wb{8}');
 odelayer = ODEblockLayer(odeblock,tfinal,reachStep,false);
-neuralLayers = {layer1, layer2, odelayer, layer4};
-neuralode = NeuralODE(neuralLayers);
+neuralLayers = {layer1, layer1a,  layer2, layer2a, odelayer, layer4};
+neuralode = NN(neuralLayers);
 
 %% Part 2. Load data and prepare experiments
 numT = length(YTest);

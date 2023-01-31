@@ -457,8 +457,10 @@ classdef Star
                 new_V = horzcat(new_c, V3);        
                 new_C = blkdiag(obj.C, X.C);        
                 new_d = vertcat(obj.d, X.d);
+                new_pred_lb = [obj.predicate_lb; X.predicate_lb];
+                new_pred_ub = [obj.predicate_ub; X.predicate_ub];
 
-                S = Star(new_V, new_C, new_d); % new Star has more number of basic vectors
+                S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub); % new Star has more number of basic vectors
                 
             end
                 

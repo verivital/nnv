@@ -1,4 +1,4 @@
-function accP = eval_tiny(XTest,YTest)
+function accP = eval_cnn_tiny(XTest,YTest)
 % Architecture of first ffnn mnist model:
 %  - Inputs = 28x28 images 
 %  - Outputs = 10 (One hot vector)

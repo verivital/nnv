@@ -1,37 +1,39 @@
 function run_neuralode_subset()
 
     %% Run all benchmarks with NNV
+
     % Random examples
     cd RandomEx
-    run reach_XS.m
-    run reach_S.m
-    run reach_M.m
-    run generate_table_subset.m
+    reach_XS;
+    reach_S;
+    reach_M;
+    randomEx_table_subset;
     cd ..;
     
     % MNIST
     cd MNIST
     cd ffnn
-    run run_all.m
-    run run_all_inf
+    run_ffnn_all;
+    run_ffnn_all_inf;
     cd ..
-    run create_table_subset.m
+    mnist_table_subset;
     cd ..
     
     % ACC
     cd ACC
-    run verify_acc_orig.m
-    run verify_acc_plant.m
+    reach_acc_orig;
+    reach_acc_plant;
+    reach_acc_tanhplant;
     cd ..
     
     % NODE Comparison
     cd Comparison
     cd nnv_reach
-    run run_subset.m
+    run_comparison_subset
     cd ..
-    run generate_table_subset.m % create Table 3
-    run process_results_subset.m % plot FPA
-    run plot_spiralL.m
-    cd ../..
+    tool_comparison_table_subset.m % create Table 3
+    process_results_neuralode_subset.m % plot FPA
+    plot_spiralL;
+    cd ..;
 
 end

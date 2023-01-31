@@ -18,9 +18,13 @@ function reach_L()
     w5 = randn(states,output)'; b5 = randn(output,1);   % layer 5
     
     %% Create NeuralODE 
-    layer1 = LayerS(w1,b1,'tansig'); % tanh
-    layer3 = LayerS(w3,b3,'tansig'); % tanh
-    layer5 = LayerS(w5,b5,'tansig'); % tanh
+
+    layer1 = FullyConnectedLayer(w1,b1);
+    layer1a = TanhLayer;
+    layer3 = FullyConnectedLayer(w3,b3);
+    layer3a = TanhLayer;
+    layer5 = FullyConnectedLayer(w5,b5);
+    layer5a = TanhLayer;
     
     cP1 = 0.1; % tf simulation
     reachStep1 = 0.005; % reach step
@@ -34,8 +38,9 @@ function reach_L()
     odeblock2 = NonLinearODE(states,1,@dyn2,reachStep2,cP2,C2);
     odeblock2.options.tensorOrder = 2;
     layer4 = ODEblockLayer(odeblock2,cP1,reachStep1,true);
-    neuralLayers = {layer1,layer2,layer3,layer4,layer5};
-    neuralode = NeuralODE(neuralLayers);
+
+    neuralLayers = {layer1,layer1a,layer2,layer3,layer3a,layer4,layer5,layer5a};
+    neuralode = NN(neuralLayers);
     % Input
     x0 = rand(input,1); 
     nname = "L";
@@ -45,6 +50,7 @@ function reach_L()
     reach_random(neuralode,x0,nname,unc);
     
     %% Reachability run #2 
+
     % Reset the neuralode variables
     odeblock1 = NonLinearODE(states,1,@dyn1,reachStep1,cP1,C1); % Nonlinear ODE
     odeblock1.options.tensorOrder = 2;
@@ -52,21 +58,24 @@ function reach_L()
     odeblock2 = NonLinearODE(states,1,@dyn2,reachStep2,cP2,C2);
     odeblock2.options.tensorOrder = 2;
     layer4 = ODEblockLayer(odeblock2,cP1,reachStep1,true);
-    neuralLayers = {layer1,layer2,layer3,layer4,layer5};
-    neuralode = NeuralODE(neuralLayers);
+    neuralLayers = {layer1,layer1a,layer2,layer3,layer3a,layer4,layer5,layer5a};
+    neuralode = NN(neuralLayers);
+
     % Run
     unc = 0.02;
     reach_random(neuralode,x0,nname,unc);
     
     %% Reachability run #3 
+
     odeblock1 = NonLinearODE(states,1,@dyn1,reachStep1,cP1,C1); % Nonlinear ODE
     odeblock1.options.tensorOrder = 2;
     layer2 = ODEblockLayer(odeblock1,cP1,reachStep1,false);
     odeblock2 = NonLinearODE(states,1,@dyn2,reachStep2,cP2,C2);
     odeblock2.options.tensorOrder = 2;
     layer4 = ODEblockLayer(odeblock2,cP1,reachStep1,true);
-    neuralLayers = {layer1,layer2,layer3,layer4,layer5};
-    neuralode = NeuralODE(neuralLayers);
+    neuralLayers = {layer1,layer1a,layer2,layer3,layer3a,layer4,layer5,layer5a};
+    neuralode = NN(neuralLayers);
+
     % Run
     unc = 0.04;
     reach_random(neuralode,x0,nname,unc);

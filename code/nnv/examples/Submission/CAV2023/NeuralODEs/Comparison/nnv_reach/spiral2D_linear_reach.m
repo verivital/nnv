@@ -25,7 +25,7 @@ function spiral2D_linear_reach()
     numSteps = controlPeriod/reachStep;
     odeblock = LinearODE(Aout,Bout',Cout,D,controlPeriod,numSteps);
     odelayer = ODEblockLayer(odeblock,controlPeriod,reachStep,true);
-    neuralode = NeuralODE({odelayer});
+    neuralode = NN({odelayer});
     
     x0 = [2.0;0.0]; % This is like the initial input to the ODEblock (initial state)
     

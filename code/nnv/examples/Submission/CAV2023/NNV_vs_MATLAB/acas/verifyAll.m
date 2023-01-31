@@ -10,6 +10,7 @@ function verifyAll()
     reachOpt.relaxFactor = 0;
     reachOptionsList = [reachOptionsList; reachOpt]; % approx
     % relax star
+    reachOpt.reachMethod = 'relax-star-range';
     reachOpt.relaxFactor = 0.25;
     reachOptionsList = [reachOptionsList; reachOpt]; % relax
     reachOpt.relaxFactor = 0.5;
@@ -18,22 +19,19 @@ function verifyAll()
     reachOptionsList = [reachOptionsList; reachOpt]; % relax
     reachOpt.relaxFactor = 1;
     reachOptionsList = [reachOptionsList; reachOpt]; % relax
+    % exact-star
     reachOpt.reachMethod = 'exact-star';
     reachOptionsList = [reachOptionsList; reachOpt]; % exact (single)
+    % exact-star (parallel)
     reachOpt.reachOption = "parallel";
-    reachOpt.numCores = 8;
+    max_cores = getenv('NUMBER_OF_PROCESSORS');
+    reachOpt.numCores = min(8,max_cores);
     reachOptionsList = [reachOptionsList; reachOpt]; % exact (parallel)
     
     %% Verify Properties
     
-    % Property 1
-%     verifyP1(reachOptionsList);
-    
-    % Property 2
-%     verifyP2(reachOptionsList);
-    
     % Property 3
-%     verifyP3(reachOptionsList);
+    verifyP3(reachOptionsList);
     % 
     % % Property 4
     verifyP4(reachOptionsList);

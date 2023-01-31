@@ -1310,7 +1310,7 @@ methods(Static) % over-approximate reachability analysis using abstract-domain (
         % @I: rstar-input set
         % @index: index of neuron performing stepReach
         % @l: l = min(x[index]), lower bound at neuron x[index]
-        % @u: u = min(x[index]), upper bound at neuron x[index]
+        % @u: u = max(x[index]), upper bound at neuron x[index]
         % @y_l: = tansig(l); output of tansig at lower bound
         % @y_u: = tansig(u); output of tansig at upper bound
         % @dy_l: derivative of TanSig at the lower bound

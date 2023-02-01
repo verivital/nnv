@@ -169,8 +169,8 @@ load RnnVerify_result.mat;
 
 RnnVerify_VT = T.rnn44_5fc32_avg_time;
 RnnVerify_robust = T.rnn44_5fc32_result;
-RnnV_rb = RnnVerify_robust([4 9 14 19]);
-RnnV_vt = RnnVerify_VT([4 9 14 19]);
+RnnV_rb = RnnVerify_robust;
+RnnV_vt = RnnVerify_VT;
 N_4_4 = table;
 N_4_4.Tmax = Tmax';
 N_4_4.RnnVerify_Robust = RnnV_rb;

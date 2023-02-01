@@ -209,7 +209,7 @@ Tmax_10
 Tmax_15
 Tmax_20
 
-
+N = length(Tmax);
 for i=1:M
     for j=1:N
         NStars(i,j) = length(outputSet{i,j});

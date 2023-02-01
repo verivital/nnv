@@ -31,7 +31,7 @@ L4 = LayerS(double(W{2}),double(b{2}), 'poslin'); % feedfoward
 L5 = LayerS(double(W{3}),double(b{3}), 'poslin'); % feedfoward
 L6 = LayerS(double(W{4}),double(b{4}), 'poslin'); % feedfoward
 L7 = LayerS(double(W{5}),double(b{5}), 'poslin'); % feedfoward
-L8 = LayerS(double(W{6}),double(b{6}), 'poslin'); % feedfoward
+L8 = LayerS(double(W{6}),double(b{6}), 'purelin'); % feedfoward
 
 
 L = {L1, L2, L3, L4, L5, L6, L7, L8}; % all layers of the networks
@@ -46,7 +46,7 @@ x = x';
 
 eps = 0.01; % adversarial disturbance bound: |xi' - xi| <= eps
 Tmax = [5 10 15 20];
-TimeOut_Tmax = 10; % time out
+TimeOut_Tmax = 20; % time out
 N = length(Tmax);
 rb1 = cell(M,N);
 vt1 = Inf(M,N);
@@ -191,7 +191,7 @@ N_2_2
 
 %% print latex table
 fileID = fopen('N_2_2_small_tab.tex','w');
-formatSpec1 = '\\multirow{4}{*}{$\\mathcal{N}_{2,0}$} & $%d$ & $%d$ & $%1.2f$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ \\\\ \n';
+formatSpec1 = '\\multirow{4}{*}{$\\mathcal{N}_{2,2}$} & $%d$ & $%d$ & $%1.2f$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ \\\\ \n';
 formatSpec2 = ' & $%d$ & $%d$ & $%1.2f$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ & $%d$ & $%d$ & $%1.2f$ & $%1.1f\\times$ \\\\ \n';
 for i=1:N
     if i==1

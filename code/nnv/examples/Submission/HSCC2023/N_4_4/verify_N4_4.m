@@ -47,7 +47,7 @@ x = x';
 
 eps = 0.01; % adversarial disturbance bound: |xi' - xi| <= eps
 Tmax = [5 10 15 20];
-TimeOut_Tmax = 15; 
+TimeOut_Tmax = 20; 
 N = length(Tmax);
 rb1 = cell(M,N);
 vt1 = Inf(M,N);

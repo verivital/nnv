@@ -17,6 +17,8 @@ RAM: at least 32 GB
 
 Matlab version: 2021b or later
 
+Gurobi optimizer: 9.12 version (or later; 10.00 is tested and works)
+
 Detailed installation of NNV is available at:
 
 https://github.com/verivital/nnv#installation
@@ -38,6 +40,61 @@ If Matlab is restarted, to work again, either `install.m` or `startup_nnv.m` mus
 
 https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
+### 1.4 Install Gurobi for MATLAB
+
+1) Dowload Gurobi and extract.
+
+Go to https://www.gurobi.com/downloads/ and download the correct version of Gurobi.
+
+      wget https://packages.gurobi.com/10.0/gurobi10.0.0_linux64.tar.gz
+
+https://www.gurobi.com/documentation/10.0/remoteservices/linux_installation.html recommends installing Gurobi `/opt` for a shared installtion.
+
+      mv gurobi10.0.0_linux64.tar.gz ~/opt/
+      tar xvfz gurobi_server10.0.0_linux64.tar.gz
+
+Note: You might have to create the ~/opt/ directory using mkdir ~/opt first.
+
+Move into the directory and extract the content.
+
+      cd ~/opt/
+      tar -xzvf gurobi10.0.0_linux64.tar.gz
+      rm gurobi10.0.0_linux64.tar.gz
+
+
+2) Setting up the environment variables.
+
+Open the `~/.bashrc` file.
+
+      vim ~/.bashrc
+
+Add the following lines, replacing {PATH_TO_YOUR_HOME} with the _aboslute_ path to your home directory, and save the file:
+
+      export GUROBI_HOME="{PATH_TO_YOUR_HOME}/opt/gurobi1000/linux64"
+      export GRB_LICENSE_FILE="{PATH_TO_YOUR_HOME}/gurobi.lic"
+      export PATH="${PATH}:${GUROBI_HOME}/bin"
+      export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib"
+
+Note: If you installed Gurobi or the license file into a different directory you have to adjust the paths in the first two lines.
+
+After saving, reload .bashrc:
+
+      source ~/.bashrc
+
+3) Acquire your license from https://www.gurobi.com/academia/academic-program-and-licenses/
+
+At `~/opt/gurobi1000/linux64/bin` copy the `grbgetkey` line from the site and enter it into a terminal.
+
+4) Setting up Gurobi for MATLAB
+
+https://www.gurobi.com/documentation/10.0/quickstart_linux/matlab_setting_up_grb_for_.html
+
+To setup Gurobi for MATLAB, you need to launch the Gurobi MATLAB setup script, `gurobi_steup.m` located at `~ /opt/gurobi1000/linux64/matlab` in MATLAB.
+
+Add the directory below to MATLAB such that `linprog` function will launch based on `gurobi` optimization instead of MATLAB optimization.
+
+`~/opt/gurobi1000/linux64/examples/matlab`
+            
 
 ## 2. RnnVerify Installation
 

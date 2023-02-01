@@ -1,4 +1,0 @@
-docker build . -t juliareach
-docker run -i --name jl_docker juliareach:latest julia startup.jl
-docker cp jl_docker:juliareach/results results
-

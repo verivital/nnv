@@ -289,7 +289,7 @@ classdef NN < handle
             end
             % Output of the function
 %             obj.totalReachTime = sum(obj.reachTime);
-            if length(obj.reachSet) < obj.Connections.Destination(end)
+            if length(obj.reachSet) < obj.Connections.Destination(end) && length(obj.Layers) >= obj.Connections.Destination(end)
                 rs = rs_new; 
                 % Compute reachable set layer by layer
                 start_time = tic;

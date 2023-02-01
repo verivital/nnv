@@ -7,3 +7,6 @@
 [submodule "code/nnv/engine/nnmt"]
 	path = code/nnv/engine/nnmt
 	url = https://github.com/verivital/nnmt
+[submodule "code/nnv/engine/onnx2nnv"]
+	path = code/nnv/engine/onnx2nnv
+	url = https://github.com/verivital/onnx2nnv.git

@@ -1,4 +1,4 @@
-% function verifyAll()
+function verifyAll()
     
     % Load network/property combinations
     csvFile = "instances.csv";
@@ -9,17 +9,19 @@
     % Load networks
     [networks, name2idx] = load_rl_NNs();
     % Init result variable
-    res = zeros(N,6); % res, time, res, time, res, time
+    N_props = 50;
+    res = zeros(N_props,6); % res, time, res, time, res, time
     % Specify NNV reachbility options
     reachOpt1 = struct; 
     reachOpt1.reachMethod = 'approx-star';
-    reachOpt2 = struct;
-    reachOpt2.reachMethod = 'exact-star';
-    max_cores = getenv('NUMBER_OF_PROCESSORS');
-    reachOpt2.numCores = min(8,max_cores); % try 8, but if local system has less, compute with max number of cores
+%     reachOpt2 = struct;
+%     reachOpt2.reachMethod = 'exact-star';
+    rng(1); % define random seed to reproduce results
+    inst_idxs = randperm(200,N_props); % verify a subset of 296 properties
 
     % Begin reachability
-    for i=1:N
+    k = 1;
+    for i=inst_idxs
         % Get network
         name = split(NNs_props_timeout.Var1{i},'/');
         name = name{2};
@@ -27,10 +29,11 @@
         % Get vnnlib property
         propertyFile = string(NNs_props_timeout.Var2{i});
         % Run verification for each method
-        [res(i,1), res(i,2)] = verify_rl_matlab(net.matlab, propertyFile);
-        [res(i,3), res(i,4)] = verify_rl_nnv(net.nnv, propertyFile, reachOpt1);
-        [res(i,5), res(i,6)] = verify_rl_nnv(net.nnv, propertyFile, reachOpt2);
+        [res(k,1), res(k,2)] = verify_rl_matlab(net.matlab, propertyFile);
+        [res(k,3), res(k,4)] = verify_rl_nnv(net.nnv, propertyFile, reachOpt1);
+%         [res(k,5), res(k,6)] = verify_rl_nnv(net.nnv, propertyFile, reachOpt2);
+        k = k+1;
     end
-    % Save results
-    save("results_rl.mat","res");
-% end
+    % Save results (including idxs of properties verified
+    save("results_rl.mat","res", "inst_idxs");
+end

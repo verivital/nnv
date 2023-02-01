@@ -4,12 +4,17 @@ function run_neuralode()
     
     % Random examples
     cd RandomEx
-    run_neuralode_random;
+    if ~exist('results', 'dir')
+       mkdir('results')
+    end
+    reach_M;
+    reach_XXL;
     cd ..;
     
     % MNIST
     cd MNIST
-    run_mnist;
+    run_mnist_inf;
+    mnist_table;
     cd ..
     
     % ACC
@@ -21,14 +26,7 @@ function run_neuralode()
     
     % NODE Comparison
     cd Comparison
-    cd nnv_reach
     run_comparison;
-
-    cd ..
-    tool_comparison_table.m    % create Table 3
-    process_results_neuralode; % plot FPA, Cartpole and Damped Oscillator
-    plot_spiralL;              % plot spiral results
-    plot_spiralNL;             % plot nonlinear spiral results
     cd ..;
 
 end

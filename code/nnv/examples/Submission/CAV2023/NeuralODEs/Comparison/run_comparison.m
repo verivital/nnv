@@ -3,7 +3,7 @@ function run_comparison()
     % Run all nnv reachability experiments
     
     % Set folder path for results
-    if ~exist('nnvresults', 'dir')
+    if ~isfolder('nnvresults')
            mkdir('nnvresults')
     end
 
@@ -31,8 +31,8 @@ function run_comparison()
     %% Visualize results
 
     cd ..;
-    plot_spiralL;
-    plot_spiralNL;
+    plot_spiralL(3);
+    plot_spiralNL(3);
     process_results_neuralode;
 
 end

@@ -26,11 +26,11 @@ function process_results_neuralode()
     ax = gca; % Get current axis
     ax.XAxis.FontSize = 15; % Set font size of axis
     ax.YAxis.FontSize = 15;
-    legend(pj,{'NNV 2.0'},"Location","best",'FontSize',14);
+    legend(pj,{'NNV'},"Location","best",'FontSize',14);
     if is_codeocean
-        saveas(f_fpa,'/results/logs/fpa.pdf');
+        exportgraphics(f_fpa,'/results/logs/fpa.pdf', 'ContentType', 'vector');
     else
-        saveas(f_fpa,'fpa.pdf');
+        exportgraphics(f_fpa,'fpa.pdf','ContentType', 'vector');
     end
     
     %% 6 - Plot Cartpole reachsets
@@ -46,11 +46,11 @@ function process_results_neuralode()
     ax = gca; % Get current axis
     ax.XAxis.FontSize = 15; % Set font size of axis
     ax.YAxis.FontSize = 15;
-    legend(pj,{'NNV 2.0'},"Location","best",'FontSize',14);
+    legend(pj,{'NNV'},"Location","best",'FontSize',14);
     if is_codeocean
-        saveas(f_fpa,'/results/logs/cartpole.pdf');
+        exportgraphics(f_fpa,'/results/logs/cartpole.pdf', 'ContentType', 'vector');
     else
-        saveas(f_cp,'cartpole.pdf');
+        exportgraphics(f_cp,'cartpole.pdf', 'ContentType', 'vector');
     end
     
 

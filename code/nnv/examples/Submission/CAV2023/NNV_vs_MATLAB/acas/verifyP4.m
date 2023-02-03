@@ -54,34 +54,35 @@ function verifyP4(reachOptionsList)
         timeMAT(i-2) = toc(t);
         resMAT = [resMAT; res];
         
-        % Verify NNV
-        res = [];
-        for r = 1:n
-            reachOpt = reachOptionsList(r);
-            Rstar = [];
-            t = tic;
-            R = netNNV.reach(IS, reachOpt);
-            for k = 1:length(R)
-                Rstar = [Rstar R(k).toStar];
-            end
-            res = [res, verifyNNV(Rstar, H, g)];
-            timeNNV(i-2,r) = toc(t);
-        end
-        resNNV = [resNNV; res];
+%         % Verify NNV
+%         res = [];
+%         for r = 1:n
+%             reachOpt = reachOptionsList(r);
+%             Rstar = [];
+%             t = tic;
+%             R = netNNV.reach(IS, reachOpt);
+%             for k = 1:length(R)
+%                 Rstar = [Rstar R(k).toStar];
+%             end
+%             res = [res, verifyNNV(Rstar, H, g)];
+%             timeNNV(i-2,r) = toc(t);
+%         end
+%         resNNV = [resNNV; res];
         
     end
 
     % Save results
-    save("results_p4", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
+%     save("results_p4", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
+    save("results_p4_mat.mat", "resMAT", "timeMAT");
 
 end
 
 %% Helper Function
 
 function result = verifyMAT(YLower, YUpper)
-    if YUpper(1) > YLower(2) || YUpper(1) > YLower(3) || YUpper(1) > YLower(4) || YUpper(1) > YLower(5)
+    if YLower(1) > YUpper(2) || YLower(1) > YUpper(3) || YLower(1) > YUpper(4) || YLower(1) > YUpper(5)
         result = categorical("violated"); % violated = safe
-    elseif YLower(1) <= YUpper(2) && YLower(1) <= YUpper(3) && YLower(1) <= YUpper(4) && YLower(1) <= YUpper(5)
+    elseif YUpper(1) <= YLower(2) && YUpper(1) <= YLower(3) && YUpper(1) <= YLower(4) && YUpper(1) <= YLower(5)
         result = categorical("verified"); % verified = unsafe
     else
         result = categorical("unproven"); % if approx methods used, then unproven, otherwise (exact) violated

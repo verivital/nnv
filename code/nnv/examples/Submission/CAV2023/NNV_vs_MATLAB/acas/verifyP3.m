@@ -27,7 +27,7 @@ function verifyP3(reachOptionsList)
     acasFolder = "onnx/";
     networks = dir(acasFolder);
     
-    for i = 3:length(networks)
+    for i = 8:length(networks)
         % Load Network
         file = acasFolder + string(networks(i).name);
         net = importONNXNetwork(file, InputDataFormats='BCSS');
@@ -73,17 +73,18 @@ function verifyP3(reachOptionsList)
     end
 
     % Save results
-    save("results_p3", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
+%     save("results_p3", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
+    save("results_p3_mat.mat", "resMAT", "timeMAT");
 
 end
 
 %% Helper Function
 
 function result = verifyMAT(YLower, YUpper)
-    if YUpper(1) > YLower(2) || YUpper(1) > YLower(3) || YUpper(1) > YLower(4) || YUpper(1) > YLower(5)
-        result = categorical("violated"); % violated = safe
-    elseif YLower(1) <= YUpper(2) && YLower(1) <= YUpper(3) && YLower(1) <= YUpper(4) && YLower(1) <= YUpper(5)
-        result = categorical("verified"); % verified = unsafe
+    if YLower(1) > YUpper(2) || YLower(1) > YUpper(3) || YLower(1) > YUpper(4) || YLower(1) > YUpper(5)
+        result = categorical("violated"); % violated = safe (unsat)
+    elseif YUpper(1) <= YLower(2) && YUpper(1) <= YLower(3) && YUpper(1) <= YLower(4) && YUpper(1) <= YLower(5)
+        result = categorical("verified"); % verified = unsafe (sat)
     else
         result = categorical("unproven"); % if approx methods used, then unproven, otherwise (exact) violated
     end

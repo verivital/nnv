@@ -21,7 +21,7 @@ function verifyAll()
     reachOptionsList = [reachOptionsList; reachOpt]; % relax
     % exact-star
     reachOpt.reachMethod = 'exact-star';
-    reachOptionsList = [reachOptionsList; reachOpt]; % exact (single)
+%     reachOptionsList = [reachOptionsList; reachOpt]; % exact (single)
     % exact-star (parallel)
     reachOpt.reachOption = "parallel";
     max_cores = getenv('NUMBER_OF_PROCESSORS');

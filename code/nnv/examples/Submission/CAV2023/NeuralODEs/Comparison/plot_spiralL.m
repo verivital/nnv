@@ -31,7 +31,7 @@ function plot_spiralL(scenario)
     legend('off')
     hold on;
     pj = plot(2, 0,'b');
-    legend(pj,{'NNV 2.0'},"Location","best",'FontSize',13);
+    legend(pj,{'NNV'},"Location","best",'FontSize',13);
     
     % Save figure
     if is_codeocean

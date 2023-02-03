@@ -170,5 +170,5 @@ if cora
 end
 
 % Notify finish
-sound(tan(1:3000));
+% sound(tan(1:3000));
 end

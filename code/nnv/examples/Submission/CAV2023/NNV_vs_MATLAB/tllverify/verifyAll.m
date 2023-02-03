@@ -4,8 +4,10 @@ function verifyAll()
     opts = detectImportOptions(csvFile);
     opts.Delimiter = ',';
     NNs_props_timeout = readtable(csvFile, opts);
-    N = height(NNs_props_timeout);
-%     N = 1;
+%     N = height(NNs_props_timeout);
+%     rng(0);
+    N = 10;
+%     inp_idxs = randperm(24,N); % choose 5 random instances to verify
     % Init result variable
     res = zeros(N,6); % res, time, res, time, res, time
     % Specify NNV reachbility options

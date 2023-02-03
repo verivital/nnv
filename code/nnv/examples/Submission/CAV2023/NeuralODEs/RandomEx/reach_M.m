@@ -46,7 +46,6 @@ function reach_M()
     %% Reachability run #1 
     unc = 0.01;
     reach_random(neuralode,x0,nname,unc);
-    disp('Completed');
     
     %% Reachability run #2 
     % Reset the neuralode
@@ -61,21 +60,6 @@ function reach_M()
     % Run
     unc = 0.02;
     reach_random(neuralode,x0,nname,unc);
-    disp('Completed');
-    
-    %% Reachability run #3 
-    odeblock1 = NonLinearODE(states,1,@dyn1,reachStep1,cP1,C1); % Nonlinear ODE
-    odeblock1.options.tensorOrder = 2;
-    layer2 = ODEblockLayer(odeblock1,cP1,reachStep1,false);
-    odeblock2 = NonLinearODE(states,1,@dyn2,reachStep2,cP2,C2);
-    odeblock2.options.tensorOrder = 2;
-    layer4 = ODEblockLayer(odeblock2,cP1,reachStep1,true);
-    neuralLayers = {layer1,layer1a,layer2,layer3,layer3a,layer4,layer5,layer5a};
-    neuralode = NN(neuralLayers);
-    % Run
-    unc = 0.04;
-    reach_random(neuralode,x0,nname,unc);
-    disp('Completed');
     
     %% Dynamical functions
     % Dynamics of first ODElayer

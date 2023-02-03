@@ -50,7 +50,7 @@ function plot_segmentation_output_set(obj, ind, save_name)
     xtick = 1/(2*m1):1/m1:1;
     cbh1.Ticks = xtick;               
     cbh1.TickLabels = classes1;
-    title("Input image without attack");
+%     title("Input image without attack");
     truesize(figSize);
     exportgraphics(f1, save_name+"_1.pdf", 'ContentType', 'vector');
 
@@ -63,7 +63,7 @@ function plot_segmentation_output_set(obj, ind, save_name)
     xtick = 1/(2*m3):1/m3:1;
     cbh1.Ticks = xtick;               
     cbh1.TickLabels = classes3;
-    title("Computed Reach Set");
+%     title("Computed Reach Set");
     truesize(figSize);
     exportgraphics(f2, save_name+"_2.pdf", 'ContentType', 'vector');
     
@@ -76,7 +76,7 @@ function plot_segmentation_output_set(obj, ind, save_name)
     xtick = 1/(2*m2):1/m2:1;
     cbh2.Ticks = xtick;               
     cbh2.TickLabels = classes2;
-    title("Verified reach set");
+%     title("Verified reach set");
     truesize(figSize);
     exportgraphics(f3, save_name+"_3.pdf", 'ContentType', 'vector');
     

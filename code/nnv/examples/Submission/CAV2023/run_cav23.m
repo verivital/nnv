@@ -3,12 +3,10 @@ function run_cav23()
 
     % Turn off figure display
     set(0,'DefaultFigureVisible','off')
-    
-    % Ensure folders exist before trying to save results
-    
+        
     %% 1) Neural ODEs
     cd NeuralODEs;
-    run_neural_ode;
+    run_neuralode;
     cd ..;
 
     %% 2) NNV_vs_MATLAB

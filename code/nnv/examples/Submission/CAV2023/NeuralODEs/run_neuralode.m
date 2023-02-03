@@ -4,7 +4,7 @@ function run_neuralode()
     
     % Random examples
     cd RandomEx
-    if ~exist('results', 'dir')
+    if ~isfolder('results')
        mkdir('results')
     end
     reach_M;
@@ -20,8 +20,8 @@ function run_neuralode()
     % ACC
     cd ACC
     reach_acc_orig;
-    reach_acc_plant;
-    reach_acc_tanhplant;
+    reach_acc_linear;
+    reach_acc_nonlinear;
     cd ..
     
     % NODE Comparison

@@ -1,26 +1,36 @@
-%% Process acas xu results
-% Load results
-p1 = load("results_p1.mat");
-p2 = load("results_p2.mat");
-p3 = load("results_p3.mat");
-p4 = load("results_p4.mat");
+function processResults()
 
-% Process them
-% Property 1
-p1_ver = sum(p1.resNNV == categorical("verified"));
-p1_vio = sum(p1.resNNV == categorical("violated"));
-p1_unk = sum(p1.resNNV == categorical("unproven"));
-% Property 2
-p2_ver = sum(p2.resNNV == categorical("verified"));
-p2_vio = sum(p2.resNNV == categorical("violated"));
-p2_unk = sum(p2.resNNV == categorical("unproven"));
-% Property 3
-p3_ver = sum(p3.resNNV == categorical("verified"));
-p3_vio = sum(p3.resNNV == categorical("violated"));
-p3_unk = sum(p3.resNNV == categorical("unproven"));
-% Property 4
-p4_ver = sum(p4.resNNV == categorical("verified"));
-p4_vio = sum(p4.resNNV == categorical("violated"));
-p4_unk = sum(p4.resNNV == categorical("unproven"));
-% Results do not match those of other tools, take a look at how we are
-% verifying the specifications
+%% Process acas xu results
+
+    % Load results
+    p3 = load("results_p3.mat");
+    p4 = load("results_p4.mat");
+    p3mat = load("results_p3_mat.mat");
+    p4mat = load("results_p4_mat.mat");
+    
+    % Property 3
+    % NNV
+    p3_unsat_nnv = sum(p3.resNNV == categorical("verified"));
+    p3_sat_nnv   = sum(p3.resNNV == categorical("violated"));
+    p3_unk_nnv   = sum(p3.resNNV == categorical("nope"));
+    p3_time_nnv  = sum(p3.timeNNV)/45;
+    % MATLAB
+    p3_sat_mat   = sum(p3mat.resMAT == categorical("verified"));
+    p3_unsat_mat = sum(p3mat.resMAT == categorical("violated"));
+    p3_unk_mat   = sum(p3mat.resMAT == categorical("unproven"));
+    p3_time_mat  = sum(p3mat.timeMAT)/45;
+    
+    % Property 4
+    p4_unsat_nnv = sum(p4.resNNV == categorical("verified"));
+    p4_sat_nnv   = sum(p4.resNNV == categorical("violated"));
+    p4_unk_nnv   = sum(p4.resNNV == categorical("nope"));
+    p4_time_nnv = sum(p4.timeNNV)/45;
+    % MATLAB
+    p4_sat_mat   = sum(p4mat.resMAT == categorical("verified"));
+    p4_unsat_mat = sum(p4mat.resMAT == categorical("violated"));
+    p4_unk_mat   = sum(p4mat.resMAT == categorical("unproven"));
+    p4_time_mat  = sum(p4mat.timeMAT)/45;
+
+    % Create table from here
+
+end

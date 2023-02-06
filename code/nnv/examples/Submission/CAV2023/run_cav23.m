@@ -35,9 +35,6 @@ function run_cav23()
 
     %% 3) Segmentation
     cd Segmentation;
-    if ~exist('results', 'dir')
-       mkdir('results')
-    end
     example_dilated;
     example_transposed;
     cd ..;

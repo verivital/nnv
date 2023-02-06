@@ -2,15 +2,6 @@ function run_neuralode()
 
     % Run all neuralode benchmarks with NNV
     
-    % Random examples
-    cd RandomEx
-    if ~isfolder('results')
-       mkdir('results')
-    end
-    reach_M;
-    reach_XXL;
-    cd ..;
-    
     % MNIST
     cd MNIST
     run_mnist_inf;
@@ -19,14 +10,13 @@ function run_neuralode()
     
     % ACC
     cd ACC
-    reach_acc_orig;
-    reach_acc_linear;
     reach_acc_nonlinear;
     cd ..
     
     % NODE Comparison
-    cd Comparison
-    run_comparison;
+    cd FPA;
+    fpa_reach;
+    plot_fpa;
     cd ..;
 
 end

@@ -44,5 +44,8 @@ function run_cav23()
     run_rnn_all;
     cd ..
 
+    %% Print results
+    paper_results();
+
 end
 

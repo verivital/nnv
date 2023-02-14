@@ -1,0 +1,18 @@
+-----------------------------------------------------------
+  MATLAB  
+-----------------------------------------------------------
+RL Benchmarks (50) 
+    SAT: 0, UNSAT: 3, time (s): 0.01998
+Tllverify Benchmarks (10) 
+    SAT: 0, UNSAT: 2, time (s): 0.9823
+Oval21 Benchmarks (30) 
+    Not supported 
+-----------------------------------------------------------
+  NNV  
+-----------------------------------------------------------
+RL Benchmarks (50) 
+    SAT: 0, UNSAT: 3, time (s): 0.02441
+Tllverify Benchmarks (10) 
+    SAT: 0, UNSAT: 2, time (s): 0.9606
+Oval21 Benchmarks (30) 
+    SAT: 1, UNSAT: 2, time (s): 8.229

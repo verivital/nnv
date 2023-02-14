@@ -25,7 +25,7 @@ function verifyAll()
     % exact-star (parallel)
     reachOpt.reachOption = "parallel";
     max_cores = getenv('NUMBER_OF_PROCESSORS');
-    reachOpt.numCores = min(8,max_cores);
+    reachOpt.numCores = min([8,max_cores]);
     reachOptionsList = [reachOptionsList; reachOpt]; % exact (parallel)
     
     %% Verify Properties

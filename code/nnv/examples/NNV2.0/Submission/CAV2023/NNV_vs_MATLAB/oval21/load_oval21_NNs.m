@@ -1,0 +1,23 @@
+function [networks, names2idxs] = load_oval21_NNs()
+    %% 1) Load networks
+    benchmarkFolder = "onnx/";
+    listNN = dir(benchmarkFolder);
+    networks = {}; % create a cell array of neural networks
+    names = [];
+    idxs = [];
+    count = 1;
+    loadOpts.OutputDataFormat = "BC";
+    t = tic;
+    for h = 1:length(listNN) % generlize NN loading options for all benchmarks
+        if endsWith(listNN(h).name, ".onnx")
+            net = onnx2nnv(benchmarkFolder+string(listNN(h).name), loadOpts);
+            networks{count} = net;
+            names{count} = listNN(h).name;
+            idxs{count} = count;
+            count = count + 1;
+        end
+    end
+    t = toc(t);
+    names2idxs = containers.Map(names,idxs);
+    disp("All networks are loaded in " + string(t) + " seconds");
+end

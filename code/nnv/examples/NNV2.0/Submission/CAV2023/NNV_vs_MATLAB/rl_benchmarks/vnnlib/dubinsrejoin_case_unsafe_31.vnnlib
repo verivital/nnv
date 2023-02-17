@@ -1,0 +1,56 @@
+; dubinsrejoin property unsafe_31
+
+(declare-const X_0 Real)
+(declare-const X_1 Real)
+(declare-const X_2 Real)
+(declare-const X_3 Real)
+(declare-const X_4 Real)
+(declare-const X_5 Real)
+(declare-const X_6 Real)
+(declare-const X_7 Real)
+
+(declare-const Y_0 Real)
+(declare-const Y_1 Real)
+(declare-const Y_2 Real)
+(declare-const Y_3 Real)
+(declare-const Y_4 Real)
+(declare-const Y_5 Real)
+(declare-const Y_6 Real)
+(declare-const Y_7 Real)
+
+; Input 0
+(assert (<= X_0 -0.7426791666341706))
+(assert (>= X_0 -0.9474233614039098))
+
+; Input 1
+(assert (<= X_1 -0.8976279026151304))
+(assert (>= X_1 -1.1023720973848696))
+
+; Input 2
+(assert (<= X_2 -0.8976279026151304))
+(assert (>= X_2 -1.1023720973848696))
+
+; Input 3
+(assert (<= X_3 -0.6813765265206776))
+(assert (>= X_3 -0.8861207212904169))
+
+; Input 4
+(assert (<= X_4 0.6023720973848697))
+(assert (>= X_4 0.3976279026151304))
+
+; Input 5
+(assert (<= X_5 0.10237209738486967))
+(assert (>= X_5 -0.10237209738486967))
+
+; Input 6
+(assert (<= X_6 0.09976850368663907))
+(assert (>= X_6 -0.10497569108310027))
+
+; Input 7
+(assert (<= X_7 -0.4584933261146778))
+(assert (>= X_7 -0.6632375208844171))
+
+; unsafe if command is [2] (spec type disjunct) 
+(assert (or 
+	(and (<= Y_1 Y_0)(<= Y_2 Y_0)(<= Y_3 Y_0)(<= Y_4 Y_6)(<= Y_5 Y_6)(<= Y_7 Y_6))
+))

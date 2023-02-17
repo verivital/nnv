@@ -249,10 +249,10 @@ classdef FullyConnectedLayer < handle
             % author: Dung Tran
             % date: 1/6/2020
             
-            n = length(in_images);
-            if isa(in_images, 'ImageZono')
+            n = length(inputs);
+            if isa(inputs, 'ImageZono')
                 S(n) = ImageZono;
-            elseif isa(in_images, 'Zono')
+            elseif isa(inputs, 'Zono')
                 S(n) = Zono;
             else
                 error('Wrong input set. It must be ImageZono or Zono')

@@ -238,6 +238,16 @@ classdef ImageZono < handle
             S = ImageStar(obj.V, C, d, pred_lb, pred_ub, obj.lb_image, obj.ub_image);
             
         end
+
+        % transform to Star
+        function S = toStar(obj)
+            % author: Diego Manzanas
+            % date: 02/11/2023
+            %    comment: facilitate internal transformation for verification
+
+            S = obj.toImageStar;
+            S = S.toStar;
+        end
         
         
         % contain, check if an ImageZono contain an image 

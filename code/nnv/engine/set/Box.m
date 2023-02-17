@@ -163,6 +163,29 @@ classdef Box
             B = Box(new_lb, new_ub);
             
         end
+
+        % Generate samples from Box set
+        function samples = sample(obj, N)
+            % @N: number of points in the samples
+            % @V: a set of at most N sampled points in the star set 
+            
+            % author: Diego Manzanas
+            % date: 02/17/2023
+            
+            if N < 1
+                error('Invalid number of samples');
+            end
+            
+            X = cell(1, obj.dim);
+            V1 = [];
+            for i=1:obj.dim
+                X{1, i} = (obj.ub(i) - obj.lb(i)).*rand(2*N, 1) + obj.lb(i);
+                V1 = vertcat(V1, X{1, i}');
+            end
+                            
+            samples = V1;
+                
+        end
         
         
         % transform box to polyhedron

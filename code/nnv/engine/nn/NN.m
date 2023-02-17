@@ -12,14 +12,13 @@ classdef NN < handle
     % Date: 09/28/2022
     % Notes: Code is based on the previous CNN and FFNNS classes written by
     %             Dr. Hoang Dung Tran
-    % This is a generalized class, created in the refactoring of NNV in 2022/2023 (NNV 2.0)
+    % This is a generalized class, created in the refactoring of NNV in 2023 (NNV 2.0)
     
     properties
         
         Name = 'nn'; % name of the network
         Layers = {}; % An array of Layers, eg, Layers = [L1 L2 ...Ln]
         Connections = []; % A table specifying source and destination layers
-%         name2number = containers.Map; % hashmp to match layers name to its number in Layers array (facilitate reach computation graph)
         numLayers = 0; % number of Layers
         numNeurons = 0; % number of Neurons
         InputSize = 0; % number of Inputs
@@ -31,21 +30,17 @@ classdef NN < handle
         reachOption = []; % parallel option, default - non-parallel computing
         numCores = 1; % number of cores (workers) using in computation
         reachSet = [];  % reachable set for each layers
-%         outputSet = [];
         reachTime = []; % computation time for each layers
-%         totalReachTime = 0; % total computation time
-%         type = 'nn'; % default type is nn (general neural network), other options: 'neuralODE', 'bnn_xnor', 'cnn', 'segmentation', 
         features = {}; % outputs of each layer in an evaluation
         input_vals = {}; % input values to each layer
         input_sets = {}; % input set values for each layer
         dis_opt = []; % display option = 'display' or []
-        lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set
-        % user can choose 'glpk' or 'linprog' as an LP solver
+        lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set user can choose 'glpk' or 'linprog' as an LP solver
         
     end
-    
-    
-    methods % constructor, evaluation, sampling, print methods
+
+
+    methods % main methods (constructor, evaluation, reach)
         
         % constructor
         function obj = NN(varargin)
@@ -119,87 +114,28 @@ classdef NN < handle
             end
                       
         end
-                
         
-        % Evaluation of a NN (update this to make use of the connections graph)
+        % Evaluation of a NN 
         function y = evaluate(obj, x)
-            % Evaluation of a NN (compute output of NN given an input)
+            % Evaluate NN given an input sample
+            % y = NN.evaluate(x)
             % @x: input vector x
             % @y: output vector y
-            % @features: output of all layers
             
+            % Evaluate layer-by-layer based on connection graph
             for i=1:height(obj.Connections)
                 if i > 1
                     x = obj.input_vals{obj.Connections.Source(i)}; % 
                 end
                 y = obj.Layers{obj.Connections.Source(i)}.evaluate(x);
-                % Work on this statement after adding support for residual networks
-%                 if isfield(obj.Layers{obj.Connections(i).Destination}, 'input_val')
-%                     obj.Layers{obj.Connections(i).Destination}.input_val{end+1} = y; % store layer input (from all sources)
-%                 else
-%                     obj.Layers{obj.Connections(i).Destination}.input_val = {y}; % store layer input 
-%                 end
-                % Keep it simple for now 
                 if i < height(obj.Connections) % (Last number in destinations is the output)
                     obj.input_vals{obj.Connections.Destination(i)} = y; % store layer input 
                 end
             end
         end
         
-        % start parallel pool for computing
-        function start_pool(obj)
-
-            if obj.numCores > 1
-                poolobj = gcp('nocreate'); % If no pool, do not create new one.
-                if isempty(poolobj)
-                    parpool('local', obj.numCores); 
-                else
-                    if poolobj.NumWorkers ~= obj.numCores
-                        delete(poolobj); % delete the old poolobj
-                        parpool('local', obj.numCores); % start the new one with new number of cores
-                    end                    
-                end
-            end   
-        end
-          
-    end
-    
-    
-    methods % reachability analysis method
-
-        function reachOptions = check_reachability_method(obj, reachOptions)
-            reach_method = reachOptions.reachMethod;
-            if contains(reach_method, "exact")
-                for i=1:length(obj.Layers)
-                    if isa(obj.Layers{i}, "ODEblockLayer")
-                        if ~isa(obj.Layers{i}.odemodel,'LinearODE')
-                            warning("Exact reachability is not possible with a neural ODE layer (" + class(obj.Layers{i}.odemodel) + "). Switching to approx-star.");
-                            reachOptions.reachMethod = "approx-star";
-                        end
-                    end
-                    if isa(obj.Layers{i}, "SigmoidLayer") || isa(obj.Layers{i}, "TanhLayer")
-                        warning("Exact reachability is not possible with layer " + class(obj.Layers{i} + ". Switching to approx-star."));
-                        reachOptions.reachMethod = "approx-star";
-                    end
-                end
-            elseif contains(reach_method, "relax-star")
-                if ~isfield(reachOptions, "relaxFactor")
-                    error("Please, specify a relax factor value to perform relax-star reachability analysis")
-                else
-                    if reachOptions.relaxFactor < 0 || reachOptions.relaxFactor > 1
-                        error('Invalid relaxFactor. The value of relax factor must be between 0 and 1');
-                    end
-                end
-            end
-        end
-        
-        % Update this function to make use of the computational graph
-        % (connections) newly introduced. Can access the computed reach set
-        % for each layer using the obj.reachSet property (cell array, same
-        % size as the layer array
-
         % Define the reachability function for any general NN
-        function outputSet = reach(obj, inputSet, reachOptions)            
+        function outputSet = reach(obj, inputSet, reachOptions)
             % inputSet: input set (type -> Star, ImageStar, Zono or ImageZono)   
             % reachOptions: reachability options for NN (type -> struct)
             %       Required Fields:
@@ -257,6 +193,7 @@ classdef NN < handle
             % Initialize variables to store reachable sets and computation time
             obj.reachSet = cell(1, height(obj.Connections)); % store input reach sets for each layer
             obj.reachTime = zeros(1, height(obj.Connections)); % store computation time for each connection 
+
             % Debugging option
             if strcmp(obj.dis_opt, 'display')
                 fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
@@ -265,9 +202,9 @@ classdef NN < handle
             % Begin reachability computation
             obj.reachSet{1} = inputSet;
             for i=1:height(obj.Connections)
-%                 if strcmp(obj.dis_opt, 'display')
-%                     fprintf('\nPerforming analysis for Layer %d (%s)... \n', i-1, obj.Layers{i-1}.Name);
-%                 end
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nPerforming analysis for Layer (%s) \n', obj.Layers{obj.Connections.Source(i)});
+                end
                 rs = obj.reachSet{obj.Connections.Source(i)}; 
                 % Compute reachable set layer by layer
                 start_time = tic;
@@ -277,11 +214,6 @@ classdef NN < handle
                 if i < height(obj.Connections) % (Last number in destinations is the output)
                     obj.reachSet{obj.Connections.Destination(i)} = rs_new; % store layer input 
                 end
-%                 obj.reachSet{i-1} = rs_new;
-%                 if strcmp(obj.dis_opt, 'display')
-%                     fprintf('Reachability analysis for Layer %d (%s) is done in %.5f seconds \n', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
-%                     fprintf('The number of reachable sets at Layer %d (%s) is: %d \n', i-1, obj.Layers{i-1}.Name, length(rs_new));
-%                 end
             end
             if strcmp(obj.dis_opt, 'display')
                 fprintf('Reachability analysis for the network %s is done in %.5f seconds \n', obj.Name, sum(obj.reachTime));
@@ -300,111 +232,88 @@ classdef NN < handle
             end
 
         end
-        
     end
     
-    methods % clasification and verification methods
-
+    
+    methods % secondary methods (verification, safety, robustness...)
+        
+        % Verify a VNN-LIB specification
         function result = verify_vnnlib(obj, propertyFile, reachOptions)
+            
             % Load specification to verify
-            [lb_x, ub_x, property] = load_vnnlib(propertyFile);
+            property = load_vnnlib(propertyFile);
+            lb = property.lb;
+            ub = property.ub;
+
             % Create reachability parameters and options
             if contains(reachOptions.reachMethod, "zono")
-                X = ImageZono(lb_x', ub_x');
+                X = ImageZono(lb, ub);
             else
-                X = ImageStar(lb_x',ub_x');
+                X = ImageStar(lb,ub);
             end
+
             % Compute reachability
-            rT = tic;
             Y = obj.reach(X, reachOptions); % Seems to be working
-            rT = toc(rT);
             result = verify_specification(Y, property); 
-            % Evaluate property
-            disp(' ');
-            disp('===============================')
-            disp('RESULTS')
-            disp(' ')
-            
+
+            % Modify in case of unknown and exact
             if result == 2
                 if contains(net.reachMethod, "exact")
                     result = 0;
-                    disp('Property is UNSAT');
-                else
-                    disp('Property is UNKNOWN');
                 end
-            elseif result == 1
-                disp('Property is SAT');
-            else
-                disp('Property is UNSAT')
             end
     
-            disp("Reachability computation time = "+string(rT) + " seconds")
         end
         
         % Check robustness of output set given a target label
-        function [rb, cands] = checkRobust(~, outputSet, correct_id)
+        function rb = checkRobust(~, outputSet, target)
+            % rb = checkRobust(~, outputSet, target)
+            % 
             % @outputSet: the outputSet we need to check
-            % @correct_id: the correct_id of the classified output
+            %
+            % @target: the correct_id of the classified output or a halfspace defining the robustness specification
             % @rb: = 1 -> robust
             %      = 0 -> not robust
             %      = 2 -> unknown
-            % @cand: possible candidates
             
-            R = outputSet;
-            
-            if contains(class(outputSet),'Image')
-                if correct_id > outputSet.numChannel || correct_id < 1
-                    error('Invalid correct id');
+            % Process set
+            if ~isa(outputSet, "Star")
+                nr = length(outputSet);
+                R = Star;
+                for s=1:nr
+                    R = outputSet(s).toStar;
                 end
-
-                R = R.toStar;
+            else
+                R = outputSet;
             end
-
-            [lb, ub] = R.getRanges;
-            [~, max_ub_id] = max(ub);
-            cands = [];
-            if max_ub_id ~= correct_id
-                rb = 2;
-                cands = max_ub_id;
-            else                   
-                
-                max_val = lb(correct_id);
-                max_cd = find(ub > max_val); % max point candidates
-                max_cd(max_cd == correct_id) = []; % delete the max_id
-
-                if isempty(max_cd)
-                    rb = 1;
-                else            
-                    
-                    n = length(max_cd);
-                    C1 = R.V(max_cd, 2:R.nVar+1) - ones(n,1)*R.V(correct_id, 2:R.nVar+1);
-                    d1 = -R.V(max_cd, 1) + ones(n,1)*R.V(correct_id,1);
-                    S = Star(R.V, [R.C;C1], [R.d;d1], R.predicate_lb, R.predicate_ub);
-                    if S.isEmptySet
-                        rb = 2;
-                        cands = max_cd;
-                    else                       
-                        count = 0;
-                        for i=1:n
-                            if R.is_p1_larger_than_p2(max_cd(i), correct_id)
-                                rb = 2;
-                                cands = max_cd(i);
-                                break;
-                            else
-                                count = count + 1;
-                            end
-                        end
-                        if count == n
-                            rb = 1;
-                        end         
-                    end    
-
+            % Process robustness spec
+            if ~isa(target, "HalfSpace")
+                if isscalar(target)
+                    target = obj.robustness_set(target, 'max');
+                else
+                    error("Target must be a HalfSpace (unsafe/not robust region) or as a scalar determining the output label target.")
                 end
-
             end
+            % Check robustness
+            rb = verify_specification(R, target);
 
         end % end check robust
         
+        % Verify robutness of a NN given an input set and target (id or HalfSpace)
+        function result = verify_robustness(obj, inputSet, reachOptions, target)
+            % Compute reachable set
+            R = obj.reach(inputSet, reachOptions);
+            % Check robustness
+            result = obj.checkRobust(R, target);
+            % Modify in case of unknown and exact
+            if result == 2
+                if contains(obj.reachMethod, "exact")
+                    result = 0;
+                end
+            end
+        end
+        
+        % Classify input set (one or more label_id?)
         function label_id = classify(obj, inputValue, reachOptions)
             % label_id = classify(inputValue, reachOptions = 'default')
             % inputs
@@ -451,8 +360,410 @@ classdef NN < handle
                     label_id{i} = max_id(:, 1);
                 end
             end
-        end       
-    end
+        end  
+        
+        % Get robustness bound of a NN wrt to an input and disturbance value
+        function robustness_bound = get_robustness_bound(varargin)
+            % Find maximum robustness value, i.e., maximum disturbance bound
+            % that the network is still robust to (iterative search)
+            %
+            % ---- Syntax ----
+            %     [robustness_bound, t] = NN.get_robustness_bound(input_vec, init_dis_bound, tol, max_steps, lb_allowable, ub_allowable, un_robust_reg, reachOptions, n_samples);
+            %
+            % ---- Inputs ----
+            % 1: @input_vec: input point
+            % 2: @init_dis_bound: initial disturbance bound
+            % 3: @dis_bound_step: a step to increase/decrease disturbance bound
+            % 4: @max_steps: maximum number of steps for searching
+            % 5: @lb_allowable: allowable lower bound of disturbed input:    lb_allowable(i) <= x'[i]
+            % 6: @ub_allowable: allowable upper bound of disturbed output:    ub_allowable(i) >= x'[i] 
+            %         x' is the disturbed vector by disturbance bound, |x' - x| <= dis_bound
+            %         x'[i] >= lb_allowable, x'[i] <= ub_allowable[i]
+            % 7: un_robust_region:  (halfspace(s))
+            % 7: @reachOptions (see NN.reach)
+            % 8: @n_samples: number of samples used to find counter examples
+            % 
+            % ---- Outputs ----
+            % @robustness_bound: robustness bound w.r.t @input_vec
+            %
+            
+            % author: Diego Manzanas Lopez
+            % date: 02/14/2023
+            
+            switch nargin
+                
+                case 9
+                    obj = varargin{1}; % NN object
+                    input_vec = varargin{2}; % input vec
+                    init_dis_bound = varargin{3}; % initial disturbance bound for searching
+                    tolerance = varargin{4}; % tolerance (accuracy) for searching
+                    max_steps = varargin{5}; % maximum searching steps
+                    lb_allowable = varargin{6}; % allowable lower bound on disturbed inputs
+                    ub_allowable = varargin{7}; % allowable upper bound on disturbed inputs
+                    un_robust_reg = varargin{8}; % un-robust region 
+                    reachOptions = varargin{9}; % reachability analysis options
+                    
+                case 7
+                    obj = varargin{1}; % FFNNS object
+                    input_vec = varargin{2}; % input vec
+                    init_dis_bound = varargin{3}; % initial disturbance bound for searching
+                    tolerance = varargin{4}; % tolerance (accuracy) for searching
+                    max_steps = varargin{5}; % maximum searching steps
+                    lb_allowable = []; % allowable lower bound on disturbed inputs
+                    ub_allowable = []; % allowable upper bound on disturbed inputs
+                    un_robust_reg = varargin{6}; % un-robust region 
+                    reachOptions = varargin{7}; % reachability analysis method 
+                    
+                otherwise
+                    error('Invalid number of input arguments (should be 6 or 8).');
+            end
+            
+            % Check reach options
+            if ~isstruct(reachOptions)
+                error("Please define reachOptions. See NN.reach for indications.")
+            elseif ~isfield(reachOptions, 'reachMethod')
+                obj.reachMethod = 'approx-star'; % default
+            else
+                obj.reachMethod = reachOptions.reachMethod;
+            end
+
+            % Search for disturbance bound
+            k = 1;
+            b = init_dis_bound;
+            bmax = 0;
+            while (k < max_steps)
+                % Create input set
+                inputSet = obj.create_input_set(input_vec, b, lb_allowable, ub_allowable);
+                % Reach set
+                outputSet = obj.reach(inputSet, reachOptions);
+                % Check robustness
+                robust = obj.checkRobust(outputSet, un_robust_reg);
+
+                if robust == 1
+                    bmax = b;
+                    b = b + tolerance;
+                else
+                    b = b - tolerance;
+                    if b == bmax || b <= 0
+                        break; % finish function here
+                    end
+                end
+                k = k + 1;
+            end
+
+            % Return result
+            if k == max_steps
+                if bmax == 0
+                    robustness_bound = [];
+                else
+                    disp("Bound search stopped at kmax, but it is not guaranteed that max bound is found. Try incrementing " + ...
+                        "the number of steps to search for maximal distrubance bound");
+                    robustness_bound = bmax;
+                end
+            else
+                if bmax == 0
+                    robustness_bound = [];
+                else
+                    robustness_bound = bmax;
+                end
+            end
+            
+        end
+        
+        % Check safety of NN and generate counter examples
+        function [result, counter_inputs] = verify_safety(obj, I, U, reachOptions, n_samples)
+            %
+            % ---- Syntax ----
+            % [result, counter_inputs] = NN.verify_safety(I, U, reachOptions, n_samples)
+            %
+            % ---- Inputs ----
+            % 1: @I: input set, need to be a star set
+            % 2: @U: unsafe region, a set of HalfSpaces
+            % 3: @reachOptions: = 'star' -> compute reach set using stars
+            % 4: @n_samples : number of simulations used for falsification if using over-approximate reachability analysis
+            % note: n_samples = 0 -> do not do falsification
+            %
+            % ---- Outputs ----
+            % @result: = 1 -> safe, = 0 -> unsafe, = 2 -> uncertain 
+            % @counter_inputs
+            
+            % author: Diego Manzanas 
+            % date: 02/10/2023
+            
+            % Ensure unsafe region is defined            
+            if isempty(U)
+                error('Please specify unsafe region using Half-space class');
+            end
+            
+            % performing reachability analysis
+            [R, ~] = obj.reach(I, reachOptions);        
+                      
+            % censure correct set format for checking safety
+            n = length(R);
+            m = length(U);
+            R1 = Star;
+            if ~isa(R, "Star")
+                for i=1:n
+                    R1(i) = R(i).toStar; % transform to star sets
+                end
+            end
+            
+            % Possible counter inputs
+            violate_inputs = [];
+
+            % Check for possible safety violation
+            if isfield(reachOptions, 'numCores')
+                if reachOptions.numCores > 1
+                    parfor i=1:n
+                        for j=1:m
+                            S = R1(i).intersectHalfSpace(U(j).G, U(j).g);
+                            if ~isempty(S) && strcmp(method, 'exact-star')
+                                I1 = Star(I.V, S.C, S.d); % violate input set
+                                violate_inputs = [violate_inputs I1];
+                            else
+                                violate_inputs = [violate_inputs S];
+                            end
+    
+                        end
+                    end
+                end
+            else
+                for i=1:n
+                    for j=1:m
+                        S = R1(i).intersectHalfSpace(U(j).G, U(j).g);
+                        if ~isempty(S) && strcmp(method, 'exact-star')
+                            I1 = Star(I.V, S.C, S.d); % violate input set
+                            violate_inputs = [violate_inputs I1];
+                        else
+                            violate_inputs = [violate_inputs S];
+                        end
+                    end
+                end
+            end
+            
+            % Generate counter examples of approx method, otherwise return unsafe input regions
+            if isempty(violate_inputs)
+                result = 1;  
+                counter_inputs = []; 
+            else
+                if strcmp(reachOptions.reachMethod, 'exact-star')
+                    result = 0;  
+                    counter_inputs = violate_inputs; % exact-method return complete counter input set
+                else
+                    if n_samples == 0
+                        result = 2;
+                        counter_inputs = [];
+                    else
+                        counter_inputs = obj.falsify(I, U, n_samples);
+                        if isempty(counter_inputs)
+                            result = 2;
+                        else
+                            result = 0;
+                        end
+                    end
+                end
+            end
+        end
+        
+        % Generate falsification traces given a property, NN and input set
+        function counter_inputs = falsify(obj, I, U, n_samples)
+            %
+            % ---- Syntax ----
+            % counter_inputs = NN.falsify(I, U, n_samples)
+            %
+            % ---- Inputs ----
+            % I = input set
+            % U: unsafe region (HalfSpace)
+            % n_samples: numer of samples used for falsification
+            % 
+
+            % init output var
+            counter_inputs = [];
+
+            % check U is properly defined
+            if ~isa(U, "HalfSpace")
+                error('Unsafe region (U) is not a HalfSpace.')
+            end
+
+            % Check input set
+            if ~isa(I, "ImageZono") && ~isa(I, "ImageStar") && ~isa(I, "Star") && ~isa(I, "Zono") && ~isa(I, "Box")
+                error("Input set (I) must be a ImageZono, ImageStar, Star, Zono or Box.")
+            end
+
+            % Transform to Star to generate samples (could also implement sample methods there in the future, it may be faster)
+            if isa(I, "ImageZono")
+                for i=1:length(I)
+                    I(i) = I(i).toImageStar;
+                end
+            elseif isa(I, "Zono")
+                for i=1:length(I)
+                    I(i) = I(i).toStar;
+                end
+            end
+            
+            % Begin falsification atempts
+            % Check n_samples
+             if n_samples < 1
+                error('Invalid number of samples. n_samples > 0');
+            end
+            % Generate sample inputs
+            V = I.sample(n_samples);
+            n = size(V, 2); % number of samples 
+            m = length(U); % number of HalfSpaces (unsafe/not robust regions)
+            % Evaluate and add to solution if it reaches the unsafe region U
+            for i=1:n
+                y = obj.evaluate(V(:, i));
+                for j=1:m
+                    if U(j).contains(y)
+                        counter_inputs = [counter_inputs V(:, i)];
+                    end
+                end
+            end
+        end
+
+    end % end verification methods
+    
+
+    % helper functions
+    methods (Access = protected) % not to be accessible by user
+        
+        % Check reachability options defined are allowed
+        function reachOptions = check_reachability_method(obj, reachOptions)
+            reach_method = reachOptions.reachMethod;
+            if contains(reach_method, "exact")
+                for i=1:length(obj.Layers)
+                    if isa(obj.Layers{i}, "ODEblockLayer")
+                        if ~isa(obj.Layers{i}.odemodel,'LinearODE')
+                            warning("Exact reachability is not possible with a neural ODE layer (" + class(obj.Layers{i}.odemodel) + "). Switching to approx-star.");
+                            reachOptions.reachMethod = "approx-star";
+                        end
+                    end
+                    if isa(obj.Layers{i}, "SigmoidLayer") || isa(obj.Layers{i}, "TanhLayer")
+                        warning("Exact reachability is not possible with layer " + class(obj.Layers{i} + ". Switching to approx-star."));
+                        reachOptions.reachMethod = "approx-star";
+                    end
+                end
+            elseif contains(reach_method, "relax-star")
+                if ~isfield(reachOptions, "relaxFactor")
+                    error("Please, specify a relax factor value to perform relax-star reachability analysis")
+                else
+                    if reachOptions.relaxFactor < 0 || reachOptions.relaxFactor > 1
+                        error('Invalid relaxFactor. The value of relax factor must be between 0 and 1');
+                    end
+                end
+            end
+        end
+
+        % Create input set based on input vector and bounds
+        function R = create_input_set(obj, x_in, disturbance, lb_allowable, ub_allowable) % assume tol is applied to every vale of the input
+            % R = create_input_set(obj, x_in, disturbance, lb_allowable, ub_allowable)
+            % @R = Star or ImageStar
+
+            lb = x_in;
+            ub = x_in;
+            n = numel(x_in); % number of elements in array
+            % Apply disturbance
+            lb = lb - disturbance;
+            ub = ub + disturbance;
+            % Check is disturbance value is allowed (lb)
+            if ~isempty(lb_allowable)
+                for i=1:n
+                    if lb(i) < lb_allowable(i)
+                        lb(i) = lb_allowable(i);
+                    end
+                end
+            end
+            % Check is disturbance value is allowed (ub)
+            if ~isempty(ub_allowable)
+                for i=1:n
+                    if ub(i) > ub_allowable(i)
+                        ub(i) = ub_allowable(i);
+                    end
+                end
+            end
+            
+            R = obj.set_or_imageset(lb, ub);
+
+        end
+        
+        % Given input bounds, create input set
+        function R = set_or_imageset(obj, lb, ub)
+            if length(ub) ~= numel(ub) % not a vector, so ImageStar
+                if contains(obj.reachMethod, 'zono')
+                    R = ImageZono(lb,ub);
+                else
+                    R = ImageStar(lb,ub);
+                end
+            else
+                if contains(obj.reachMethod, 'zono')
+                    R = Zono(lb,ub);
+                else
+                    R = Star(lb,ub);
+                end
+                for k=1:length(obj.Layers)
+                    if isa(obj.Layers{k}, 'ImageInputLayer') || isa(obj.Layers{k}, "Conv2DLayer") || contains(class(obj.Layers{k}), "Pooling")
+                        if contains(obj.reachMethod, 'zono')
+                            R = ImageZono(lb,ub);
+                        else
+                            R = ImageStar(lb,ub);
+                        end
+                        break;
+                    end
+                end
+            end
+        end
+
+        % Create unsafe/not robust region from a target label of a classification NN
+        function Hs = robustness_set(obj, target, class_type)
+            % @Hs: unsafe/not robust region defined as a HalfSpace
+            %  - target: label idx of the given input set
+            %  - class_type: assume max, but could also be min like in ACAS Xu ('min', 'max')
+
+            outSize = obj.OutputSize;
+            if outSize == 0 % output size was not properly defined when creating the NN
+                layer = obj.Layers{end};
+                if isa(layer, "FullyConnectedLayer")
+                    outSize = length(layer.Bias);
+                else
+                    error("Output size is set to 0, but it must be >= 1");
+                end
+            elseif target > outSize
+                error("Target idx must be less than or equal to the output size of the NN.");
+            end
+
+            % Define HalfSpace Matrix and vector
+            G = ones(outSize,1);
+            G = diag(G);
+            G(target, :) = [];
+            if strcmp(class_type, "max")
+                G(:, target) = -1;
+            elseif strcmp(class_type, "min")
+                G = -G;
+                G(:, target) = 1;
+            end
+            g = zeros(height(G),1);
+
+            % Create HalfSapce to define robustness specification
+            Hs = HalfSpace(G, g);
+        end
+
+        % start parallel pool for computing 
+        function start_pool(obj)
+
+            if obj.numCores > 1
+                poolobj = gcp('nocreate'); % If no pool, do not create new one.
+                if isempty(poolobj)
+                    parpool('local', obj.numCores); 
+                else
+                    if poolobj.NumWorkers ~= obj.numCores
+                        delete(poolobj); % delete the old poolobj
+                        parpool('local', obj.numCores); % start the new one with new number of cores
+                    end                    
+                end
+            end   
+        end
+
+    end % end helper functions
     
 end
 

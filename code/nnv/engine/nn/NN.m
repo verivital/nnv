@@ -134,6 +134,28 @@ classdef NN < handle
             end
         end
         
+        % evaluate parallel
+        function y = evaluate_parallel(obj, inputs)
+            % @inputs: array of inputs
+            % @y: output vector
+            
+            n = length(inputs);
+            y = cell(1, n);
+            
+            if obj.numCores < 1
+                error("Invalid number of Cores");
+            elseif obj.numCores == 1
+                for i=1:n
+                    y{i} = obj.evaluate(inputs{i});
+                end
+            else
+                obj.start_pool();
+                parfor i=1:n
+                    y{i} = obj.evaluate(inputs{i});
+                end
+            end
+        end
+
         % Define the reachability function for any general NN
         function outputSet = reach(obj, inputSet, reachOptions)
             % inputSet: input set (type -> Star, ImageStar, Zono or ImageZono)   
@@ -622,6 +644,174 @@ classdef NN < handle
         end
 
     end % end verification methods
+
+
+    methods % semantic segmentation methods
+
+        function [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify(obj, in_images, ground_truths, reachOptions)
+            % 
+            % --- Syntax ----
+            % [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify(obj, in_images, ground_truths, reachOptions)
+            %
+            % ---- Inputs ----
+            % @in_images: an array of input set(s)
+            % @ground_truths: an array of ground truth images (without attack)
+            % @reachOptions: reachability parameters
+            %
+            % ---- Outputs ----
+            % @riou: robust iou
+            % @rv: robustness value (percentage of correctly classified pixels)
+            % @rs: robustness sensitivity (ratio of (misclassified + unknown pixels)/attacked pixels)
+            % @n_rb: number of robust pixels
+            % @n_mis: number of misclassified pixels
+            % @n_unk: number of unknown pixels
+            % @n_att: number of attacked pixels
+            % @ver_rs: verified output reachable set, used for plot
+            
+            % Process inputs
+            n1 = length(ground_truths);
+            n2 = length(in_images);
+            if n1 ~= n2
+                error("Inconsistent number of ground truth images and input sets");
+            end
+            
+            % Initialize output variables
+            riou = zeros(1,n1);
+            rv = zeros(1, n1);
+            rs = zeros(1, n1);
+            n_rb = zeros(1, n1);
+            n_mis = zeros(1, n1);
+            n_unk = zeros(1, n1);
+            n_att = zeros(1, n1);
+            ver_rs = cell(1, n1);
+                       
+            % compute reachable set
+            obj.reach(in_images, reachOptions);
+            
+            % compute ground truth output segmentation image
+            gr_seg_ims = obj.evaluate_parallel(ground_truths, nCores);
+            
+            % compute number of correctly classified pixels
+            n_pixels = obj.OutputSize(1) * obj.OutputSize(2);
+                        
+            % obtain verify rearch set
+            % 'unknown': the label of the pixel is unknown, may be correct may be not
+            % 'misclass': the label of the pixel is misclassified 
+            
+            % we introduce 2 more classes for the reachable set
+            % 1) unknown class
+            % 2) misclassification class
+                      
+            if obj.numCores > 1
+                parfor i=1:n1
+
+                    gr_seg_im = gr_seg_ims{i};
+                    pc_rs = obj.getPixelClassReachSet(i);
+                    [h, w] = size(pc_rs);
+                    ver_im = zeros(h, w);
+                    n_mis_ct = 0;
+                    n_unk_ct = 0;                  
+                    n_att(i) = in_images(i).getNumAttackedPixels; 
+
+                    for j=1:h
+                        for k=1:w
+                            pc = pc_rs{j, k};
+                            if size(pc, 1) == 1
+                                if pc == gr_seg_im(j,k)
+                                    ver_im(j,k) = pc; %(robust pixel)
+                                else
+                                    ver_im(j,k) = obj.numClasses; % misclass (unrobust pixel)
+                                    n_mis_ct = n_mis_ct + 1;
+                                end
+                            else
+                                c = (pc == gr_seg_im(j, k));
+                                if sum(c) ~= 0
+                                    n_unk_ct = n_unk_ct + 1;
+                                    ver_im(j,k) = obj.numClasses - 1; % unknown pixel
+                                else
+                                    ver_im(j,k) = obj.numClasses; % unrobust pixel
+                                    n_mis_ct = n_mis_ct + 1;
+                                end
+                                
+                            end
+      
+                        end
+                    end                
+                    ver_rs{i} = ver_im;
+                    n_mis(i) = n_mis_ct;
+                    n_unk(i) = n_unk_ct;
+                    n_rb_ct = n_pixels - n_mis_ct - n_unk_ct;
+                    n_rb(i) = n_rb_ct;
+                    iou = jaccard(gr_seg_im, ver_im);
+                    iou = iou(~isnan(iou));
+                    riou(i) = sum(iou)/length(iou);
+                    rv(i) = n_rb_ct/n_pixels;
+                    rs(i) = (n_mis_ct + n_unk_ct)/n_att(i);
+                end
+            else
+                 for i=1:n1
+
+                    gr_seg_im = gr_seg_ims{i};
+                    pc_rs = obj.getPixelClassReachSet(i);
+                    [h, w] = size(pc_rs);
+                    ver_im = zeros(h, w);
+                    n_mis_ct = 0;
+                    n_unk_ct = 0;                  
+                    n_att(i) = in_images(i).getNumAttackedPixels; 
+
+                    for j=1:h
+                        for k=1:w
+                            pc = pc_rs{j, k};
+                            if size(pc, 1) == 1
+                                if pc == gr_seg_im(j,k)
+                                    ver_im(j,k) = pc; %(robust pixel)
+                                else
+                                    ver_im(j,k) = obj.numClasses; % misclass (unrobust pixel)
+                                    n_mis_ct = n_mis_ct + 1;
+                                end
+                            else
+                                c = (pc == gr_seg_im(j, k));
+                                if sum(c) ~= 0
+                                    n_unk_ct = n_unk_ct + 1;
+                                    ver_im(j,k) = obj.numClasses - 1; % unknown pixel
+                                else
+                                    ver_im(j,k) = obj.numClasses; % unrobust pixel
+                                    n_mis_ct = n_mis_ct + 1;
+                                end
+                                
+                            end
+      
+                        end
+                    end                
+                    ver_rs{i} = ver_im;
+                    n_mis(i) = n_mis_ct;
+                    n_unk(i) = n_unk_ct;
+                    n_rb_ct = n_pixels - n_mis_ct - n_unk_ct;
+                    n_rb(i) = n_rb_ct;
+                    iou = jaccard(gr_seg_im, ver_im);
+                    iou = iou(~isnan(iou));
+                    riou(i) = sum(iou)/length(iou);
+                    rv(i) = n_rb_ct/n_pixels;
+                    rs(i) = (n_mis_ct + n_unk_ct)/n_att(i);
+                end
+            end
+            
+            
+            obj.verifiedOutputSet = ver_rs;
+            obj.groundTruthSegIms = gr_seg_ims;
+            obj.RIoU = riou;
+            obj.RV = rv;
+            obj.RS = rs;
+            
+            obj.numRbPixels = n_rb;
+            obj.numMisPixels = n_mis;
+            obj.numUnkPixels = n_unk;
+            obj.numPixels = n_pixels;
+            obj.numAttPixels = n_att;
+            
+        end
+
+    end
     
 
     % helper functions
@@ -762,8 +952,73 @@ classdef NN < handle
                 end
             end   
         end
-
+        
     end % end helper functions
+    
+    % semantic segmentation helper functions
+    methods (Access = protected) 
+    
+         % get possible classes of all pixels
+        function pc_rs = getPixelClassReachSet(obj, rs_id)
+            % pc_rs = getPixelClassReachSet(obj, rs_id)
+            % @rs_id: reach set id
+            % @pc_rs: pixel class reach set
+            
+            if isempty(obj.reachSet)
+                error('Empty reach set, please do reachability analysis first');
+            end
+            
+            if rs_id < 1 || rs_id > length(obj.reachSet)
+                error('Invalid reach set index');
+            end
+            
+            rs = obj.reachSet(rs_id);
+            h = rs.height;
+            w = rs.width;
+            pc_rs = cell(h, w);
+            
+            for i=1:h
+                for j=1:w
+                    pc_rs{i, j} = obj.getPixelClasses(rs_id, i,j);
+                end
+            end      
+        end
+        
+        % get all possible classes of a pixels
+        function pc = getPixelClasses(obj, rs_id, h_id, w_id)
+            % pc = getPixelClasses(obj, rs_id, h_id, w_id)
+            % @rs_id: reach set id
+            % @h_id: height index of the pixel
+            % @w_id; width index of the pixel
+            % @pc: an array of all possible classes of the pixel x(h_id, w_id)
+
+            if isempty(obj.reachSet)
+                error('Reach Set is empty, please perform reachability first');
+            end
+            
+            rs = obj.reachSet(rs_id); 
+            if h_id < 1 || h_id > rs.height
+                error('Invalid height index');
+            end
+            
+            if w_id < 1 || w_id > rs.width
+                error('Invalid weight index');
+            end
+            
+            nc = rs.numChannel;
+            xmin = zeros(nc,1);
+            xmax = zeros(nc,1);
+            
+            for i=1:nc
+                [xmin(i), xmax(i)] = rs.estimateRange(h_id, w_id, i);
+            end
+            
+            max_xmin = max(xmin);
+            c = (xmax >= max_xmin);
+            pc = find(c);          
+        end
+
+    end
     
 end
 

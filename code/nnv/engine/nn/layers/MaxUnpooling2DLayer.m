@@ -133,6 +133,34 @@ classdef MaxUnpooling2DLayer < handle
             end
             
         end
+
+        % get paired max pooling layer name
+        function getPairedMaxPoolingName(obj, Connections, unpooling_layer_name)
+            % @unpooling_layer_name: the name of the unmaxpooling layer
+            % @maxpooling_layer_name: the name of the paired max pooling layer           
+            
+            if isempty(Connections)
+                error('No connection table');
+            end
+            if ~ischar(unpooling_layer_name)
+                error('Invalid unpooling_layer_name');
+            else
+                dest_name = sprintf("%s/indices", unpooling_layer_name);
+            end
+            n = size(Connections, 1);
+            source_name = [];
+            for i=1:n                
+                if strcmp(Connections.Destination(i), dest_name)
+                    source_name = Connections.Source(i);
+                    break;
+                end
+            end
+            if isempty(source_name)
+                error('Unknown destination name');
+            end
+            maxpooling_layer_name = erase(source_name{1}, "/indices");  
+            obj.PairedMaxPoolingName = maxpooling_layer_name;
+        end
         
         
         % evaluation 
@@ -351,7 +379,7 @@ classdef MaxUnpooling2DLayer < handle
         
         
         % parse a trained MaxUnPooling2dLayer from matlab
-        function L = parse(max_unpooling_2d_layer)
+        function L = parse(max_unpooling_2d_layer, conns)
             % @max_unpooling_2d_Layer: an MaxUnPooling2DLayer from matlab deep
             % neural network tool box
             % @L : an MaxUnPooling2DLayer obj for reachability analysis purpose
@@ -365,6 +393,7 @@ classdef MaxUnpooling2DLayer < handle
             end
             
             L = MaxUnpooling2DLayer(max_unpooling_2d_layer.Name, max_unpooling_2d_layer.NumInputs, max_unpooling_2d_layer.InputNames, max_unpooling_2d_layer.NumOutputs, max_unpooling_2d_layer.OutputNames);
+            getPairedMaxPoolingName(L, conns, max_unpooling_2d_layer.Name);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
             
         end

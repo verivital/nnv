@@ -288,7 +288,7 @@ classdef NN < handle
         end
         
         % Check robustness of output set given a target label
-        function rb = checkRobust(~, outputSet, target)
+        function rb = checkRobust(obj, outputSet, target)
             % rb = checkRobust(~, outputSet, target)
             % 
             % @outputSet: the outputSet we need to check
@@ -646,9 +646,10 @@ classdef NN < handle
     end % end verification methods
 
 
-    methods % semantic segmentation methods
-
-        function [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify(obj, in_images, ground_truths, reachOptions)
+    methods % specific NN type  methods
+        
+        % verify robustness of semantic segmentation tasks
+        function [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify_segmentation(obj, in_images, ground_truths, reachOptions)
             % 
             % --- Syntax ----
             % [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify(obj, in_images, ground_truths, reachOptions)
@@ -810,8 +811,50 @@ classdef NN < handle
             obj.numAttPixels = n_att;
             
         end
+        
+        % verify robustness of classification RNNs (HSCC2023)
+        function result = verify_sequence_robustness(obj, input_seq, epsilon, target, reachOptions)
+            %
+            % ---- Syntax ----
+            % result = NN.verify_sequence_robustness(inputs, epsilon, target, reachOptions)
+            %
+            % ---- Inputs ----
+            % inputs:
+            %
+            % ---- Outputs ---- 
+            % @result: = 1: the network is robust
+            %          = 0: the network is notrobust
+            %          = 2: robustness is uncertain
+            
+            % Process inputs
+            x = input_seq;
+            n = size(x, 2);
+            eps = epsilon;
+            y  = target; % label/idx target
+            ny = size(y,2);
+            
+            % Prepare input for reachability analysis
+            X = [];
+            for i=1:n
+                X = [X Star(x(:,i) - eps, x(:, i) + eps)]; % construct sequence of input sets
+            end
+                        
+            % compute reach sets
+            Y = obj.reach(X, reachOptions);
+            
+            % Verification results
+            if ny == n
+                result = zeros(n,1);
+                for i=1:n
+                    result(i) = obj.checkRobust(Y(i), target(i));
+                end
+            else
+                result = onj.checkRobust(Y(end), target);
+            end
 
-    end
+        end 
+
+    end % end methods
     
 
     % helper functions
@@ -926,10 +969,10 @@ classdef NN < handle
             G = diag(G);
             G(target, :) = [];
             if strcmp(class_type, "max")
-                G(:, target) = -1;
-            elseif strcmp(class_type, "min")
                 G = -G;
                 G(:, target) = 1;
+            elseif strcmp(class_type, "min")
+                G(:, target) = -1;
             end
             g = zeros(height(G),1);
 

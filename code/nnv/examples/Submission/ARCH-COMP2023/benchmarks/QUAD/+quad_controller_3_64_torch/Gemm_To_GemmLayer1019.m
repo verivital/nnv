@@ -156,7 +156,7 @@ function [u, uNumDims, state] = Gemm_To_GemmFcn(x, xNumDims, params, varargin)
 % X
 %			- Input(s) to the ONNX network.
 %			  The input size(s) expected by the ONNX file are:
-%				  X:		[1, 6]				Type: FLOAT
+%				  X:		[1, 12]				Type: FLOAT
 %			  By default, the function will try to permute the input(s)
 %			  into this dimension ordering. If the default is incorrect,
 %			  use the 'InputDataPermutation' argument to control the

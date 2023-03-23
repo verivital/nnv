@@ -2,11 +2,12 @@ classdef MaxUnpooling2DLayer < handle
     % The MaxUnPooling 2D layer class in CNN
     %   Contain constructor and reachability analysis methods
     % Main references:
-    % 1) 
+    % 1) https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.maxunpooling2dlayer.html
     %    
-
-    
+    %
     %   Dung Tran: 4/14/2020
+    % update: change parameters and eval function to adjust for connection
+    % graph based computation in NN (Diego Manzanas, 03/27/2023)
     
     properties
         Name = 'max_unpooling_2d_layer';
@@ -14,8 +15,10 @@ classdef MaxUnpooling2DLayer < handle
         InputNames = {'in',  'indices' , 'size'};
         NumOutputs = 1;
         OutputNames = {'out'};
-        
+        % Parameters to store matching pooling layer parameters
         PairedMaxPoolingName = [];
+        MaxPoolIndx = [];
+        MaxPoolSize = []
     end
     
     
@@ -163,7 +166,7 @@ classdef MaxUnpooling2DLayer < handle
         end
         
         
-        % evaluation 
+        % evaluation (TODO)
         function y = evaluate(~, input, indx, outputSize)
             % @input: input image
             % @indx: max index
@@ -393,7 +396,7 @@ classdef MaxUnpooling2DLayer < handle
             end
             
             L = MaxUnpooling2DLayer(max_unpooling_2d_layer.Name, max_unpooling_2d_layer.NumInputs, max_unpooling_2d_layer.InputNames, max_unpooling_2d_layer.NumOutputs, max_unpooling_2d_layer.OutputNames);
-            getPairedMaxPoolingName(L, conns, max_unpooling_2d_layer.Name);
+            L.getPairedMaxPoolingName(conns, max_unpooling_2d_layer.Name);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
             
         end

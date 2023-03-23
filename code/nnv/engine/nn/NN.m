@@ -24,7 +24,7 @@ classdef NN < handle
         InputSize = 0; % number of Inputs
         OutputSize = 0; % number of Outputs
         
-        % properties for reach set computation
+        % properties for reach set  and evaluation computation
         reachMethod = 'approx-star';    % reachable set computation scheme, default - 'approx-star'
         relaxFactor = 0; % default - solve 100% LP optimization for finding bounds in 'approx-star' method
         reachOption = []; % parallel option, default - non-parallel computing
@@ -37,6 +37,8 @@ classdef NN < handle
         dis_opt = []; % display option = 'display' or []
         lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set user can choose 'glpk' or 'linprog' as an LP solver
         
+        % To facilitate graph computation flow
+        name2indx = []; % Match name to index in nnvLayers list
     end
 
 
@@ -51,87 +53,86 @@ classdef NN < handle
                 case 5
                     % parse inputs
                     Layers = varargin{1};
-                    cons = varargin{2}; % connections
-                    inputsize = varargin{3};
-                    outputsize = varargin{4};
+                    conns = varargin{2}; % connections
+                    inputSize = varargin{3};
+                    outputSize = varargin{4};
                     name = varargin{5};
                     nL = length(Layers); % number of Layers
 
-                    % update object properties
-                    obj.Name = name;                % Name of the network
-                    obj.Layers = Layers;             % Layers in NN
-                    obj.Connections = cons;       % Connections in NN
-                    obj.numLayers = nL;             % number of layers
-                    obj.InputSize = inputsize;      % input size
-                    obj.OutputSize = outputsize; % output size
-
                 case 4
-                    % parse inputs
+                    % parse inputs 
                     Layers = varargin{1};
-                    inputsize = varargin{2};
-                    outputsize = varargin{3};
-                    name = varargin{4};
+                    if isa(varargin{2}, 'table')
+                        conns = varargin{2};
+                        inputSize = varargin{3};
+                        outputSize = varargin{4};
+                        name = 'nn';
+                    else
+                        conns = [];
+                        inputSize = varargin{2};
+                        outputSize = varargin{3};
+                        name = varargin{4};
+                    end
                     nL = length(Layers); % number of Layers
-%                     warning('No connections were specified, we assume each layer is connected to the next layer in the order they were defined in the Layers array');
-                    N = length(Layers);
-                    sources = 1:N;
-                    dests = 2:N+1;
-                    conns = table(sources', dests', 'VariableNames', {'Source', 'Destination'});
-                    
-                    % update object properties
-                    obj.Name = name;                % Name of the network
-                    obj.Layers = Layers;            % Layers in NN
-                    obj.numLayers = nL;             % number of layers
-                    obj.InputSize = inputsize;      % input size
-                    obj.OutputSize = outputsize;    % output size
-                    obj.Connections = conns;
 
                 case 2 % only layers and connections defined
                     Layers = varargin{1};
                     conns = varargin{2};
-                    obj.Layers = Layers;
-                    obj.Connections = conns;
+                    nL = length(Layers);
+                    name = 'nn';
+                    inputSize = 0;
+                    outputSize = 0;
 
-                case 1 % only layers, assume no sparse connections
+                case 1 % only layers, assume each layer is only connected to the next one
                     Layers = varargin{1};
-                    N = length(Layers);
-                    sources = 1:N;
-                    dests = 2:N+1;
-                    conns = table(sources', dests', 'VariableNames', {'Source', 'Destination'});
-                    obj.Layers = Layers;
-                    obj.Connections = conns;
+                    nL = length(Layers);
+                    conns = [];
+                    name = 'nn';
+                    inputSize = 0;
+                    outputSize = 0;
 
                 case 0
-                    obj.Layers = {};
-                    obj.Connections = [];
-                    obj.numLayers = 0;
-                    obj.InputSize = 0;
-                    obj.OutputSize = 0;
+                    name = 'nn';
+                    Layers = {};
+                    conns = [];
+                    nL = 0;
+                    inputSize = 0;
+                    outputSize = 0;
 
-                    
                 otherwise
                     error('Invalid number of inputs, should be 0, 1, 2, 3 or 5');
             end
+
+            % update object properties
+            obj.Name = name;              % Name of the network
+            obj.Layers = Layers;          % Layers in NN
+            obj.Connections = conns;       % Connections in NN
+            obj.numLayers = nL;           % number of layers
+            obj.InputSize = inputSize;    % input size
+            obj.OutputSize = outputSize;  % output size
                       
         end
         
-        % Evaluation of a NN 
+        % Evaluation of a NN (TODO: update for layers with multiple connections)
         function y = evaluate(obj, x)
             % Evaluate NN given an input sample
             % y = NN.evaluate(x)
             % @x: input vector x
             % @y: output vector y
             
-            % Evaluate layer-by-layer based on connection graph
-            for i=1:height(obj.Connections)
-                if i > 1
-                    x = obj.input_vals{obj.Connections.Source(i)}; % 
-                end
-                y = obj.Layers{obj.Connections.Source(i)}.evaluate(x);
-                if i < height(obj.Connections) % (Last number in destinations is the output)
-                    obj.input_vals{obj.Connections.Destination(i)} = y; % store layer input 
-                end
+            % reset eval related parameters
+            obj.features = {};
+            obj.input_vals = {};
+
+            % Two options to exectute evaluation
+            % 1) Connections are defined
+            if ~isempty(obj.Connections)
+                 y = obj.evaluate_withConns(x);
+            % 2) No connections defined, execute each layer consecutively
+            else
+                y = obj.evaluate_noConns(x);
             end
+
         end
         
         % evaluate parallel
@@ -254,6 +255,7 @@ classdef NN < handle
             end
 
         end
+    
     end
     
     
@@ -996,6 +998,72 @@ classdef NN < handle
             end   
         end
         
+        % evaluate NN when no connections are defined
+        function y = evaluate_noConns(obj, x)
+            y = x;
+            for i=1:obj.numLayers
+                y = obj.Layers{i}.evaluate(y);
+                obj.features{i} = y;
+            end
+        end
+        
+        % evaluate NN based on connections table (TODO)
+        function y = evaluate_withConns(obj, x)
+            % Evaluate layer-by-layer based on connection graph
+            for i=1:height(obj.Connections)
+                % 1) Get name and index of layer
+                source = obj.Connections.Source(i);
+                % ensure we get just the name and not specific properties
+                source = split(source, '/');
+                source = source{1};
+                source_indx = obj.name2indx(source); % indx in Layers array
+                
+                % 2) Get input to layer
+                if i > 1
+                    x = obj.input_vals{source_indx}; % get inputs to layer unless it's the first layer
+                end
+                
+                % 3) evaluate layer
+                exec_len = length(obj.features);
+                % ensure layer has not been evaluated yet
+                if exec_len >= source_indx && isempty(obj.features{source_indx})
+                    y = obj.Layers{source_indx}.evaluate(x);
+                    obj.features{source_indx} = y;
+                end
+                
+                % 4) save inputs to destination layer
+                dest = obj.Connections.Destination(i);
+                dest = split(dest, '/');
+                dest_name = dest{1};
+                dest_indx = obj.name2indx(dest_name); % indx in Layers array
+                % check if there source has multiple inputs (concat layer, unpooling ...)
+                if length(dest) > 1
+                    % unpooling option
+                    if isa(obj.Layers{dest_indx}, 'MaxUnpooling2DLayer')
+                        destP = dest{2};
+                        if strcmp(destP, 'in')
+                            obj.input_vals{dest_indx} = y; % store layer input
+                        elseif strcmp(destP, 'indices')
+                            obj.Layers{dest_indx}.MaxPoolIndx = obj.Layers{source_indx}.MaxIndx;
+                        elseif strcmp(destP, 'size')
+                            obj.Layers{dest_indx}.MaxPoolSize = obj.Layers{source_indx}.InputSize;
+                        else
+                            error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                        end
+                    elseif contains(obj.Layers{dest_indx}, 'Concatenation')
+                        destP = dest{2};
+                        
+                    else
+                        error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                    end
+                end
+                
+%                 if i < height(obj.Connections) % (Last number in destinations is the output)
+%                     obj.input_vals{obj.Connections.Destination(i)} = y; % store layer input 
+%                 end
+            end
+        end
+    
     end % end helper functions
     
     % semantic segmentation helper functions

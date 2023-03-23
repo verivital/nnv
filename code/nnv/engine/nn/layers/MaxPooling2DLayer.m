@@ -12,6 +12,7 @@ classdef MaxPooling2DLayer < handle
     %    https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.maxpooling2dlayer.html
     
     %   Dung Tran: 6/20/2019
+    %   update: remove evaluate option (Diego, 03/15/2023)
     
     properties
         Name = 'max_pooling_2d_layer';
@@ -257,9 +258,8 @@ classdef MaxPooling2DLayer < handle
     % evaluation method
     methods
         
-        function y = evaluate(varargin)
+        function y = evaluate(obj, input)
             % @input: high-dimensional array, for example, input(:, :, :), 
-            % @option = 'cnn' or 'segnet'
             % @y: output
             
             % author: Dung Tran
@@ -271,37 +271,13 @@ classdef MaxPooling2DLayer < handle
             % author: Dung Tran
             % date: 12/10/2018
             % update: 7/26/2019
-            
-            switch nargin
-                case 2
-                    obj = varargin{1};
-                    input = varargin{2};
-                    option = 'cnn';
-                case 3
-                    obj = varargin{1};
-                    input = varargin{2};
-                    option = varargin{3};
-                otherwise
-                    error('Invalid number of input');
-            end
-            
-            if strcmp(option, 'cnn')
+            % update: set evaluation as previous "segnet" option as default
                 
-                y = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');
-                
-            elseif strcmp(option, 'segnet')
-                % require Matlab version 2019b
-                
-                dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
-                [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
-                y = extractdata(dlY);
-                obj.MaxIndx = indx;
-                obj.InputSize = inputSize;
-
-            
-            else
-                error('Unknown option for max pooling evaluation');
-            end
+            dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
+            [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
+            y = extractdata(dlY);
+            obj.MaxIndx = indx;
+            obj.InputSize = inputSize;
             
         end
         
@@ -1163,11 +1139,11 @@ classdef MaxPooling2DLayer < handle
        
         
         
-        % parse a trained averagePooling2dLayer from matlab
+        % parse a trained MaxPooling2dLayer from matlab
         function L = parse(max_Pooling_2d_Layer)
             % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep
             % neural network tool box
-            % @L : a AveragePooling2DLayer obj for reachability analysis purpose
+            % @L : a MaxPooling2DLayer obj for reachability analysis purpose
             
             % author: Dung Tran
             % date: 6/17/2019

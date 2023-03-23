@@ -7,7 +7,7 @@ function verify_L_infinity()
 % i.e. if output is in between 1.5 and 2.5, corresponding label is 2
     
     % Load network info
-    NNinfo = load('models/fc_6_141.mat');
+    NNinfo = load('models/fc_6_141_mnist.mat');
     NNinfo = NNinfo.mnist_model;
     
     % Create NN

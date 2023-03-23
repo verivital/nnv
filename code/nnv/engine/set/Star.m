@@ -1025,7 +1025,7 @@ classdef Star
                 if ismember(exitflag, ["l1","g5"])  
                     xmin = fval + obj.V(index, 1);
                 else
-                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                    error('Cannot find an optimal solution, exitflag = ' + exitflag);
                 end
             end
             
@@ -1488,12 +1488,18 @@ classdef Star
             
             % author: Dung Tran
             % date: 10/25/2018
+            % update: Diego Manzanas Lopez
+            %      - get stored Star.Z if available
             
-            B = obj.getBox;
-            if ~isempty(B)
-                Z = B.toZono;
+            if isempty(obj.Z)
+                B = obj.getBox;
+                if ~isempty(B)
+                    Z = B.toZono;
+                else
+                    Z = [];
+                end
             else
-                Z = [];
+                Z = obj.Z;
             end
                         
         end

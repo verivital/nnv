@@ -1,4 +1,4 @@
-function get_robustness_bound_mnist()
+% function get_robustness_bound_mnist()
 
 % This mnist network was trained with a single output in a regression
 % manner. The output of the network is continuous, and the idx
@@ -9,7 +9,7 @@ function get_robustness_bound_mnist()
     t = tic;
 
     % Load network info
-    NNinfo = load('models/fc_6_141.mat');
+    NNinfo = load('models/fc_6_141_mnist.mat');
     NNinfo = NNinfo.mnist_model;
     
     % Create NN
@@ -76,7 +76,7 @@ function get_robustness_bound_mnist()
     robustness_bound = net.get_robustness_bound(input_vec, init_dis_bound, tol, max_steps,...
         lb_allowable, ub_allowable, un_robust_reg, reachOptions);
     
-    disp('--------- APPROX-STAR RESULTS -----------');
+    disp('--------- APPROX-ZONO RESULTS -----------');
     if isempty(robustness_bound)
         disp("Robustness bound not found.")
     else
@@ -86,4 +86,4 @@ function get_robustness_bound_mnist()
     
     toc(t);
 
-end
+% end

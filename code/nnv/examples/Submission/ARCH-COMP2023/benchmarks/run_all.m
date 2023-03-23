@@ -1,6 +1,9 @@
-% ACC (final)
+% Supress warnings
+w = warning ('off','all');
+
+% ACC 
 cd ACC;
-run reach.m; % verified
+reach(); % verified (~ 15 seconds)
 cd ..;
 
 % Airplane
@@ -26,10 +29,11 @@ cd ..;
 
 % Tora
 cd Tora_Heterogeneous;
-run reachTora_reluTanh.m;
-% sigmoid -> running
-% relu+tanh -> verified
-% Tora relu -> unknown 
+reachTora_reluTanh(); % verified with input partition (~ 38 mins)
+reachTora_sigmoid(); % verified with input partition (~ 2.7 hours, let's try a different partition to speed it up)
+cd ..;
+% cd Benchmark9-Tora;
+% reach(); % unknown
 % cd ..;
 
 % Quad

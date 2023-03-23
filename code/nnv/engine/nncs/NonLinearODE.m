@@ -27,7 +27,7 @@ classdef NonLinearODE < handle
         intermediate_reachSet = []; % intermediate reachable set between steps 
         intermediate_pointSet = []; % intermediate reachable set between steps at a single point in time
         reachStep = 0.01; % reachability step for the plant
-        % this is used to store all intermediate reachable sets of NNCS
+        cora_set = []; % avoid overapproximation from polyzono to zono, use cora set from last reach set
     end
     
     methods
@@ -271,12 +271,17 @@ classdef NonLinearODE < handle
                error('Input set is not a zonotope');
            end
            
-           R0 = zonotope([init_set.c, init_set.V]);
+           % Set initial states
+           if isempty(obj.cora_set) % set CORA params with initial state from NNV
+               R0 = zonotope([init_set.c, init_set.V]);
+               obj.set_R0(polyZonotope(R0));
+           else % reuse last controlPeriod's reach set from CORA (reduce over-approx)
+               R0 = obj.cora_set.timePoint.set{end};
+               obj.set_R0(R0);
+           end
+           % Set input set
            U = zonotope([input_set.c, input_set.V]);
-           
-           obj.set_R0(polyZonotope(R0));
            obj.set_U(U);
-%            obj.set_U(polyZonotope(U));
            obj.set_timeStep(timeStep);
            obj.set_tFinal(tFinal);
            
@@ -287,27 +292,9 @@ classdef NonLinearODE < handle
            obj.options.polyZono = polyZono;
            
            sys = nonlinearSys(obj.dynamics_func, obj.dim, obj.nI); % CORA nonlinearSys class
-           R = reach(sys, obj.params, obj.options); % CORA reach method using zonotope and conservative linearization
+           R = reach(sys, obj.params, obj.options); % CORA reach method
                      
            reachTime = toc(start);
-           % convert all polyzonotope to zonotope
-           nSet = length(R);
-           R2 = R;
-           for sps = 1:nSet
-               nZ = length(R(sps).timePoint.set);
-               aaa = cell(nZ,1);
-               aaa_interval = cell(nZ,1);
-               % Convert reachset point and interval to zonotope
-               for st=1:length(R(sps).timePoint.set)
-                   aaa{st} = zonotope(R(sps).timePoint.set{st});
-                   aaa_interval{st} = zonotope(R(sps).timeInterval.set{st});
-               end
-               % Add it back to the reach set
-               R2(sps) = R(sps);
-               R2(sps).timePoint.set = aaa;
-               R2(sps).timeInterval.set = aaa_interval;
-           end
-           R = R2;
         end
         
         
@@ -322,6 +309,7 @@ classdef NonLinearODE < handle
             % Update: Diego Manzanas - 06/07/2021
             %     - Add 'poly' reachability analysis (varargin)
             
+            % Check inputs
             if ~isa(init_set, 'Star')
                 error('Initial set is not a star');
             end
@@ -340,109 +328,48 @@ classdef NonLinearODE < handle
                     error('Incorrect reach variable options')
                 end
             end
-
-            if contains(obj.options.alg,'adaptive')
-                warning("Some possible numerical errors in the conversion from Star sets to Zono and polyZono may affect adaptive reachability. We recommend using 'lin' or 'poly' with fixed time steps and parameters.")
-            end
-                
+            
+            % Perform reachability
             if contains(obj.options.alg,'lin')
                 [R, ~] = obj.reach_zono(I, U, obj.options.timeStep, obj.params.tFinal);
             else
                 [R, ~] = obj.reach_polyZono(I, U, obj.options.timeStep, obj.params.tFinal);
             end
-            N = length(R); % number of reachsets in the computation
-            max_parent = 0;
-            for pp=1:N
-                max_parent = max(max_parent,R(pp).parent);
-            end
+
+            % Store reach sets
+           if isempty(obj.cora_set)
+               obj.cora_set = R;
+           else
+               try
+                   obj.cora_set = obj.cora_set.append(R);
+               catch
+                   obj.cora_set = [obj.cora_set R];
+               end
+
+           end
+
+            % Post-process CORA reach sets at t=cP
             S = [];
             cP = obj.controlPeriod;
             Rf = find((R),'time',cP);
-%             cpsets = []; % Reach sets at control perios / final time
             for mp=1:length(Rf)
-%                 if R(mp).parent == max_parent
-%                     Z = R(mp).timePoint.set; % get the last reachset
-                    Z = Rf(mp).timePoint.set;
-                    % Check to make sure the time of the reach sets is the
-                    % same as the control period
-%                     idxZ = find([R(mp).timePoint.time{:}] == cP); % Create list to check index of reach sets
-%                     lastSets = query(R,'finalSet');
-%                     lastsets = find((R),'time',cP);
-%                     cpsets = [cpsets lastsets]
-%                     Nn = length(Z); % number of sets in the last reachset
-%                     Z = Z{Nn}; % get the last set in the reachset
-                    Nz = length(Z); % number of zonotopes in the last set
-                    for ik=1:Nz
-                        try
-                            Z1 = Z{ik}.Z;
-                        catch
-                            Z1 = Z.Z; % get c and V 
-                        end
-                        c = Z1(:,1); % center vector
-                        V = Z1(:, 2:size(Z1, 2)); % generators
-
-                        Zz = Zono(c, V);
-                        S = [S Zz.toStar];
+                Z = Rf(mp).timePoint.set;
+                Nz = length(Z); % number of sets in the computed set at cP
+                for ik=1:Nz
+                    try
+                        Z1 = zonotope(Z{ik}); % ensure it's a zonotope
+                        Z1 = Z1.Z;
+                    catch
+                        Z1 = zonotope(Z);
+                        Z1 = Z1.Z; % get c and V 
                     end
-%                 end
-            end
-            
-            % Get interval reach set
-            for i=1:N
-%                 N = length(R);
-                Z = R(i).timeInterval.set; % get the interval reachset 
-%                 Z_int = R(i).timePoint.set; % get the timepoint reachset
-                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
-                Ss = [];
-                for ik=1:Nn
-                    Z1 = Z{ik};
-                    Nz = length(Z1);
-                    for iz=1:Nz
-                        try
-                            Z2 = Z1{iz}.Z;
-                        catch
-                            Z2 = Z1.Z; % get c and V 
-                        end
-    %                     Z = Z.Z; % get c and V 
-                        c = Z2(:,1); % center vector
-                        V = Z2(:, 2:size(Z2, 2)); % generators
-
-                        Zz = Zono(c, V);
-                        Ss = [Ss Zz.toStar];
-                    end
+                    c = Z1(:,1); % center vector
+                    V = Z1(:, 2:size(Z1, 2)); % generators
+                    Zz = Zono(c, V);
+                    S = [S Zz.toStar];
                 end
-                obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end
-            
-            % Get interval reach set
-            for i=1:N
-%                 N = length(R);
-                Z = R(i).timePoint.set; % get the interval reachset 
-%                 Z_int = R(i).timePoint.set; % get the timepoint reachset
-                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
-                Ss = [];
-                for ik=1:Nn
-                    Z1 = Z{ik};
-                    Nz = length(Z1);
-                    for iz=1:Nz
-                        try
-                            Z2 = Z1{iz}.Z;
-                        catch
-                            Z2 = Z1.Z; % get c and V 
-                        end
-    %                     Z = Z.Z; % get c and V 
-                        c = Z2(:,1); % center vector
-                        V = Z2(:, 2:size(Z2, 2)); % generators
-
-                        Zz = Zono(c, V);
-                        Ss = [Ss Zz.toStar];
-                    end
-                end
-                obj.intermediate_pointSet = [obj.intermediate_pointSet Ss];
-            end
-            
-            % the last zonotope in the reach set is returned
-            
+            % we return S as the reach set at t = controlperiod
         end
         
         
@@ -467,6 +394,70 @@ classdef NonLinearODE < handle
         end
 
         
+    end
+
+    methods % other
+        
+        % Get interval intermediate sets from CORA (interval length of reachstep)
+        function get_interval_sets(obj)
+            % Get interval reach set
+            R = obj.cora_set;
+            N = length(R); % number of reachsets in the computation
+            for i=1:N
+                Z = R(i).timeInterval.set; % get the interval reachset 
+                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
+                Ss = [];
+                for ik=1:Nn
+                    Z1 = Z{ik};
+                    Nz = length(Z1);
+                    for iz=1:Nz
+                        try
+                            Z2 = zonotope(Z1{iz}); % ensure it's a zonotope
+                            Z2 = Z2.Z;
+                        catch
+                            Z2 = zonotope(Z1); % ensure it's a zonotope
+                            Z2 = Z2.Z; % get c and V 
+                        end
+                        c = Z2(:,1); % center vector
+                        V = Z2(:, 2:size(Z2, 2)); % generators
+                        Zz = Zono(c, V);
+                        Ss = [Ss Zz.toStar];
+                    end
+                end
+                obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
+            end
+        end
+        
+        % Get point intermediate sets from CORA (at each reach step)
+        function get_point_sets(obj)
+            % Get interval reach set
+            R = obj.cora_set;
+            N = length(R); % number of reachsets in the computation
+            for i=1:N
+                Z = R(i).timePoint.set; % get the timepoint reachset 
+                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
+                Ss = [];
+                for ik=1:Nn
+                    Z1 = Z{ik};
+                    Nz = length(Z1);
+                    for iz=1:Nz
+                        try
+                            Z2 = zonotope(Z1{iz}); % ensure it's a zonotope
+                            Z2 = Z2.Z;
+                        catch
+                            Z2 = zonotope(Z1); % ensure it's a zonotope
+                            Z2 = Z2.Z; % get c and V 
+                        end
+                        c = Z2(:,1); % center vector
+                        V = Z2(:, 2:size(Z2, 2)); % generators
+                        Zz = Zono(c, V);
+                        Ss = [Ss Zz.toStar];
+                    end
+                end
+                obj.intermediate_pointSet = [obj.intermediate_pointSet Ss];
+            end
+            
+        end
     end
     
 end

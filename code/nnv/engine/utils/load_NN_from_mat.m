@@ -45,8 +45,15 @@ function nn = load_NN_from_mat(matfile)
     dests = 2:N+1;
     Connections = table(sources', dests', 'VariableNames', {'Source', 'Destination'});
     
-    % Create the NN object 
-    nn = NN(Layers, Connections, Layers{1}.InputSize, Layers{N}.OutputSize, 'nn'); % cell array of layer, connection table, input size, output size, name
+    % Get output size of network from last fullyconnected layer
+    for l = length(Layers):-1:1
+        if isa(Layers{l}, "FullyConnectedLayer")
+            outputSize = Layers{l}.OutputSize;
+        end
+    end
+
+    % Create the NN object
+    nn = NN(Layers, Connections, Layers{1}.InputSize, outputSize, 'nn'); % cell array of layer, connection table, input size, output size, name
 end
 
 %% Helper function
@@ -62,9 +69,9 @@ function layer = ActFunction(act)
         layer = SaturatingLinearSymmLayer();
     elseif contains(act,'relu')
         layer = ReluLayer();
-    elseif contains(act,'tanh')
+    elseif contains(act,'tanh') || contains(act, 'tansig')
         layer = TanhLayer();
-    elseif contains(act,'igmoid')
+    elseif contains(act,'igmoid') || contains(act, 'logsig')
         layer = SigmoidLayer;
     else
         error("Unkown activation function ("+act+")");

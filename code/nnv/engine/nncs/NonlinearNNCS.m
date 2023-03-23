@@ -18,7 +18,6 @@ classdef NonlinearNNCS < handle
         %             u(k) <---- controller |<---- y(k-d)-----(output feedback) 
         %                                   |<----- v(k)------(reference input)                                    
         
-        
         % the input to neural net controller is grouped into 2 group
         % the first group contains all the reference inputs
         % the second group contains all the output feedback with delays
@@ -49,9 +48,10 @@ classdef NonlinearNNCS < handle
         controlSet = []; % control signal of the controller over time
         simTrace = []; % simulation trace
         controlTrace = []; % control trace
+
     end
     
-    methods
+    methods % main methods (simulate and reach)
         
         %constructor
         function obj = NonlinearNNCS(varargin)
@@ -102,104 +102,110 @@ classdef NonlinearNNCS < handle
             
         end
                        
-        % reachability analysis of nncs using stars
-        % output reach set of controller is a single star
-        % the plant reachable set is a zonotope
+        % reachability analysis of nncs using stars for controller, CORA for plant
         function [P, reachTime] = reach(obj, reachPRM)
             % Syntax:
             % [P, reachTime] = reach(obj, reachPRM)
             %
-             % @reachPRM: reachability parameters including following inputs
-             %       1) @init_set: initial set of states of the plant
-             %       2) @ref_input: reference input to the controller. it = [] if there is no reference input.
-             %       3) @numCores: number of cores used for computation
-             %       4) @numSteps: number of reachability steps
-
-             % author: Dung Tran
-             % date: 11/16/2018
-             
-             % Check input correctness and assign values
-             if ~isstruct(reachPRM)
-                 error("reachPRM must be s struct defining reachability options")
-             end
-             if ~isfield(reachPRM, "init_set") || ~isfield(reachPRM, "numSteps")
-                 error("Fields init_set and numSteps are mandatory to perform reachability analysis of nncs.")
-             end
-             initSet = reachPRM.init_set;
-             n_steps = reachPRM.numSteps;
-
-             if isfield(reachPRM, "ref_input")
+            % @reachPRM: reachability parameters including following inputs
+            %       1) @init_set: initial set of states of the plant
+            %       2) @ref_input: reference input to the controller. it = [] if there is no reference input.
+            %       3) @numCores: number of cores used for computation
+            %       4) @numSteps: number of reachability steps
+            
+            % author: Dung Tran
+            % date: 11/16/2018
+            
+            % Check input correctness and assign values
+            if ~isstruct(reachPRM)
+                error("reachPRM must be s struct defining reachability options")
+            end
+            if ~isfield(reachPRM, "init_set") || ~isfield(reachPRM, "numSteps")
+                error("Fields init_set and numSteps are mandatory to perform reachability analysis of nncs.")
+            end
+            initSet = reachPRM.init_set;
+            n_steps = reachPRM.numSteps;
+            
+            if isfield(reachPRM, "ref_input")
                 ref_inputSet = reachPRM.ref_input;
-             else
-                 ref_inputSet = [];
-             end
-
-             if isfield(reachPRM, 'numCores')
+            else
+                ref_inputSet = [];
+            end
+            
+            if isfield(reachPRM, 'numCores')
                 n_cores = reachPRM.numCores;
-             else
-                 n_cores = 1;
-             end
-
-             if isfield(reachPRM, 'reachMethod')
-                 reach_method = reachPRM.reachMethod;
-             else
-                 reach_method = 'approx-star';
-             end
+            else
+                n_cores = 1;
+            end
+            
+            if isfield(reachPRM, 'reachMethod')
+                reach_method = reachPRM.reachMethod;
+            else
+                reach_method = 'approx-star';
+            end
+            
+            % to compute the reachable sets of the plant or controller first
+            if isfield(reachPRM, 'execFirst') 
+                reach_first = reachPRM.reachFirst;
+            else
+                reach_first = 'plant';
+            end
+            
+            if ~isa(initSet, 'Star')
+                error('Initial set of the plant is not a Star');
+            end
+            
+            if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Star') && isvector(ref_inputSet)
+                ref_inputSet = Star(ref_inputSet, ref_inputSet);
+            end
+            
+            if n_steps < 1
+                error('Number of steps should be >= 1');
+            end
+            
+            start_time = tic; 
+            obj.reachSetTree = SetTree(n_steps + 1); % initialize reach set tree
+            obj.init_set = initSet;
+            obj.ref_I = ref_inputSet;
+            obj.reachSetTree.addReachSet(initSet, 1); % add the init_set to the reachSetTree
+            obj.plant.cora_set = []; % ensure reach set is empty to start
+            
+            % Create reachOptions for controller
+            reachOpt.numCores = n_cores;
+            reachOpt.reachMethod = reach_method;
+            if n_cores > 1
+                reachOpt.reachOption = 'parallel';
+            end
+            
+            for i=2:n_steps + 1
              
-             if ~isa(initSet, 'Star')
-                 error('Initial set of the plant is not a Star');
-             end
-
-             if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Star') && isvector(ref_inputSet)
-                 ref_inputSet = Star(ref_inputSet, ref_inputSet);
-             end
-
-             if n_steps < 1
-                 error('Number of steps should be >= 1');
-             end
-             
-             start_time = tic; 
-             obj.reachSetTree = SetTree(n_steps + 1); % initialize reach set tree
-             obj.init_set = initSet;
-             obj.ref_I = ref_inputSet;
-             obj.reachSetTree.addReachSet(initSet, 1); % add the init_set to the reachSetTree
-
-             % Create reachOptions for controller
-             reachOpt.numCores = n_cores;
-             reachOpt.reachMethod = reach_method;
-             if n_cores > 1
-                 reachOpt.reachOption = 'parallel';
-             end
-             
-             for i=2:n_steps + 1
-                 
-                 % reachability analysis for  controller
-                 fprintf('Reachability analysis for the controller \n');
-                 fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
-                 input_set = obj.nextInputSetStar(fb_I{1});
-                 if i==2
-                     lb = zeros(obj.plant.nI, 1); % at first step, U = 0.
-                     U = Star(lb, lb);
-                 else
+             % reachability analysis for  controller
+            %                  fprintf('Reachability analysis for the controller \n');
+                fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
+                input_set = obj.nextInputSetStar(fb_I{1});
+                if i==2
+                    lb = zeros(obj.plant.nI, 1); % at first step, U = 0.
+                    U = Star(lb, lb);
+                else
                     U = obj.controller.reach(input_set, reachOpt); % control set at step i   
-                 end
-                 if length(U) > 1
+                end
+                if length(U) > 1
                     U1 = Star.get_hypercube_hull(U);
                     U1 = U1.toStar();
-                 else
+                else
                     U1 = U;
-                 end
-                 % reachability analysis for plant
-                 fprintf('\nReachability analysis for the plant \n');
-                 obj.controlSet = [obj.controlSet U1];
-                 R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
-                 obj.reachSetTree.addReachSet(R, i);                 
-             end
-             reachTime = toc(start_time);
-             obj.reachTime = reachTime;
-             P = obj.reachSetTree.flatten();
-             obj.totalNumOfReachSet = obj.reachSetTree.getTotalNumOfReachSet();
-             
+                end
+                % reachability analysis for plant
+                % printf('\nReachability analysis for the plant \n');
+                obj.controlSet = [obj.controlSet U1];
+                R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
+                obj.reachSetTree.addReachSet(R, i);                 
+            end
+            reachTime = toc(start_time);
+            obj.reachTime = reachTime;
+            P = obj.reachSetTree.flatten();
+            obj.totalNumOfReachSet = obj.reachSetTree.getTotalNumOfReachSet();
+
              
         end
 
@@ -286,9 +292,7 @@ classdef NonlinearNNCS < handle
             
         end
         
-        
-        % verify safety after doing reachability analysis
-        % unsafe region defined by: unsafe_mat * x <= unsafe_vec
+        % verify safety after reach, unsafe region as halfspace
         function [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
             % Syntax:
             % [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
@@ -522,7 +526,6 @@ classdef NonlinearNNCS < handle
             
         end
         
-        
         % automatically falsify nncs using random simulations
         function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, falsifyPRM)
             % Syntax:
@@ -600,72 +603,7 @@ classdef NonlinearNNCS < handle
            
         end
         
-        
-       
-                                  
-    end
-    
-    
-    methods(Static)
-        
-         
-        % check if a trace violates safety specification
-        function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
-            % Syntax:
-            % violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
-            %
-            % @simTrace: a single simulation trace
-            % @unsafe_mat: unsafe matrix to specify unsafe region
-            % @unsafe_vec: unsafe vector to specify unsafe region:
-            % unsafe_mat * x <= unsafe_vec
-            % @violate: =1: trace reaches unsafe region
-            %           =0: trace does not reach unsafe region
-            
-            [n, m] = size(simTrace);
-            [n1, m1] = size(unsafe_mat);
-            [n2, m2] = size(unsafe_vec);
-             
-            if n ~= m1
-                error('Inconsistent dimension between simTrace and unsafe matrix');
-            end
-            
-            if n1 ~= n2
-                error('Inconsistent dimension between unsafe matrix and unsafe vector');
-            end
-            
-            if m2 ~= 1
-                error('Invalid unsafe vector, it should have one column');
-            end
-            
-            A = unsafe_mat * simTrace - unsafe_vec; 
-
-            k = 0;
-            for i=1:m
-                for j=1:n1
-                    if A(j, i) <= 0
-                        k = k + 1;
-                    end
-                end
-                if k == n1
-                    break;
-                else
-                    k = 0;
-                end
-            end 
-        
-            if k == n1
-                violate = 1;
-            else
-                violate = 0;
-            end
-            
-        end
-       
-        
-    end
-    
-    methods
-        % verify method
+        % Verify property (is this _ check_safety necessary?)
         function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
             % Syntax:
             % [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
@@ -726,10 +664,65 @@ classdef NonlinearNNCS < handle
         end
     end
     
-    methods % plot method
-        % plot output reach set
-        % output reach set is derived by mapping the state reach set by
-        % a maping matrix, M 
+    
+    methods(Static, Access = protected) % helper functions
+        
+        % check if a trace violates safety specification
+        function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
+            % Syntax:
+            % violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
+            %
+            % @simTrace: a single simulation trace
+            % @unsafe_mat: unsafe matrix to specify unsafe region
+            % @unsafe_vec: unsafe vector to specify unsafe region:
+            % unsafe_mat * x <= unsafe_vec
+            % @violate: =1: trace reaches unsafe region
+            %           =0: trace does not reach unsafe region
+            
+            [n, m] = size(simTrace);
+            [n1, m1] = size(unsafe_mat);
+            [n2, m2] = size(unsafe_vec);
+             
+            if n ~= m1
+                error('Inconsistent dimension between simTrace and unsafe matrix');
+            end
+            
+            if n1 ~= n2
+                error('Inconsistent dimension between unsafe matrix and unsafe vector');
+            end
+            
+            if m2 ~= 1
+                error('Invalid unsafe vector, it should have one column');
+            end
+            
+            A = unsafe_mat * simTrace - unsafe_vec; 
+
+            k = 0;
+            for i=1:m
+                for j=1:n1
+                    if A(j, i) <= 0
+                        k = k + 1;
+                    end
+                end
+                if k == n1
+                    break;
+                else
+                    k = 0;
+                end
+            end 
+        
+            if k == n1
+                violate = 1;
+            else
+                violate = 0;
+            end
+            
+        end
+        
+    end
+    
+    methods % plot methods (TO update, use CORA reach sets and methods to avoid converting all sets to stars if possible)
+
         function plotOutputReachSets(obj, color, map_mat, map_vec)
             % @map_mat: a mapping matrix
             % @map_vec: mapping vector
@@ -789,8 +782,6 @@ classdef NonlinearNNCS < handle
             
         end
         
-        
-        
         function Y = getOutputReachSet(obj, map_mat, map_vec)
             % @map_mat: a mapping matrix
             % @map_vec: mapping vector
@@ -834,12 +825,7 @@ classdef NonlinearNNCS < handle
             
         end
         
-        
-        
     end
-    
-    
-    
     
 end
 

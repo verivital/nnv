@@ -48,6 +48,7 @@ classdef NonlinearNNCS < handle
         controlSet = []; % control signal of the controller over time
         simTrace = []; % simulation trace
         controlTrace = []; % control trace
+        execFirst = 'controller'; % default
 
     end
     
@@ -146,9 +147,7 @@ classdef NonlinearNNCS < handle
             
             % to compute the reachable sets of the plant or controller first
             if isfield(reachPRM, 'execFirst') 
-                reach_first = reachPRM.reachFirst;
-            else
-                reach_first = 'plant';
+                obj.execFirst = reachPRM.execFirst;
             end
             
             if ~isa(initSet, 'Star')
@@ -179,12 +178,11 @@ classdef NonlinearNNCS < handle
             
             for i=2:n_steps + 1
              
-             % reachability analysis for  controller
-            %                  fprintf('Reachability analysis for the controller \n');
+                % reachability analysis for  controller
                 fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                 input_set = obj.nextInputSetStar(fb_I{1});
-                if i==2
-                    lb = zeros(obj.plant.nI, 1); % at first step, U = 0.
+                if i==2 && strcmp(obj.execFirst, 'plant')
+                    lb = zeros(obj.plant.nI, 1); % at first step, U = 0 if compute plant first
                     U = Star(lb, lb);
                 else
                     U = obj.controller.reach(input_set, reachOpt); % control set at step i   
@@ -195,12 +193,13 @@ classdef NonlinearNNCS < handle
                 else
                     U1 = U;
                 end
+
                 % reachability analysis for plant
-                % printf('\nReachability analysis for the plant \n');
                 obj.controlSet = [obj.controlSet U1];
                 R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
                 obj.reachSetTree.addReachSet(R, i);                 
             end
+            % Save reach data
             reachTime = toc(start_time);
             obj.reachTime = reachTime;
             P = obj.reachSetTree.flatten();
@@ -367,7 +366,7 @@ classdef NonlinearNNCS < handle
         end
         
         % simulate (evaluate) the nncs with specific input and initial state of the plant
-        function [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input)
+        function [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input, exeFirst)
             % Syntax:
             % [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input)
             %
@@ -399,51 +398,47 @@ classdef NonlinearNNCS < handle
                     error('Invalid reference input vector');
                 end
             end
+
+            if nargin > 5 % exeFirst exists (6 inputs)
+                obj.execFirst = exeFirst;
+            end
             
-            %ts = obj.plant.reachStep;
-%             [~,y1] = obj.plant.evaluate([0 step], x0, zeros(obj.plant.nI,1)); % first step simulation
-            [~,y1] = obj.plant.evaluate(x0, zeros(obj.plant.nI,1)); % first step simulation
-            n = size(y1, 1);
+            % Initialize variables
             obj.simTrace = [];
             obj.controlTrace = [];
-            obj.simTrace = [obj.simTrace y1(n, :)'];
             obj.controlTrace = zeros(obj.controller.nO, 1); % control signal of the first step is zero
-      
-            if n_steps >= 2
+            
+            % Begin simulation
+            for i=2:n_steps + 1
                 
-                for i=2:n_steps
-                    
-                    % construct input to the controller
-                    l = size(obj.simTrace, 2);
-                    m = size(obj.feedbackMap, 1);
-                    I = [];
-              
-                    for j=1:m
-              
-                        if l - obj.feedbackMap(j) <= 0
-                            I1 = zeros(obj.plant.nO, 1); 
-                            I = [I; I1];
-                        else
-                            I2 = obj.plant.C * obj.simTrace(:, l - obj.feedbackMap(j));
-                            I = [I; I2];
-
-                        end 
-
-                    end
-                    
-                    I = [ref_input; I];
-                   
-                    % compute control signal
-                    u = obj.controller.evaluate(I);
-                    % compute states of the plant                  
-%                     [~,y1] = obj.plant.evaluate([0 step], obj.simTrace(:, i-1), u); % first step simulation
-                    [~,y1] = obj.plant.evaluate(obj.simTrace(:, i-1), u); % first step simulation
-                    n = size(y1, 1);
-                    obj.simTrace = [obj.simTrace y1(n, :)']; % store computed states to simTrace                    
-                    obj.controlTrace = [obj.controlTrace u]; % store control input to controlTrace
+                % construct input to the controller
+                l = size(obj.simTrace, 2);
+                m = size(obj.feedbackMap, 1);
+                I = [];
+                for j=1:m
+                    if l - obj.feedbackMap(j) <= 0
+                        I1 = zeros(obj.plant.nO, 1); 
+                        I = [I; I1];
+                    else
+                        I2 = obj.plant.C * obj.simTrace(:, l - obj.feedbackMap(j));
+                        I = [I; I2];
+                    end 
                 end
-                               
+                I = [ref_input; I];
+               
+                % compute control signal
+                if i == 2 && strcmp(obj.execFirst, 'controller')
+                    u = obj.controller.evaluate(I);
+                else
+                    u = zeros(obj.plant.nI,1);
+                end
+                % compute states of the plant                  
+                [~,y1] = obj.plant.evaluate(obj.simTrace(:, i-1), u); % first step simulation
+                n = size(y1, 1);
+                obj.simTrace = [obj.simTrace y1(n, :)']; % store computed states to simTrace                    
+                obj.controlTrace = [obj.controlTrace u]; % store control input to controlTrace
             end
+                               
             obj.simTrace = [x0 obj.simTrace]; % add initial state to simtrace            
             simTrace = obj.simTrace;
             controlTrace = obj.controlTrace;
@@ -515,7 +510,7 @@ classdef NonlinearNNCS < handle
             for i=1:n_samples
                 
                 if isempty(Z) % no reference input
-                     [sim_traces{1, i}, control_traces{1, i}] = obj.evaluate(step, n_steps, V(:, i), []);
+                    [sim_traces{1, i}, control_traces{1, i}] = obj.evaluate(step, n_steps, V(:, i), []);
                 else
                     [sim_traces{1, i}, control_traces{1, i}] = obj.evaluate(step, n_steps, V(:, i), Z(:, i));
                 end
@@ -662,6 +657,7 @@ classdef NonlinearNNCS < handle
             verifyTime = toc(t);
             
         end
+    
     end
     
     

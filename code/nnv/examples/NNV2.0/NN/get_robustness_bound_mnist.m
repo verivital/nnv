@@ -1,4 +1,4 @@
-% function get_robustness_bound_mnist()
+function get_robustness_bound_mnist()
 
 % This mnist network was trained with a single output in a regression
 % manner. The output of the network is continuous, and the idx
@@ -86,4 +86,4 @@
     
     toc(t);
 
-% end
+end

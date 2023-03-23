@@ -1,4 +1,4 @@
-function verify_segmentation_m2nist_dilated()
+function verify_segmentation_m2nist_dilated() %TODO
     % Run a segmentation example using a segnet with transposed convolution
     
     % Load network

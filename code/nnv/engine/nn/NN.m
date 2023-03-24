@@ -13,6 +13,7 @@ classdef NN < handle
     % Notes: Code is based on the previous CNN and FFNNS classes written by
     %             Dr. Hoang Dung Tran
     % This is a generalized class, created in the refactoring of NNV in 2023 (NNV 2.0)
+    %    It supports FFNNS, CNN, SEGNET, BNN and RNN from previous NNV version
     
     properties
         
@@ -32,8 +33,8 @@ classdef NN < handle
         reachSet = [];  % reachable set for each layers
         reachTime = []; % computation time for each layers
         features = {}; % outputs of each layer in an evaluation
-        input_vals = {}; % input values to each layer
-        input_sets = {}; % input set values for each layer
+        input_vals = {}; % input values to each layer (cell array of cells of layer input values)
+        input_sets = {}; % input set values for each layer (cell array of cells of layer input sets)
         dis_opt = []; % display option = 'display' or []
         lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set user can choose 'glpk' or 'linprog' as an LP solver
         
@@ -113,7 +114,7 @@ classdef NN < handle
                       
         end
         
-        % Evaluation of a NN (TODO: update for layers with multiple connections)
+        % Evaluation of a NN (test it)
         function y = evaluate(obj, x)
             % Evaluate NN given an input sample
             % y = NN.evaluate(x)
@@ -157,7 +158,7 @@ classdef NN < handle
             end
         end
 
-        % Define the reachability function for any general NN
+        % Define the reachability function for any general NN (test it)
         function outputSet = reach(obj, inputSet, reachOptions)
             % inputSet: input set (type -> Star, ImageStar, Zono or ImageZono)   
             % reachOptions: reachability options for NN (type -> struct)
@@ -171,8 +172,6 @@ classdef NN < handle
             %           lp_solver ('glpk', 'linprog') -> default = 'glpk'
 
             % Parse the inputs
-
-            % TODOs: update display functions
 
             % Ensure input set is a valid type
             if ~ isa(inputSet,"Star") && ~ isa(inputSet,"ImageStar") && ~ isa(inputSet,"ImageZono") && ~ isa(inputSet,"Zono") 
@@ -213,45 +212,16 @@ classdef NN < handle
                 obj.reachOption = 'parallel';
             end
 
-            % Initialize variables to store reachable sets and computation time
-            obj.reachSet = cell(1, height(obj.Connections)); % store input reach sets for each layer
-            obj.reachTime = zeros(1, height(obj.Connections)); % store computation time for each connection 
-
             % Debugging option
             if strcmp(obj.dis_opt, 'display')
                 fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
             end
-
-            % Begin reachability computation
-            obj.reachSet{1} = inputSet;
-            for i=1:height(obj.Connections)
-                if strcmp(obj.dis_opt, 'display')
-                    fprintf('\nPerforming analysis for Layer (%s) \n', obj.Layers{obj.Connections.Source(i)});
-                end
-                rs = obj.reachSet{obj.Connections.Source(i)}; 
-                % Compute reachable set layer by layer
-                start_time = tic;
-                rs_new = obj.Layers{obj.Connections.Source(i)}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
-                obj.reachTime(i) = toc(start_time);
-                % Store computed reach set
-                if i < height(obj.Connections) % (Last number in destinations is the output)
-                    obj.reachSet{obj.Connections.Destination(i)} = rs_new; % store layer input 
-                end
-            end
-            if strcmp(obj.dis_opt, 'display')
-                fprintf('Reachability analysis for the network %s is done in %.5f seconds \n', obj.Name, sum(obj.reachTime));
-                fprintf('The number ImageStar in the output sets is: %d \n', length(rs_new));
-            end
-            % Output of the function
-%             obj.totalReachTime = sum(obj.reachTime);
-            if length(obj.reachSet) < obj.Connections.Destination(end) && length(obj.Layers) >= obj.Connections.Destination(end)
-                rs = rs_new; 
-                % Compute reachable set layer by layer
-                start_time = tic;
-                outputSet = obj.Layers{obj.Connections.Destination(end)}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
-                obj.reachTime(i) = toc(start_time);
+            
+            % Perform reachability based on connections or assume no skip/sparse connections
+            if isempty(obj.Connections)
+                outputSet = obj.reach_noConns(inputSet);
             else
-                outputSet = rs_new;
+                outputSet = obj.reach_withConns(inputSet);
             end
 
         end
@@ -648,9 +618,9 @@ classdef NN < handle
     end % end verification methods
 
 
-    methods % specific NN type  methods
+    methods % specific NN methods (sequence, classification, semantic seg...)
         
-        % verify robustness of semantic segmentation tasks
+        % verify robustness of semantic segmentation tasks (CAV2021)
         function [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify_segmentation(obj, in_images, ground_truths, reachOptions)
             % 
             % --- Syntax ----
@@ -1007,7 +977,7 @@ classdef NN < handle
             end
         end
         
-        % evaluate NN based on connections table (TODO)
+        % evaluate NN based on connections table (test it)
         function y = evaluate_withConns(obj, x)
             % Evaluate layer-by-layer based on connection graph
             for i=1:height(obj.Connections)
@@ -1042,7 +1012,7 @@ classdef NN < handle
                     if isa(obj.Layers{dest_indx}, 'MaxUnpooling2DLayer')
                         destP = dest{2};
                         if strcmp(destP, 'in')
-                            obj.input_vals{dest_indx} = y; % store layer input
+                            obj.input_vals{dest_indx} = {y}; % store layer input
                         elseif strcmp(destP, 'indices')
                             obj.Layers{dest_indx}.MaxPoolIndx = obj.Layers{source_indx}.MaxIndx;
                         elseif strcmp(destP, 'size')
@@ -1050,24 +1020,66 @@ classdef NN < handle
                         else
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
+                    % concatenation layers (2 or more inputs with specific order {in1, in2, ... inX})
                     elseif contains(obj.Layers{dest_indx}, 'Concatenation')
                         destP = dest{2};
-                        
+                        if startsWith(destP, 'in')
+                            input_num = str2double(destP(3:end));
+                        else
+                            error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                        end
+                        obj.input_vals{dest_indx}{input_num} = y;
                     else
                         error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                     end
+                else
+                    obj.input_vals{dest_indx} = {y};
                 end
-                
-%                 if i < height(obj.Connections) % (Last number in destinations is the output)
-%                     obj.input_vals{obj.Connections.Destination(i)} = y; % store layer input 
-%                 end
+
             end
         end
-    
+        
+        % reach NN when no connections are defined (test it)
+        function outSet = reach_noConns(obj, inSet)
+            % Initialize variables
+            obj.reachSet = cell(1, obj.numLayers);
+            obj.reachTime = zeros(1, obj.numLayers);
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
+            end
+            % Begin reach set computation
+            rs = inSet;
+            for i=2:obj.numLayers+1
+                if strcmp(obj.dis_opt, 'display')
+                    fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
+                end
+                start_time = tic;
+                rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                obj.reachTime(i-1) = toc(start_time); % track reach time for each layer
+                rs = rs_new; % get input set to next layer
+                obj.reachSet{i-1} = rs_new; % store output set for layer
+            end
+            % Store results
+            obj.totalReachTime = sum(obj.reachTime);
+            outSet = rs_new;
+            obj.outputSet = rs_new;
+        end
+
+        % reach NN based on connections table (TODO, follow evaluation procedure)
+        function outSet = reach_withConns(obj, inSet)
+
+            % Initialize variables to store reachable sets and computation time
+            obj.reachSet = cell(1, height(obj.Connections)); % store input reach sets for each layer
+            obj.reachTime = zeros(1, height(obj.Connections)); % store computation time for each connection 
+
+            % Begin reachability computation
+            outSet = inSet; 
+        end
+
     end % end helper functions
     
     % semantic segmentation helper functions
-    methods (Access = protected) 
+    methods (Access = protected)
     
          % get possible classes of all pixels
         function pc_rs = getPixelClassReachSet(obj, rs_id)

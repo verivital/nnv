@@ -4,10 +4,10 @@ classdef MaxUnpooling2DLayer < handle
     % Main references:
     % 1) https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.maxunpooling2dlayer.html
     %    
+    % Dung Tran: 4/14/2020
     %
-    %   Dung Tran: 4/14/2020
     % update: change parameters and eval function to adjust for connection
-    % graph based computation in NN (Diego Manzanas, 03/27/2023)
+    %     graph based computation in NN (Diego Manzanas, 03/27/2023)
     
     properties
         Name = 'max_unpooling_2d_layer';
@@ -22,10 +22,10 @@ classdef MaxUnpooling2DLayer < handle
     end
     
     
-    methods
+    methods % constructor, evaluate and set/get methods
         
         % constructor of the class
-        function obj = MaxUnpooling2DLayer(varargin)           
+        function obj = MaxUnpooling2DLayer(varargin)
             % author: Dung Tran
             % date: 4/14/2020    
             % update: 
@@ -33,7 +33,6 @@ classdef MaxUnpooling2DLayer < handle
             switch nargin
                 
                 case 5
-                    
                     name = varargin{1};
                     numInputs = varargin{2};
                     inputNames = varargin{3};
@@ -60,7 +59,6 @@ classdef MaxUnpooling2DLayer < handle
                         error('OutputNames should be a cell');
                     end
                     
-                    
                     obj.Name = name;
                     obj.NumInputs = numInputs;
                     obj.InputNames = inputNames;
@@ -68,7 +66,6 @@ classdef MaxUnpooling2DLayer < handle
                     obj.OutputNames = outputNames;
                     
                 case 3
-                    
                     name = varargin{1};
                     numInputs = varargin{2};
                     inputNames = varargin{3};
@@ -112,12 +109,9 @@ classdef MaxUnpooling2DLayer < handle
                     obj.InputNames = inputNames;
                     
                 case 0
-                    
                     obj.Name = 'max_unpooling_2d_layer';
-                                                        
                 otherwise
                     error('Invalid number of inputs (should be 0 or 3)');
-                                 
             end 
              
         end
@@ -165,9 +159,8 @@ classdef MaxUnpooling2DLayer < handle
             obj.PairedMaxPoolingName = maxpooling_layer_name;
         end
         
-        
-        % evaluation (TODO)
-        function y = evaluate(~, input, indx, outputSize)
+        % evaluation
+        function y = evaluate(obj, input)
             % @input: input image
             % @indx: max index
             % @outputSize: inputSie
@@ -177,7 +170,7 @@ classdef MaxUnpooling2DLayer < handle
             % date:4/19/2020
             
             dlX = dlarray(input, 'SSC');
-            dlY = maxunpool(dlX, indx, outputSize); 
+            dlY = maxunpool(dlX, obj.MaxPoolIndx, obj.MaxPoolSize); 
             y = extractdata(dlY);
             
         end
@@ -185,8 +178,9 @@ classdef MaxUnpooling2DLayer < handle
     end
     
     
-    methods % reachability method
+    methods % reachability methods
         
+        % step reach star computation
         function R = stepReachStar_singleInput(~, in_R, max_points, V, lb, ub)
             % @in_R: intermediate ImageStar
             % @max_points: max-point idexes
@@ -196,7 +190,6 @@ classdef MaxUnpooling2DLayer < handle
             
             % author: Dung Tran
             % date:4/28/2020
-            
             
             N = size(max_points, 1); % number of local max points
             R = [];
@@ -215,8 +208,7 @@ classdef MaxUnpooling2DLayer < handle
             end
         end
         
-        
-        
+        % step reach star for multiple inputs
         function R = stepReachStar_multipleInputs(obj, in_R, max_points, V, lb, ub)
             % @in_R: an array of intermediate ImageStar
             % @max_points: max-point idexes
@@ -235,14 +227,13 @@ classdef MaxUnpooling2DLayer < handle
             
         end
         
-        
+        % core reachability algo 
         function R = reach_star(obj, IS)
             % @IS: input ImageStar
             % @R: output ImageStars
             
             % author: Dung Tran
             % date: 4/27/2020
-            
             
             n = length(IS.MaxIdxs);
             newMaxIdxs = IS.MaxIdxs;
@@ -289,7 +280,6 @@ classdef MaxUnpooling2DLayer < handle
             
         end
         
-        
         % reach star with multiple inputs
         function IS = reach_star_multipleInputs(obj, in_images, option)
             % @in_images: an array of imagestar input sets
@@ -299,17 +289,13 @@ classdef MaxUnpooling2DLayer < handle
             % author: Dung Tran
             % date: 4/28/2020
             
-            
             n = length(in_images);
             IS = [];
             if strcmp(option, 'parallel')
-                
                 parfor i=1:n
                     IS = [IS obj.reach_star(in_images(i))];
                 end
-                
             elseif isempty(option) || strcmp(option, 'single')
-                
                 for i=1:n
                     IS = [IS obj.reach_star(in_images(i))];
                 end
@@ -317,15 +303,9 @@ classdef MaxUnpooling2DLayer < handle
                 error('Unknown computation option');
             end
             
-            
         end
         
-                
-    end
-    
-    methods % main reachability method 
-        
-        % general functio for reachability analysis
+        % general function for reachability analysis
         function IS = reach(varargin)
             % @in_images: an input imagestar
             % @IS: output set
@@ -336,51 +316,68 @@ classdef MaxUnpooling2DLayer < handle
              
             switch nargin
                 
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+%                     dis_opt = varargin{6}; 
+%                     lp_solver = varargin{7}; 
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+%                     dis_opt = varargin{6};
+%                     lp_solver = 'linprog';
+                
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
                     %relaxFactor = varargin{5}; do not use
-                
+%                     dis_opt = [];
+%                     lp_solver = 'linprog';
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                
+%                     dis_opt = [];
+%                     lp_solver = 'linprog';
+                 
                 case 3
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = [];
+%                     dis_opt = [];
+%                     lp_solver = 'linprog';
                 
                 otherwise
-                    error('Invalid number of input arguments (should be 2, 3 or 4)');
+                    error('Invalid number of input arguments.');
             end
             
-            if strcmp(method, 'approx-star')||strcmp(method, 'exact-star') || contains(method, 'relax-star')
-                IS = obj.reach_star_multipleInputs(in_images, option);
-            elseif strcmp(method, 'abs-dom')
-                % abs-domain works similarly to approx-star method for unmax
-                % pooling layer
+            % Choose reach function
+            if strcmp(method, 'approx-star')||strcmp(method, 'exact-star') || contains(method, 'relax-star') || strcmp(method, 'abs-dom')
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
-                error('NNV havenot yet support approx-zono method');
+                error('NNV hav enot yet support approx-zono method');
             else
                 error('Unknown reachability method');
             end
    
         end
-        
-        
+    
     end
     
     
-    methods(Static)
-       
-        
-        
+    methods(Static) % parsing matlab layer
+
         % parse a trained MaxUnPooling2dLayer from matlab
         function L = parse(max_unpooling_2d_layer, conns)
             % @max_unpooling_2d_Layer: an MaxUnPooling2DLayer from matlab deep
@@ -390,11 +387,9 @@ classdef MaxUnpooling2DLayer < handle
             % author: Dung Tran
             % date: 4/14/2020
             
-            
             if ~isa(max_unpooling_2d_layer, 'nnet.cnn.layer.MaxUnpooling2DLayer')
                 error('Input is not a Matlab nnet.cnn.layer.MaxUnpooling2DLayer class');
             end
-            
             L = MaxUnpooling2DLayer(max_unpooling_2d_layer.Name, max_unpooling_2d_layer.NumInputs, max_unpooling_2d_layer.InputNames, max_unpooling_2d_layer.NumOutputs, max_unpooling_2d_layer.OutputNames);
             L.getPairedMaxPoolingName(conns, max_unpooling_2d_layer.Name);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
@@ -402,8 +397,6 @@ classdef MaxUnpooling2DLayer < handle
         end
         
     end
-    
-    
     
 end
 

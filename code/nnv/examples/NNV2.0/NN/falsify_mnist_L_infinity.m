@@ -12,7 +12,7 @@ function falsify_mnist_L_infinity()
     rng(0); 
 
     % Load network info
-    NNinfo = load('models/fc_6_141.mat');
+    NNinfo = load('models/fc_6_141_mnist.mat');
     NNinfo = NNinfo.mnist_model;
     
     % Create NN

@@ -25,6 +25,9 @@ function reach_NonLinearODE_fpa()
     t = tic;
     R = model.stepReachStar(init_set,input_set);
     toc(t);
+
+    % Get all sets
+    model.get_interval_sets;
     Rall = model.intermediate_reachSet;
 
     % Visualize results

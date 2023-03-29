@@ -38,12 +38,6 @@ function nn = load_NN_from_mat(matfile)
             layer_count = layer_count + 1;
         end
     end
-
-    % Create connections table (series, no jumps in connections)
-    N = length(Layers);
-    sources = 1:N;
-    dests = 2:N+1;
-    Connections = table(sources', dests', 'VariableNames', {'Source', 'Destination'});
     
     % Get output size of network from last fullyconnected layer
     for l = length(Layers):-1:1
@@ -53,7 +47,7 @@ function nn = load_NN_from_mat(matfile)
     end
 
     % Create the NN object
-    nn = NN(Layers, Connections, Layers{1}.InputSize, outputSize, 'nn'); % cell array of layer, connection table, input size, output size, name
+    nn = NN(Layers, Layers{1}.InputSize, outputSize, 'nn'); % cell array of layer, connection table, input size, output size, name
 end
 
 %% Helper function

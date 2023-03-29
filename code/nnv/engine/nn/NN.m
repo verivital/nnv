@@ -30,7 +30,7 @@ classdef NN < handle
         relaxFactor = 0; % default - solve 100% LP optimization for finding bounds in 'approx-star' method
         reachOption = []; % parallel option, default - non-parallel computing
         numCores = 1; % number of cores (workers) using in computation
-        reachSet = [];  % reachable set for each layers
+        reachSet = {};  % reachable set for each layers
         reachTime = []; % computation time for each layers
         features = {}; % outputs of each layer in an evaluation
         input_vals = {}; % input values to each layer (cell array of cells of layer input values)
@@ -114,17 +114,13 @@ classdef NN < handle
                       
         end
         
-        % Evaluation of a NN (test it)
+        % Evaluation of a NN (test it, fix for neuralode with multiple outputs)
         function y = evaluate(obj, x)
             % Evaluate NN given an input sample
             % y = NN.evaluate(x)
             % @x: input vector x
             % @y: output vector y
             
-            % reset eval related parameters
-            obj.features = {};
-            obj.input_vals = {};
-
             % Two options to exectute evaluation
             % 1) Connections are defined
             if ~isempty(obj.Connections)
@@ -621,14 +617,14 @@ classdef NN < handle
     methods % specific NN methods (sequence, classification, semantic seg...)
         
         % verify robustness of semantic segmentation tasks (CAV2021)
-        function [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify_segmentation(obj, in_images, ground_truths, reachOptions)
+        function [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs, eval_seg_ims] = verify_segmentation(obj, in_images, ground_truths, reachOptions)
             % 
             % --- Syntax ----
-            % [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs] = verify(obj, in_images, ground_truths, reachOptions)
+            % [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs, eval_seg_ims] = verify(obj, in_images, ground_truths, reachOptions)
             %
             % ---- Inputs ----
             % @in_images: an array of input set(s)
-            % @ground_truths: an array of ground truth images (without attack)
+            % @ground_truths: an array of ground truth images (input images without attack)
             % @reachOptions: reachability parameters
             %
             % ---- Outputs ----
@@ -640,12 +636,13 @@ classdef NN < handle
             % @n_unk: number of unknown pixels
             % @n_att: number of attacked pixels
             % @ver_rs: verified output reachable set, used for plot
+            % @eval_seg_ims: evaluated output labels, used for plot
             
             % Process inputs
             n1 = length(ground_truths);
             n2 = length(in_images);
-            if n1 ~= n2
-                error("Inconsistent number of ground truth images and input sets");
+            if n1 ~= n2 || n1 ~= 1
+                error("Inputs must be one image as input (ImageStar) and a 1x1 cell containing ground truth labels");
             end
             
             % Initialize output variables
@@ -660,12 +657,18 @@ classdef NN < handle
                        
             % compute reachable set
             obj.reach(in_images, reachOptions);
+            Rout = obj.reachSet{end-1}; % reachset prior to output layer
             
             % compute ground truth output segmentation image
-            gr_seg_ims = obj.evaluate_parallel(ground_truths, nCores);
+            eval_seg_ims = obj.evaluate_parallel(ground_truths);
             
             % compute number of correctly classified pixels
-            n_pixels = obj.OutputSize(1) * obj.OutputSize(2);
+            if obj.OutputSize == 0 % unspecified
+                outS = obj.Layers{end}.OutputSize;
+                n_pixels = outS(1) * outS(2);
+            else % specfied when defining NN
+                n_pixels = obj.OutputSize(1) * obj.OutputSize(2);
+            end
                         
             % obtain verify rearch set
             % 'unknown': the label of the pixel is unknown, may be correct may be not
@@ -674,12 +677,13 @@ classdef NN < handle
             % we introduce 2 more classes for the reachable set
             % 1) unknown class
             % 2) misclassification class
+            numClasses = length(obj.Layers{end}.Classes);
                       
             if obj.numCores > 1
                 parfor i=1:n1
 
-                    gr_seg_im = gr_seg_ims{i};
-                    pc_rs = obj.getPixelClassReachSet(i);
+                    gr_seg_im = eval_seg_ims{i};
+                    pc_rs = obj.getPixelClassReachSet(Rout, i);
                     [h, w] = size(pc_rs);
                     ver_im = zeros(h, w);
                     n_mis_ct = 0;
@@ -693,16 +697,16 @@ classdef NN < handle
                                 if pc == gr_seg_im(j,k)
                                     ver_im(j,k) = pc; %(robust pixel)
                                 else
-                                    ver_im(j,k) = obj.numClasses; % misclass (unrobust pixel)
+                                    ver_im(j,k) = numClasses; % misclass (unrobust pixel)
                                     n_mis_ct = n_mis_ct + 1;
                                 end
                             else
                                 c = (pc == gr_seg_im(j, k));
                                 if sum(c) ~= 0
                                     n_unk_ct = n_unk_ct + 1;
-                                    ver_im(j,k) = obj.numClasses - 1; % unknown pixel
+                                    ver_im(j,k) = numClasses - 1; % unknown pixel
                                 else
-                                    ver_im(j,k) = obj.numClasses; % unrobust pixel
+                                    ver_im(j,k) = numClasses; % unrobust pixel
                                     n_mis_ct = n_mis_ct + 1;
                                 end
                                 
@@ -724,13 +728,13 @@ classdef NN < handle
             else
                  for i=1:n1
 
-                    gr_seg_im = gr_seg_ims{i};
-                    pc_rs = obj.getPixelClassReachSet(i);
+                    gr_seg_im = eval_seg_ims{i};
+                    pc_rs = obj.getPixelClassReachSet(Rout, i);
                     [h, w] = size(pc_rs);
                     ver_im = zeros(h, w);
                     n_mis_ct = 0;
                     n_unk_ct = 0;                  
-                    n_att(i) = in_images(i).getNumAttackedPixels; 
+                    n_att(i) = in_images(i).getNumAttackedPixels;
 
                     for j=1:h
                         for k=1:w
@@ -739,16 +743,16 @@ classdef NN < handle
                                 if pc == gr_seg_im(j,k)
                                     ver_im(j,k) = pc; %(robust pixel)
                                 else
-                                    ver_im(j,k) = obj.numClasses; % misclass (unrobust pixel)
+                                    ver_im(j,k) = numClasses; % misclass (unrobust pixel)
                                     n_mis_ct = n_mis_ct + 1;
                                 end
                             else
                                 c = (pc == gr_seg_im(j, k));
                                 if sum(c) ~= 0
                                     n_unk_ct = n_unk_ct + 1;
-                                    ver_im(j,k) = obj.numClasses - 1; % unknown pixel
+                                    ver_im(j,k) = numClasses - 1; % unknown pixel
                                 else
-                                    ver_im(j,k) = obj.numClasses; % unrobust pixel
+                                    ver_im(j,k) = numClasses; % unrobust pixel
                                     n_mis_ct = n_mis_ct + 1;
                                 end
                                 
@@ -768,19 +772,6 @@ classdef NN < handle
                     rs(i) = (n_mis_ct + n_unk_ct)/n_att(i);
                 end
             end
-            
-            
-            obj.verifiedOutputSet = ver_rs;
-            obj.groundTruthSegIms = gr_seg_ims;
-            obj.RIoU = riou;
-            obj.RV = rv;
-            obj.RS = rs;
-            
-            obj.numRbPixels = n_rb;
-            obj.numMisPixels = n_mis;
-            obj.numUnkPixels = n_unk;
-            obj.numPixels = n_pixels;
-            obj.numAttPixels = n_att;
             
         end
         
@@ -971,6 +962,8 @@ classdef NN < handle
         % evaluate NN when no connections are defined
         function y = evaluate_noConns(obj, x)
             y = x;
+            % reset eval related parameters
+            obj.features = cell(1, length(obj.Layers));
             for i=1:obj.numLayers
                 y = obj.Layers{i}.evaluate(y);
                 obj.features{i} = y;
@@ -979,6 +972,10 @@ classdef NN < handle
         
         % evaluate NN based on connections table (test it)
         function y = evaluate_withConns(obj, x)
+            % rest eval values
+            obj.features = cell(1, obj.numLayers); % store output for each layer
+            obj.input_vals = cell(1, obj.numLayers); % store input for each layer
+           
             % Evaluate layer-by-layer based on connection graph
             for i=1:height(obj.Connections)
                 % 1) Get name and index of layer
@@ -991,14 +988,18 @@ classdef NN < handle
                 % 2) Get input to layer
                 if i > 1
                     x = obj.input_vals{source_indx}; % get inputs to layer unless it's the first layer
+                else
+                    obj.input_vals{1} = x;
                 end
                 
                 % 3) evaluate layer
                 exec_len = length(obj.features);
                 % ensure layer has not been evaluated yet
-                if exec_len >= source_indx && isempty(obj.features{source_indx})
+                if isempty(obj.features{source_indx})
                     y = obj.Layers{source_indx}.evaluate(x);
                     obj.features{source_indx} = y;
+                else
+
                 end
                 
                 % 4) save inputs to destination layer
@@ -1012,7 +1013,7 @@ classdef NN < handle
                     if isa(obj.Layers{dest_indx}, 'MaxUnpooling2DLayer')
                         destP = dest{2};
                         if strcmp(destP, 'in')
-                            obj.input_vals{dest_indx} = {y}; % store layer input
+                            obj.input_vals{dest_indx} = y; % store layer input
                         elseif strcmp(destP, 'indices')
                             obj.Layers{dest_indx}.MaxPoolIndx = obj.Layers{source_indx}.MaxIndx;
                         elseif strcmp(destP, 'size')
@@ -1033,9 +1034,16 @@ classdef NN < handle
                         error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                     end
                 else
-                    obj.input_vals{dest_indx} = {y};
+                    obj.input_vals{dest_indx} = y;
                 end
-
+            end
+            % Check if last layer is executed (default is last layer is not executed, but in the 
+            % case of the PixelClassificationLayer this is necessary)
+            % Assume last layer in array is the output layer
+            if isempty(obj.features{end})
+                x = obj.input_vals{end};
+                y = obj.Layers{end}.evaluate(x);
+                obj.features{end} = y;
             end
         end
         
@@ -1059,67 +1067,123 @@ classdef NN < handle
                 rs = rs_new; % get input set to next layer
                 obj.reachSet{i-1} = rs_new; % store output set for layer
             end
-            % Store results
-            obj.totalReachTime = sum(obj.reachTime);
+            % Output
             outSet = rs_new;
-            obj.outputSet = rs_new;
         end
 
-        % reach NN based on connections table (TODO, follow evaluation procedure)
+        % reach NN based on connections table (test it)
         function outSet = reach_withConns(obj, inSet)
-
             % Initialize variables to store reachable sets and computation time
-            obj.reachSet = cell(1, height(obj.Connections)); % store input reach sets for each layer
-            obj.reachTime = zeros(1, height(obj.Connections)); % store computation time for each connection 
+            obj.reachSet = cell(1, obj.numLayers);
+            obj.reachTime = zeros(1, obj.numLayers);
+            obj.input_sets = cell(1, height(obj.Connections)); % store input reach sets for each layer
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
+            end
 
             % Begin reachability computation
-            outSet = inSet; 
+            for i=1:height(obj.Connections)
+                % 1) Get name and index of layer
+                source = obj.Connections.Source(i);
+                % ensure we get just the name and not specific properties
+                source = split(source, '/');
+                source = source{1};
+                source_indx = obj.name2indx(source); % indx in Layers array
+                
+                % 2) Get input to layer
+                if i > 1
+                    inSet = obj.input_sets{source_indx}; % get inputs to layer unless it's the first layer
+                end
+                
+                % 3) reach layer
+                exec_len = length(obj.reachSet);
+                % ensure layer has not been eexcuted yet
+                if exec_len >= source_indx && isempty(obj.reachSet{source_indx})
+                    outSet = obj.Layers{source_indx}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                    obj.reachSet{source_indx} = outSet;
+                end
+                
+                % 4) save inputs to destination layer
+                dest = obj.Connections.Destination(i);
+                dest = split(dest, '/');
+                dest_name = dest{1};
+                dest_indx = obj.name2indx(dest_name); % indx in Layers array
+                % check if there source has multiple inputs (concat layer, unpooling ...)
+                if length(dest) > 1
+                    % unpooling option
+                    if isa(obj.Layers{dest_indx}, 'MaxUnpooling2DLayer')
+                        destP = dest{2};
+                        if strcmp(destP, 'in')
+                            obj.input_sets{dest_indx} = outSet; % store layer input
+                        elseif strcmp(destP, 'indices')
+                            obj.Layers{dest_indx}.MaxPoolIndx = obj.Layers{source_indx}.MaxIndx;
+                        elseif strcmp(destP, 'size')
+                            obj.Layers{dest_indx}.MaxPoolSize = obj.Layers{source_indx}.InputSize;
+                        else
+                            error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                        end
+                    % concatenation layers (2 or more inputs with specific order {in1, in2, ... inX})
+                    elseif contains(obj.Layers{dest_indx}, 'Concatenation')
+                        destP = dest{2};
+                        if startsWith(destP, 'in')
+                            input_num = str2double(destP(3:end));
+                        else
+                            error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                        end
+                        obj.input_sets{dest_indx}{input_num} = outSet;
+                    else
+                        error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                    end
+                else
+                    obj.input_sets{dest_indx} = outSet;
+                end
+            end
+            % Check if last layer is executed (default is last layer is not executed, but in the 
+            % case of the PixelClassificationLayer this is necessary)
+            % Assume last layer in array is the output layer
+            if isempty(obj.reachSet{end})
+                inSet = obj.input_sets{end};
+                outSet = obj.Layers{end}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                obj.reachSet{end} = outSet;
+            end
         end
 
     end % end helper functions
     
-    % semantic segmentation helper functions
-    methods (Access = protected)
+    
+    methods % semantic segmentation helper functions
     
          % get possible classes of all pixels
-        function pc_rs = getPixelClassReachSet(obj, rs_id)
+        function pc_rs = getPixelClassReachSet(obj, R, rs_id)
             % pc_rs = getPixelClassReachSet(obj, rs_id)
             % @rs_id: reach set id
             % @pc_rs: pixel class reach set
             
-            if isempty(obj.reachSet)
-                error('Empty reach set, please do reachability analysis first');
-            end
-            
-            if rs_id < 1 || rs_id > length(obj.reachSet)
+            if rs_id < 1 || rs_id > length(R)
                 error('Invalid reach set index');
             end
             
-            rs = obj.reachSet(rs_id);
+            rs = R(rs_id);
             h = rs.height;
             w = rs.width;
             pc_rs = cell(h, w);
             
             for i=1:h
                 for j=1:w
-                    pc_rs{i, j} = obj.getPixelClasses(rs_id, i,j);
+                    pc_rs{i, j} = obj.getPixelClasses(R, rs_id, i, j);
                 end
             end      
         end
         
         % get all possible classes of a pixels
-        function pc = getPixelClasses(obj, rs_id, h_id, w_id)
+        function pc = getPixelClasses(~, R, rs_id, h_id, w_id)
             % pc = getPixelClasses(obj, rs_id, h_id, w_id)
             % @rs_id: reach set id
             % @h_id: height index of the pixel
             % @w_id; width index of the pixel
             % @pc: an array of all possible classes of the pixel x(h_id, w_id)
-
-            if isempty(obj.reachSet)
-                error('Reach Set is empty, please perform reachability first');
-            end
             
-            rs = obj.reachSet(rs_id); 
+            rs = R(rs_id); 
             if h_id < 1 || h_id > rs.height
                 error('Invalid height index');
             end
@@ -1139,6 +1203,104 @@ classdef NN < handle
             max_xmin = max(xmin);
             c = (xmax >= max_xmin);
             pc = find(c);          
+        end
+        
+        % Plot verification result of segmentation task
+        function [f1, f2] = plot_segmentation_output_set(obj, verifiedOutput, segImg, figSize)
+            %
+            % ---- Syntax ----
+            % [f1, f2, f3] = plot_segmentation_output_set(obj, verifiedOutput, segImg)
+            %
+            % ---- Inputs ----
+            % @verifiedOutput: verified output of semantic segmentation NN (output of verify_segmentation)
+            % @segImgs: ground truth semantic seg images
+            % figSize (optional), e.g. [400, 400]
+            % 
+            % ---- Outputs ----
+            % @f1: figure handle of ground truth plot
+            % @f2: figure handle of verified output set plot
+            
+            % Process inputs
+            pl_rs = verifiedOutput; % verified output labels
+            pl_gr = segImg; % ground truth segmentation image      
+            gr_RGB = label2rgb(pl_gr);
+            rs_RGB = label2rgb(pl_rs);
+
+            % Get grounf truth info
+            gr_unique = unique(pl_gr);
+            m1 = length(gr_unique);
+            [IND1,in_map1] = rgb2ind(gr_RGB, m1);
+            map1 = obj.getColorMap(pl_gr, IND1, in_map1);
+            classes1 = obj.Layers{obj.numLayers}.getClasses(gr_unique); 
+            
+            % Get verified class info
+            rs_unique = unique(pl_rs);
+            m2 = length(rs_unique);
+            [IND2,in_map2] = rgb2ind(rs_RGB, m2);
+            map2 = obj.getColorMap(pl_rs, IND2, in_map2);
+            classes2 = obj.Layers{obj.numLayers}.getClasses(rs_unique); 
+        
+            % Set figure size before saving
+            if ~exist("figSize", "var")
+                figSize = [400 400];
+            end
+            
+            % Create ground truth plot
+            f1 = figure;
+            ax1 = gca;
+            imshow(gr_RGB);
+            colormap(ax1,map1);
+            cbh1 = colorbar(ax1);
+            xtick = 1/(2*m1):1/m1:1;
+            cbh1.Ticks = xtick;               
+            cbh1.TickLabels = classes1;
+            truesize(figSize);
+            
+            % Create verified output plot
+            f2 = figure;
+            ax2 = gca;
+            imshow(rs_RGB);
+            colormap(ax2,map2);
+            cbh2 = colorbar(ax2);
+            xtick = 1/(2*m2):1/m2:1;
+            cbh2.Ticks = xtick;               
+            cbh2.TickLabels = classes2;
+            truesize(figSize);
+            
+        end
+
+        % get color map corresponding to the RGB image output of label2rgb()
+        function map = getColorMap(~, C, IND, in_map)
+            % @C: is the label index matrix
+            % @IND:
+            % @in_map:
+            % @map: return color_map corresponding to the label index in C
+            
+            % author: Dung Tran
+            % date: 4/23/2020
+            
+            C_unique = unique(C);
+            n = length(C_unique);
+            [nC, mC] = size(C);
+            map = zeros(n, 3);
+            for i=1:n
+                cat = C_unique(i);
+                flag = 0;
+                for j=1:nC
+                    for k=1:mC
+                        if C(j,k) == cat
+                            id = IND(j, k) + 1;
+                            map(i, :) = in_map(id, :);
+                            flag = 1;
+                            break;
+                        end
+                    end
+                    if flag == 1
+                        break;
+                    end
+                end
+            end
+ 
         end
 
     end

@@ -50,8 +50,6 @@ function reach_random_neuralode_M()
     ub = x0+unc;
     R0 = Star(lb,ub);
     
-    % Simulation
-    y = neuralode.evaluate(x0); % Simulation
     % Reachability
     R = neuralode.reach(R0); % Reachability
     toc(t);

@@ -12,7 +12,8 @@ classdef PlaceholderLayer < handle
         Type = ''; % e.g. dropout
     end
     
-    methods
+    methods % constructor
+
         % create layer
         function obj = PlaceholderLayer(name, Ltype)
             % @name: name of the layer
@@ -20,6 +21,7 @@ classdef PlaceholderLayer < handle
             obj.Name = name;
             obj.Type = Ltype;
         end
+    
     end
         
     methods % main methods
@@ -41,11 +43,13 @@ classdef PlaceholderLayer < handle
     end
     
     methods(Static)
+        
         % parsing method
         function L = parse(layer)
             % create NNV layer 
             L = PlaceholderLayer(layer.Name, class(layer));
         end
+
     end
 
 end

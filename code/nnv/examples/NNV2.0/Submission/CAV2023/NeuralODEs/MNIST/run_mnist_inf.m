@@ -20,14 +20,12 @@ function run_mnist_inf()
         YTest(ck) = Yall(ck);
         XTest(:,:,:,ck) = double(Xall(:,:,:,ck));
     end
-    
-    cora = false; % No reach with cora, only nnv
 
     % Reach computation
     for noiseT = noise
         % Run medium network
-        reach_cnn_medium(pix,numT,noiseT,XTest,YTest,cora,'inf')
+        reach_cnn_medium(pix,numT,noiseT,XTest,YTest,'inf')
         % Run tiny network
-        reach_cnn_tiny(pix,numT,noiseT,XTest,YTest,cora,'inf');
+        reach_cnn_tiny(pix,numT,noiseT,XTest,YTest,'inf');
     end
 end

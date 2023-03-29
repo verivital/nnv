@@ -16,8 +16,9 @@ classdef ConcatenationLayer < handle
         Dim = 0 % unspecified, must be a positive integer
     end
     
-    methods
+    methods % constructor
         
+        % create layer
         function obj = ConcatenationLayer(varargin)
             % @name: name of the layer
             % @NumInputs: number of inputs
@@ -192,16 +193,16 @@ classdef ConcatenationLayer < handle
     
     
     methods(Static)
+        
         % parsing method
         function L = parse(layer)
             % create NNV layer from matlab
                       
-            if ~isa(layer, 'nnet.cnn.layer.DepthConcatenationLayer')
-                error('Input is not a depth concatenation layer');
+            if ~isa(layer, 'nnet.cnn.layer.ConcatenationLayer')
+                error('Input is not a concatenation layer');
             end
-            
             L = ConcatenationLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, layer.Dimension);
-            fprintf('\nParsing a depth concatenation layer is done successfully');
+            fprintf('\nParsing a concatenation layer is done successfully');
         end
 
     end

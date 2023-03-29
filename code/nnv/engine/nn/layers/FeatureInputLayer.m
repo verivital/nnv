@@ -18,8 +18,7 @@ classdef FeatureInputLayer < handle
     end
     
     
-    % setting hyperparameters method
-    methods
+    methods % setting hyperparameters method
         
         % constructor of the class
         function obj = FeatureInputLayer(varargin)           
@@ -45,12 +44,12 @@ classdef FeatureInputLayer < handle
             end
         end
         
-        
     end
         
     
-    methods % evaluation method
+    methods % evaluation and reachbility methods
         
+        % evaluate layer 
         function y = evaluate(obj, x)
             % @x: input image
             % @y: output image with normalization    
@@ -64,13 +63,8 @@ classdef FeatureInputLayer < handle
             end
                    
         end
-         
-    end
         
-    
-    methods % reachability methods
-        
-        % Main reachability function (TODO: update to other normalization techniques)
+        % Main star reachability function (TODO: update to other normalization techniques)
         function out_set = reach_star_single_input(obj, in_set)
             % @in_set: an input ImageStar
             % @out_set: an output ImageStar
@@ -86,7 +80,7 @@ classdef FeatureInputLayer < handle
             
         end
         
-        % handling multiple inputs
+        % handling multiple inputs (star)
         function out_sets = reach_star_multipleInputs(obj, in_sets, option)
             % @in_sets: an array of ImageStars or Stars
             % @option: = 'parallel' or 'single' or empty
@@ -118,6 +112,7 @@ classdef FeatureInputLayer < handle
             end
         end
         
+        % reachability with zonotopes
         function out_set = reach_zono(obj, in_set)
             % Operate on input set based on Normalization method
             if strcmp(obj.Normalization, 'none')
@@ -129,7 +124,7 @@ classdef FeatureInputLayer < handle
             end
         end
         
-        % handling multiple inputs
+        % handling multiple zonotope inputs
         function images = reach_zono_multipleInputs(obj, in_images, option)
             
             n = length(in_images);
@@ -144,10 +139,10 @@ classdef FeatureInputLayer < handle
                 end
             else
                 error('Unknown computation option');
-
             end
         end
         
+        % general reach function
         function images = reach(varargin)
              
             switch nargin
@@ -193,31 +188,28 @@ classdef FeatureInputLayer < handle
             else
                 error('Unknown reachability method');
             end   
-            
                       
         end
-        
         
     end
     
     
-    methods(Static)
+    methods(Static) % parse method
+
          % parse a trained input feature layer from matlab
         function L = parse(layer)
             % @layer: input layer
-            % @L: constructed layer            
+            % @L: constructed layer
+
             if ~isa(layer, 'nnet.cnn.layer.FeatureInputLayer')
                 error('Input is not a Matlab nnet.cnn.layer.FeatureInputLayer class');
             end
-            
             L = FeatureInputLayer(layer.Name, layer.InputSize, layer.Normalization, layer.NormalizationDimension,...
                 layer.Mean, layer.StandardDeviation, layer.Min, layer.Max);
-            
             fprintf('\nParsing a Matlab feature input layer is done successfully');
         end
         
     end
-    
     
 end
 

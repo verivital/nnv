@@ -1,4 +1,4 @@
-function verify_segmentation_m2nist_dilated() %TODO
+function verify_segmentation_m2nist_dilated() 
     % Run a segmentation example using a segnet with transposed convolution
     
     % Load network
@@ -47,13 +47,14 @@ function verify_segmentation_m2nist_dilated() %TODO
     C = [1; -1];
     d = [1; de-1];
     IS = ImageStar(V, C, d, 1-de, 1);
-    GrTruth = im;
+    GrTruth = {im};
     
     % Verify network
+    reachOptions.reachMethod = 'approx-star';
     t = tic;
-    [riou, rv, rs, ~, ~, ~, ~, ~] = net.verify(IS, GrTruth, "approx-star");
+    [riou, rv, rs, n_rb, n_mis, n_unk, n_att, ver_rs, eval_seg_ims] = net.verify_segmentation(IS, GrTruth, reachOptions);
     toc(t);
     % Visualize results
-    plot_segmentation_output_set(net, 1, "dilated_results_"+string(de(i)))
+    net.plot_segmentation_output_set(ver_rs{1}, eval_seg_ims{1});
 
 end

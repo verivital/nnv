@@ -23,7 +23,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver)
             if ~isempty(Aeq) || ~isempty(Beq)
                 error("Problem cannot be solved by linprog, and task not supported by glpk.")
             else
-                warning("Could not solve lp task using linprog, trying glpk now. Exitflag = " + string(exitflag));
+%                 warning("Could not solve lp task using linprog, trying glpk now. Exitflag = " + string(exitflag));
                 [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
                 if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
                     error("LP solver error. Task failed to be solved by linprog and glpk. GLPK exitflag = " + string(exitflag));
@@ -38,7 +38,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver)
     elseif strcmp(lp_solve, 'glpk')
         [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
         if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
-            warning("Task failed to be solved glpk. Trying linprog now. GLPK exitflag = " + string(exitflag));
+%             warning("Task failed to be solved glpk. Trying linprog now. GLPK exitflag = " + string(exitflag));
             options = optimoptions(@linprog, 'Display','none'); 
             options.OptimalityTolerance = 1e-10; % set tolerance
             % first try solving using linprog

@@ -55,7 +55,7 @@ function reach_cnn_tiny(pix,numT,noise,XTest,YTest,perturbation)
     
     % Create NN
     neuralLayers = {layer1, layer2, layer3, layer4, layer5, layer6, layer7, odelayer, layerout};
-    neuralode = NN(neuralLayers);
+    net = NN(neuralLayers);
     
     %% 2) Prepare data and run experiments
     
@@ -91,9 +91,9 @@ function reach_cnn_tiny(pix,numT,noise,XTest,YTest,perturbation)
     
         % Reachability computation
         t = tic;
-        Rode = neuralode.reach(inpS);
+        Rode = net.reach(inpS);
         time_ode(i) = toc(t);
-        rv = neuralode.checkRobust(Rode,YTest(i));
+        rv = net.checkRobust(Rode, YTest(i));
         rob_ode(i) = rv;
     end
     

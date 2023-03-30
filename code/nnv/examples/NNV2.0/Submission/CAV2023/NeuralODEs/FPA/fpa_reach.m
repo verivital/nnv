@@ -13,20 +13,21 @@ function fpa_reach()
     model.options.zonotopeOrder = 20;
     model.options.alg = 'lin';
     model.options.tensorOrder = 2;
+    model = ODEblockLayer(model, final_time, reachstep, true);
+    nn = NN({model});
     
     % Initial states
     x0 = [0.21535, -0.58587, 0.8, 0.52323, 0.5]';
     lb = x0 - Initial_radius;
     ub = x0 + Initial_radius;
     init_set = Star(lb,ub);
-    input_set = Star(0,0); % No inputs, but need to define it
     
     % Compute reachability analysis
     t = tic;
-    R = model.stepReachStar(init_set,input_set);
+    Rall = nn.reach(init_set);
     time = toc(t);
-    Rall = model.intermediate_reachSet;
+
     % Save results
-    save('fpa_reach.mat','Rall','time')
+    save('fpa_reach.mat','Rall','time');
 
 end

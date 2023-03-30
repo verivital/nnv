@@ -11,15 +11,11 @@ function verifyP3(reachOptionsList)
     XUpper = [-0.298552812; 0.009549297; 0.5; 0.5; 0.5];
     
     % NNV
-%     IS = Star(XLower, XUpper); % Input set
     IS = ImageStar(XLower, XUpper);
     H = [1 -1 0 0 0; 1 0 -1 0 0; 1 0 0 -1 0; 1 0 0 0 -1];
     g = [0;0;0;0];
-%     reachOpt = struct;
-%     reachOpt.reachMethod = 'approx-star';
     
     % MATLAB
-%     label = 1;
     XLower = dlarray(XLower, "CB");
     XUpper = dlarray(XUpper, "CB");
     
@@ -48,7 +44,6 @@ function verifyP3(reachOptionsList)
 
         % Verify MATLAB
         t = tic;
-%         res = verifyNetworkRobustness(netMAT, XLower, XUpper, label);
         [YLower, YUpper] = estimateNetworkOutputBounds(netMAT, XLower, XUpper);
         res = verifyMAT(YLower, YUpper);
         timeMAT(i-2) = toc(t);
@@ -69,12 +64,10 @@ function verifyP3(reachOptionsList)
         end
         resNNV = [resNNV; res];
         
-        
     end
 
     % Save results
-%     save("results_p3", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
-    save("results_p3_mat.mat", "resMAT", "timeMAT");
+    save("results_p3", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
 
 end
 

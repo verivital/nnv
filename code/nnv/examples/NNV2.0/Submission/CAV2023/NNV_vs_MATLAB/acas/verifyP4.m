@@ -6,21 +6,16 @@ function verifyP4(reachOptionsList)
     timeMAT = zeros(45,1);
     n = length(reachOptionsList);
     timeNNV = zeros(45,n);
-    timeNNVver = zeros(45,n);
     
     XLower = [-0.303531156; -0.009549297; 0.0; 0.318181818; 0.083333333];
     XUpper = [-0.298552812; 0.009549297; 0.0; 0.5; 0.166666667];
     
     % NNV
-%     IS = Star(XLower, XUpper); % Input set
     IS = ImageStar(XLower, XUpper);
     H = [1 -1 0 0 0; 1 0 -1 0 0; 1 0 0 -1 0; 1 0 0 0 -1];
     g = [0;0;0;0];
-%     reachOpt = struct;
-%     reachOpt.reachMethod = 'approx-star';
     
     % MATLAB
-%     label = 1;
     XLower = dlarray(XLower, "CB");
     XUpper = dlarray(XUpper, "CB");
     
@@ -54,26 +49,25 @@ function verifyP4(reachOptionsList)
         timeMAT(i-2) = toc(t);
         resMAT = [resMAT; res];
         
-%         % Verify NNV
-%         res = [];
-%         for r = 1:n
-%             reachOpt = reachOptionsList(r);
-%             Rstar = [];
-%             t = tic;
-%             R = netNNV.reach(IS, reachOpt);
-%             for k = 1:length(R)
-%                 Rstar = [Rstar R(k).toStar];
-%             end
-%             res = [res, verifyNNV(Rstar, H, g)];
-%             timeNNV(i-2,r) = toc(t);
-%         end
-%         resNNV = [resNNV; res];
+        % Verify NNV
+        res = [];
+        for r = 1:n
+            reachOpt = reachOptionsList(r);
+            Rstar = [];
+            t = tic;
+            R = netNNV.reach(IS, reachOpt);
+            for k = 1:length(R)
+                Rstar = [Rstar R(k).toStar];
+            end
+            res = [res, verifyNNV(Rstar, H, g)];
+            timeNNV(i-2,r) = toc(t);
+        end
+        resNNV = [resNNV; res];
         
     end
 
     % Save results
-%     save("results_p4", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
-    save("results_p4_mat.mat", "resMAT", "timeMAT");
+    save("results_p4", "resMAT", "resNNV", "timeMAT", "timeNNV", "reachOptionsList");
 
 end
 

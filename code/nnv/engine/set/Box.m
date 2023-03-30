@@ -10,7 +10,7 @@ classdef Box
         generators = []; 
     end
     
-    methods
+    methods % constructor and main methods
         
         % constructor
         function obj = Box(lb, ub)
@@ -36,14 +36,14 @@ classdef Box
             vec = 0.5 * (ub - lb);
             for i=1:n1
                 if vec(i) ~= 0
-                    gen = zeros(n1, 1);
+                    gen = cast(zeros(n1, 1), 'like', ub);
                     gen(i) = vec(i);
                     obj.generators = [obj.generators gen];
                 end                
             end
             
             if norm(vec) == 0
-                obj.generators = zeros(obj.dim, 1);
+                obj.generators = cast(zeros(obj.dim, 1), 'like', ub);
             end
                 
         end
@@ -129,9 +129,7 @@ classdef Box
 
         end
         
-        
         % affine mapping of a box
-        
         function B = affineMap(obj, W, b)
             % @W: mapping matrix
             % @b: mapping vector
@@ -150,15 +148,14 @@ classdef Box
             new_generators = W * obj.generators;
             
             n = length(new_center);
-            new_lb = zeros(n, 1);
-            new_ub = zeros(n, 1);
+            new_lb = cast(zeros(n, 1), 'like', W);
+            new_ub = cast(zeros(n, 1), 'like', W);
             
             for i=1:n
                 v = new_generators(i, :)';
                 new_lb(i) = new_center(i) - norm(v, 1);
                 new_ub(i) = new_center(i) + norm(v, 1);
             end
-            
             
             B = Box(new_lb, new_ub);
             
@@ -187,22 +184,18 @@ classdef Box
                 
         end
         
-        
+    end
+
+
+    methods % transformation methods
+
         % transform box to polyhedron
         function P = toPolyhedron(obj)
-            
             P = Polyhedron('lb', obj.lb, 'ub', obj.ub);
         end
-        
-        % plot a box using mpt toolbox
-        function plot(obj)
-            P = obj.toPolyhedron;
-            P.plot;
-        end
-        
+
         % transform box to star set
         function S = toStar(obj)
-            
             Z = obj.toZono;
             S = Z.toStar;        
         end
@@ -211,7 +204,12 @@ classdef Box
         function Z = toZono(obj)
             Z = Zono(obj.center, obj.generators);
         end
-        
+    
+    end
+
+
+    methods % get methods
+
         % get Range
         function [lb, ub] = getRange(obj)
             lb = obj.lb;
@@ -227,7 +225,6 @@ classdef Box
             N = 2^n; % number of vertices in the worst case 
             V = [];
             for i=0:N-1
-                %b = de2bi(i, n+3);
                 b=dec2bin(i, n+3);
                 v = zeros(n, 1);
                 for j=1:n
@@ -246,12 +243,10 @@ classdef Box
             V = V1';
                       
         end
-        
-        % partition a box into smaller boxes
-        
+
     end
     
-    methods(Static)
+    methods(Static) 
        
         % box merging
         function B = boxHull(I)
@@ -270,16 +265,18 @@ classdef Box
             lb = min(lb, [], 2);
             ub = max(ub, [], 2);
             
-            
             B = Box(lb, ub);
             
         end
+
+    end
+
+    methods(Static) % plot methods
         
         % plot an array of boxes 
         function plots(boxes)
             
             n = length(boxes);
-            
             R = [];
             for i=1:n
                 R = [R boxes(i).toPolyhedron];
@@ -291,7 +288,6 @@ classdef Box
         % plot list of boxes in 2D
         function plotBoxes_2D(boxes, x_pos, y_pos, color)
             % plot two dimension boxes
-            
             
             n = length(boxes);
             
@@ -334,8 +330,8 @@ classdef Box
                 plot(x, y, color);
                                 
             end
+
         end
-        
         
         % plot list of boxes in 3D
         function plotBoxes_3D(boxes, x_pos, y_pos, z_pos, color)
@@ -367,21 +363,15 @@ classdef Box
                 x = p(1,:);
                 y = p(2, :);
                 z = p(3, :);
-                          
-                               
                 plot3(x, y, z, color);
                 
-                
                 % line p5->p6->p7->p8->p5
-               
                 
                 p = vertcat(p5, p6, p7, p8, p5);
                 p = p';
                 x = p(1,:);
                 y = p(2, :);
                 z = p(3, :);
-                
-                
                 hold on;                
                 plot3(x, y, z, color);
                 
@@ -392,11 +382,8 @@ classdef Box
                 x = p(1,:);
                 y = p(2, :);
                 z = p(3, :);
-                
-                
                 hold on;                
                 plot3(x, y, z, color);
-                
                 
                 % line p3->p6
                 p = vertcat(p3, p6);
@@ -404,8 +391,6 @@ classdef Box
                 x = p(1,:);
                 y = p(2, :);
                 z = p(3, :);
-                
-                
                 hold on;                
                 plot3(x, y, z, color);
                 
@@ -415,7 +400,6 @@ classdef Box
                 x = p(1,:);
                 y = p(2, :);
                 z = p(3, :);
-
                 hold on;                
                 plot3(x, y, z, color);
                 
@@ -423,15 +407,11 @@ classdef Box
                 
                 p = vertcat(p2, p5);
                 p = p';
-                
                 x = p(1,:);
                 y = p(2, :);
                 z = p(3, :);
-                
-               
                 hold on;                
                 plot3(x, y, z, color);
-                
                 hold on;
                                 
             end
@@ -440,7 +420,12 @@ classdef Box
             
         end
         
-        
+        % plot a box using mpt toolbox
+        function plot(obj)
+            P = obj.toPolyhedron;
+            P.plot;
+        end
+    
     end
     
 end

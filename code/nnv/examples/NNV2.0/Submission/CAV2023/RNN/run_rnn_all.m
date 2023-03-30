@@ -12,5 +12,6 @@ function run_rnn_all()
     cd N_8_0
     verify_N8_0;
     cd ..;
+    
 end
 

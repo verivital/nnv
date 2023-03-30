@@ -1,6 +1,6 @@
-function run_cav23()
+function RE_cav23_short()
 
-    % Reproduce all CAV23 experiments
+    % Reproduce a subset of CAV23 experiments
 
     % Turn off figure display
     set(0,'DefaultFigureVisible','off');
@@ -12,30 +12,6 @@ function run_cav23()
 
     cd NeuralODEs;
     run_neuralode;
-    cd ..;
-
-    %% 2) NNV_vs_MATLAB
-
-    cd NNV_vs_MATLAB;
-
-    % ACAS Xu
-    cd acas;
-    verifyAll;
-    cd ..;
-
-    % OVAL 21
-    cd oval21;
-    verifyAll;
-    cd ..;
-
-    % RL benchmarks
-    cd rl_benchmarrks;
-    verifyAll;
-    cd ..;
-    
-    % TLLverify
-    cd tllverify;
-    verifyAll;
     cd ..;
 
 
@@ -55,7 +31,7 @@ function run_cav23()
 
     %% Print results
     
-    paper_results('long');
+    paper_results('short');
 
 end
 

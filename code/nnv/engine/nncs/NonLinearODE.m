@@ -338,14 +338,10 @@ classdef NonLinearODE < handle
 
             % Store reach sets
            if isempty(obj.cora_set)
-               obj.cora_set = R;
+               obj.cora_set{1} = R;
            else
-               try
-                   obj.cora_set = obj.cora_set.append(R);
-               catch
-                   obj.cora_set = [obj.cora_set R];
-               end
-
+               n = length(obj.cora_set);
+               obj.cora_set{n+1} = R;
            end
 
             % Post-process CORA reach sets at t=cP
@@ -401,30 +397,33 @@ classdef NonLinearODE < handle
         % Get interval intermediate sets from CORA (interval length of reachstep)
         function get_interval_sets(obj)
             % Get interval reach set
-            R = obj.cora_set;
-            N = length(R); % number of reachsets in the computation
-            for i=1:N
-                Z = R(i).timeInterval.set; % get the interval reachset 
-                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
-                Ss = [];
-                for ik=1:Nn
-                    Z1 = Z{ik};
-                    Nz = length(Z1);
-                    for iz=1:Nz
-                        try
-                            Z2 = zonotope(Z1{iz}); % ensure it's a zonotope
-                            Z2 = Z2.Z;
-                        catch
-                            Z2 = zonotope(Z1); % ensure it's a zonotope
-                            Z2 = Z2.Z; % get c and V 
+            Rcell = obj.cora_set;
+            for r=1:length(Rcell)
+                R = Rcell{r};
+                N = length(R); % number of reachsets in the computation
+                for i=1:N
+                    Z = R(i).timeInterval.set; % get the interval reachset 
+                    Nn = length(Z); % number of sets in the reachset (1 x timeStep)
+                    Ss = [];
+                    for ik=1:Nn
+                        Z1 = Z{ik};
+                        Nz = length(Z1);
+                        for iz=1:Nz
+                            try
+                                Z2 = zonotope(Z1{iz}); % ensure it's a zonotope
+                                Z2 = Z2.Z;
+                            catch
+                                Z2 = zonotope(Z1); % ensure it's a zonotope
+                                Z2 = Z2.Z; % get c and V 
+                            end
+                            c = Z2(:,1); % center vector
+                            V = Z2(:, 2:size(Z2, 2)); % generators
+                            Zz = Zono(c, V);
+                            Ss = [Ss Zz.toStar];
                         end
-                        c = Z2(:,1); % center vector
-                        V = Z2(:, 2:size(Z2, 2)); % generators
-                        Zz = Zono(c, V);
-                        Ss = [Ss Zz.toStar];
                     end
+                    obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
                 end
-                obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end
         end
         

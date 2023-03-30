@@ -1,6 +1,6 @@
 function paper_results(resVersion)
 
-    if ~exist("resVersion", "var") % defualt is the short version
+    if ~exist("resVersion", "var") % default is the short version
         resVersion = "short";
     end
 
@@ -14,10 +14,14 @@ function paper_results(resVersion)
 
 end
 
-%% Helper function
+%% Helper functions
 
+% Create ACAS Xu comparison table
 function acas_compare()
-    % ACAS Xu
+    % ACAS Xu comparison
+    % Property 3
+
+    % NNV
     p3 = load("NNV_vs_MATLAB/acas/results_p3.mat");
     p4 = load("NNV_vs_MATLAB/acas/results_p4.mat");
     p3_unsat_nnv = sum(p3.resNNV == categorical("verified"));
@@ -40,7 +44,8 @@ function acas_compare()
     p4_unsat_mat = sum(p4.resMAT == categorical("violated"));
     p4_unk_mat   = sum(p4.resMAT == categorical("unproven"));
     p4_time_mat  = sum(p4.timeMAT)/45;
-    % Now create the comparison tables
+
+    % Now create the tables
     % TABLE 2 - ACAS Xu
     if is_codeocean()
         fid = fopen([path_results_codeocean, 'Table_2.txt'],'w'); 
@@ -64,6 +69,7 @@ function acas_compare()
     fclose(fid);
 end
 
+% Compute total robustness of rnn
 function rob = compute_robustness(rb)
     % Compute RNN robutness
     [n,m] = size(rb);
@@ -77,7 +83,9 @@ function rob = compute_robustness(rb)
     end
 end
 
+% Short RE package
 function pShort()
+
     % Results from section 4.2, 4.2, 4.4
 
     %FPA
@@ -96,7 +104,6 @@ function pShort()
     % Segmentation
     rDil = load("Segmentation/dilated_results_0.0001.mat");
     rTrans = load("Segmentation/transposed_results_0.0001.mat");
-
     
     % Write all results to a text file
     if is_codeocean()
@@ -104,6 +111,7 @@ function pShort()
     else
         fid = fopen('results_4.2-4.4.txt','w'); 
     end
+
     % Section 4.2
     fprintf(fid, "-------------------------------------\n");
     fprintf(fid, "SECTION 4.2 - Neural ODEs \n");
@@ -133,9 +141,12 @@ function pShort()
     fprintf(fid, "Transposed SSNN \n");
     fprintf(fid, "    Robustness: %f %%, Sensitivity: %f, IoU: %f, and computation time: %f seconds.\n", rTrans.rv*100, rTrans.rs, rTrans.riou, rTrans.t);
     fclose(fid);
+
 end
 
+% Create txt file with experiements from 4.2-4.4
 function other_compare()
+
     % TABLE 3 - RL, tllverify, oval 21
     oval = load("NNV_vs_MATLAB/oval21/results_oval21_approx_all.mat");
     ovalT = sum(oval.res(2,:))/length(oval.res(2,:));
@@ -180,6 +191,7 @@ function other_compare()
     fprintf(fid, "    SAT: %i, UNSAT: %i, time (s): %.4g\n", ovalS, ovalU, ovalT);
 end
 
+% Complete RE package 
 function pLong()
     % First do the short script (all - comparison)
     pShort();

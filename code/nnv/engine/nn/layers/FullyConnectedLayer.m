@@ -23,11 +23,10 @@ classdef FullyConnectedLayer < handle
     end
     
     
-    % constructor
-    methods
+    methods % main methods
         
         % constructor of the class
-        function obj = FullyConnectedLayer(varargin)           
+        function obj = FullyConnectedLayer(varargin)
             % author: Dung Tran
             % date: 6/26/2019    
             % update: 
@@ -35,21 +34,17 @@ classdef FullyConnectedLayer < handle
             switch nargin
                 
                 case 3
-                    
                     name = varargin{1};
                     W = varargin{2};
                     b = varargin{3};
-                                     
                     if ~ischar(name)
                         error('Name is not char');
                     else
                         obj.Name = name;
                     end
-                    
                     if size(W, 1) ~= size(b, 1)
                         error('Inconsistent dimension between the weight matrix and bias vector');
                     end
-                    
                     if size(b,2) ~= 1
                         error('Bias vector should have one column');
                     end
@@ -63,17 +58,13 @@ classdef FullyConnectedLayer < handle
                     
                     W = varargin{1};
                     b = varargin{2};
-                    
                     obj.Name = 'fully_connected_layer';
-                    
                     if size(W, 1) ~= size(b, 1)
                         error('Inconsistent dimension between the weight matrix and bias vector');
                     end
-                    
                     if size(b,2) ~= 1
                         error('Bias vector should have one column');
                     end
-                    
                     obj.InputSize = size(W,2);
                     obj.OutputSize = size(W,1);
                     obj.Weights = W;
@@ -90,52 +81,110 @@ classdef FullyConnectedLayer < handle
                     
                 otherwise
                     error('Invalid number of inputs (should be 0, 2 or 3)');
-                                 
             end 
              
         end
         
-    end
-        
-    % evaluation method
-    methods
-        
-        function y = evaluate(obj, input)
+        % evaluation method
+        function y = evaluate(obj, x)
             % @input: input
             % @y: output
             
             % author: Dung Tran
             % date: 6/26/2019
+            % 
+            % update: add support for sequence evaluacion (neuralode, RNN)
+            %   -date: 03/17/2023 (Diego Manzanas)
             
-            
-            n = size(input);
-            
-            N = 1;
-            for i=1:length(n)
-                N = N*n(i);
+            if size(x, 1) ~= size(obj.Weights, 2)
+                error('Inconsistent input vector')
             end
-            if N ~= obj.InputSize
-                error('Inconsistency between the input dimension and InputSize of the network');
-            end
-            
-            I = reshape(input, N, 1);
-            y = double(obj.Weights)*I + double(obj.Bias);
-            y = reshape(y, [1, 1, size(obj.Bias, 1)]);
+
+            y1 = obj.Weights * x;
+            if size(x, 2) ~= 1
+                n = size(x, 2);
+                for i=1:n
+                    y1(:,i) = y1(:,i) + obj.Bias;
+                end
+                y = y1;
+            else
+                y = y1 + obj.Bias;
+            end   
              
         end 
-       
+        
+        % main reachability analysis function
+        function IS = reach(varargin)
+            % @in_image: an input imagestar
+            % @image: output set
+            % @option: = 'single' or 'parallel' 
+            
+            % author: Dung Tran
+            % date: 6/26/2019
+            % update: 1/6/2020  update reason: add zonotope method
+             
+            switch nargin
+                
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = varargin{3};
+                    option = varargin{4}; % computation option
+
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2}; % don't care the rest inputs
+                    method = varargin{3};
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
+            end
+            
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
+                IS = obj.reach_star_multipleInputs(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                IS = obj.reach_zono_multipleInputs(in_images, option);
+            else
+                error('Unknown reachability method');
+            end
+            
+        end
+        
     end   
      
-    methods 
+    methods % reachability methods
         
-        %(reachability analysis using imagestar)
+        % reachability analysis using imagestar
         function image = reach_star_single_input(obj, in_image)
             % @in_image: input imagestar
             % @image: output set
             
             % author: Dung Tran
             % date: 6/26/2019
-            
             
             if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
                 error('Input set is not an ImageStar or Star');
@@ -199,8 +248,6 @@ classdef FullyConnectedLayer < handle
             
         end
         
-        
-        
         %(reachability analysis using imagezono)
         function image = reach_zono(obj, in_image)
             % @in_image: input imagezono
@@ -208,7 +255,6 @@ classdef FullyConnectedLayer < handle
             
             % author: Dung Tran
             % date: 1/2/2020
-            
             
             if ~isa(in_image, 'ImageZono') && ~isa(in_image, 'Zono')
                 error('Input set is not an ImageZono or Zono');
@@ -272,77 +318,11 @@ classdef FullyConnectedLayer < handle
             
         end
         
-        
-        
-        % reachability analysis with multiple inputs
-        function IS = reach(varargin)
-            % @in_image: an input imagestar
-            % @image: output set
-            % @option: = 'single' or 'parallel' 
-            
-            % author: Dung Tran
-            % date: 6/26/2019
-            % update: 1/6/2020  update reason: add zonotope method
-             
-            switch nargin
-                
-                 case 7
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    % relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
-                    % lp_solver = varargin{7}; do not use
-                
-                case 6
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
-                
-                case 5
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
-                
-                case 4
-                    obj = varargin{1};
-                    in_images = varargin{2}; 
-                    method = varargin{3};
-                    option = varargin{4}; % computation option
-
-                case 3
-                    obj = varargin{1};
-                    in_images = varargin{2}; % don't care the rest inputs
-                    method = varargin{3};
-                    option = [];
-                otherwise
-                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
-            end
-            
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
-                IS = obj.reach_star_multipleInputs(in_images, option);
-            elseif strcmp(method, 'approx-zono')
-                IS = obj.reach_zono_multipleInputs(in_images, option);
-            else
-                error('Unknown reachability method');
-            end
-            
-            
-            
-        end
-        
     end
     
     
     methods(Static)
         
-         
         % parse a trained FullyConnectedLayer from matlab
         function L = parse(fully_connected_layer)
             % @fully_connecteted_Layer: a fully connected layer from matlab deep
@@ -352,21 +332,15 @@ classdef FullyConnectedLayer < handle
             % author: Dung Tran
             % date: 6/26/2019
             
-            
             if ~isa(fully_connected_layer, 'nnet.cnn.layer.FullyConnectedLayer')
                 error('Input is not a Matlab nnet.cnn.layer.FullyConnectedLayer class');
             end
-                        
             L = FullyConnectedLayer(fully_connected_layer.Name, fully_connected_layer.Weights, fully_connected_layer.Bias);         
             fprintf('\nParsing a Matlab fully connected layer is done successfully');
             
         end
         
-        
     end
-    
-    
-    
     
 end
 

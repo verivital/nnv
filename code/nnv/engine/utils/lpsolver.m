@@ -11,19 +11,21 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver)
     if ~exist('lp_solver', 'var') || ~isempty(Aeq) || ~isempty(Beq)
         lp_solver = 'linprog'; % default solver, sometimes fails with mpt, so glpk as backup
     end
+
+    % ensure variables are all of type double
+    f = double(f); A = double(A); b = double(b); lb = double(lb);
+    Aeq = double(Aeq); Beq = double(Beq); ub = double(ub); 
     
     % Solve using linprog (glpk as backup)
     if strcmp(lp_solver, 'linprog')
         options = optimoptions(@linprog, 'Display','none'); 
         options.OptimalityTolerance = 1e-10; % set tolerance
         % first try solving using linprog
-        [~, fval, exitflag, ~] = linprog(double(f), double(A), double(b), ...
-                    double(Aeq), double(Beq), double(lb), double(ub), options);
+        [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);
         if ~ismember(exitflag, [1, -5]) % found (1), not feasible point found (-2), infeasible (-5)
             if ~isempty(Aeq) || ~isempty(Beq)
                 error("Problem cannot be solved by linprog, and task not supported by glpk.")
             else
-%                 warning("Could not solve lp task using linprog, trying glpk now. Exitflag = " + string(exitflag));
                 [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
                 if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
                     error("LP solver error. Task failed to be solved by linprog and glpk. GLPK exitflag = " + string(exitflag));
@@ -38,12 +40,10 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver)
     elseif strcmp(lp_solve, 'glpk')
         [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
         if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
-%             warning("Task failed to be solved glpk. Trying linprog now. GLPK exitflag = " + string(exitflag));
             options = optimoptions(@linprog, 'Display','none'); 
             options.OptimalityTolerance = 1e-10; % set tolerance
             % first try solving using linprog
-            [~, fval, exitflag, ~] = linprog(double(f), double(A), double(b), ...
-                    double(Aeq), double(Beq), double(lb), double(ub), options);
+            [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);
             if ~ismember(exitflag, [1,-2, -5]) % found (1), not feasible point found (-2), infeasible (-5)
                 error("Problem cannot be solved by linprog, and task not supported by glpk. LINPROG exitflag = " + string(exitflag));
             end

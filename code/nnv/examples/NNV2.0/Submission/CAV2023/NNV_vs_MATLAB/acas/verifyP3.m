@@ -23,7 +23,7 @@ function verifyP3(reachOptionsList)
     acasFolder = "onnx/";
     networks = dir(acasFolder);
     
-    for i = 8:length(networks)
+    for i = 3:length(networks)
         % Load Network
         file = acasFolder + string(networks(i).name);
         net = importONNXNetwork(file, InputDataFormats='BCSS');

@@ -10,18 +10,18 @@ function run_cav23()
         
     %% 1) Neural ODEs
 
-    cd NeuralODEs;
-    run_neuralode;
-    cd ..;
+%     cd NeuralODEs;
+%     run_neuralode;
+%     cd ..;
 
     %% 2) NNV_vs_MATLAB
 
     cd NNV_vs_MATLAB;
 
     % ACAS Xu
-    cd acas;
-    verifyAll;
-    cd ..;
+%     cd acas;
+%     verifyAll;
+%     cd ..;
 
     % OVAL 21
     cd oval21;
@@ -41,17 +41,17 @@ function run_cav23()
 
     %% 3) Segmentation
 
-    cd Segmentation;
-    example_dilated;
-    example_transposed;
-    cd ..;
+%     cd Segmentation;
+%     example_dilated;
+%     example_transposed;
+%     cd ..;
 
     %% 4) RNN
 
-    cd RNN;
-    run_rnn_all();
-    create_figure();
-    cd ..
+%     cd RNN;
+%     run_rnn_all();
+%     create_figure();
+%     cd ..
 
     %% Print results
     

@@ -247,7 +247,6 @@ classdef NNCS < handle
             
         end
         
-        
         % verify safety after doing reachability analysis
         % unsafe region defined by: unsafe_mat * x <= unsafe_vec
         function [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
@@ -473,7 +472,6 @@ classdef NNCS < handle
             
         end
         
-        
         % automatically falsify nncs using random simulations
         function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, step, n_steps, init_set, ref_input_set, unsafe_mat, unsafe_vec, n_samples)
             % @step: control step size
@@ -535,9 +533,6 @@ classdef NNCS < handle
            
         end
         
-        
-       
-                                  
     end
     
     
@@ -869,39 +864,8 @@ classdef NNCS < handle
             
         end
        
-        
     end
     
-    methods
-        % verify method
-        function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
-            % @reachPRM: reachability parameters consists of following
-            % inputs: 
-            %       1) @reachPRM.init_set: initial set
-            %       2) @reachPRM.ref_input: reference input
-            %       3) @reachPRM.numSteps: number of steps
-            %       4) @reachPRM.numCores: number of cores used in reachability analysis
-            %       5) @reachPRM.plantTimStep: reachability step for the plant
-            %       6) @reachPRM.controlPeriod: controler period 
-            % @unsafeRegion: a Halfpsace object
-            % Usafe region is defined by: y: unsafe_mat * x <= unsafe_vec
-            
-            % @safe: = unsafe
-            %        = safe
-            %        = unknown (due to conservativeness)
-            % @counterExamples: an array of star set counterExamples or
-            %                   falsified input points
-            % @verifyTime: verification time
-            
-            % author: Dung Tran
-            % date:   2/15/2019
-            % update: 3/15/2020
-            
-            
-            
-            
-        end
-    end
     
 end
 

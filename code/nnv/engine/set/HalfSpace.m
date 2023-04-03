@@ -32,7 +32,6 @@ classdef HalfSpace
         end
         
         % check contain
-        
         function bool = contains(obj, x)
             % @x: input vector
             % @bool: = 1 -> half-space contain point x
@@ -42,19 +41,15 @@ classdef HalfSpace
             % date: 3/27/2019
             
             [n, m] = size(x);
-                        
             if n ~= obj.dim
                 error('Inconsistent dimension between the vector x and the half-space object');
             end
-            
             if m ~= 1
                 error('Input vector x should have one column');
             end
             
             y = obj.g - obj.G * x;
-            
             map = find(y < 0, 1); % which index has y(i) < 0
-            
             bool = isempty(map);        
         
         end
@@ -62,11 +57,11 @@ classdef HalfSpace
         % plot half-space
         function plot(obj)
             % plot half-space
-            
             P = Polyhedron('A', obj.G, 'b', obj.g);
             P.plot;
         end
         
     end
+    
 end
 

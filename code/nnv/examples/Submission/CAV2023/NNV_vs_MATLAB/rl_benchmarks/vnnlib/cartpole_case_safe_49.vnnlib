@@ -1,0 +1,30 @@
+; cartpole property safe_49
+
+(declare-const X_0 Real)
+(declare-const X_1 Real)
+(declare-const X_2 Real)
+(declare-const X_3 Real)
+
+(declare-const Y_0 Real)
+(declare-const Y_1 Real)
+
+; Input 0
+(assert (<= X_0 -0.04996086218645491))
+(assert (>= X_0 -0.052039137813545085))
+
+; Input 1
+(assert (<= X_1 0.1461610878135451))
+(assert (>= X_1 0.1440828121864549))
+
+; Input 2
+(assert (<= X_2 0.001039137813545087))
+(assert (>= X_2 -0.001039137813545087))
+
+; Input 3
+(assert (<= X_3 -0.2916437821864549))
+(assert (>= X_3 -0.2937220578135451))
+
+; unsafe if command is [0] (spec type maximal) 
+(assert 
+(<= Y_1 Y_0)
+)

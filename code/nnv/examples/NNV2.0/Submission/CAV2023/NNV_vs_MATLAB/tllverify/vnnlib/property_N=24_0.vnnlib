@@ -1,0 +1,13 @@
+(declare-const X_0 Real)
+(declare-const X_1 Real)
+(declare-const Y_0 Real)
+
+; Input Constraints:
+(assert (<= X_0 2))
+(assert (>= X_0 -2))
+(assert (<= X_1 2))
+(assert (>= X_1 -2))
+
+; Output property:
+; Min output sample: -6.508955001831055. Max output sample: -0.5675756931304932
+(assert (<= Y_0 -7.764732470810648))

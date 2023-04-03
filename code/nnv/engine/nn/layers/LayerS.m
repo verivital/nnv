@@ -14,7 +14,7 @@ classdef LayerS
         
         option = []; % parallel option, 'parallel' or []
         dis_opt = []; % display option, 'display' or []
-        lp_solver = 'glpk'; % lp solver option, 'linprog' or 'glpk'
+        lp_solver = 'linprog'; % lp solver option, 'linprog' or 'glpk'
         relaxFactor = 0; % use only for approx-star method
     end
     
@@ -88,8 +88,6 @@ classdef LayerS
                 y = tansig(y1);
             elseif strcmp(obj.f, 'logsig')
                 y = logsig(y1);
-            elseif strcmp(obj.f, 'purelin')   
-                y = y1;
             elseif strcmp(obj.f, 'softmax')
                 if isa(y1, 'dlarray')
                     y = softmax(y1, 'DataFormat', 'C');

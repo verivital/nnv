@@ -43,7 +43,8 @@ classdef ImageZono < handle
         
     end
     
-    methods
+    methods % constructor, ops and get methods
+
         % constructor using 2D representation of an ImageZono
         function obj = ImageZono(varargin)
             % @V:  an array of basis images          
@@ -61,7 +62,6 @@ classdef ImageZono < handle
                     % check consistency
                     size1 = size(obj.lb_image);
                     size2 = size(obj.ub_image);
-
                     cp12 = (size1 == size2);
 
                     if sum(cp12) ~= 3 && sum(cp12) ~= 2
@@ -85,7 +85,6 @@ classdef ImageZono < handle
                     obj.numPreds = S.nVar;
                     obj.V = reshape(S.V, [obj.height obj.width obj.numChannels obj.numPreds + 1]);
                     
-                    
                 case 1
                     
                     obj.V = varargin{1};
@@ -104,36 +103,13 @@ classdef ImageZono < handle
                     obj.ub_image = reshape(ub, [obj.height obj.width obj.numChannels]);
                     
                 case 0
-                    
-                    
-                    
+
                 otherwise
                     error('Invalid number of inputs, shoule be 0, 1 or 2');
             end
             
-            
-            
-            
-   
         end
-                
-        % randomly generate a set of images from an imageZono set
-        function images = sample(obj, N)
-            % @N: number of images 
-            
-            % author: Dung Tran
-            % date: 1/3/2020
-            
-            if isempty(obj.V)
-                error('The imagezono is an empty set');
-            end
-            
-            % fill code here
-            images = {};
-              
-        end
-        
-        
+
         % evaluate an ImageZono with specific values of predicates
         function image = evaluate(obj, pred_val)
             % @pred_val: valued vector of predicate variables
@@ -160,8 +136,7 @@ classdef ImageZono < handle
                 end
             end
             
-            
-            image(:, :, obj.numChannels) = zeros(obj.height, obj.width);
+            image(:, :, obj.numChannels) = cast(zeros(obj.height, obj.width), 'like', obj.V);
             for i=1:obj.numChannels
                 image(:, :, i) = obj.V(:,:,i, 1);
                 for j=2:obj.numPreds + 1
@@ -171,10 +146,7 @@ classdef ImageZono < handle
                       
         end
         
-        
-                
-        % affineMap of an ImageZono is another imagezono
-        % y = scale * x + offset;
+        % affineMap of an ImageZono is another imagezono (y = scale * x + offset);
         function image = affineMap(obj, scale, offset)
             % @scale: scale coefficient [1 x 1 x NumChannels] array
             % @offset: offset coefficient [1 x 1 x NumChannels] array
@@ -183,12 +155,10 @@ classdef ImageZono < handle
             % author: Dung Tran
             % date: 1/1/2020
             
-            
             if ~isempty(scale) && ~isscalar(scale) && size(scale, 3) ~= obj.numChannels
                 error('Inconsistent number of channels between scale array and the ImageStar');
             end
                         
-            
             if ~isempty(scale) 
                 new_V = scale.*obj.V;
             else
@@ -202,43 +172,6 @@ classdef ImageZono < handle
             image = ImageZono(new_V);
                      
         end
-        
-        % transform to Zono
-        function Z = toZono(obj)
-            
-            % author: Dung Tran
-            % date: 1/2/2020
-            
-            center = obj.V(:,:,:,1);
-            generators = obj.V(:,:,:, 2:obj.numPreds + 1);
-            
-            center = reshape(center, [obj.height*obj.width*obj.numChannels 1]);
-            generators = reshape(generators, [obj.height*obj.width*obj.numChannels obj.numPreds]);
-            
-            Z = Zono(center, generators);
-            
-        end
-        
-        % transform to ImageStar
-        function S = toImageStar(obj)
-            % author: Dung Tran
-            % date: 1/2/2020
-            
-            pred_lb = -ones(obj.numPreds, 1);
-            pred_ub = ones(obj.numPreds, 1); 
-            
-            C1 = eye(obj.numPreds);
-            d1 = pred_ub;
-            C2 = -C1;
-            d2 = pred_ub; 
-            
-            C = [C1; C2];
-            d = [d1; d2]; 
-            
-            S = ImageStar(obj.V, C, d, pred_lb, pred_ub, obj.lb_image, obj.ub_image);
-            
-        end
-        
         
         % contain, check if an ImageZono contain an image 
         function bool = contains(obj, image)
@@ -278,6 +211,7 @@ classdef ImageZono < handle
             ub = obj.ub_image;
         end
         
+        % check if p1 > p2 for feasibility
         function b = is_p1_larger_p2(obj, p1, p2)
             % @p1: the first point = [h1, w1, c1]
             % @p2: the second point = [h2, w2, c2]
@@ -295,26 +229,60 @@ classdef ImageZono < handle
             b = S.is_p1_larger_p2(p1, p2);           
             
         end
-        
-        
-       
-         
+    
     end
-    
-    
-    
-    methods(Static)
+
+
+    methods % transformation methods
+
+        % transform to Zono
+        function Z = toZono(obj)
+            
+            % author: Dung Tran
+            % date: 1/2/2020
+            
+            center = obj.V(:,:,:,1);
+            generators = obj.V(:,:,:, 2:obj.numPreds + 1);
+            
+            center = reshape(center, [obj.height*obj.width*obj.numChannels 1]);
+            generators = reshape(generators, [obj.height*obj.width*obj.numChannels obj.numPreds]);
+            
+            Z = Zono(center, generators);
+            
+        end
         
-        
+        % transform to ImageStar
+        function S = toImageStar(obj)
+            % author: Dung Tran
+            % date: 1/2/2020
+            
+            pred_lb = cast(-ones(obj.numPreds, 1), 'like', obj.V);
+            pred_ub = cast(ones(obj.numPreds, 1), 'like', obj.V); 
+            
+            C1 = cast(eye(obj.numPreds), 'like', obj.V);
+            d1 = pred_ub;
+            C2 = -C1;
+            d2 = pred_ub; 
+            
+            C = [C1; C2];
+            d = [d1; d2]; 
+            
+            S = ImageStar(obj.V, C, d, pred_lb, pred_ub, obj.lb_image, obj.ub_image);
+            
+        end
+
+        % transform to Star
+        function S = toStar(obj)
+            % author: Diego Manzanas
+            % date: 02/11/2023
+            %    comment: facilitate internal transformation for verification
+
+            S = obj.toImageStar;
+            S = S.toStar;
+        end
+
     end
-    
-    
-    
-    
-    
-    
-   
-        
+  
        
 end
 

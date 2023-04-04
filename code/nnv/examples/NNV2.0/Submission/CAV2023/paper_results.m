@@ -148,7 +148,7 @@ end
 function other_compare()
 
     % TABLE 3 - RL, tllverify, oval 21
-    oval = load("NNV_vs_MATLAB/oval21/results_oval21_approx_all.mat");
+    oval = load("NNV_vs_MATLAB/oval21/results_oval21.mat");
     ovalT = sum(oval.res(2,:))/length(oval.res(2,:));
     ovalS = sum(oval.res(1,:) == 1);
     ovalU = sum(oval.res(1,:) == 0);

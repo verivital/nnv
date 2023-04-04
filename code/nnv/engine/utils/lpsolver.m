@@ -1,4 +1,4 @@
-function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver)
+function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
     % common function for al linear programming problems
     % for now we will set linprog with default options to solve every task,
     % seems to be faster than glpk or yalmip, and if it fails, we try glpk
@@ -12,6 +12,12 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver)
         lp_solver = 'linprog'; % default solver, sometimes fails with mpt, so glpk as backup
     end
 
+    if ~exist('opts', 'var')
+        opts = 'normal';
+    elseif ~strcmp(opts, 'emptySet')
+        opts = 'normal';
+    end
+
     % ensure variables are all of type double
     f = double(f); A = double(A); b = double(b); lb = double(lb);
     Aeq = double(Aeq); Beq = double(Beq); ub = double(ub); 
@@ -22,7 +28,8 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver)
         options.OptimalityTolerance = 1e-10; % set tolerance
         % first try solving using linprog
         [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);
-        if ~ismember(exitflag, [1, -5]) % found (1), not feasible point found (-2), infeasible (-5)
+        % found (1), not feasible point found (-2), infeasible (-5)
+        if ~( (exitflag == -2 && strcmp(opts, 'emptySet')) || ismember(exitflag, [1, -5]) ) % return existflag if one of these conditions is met
             if ~isempty(Aeq) || ~isempty(Beq)
                 error("Problem cannot be solved by linprog, and task not supported by glpk.")
             else

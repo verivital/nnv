@@ -1113,7 +1113,7 @@ classdef Star
             % has bug
             
             f = zeros(1, obj.nVar); % objective function
-            [~, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub);
+            [~, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, 'linprog', 'emptySet');
             if ismember(exitflag,["l1", "g2", "g5"])
                 bool = 0;
             elseif ismember(exitflag, ["l-2", "l-5", "g3", "g4", "g110"])

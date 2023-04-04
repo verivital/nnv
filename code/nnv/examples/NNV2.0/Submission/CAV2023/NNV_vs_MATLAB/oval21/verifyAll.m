@@ -11,7 +11,7 @@ function verifyAll()
     [networks, name2idx] = load_oval21_NNs();
     
     % Init result variable
-    res = zeros(N,4); % res, time, res, time
+    res = zeros(N,2); % res, time
     % Specify NNV reachbility options
     reachOpt1 = struct; 
     reachOpt1.reachMethod = 'approx-star';
@@ -26,6 +26,7 @@ function verifyAll()
         propertyFile = string(NNs_props_timeout.Var2{i});
         % Run verification for each method
         [res(i,1), res(i,2)] = verify_oval21_nnv(net, propertyFile, reachOpt1);
+        disp(string(i)+"/30: " + string(res(i,2))+" seconds");
     end
     
     % Save results

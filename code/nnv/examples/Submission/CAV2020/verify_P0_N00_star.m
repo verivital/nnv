@@ -6,8 +6,10 @@ addpath("nnet-mat-files/")
 load(['ACASXU_run2a_',num2str(N1),'_',num2str(N2),'_batch_2000.mat']);
 % edit property here
 P0 = 4;
-lb = [1790;0.05;0;1190;790];
-ub = [1800;0.06;0;1200;800];
+% lb = [1790;0.05;0;1190;790]; % wrong
+% ub = [1800;0.06;0;1200;800]; % wrong
+lb = [1500;-0.06;0;1000;700]; % 
+ub = [1800;0.06;0;1200;800]; % 
 unsafe_mat = [1,-1,0,0,0;1,0,-1,0,0;1,0,0,-1,0;1,0,0,0,-1];
 unsafe_vec = [0;0;0;0];
 
@@ -34,10 +36,10 @@ end
 
 I = Star(lb, ub);
 
-c = parcluster('local');
-numCores = c.NumWorkers;
+% c = parcluster('local');
+% numCores = c.NumWorkers;
 
-[R1, ~] = F.reach(I, 'exact-star', numCores); % exact reach set using polyhdedron
+[R1, ~] = F.reach(I, 'exact-star', 1); % exact reach set using polyhdedron
 
 normalized_mat = range_for_scaling(6) * eye(5);
 normalized_vec = means_for_scaling(6) * ones(5,1);
@@ -45,7 +47,8 @@ normalized_vec = means_for_scaling(6) * ones(5,1);
 t = tic;
 n = length(R1);
 R1_norm = [];
-parfor i=1:n
+% parfor i=1:n
+for i=1:n
     R1_norm = [R1_norm  R1(i).affineMap(normalized_mat, normalized_vec)]; % exact normalized reach set
 end
 check_time = toc(t);
@@ -54,7 +57,8 @@ t = tic;
 fprintf('\nVerifying exact star reach set...');
 unsafe = 0;
 n = length(R1);
-parfor i=1:n
+% parfor i=1:n
+for i=1:n
     S = R1_norm(i).intersectHalfSpace(unsafe_mat, unsafe_vec);
     if ~isempty(S)
         unsafe = unsafe + 1;

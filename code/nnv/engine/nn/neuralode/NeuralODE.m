@@ -26,7 +26,7 @@ classdef NeuralODE < handle
         
         features = {}; % outputs of each layer in an evaluation
         dis_opt = []; % display option = 'display' or []
-        lp_solver = 'glpk'; % choose glpk as default LP solver for constructing reachable set
+        lp_solver = 'linprog'; % choose glpk as default LP solver for constructing reachable set
         node_type = 'classification'; % Two types of Neural ODE supported: 'classification', 'timeseries'
         
     end
@@ -209,10 +209,10 @@ classdef NeuralODE < handle
                 if contains(class(obj.Layers{i-1}),'ODE')
                     rs_new = [];
                     for sset = rs
-                        rs_new = [rs_new obj.Layers{i-1}.reach(sset, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, 'glpk')];
+                        rs_new = [rs_new obj.Layers{i-1}.reach(sset, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver)];
                     end
                 else
-                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, 'glpk');
+                    rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 end
                 obj.reachTime(i-1) = toc(start_time);
                 rs = rs_new;

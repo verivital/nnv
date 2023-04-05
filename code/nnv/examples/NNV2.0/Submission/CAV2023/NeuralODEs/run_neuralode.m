@@ -5,7 +5,6 @@ function run_neuralode()
     % MNIST
     cd MNIST
     run_mnist_inf;
-    mnist_table;
     cd ..
     
     % ACC

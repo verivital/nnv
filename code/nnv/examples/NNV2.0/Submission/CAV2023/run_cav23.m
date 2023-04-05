@@ -29,7 +29,7 @@ function run_cav23()
     cd ..;
 
     % RL benchmarks
-    cd rl_benchmarrks;
+    cd rl_benchmarks;
     verifyAll;
     cd ..;
     
@@ -37,7 +37,8 @@ function run_cav23()
     cd tllverify;
     verifyAll;
     cd ..;
-
+    
+    cd ..;
 
     %% 3) Segmentation
 
@@ -55,7 +56,7 @@ function run_cav23()
 
     %% Print results
     
-    paper_results('long');
+    paper_results('all');
 
 end
 

@@ -26,7 +26,6 @@ function verifyAll()
         propertyFile = string(NNs_props_timeout.Var2{i});
         % Run verification for each method
         [res(i,1), res(i,2)] = verify_oval21_nnv(net, propertyFile, reachOpt1);
-        disp(string(i)+"/30: " + string(res(i,2))+" seconds");
     end
     
     % Save results

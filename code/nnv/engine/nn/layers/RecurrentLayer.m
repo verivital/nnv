@@ -29,7 +29,7 @@ classdef RecurrentLayer
         
         option = []; % parallel option, 'parallel' or []
         dis_opt = []; % display option, 'display' or []
-        lp_solver = 'linprog'; % lp solver option, 'linprog' or 'glpk'
+        lp_solver = 'glpk'; % lp solver option, 'linprog' or 'glpk'
         relaxFactor = 0; % use only for approx-star method
     end
     

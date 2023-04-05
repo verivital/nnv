@@ -379,10 +379,10 @@ classdef SEGNET < handle
             
             
             obj.reachTime = zeros(1, obj.numLayers);
-%             fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
+            fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
             rs = inputSet;
             for i=2:obj.numLayers+1
-%                 fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
+                fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, obj.Layers{i-1}.Name);
                 start_time = tic;
                 if ~isa(obj.Layers{i-1}, 'PixelClassificationLayer')
                     rs_new = obj.Layers{i-1}.reach(rs, obj.reachMethod, obj.reachOption, obj.relaxFactor);
@@ -394,11 +394,11 @@ classdef SEGNET < handle
                 rs = rs_new;
                 
                 obj.reachTime(i-1) = toc(start_time);
-%                 fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
-%                 fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs));
+                fprintf('\nReachability analysis for Layer %d (%s) is done in %.5f seconds', i-1, obj.Layers{i-1}.Name, obj.reachTime(i-1));
+                fprintf('\nThe number of reachable sets at Layer %d (%s) is: %d', i-1, obj.Layers{i-1}.Name, length(rs));
             end
             fprintf('\nReachability analysis for the network %s is done in %.5f seconds', obj.Name, sum(obj.reachTime));
-            fprintf('\nThe number ImageStar in the output sets is: %d \n', length(obj.reachSet));
+            fprintf('\nThe number ImageStar in the output sets is: %d', length(obj.reachSet));
             obj.totalReachTime = sum(obj.reachTime);
             IS = rs;
             reachTime = obj.totalReachTime;
@@ -414,7 +414,7 @@ classdef SEGNET < handle
             % @ground_truths: an array of ground truth images (without attack)
             % @method: reachability method
             % @nCores: number of cores used for computation
-            %
+            
             % @riou: robust iou
             % @rv: robustness value (percentage of correctly classified pixels)
             % @rs: robustness sensitivity (ratio of (misclassified + unknown pixels)/attacked pixels)

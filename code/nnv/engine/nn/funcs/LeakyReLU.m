@@ -4,9 +4,7 @@ classdef LeakyReLU
     % author: Dung Tran
     % date: 11/19/2020
     
-    % TODO: why two reach_star_approx functions
-
-    properties % no properties
+    properties
         
     end
     
@@ -34,14 +32,15 @@ classdef LeakyReLU
                     I = varargin{1};
                     index = varargin{2};
                     gamma = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
+                    
                 case 4
                     I = varargin{1};
                     index = varargin{2};
                     gamma = varargin{3};
                     lp_solver = varargin{4};
                 otherwise
-                    error('Invalid number of input arguments, should be 3 or 4');
+                    error('Invalid number of input arguments, should be 2 or 3');
             end
             
             if ~isa(I, 'Star')
@@ -49,6 +48,7 @@ classdef LeakyReLU
             end
             
             xmin = I.getMin(index, lp_solver);
+                       
             if xmin >= 0
                 S = I; 
             else
@@ -103,6 +103,8 @@ classdef LeakyReLU
 
         end
         
+        
+        
         % stepReach with multiple inputs
         function S = stepReachMultipleInputs(varargin)
             % @I: an array of stars
@@ -119,13 +121,13 @@ classdef LeakyReLU
                     index = varargin{2};
                     gamma = varargin{3};
                     option = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     index = varargin{2};
                     gamma = varargin{3};
                     option = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     index = varargin{2};
@@ -140,18 +142,25 @@ classdef LeakyReLU
             S = [];
             
             if isempty(option)
+                
                 for i=1:p
                     S =[S LeakyReLU.stepReach(I(i), index, gamma, lp_solver)];
                 end
+                
             elseif strcmp(option, 'parallel')
+                
                 parfor i=1:p
                     S =[S LeakyReLU.stepReach(I(i), index, gamma, lp_solver)];
                 end
+                
             else
                 error('Unknown option');
             end
             
+            
         end      
+        
+                
         
         % exact reachability analysis using star
         function S = reach_star_exact(varargin)
@@ -170,13 +179,13 @@ classdef LeakyReLU
                     gamma = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
@@ -188,6 +197,7 @@ classdef LeakyReLU
             end
             
              if ~isempty(I)
+                            
                 [lb, ub] = I.estimateRanges;
                 
                 if isempty(lb) || isempty(ub)
@@ -225,6 +235,7 @@ classdef LeakyReLU
             
         end           
         
+        
         % step reach approximation using star
         function S = stepReachStarApprox(varargin)
             % @I: star set input
@@ -240,7 +251,7 @@ classdef LeakyReLU
                     I = varargin{1};
                     index = varargin{2};
                     gamma = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     index = varargin{2};
@@ -255,6 +266,7 @@ classdef LeakyReLU
             end
                         
             lb = I.getMin(index, lp_solver);
+              
             if lb > 0
                 S = I;
             else
@@ -275,15 +287,18 @@ classdef LeakyReLU
                 else
                     n = I.nVar + 1;
                     % over-approximation constraints 
-                    % constraint 1: y[index] = leakyReLU(x[index]) >= gamma*x[index]
+                    % constraint 1: y[index] = leakyReLU(x[index]) >=
+                    % gamma*x[index]
                     V1 = I.V(index, 2:n);
                     c1 = I.V(index, 1);
+                    
                     C1 = [gamma*V1 -1];
                     d1 = -gamma*c1;
                     % constraint 2: y[index] >= x[index]
                     C2 = [V1 -1];
                     d2 = -c1;
-                    % constraint 3: y[index] <= [(ub-gamma*lb)/(ub-lb)](x-lb) + gamma*lb
+                    % constraint 3: y[index] <=
+                    % [(ub-gamma*lb)/(ub-lb)](x-lb) + gamma*lb
                     a = (ub-gamma*lb)/(ub-lb);
                     C3 = [-a*V1 1];
                     d3 = a*c1 - a*lb + gamma*lb;
@@ -320,6 +335,7 @@ classdef LeakyReLU
 
         end
         
+        
         % over-approximate reachability analysis using Star
         function S = reach_star_approx(varargin)
             % @I: star input set
@@ -330,25 +346,30 @@ classdef LeakyReLU
             % update: 11/24/2020
             
             switch nargin
+                
+                
                 case 2
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
+                    
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = varargin{3};
                     lp_solver = varargin{4};
+                    
                 otherwise
                     error('Invalid number of input arguments, should be 2, 3 or 4');
             end
             
+
             if ~isa(I, 'Star')
                 error('Input is not a star');
             end
@@ -385,6 +406,7 @@ classdef LeakyReLU
 
         end
         
+        
         % step reach approximation using star
         function S = multipleStepReachStarApprox_at_one(I, gamma, index, lb, ub)
             % @I: star set input
@@ -414,30 +436,38 @@ classdef LeakyReLU
             
             % construct new constraints on new predicate variables
             
-            % case 0: keep the old constraints on the old predicate variables
+            % case 0: keep the old constraints on the old predicate
+            % variables
+            
             n = I.nVar; % number of old predicate variables
             C0 = [I.C zeros(size(I.C, 1), m)];
             d0 = I.d; 
+            
             %case 1: y(index) >= gamma*x(index)           
             C1 = [gamma*I.V(index, 2:n+1) -V2(index, 1:m)];
             d1 = -gamma*I.V(index, 1);
+            
             %case 2: y(index) >= x(index)
             C2 = [I.V(index, 2:n+1) -V2(index, 1:m)];
             d2 = -I.V(index, 1);
+            
             %case 3: y(index) <= [(ub-gamma*lb)/(ub-lb)](x-lb) + gamma*lb
+            
             a = (ub - gamma*lb)./(ub - lb); % divide element-wise
             b = a.*lb; % multiply element-wise
             C3 = [-a.*I.V(index, 2:n+1) V2(index, 1:m)];
             d3 = a.*I.V(index, 1)-b + gamma*lb;
-
-            % create new Star
+            
             new_C = [C0; C1; C2; C3];
             new_d = [d0; d1; d2; d3];
+            
             new_pred_lb = [I.predicate_lb; gamma*lb];
             new_pred_ub = [I.predicate_ub; ub];
+            
             S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
             
         end
+        
         
         % more efficient method by doing multiple stepReach at one time
         % over-approximate reachability analysis using Star
@@ -455,19 +485,19 @@ classdef LeakyReLU
                     gamma = varargin{2};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
@@ -517,7 +547,8 @@ classdef LeakyReLU
                     fprintf('\n(%d+%d =%d)/%d neurons have ub <= 0', length(map1), length(map3), length(map11), length(ub));
                 end
 
-                % find all indexes that have lb < 0 & ub > 0, then apply the over-approximation rule for leakyReLU
+                % find all indexes that have lb < 0 & ub > 0, then
+                % apply the over-approximation rule for leakyReLU
                 if strcmp(dis_opt, 'display')
                     fprintf("\nFinding all neurons (in %d neurons) with lb < 0 & ub >0: ", length(ub));
                 end
@@ -543,8 +574,7 @@ classdef LeakyReLU
     end
     
     methods(Static) % reachability analysis using relax-star method
-
-        % a relaxed star-approx method using distance heuristics
+        % a relaxed star-approx method using distance heristics
         function S = reach_relaxed_star_dis(varargin)
             % @I: star input set
             % @relaxFactor: a relaxFactor
@@ -560,28 +590,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -675,12 +705,13 @@ classdef LeakyReLU
 
         end
         
+        
         % a relaxed star-approx method using area heuristic
+        % optimize ranges of neurons that have largest estimated areas
         function S = reach_relaxed_star_area(varargin)
             % @I: star input set
             % @relaxFactor: a relaxFactor
             % @S: star output set
-            % % optimize ranges of neurons that have largest estimated areas
 
             % author: Dung Tran
             % date: 11/24/2020
@@ -692,28 +723,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -801,12 +832,14 @@ classdef LeakyReLU
 
         end
         
+        
         % a relaxed star-approx method using lower bound and upper bound heuristic
+        % optimize ranges of neurons that have largest lower bounds and
+        % upper bounds
         function S = reach_relaxed_star_lb_ub(varargin)
             % @I: star input set
             % @relaxFactor: a relaxFactor
             % @S: star output set
-            % optimize ranges of neurons that have largest lower bounds and upper bounds
 
             % author: Dung Tran
             % date: 11/24/2020
@@ -818,28 +851,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -965,12 +998,18 @@ classdef LeakyReLU
 
         end
 
+        
+        
         % a relaxed star-approx method using upper bound heuristic
+        % optimize ranges of neurons that have largest lower bounds and
+        % upper bounds
         function S = reach_relaxed_star_ub(varargin)
             % @I: star input set
             % @relaxFactor: a relaxFactor
             % @S: star output set
-            % optimize ranges of neurons that have largest lower bounds and upper bounds
+
+            % author: Dung Tran
+            % date: 7/27/2020
 
             % author: Dung Tran
             % date: 11/24/2020
@@ -982,28 +1021,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1139,11 +1178,11 @@ classdef LeakyReLU
         end
         
         % a relaxed star-approx method using random heuristic
+        % optimize ranges of randomly selected neurons
         function S = reach_relaxed_star_random(varargin)
             % @I: star input set
             % @relaxFactor: a relaxFactor
             % @S: star output set
-            % optimize ranges of randomly selected neurons
 
             % author: Dung Tran
             % date: 11/24/2020
@@ -1155,28 +1194,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1266,11 +1305,11 @@ classdef LeakyReLU
         end
         
         % a relaxed star-approx method using static heuristic
+        % optimize ranges of the first n neurons
         function S = reach_relaxed_star_static(varargin)
             % @I: star input set
             % @relaxFactor: a relaxFactor
             % @S: star output set
-            % optimize ranges of the first n neurons
 
             % author: Dung Tran
             % date: 11/24/2020
@@ -1282,28 +1321,28 @@ classdef LeakyReLU
                     relaxFactor = 0;
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
                     relaxFactor = varargin{3};
                     option = varargin{4};
                     dis_opt = varargin{5};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1449,6 +1488,7 @@ classdef LeakyReLU
             
         end
         
+        
         % stepReach for multiple Input Sets 
         function R = stepReachMultipleInputs_Polyhedron(varargin)
             % @I: an array of input sets which are polyhedra
@@ -1492,6 +1532,7 @@ classdef LeakyReLU
             end
           
         end
+        
         
         % exact reachability analysis using Polyhedron
         function R = reach_polyhedron_exact(varargin)
@@ -1612,12 +1653,14 @@ classdef LeakyReLU
                        
         end
         
+        
     end
     
     
     methods(Static) % reachability analysis using abstract-domain
         
         % step over-approximate reachability analysis using abstract-domain
+        % we use star set to represent abstract-domain
         function S = stepReachAbstractDomain(varargin)
             % @I: star-input set
             % @index: index of neuron performing stepReach
@@ -1630,14 +1673,17 @@ classdef LeakyReLU
             % reference: An Abstract Domain for Certifying Neural Networks,
             % Gagandeep Singh, POPL 2019
             
+            
             switch nargin
                 
                 case 5
+                    
                     I = varargin{1};
                     gamma = varargin{2};
                     index = varargin{3};
                     lb = varargin{4};
                     ub = varargin{5};
+                
                 otherwise
                     error('Invalid number of input arguments (should be 5)');
             end
@@ -1666,6 +1712,7 @@ classdef LeakyReLU
                 % constraint 1: y[index] = leakyReLU(x[index]) >= gamma*x[index]
                 C1 = [gamma*I.V(index, 2:n) -1];
                 d1 = -gamma*I.V(index, 1);
+                
                 
                 % constraint 2: y[index] = ReLU(x[index]) >= x[index]
                 C2 = [I.V(index, 2:n) -1];
@@ -1706,6 +1753,7 @@ classdef LeakyReLU
                        
         end
         
+        
         % over-approximate reachability analysis using abstract-domain
         function S = reach_abstract_domain(varargin)
             % @I: star input set
@@ -1719,12 +1767,12 @@ classdef LeakyReLU
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1733,6 +1781,7 @@ classdef LeakyReLU
                 otherwise
                     error('Invalid number of input arguments, should be 2, 3, or 4');
             end
+            
             
             if ~isa(I, 'Star')
                 error('Input is not a star');
@@ -1768,7 +1817,16 @@ classdef LeakyReLU
             
             end     
         
+        
         end
+        
+    end
+    
+    
+    
+    methods(Static) % reachability analysis method using face-latice
+        
+        % future supporting method
         
     end
     
@@ -1797,6 +1855,7 @@ classdef LeakyReLU
                     relaxFactor = varargin{5}; % used for aprox-star only
                     dis_opt = varargin{6}; % display option
                     lp_solver = varargin{7}; 
+                
                 case 6
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1804,7 +1863,8 @@ classdef LeakyReLU
                     option = varargin{4};
                     relaxFactor = varargin{5}; % used for aprox-star only
                     dis_opt = varargin{6}; % display option
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
+                
                 case 5
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1812,7 +1872,8 @@ classdef LeakyReLU
                     option = varargin{4};
                     relaxFactor = varargin{5}; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
+                                    
                 case 4
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1820,7 +1881,7 @@ classdef LeakyReLU
                     option = varargin{4};
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1828,7 +1889,7 @@ classdef LeakyReLU
                     option = [];
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 2
                     I = varargin{1};
                     gamma = varargin{2};
@@ -1836,7 +1897,7 @@ classdef LeakyReLU
                     option = [];
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 otherwise
                     error('Invalid number of input arguments (should be 2,3,4,5,6 or 7)');
             end
@@ -1871,6 +1932,8 @@ classdef LeakyReLU
                             
         end
         
+        
     end
+    
     
 end

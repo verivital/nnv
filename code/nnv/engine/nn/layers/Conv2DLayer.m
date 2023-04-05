@@ -67,45 +67,22 @@ classdef Conv2DLayer < handle
                     
                     w = size(filter_weights);
                     b = size(filter_bias);
-
-                    if length(w) == 2
-                        obj.NumFilters = 1;
-                        obj.NumChannels = 1;
-                        obj.FilterSize = [w(1) w(2)];
-                        obj.Weights = filter_weights;
-                    elseif length(w) == 3
-                        obj.NumFilters = 1;
-                        obj.NumChannels = w(3);
-                        obj.FilterSize = [w(1) w(2)];
-                        obj.Weights = filter_weights;
-                    elseif length(w) == 4
-                        obj.NumFilters = w(4);
-                        obj.NumChannels = w(3);
-                        obj.FilterSize = [w(1) w(2)];
-                        obj.Weights = filter_weights;
-                    else
-                        error('Invalid weight matrix');
-                    end
                     
                     if length(w) ~= 4
-                        if ~(length(w) == 3 && obj.NumFilters == 1)
-                            error('Invalid weights array');
-                        end
+                        error('Invalid weights array');
                     end
                     if length(b) ~= 3
-                        if ~(length(b) == 2 && obj.NumFilters == 1)
-                            error('Invalid biases array');
-                        end
+                        error('Invalid biases array');
                     end
 
-                    if length(w) == 4 && w(4) ~= b(3)
+                    if w(4) ~= b(3)
                         error('Inconsistency between filter weights and filter biases');
                     end
                     
-%                     obj.NumFilters = w(4);
-%                     obj.NumChannels = w(3);
-%                     obj.FilterSize = [w(1) w(2)];
-%                     obj.Weights = filter_weights;
+                    obj.NumFilters = w(4);
+                    obj.NumChannels = w(3);
+                    obj.FilterSize = [w(1) w(2)];
+                    obj.Weights = filter_weights;
                     obj.Bias = filter_bias;
                                         
                     p = size(padding_mat);
@@ -147,45 +124,22 @@ classdef Conv2DLayer < handle
                     
                     w = size(filter_weights);
                     b = size(filter_bias);
-
-                    if length(w) == 2
-                        obj.NumFilters = 1;
-                        obj.NumChannels = 1;
-                        obj.FilterSize = [w(1) w(2)];
-                        obj.Weights = filter_weights;
-                    elseif length(w) == 3
-                        obj.NumFilters = 1;
-                        obj.NumChannels = w(3);
-                        obj.FilterSize = [w(1) w(2)];
-                        obj.Weights = filter_weights;
-                    elseif length(w) == 4
-                        obj.NumFilters = w(4);
-                        obj.NumChannels = w(3);
-                        obj.FilterSize = [w(1) w(2)];
-                        obj.Weights = filter_weights;
-                    else
-                        error('Invalid weight matrix');
-                    end
                     
                     if length(w) ~= 4
-                        if ~(length(w) == 3 && obj.NumFilters == 1)
-                            error('Invalid weights array');
-                        end
+                        error('Invalid weights array');
                     end
                     if length(b) ~= 3
-                        if ~(length(b) == 2 && obj.NumFilters == 1)
-                            error('Invalid biases array');
-                        end
+                        error('Invalid biases array');
                     end
 
-                    if length(w) == 4 && w(4) ~= b(3)
+                    if w(4) ~= b(3)
                         error('Inconsistency between filter weights and filter biases');
                     end
                     
-%                     obj.NumFilters = w(4);
-%                     obj.NumChannels = w(3);
-%                     obj.FilterSize = [w(1) w(2)];
-%                     obj.Weights = filter_weights;
+                    obj.NumFilters = w(4);
+                    obj.NumChannels = w(3);
+                    obj.FilterSize = [w(1) w(2)];
+                    obj.Weights = filter_weights;
                     obj.Bias = filter_bias;
                                         
                     p = size(padding_mat);

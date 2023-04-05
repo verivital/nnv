@@ -35,7 +35,7 @@ classdef BNN < handle
         Operations = []; % flatten a network into a sequence of operations
         
         dis_opt = []; % display option
-        lp_solver = 'linprog'; % lp solver option, should be glpk or linprog
+        lp_solver = 'glpk'; % lp solver option, should be glpk or linprog
         
         type = 'mlp';
         

@@ -11,7 +11,7 @@ classdef SignLayer < handle
         
         option = []; % parallel option, 'parallel' or []
         dis_opt = []; % display option, 'display' or []
-        lp_solver = 'linprog'; % lp solver option, 'linprog' or 'glpk'
+        lp_solver = 'glpk'; % lp solver option, 'linprog' or 'glpk'
         relaxFactor = 0; % use only for approx-star method
     end
     
@@ -127,7 +127,7 @@ classdef SignLayer < handle
             
             n = length(I);
             S = [];
-%             gamma1 = obj.gamma;
+            gamma1 = obj.gamma;
             
             I1 = I;
             
@@ -140,9 +140,9 @@ classdef SignLayer < handle
                 rF = obj.relaxFactor;
                 dis = obj.dis_opt;
                 lps = obj.lp_solver;
-                mode_ = obj.mode;
+                mode = obj.mode;
                 parfor i=1:n
-                    S = [S Sign.reach(I1(i), method, [], rF, dis, lps, mode_)];
+                    S = [S Sign.reach(I1(i), method, [], rF, dis, lps, mode)];
                 end
             else
                 

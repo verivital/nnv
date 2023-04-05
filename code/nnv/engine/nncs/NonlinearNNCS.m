@@ -1,8 +1,6 @@
 classdef NonlinearNNCS < handle
     %Neural network control system class 
     %   Dung Tran: 10/21/2018
-    % Update: Change controller class from FFNNS to NN
-    %       01/30/2023 - Diego Manzanas Lopez
     
     properties
         controller = []; % nerual-network controller
@@ -17,6 +15,7 @@ classdef NonlinearNNCS < handle
         %             |                                       |
         %             u(k) <---- controller |<---- y(k-d)-----(output feedback) 
         %                                   |<----- v(k)------(reference input)                                    
+        
         
         % the input to neural net controller is grouped into 2 group
         % the first group contains all the reference inputs
@@ -48,11 +47,9 @@ classdef NonlinearNNCS < handle
         controlSet = []; % control signal of the controller over time
         simTrace = []; % simulation trace
         controlTrace = []; % control trace
-        execFirst = 'controller'; % default
-
     end
     
-    methods % main methods (simulate and reach)
+    methods
         
         %constructor
         function obj = NonlinearNNCS(varargin)
@@ -80,8 +77,8 @@ classdef NonlinearNNCS < handle
             end
             
             
-            if ~isa(controller, 'NN')
-                error('The controller is not a neural network');
+            if ~isa(controller, 'FFNN') && ~isa(controller, 'FFNNS')
+                error('The controller is not a feedforward neural network');
             end     
                         
             [nO, nI] = size(feedbackMap);
@@ -89,7 +86,7 @@ classdef NonlinearNNCS < handle
             if nI ~= 1
                 error('FeedbackMap should have one column');
             end
-            if nO * plant.nO > controller.InputSize
+            if nO * plant.nO > controller.nI
                 error('Two many feedback inputs');
             end
                         
@@ -97,114 +94,81 @@ classdef NonlinearNNCS < handle
             obj.plant = plant;
             obj.feedbackMap = feedbackMap;
             obj.nO = plant.nO;
-            obj.nI = controller.InputSize;
+            obj.nI = controller.nI;
             obj.nI_fb = nO * plant.nO;
-            obj.nI_ref = obj.nI - obj.nI_fb;
+            obj.nI_ref = controller.nI - obj.nI_fb;
             
         end
                        
-        % reachability analysis of nncs using stars for controller, CORA for plant
+        % reachability analysis of nncs using stars
+        % output reach set of controller is a single star
+        % the plant reachable set is a zonotope
         function [P, reachTime] = reach(obj, reachPRM)
             % Syntax:
             % [P, reachTime] = reach(obj, reachPRM)
             %
-            % @reachPRM: reachability parameters including following inputs
-            %       1) @init_set: initial set of states of the plant
-            %       2) @ref_input: reference input to the controller. it = [] if there is no reference input.
-            %       3) @numCores: number of cores used for computation
-            %       4) @numSteps: number of reachability steps
-            
-            % author: Dung Tran
-            % date: 11/16/2018
-            
-            % Check input correctness and assign values
-            if ~isstruct(reachPRM)
-                error("reachPRM must be s struct defining reachability options")
-            end
-            if ~isfield(reachPRM, "init_set") || ~isfield(reachPRM, "numSteps")
-                error("Fields init_set and numSteps are mandatory to perform reachability analysis of nncs.")
-            end
-            initSet = reachPRM.init_set;
-            n_steps = reachPRM.numSteps;
-            
-            if isfield(reachPRM, "ref_input")
-                ref_inputSet = reachPRM.ref_input;
-            else
-                ref_inputSet = [];
-            end
-            
-            if isfield(reachPRM, 'numCores')
-                n_cores = reachPRM.numCores;
-            else
-                n_cores = 1;
-            end
-            
-            if isfield(reachPRM, 'reachMethod')
-                reach_method = reachPRM.reachMethod;
-            else
-                reach_method = 'approx-star';
-            end
-            
-            % to compute the reachable sets of the plant or controller first
-            if isfield(reachPRM, 'execFirst') 
-                obj.execFirst = reachPRM.execFirst;
-            end
-            
-            if ~isa(initSet, 'Star')
-                error('Initial set of the plant is not a Star');
-            end
-            
-            if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Star') && isvector(ref_inputSet)
-                ref_inputSet = Star(ref_inputSet, ref_inputSet);
-            end
-            
-            if n_steps < 1
-                error('Number of steps should be >= 1');
-            end
-            
-            start_time = tic; 
-            obj.reachSetTree = SetTree(n_steps + 1); % initialize reach set tree
-            obj.init_set = initSet;
-            obj.ref_I = ref_inputSet;
-            obj.reachSetTree.addReachSet(initSet, 1); % add the init_set to the reachSetTree
-            obj.plant.cora_set = []; % ensure reach set is empty to start
-            
-            % Create reachOptions for controller
-            reachOpt.numCores = n_cores;
-            reachOpt.reachMethod = reach_method;
-            if n_cores > 1
-                reachOpt.reachOption = 'parallel';
-            end
-            
-            for i=2:n_steps + 1
+             % @reachPRM: reachability parameters including following inputs
+             %       1) @init_set: initial set of states of the plant
+             %       2) @ref_input: reference input to the controller. it = [] if there is no reference input.
+             %       3) @numCores: number of cores used for computation
+             %       4) @numSteps: number of reachability steps
+
+             % author: Dung Tran
+             % date: 11/16/2018
              
-                % reachability analysis for  controller
-                fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
-                input_set = obj.nextInputSetStar(fb_I{1});
-                if i==2 && strcmp(obj.execFirst, 'plant')
-                    lb = zeros(obj.plant.nI, 1); % at first step, U = 0 if compute plant first
-                    U = Star(lb, lb);
-                else
-                    U = obj.controller.reach(input_set, reachOpt); % control set at step i   
-                end
-                if length(U) > 1
-                    U1 = Star.get_hypercube_hull(U);
-                    U1 = U1.toStar();
-                else
-                    U1 = U;
-                end
+             start_time = tic; 
+             initSet = reachPRM.init_set;
+             ref_inputSet = reachPRM.ref_input;
+             n_cores = reachPRM.numCores;
+             n_steps = reachPRM.numSteps;
+             
+             if ~strcmp(reachPRM.reachMethod, 'approx-star')
+                 error('Only approx-star method is supported for nonlinear NNCS');
+             end
+             
+             if ~isa(initSet, 'Star')
+                 error('Initial set of the plant is not a Star');
+             end
 
-                % reachability analysis for plant
-                obj.controlSet = [obj.controlSet U1];
-                R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
-                obj.reachSetTree.addReachSet(R, i);                 
-            end
-            % Save reach data
-            reachTime = toc(start_time);
-            obj.reachTime = reachTime;
-            P = obj.reachSetTree.flatten();
-            obj.totalNumOfReachSet = obj.reachSetTree.getTotalNumOfReachSet();
+             if ~isempty(ref_inputSet) && ~isa(ref_inputSet, 'Star') && isvector(ref_inputSet)
+                 ref_inputSet = Star(ref_inputSet, ref_inputSet);
+             end
 
+             if n_steps < 1
+                 error('Number of steps should be >= 1');
+             end
+             
+             obj.reachSetTree = SetTree(n_steps + 1); % initialize reach set tree
+             obj.init_set = initSet;
+             obj.ref_I = ref_inputSet;
+             obj.reachSetTree.addReachSet(initSet, 1); % add the init_set to the reachSetTree
+             
+             for i=2:n_steps + 1
+                 
+                 % reachability analysis for  controller
+                 fprintf('Reachability analysis for the controller \n');
+                 fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
+                 input_set = obj.nextInputSetStar(fb_I{1});
+                 if i==2
+                     lb = zeros(obj.plant.nI, 1); % at first step, U = 0.
+                     U = Star(lb, lb);
+                 else
+                    [U,~] = obj.controller.reach(input_set, 'exact-star', n_cores); % control set at step i   
+                 end
+                 U1 = Star.get_hypercube_hull(U);
+                 
+                 % reachability analysis for plant
+                 fprintf('\nReachability analysis for the plant \n');
+                 U1 = U1.toStar();
+                 obj.controlSet = [obj.controlSet U1];
+                 R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 
+                 obj.reachSetTree.addReachSet(R, i);                 
+             end
+             reachTime = toc(start_time);
+             obj.reachTime = reachTime;
+             P = obj.reachSetTree.flatten();
+             obj.totalNumOfReachSet = obj.reachSetTree.getTotalNumOfReachSet();
+             
              
         end
 
@@ -291,7 +255,9 @@ classdef NonlinearNNCS < handle
             
         end
         
-        % verify safety after reach, unsafe region as halfspace
+        
+        % verify safety after doing reachability analysis
+        % unsafe region defined by: unsafe_mat * x <= unsafe_vec
         function [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
             % Syntax:
             % [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
@@ -366,7 +332,7 @@ classdef NonlinearNNCS < handle
         end
         
         % simulate (evaluate) the nncs with specific input and initial state of the plant
-        function [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input, exeFirst)
+        function [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input)
             % Syntax:
             % [simTrace, controlTrace] = evaluate(obj, step, n_steps, x0, ref_input)
             %
@@ -398,47 +364,51 @@ classdef NonlinearNNCS < handle
                     error('Invalid reference input vector');
                 end
             end
-
-            if nargin > 5 % exeFirst exists (6 inputs)
-                obj.execFirst = exeFirst;
-            end
             
-            % Initialize variables
+            %ts = obj.plant.reachStep;
+%             [~,y1] = obj.plant.evaluate([0 step], x0, zeros(obj.plant.nI,1)); % first step simulation
+            [~,y1] = obj.plant.evaluate(x0, zeros(obj.plant.nI,1)); % first step simulation
+            n = size(y1, 1);
             obj.simTrace = [];
             obj.controlTrace = [];
+            obj.simTrace = [obj.simTrace y1(n, :)'];
             obj.controlTrace = zeros(obj.controller.nO, 1); % control signal of the first step is zero
-            
-            % Begin simulation
-            for i=2:n_steps + 1
+      
+            if n_steps >= 2
                 
-                % construct input to the controller
-                l = size(obj.simTrace, 2);
-                m = size(obj.feedbackMap, 1);
-                I = [];
-                for j=1:m
-                    if l - obj.feedbackMap(j) <= 0
-                        I1 = zeros(obj.plant.nO, 1); 
-                        I = [I; I1];
-                    else
-                        I2 = obj.plant.C * obj.simTrace(:, l - obj.feedbackMap(j));
-                        I = [I; I2];
-                    end 
-                end
-                I = [ref_input; I];
-               
-                % compute control signal
-                if i == 2 && strcmp(obj.execFirst, 'controller')
+                for i=2:n_steps
+                    
+                    % construct input to the controller
+                    l = size(obj.simTrace, 2);
+                    m = size(obj.feedbackMap, 1);
+                    I = [];
+              
+                    for j=1:m
+              
+                        if l - obj.feedbackMap(j) <= 0
+                            I1 = zeros(obj.plant.nO, 1); 
+                            I = [I; I1];
+                        else
+                            I2 = obj.plant.C * obj.simTrace(:, l - obj.feedbackMap(j));
+                            I = [I; I2];
+
+                        end 
+
+                    end
+                    
+                    I = [ref_input; I];
+                   
+                    % compute control signal
                     u = obj.controller.evaluate(I);
-                else
-                    u = zeros(obj.plant.nI,1);
+                    % compute states of the plant                  
+%                     [~,y1] = obj.plant.evaluate([0 step], obj.simTrace(:, i-1), u); % first step simulation
+                    [~,y1] = obj.plant.evaluate(obj.simTrace(:, i-1), u); % first step simulation
+                    n = size(y1, 1);
+                    obj.simTrace = [obj.simTrace y1(n, :)']; % store computed states to simTrace                    
+                    obj.controlTrace = [obj.controlTrace u]; % store control input to controlTrace
                 end
-                % compute states of the plant                  
-                [~,y1] = obj.plant.evaluate(obj.simTrace(:, i-1), u); % first step simulation
-                n = size(y1, 1);
-                obj.simTrace = [obj.simTrace y1(n, :)']; % store computed states to simTrace                    
-                obj.controlTrace = [obj.controlTrace u]; % store control input to controlTrace
-            end
                                
+            end
             obj.simTrace = [x0 obj.simTrace]; % add initial state to simtrace            
             simTrace = obj.simTrace;
             controlTrace = obj.controlTrace;
@@ -510,7 +480,7 @@ classdef NonlinearNNCS < handle
             for i=1:n_samples
                 
                 if isempty(Z) % no reference input
-                    [sim_traces{1, i}, control_traces{1, i}] = obj.evaluate(step, n_steps, V(:, i), []);
+                     [sim_traces{1, i}, control_traces{1, i}] = obj.evaluate(step, n_steps, V(:, i), []);
                 else
                     [sim_traces{1, i}, control_traces{1, i}] = obj.evaluate(step, n_steps, V(:, i), Z(:, i));
                 end
@@ -520,6 +490,7 @@ classdef NonlinearNNCS < handle
             sim_time = toc(t);
             
         end
+        
         
         % automatically falsify nncs using random simulations
         function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, falsifyPRM)
@@ -598,7 +569,72 @@ classdef NonlinearNNCS < handle
            
         end
         
-        % Verify property (is this _ check_safety necessary?)
+        
+       
+                                  
+    end
+    
+    
+    methods(Static)
+        
+         
+        % check if a trace violates safety specification
+        function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
+            % Syntax:
+            % violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
+            %
+            % @simTrace: a single simulation trace
+            % @unsafe_mat: unsafe matrix to specify unsafe region
+            % @unsafe_vec: unsafe vector to specify unsafe region:
+            % unsafe_mat * x <= unsafe_vec
+            % @violate: =1: trace reaches unsafe region
+            %           =0: trace does not reach unsafe region
+            
+            [n, m] = size(simTrace);
+            [n1, m1] = size(unsafe_mat);
+            [n2, m2] = size(unsafe_vec);
+             
+            if n ~= m1
+                error('Inconsistent dimension between simTrace and unsafe matrix');
+            end
+            
+            if n1 ~= n2
+                error('Inconsistent dimension between unsafe matrix and unsafe vector');
+            end
+            
+            if m2 ~= 1
+                error('Invalid unsafe vector, it should have one column');
+            end
+            
+            A = unsafe_mat * simTrace - unsafe_vec; 
+
+            k = 0;
+            for i=1:m
+                for j=1:n1
+                    if A(j, i) <= 0
+                        k = k + 1;
+                    end
+                end
+                if k == n1
+                    break;
+                else
+                    k = 0;
+                end
+            end 
+        
+            if k == n1
+                violate = 1;
+            else
+                violate = 0;
+            end
+            
+        end
+       
+        
+    end
+    
+    methods
+        % verify method
         function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
             % Syntax:
             % [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
@@ -657,68 +693,12 @@ classdef NonlinearNNCS < handle
             verifyTime = toc(t);
             
         end
-    
     end
     
-    
-    methods(Static, Access = protected) % helper functions
-        
-        % check if a trace violates safety specification
-        function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
-            % Syntax:
-            % violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
-            %
-            % @simTrace: a single simulation trace
-            % @unsafe_mat: unsafe matrix to specify unsafe region
-            % @unsafe_vec: unsafe vector to specify unsafe region:
-            % unsafe_mat * x <= unsafe_vec
-            % @violate: =1: trace reaches unsafe region
-            %           =0: trace does not reach unsafe region
-            
-            [n, m] = size(simTrace);
-            [n1, m1] = size(unsafe_mat);
-            [n2, m2] = size(unsafe_vec);
-             
-            if n ~= m1
-                error('Inconsistent dimension between simTrace and unsafe matrix');
-            end
-            
-            if n1 ~= n2
-                error('Inconsistent dimension between unsafe matrix and unsafe vector');
-            end
-            
-            if m2 ~= 1
-                error('Invalid unsafe vector, it should have one column');
-            end
-            
-            A = unsafe_mat * simTrace - unsafe_vec; 
-
-            k = 0;
-            for i=1:m
-                for j=1:n1
-                    if A(j, i) <= 0
-                        k = k + 1;
-                    end
-                end
-                if k == n1
-                    break;
-                else
-                    k = 0;
-                end
-            end 
-        
-            if k == n1
-                violate = 1;
-            else
-                violate = 0;
-            end
-            
-        end
-        
-    end
-    
-    methods % plot methods (TO update, use CORA reach sets and methods to avoid converting all sets to stars if possible)
-
+    methods % plot method
+        % plot output reach set
+        % output reach set is derived by mapping the state reach set by
+        % a maping matrix, M 
         function plotOutputReachSets(obj, color, map_mat, map_vec)
             % @map_mat: a mapping matrix
             % @map_vec: mapping vector
@@ -778,6 +758,8 @@ classdef NonlinearNNCS < handle
             
         end
         
+        
+        
         function Y = getOutputReachSet(obj, map_mat, map_vec)
             % @map_mat: a mapping matrix
             % @map_vec: mapping vector
@@ -821,7 +803,12 @@ classdef NonlinearNNCS < handle
             
         end
         
+        
+        
     end
+    
+    
+    
     
 end
 

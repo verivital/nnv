@@ -4,12 +4,11 @@ classdef HardSig
     % Author: Dung Tran
     % Date: 4/6/2019
     
-    properties % no properties
+    properties
 
     end
     
-    methods(Static) % eval and reach methods
-        
+    methods(Static)
         % evaluation
         function y = evaluate(x)
             n = length(x);
@@ -24,8 +23,7 @@ classdef HardSig
                if x >= -2.5 && x <= 2.5
                    y(i) = 0.2 * x(i) + 0.5;
                end
-            end
-            
+            end 
         end
             
         % stepReach method, compute reachable set for a single step
@@ -36,6 +34,7 @@ classdef HardSig
             
             % author: Dung Tran
             % date: 4/6/2019
+            
             
             if ~isa(I, 'Star')
                 error('Input is not a star set');
@@ -77,12 +76,13 @@ classdef HardSig
                      
         end
         
+        
         % stepReach with multiple inputs
         function S = stepReachMultipleInputs(varargin)
             % @I: an array of stars
             % @index: index where stepReach is performed
             % @option: = 'parallel' use parallel computing
-            %          = if undefined -> don't use parallel computing
+            %          = not declare -> don't use parallel computing
             
             % author: Dung Tran
             % date: 27/2/2019
@@ -100,28 +100,37 @@ classdef HardSig
                     error('Invalid number of input arguments (should be 2 or 3)');
             end
             
+            
+            
             p = length(I);
             S = [];
             
             if isempty(option)
+                
                 for i=1:p
                     S =[S, SatLin.stepReach(I(i), index)];
                 end
+                
             elseif strcmp(option, 'parallel')
+                
                 parfor i=1:p
                     S =[S, SatLin.stepReach(I(i), index)];
                 end
+                
             else
                 error('Unknown option');
             end
             
+            
         end
        
+        
+        
         % exact reachability analysis using Star
         function S = reach_star_exact(I, option)
             % @I: an array of star input sets
             % @option: = 'parallel' use parallel option
-            %          = '' do not use parallel option
+            %          = '' do use parallel option
             
             % author: Dung Tran
             % date: 27/2/2019
@@ -130,16 +139,18 @@ classdef HardSig
                 dim = I(1).dim;
                 In = I;
                 for i=1:dim
+                    fprintf('\nPerforming SatLin_%d operation', i);
                     In = SatLin.stepReachMultipleInputs(In, i, option);
                 end             
+                
                 S = In;
             else
                 S = [];
             end
+            
               
         end
         
     end
-
 end
 

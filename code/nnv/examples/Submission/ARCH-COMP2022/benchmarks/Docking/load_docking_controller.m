@@ -44,7 +44,7 @@ function controller = load_docking_controller(onnxfile)
         % bias
         b{1} = zeros(4,1); b{2} = b1; b{3} = b2; b{4} = b3; b{5} = zeros(2,1);
         % activation functions
-        act_fcns = ['linear';'tanh  ';'tanh  '; 'linear'; 'tanh  '];
+        act_fcns = ['linear';'tanh  ';'tanh  '; 'linear'; 'linear'];
         % Save model
         save('model.mat','W','b','act_fcns');
     end

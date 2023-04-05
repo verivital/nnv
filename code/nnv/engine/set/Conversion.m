@@ -2,12 +2,10 @@ classdef Conversion
     %Conversion class contains some basic conversion methodd for merging polyhedra 
     %   Dung Tran
     
-    properties % none
-
+    properties
     end
     
     methods(Static)
-
          % convert equalities to inequalities for a polyhedron
          function new_P = removeEqualities(P)
              % @P: a Polyhedron
@@ -30,13 +28,15 @@ classdef Conversion
 
          end
          
-         % concatenate two polyhedra to make a higher dimensional polyhedron
+         % concatenate two polyhedra to make a higher dimensional
+         % polyhedron
          function P = concatenatePolyhedron(Ps)
              % @Ps: an array of input polyhedron
              % @P: the concatenated polyhdron P: [x; y], x \in P1, y \in P2
              
              % author: Dung Tran
              % date: 11/5/2018
+             
              
              n = length(Ps);
              A = [];
@@ -51,7 +51,7 @@ classdef Conversion
              
          end
          
-         % Polyhedron to Star
+         % to Star
          function S = toStar(P)
              % convert a Polyhedron to a Star
              % Author: Dung Tran
@@ -63,17 +63,17 @@ classdef Conversion
              
              dim = P.Dim;
              P1 = Conversion.removeEqualities(P);
-             c = cast(zeros(dim, 1), 'like', P1.A);
-             V = cast(eye(dim), 'like', P1.A);
+             
+             c = zeros(dim, 1);
+             V = eye(dim);
              
              S = Star([c V], P1.A, P1.b);
              nV = S.nVar; 
-             S.predicate_lb = cast(-ones(nV,1), 'like', P1.A);
-             S.predicate_ub = cast(ones(nV,1), 'like', P1.A);  
-
+             S.predicate_lb = -ones(nV,1);
+             S.predicate_ub = ones(nV,1);             
          end
          
-         % Polyhedron to Box
+         % to Box
          function B = toBox(P)
              % convert a Polyhedron to a Box
              if ~isa(P, 'Polyhedron')
@@ -94,37 +94,41 @@ classdef Conversion
              
              % Dung Tran
              % date: 11/16/2018
-
-             if ~isa(Ps, 'Polyhedron')
-               error('Input is not a polyhedron');
-            end
              
              n = length(Ps); % number of polyhedra
-             xmin = cast(zeros(n,1), 'like', Ps(1).A);
-             xmax = cast(zeros(n,1), 'like', Ps(1).A);
+             xmin = zeros(n,1);
+             xmax = zeros(n,1);
              for i=1:n 
+                 
                 P = Ps(i);
+                if ~isa(P, 'Polyhedron')
+                   error('Input is not a polyhedron');
+                end
+    
                 dim = P.Dim;
-                f = cast(zeros(1, dim), 'like', P.A);
+                f = zeros(1, dim);
                 f(index) = 1;
-                
-                [fval, exitflag] = lpsolver(f,P.A, P.b, P.Ae, P.be, [], []);
-                if strcmp(exitflag, "l1")
+                options = optimset('Display','none');
+                [~, fval, exitflag, ~] = linprog(f, P.A, P.b, P.Ae, P.be, [], [], [], options);
+            
+                if exitflag > 0
                     xmin(i) = fval;
                 else
                     error('Cannot find an optimal solution');
                 end          
 
-                [fval, exitflag] = lpsolver(-f, P.A, P.b, P.Ae, P.be, [], []);
-                if strcmp(exitflag, "l1")
+                [~, fval, exitflag, ~] = linprog(-f, P.A, P.b, P.Ae, P.be, [], [], [], options);
+                if exitflag > 0
                     xmax(i) = -fval;
                 else
                     error('Cannot find an optimal solution');
                 end
                 
              end
+             
                           
          end
+         
          
     end
     

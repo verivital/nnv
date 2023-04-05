@@ -15,6 +15,8 @@ classdef ODEblockLayer
     % 
     % Diego Manzanas: February 15th, 2021
     
+    
+    
     properties
         tfinal = 1; % Final integration time (default = 1)
         tstep = 1/10; % Initialize time step used to return time series
@@ -22,8 +24,7 @@ classdef ODEblockLayer
         time_series = []; % Boolean: ture or false. Represents a time-series neural ODE or just another layer (output at tf only)
     end
     
-    methods % main methods 
-
+    methods
         % Constructor of the class
         function obj = ODEblockLayer(varargin)
         % layer = ODEblockLayer(odemodel,tfinal,tstep)
@@ -70,6 +71,8 @@ classdef ODEblockLayer
             end
         end
         
+        
+        
         % Simulate the ODEblock
         function y = evaluate(obj,input)
             x0 = input;
@@ -113,19 +116,19 @@ classdef ODEblockLayer
                     Rf = R(end);
                 end
             else
+%                 lb = zeros(obj.odemodel.nI,1);
+%                 U = Star(lb,lb);
                 U = Star(0,0);
                 R = obj.odemodel.stepReachStar(X,U);
                 if obj.time_series
-                    obj.odemodel.get_interval_sets;
                     Rf = obj.odemodel.intermediate_reachSet;
+                    % Rf = obj.odemodel.intermediate_pointSet;
                 else
                     Rf = R;
                 end
             end
             
         end
-    
     end
-
 end
 

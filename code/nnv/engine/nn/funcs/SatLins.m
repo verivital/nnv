@@ -29,7 +29,7 @@ classdef SatLins
                 case 2 
                     I = varargin{1};
                     index = varargin{2};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     index = varargin{2};
@@ -202,7 +202,7 @@ classdef SatLins
                     I = varargin{1};
                     index = varargin{2};
                     option = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     index = varargin{2};
@@ -249,12 +249,12 @@ classdef SatLins
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     option = varargin{2};

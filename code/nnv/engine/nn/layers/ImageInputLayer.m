@@ -1,5 +1,5 @@
 classdef ImageInputLayer < handle
-    % The Image input layer 
+    % The Image input layer class in CNN
     %   Contain constructor and reachability analysis methods   
     %   Dung Tran: 8/1/2019
     %   update: 1/2/2020 (Dung Tran)
@@ -7,66 +7,68 @@ classdef ImageInputLayer < handle
     %       for example: In 2018b: Matlab uses the name "AverageImage"
     %                    In 2019b: Matlab uses the name "Mean" 
     %       We decided to update the name AverageImage to Mean in 1/2/2020
-    %
-    %  update: 03/16/2023 (Diego Manzanas)
-    %       Add properties and update routines for different normalization methods
+    %       
     
-    properties % same properties as MATLAB's layer
+    properties
         Name = 'ImageInputLayer';
         InputSize = [];
-        Normalization = 'none'; % default
-        NormalizationDimension = 'auto'; % based on dimension of norm values
-        Mean = []; 
-        StandardDeviation = [];
-        Min = [];
-        Max = [];
-
+        Normalization = 'zerocenter'; %default
+        Mean = []; % in 
+                
     end
     
     
-    % create layer
+    % setting hyperparameters method
     methods
         
-        % constructor of the class 
-        function obj = ImageInputLayer(varargin)
-            % assign values to properties
-            switch nargin
-                case 0 % create empty layer
-                case 1 % define input size
-                    obj.InputSize = varargin{1};
-                case 2 % input size + normalization
-                    obj.InputSize = varargin{1};
-                    obj.Normalization = varargin{2};
-                case 8 % define all properties
-                    obj.Name = varargin{1};
-                    obj.InputSize = varargin{2};
-                    obj.Normalization = varargin{3};
-                    obj.NormalizationDimension = varargin{4};
-                    obj.Mean = varargin{5};
-                    obj.StandardDeviation = varargin{6};
-                    obj.Min = varargin{7};
-                    obj.Max = varargin{8};
-                otherwise
-                    error("Wrong number of inputs, it must be 0,1,2, or 8.")
+        % constructor of the class
+        function obj = ImageInputLayer(varargin)           
+            % author: Dung Tran
+            % date: 6/26/2019    
+            % update: 1/2/2020
+            %   update reason: change the way the object receives input
+            %   arguments
+            
+            
+            if mod(nargin, 2) ~= 0
+                error('Invalid number of input arguments');
             end
+            
+            for i=1:nargin-1
+                
+                if mod(i, 2) ~= 0
+                    
+                    if strcmp(varargin{i}, 'Name')
+                        obj.Name = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'InputSize')
+                        obj.InputSize = varargin{i+1};
+                    elseif strcmp(varargin{i}, 'Mean')
+                        obj.Mean = double(varargin{i+1});
+                    end
+                    
+                end
+                
+            end
+             
         end
+        
         
     end
         
     % evaluation method
     methods
         
-        % TODO: add normalization options
-        function y = evaluate(obj, x)
-            % @x: input image
+        function y = evaluate(obj, input)
+            % @input: input image
             % @y: output image with normalization
             
-            if strcmp(obj.Normalization, 'none')
-                y = double(x);
-            elseif strcmp(obj.Normalization, 'zerocenter')
-                y = double(x) - double(obj.Mean); % zerocenter nomalization
+            % author: Dung Tran
+            % date: 8/1/2019
+                             
+            if isempty(obj.Mean)
+                y = double(input);
             else
-                error('The normalization method is not supported yet.')
+                y = double(input) - double(obj.Mean); % zerocenter nomalization
             end
                                
         end
@@ -86,16 +88,7 @@ classdef ImageInputLayer < handle
             if ~isa(in_image, 'ImageStar')
                 error('Input is not an ImageStar');
             end
-
-            % Compute normalization
-            if strcmp(obj.Normalization, 'none')
-                image = in_image;
-            elseif strcmp(obj.Normalization, 'zerocenter')
-                image = in_image.affineMap([], -obj.Mean);
-            else
-                error('The normalization method is not supported yet.')
-            end
-
+            image = in_image.affineMap([], -obj.Mean);
         end
         
         % handling multiple inputs
@@ -135,15 +128,7 @@ classdef ImageInputLayer < handle
             if ~isa(in_image, 'ImageZono')
                 error('Input is not an ImageZono');
             end
-
-            % Compute normalization
-            if strcmp(obj.Normalization, 'none')
-                image = in_image;
-            elseif strcmp(obj.Normalization, 'zerocenter')
-                image = in_image.affineMap([], -obj.Mean);
-            else
-                error('The normalization method is not supported yet.')
-            end
+            image = in_image.affineMap([], -obj.Mean);
         end
         
         % handling multiple inputs
@@ -240,16 +225,25 @@ classdef ImageInputLayer < handle
     
     methods(Static)
          % parse a trained input image layer from matlab
-        function L = parse(layer)
-            % @layer: input layer
-            % @L: constructed layer            
+        function L = parse(input_image_layer)
+            % @input_image_layer: input layer
+            % @L: constructed layer
+                        
+            % author: Dung Tran
+            % date: 8/1/2019
             
-            if ~isa(layer, 'nnet.cnn.layer.ImageInputLayer')
+            
+            if ~isa(input_image_layer, 'nnet.cnn.layer.ImageInputLayer')
                 error('Input is not a Matlab nnet.cnn.layer.ImageInputLayer class');
             end
             
-            L = ImageInputLayer(layer.Name, layer.InputSize, layer.Normalization, layer.NormalizationDimension,...
-                layer.Mean, layer.StandardDeviation, layer.Min, layer.Max);
+            if isprop(input_image_layer, 'Mean')
+                L = ImageInputLayer('Name', input_image_layer.Name, 'InputSize', input_image_layer.InputSize, 'Mean', input_image_layer.Mean);
+            elseif isprop(input_image_layer, 'AverageImage')
+                L = ImageInputLayer('Name', input_image_layer.Name, 'InputSize', input_image_layer.InputSize, 'Mean', input_image_layer.AverageImage);
+            else
+                error('Mean or AverageImage property does not exist in the Input Image Layer');
+            end
             
             fprintf('\nParsing a Matlab image input layer is done successfully');
             

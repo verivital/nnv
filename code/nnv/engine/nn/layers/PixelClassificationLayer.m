@@ -10,11 +10,11 @@ classdef PixelClassificationLayer < handle
         
         NumInputs = 1;
         InputNames = {'in'};
+        
     end
     
-    methods % constructor
+    methods
         
-        % constructor of the class
         function obj = PixelClassificationLayer(varargin)
             % @name: name of the layer
             % @classes: array of class
@@ -26,6 +26,7 @@ classdef PixelClassificationLayer < handle
             switch nargin
                 
                 case 3
+                    
                     name = varargin{1};
                     classes = varargin{2};
                     outputSize = varargin{3};
@@ -68,14 +69,17 @@ classdef PixelClassificationLayer < handle
             A = categories(classes);
             B = [A; {'unknown'}; {'misclass'}]; % add two more classes for analysis
             obj.Classes = categorical(B);
+            
+            
+            
         end
             
     end
         
         
-    methods % main methods (evaluate, reach...)
+    methods
         
-        % get an array of classes
+        %  get an array of classes
         function classes = getClasses(obj, idxs)
             % @idxs: index array
             % author: Dung Tran
@@ -160,9 +164,11 @@ classdef PixelClassificationLayer < handle
                 end
             end
             
+            
         end
         
         % reachability with relaxed imagestar
+        
         function seg_im_id = reach_relax_star_single_input(obj, IS, method, RF)
             % @IS: imageStar input set
             % @seg_im_id: segmentation image with class index
@@ -183,23 +189,24 @@ classdef PixelClassificationLayer < handle
             if strcmp(method, 'relax-star-range')                
                 [~,midx] = sort(ub-lb, 'descend');
                 map= midx(1:n1); % neurons with optimized ranged
-                xmin = S.getMins(map, 'single', 'display', 'linprog'); 
-                xmax = S.getMaxs(map, 'single', 'display', 'linprog');
+                xmin = S.getMins(map, 'single', 'display', 'glpk'); 
+                xmax = S.getMaxs(map, 'single', 'display', 'glpk');
                 lb(map) = xmin;
                 ub(map) = xmax;
             elseif strcmp(method, 'relax-star-random')
                 midx = randperm(length(ub), n1);
                 midx = midx';             
-                xmin = S.getMins(midx, 'single', 'display', 'linprog'); 
-                xmax = S.getMaxs(midx, 'single', 'display', 'linprog');
+                xmin = S.getMins(midx, 'single', 'display', 'glpk'); 
+                xmax = S.getMaxs(midx, 'single', 'display', 'glpk');
                 lb(midx) = xmin;
                 ub(midx) = xmax;
+   
             elseif strcmp(method, 'relax-star-area')
                 areas = 0.5*(abs(ub).*abs(lb)); % estimated areas of triangle overapproximation at all neurons
                 [~,midx] = sort(areas, 'descend');
                 map= midx(1:n1); % neurons with optimized ranged
-                xmin = S.getMins(map, 'single', 'display', 'linprog'); 
-                xmax = S.getMaxs(map, 'single', 'display', 'linprog');
+                xmin = S.getMins(map, 'single', 'display', 'glpk'); 
+                xmax = S.getMaxs(map, 'single', 'display', 'glpk');
                 lb(map) = xmin;
                 ub(map) = xmax;
             elseif strcmp(method, 'relax-star-bound')
@@ -209,8 +216,8 @@ classdef PixelClassificationLayer < handle
                 midx1 = midx(1:2*n1); % neurons with optimized ranges
                 ub_idx = midx1(midx1 <= N); % neurons having upperbound optimized
                 lb_idx = midx1(midx1 > N) - N;  % neurons having lowerbound optimized
-                xmin = S.getMins(ub_idx, 'single', 'display', 'linprog'); 
-                xmax = S.getMaxs(lb_idx, 'single', 'display', 'linprog');
+                xmin = S.getMins(ub_idx, 'single', 'display', 'glpk'); 
+                xmax = S.getMaxs(lb_idx, 'single', 'display', 'glpk');
                 lb(lb_idx) = xmin;
                 ub(ub_idx) = xmax;
             else
@@ -233,6 +240,7 @@ classdef PixelClassificationLayer < handle
                 end
             end
             
+            
         end
         
         % reachability with imagestar
@@ -247,6 +255,7 @@ classdef PixelClassificationLayer < handle
             % date: 4/12/2020
             % upate: 4/22/2020
             
+            
             n = length(in_images);
             seg_ims_ids = cell(n, 1);
             if strcmp(option, 'parallel')
@@ -259,9 +268,12 @@ classdef PixelClassificationLayer < handle
                 end
             else
                 error('Unknown computation option');
+
             end           
             
+            
         end
+        
         
         % reachability with imagestar
         function seg_ims_ids = reach_relax_star_multipleInputs(obj, in_images, method, RF, option)
@@ -274,6 +286,7 @@ classdef PixelClassificationLayer < handle
             % date: 1/10/2020
             % upate: 1/10/2020
             
+            
             n = length(in_images);
             seg_ims_ids = cell(n, 1);
             if strcmp(option, 'parallel')
@@ -286,9 +299,12 @@ classdef PixelClassificationLayer < handle
                 end
             else
                 error('Unknown computation option');
+
             end           
             
+            
         end
+        
         
         % main reach method
         function seg_ims_ids = reach(varargin)
@@ -300,51 +316,30 @@ classdef PixelClassificationLayer < handle
             % upate: 6/1/2020
             
            switch nargin
-                
-                 case 7
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    % relaxFactor = varargin{5}; do not use
-%                     dis_opt = varargin{6}; 
-%                     lp_solver = varargin{7}; 
-                
-                case 6
-                    obj = varargin{1};
-                    in_images = varargin{2};
-                    method = varargin{3};
-                    option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
-%                     dis_opt = varargin{6};
-%                     lp_solver = 'linprog';
-                
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
-%                     dis_opt = [];
-%                     lp_solver = 'linprog';
+                    relaxFactor = varargin{5};
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-%                     dis_opt = [];
-%                     lp_solver = 'linprog';
-                
                 case 3
                     obj = varargin{1};
-                    in_images = varargin{2};
+                    in_images = varargin{2}; 
                     method = varargin{3};
-                    option = [];
-%                     dis_opt = [];
-%                     lp_solver = 'linprog';
-                
+                    option = 'single';
+                case 2
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = 'approx-star';
+                    option = 'single';
+                    
                 otherwise
-                    error('Invalid number of input arguments');
+                    error('Invalid number of input arguments, should be 1, 2, 3 or 4');
             end
          
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, 'relax-star')
@@ -355,13 +350,17 @@ classdef PixelClassificationLayer < handle
                 error('Unknown reachability method');
             end
             
+            
+            
         end
      
+        
     end
     
     
     methods(Static)
         % parsing method
+        
         function L = parse(pixel_classification_layer)
             % @pixel_classification_layer: 
             % @L: constructed layer
@@ -369,14 +368,18 @@ classdef PixelClassificationLayer < handle
             % author: Dung Tran
             % date: 4/12/2020
             
+            
             if ~isa(pixel_classification_layer, 'nnet.cnn.layer.PixelClassificationLayer')
                 error('Input is not a Matlab nnet.cnn.layer.PixelClassificationLayer');
             end
+            
             L = PixelClassificationLayer(pixel_classification_layer.Name, pixel_classification_layer.Classes, pixel_classification_layer.OutputSize, pixel_classification_layer.NumInputs, pixel_classification_layer.InputNames);
+            
             fprintf('\nParsing a Matlab pixel classification layer is done successfully');
+            
         end
         
+        
     end
-
 end
 

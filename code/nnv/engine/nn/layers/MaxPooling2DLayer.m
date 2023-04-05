@@ -12,7 +12,6 @@ classdef MaxPooling2DLayer < handle
     %    https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.maxpooling2dlayer.html
     
     %   Dung Tran: 6/20/2019
-    %   update: remove evaluate option (Diego, 03/15/2023)
     
     properties
         Name = 'max_pooling_2d_layer';
@@ -21,6 +20,7 @@ classdef MaxPooling2DLayer < handle
         HasUnpoolingOutputs = 0;
         NumOutputs = 1; % by default
         OutputNames = {'out'}; %by default
+        
         
         % Hyperparameters
         PoolSize = [2 2];
@@ -31,10 +31,12 @@ classdef MaxPooling2DLayer < handle
         % used for maxunpooling
         MaxIndx = [];
         InputSize = [];
+        
     end
     
     
-    methods % constructor and setting hyperparameters
+    % setting hyperparameters method
+    methods
         
         % constructor of the class
         function obj = MaxPooling2DLayer(varargin)           
@@ -45,6 +47,7 @@ classdef MaxPooling2DLayer < handle
             switch nargin
                 
                 case 9
+                    
                     name = varargin{1};
                     poolSize = varargin{2};
                     stride = varargin{3};
@@ -54,6 +57,7 @@ classdef MaxPooling2DLayer < handle
                     inputNames = varargin{7};
                     numOutputs = varargin{8};
                     outputNames = varargin{9};
+                    
                     
                     if ~ischar(name)
                         error('Name is not char');
@@ -108,6 +112,7 @@ classdef MaxPooling2DLayer < handle
                     else
                         obj.OutputNames = outputNames;
                     end
+                    
                 
                 case 4
                     
@@ -175,8 +180,9 @@ classdef MaxPooling2DLayer < handle
                                     
                 otherwise
                     error('Invalid number of inputs (should be 0, 3, 4, or 9)');
+                                 
             end 
-            
+             
         end
         
         % set poolsize method 
@@ -223,6 +229,7 @@ classdef MaxPooling2DLayer < handle
             
         end
         
+        
         % set padding 
         function set_padding(obj, padding)
             % @padding: padding matrix
@@ -244,13 +251,15 @@ classdef MaxPooling2DLayer < handle
             end
         end
         
+        
     end
         
-    
-    methods % evaluation and get methods
+    % evaluation method
+    methods
         
-        function y = evaluate(obj, input)
+        function y = evaluate(varargin)
             % @input: high-dimensional array, for example, input(:, :, :), 
+            % @option = 'cnn' or 'segnet'
             % @y: output
             
             % author: Dung Tran
@@ -262,13 +271,37 @@ classdef MaxPooling2DLayer < handle
             % author: Dung Tran
             % date: 12/10/2018
             % update: 7/26/2019
-            % update: set evaluation as previous "segnet" option as default
+            
+            switch nargin
+                case 2
+                    obj = varargin{1};
+                    input = varargin{2};
+                    option = 'cnn';
+                case 3
+                    obj = varargin{1};
+                    input = varargin{2};
+                    option = varargin{3};
+                otherwise
+                    error('Invalid number of input');
+            end
+            
+            if strcmp(option, 'cnn')
                 
-            dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
-            [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
-            y = extractdata(dlY);
-            obj.MaxIndx = indx;
-            obj.InputSize = inputSize;
+                y = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'max');
+                
+            elseif strcmp(option, 'segnet')
+                % require Matlab version 2019b
+                
+                dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
+                [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
+                y = extractdata(dlY);
+                obj.MaxIndx = indx;
+                obj.InputSize = inputSize;
+
+            
+            else
+                error('Unknown option for max pooling evaluation');
+            end
             
         end
         
@@ -284,7 +317,10 @@ classdef MaxPooling2DLayer < handle
                 y = [y obj.evaluate(inputs(i))];               
             end
             
+            
         end
+        
+        
         
         % parse input image with padding
         function padded_I = get_zero_padding_input(obj, input)
@@ -296,26 +332,34 @@ classdef MaxPooling2DLayer < handle
             % date: 6/17/2019
             
             n = size(input);        
+                        
             t = obj.PaddingSize(1);
             b = obj.PaddingSize(2);
             l = obj.PaddingSize(3);
             r = obj.PaddingSize(4);
+ 
             
             if length(n) == 2 
                 % input volume has only one channel                
                 h = n(1); % height of input
                 w = n(2); % width of input 
+                      
                 padded_I = zeros(t + h + b, l + w + r);
                 padded_I(t+1:t+h,l+1:l+w) = input; % new constructed input volume
+                
             elseif length(n) > 2
                 % input volume may has more than one channel
+                            
                 h = n(1); % height of input
                 w = n(2); % width of input 
                 d = n(3); % depth of input (number of channel)
+               
                 padded_I = zeros(t + h + b, l + w + r, d); % preallocate 3D matrix
                 for i=1:d
                     padded_I(t+1:t+h, l+1:l+w, i) = input(:, :, i); % new constructed input volume
                 end              
+                
+                
             else
                 error('Invalid input');
             end
@@ -351,7 +395,10 @@ classdef MaxPooling2DLayer < handle
                 pad_ims = ImageStar(V1, ims.C, ims.d, ims.pred_lb, ims.pred_ub, new_im_lb, new_im_ub);
             end
             
+            
+            
         end
+        
         
         % compute feature map for specific input and weight
         function maxMap = compute_maxMap(obj, input)
@@ -362,6 +409,7 @@ classdef MaxPooling2DLayer < handle
             % date: 6/17/2019
             
             % this maxMap computation work similar to the featureMap
+            
             I = obj.get_zero_padding_input(input);
             m = obj.PoolSize; % m(1) is height and m(2) is width of the filter            
             [h, w] = obj.get_size_maxMap(input);
@@ -369,8 +417,10 @@ classdef MaxPooling2DLayer < handle
             % a collection of start points (the top-left corner of a square) of the region of input that is filtered
             map = obj.get_startPoints(input); 
             
-            % compute feature map for each cell of map do it in parallel using cpu or gpu
+            % compute feature map for each cell of map
+            % do it in parallel using cpu or gpu
             % TODO: explore power of using GPU for this problem
+            
             maxMap = zeros(1, h*w); % using single vector for parallel computation
 
             for l=1:h*w
@@ -382,6 +432,7 @@ classdef MaxPooling2DLayer < handle
                     j = a;
                     i = floor(l/w) + 1;
                 end
+
                 % get a filtered region                
                 i0 = map{i, j}(1);
                 j0 = map{i, j}(2);
@@ -393,12 +444,16 @@ classdef MaxPooling2DLayer < handle
                         end
                     end
                 end
+                
                 maxMap(l) = val;               
+
             end
 
             maxMap = reshape(maxMap, [h, w]);
             maxMap = maxMap.';
+
         end
+        
         
         % precompute height and width of max map
         function [h, w] = get_size_maxMap(obj, input)
@@ -407,14 +462,15 @@ classdef MaxPooling2DLayer < handle
                     
             % author: Dung Tran
             % date: 6/17/2019
-            %
+            
             % reference: http://cs231n.github.io/convolutional-networks/#pool
             
             I = obj.get_zero_padding_input(input);
             n = size(I); % n(1) is height and n(2) is width of input
             m = obj.PoolSize; % m(1) is height and m(2) is width of the pooling filter
             
-            % I is assumed to be the input after zero padding output size: 
+            % I is assumed to be the input after zero padding
+            % output size: 
             % (InputSize - FilterSize)/Stride + 1
             
             h = floor((n(1) - m(1) ) / obj.Stride(1) + 1);  % height of average map
@@ -428,28 +484,38 @@ classdef MaxPooling2DLayer < handle
             % @startPoints: start points of maxMap
             
             % author: Dung Tran
-            % date: 6/20/2019 
-
+            % date: 6/20/2019
+            
+            
+            I = obj.get_zero_padding_input(input);
+            m = obj.PoolSize; % m(1) is height and m(2) is width of the filter            
             [h, w] = obj.get_size_maxMap(input);
+
             % a collection of start points (the top-left corner of a square) of the region of input that is filtered
             startPoints = cell(h, w); 
+            
             for i=1:h
                 for j=1:w
                     startPoints{i, j} = zeros(1, 2);
+
                     if i==1
                         startPoints{i, j}(1) = 1;
                     end
                     if j==1
                         startPoints{i, j}(2) = 1;
                     end
+
                     if i > 1
                         startPoints{i, j}(1) = startPoints{i - 1, j}(1) + obj.Stride(1);
                     end
+
                     if j > 1
                         startPoints{i, j}(2) = startPoints{i, j - 1}(2) + obj.Stride(2);
                     end
+
                 end
             end            
+            
             
         end
         
@@ -487,14 +553,16 @@ classdef MaxPooling2DLayer < handle
             end
                         
             image = ImageStar(new_V, input.C, input.d, input.pred_lb, input.pred_ub);
+            
         end
         
     end
         
-    
-    methods % exact reachability analysis using star set
-
-        % reachability analysis method using Stars (2D matrix of h x w)           
+    % exact reachability analysis using star set
+    methods
+        % reachability analysis method using Stars
+        % a star represent a set of images (2D matrix of h x w)           
+ 
         function images = reach_star_exact(varargin)
             % @in_image: an ImageStar input set
             % @option: = 'single' single core for computation
@@ -577,11 +645,13 @@ classdef MaxPooling2DLayer < handle
                     end
                 end
             end
+                        
                                           
         end
         
-        % step split of an image star,  a single in_image can be splitted into 
-        % several images in the exact max pooling operation
+        % step split of an image star
+        % a single in_image can be splitted into several images in the
+        % exact max pooling operation
         function images = stepSplit(varargin)
             % @in_image: the current maxMap ImageStar
             % @ori_image: the original ImageStar to compute the maxMap 
@@ -611,6 +681,7 @@ classdef MaxPooling2DLayer < handle
                     error('Invalid number of input arguments, should be 4 or 5');
             end
             
+            
             if ~isa(in_image, 'ImageStar')
                 error('input maxMap is not an ImageStar');
             end
@@ -622,6 +693,7 @@ classdef MaxPooling2DLayer < handle
             if n(2) ~= 3 || n(1) < 1
                 error('Invalid split index, it should have 3 columns and at least 1 row');
             end
+            
                         
             images = [];
             for i=1:n(1)               
@@ -642,7 +714,10 @@ classdef MaxPooling2DLayer < handle
            
         end
         
+        
         % step split for multiple image stars
+        % a single in_image can be splitted into several images in the
+        % exact max pooling operation
         function images = stepSplitMultipleInputs(varargin)
             % @in_image: the current maxMap ImageStar
             % @ori_image: the original ImageStar to compute the maxMap 
@@ -675,6 +750,7 @@ classdef MaxPooling2DLayer < handle
                     error('Invalid number of input arguments, shoule be 5 or 6');
             end
             
+            
             n = length(in_images);
             images = [];
             if strcmp(option, 'parallel')
@@ -690,6 +766,7 @@ classdef MaxPooling2DLayer < handle
             end       
             
         end
+        
         
         % reach exact star multiple inputs
         function IS = reach_star_exact_multipleInputs(varargin)
@@ -744,6 +821,10 @@ classdef MaxPooling2DLayer < handle
                 
         end
         
+               
+        
+        
+        
     end
     
     
@@ -792,7 +873,8 @@ classdef MaxPooling2DLayer < handle
             % padding in_image star
             pad_image = obj.get_zero_padding_imageStar(in_image);
                         
-            % compute max_index when applying maxpooling operation (new number of predicate)
+            % compute max_index when applying maxpooling operation
+            % compute new number of predicate
             np = pad_image.numPred;
             l = 0;
             for k=1:pad_image.numChannel
@@ -884,8 +966,7 @@ classdef MaxPooling2DLayer < handle
             
             image = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
             image.addInputSize(obj.Name, [pad_image.height pad_image.width]);
-            image.addMaxIdx(obj.Name, max_index);  
-
+            image.addMaxIdx(obj.Name, max_index);           
         end
         
         % reach approx-star with multiple inputs
@@ -923,6 +1004,7 @@ classdef MaxPooling2DLayer < handle
                     
                 otherwise
                     error('Invalid number of input arguments');
+                    
             end
             
             n = length(in_images);
@@ -941,9 +1023,11 @@ classdef MaxPooling2DLayer < handle
                 error('Unknown computation option');
             end
             
+            
         end
         
-        % general function for reachability analysis
+        
+        % general functio for reachability analysis
         function IS = reach(varargin)
             % @in_image: an input imagestar
             % @image: output set
@@ -951,8 +1035,7 @@ classdef MaxPooling2DLayer < handle
             
             % author: Dung Tran
             % date: 6/26/2019
-            
-            % Parse inputs
+             
             switch nargin
                 
                  case 7
@@ -971,7 +1054,7 @@ classdef MaxPooling2DLayer < handle
                     option = varargin{4};
                     %relaxFactor = varargin{5}; do not use
                     dis_opt = varargin{6};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 5
                     obj = varargin{1};
@@ -980,14 +1063,14 @@ classdef MaxPooling2DLayer < handle
                     option = varargin{4};
                     %relaxFactor = varargin{5}; do not use
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 3
                     obj = varargin{1};
@@ -995,33 +1078,34 @@ classdef MaxPooling2DLayer < handle
                     method = varargin{3};
                     option = [];
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 otherwise
                     error('Invalid number of input arguments (should be 2, 3 or 4)');
             end
             
-            % Select reach function
             if strcmp(method, 'approx-star') || contains(method, 'relax-star')
                 IS = obj.reach_star_approx_multipleInputs(in_images, option, dis_opt, lp_solver);
             elseif strcmp(method, 'exact-star')
                 IS = obj.reach_star_exact_multipleInputs(in_images, option, dis_opt, lp_solver);
             elseif strcmp(method, 'abs-dom')
-                % abs-domain works similarly to approx-star method for max pooling layer
+                % abs-domain works similarly to approx-star method for max
+                % pooling layer
                 IS = obj.reach_star_approx_multipleInputs(in_images, option, dis_opt, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 IS = obj.reach_zono_multipleInputs(in_images, option);
             else
                 error("Unknown reachability method");
             end
+   
             
         end
         
+        
     end
     
-
-    methods % reachability analysis using ImageZono
-        
+    methods
+        % reachability analysis using ImageZono
         % this is an over-approximation method
         function image = reach_zono(obj, in_image)
             % @in_image: an ImageZono input
@@ -1029,6 +1113,7 @@ classdef MaxPooling2DLayer < handle
             
             % author: Dung Tran
             % date: 1/5/2020
+            
             
             if ~isa(in_image, 'ImageZono')
                 error('Input is not an ImageZono');
@@ -1053,6 +1138,7 @@ classdef MaxPooling2DLayer < handle
             % author: Dung Tran
             % date: 1/6/2020
             
+            
             n = length(in_images);
             images(n) = ImageZono;
             if strcmp(option, 'parallel')
@@ -1069,19 +1155,23 @@ classdef MaxPooling2DLayer < handle
             
         end
         
+        
     end
     
     
-    methods(Static) % parsing function
+    methods(Static)
+       
         
-        % parse a trained MaxPooling2dLayer from matlab
+        
+        % parse a trained averagePooling2dLayer from matlab
         function L = parse(max_Pooling_2d_Layer)
             % @average_Pooling_2d_Layer: a average pooling 2d layer from matlab deep
             % neural network tool box
-            % @L : a MaxPooling2DLayer obj for reachability analysis purpose
+            % @L : a AveragePooling2DLayer obj for reachability analysis purpose
             
             % author: Dung Tran
             % date: 6/17/2019
+            
             
             if ~isa(max_Pooling_2d_Layer, 'nnet.cnn.layer.MaxPooling2DLayer')
                 error('Input is not a Matlab nnet.cnn.layer.MaxPooling2DLayer class');
@@ -1089,9 +1179,12 @@ classdef MaxPooling2DLayer < handle
             
             L = MaxPooling2DLayer(max_Pooling_2d_Layer.Name, max_Pooling_2d_Layer.PoolSize, max_Pooling_2d_Layer.Stride, max_Pooling_2d_Layer.PaddingSize, max_Pooling_2d_Layer.HasUnpoolingOutputs, max_Pooling_2d_Layer.NumInputs, max_Pooling_2d_Layer.InputNames, max_Pooling_2d_Layer.NumOutputs, max_Pooling_2d_Layer.OutputNames);
             fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
+            
         end
         
     end
+    
+    
     
 end
 

@@ -1254,7 +1254,9 @@ classdef Reduction
                 f(i) = 1;
             end
   
-            [x_opt, ~, exitflag, ~] = linprog(f, A, b, Aeq, beq);
+            %options = optimoptions('linprog','Algorithm','interior-point');
+            %[x_opt, fval, exitflag, output] = linprog(f, A, b, Aeq, beq, [], [], options);
+            [x_opt, fval, exitflag, output] = linprog(f, A, b, Aeq, beq);
             if exitflag == 1
                 p = x_opt(k * (n + 1) + 1: k * (n + 1) + m, 1); % center vector of the zonotope
                 c = x_opt(1: k, 1); % ci vector

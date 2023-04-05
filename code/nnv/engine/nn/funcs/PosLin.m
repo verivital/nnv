@@ -34,7 +34,7 @@ classdef PosLin
                 case 2 
                     I = varargin{1};
                     index = varargin{2};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     index = varargin{2};
@@ -261,7 +261,7 @@ classdef PosLin
                     I = varargin{1};
                     index = varargin{2};
                     option = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     index = varargin{2};
@@ -311,12 +311,12 @@ classdef PosLin
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     option = varargin{2};
@@ -455,12 +455,12 @@ classdef PosLin
                     In = varargin{1};
                     option = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     In = varargin{1};
                     option = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     In = varargin{1};
                     option = varargin{2};
@@ -696,17 +696,17 @@ classdef PosLin
                     I = varargin{1};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 2
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     option = varargin{2};
                     dis_opt = varargin{3};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     option = varargin{2};
@@ -802,19 +802,19 @@ classdef PosLin
                     relaxFactor = varargin{2};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     relaxFactor = varargin{2};
@@ -923,19 +923,19 @@ classdef PosLin
                     relaxFactor = varargin{2};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     relaxFactor = varargin{2};
@@ -1040,19 +1040,19 @@ classdef PosLin
                     relaxFactor = varargin{2};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     relaxFactor = varargin{2};
@@ -1196,19 +1196,19 @@ classdef PosLin
                     relaxFactor = varargin{2};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     relaxFactor = varargin{2};
@@ -1358,19 +1358,19 @@ classdef PosLin
                     relaxFactor = varargin{2};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     relaxFactor = varargin{2};
@@ -1474,19 +1474,19 @@ classdef PosLin
                     relaxFactor = varargin{2};
                     option = 'single';
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 3
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 4
                     I = varargin{1};
                     relaxFactor = varargin{2};
                     option = varargin{3};
                     dis_opt = varargin{4};
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 5
                     I = varargin{1};
                     relaxFactor = varargin{2};
@@ -2019,7 +2019,7 @@ classdef PosLin
                     option = varargin{3};
                     relaxFactor = varargin{4}; % used for aprox-star only
                     dis_opt = varargin{5}; % display option
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 
                 case 4
                     I = varargin{1};
@@ -2027,7 +2027,7 @@ classdef PosLin
                     option = varargin{3};
                     relaxFactor = varargin{4}; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                                     
                 case 3
                     I = varargin{1};
@@ -2035,21 +2035,21 @@ classdef PosLin
                     option = varargin{3};
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 2
                     I = varargin{1};
                     method = varargin{2};
                     option = 'parallel';
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 case 1
                     I = varargin{1};
                     method = 'exact-star';
                     option = 'parallel';
                     relaxFactor = 0; % used for aprox-star only
                     dis_opt = [];
-                    lp_solver = 'linprog';
+                    lp_solver = 'glpk';
                 otherwise
                     error('Invalid number of input arguments (should be 1, 2, 3, 4, or 5)');
             end

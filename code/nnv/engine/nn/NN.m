@@ -1048,7 +1048,7 @@ classdef NN < handle
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
                     % concatenation layers (2 or more inputs with specific order {in1, in2, ... inX})
-                    elseif contains(obj.Layers{dest_indx}, 'Concatenation')
+                    elseif contains(class(obj.Layers{dest_indx}), 'Concatenation')
                         destP = dest{2};
                         if startsWith(destP, 'in')
                             input_num = str2double(destP(3:end));

@@ -91,10 +91,12 @@ classdef DepthConcatenationLayer < handle
         end
  
         % reach (TODO)
-        function outputs = reach_single_input(obj, inputs)
+        function S = reach_single_input(obj, inputs)
             % @inputs: input imagestar from each connected layer
             % @outputs: output set
-            
+            nI = obj.NumInputs;
+            % Concatenate inputs now
+            S = 
         end
         
         % handle multiple inputs
@@ -103,15 +105,20 @@ classdef DepthConcatenationLayer < handle
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar
             
-            n = length(inputs);
-            if isa(inputs(1), 'ImageStar')
+            nI = length(inputs); % layers connections into this layer
+            if nI ~=  obj.NumInputs
+                error("Expected number of inputs is " + string(obj.NumInputs) + ", but "+ string(n) + " were given.");
+            end
+            % Check input/output set class
+            n = length(inputs{1}); % number of ImageStars per input
+            if isa(inputs{1}, 'ImageStar')
                 S(n) = ImageStar;
-            elseif isa(inputs(1), 'ImageZono')
+            elseif isa(inputs{1}, 'ImageZono')
                 S(n) = ImageZono;
             else
-                error('Unknown input data set');
+                error('Unknown input data set. It must be ImageStar or ImageZono.');
             end
-          
+            % Compute reachability
             if strcmp(option, 'parallel')
                 parfor i=1:n
                     S(i) = obj.reach_single_input(inputs(i));

@@ -1,102 +1,119 @@
-%% Reachability analysis of VCAS
-% Load components and set reachability parameters
-networks.vcas1 = Load_nn('nnv_networks/VertCAS_noResp_pra01_v9_20HU_200.mat');
-networks.vcas2 = Load_nn('nnv_networks/VertCAS_noResp_pra02_v9_20HU_200.mat');
-networks.vcas3 = Load_nn('nnv_networks/VertCAS_noResp_pra03_v9_20HU_200.mat');
-networks.vcas4 = Load_nn('nnv_networks/VertCAS_noResp_pra04_v9_20HU_200.mat');
-networks.vcas5 = Load_nn('nnv_networks/VertCAS_noResp_pra05_v9_20HU_200.mat');
-networks.vcas6 = Load_nn('nnv_networks/VertCAS_noResp_pra06_v9_20HU_200.mat');
-networks.vcas7 = Load_nn('nnv_networks/VertCAS_noResp_pra07_v9_20HU_200.mat');
-networks.vcas8 = Load_nn('nnv_networks/VertCAS_noResp_pra08_v9_20HU_200.mat');
-networks.vcas9 = Load_nn('nnv_networks/VertCAS_noResp_pra09_v9_20HU_200.mat');
-% Controller outputs
-% 1) COC
-% 2) DNC
-% 3) DND
-% 4) DES1500
-% 5) CL1500
-% 6) SDES1500
-% 7) SCL1500
-% 8) SDES2500
-% 9) SCL2500
+function t = reachVCAS_worst22()    
+    %% Reachability analysis of VCAS
+    
+    % 1) Load components and set reachability parameters
 
-% Accelerations
-g = 32.2; %ft/s
-h0.COC = [-g/8, 0, g/8];
-h0.DNC = [-g/3, -7*g/24, -g/4];
-h0.DND = [g/4, 7*g/24, g/3];
-h0.DES1500 = [-g/3, -7*g/24, -g/4];
-h0.CL1500 = h0.DND;
-h0.SDES1500 = -g/3;
-h0.SCL1500 = g/3;
-h0.SDES2500 = -g/3;
-h0.SCL2500 = g/3;
+    % Load controllers
+    networks.vcas1 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra01_v9_20HU_200.mat');
+    networks.vcas2 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra02_v9_20HU_200.mat');
+    networks.vcas3 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra03_v9_20HU_200.mat');
+    networks.vcas4 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra04_v9_20HU_200.mat');
+    networks.vcas5 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra05_v9_20HU_200.mat');
+    networks.vcas6 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra06_v9_20HU_200.mat');
+    networks.vcas7 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra07_v9_20HU_200.mat');
+    networks.vcas8 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra08_v9_20HU_200.mat');
+    networks.vcas9 = load_NN_from_mat('nnv_networks/VertCAS_noResp_pra09_v9_20HU_200.mat');
+    
+    % Controller outputs
+    % 1) COC
+    % 2) DNC
+    % 3) DND
+    % 4) DES1500
+    % 5) CL1500
+    % 6) SDES1500
+    % 7) SCL1500
+    % 8) SDES2500
+    % 9) SCL2500
+    
+    % Accelerations
+    g = 32.2; %ft/s^2
+    h0.COC = [-g/8, 0, g/8];
+    h0.DNC = [-g/3, -7*g/24, -g/4];
+    h0.DND = [g/4, 7*g/24, g/3];
+    h0.DES1500 = [-g/3, -7*g/24, -g/4];
+    h0.CL1500 = h0.DND;
+    h0.SDES1500 = -g/3;
+    h0.SCL1500 = g/3;
+    h0.SDES2500 = -g/3;
+    h0.SCL2500 = g/3;
+    
+    % Create plant
+    controlPeriod = 1;
+    out_mat = [1 0 0 0;0 1 0 0;0 0 1 0];
+    plant = DNonLinearODE(4,2,@planeDynamics, controlPeriod, out_mat);
+    
+    %% Reachability analysis
 
-controlPeriod = 1;
-out_mat = [1 0 0 0;0 1 0 0;0 0 1 0];
-plant = DNonLinearODE(4,2,@planeDynamics, controlPeriod, out_mat);
+    % Set parameters and options for reachability
+    
+    % Initial set
+    lb = [-130; -22.5; 25; 1];
+    ub = [-129; -22.5; 25; 1];
+    init_set = Star(lb,ub); % initial state set
+    minIdx = 1;
+    reachOptions.reachMethod = 'approx-star';
 
-% Initial set
-lb = [-133; -25.5; 25; 1];
-ub = [-129; -25.5; 25; 1];
+    % initialize variables
+    reachAll = init_set;
+    steps = 10;
+    uNN_all = cell(1,steps);
+    yNN_all = cell(1,steps);
+    idx_all = cell(1,steps);
+    inp_all = cell(1,steps);
+    rand_idx = cell(1,steps);
 
-%% Reachability analysis
-init_set = Star(lb,ub);
-% Input set
-lb = [1;0];
-ub = [1;0];
-input_set = Star(lb,ub);
-minIdx = 1;
-% Store all reachable sets
-reachAll = init_set;
-% Execute reachabilty analysis
-steps = 10;
-uNN_all = cell(1,steps);
-yNN_all = cell(1,steps);
-idx_all = cell(1,steps);
-inp_all = cell(1,steps);
-rand_idx = cell(1,steps);
-t = tic;
-reachMethod = 'approx-star';
-for i =1:steps
-    % Compute controller output set
-    uNN = plantOut(init_set,out_mat);
-    yNN = reach_nn(minIdx, uNN, networks, reachMethod);
-    minIdx = getMaxIndexes(yNN);
-    [rand_idx{i},input_set] = advisoryVCAS(minIdx,h0,init_set);
-    uNN_all{i} = uNN;
-    yNN_all{i} = yNN;
-    idx_all{i} = minIdx;
-    inp_all{i} = input_set;
-    % Compute plant reachable set
-    init_set = plantReach(plant, init_set, input_set);
-    reachAll = [reachAll init_set];
+    % Execute reachabilty analysis
+    t = tic;
+    for i=1:steps
+        % Compute plant output set given states
+        uNN = plantOut(init_set,out_mat);
+        % Compute controller output set
+        yNN = reach_nn(minIdx, uNN, networks, reachOptions);
+        % Get advisory value
+        minIdx = getMaxIndexes(yNN);
+        [rand_idx{i},input_set] = advisoryVCAS(minIdx,h0,init_set);
+        % Store sets and advisories at each control step
+        uNN_all{i} = uNN;
+        yNN_all{i} = yNN;
+        idx_all{i} = minIdx;
+        inp_all{i} = input_set;
+        % Compute plant reachable set
+        init_set = plantReach(plant, init_set, input_set);
+        % store state trajectory
+        reachAll = [reachAll init_set]; 
+    end
+    t = toc(t);
+
+    % Save results
+    if is_codeocean
+        save('/results/logs/VCAS_worst22.mat', 'reachAll','t','-v7.3');
+    else
+        save('VCAS_worst22.mat', 'reachAll','t','-v7.3');
+    end
+
+
+    %% Visualize results
+
+    times = 0:controlPeriod:steps*controlPeriod;
+    f = figure;
+    rectangle('Position',[0,-100,10,200],'FaceColor',[0.5 0 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
+    hold on;
+    Star.plotRanges_2D(reachAll,1,times,'b');
+    grid;
+    xlabel('Time (s)');
+    ylabel('Distance (ft)');
+    
+    % Save figure
+    if is_codeocean
+        exportgraphics(f,'/results/logs/VCAS_worst22.pdf', 'ContentType', 'vector');
+    else
+        exportgraphics(f,'VCAS_worst22.pdf','ContentType', 'vector');
+    end
+
+
 end
-timing = toc(t);
-path_out = [path_results(), filesep, 'VCAS', filesep];
 
-save([path_out, 'middle25'],'timing','reachAll','-v7.3')
 
-%% Visualize results
-times = 0:controlPeriod:steps*controlPeriod;
-f = figure;
-Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,3,'b');
-grid;
-hold on;
-Star.plotBoxes_2D_noFill(reachAll,1,3,'m');
-grid;
-xlabel('Distance');
-ylabel('Tau');
-
-f2 = figure;
-rectangle('Position',[0,-100,10,200],'FaceColor',[0.5 0 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
-hold on;
-Star.plotRanges_2D(reachAll,1,times,'b');
-grid;
-xlabel('Time (s)');
-ylabel('Distance (ft)');
-saveas(f2,[path_out, 'middle25_DvTime.pdf']);
-saveas(f,[path_out, 'middle25.pdf']);
 
 %% Helper Functions
 
@@ -133,8 +150,7 @@ end
 % Set advisory to ownship
 function [idx,y] = advisoryVCAS(r,accs, uNN)
     y = [];
-%     idx = randi([1 3],1);
-    idx = 2;
+    idx = 1;
     [m,M] = uNN.getRanges;
     for l=1:length(r)
         if r(l) == 1

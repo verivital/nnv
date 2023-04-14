@@ -1,4 +1,4 @@
-function reachTora_sigmoid()
+function t = reachTora_sigmoid()
 
     %% Reachability analysis of TORA (benchmark 9)
     
@@ -15,7 +15,7 @@ function reachTora_sigmoid()
     lb = [-0.77; -0.45; 0.51; -0.3];
     ub = [-0.75; -0.43; 0.54; -0.28];
     init_set = Box(lb,ub);
-    init = init_set.partition([1 2 3 4],[4 8 6 4]);
+    init = init_set.partition([1 2 3 4],[4 4 6 4]);
     
     %% Reachability analysis
     

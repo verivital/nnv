@@ -1,4 +1,4 @@
-function reach()
+function rT = reach()
 
 %% Reachability analysis of ACC
 
@@ -34,7 +34,7 @@ reachPRM.init_set = init_set;
 reachPRM.numCores = 1;
 reachPRM.reachMethod = 'approx-star';
 [R,rT] = nncs.reach(reachPRM);
-disp("Time to compute ACC reach sets: " +string(rT));
+% disp("Time to compute ACC reach sets: " +string(rT));
 
 % Save results
 if is_codeocean

@@ -1,4 +1,4 @@
-function reachTora_reluTanh()
+function t = reachTora_reluTanh()
 
     %% Reachability analysis of TORA (benchmark 9)
     

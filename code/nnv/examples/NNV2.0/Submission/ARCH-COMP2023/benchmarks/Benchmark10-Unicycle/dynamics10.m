@@ -18,8 +18,7 @@ function [dx] = dynamics10(x,u)
 %
 dx(1,1) = x(4) * cos(x(3));
 dx(2,1) = x(4) * sin(x(3));
-dx(3,1) = u(2);
-dx(4,1) = u(1);
-% dx(4,1) = u(1) + w;
+dx(3,1) = u(2)-20;
+dx(4,1) = u(1)-20;
 
 end

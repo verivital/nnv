@@ -25,14 +25,14 @@ function run_all()
     % verified with input partition (~ 2.7 hours, let's try a different partition to speed it up)
     tora_sigmoid = reachTora_sigmoid(); 
     cd ..;
-    % cd Benchmark9-Tora;
-    % reach(); % unknown
-    tora_relu = '-';
-    % cd ..;
+    cd Benchmark9-Tora;
+    % verified (~25 seconds)
+    tora_relu = reach(); 
+    cd ..;
     
     % Benchmark-10 (Unicycle)
     % unknown -> overapproximation
-    uncycle = '-';
+    unicycle = '-';
     
     % VCAS
     cd VCAS;
@@ -48,10 +48,8 @@ function run_all()
     
     % Double Pendulum 
     cd Double_Pendulum;
-    run reach_more.m; % falsified
-    dp_more = '-';
-    run reach_less.m; % falsified
-    dp_less = '-';
+    dp_more = reach_more(); % falsified (reach sets ~ 30 seconds)
+    dp_less = reach_less(); % falsified (reach sets ~ 30 seconds)
     cd ..;
     
     % Airplane
@@ -83,33 +81,56 @@ function run_all()
     resultsCSV(2,:) = acc_csv;
     
     % Benchmark-9 (Tora)
-    tora_relu_csv = {'TORA', 'relu', '', tora_relu};
-    resultsCSV(3,:) = tora_relu_csv;
-    tora_relutanh_csv = {'TORA', 'relutanh', '', tora_relutanh};
-    resultsCSV(4,:) = tora_relu_csv;
-    tora_sigmoid_csv = {'TORA', 'sigmoid', '', tora_sigmoid};
-    resultsCSV(5,:) = tora_relu_csv;
+    tora_csv(1,:) = {'TORA', 'relu', '', tora_relu};
+    tora_csv(2,:)= {'TORA', 'relutanh', '', tora_relutanh};
+    tora_csv(3,:) = {'TORA', 'sigmoid', '', tora_sigmoid};
+    resultsCSV(3:5,:) = tora_csv;
     
     % Benchmark-10 (Unicycle)
+    unicycle_csv = {'Unicycle', '', '', unicycle};
+    resultsCSV(6,:) = unicycle_csv;
     
     % VCAS
+    vcas_m19 = {'VCAS', 'middle19', 'verified', vcas(1,1)};
+    vcas_m22 = {'VCAS', 'middle22', 'verified', vcas(2,1)};
+    vcas_m25 = {'VCAS', 'middle25', 'violated', vcas(3,1)};
+    vcas_m28 = {'VCAS', 'middle28', 'violated', vcas(4,1)};
+    vcas_w19 = {'VCAS', 'worst19',  'verified', vcas(1,2)};
+    vcas_w22 = {'VCAS', 'worst22',  'violated', vcas(2,2)};
+    vcas_w25 = {'VCAS', 'worst25',  'violated', vcas(3,2)};
+    vcas_w28 = {'VCAS', 'worst28',  'violated', vcas(4,2)};
+    resultsCSV(7:14,:) = [vcas_m19; vcas_m22; vcas_m25; vcas_m28; vcas_w19; vcas_w22; vcas_w25; vcas_w28];
     
     % Single Pendulum 
+    sp_csv = {'SinglePendulum', '', 'violated', sp};
+    resultsCSV(15,:) = sp_csv; 
     
-    % Double Pendulum 
+    % Double Pendulum
+    dp_csv(1,:) = {'DoublePendulum', 'more', 'violated', dp_more};
+    dp_csv(2,:) = {'DoublePendulum', 'less', 'violated', dp_less};
+    resultsCSV(16:17, :) = dp_csv;
     
     % Airplane
+    airplane_csv = {'Airplane', '', '', airplane};
+    resultsCSV(18,:) = airplane_csv;
     
     % Attitude Control
+    attitude_csv = {'AttitudeControl','','',attitude};
+    resultsCSV(19,:) = attitude_csv;
     
     % Quad
+    quad_csv = {'QUAD', '', '', quad};
+    resultsCSV(20,:) = quad_csv;
     
     % Spacecraft Docking 
+    spacecraft_csv = {'Spacecraft', '','',spacecraft};
+    resultsCSV(21,:) = spacecraft_csv;
 
-
+    
+    
     % Create and save csv files with results
     if is_codeocean
-        writecell(resultsCSV, '/results/logs/results.csv');
+        writecell(resultsCSV, '/results/results.csv'); % ARCH repeatability specific
     else
         writecell(resultsCSV, 'results.csv');
     end

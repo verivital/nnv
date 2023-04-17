@@ -71,8 +71,6 @@ classdef NonLinearODE < handle
         
         function obj = NonLinearODE_hyst(hyst_ha)
             
-            
-            
             % pull arguments from hyst ha
             obj = NonLinearODE();
             
@@ -276,7 +274,7 @@ classdef NonLinearODE < handle
                R0 = zonotope([init_set.c, init_set.V]);
                obj.set_R0(polyZonotope(R0));
            else % reuse last controlPeriod's reach set from CORA (reduce over-approx)
-               R0 = obj.cora_set.timePoint.set{end};
+               R0 = obj.cora_set{end}.timePoint.set{end};
                obj.set_R0(R0);
            end
            % Set input set

@@ -161,6 +161,7 @@ RUN ls /codeocean-true
 
 WORKDIR /deps
 
+RUN git clone https://github.com/verivital/onnx2nnv.git
 RUN git clone https://github.com/verivital/nnvmt.git
 
 # handled via postInstall zip release sometimes, but we need some bug fixes from latest release that we made for FORMATS'22 package
@@ -178,6 +179,7 @@ RUN chmod +x setup_tools.sh
 
 WORKDIR /deps/nnvmt
 RUN ln -s /code/nnv/nnmt /deps/nnvmt 
+RUN ln -s /code/nnv/onnx2nnv /deps/onnx2nnv 
 
 # nnmt needs anaconda
 # #https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh

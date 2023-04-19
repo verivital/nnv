@@ -1,5 +1,9 @@
+# hash:sha256:f0637c44f33f41531b237d9548759f2f321a1c02db722190f4f0d27932dab985
+FROM registry.codeocean.com/codeocean/matlab:2022b-ubuntu20.04
+
+# old 2021b version
 # hash:sha256:5f616c6f66b2c7c0f5e3b8d5b21214210b9d8d1dbe6b703011b15b8d65208c91
-FROM registry.codeocean.com/codeocean/matlab:2021b-ubuntu20.04
+#FROM registry.codeocean.com/codeocean/matlab:2021b-ubuntu20.04
 
 # old 2020b version
 # hash:sha256:eb133fa6ef390c8a024c045858d448a3c7a34f140ef89a10c693182c8e4e31c7
@@ -157,6 +161,7 @@ RUN ls /codeocean-true
 
 WORKDIR /deps
 
+RUN git clone https://github.com/verivital/onnx2nnv.git
 RUN git clone https://github.com/verivital/nnvmt.git
 
 # handled via postInstall zip release sometimes, but we need some bug fixes from latest release that we made for FORMATS'22 package
@@ -174,6 +179,7 @@ RUN chmod +x setup_tools.sh
 
 WORKDIR /deps/nnvmt
 RUN ln -s /code/nnv/nnmt /deps/nnvmt 
+RUN ln -s /code/nnv/onnx2nnv /deps/onnx2nnv 
 
 # nnmt needs anaconda
 # #https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh

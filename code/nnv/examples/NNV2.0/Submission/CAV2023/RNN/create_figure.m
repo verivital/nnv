@@ -40,7 +40,11 @@ function create_figure()
     ax.XAxis.FontSize = 15; % Set font size of axis
     ax.YAxis.FontSize = 15;
     % save plot
-    exportgraphics(f, "rnn_verification_time.pdf", "ContentType","vector");
+    if is_codeocean
+        exportgraphics(f,'/results/logs/rnn_verification_time.pdf', 'ContentType', 'vector');
+    else
+        exportgraphics(f, "rnn_verification_time.pdf",'ContentType', 'vector');
+    end
 
 end
 

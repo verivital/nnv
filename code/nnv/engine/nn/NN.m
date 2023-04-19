@@ -861,7 +861,7 @@ classdef NN < handle
                         end
                     end
                     if isa(obj.Layers{i}, "SigmoidLayer") || isa(obj.Layers{i}, "TanhLayer")
-                        warning("Exact reachability is not possible with layer " + class(obj.Layers{i} + ". Switching to approx-star."));
+                        warning("Exact reachability is not possible with layer " + class(obj.Layers{i}) + ". Switching to approx-star.");
                         reachOptions.reachMethod = "approx-star";
                     end
                 end

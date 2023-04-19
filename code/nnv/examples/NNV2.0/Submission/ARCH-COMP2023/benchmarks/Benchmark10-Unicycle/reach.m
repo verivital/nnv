@@ -44,9 +44,12 @@ function t = reach()
     end
     t = toc(t);
     
-    % path_out = [path_results(), filesep, 'Unicycle', filesep];
-    % mkdir(path_out)
-    % save([path_out, 'reach.mat'],'t','reachAll','-v7.3')
+    % Save results
+    if is_codeocean
+        save('/results/logs/unicycle.mat', 'reachAll','t','-v7.3');
+    else
+        save('unicycle.mat', 'reachAll','t','-v7.3');
+    end
 
 %% Visualize results
     plant.get_interval_sets;
@@ -57,7 +60,6 @@ function t = reach()
     grid;
     xlabel('x1');
     ylabel('x2');
-%     saveas(f,[path_out, 'reach1v2.pdf']);
     
     f1 = figure;
     hold on;
@@ -65,7 +67,15 @@ function t = reach()
     grid;
     xlabel('x1');
     ylabel('x2');
-%     saveas(f1,[path_out, 'reach3v4.pdf']);
+
+    % Save figure
+    if is_codeocean
+        exportgraphics(f,'/results/logs/unicycle_1v2.pdf', 'ContentType', 'vector');
+        exportgraphics(f1,'/results/logs/unicycle_3v4.pdf', 'ContentType', 'vector');
+    else
+        exportgraphics(f,'unicycle_3v4.pdf','ContentType', 'vector');
+        exportgraphics(f1,'unicycle_3v4.pdf', 'ContentType', 'vector');
+    end
 
 end
 

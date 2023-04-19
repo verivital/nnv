@@ -14,20 +14,16 @@ function run_all()
 
     % ACC 
     cd ACC;
-    % verified (~ 15 seconds)
-    acc = reach(); 
+    acc = reach(); % verified (~ 15 seconds)
     cd ..;
     
     % Benchmark-9 (Tora)
     cd Tora_Heterogeneous;
-    % verified with input partition (~ 38 mins)
-    tora_relutanh = reachTora_reluTanh();
-    % verified with input partition (~ 2.7 hours, let's try a different partition to speed it up)
-    tora_sigmoid = reachTora_sigmoid(); 
+    tora_relutanh = reachTora_reluTanh(); % verified w/ input partition (~ 38 mins)
+    tora_sigmoid = reachTora_sigmoid();   % verified w/ input partition (~ 2.7 hours)
     cd ..;
     cd Benchmark9-Tora;
-    % verified (~25 seconds)
-    tora_relu = reach(); 
+    tora_relu = reach(); % verified (~25 seconds)
     cd ..;
     
     % Benchmark-10 (Unicycle)
@@ -36,14 +32,12 @@ function run_all()
     
     % VCAS
     cd VCAS;
-    % verified (~20 seconds)
-    vcas = run_vcas(); 
+    vcas = run_vcas(); % verified (~20 seconds)
     cd ..;
     
     % Single Pendulum 
     cd Single_Pendulum;
-    % falsified (~2 seconds)
-    sp = reach(); 
+    sp = reach(); % falsified (simulations ~2 seconds)
     cd ..;
     
     % Double Pendulum 
@@ -54,8 +48,7 @@ function run_all()
     
     % Airplane
     cd Airplane;
-    run reach.m; % Falsified
-    airplane = '-';
+    airplane = reach(); % Falsified (reach sets ~ 7 seconds)
     cd ..;
     
     % Attitude Control

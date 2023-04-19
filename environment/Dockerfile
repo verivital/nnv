@@ -1,5 +1,9 @@
+# hash:sha256:f0637c44f33f41531b237d9548759f2f321a1c02db722190f4f0d27932dab985
+FROM registry.codeocean.com/codeocean/matlab:2022b-ubuntu20.04
+
+# old 2021b version
 # hash:sha256:5f616c6f66b2c7c0f5e3b8d5b21214210b9d8d1dbe6b703011b15b8d65208c91
-FROM registry.codeocean.com/codeocean/matlab:2021b-ubuntu20.04
+#FROM registry.codeocean.com/codeocean/matlab:2021b-ubuntu20.04
 
 # old 2020b version
 # hash:sha256:eb133fa6ef390c8a024c045858d448a3c7a34f140ef89a10c693182c8e4e31c7

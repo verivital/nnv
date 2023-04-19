@@ -11,9 +11,12 @@ end
 % default output path for path_results, ensure logs subdirectory there
 mkdir('/results/logs/')
 
+cd /code/nnv/examples/NNV2.0/Submission/CAV2023
+RE_cav23_short
+
 % ARCH-COMP 2022
-cd /code/nnv/examples/Submission/ARCH-COMP2022/benchmarks/
-run_all
+%cd /code/nnv/examples/Submission/ARCH-COMP2022/benchmarks/
+%run_all
 
 return 
 cd /code/nnv/examples/Submission/FORMATS2022/

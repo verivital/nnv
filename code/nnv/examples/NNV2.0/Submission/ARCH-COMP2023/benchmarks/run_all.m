@@ -2,7 +2,9 @@ function run_all()
 
     % Reproduce AINNCS ARCH-COMP 2023 results
     % author: Diego Manzanas
-    % date submitted: April XX, 2023
+    % date submitted: April 19, 2023
+    % 
+    % TODO: prepare dockerfile for repeatability
     
     % Supress warnings
     warning ('off','all');
@@ -27,8 +29,7 @@ function run_all()
     cd ..;
     
     % Benchmark-10 (Unicycle)
-    % unknown -> overapproximation
-    unicycle = '-';
+    unicycle = '-'; % overapprox -> unknown
     
     % VCAS
     cd VCAS;
@@ -52,12 +53,10 @@ function run_all()
     cd ..;
     
     % Attitude Control
-    % Unknown 
-    attitude = '-';
+    attitude = '-'; % sigmoid controller -> overapprox -> unknown
     
     % Quad
-    % Unknown
-    quad = '-';
+    quad = '-'; % sigmoid controller -> overapprox -> unknown
     
     % Spacecraft Docking 
     % unknown -> overapproximation
@@ -80,7 +79,7 @@ function run_all()
     resultsCSV(3:5,:) = tora_csv;
     
     % Benchmark-10 (Unicycle)
-    unicycle_csv = {'Unicycle', '', '', unicycle};
+    unicycle_csv = {'Unicycle', '', 'unknown', unicycle};
     resultsCSV(6,:) = unicycle_csv;
     
     % VCAS
@@ -104,11 +103,11 @@ function run_all()
     resultsCSV(16:17, :) = dp_csv;
     
     % Airplane
-    airplane_csv = {'Airplane', '', '', airplane};
+    airplane_csv = {'Airplane', '', 'verified', airplane};
     resultsCSV(18,:) = airplane_csv;
     
     % Attitude Control
-    attitude_csv = {'AttitudeControl','','',attitude};
+    attitude_csv = {'AttitudeControl','','unknown',attitude};
     resultsCSV(19,:) = attitude_csv;
     
     % Quad
@@ -116,7 +115,7 @@ function run_all()
     resultsCSV(20,:) = quad_csv;
     
     % Spacecraft Docking 
-    spacecraft_csv = {'Spacecraft', '','',spacecraft};
+    spacecraft_csv = {'Spacecraft', '','unknown',spacecraft};
     resultsCSV(21,:) = spacecraft_csv;
 
     

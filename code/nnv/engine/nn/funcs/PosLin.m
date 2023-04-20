@@ -736,7 +736,16 @@ classdef PosLin
                     if strcmp(dis_opt, 'display')
                         fprintf('\n%d neurons with ub <= 0 are found by estimating ranges', length(map1));
                     end
-
+                    % Create zonotope (helpful for NNCS)
+                    if ~isempty(I.Z)
+                        c1 = I.Z.c;
+                        c1(map1, :) = 0;
+                        V1 = I.Z.V;
+                        V1(map1, :) = 0;
+                        new_Z = Zono(c1, V1);
+                    else
+                        new_Z = [];
+                    end
                     map2 = find(lb < 0 & ub > 0);
                     if strcmp(dis_opt, 'display')
                         fprintf('\nFinding neurons (in %d neurons) with ub <= 0 by optimizing ranges: ', length(map2));
@@ -777,6 +786,7 @@ classdef PosLin
                         fprintf('\nConstruct new star set, %d new predicate variables are introduced', length(map8));
                     end
                     S = PosLin.multipleStepReachStarApprox_at_one(In, map8, lb1, ub1); % one-shot approximation
+                    S.Z = new_Z;
                 end
             end
 

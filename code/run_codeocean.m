@@ -8,12 +8,15 @@ catch
     'ERROR: path likely not set, run install.m'
 end
 
+matlabshared.supportpkg.setSupportPackageRoot('/usr/local/MATLAB/R2022b');
+addpath(genpath('/usr/local/MATLAB'))
+
 % default output path for path_results, ensure logs subdirectory there
 mkdir('/results/logs/')
 
 cd /code/nnv/examples/NNV2.0/Submission/CAV2023
-RE_cav23_short
-%run_cav23
+%RE_cav23_short
+run_cav23
 
 % ARCH-COMP 2022
 %cd /code/nnv/examples/Submission/ARCH-COMP2022/benchmarks/

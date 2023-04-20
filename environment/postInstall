@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 set -ex
 
+ls /usr/local/
+
 # mkdir deps && # already created in dockerfile
 cd deps
+
+wget -q https://www.dropbox.com/s/4p17xm4tlm8r9gs/sppFile.zip
+mkdir -p /usr/local/MATLAB/R2022b/SupportPackages
+unzip sppFile.zip -d /usr/local/MATLAB/R2022b/SupportPackages
+
+
+
+
+cd /deps
+
 
 #curl -LO https://tumcps.github.io/CORA/data/CORA_2018.zip
 #unzip CORA_2018.zip && rm CORA_2018.zip
@@ -27,6 +39,13 @@ pwd
 
 ls
 
+ls /usr/local/MATLAB
+ls /usr
+ls /usr/local
+ls /
+ls /deps
+
 matlab -nodisplay -r "install; addpath(genpath('../../deps')); savepath"
 
-matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); savepath;"
+matlab -nodisplay -r "addpath(genpath('/deps')); addpath(genpath('/code')); matlabshared.supportpkg.setSupportPackageRoot('/usr/local/MATLAB/R2022b');
+addpath(genpath('/usr/local/MATLAB')); savepath;"

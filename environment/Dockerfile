@@ -44,6 +44,8 @@ RUN apt-get update \
 #RUN apt-get install -y texlive-full # used for regen some plots, but very long install, avoid if possible
 RUN apt-get install -y nano
 
+RUN pip install unzip
+
 RUN pip install numpy
 RUN pip3 install numpy
 RUN pip install pybind11

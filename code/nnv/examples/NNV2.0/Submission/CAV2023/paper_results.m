@@ -149,23 +149,23 @@ function other_compare()
 
     % TABLE 3 - RL, tllverify, oval 21
     oval = load("NNV_vs_MATLAB/oval21/results_oval21.mat");
-    ovalT = sum(oval.res(2,:))/length(oval.res(2,:));
-    ovalS = sum(oval.res(1,:) == 1);
-    ovalU = sum(oval.res(1,:) == 0);
+    ovalT = sum(oval.res(:,2))/length(oval.res(:,2));
+    ovalS = sum(oval.res(:,1) == 1);
+    ovalU = sum(oval.res(:,1) == 0);
     rl = load("NNV_vs_MATLAB/rl_benchmarks/results_rl.mat");
-    rlTm = sum(rl.res(2,:))/length(rl.res(2,:));
-    rlSm = sum(rl.res(1,:) == 1);
-    rlUm = sum(rl.res(1,:) == 0);
-    rlT = sum(rl.res(4,:))/length(rl.res(4,:));
-    rlS = sum(rl.res(3,:) == 1);
-    rlU = sum(rl.res(3,:) == 0);
+    rlTm = sum(rl.res(:,2))/length(rl.res(:,2));
+    rlSm = sum(rl.res(:,1) == 1);
+    rlUm = sum(rl.res(:,1) == 0);
+    rlT = sum(rl.res(:,4))/length(rl.res(:,4));
+    rlS = sum(rl.res(:,3) == 1);
+    rlU = sum(rl.res(:,3) == 0);
     tll = load("NNV_vs_MATLAB/tllverify/results_tllverify.mat");
-    tllTm = sum(tll.res(2,:))/length(tll.res(2,:));
-    tllSm = sum(tll.res(1,:) == 1);
-    tllUm = sum(tll.res(1,:) == 0);
-    tllT = sum(tll.res(4,:))/length(tll.res(4,:));
-    tllS = sum(tll.res(3,:) == 1);
-    tllU = sum(tll.res(3,:) == 0);
+    tllTm = sum(tll.res(:,2))/length(tll.res(:,2));
+    tllSm = sum(tll.res(:,1) == 1);
+    tllUm = sum(tll.res(:,1) == 0);
+    tllT = sum(tll.res(:,4))/length(tll.res(:,4));
+    tllS = sum(tll.res(:,3) == 1);
+    tllU = sum(tll.res(:,3) == 0);
     if is_codeocean()
         fid = fopen([path_results_codeocean, 'Table_3.txt'],'w'); 
     else

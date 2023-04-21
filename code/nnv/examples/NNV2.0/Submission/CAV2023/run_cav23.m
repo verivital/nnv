@@ -10,9 +10,9 @@ function run_cav23()
         
     %% 1) Neural ODEs
 
-%    cd NeuralODEs;
-%    run_neuralode;
-%    cd ..;
+    cd NeuralODEs;
+    run_neuralode;
+    cd ..;
 
     %% 2) NNV_vs_MATLAB
 

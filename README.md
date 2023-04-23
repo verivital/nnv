@@ -5,7 +5,7 @@ This toolbox implements reachability methods for analyzing neural networks, part
 
 # related tools and software
 
-This toolbox makes use of the neural network model transformation tool ([nnmt](https://github.com/verivital/nnmt)) and for closed-loop systems analysis, the hybrid systems model transformation and translation tool ([HyST](https://github.com/verivital/hyst)), and [CORA](https://github.com/TUMcps/CORA).
+This toolbox makes use of the neural network model transformation tool ([nnmt](https://github.com/verivital/nnmt)) and for closed-loop systems analysis, the hybrid systems model transformation and translation tool ([HyST](https://github.com/verivital/hyst)), and the COntinuous Reachability Analyzer ([CORA](https://github.com/TUMcps/CORA)).
 
 # execution without installation:
 nnv can be executed online without installing Matlab or other dependencies through [CodeOcean](https://www.codeocean.com) via the following CodeOcean capsules:

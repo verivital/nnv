@@ -5,7 +5,7 @@ This toolbox implements reachability methods for analyzing neural networks, part
 
 # related tools and software
 
-This toolbox makes use of the neural network model transformation tool ([nnmt](https://github.com/verivital/nnmt)) and for closed-loop systems analysis, the hybrid systems model transformation and translation tool ([HyST](https://github.com/verivital/hyst)).
+This toolbox makes use of the neural network model transformation tool ([nnmt](https://github.com/verivital/nnmt)) and for closed-loop systems analysis, the hybrid systems model transformation and translation tool ([HyST](https://github.com/verivital/hyst)), and [CORA](https://github.com/TUMcps/CORA).
 
 # execution without installation:
 nnv can be executed online without installing Matlab or other dependencies through [CodeOcean](https://www.codeocean.com) via the following CodeOcean capsules:
@@ -14,8 +14,8 @@ nnv can be executed online without installing Matlab or other dependencies throu
 * CAV 2020 Tool paper version: https://doi.org/10.24433/CO.0221760.v1
 * Earliest version: DOI 10.24433/CO.1314285.v1: https://doi.org/10.24433/CO.1314285.v1
 
-# installation:
-    1) Install Matlab (2020a or newer) with at least the following toolboxes:
+# Installation:
+    1) Install Matlab (2022b or newer) with at least the following toolboxes:
        Computer Vision
        Control Systems
        Deep Learning
@@ -25,10 +25,15 @@ nnv can be executed online without installing Matlab or other dependencies throu
        Symbolic Math
        System Identification
        Statistics and Machine Learning
+   
+    1.a) Install the following support package
+       Deep Learning Toolbox Converter for ONNX Model Format (https://www.mathworks.com/matlabcentral/fileexchange/67296-deep-learning-toolbox-converter-for-onnx-model-format)
+       
+       Note: Support packages can be installed in MATLAB's HOME tab > Add-Ons > Get Add-ons, search for the support package using the Add-on Explorer and click on the Install button.
 
     2) Clone or download the nnv toolbox from (https://github.com/verivital/nnv)
     
-    Note: to operate correctly, nnv depends on other tools (CORA, NNMT, HyST), which are included as git submodules. As such, you must clone recursively, e.g., with the following:
+    Note: to operate correctly, nnv depends on other tools (CORA, NNMT, HyST, onnx2nnv), which are included as git submodules. As such, you must clone recursively, e.g., with the following:
     
     git clone --recursive https://github.com/verivital/nnv.git
 
@@ -41,7 +46,11 @@ nnv can be executed online without installing Matlab or other dependencies throu
        4-1) https://www.mathworks.com/matlabcentral/fileexchange/61733-deep-learning-toolbox-model-for-vgg-16-network  
 
        4-2) https://www.mathworks.com/help/deeplearning/ref/vgg19.html
-
+       
+    5) To run MATLAB's neural network verification comparison, an additional support package is needed:
+        
+        5-1) https://www.mathworks.com/matlabcentral/fileexchange/118735-deep-learning-toolbox-verification-library
+        
 # uninstallation:
 
     1) Open matlab, then go to `/nnv/` and execute the `uninstall.m` script
@@ -55,7 +64,7 @@ A recent video demonstration of NNV is available.
 
 [![Alt text](https://img.youtube.com/vi/fLcEwPae5C4/0.jpg)](https://www.youtube.com/watch?v=fLcEwPae5C4)
 
-# novel features
+# Features
 
 1) NNV can compute and visualize the exact reachable sets of feedforward nerual networks with ReLU/Saturation activation functions. The computation can be accelerated using parallel computing in Matlab. The computed reachable set can be used for safety verification of the networks.
 
@@ -78,7 +87,7 @@ A recent video demonstration of NNV is available.
 2) NNV can construct and visualize the complete counter inputs of feedforward neural networks with ReLU/Saturation activation functions.
 
 <figure>
-    <img src="code/images/counterInputSet.png" width="600" height="300"> <figcaption>An Complete Set of Counter Inputs of a ACASXu network</figcaption>
+    <img src="code/images/counterInputSet.png" width="600" height="300"> <figcaption>A Complete Set of Counter Inputs of a ACASXu network</figcaption>
 </figure>
 
 3) NNV can compute and visualize the over-approximate reachable sets of feedforward neural networks with Tanh, Sigmoid activation functions.
@@ -115,7 +124,7 @@ A recent video demonstration of NNV is available.
 </figure>
 
 
-5) **New feature**: Our nnv now supports robustness verification for very large convolutional neural networks such as VGG16, VGG19 under adversarial attacks (FGSM, DeepFoll, etc.)
+5) Convolutional Neural Networks: nnv supports robustness verification for large convolutional neural networks such as VGG16, VGG19 under adversarial attacks (FGSM, DeepFoll, etc.)
 
 
 <figure>
@@ -133,24 +142,28 @@ A recent video demonstration of NNV is available.
 </figure>
 
 
-# contributors
+# Contributors
 
 * [Hoang-Dung Tran (main developer)](https://scholar.google.com/citations?user=_RzS3uMAAAAJ&hl=en)
+* [Diego Manzanas Lopez](https://scholar.google.com/citations?user=kgpZCIAAAAAJ&hl=en)
 * [Weiming Xiang](https://scholar.google.com/citations?user=Vm_7JP8AAAAJ&hl=en)
 * [Stanley Bak](http://stanleybak.com/)
 * [Patrick Musau](https://scholar.google.com/citations?user=C2RS3i8AAAAJ&hl=en)
-* [Diego Manzanas Lopez](https://scholar.google.com/citations?user=kgpZCIAAAAAJ&hl=en)
 * Xiaodong Yang
 * [Luan Viet Nguyen](https://luanvietnguyen.github.io)
 * [Taylor T. Johnson](http://www.taylortjohnson.com)
 
-# references
+# References
 
-The methods implemented in nnv are based upon the following papers.
-
-* Hoang-Dung Tran, Neelanjana Pal, Patrick Musau, Xiaodong Yang, Nathaniel P. Hamilton, Diego Manzanas Lopez, Stanley Bak, Taylor T. Johnson, "Robustness Verification of Semantic Segmentation Neural Networks using Relaxed Reachability", In 33rd International Conference on Computer-Aided Verification (CAV), Springer, 2021. [http://www.taylortjohnson.com/research/tran2021cav.pdf]
+The methods implemented in nnv are based upon or used in the following papers:
 
 * Hoang-Dung Tran, Patrick Musau, Diego Manzanas Lopez, Xiaodong Yang, Luan Viet Nguyen, Weiming Xiang, Taylor T.Johnson, "NNV: A Tool for Verification of Deep Neural Networks and Learning-Enabled Autonomous Cyber-Physical Systems", 32nd International Conference on Computer-Aided Verification (CAV), 2020. [http://taylortjohnson.com/research/tran2020cav_tool.pdf]
+
+* Diego Manzanas Lopez, Taylor T. Johnson, Stanley Bak, Hoang-Dung Tran, Kerianne Hobbs, "Evaluation of Neural Network Verification Methods for Air to Air Collision Avoidance", In AIAA Journal of Air Transportation (JAT), 2022 [http://www.taylortjohnson.com/research/lopez2022jat.pdf]
+
+* Diego Manzanas Lopez, Patrick Musau, Nathaniel Hamilton, Taylor T. Johnson, "Reachability Analysis of a General Class of Neural Ordinary Differential Equations", In 20th International Conference on Formal Modeling and Analysis of Timed Systems (FORMATS), 2022 [http://www.taylortjohnson.com/research/lopez2022formats.pdf]
+
+* Hoang-Dung Tran, Neelanjana Pal, Patrick Musau, Xiaodong Yang, Nathaniel P. Hamilton, Diego Manzanas Lopez, Stanley Bak, Taylor T. Johnson, "Robustness Verification of Semantic Segmentation Neural Networks using Relaxed Reachability", In 33rd International Conference on Computer-Aided Verification (CAV), Springer, 2021. [http://www.taylortjohnson.com/research/tran2021cav.pdf]
 
 * Hoang-Dung Tran, Stanley Bak, Weiming Xiang, Taylor T.Johnson, "Towards Verification of Large Convolutional Neural Networks Using ImageStars", 32nd International Conference on Computer-Aided Verification (CAV), 2020. [http://taylortjohnson.com/research/tran2020cav.pdf]
 
@@ -180,7 +193,7 @@ The methods implemented in nnv are based upon the following papers.
 
 * Diego Manzanas Lopez, Patrick Musau, Hoang-Dung Tran, Souradeep Dutta, Taylor J. Carpenter, Radoslav Ivanov, Taylor T.Johnson, "ARCH-COMP19 Category Report: Artificial Intelligence / Neural Network Control Systems (AINNCS) for Continuous and Hybrid Systems Plants", 3rd International Competition on Verifying Continuous and Hybrid Systems (ARCH-COMP2019), The 6th International Workshop on Applied Verification of Continuous and Hybrid Systems (ARCH2019). Montreal, Canada, 2019. [http://taylortjohnson.com/research/lopez2019archcomp.pdf]
 
-# acknowledgements
+# Acknowledgements
 
 This work is supported in part by the [DARPA Assured Autonomy](https://www.darpa.mil/program/assured-autonomy) program.
 

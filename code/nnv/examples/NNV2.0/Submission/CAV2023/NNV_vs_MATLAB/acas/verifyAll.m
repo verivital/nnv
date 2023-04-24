@@ -39,4 +39,8 @@ function verifyAll()
     % Property 4
     verifyP4(reachOptionsList);
 
+    % Close parallel pool if still active
+    poolobj = gcp('nocreate');
+    delete(poolobj);
+
 end

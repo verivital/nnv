@@ -64,9 +64,11 @@ function example_transposed()
     if is_codeocean
         exportgraphics(f1,'/results/logs/transposed_results_0.0001_1.pdf', 'ContentType', 'vector');
         exportgraphics(f3,'/results/logs/transposed_results_0.0001_3.pdf', 'ContentType', 'vector');
+        saveas(f1,'/results/logs/transposed_results_0.0001_1.png');
+        saveas(f3,'/results/logs/transposed_results_0.0001_3.png');
     else
-        exportgraphics(f1,'transposed_results_0.0001_1.pdf','ContentType', 'vector');
-        exportgraphics(f3,'transposed_results_0.0001_3.pdf','ContentType', 'vector');
+        exportgraphics(f1,'../transposed_results_0.0001_1.pdf','ContentType', 'vector');
+        exportgraphics(f3,'../transposed_results_0.0001_3.pdf','ContentType', 'vector');
     end
 
 end

@@ -63,9 +63,11 @@ function example_dilated()
     if is_codeocean
         exportgraphics(f1,'/results/logs/dilated_results_0.0001_1.pdf', 'ContentType', 'vector');
         exportgraphics(f3,'/results/logs/dilated_results_0.0001_3.pdf', 'ContentType', 'vector');
+        saveas(f1,'/results/logs/dilated_results_0.0001_1.png');
+        saveas(f3,'/results/logs/dilated_results_0.0001_3.png');
     else
-        exportgraphics(f1,'dilated_results_0.0001_1.pdf','ContentType', 'vector');
-        exportgraphics(f3,'dilated_results_0.0001_3.pdf','ContentType', 'vector');
+        exportgraphics(f1,'../dilated_results_0.0001_1.pdf','ContentType', 'vector');
+        exportgraphics(f3,'../dilated_results_0.0001_3.pdf','ContentType', 'vector');
     end
 
 end

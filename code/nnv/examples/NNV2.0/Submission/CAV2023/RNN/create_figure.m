@@ -42,8 +42,9 @@ function create_figure()
     % save plot
     if is_codeocean
         exportgraphics(f,'/results/logs/rnn_verification_time.pdf', 'ContentType', 'vector');
+        saveas(f,'/results/logs/rnn_verification_time.png');
     else
-        exportgraphics(f, "rnn_verification_time.pdf",'ContentType', 'vector');
+        exportgraphics(f, "../rnn_verification_time.pdf",'ContentType', 'vector');
     end
 
 end

@@ -38,7 +38,7 @@ function run_all()
     
     % Single Pendulum 
     cd Single_Pendulum;
-    sp = reach(); % falsified (simulations ~2 seconds)
+    sp = reach(); % falsified (reach sets ~3 seconds)
     cd ..;
     
     % Double Pendulum 
@@ -59,8 +59,7 @@ function run_all()
     quad = '-'; % sigmoid controller -> overapprox -> unknown
     
     % Spacecraft Docking 
-    % unknown -> overapproximation
-    spacecraft = '-';
+    spacecraft = '-'; % overapproximation -> unknown
 
 %% Save results in CSV file for submission
 
@@ -73,9 +72,9 @@ function run_all()
     resultsCSV(2,:) = acc_csv;
     
     % Benchmark-9 (Tora)
-    tora_csv(1,:) = {'TORA', 'relu', '', tora_relu};
-    tora_csv(2,:)= {'TORA', 'relutanh', '', tora_relutanh};
-    tora_csv(3,:) = {'TORA', 'sigmoid', '', tora_sigmoid};
+    tora_csv(1,:) = {'TORA', 'relu',     'verified', tora_relu};
+    tora_csv(2,:) = {'TORA', 'relutanh', 'verified', tora_relutanh};
+    tora_csv(3,:) = {'TORA', 'sigmoid',  'verified', tora_sigmoid};
     resultsCSV(3:5,:) = tora_csv;
     
     % Benchmark-10 (Unicycle)
@@ -111,7 +110,7 @@ function run_all()
     resultsCSV(19,:) = attitude_csv;
     
     % Quad
-    quad_csv = {'QUAD', '', '', quad};
+    quad_csv = {'QUAD', '', 'unknown', quad};
     resultsCSV(20,:) = quad_csv;
     
     % Spacecraft Docking 

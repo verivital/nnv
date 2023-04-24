@@ -26,8 +26,9 @@ function plot_fpa()
     legend(pj,{'NNV'},"Location","best",'FontSize',14);
     if is_codeocean
         exportgraphics(f_fpa,'/results/logs/fpa.pdf', 'ContentType', 'vector');
+        saveas(f_fpa,'/results/logs/fpa.png');
     else
-        exportgraphics(f_fpa,'fpa.pdf','ContentType', 'vector');
+        exportgraphics(f_fpa,'../../fpa.pdf','ContentType', 'vector');
     end
 
 end

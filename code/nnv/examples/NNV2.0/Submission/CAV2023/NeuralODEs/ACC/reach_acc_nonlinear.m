@@ -104,8 +104,9 @@ function reach_acc_nonlinear()
     % Save figure
     if is_codeocean
         exportgraphics(f,'/results/logs/acc_nl.pdf','ContentType','vector');
+        saveas(f,'/results/logs/acc_nl.png');
     else
-        exportgraphics(f,'acc_nl.pdf','ContentType','vector');
+        exportgraphics(f,'../../acc_nl.pdf','ContentType','vector');
     end
 
 end

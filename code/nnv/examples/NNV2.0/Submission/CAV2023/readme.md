@@ -205,5 +205,20 @@ Notes
 
 ## Understanding the results
 
+In the generated results files, there are two main categories
+1) Verification / Reachability results (i.e. _acc_nl.pdf_)
+2) Computation times (i.e. _rnn_verification_time.pdf_)
 
+For the first category, the reachability plots as well as the number of SAT and UNSAT properties verified are reproducible. 
 
+On the other hand, or the second one (_computation times_), there are a variety of reasons why these number may differ from those in the paper:
+- Hardware
+  - Move vs less powerful CPU cores.
+- OS
+  - Linux vs MAC vs Windows
+- CodeOcean
+  - The underlying hardware is shared cloud infrastructure, specifically an AWS r5d.4xlarge (16-core, 120GB RAM, see: https://help.codeocean.com/en/articles/1120508-what-machine-will-my-code-run-on).)
+- Parallelization
+  - Table 2 (Verification of ACAS Xu properties 3 and 4) uses the exact method with parallel computation (8 cores in the paper). If the hardware where this is executed has a different number of cores used, these results would differ from those in the paper.
+
+For more details about possible timing differences when running MATLAB in different OS and hardware, see: https://www.mathworks.com/support/requirements/choosing-a-computer.html 

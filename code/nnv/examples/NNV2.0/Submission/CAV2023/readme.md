@@ -33,20 +33,22 @@ Matlab toolboxes and support packages listed here: https://github.com/verivital/
 
 #### d. Hardware
 
-The computer needs > 30 GB RAM.  Note that a computer with less RAM may not be able to reproduce all results in the paper, which is part of why the CodeOcean set up is recommended as it has 120GB RAM.
+The computer needs > 16 GB RAM.  Note that a computer with less RAM may not be able to reproduce all results in the paper, which is part of why the CodeOcean set up is recommended as it has 120GB RAM.
 
 
 ## REPRODUCING THE RESULTS IN THE PAPER
 
-###  The paper contains the following computational elements:
+#### Preview
 
-#### a. Comparison NNV vs MATLAB
+The paper contains the following computational elements:
 
-#### b. Neural ODEs
+##### a. Comparison NNV vs MATLAB (Section 4.1, Tables 2 and 3)
 
-#### c. RNNs
+##### b. Neural ODEs (Section 4.2, Fig. 2 (b) and (c))
+ 
+##### c. RNNs (Section 4.3, Fig. 2(a))
 
-#### d. Semantic Segmentation
+##### d. Semantic Segmentation (Section 4.4, Fig. 3)
 
 
 ### 3. CodeOcean Capsule
@@ -57,12 +59,16 @@ The computer needs > 30 GB RAM.  Note that a computer with less RAM may not be a
 
 https://codeocean.com/capsule/1314285/
 
-Username: see easychair
-Password: see easychair
+Username: xxxx
+Password: xxxx
+
+```
+DO THIS OR ASK EVERYONE TO CREATE AN ACCOUNT. ACCOUNT HAS A 10 HOURS AS DEFAULT, SO MAY NEED TO ASK FOR EXTRA COMPUTATION
+```
 
 3c. After opening the capsule through the above URL, one can view code, navigate existing reproduced results, etc.
 
-Prior executions of all results in this paper are available in the single execution `Run 7557000`. This process takes about 15 hours total, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
+Prior executions of all results in this paper are available in the single execution `Run XXXXXXX`. This process takes about 15 hours total, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
 
 `Run XXXXXXX\logs` (all results can be found here))
 
@@ -159,4 +165,35 @@ https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 In Matlab, navigate to the CAV2023 submission folder at `code/nnv/examples/NNV2.0/Submission/CAV2023`.
 
 One can then execute the `run_cav23.m` script for the full paper results or `RE_cav23_short.m`, which reproduces all results from Sections 4.2 to 4.4 (about 1-2 hours of computation).
+
+## Understanding the results
+
+#### CodeOcean Capsule
+All results are generated into /results/logs/ directory and can be accessed once the `Reproducible Run` is finished, in the right column of the capsule.
+-	`Table2.txt` - Section 4.1, Table 2 (Verification of ACAS Xu properties 3 and 4)
+-	`Table3.txt` - Section 4.1, Table 3 (Verification results of the RL, tllverify and oval21 benchmarks)
+-	`results_4.2-4.4.txt` - Verification and computation time results of section 4.2, 4.3 and 4.4
+-	`rnn_verification_time.png` - Fig. 2 (a) (RNN Computation Times)
+-	`acc_nl.png` - Fig. 2 (b) (Neural ODE, NNCS Nonlinear ACC)
+-	`fpa.png` - Fig. 2 (c) (Neural ODE FPA)
+-	`transposed_results_0.0001_1.png` - Fig. 3 (a) (Target Image)
+-	`transposed_results_0.0001_3.png` - Fig. 3 (b) (Transposed SSNN)
+-	`dilated_results_0.0001_1.png` - Fig. 3 (c) (Dilated SSNN)
+
+Note: Tables 2 and 3 are not generated when the short script is executed.
+Note: Figures are generated in pdf and png format.
+
+#### Manual / Standalone Installation
+All the tables and figures will be generated in the same folder (nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/). 
+-	`Table2.txt` - Section 4.1, Table 2 (Verification of ACAS Xu properties 3 and 4)
+-	`Table3.txt` - Section 4.1, Table 3 (Verification results of the RL, tllverify and oval21 benchmarks)
+-	`results_4.2-4.4.txt` - Verification and computation time results of section 4.2, 4.3 and 4.4
+-	`rnn_verification_time.pdf` - Fig. 2 (a) (RNN Computation Times)
+-	`acc_nl.pdf` - Fig. 2 (b) (Neural ODE, NNCS Nonlinear ACC)
+-	`fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
+-	`transposed_results_0.0001_1.pdf` - Fig. 3 (a) (Target Image)
+-	`transposed_results_0.0001_3.pdf` - Fig. 3 (b) (Transposed SSNN)
+-	`dilated_results_0.0001_1.pdf` - Fig. 3 (c) (Dilated SSNN)
+
+Note: Tables 2 and 3 are not generated when the short script is executed.
 

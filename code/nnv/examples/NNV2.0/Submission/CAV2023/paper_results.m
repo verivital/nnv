@@ -64,7 +64,7 @@ function acas_compare()
     fprintf(fid, '-------------------------------------------------------------------------------------------------\n');
     fprintf(fid, "Property 4 (45) \n");
     fprintf(fid, '-------------------------------------------------------------------------------------------------\n');
-    fprintf(fid, "            matlab    approx    relax 25%%    relax 50%%    relax 75%%    relax 100%%    exact (8)\n");
+    fprintf(fid, "            matlab    approx    relax 25%%    relax 50%%    relax 75%%    relax 100%%    exact (%d)\n",used_cores);
     fprintf(fid, " SAT          %d         %d           %d            %d            %d             %d           %d \n", p4_sat_mat, p4_sat_nnv);
     fprintf(fid, " UNSAT        %d         %d          %d            %d            %d             %d           %d \n", p4_unsat_mat, p4_unsat_nnv);
     fprintf(fid, " time (s)   %.4g    %.4g     %.4g        %.4g       %.4g       %.4g       %.4g \n", p4_time_mat, p4_time_nnv );

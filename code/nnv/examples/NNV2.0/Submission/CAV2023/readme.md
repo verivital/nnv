@@ -50,6 +50,42 @@ Matlab toolboxes and support packages listed here: https://github.com/verivital/
 
 The computer needs > 30 GB RAM.  Note that a computer with less RAM may not be able to reproduce all results in the paper, which is part of why the CodeOcean set up is recommended as it has 120GB RAM.
 
+### Understanding the results
+
+First, we want to acknowledge an error (human error) found after we submitted the manuscript. In Table 2, there is a mismatch in the number of UNSAT instances of property 5 using the relax 25% method. While the manuscript says there are __5__ UNSAT instances, the actual number of UNSAT instances is __6__. 
+
+When reproducing the results of the paper, the following files are generated:
+-	`Table2.txt` - Section 4.1, Table 2 (Verification of ACAS Xu properties 3 and 4)
+-	`Table3.txt` - Section 4.1, Table 3 (Verification results of the RL, tllverify and oval21 benchmarks)
+-	`results_4.2-4.4.txt` - Verification and computation time results of section 4.2, 4.3 and 4.4
+-	`rnn_verification_time.pdf` - Fig. 2 (a) (RNN Computation Times)
+-	`acc_nl.pdf` - Fig. 2 (b) (Neural ODE, NNCS Nonlinear ACC)
+-	`fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
+-	`transposed_results_0.0001_1.pdf` - Fig. 3 (a) (Target Image)
+-	`transposed_results_0.0001_3.pdf` - Fig. 3 (b) (Transposed SSNN)
+-	`dilated_results_0.0001_3.pdf` - Fig. 3 (c) (Dilated SSNN)
+
+Notes
+- Figures are generated in pdf and png format for Docker and CodeOcean, only in pdf format when running locally.
+
+In the generated results files, there are two main categories
+1) Verification / Reachability results (i.e. _acc_nl.pdf_)
+2) Computation times (i.e. _rnn_verification_time.pdf_)
+
+For the first category, the reachability plots as well as the number of SAT and UNSAT properties verified are reproducible, with one expection mentioned above.
+
+On the other hand, or the second one (_computation times_), there are a variety of reasons why these number may differ from those in the paper:
+- Hardware
+  - Move vs less powerful CPU cores.
+- OS
+  - Linux vs MAC vs Windows
+- CodeOcean
+  - The underlying hardware is shared cloud infrastructure, specifically an AWS r5d.4xlarge (16-core, 120GB RAM, see: https://help.codeocean.com/en/articles/1120508-what-machine-will-my-code-run-on).)
+- Parallelization
+  - Table 2 (Verification of ACAS Xu properties 3 and 4) uses the exact method with parallel computation (8 cores in the paper). If the hardware where this is executed has a different number of cores used, these results would differ from those in the paper.
+
+For more details about possible timing differences when running MATLAB in different OS and hardware, see: https://www.mathworks.com/support/requirements/choosing-a-computer.html 
+
 
 ## REPRODUCING THE RESULTS IN THE PAPER
 
@@ -86,24 +122,18 @@ fpa_reach;
 plot_fpa;
 ```
 
-This should only take a few minutes (after environment is set up). Once it is complete, there is only one expected output under the _logs_ tab in the last executed run:
+Then, select "Reproducible Run". This should only take a few minutes (after the environment is set up). Once it is complete, there is only one expected output under the _logs_ tab in the last executed run:
 
-`fpa.png` - Fig. 2 (c) (Neural ODE FPA)
+`fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
 
 All results are generated into /results/logs/ directory and can be accessed once the `Reproducible Run` is finished, in the right column of the capsule.
--	`Table2.txt` - Section 4.1, Table 2 (Verification of ACAS Xu properties 3 and 4)
--	`Table3.txt` - Section 4.1, Table 3 (Verification results of the RL, tllverify and oval21 benchmarks)
--	`results_4.2-4.4.txt` - Verification and computation time results of section 4.2, 4.3 and 4.4
--	`rnn_verification_time.png` - Fig. 2 (a) (RNN Computation Times)
--	`acc_nl.png` - Fig. 2 (b) (Neural ODE, NNCS Nonlinear ACC)
--	`fpa.png` - Fig. 2 (c) (Neural ODE FPA)
--	`transposed_results_0.0001_1.png` - Fig. 3 (a) (Target Image)
--	`transposed_results_0.0001_3.png` - Fig. 3 (b) (Transposed SSNN)
--	`dilated_results_0.0001_1.png` - Fig. 3 (c) (Dilated SSNN)
 
-Notes
-- Tables 2 and 3 are not generated when the short script is executed.
-- Figures are generated in pdf and png format.
+For more information about the results, please see: https://github.com/verivital/nnv/edit/master/code/nnv/examples/NNV2.0/Submission/CAV2023/readme.md#understanding-the-results .
+
+
+```
+ADD INSTRUCTION TO RUN THE SUBSET RESULTS, INCLUDE WHICH FILES ARE GENERATED
+```
 
 
 ### Option 2: Manual / Standalone Installation
@@ -124,7 +154,7 @@ https://github.com/verivital/nnv#installation
    Deep Learning
    Image Processing
    Optimization
-   Parallel Processing
+   Parallel Computing
    Symbolic Math
    System Identification
    Statistics and Machine Learning
@@ -157,18 +187,22 @@ In MATLAB, navigate to the CAV2023 submission folder at `code/nnv/examples/NNV2.
 One can then execute the `run_cav23.m` script for the full paper results or `RE_cav23_short.m`, which reproduces all results from Sections 4.2 to 4.4 (about 1-2 hours of computation).
 
 All the tables and figures will be generated in the same folder (nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/). 
--	`Table2.txt` - Section 4.1, Table 2 (Verification of ACAS Xu properties 3 and 4)
--	`Table3.txt` - Section 4.1, Table 3 (Verification results of the RL, tllverify and oval21 benchmarks)
--	`results_4.2-4.4.txt` - Verification and computation time results of section 4.2, 4.3 and 4.4
--	`rnn_verification_time.pdf` - Fig. 2 (a) (RNN Computation Times)
--	`acc_nl.pdf` - Fig. 2 (b) (Neural ODE, NNCS Nonlinear ACC)
--	`fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
--	`transposed_results_0.0001_1.pdf` - Fig. 3 (a) (Target Image)
--	`transposed_results_0.0001_3.pdf` - Fig. 3 (b) (Transposed SSNN)
--	`dilated_results_0.0001_1.pdf` - Fig. 3 (c) (Dilated SSNN)
 
 Notes
-- Tables 2 and 3 are not generated when the short script is executed.
+- Tables 2 and 3 are not generated when the short script ("RE_cav23_short.m") is executed.
+
+For a smoke test, one can navigate to the folder __nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/__, and copy the following lines in MATLAB's command window:
+```
+cd NNV_vs_MATLAB/rl_benchmarks
+verifyAll;
+cd ../../NeuralODEs/FPA
+fpa_reach;
+plot_fpa;
+```
+
+Once it is complete (this should only take a few minutes), one can see one new file in the folder __nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/__:
+
+`fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
 
 ### Docker
 
@@ -209,22 +243,4 @@ Notes
 - Tables 2 and 3 are not generated when the short script is executed.
 - Figures are generated in pdf and png format.
 
-## Understanding the results
 
-In the generated results files, there are two main categories
-1) Verification / Reachability results (i.e. _acc_nl.pdf_)
-2) Computation times (i.e. _rnn_verification_time.pdf_)
-
-For the first category, the reachability plots as well as the number of SAT and UNSAT properties verified are reproducible. 
-
-On the other hand, or the second one (_computation times_), there are a variety of reasons why these number may differ from those in the paper:
-- Hardware
-  - Move vs less powerful CPU cores.
-- OS
-  - Linux vs MAC vs Windows
-- CodeOcean
-  - The underlying hardware is shared cloud infrastructure, specifically an AWS r5d.4xlarge (16-core, 120GB RAM, see: https://help.codeocean.com/en/articles/1120508-what-machine-will-my-code-run-on).)
-- Parallelization
-  - Table 2 (Verification of ACAS Xu properties 3 and 4) uses the exact method with parallel computation (8 cores in the paper). If the hardware where this is executed has a different number of cores used, these results would differ from those in the paper.
-
-For more details about possible timing differences when running MATLAB in different OS and hardware, see: https://www.mathworks.com/support/requirements/choosing-a-computer.html 

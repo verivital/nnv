@@ -8,9 +8,9 @@ https://github.com/verivital/nnv
 https://github.com/verivital/nnv/tree/master/code/nnv/examples/Submission/NNV2.0/CAV2023
 
 ### CodeOcean Capsule:
-CodeOcean is a cloud-based execution environment we have configured to reproduce the paper results, discussed in more detail below.
+CodeOcean is a cloud-based execution environment we have configured to reproduce the paper results, discussed in more detail below. Published capsule:
 
-TODO: LINK TO PUBLISHED CODEOCEAN CAPSULE
+https://codeocean.com/capsule/6689683/
 
 ## Overview
 
@@ -48,7 +48,7 @@ Matlab toolboxes and support packages listed here: https://github.com/verivital/
 
 #### d. Hardware
 
-The computer needs > 16 GB RAM.  Note that a computer with less RAM may not be able to reproduce all results in the paper, which is part of why the CodeOcean set up is recommended as it has 120GB RAM.
+The computer needs > 30 GB RAM.  Note that a computer with less RAM may not be able to reproduce all results in the paper, which is part of why the CodeOcean set up is recommended as it has 120GB RAM.
 
 
 ## REPRODUCING THE RESULTS IN THE PAPER
@@ -58,31 +58,37 @@ The computer needs > 16 GB RAM.  Note that a computer with less RAM may not be a
 
 NNV is configured to run without installation and without dependence upon users having Matlab licenses through CodeOcean, which has an agreement with the MathWorks to provide publicly available infrastructure for reproducing computational research.
 
-The current draft CodeOcean capsule may be accessed here, a login is required (no public sharing by link is available until the capsule is published and has an updated DOI):
+The published CodeOcean capsule may be accessed here:
 
-https://codeocean.com/capsule/1314285/
+https://codeocean.com/capsule/6689683/
 
-Username: xxxx
-Password: xxxx
+After opening the capsule through the above URL, one can view code, navigate existing reproduced results, etc. In order to run it, you need to create an account: https://codeocean.com/signup .
 
-```
-DO THIS OR ASK EVERYONE TO CREATE AN ACCOUNT. ACCOUNT HAS A 10 HOURS AS DEFAULT, SO MAY NEED TO ASK FOR EXTRA COMPUTATION
-```
+If one signs up with an academic email, the account will be granted 10 hours of computation a month (see: https://help.codeocean.com/en/articles/1053605-quota-measurement-usage-variation-between-runs-and-what-if-i-run-out). 
 
-After opening the capsule through the above URL, one can view code, navigate existing reproduced results, etc.
+If one plans to use CodeOcean to reproduce the results, please request extra computation time (total of 20 hours) in the first phase to have enough computation time to run the full set of results (the run in the published capsule took 14 hours and 34 minutes, but it may vary across runs). After signing up, one can contact CodeOcean with this request here: https://codeocean.com/contact/
 
-Prior executions of all results in this paper are available in the single execution `Run XXXXXXX`. This process takes about 15 hours total, including the time to build the Docker container, set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
+Prior execution of all results in this paper is available in the single execution of the __Published Result__ ran on _April 26th, 2023 09:57_ under the __logs__ tab. This process took about 15 hours total, including the time to build the Docker container (CodeOcean environment), set up the tools, etc., which takes a few minutes for NNV. One can navigate the results from any prior execution, so e.g., one can view the tables and figures generated for this paper at:
 
-`Run XXXXXXX\logs` (all results can be found here))
+https://codeocean.com/capsule/6689683/
 
 To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. 
-We next explain what this "Reproducible Run" process does. Note that while we have set up the shared user account with sufficient runtime to re-run a subset of the results (all except Tables 2 and 3), we suggest reviewers look at the prior runs and logs 
-just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased. As a simple test,
-after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run an individual script such as `ADD SCRIPT HERE` instead of the full `run_cav23.m`. This can be done by replacing the `run_cav23.m` call (ADD LINK WITH REFERENCE LINE) with:
+
+We next explain what this "Reproducible Run" process does. Note that while we have set it up with sufficient runtime to re-run a subset of the results (all except Tables 2 and 3), we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased. 
+
+As the smoke test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run only two experiments instead of the full `run_cav23.m`. This can be done by replacing (commenting out) the `run_cav23.m` call in line 19 of `run_codeocean.m` with `%run_cav23.m`, and adding the following lines to the script (lines 20-24):
 
 ```
-TODO: ADD A COMMAND HERE TO USE AS SMOKE TEST
+cd NNV_vs_MATLAB/rl_benchmarks
+verifyAll;
+cd ../../NeuralODEs/FPA
+fpa_reach;
+plot_fpa;
 ```
+
+This should only take a few minutes (after environment is set up). Once it is complete, there is only one expected output under the _logs_ tab in the last executed run:
+
+`fpa.png` - Fig. 2 (c) (Neural ODE FPA)
 
 All results are generated into /results/logs/ directory and can be accessed once the `Reproducible Run` is finished, in the right column of the capsule.
 -	`Table2.txt` - Section 4.1, Table 2 (Verification of ACAS Xu properties 3 and 4)

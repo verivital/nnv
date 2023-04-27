@@ -22,7 +22,7 @@ function run_all()
     % Benchmark-9 (Tora)
     cd Tora_Heterogeneous;
     tora_relutanh = reachTora_reluTanh(); % verified w/ input partition (~ 38 mins)
-    tora_sigmoid = reachTora_sigmoid();   % verified w/ input partition (~ 2.7 hours)
+    tora_sigmoid = reachTora_sigmoid();   % verified w/ input partition (~ 1 hour)
     cd ..;
     cd Benchmark9-Tora;
     tora_relu = reach(); % verified (~25 seconds)

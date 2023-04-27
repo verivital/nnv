@@ -58,6 +58,17 @@ function t = reachTora_reluTanh()
 
 
     %% Visualize results
+
+    f = figure;
+    rectangle('Position',[-0.1,-0.9,0.3,0.3],'FaceColor',[0 0.5 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
+    hold on;
+    grid;
+    for r=1:length(init)
+        Star.plotBoxes_2D_noFill(reachAll{r},1,2,'b');
+    end
+    xlabel('x1');
+    ylabel('x2');
+
     
     % Last control period reach sets
     f2 = figure;
@@ -71,8 +82,10 @@ function t = reachTora_reluTanh()
     
     % Save figure
     if is_codeocean
+        exportgraphics(f,'/results/logs/tora_relu_tanh.pdf', 'ContentType', 'vector');
         exportgraphics(f2,'/results/logs/tora_relu_tanh_last.pdf', 'ContentType', 'vector');
     else
+        exportgraphics(f,'tora_relu_tanh.pdf', 'ContentType', 'vector');
         exportgraphics(f2,'tora_relu_tanh_last.pdf','ContentType', 'vector');
     end
 

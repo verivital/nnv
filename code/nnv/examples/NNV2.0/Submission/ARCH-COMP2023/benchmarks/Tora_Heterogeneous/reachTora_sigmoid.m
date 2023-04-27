@@ -53,9 +53,19 @@ function t = reachTora_sigmoid()
     end
     
     %% Visualize results
+
+    f = figure;
+    rectangle('Position',[-0.1,-0.9,0.3,0.3],'FaceColor',[0 0.5 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
+    hold on;
+    grid;
+    for r=1:length(init)
+        Star.plotBoxes_2D_noFill(reachAll{r},1,2,'b');
+    end
+    xlabel('x1');
+    ylabel('x2');
     
     % Last control period reach sets
-    f = figure;
+    f2 = figure;
     rectangle('Position',[-0.1,-0.9,0.3,0.3],'FaceColor',[0 0.5 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
     hold on;
     for r=1:length(reachAll)
@@ -66,9 +76,11 @@ function t = reachTora_sigmoid()
     
     % Save figure
     if is_codeocean
-        exportgraphics(f,'/results/logs/tora_sigmoid_last.pdf', 'ContentType', 'vector');
+        exportgraphics(f,'/results/logs/tora_sigmoid.pdf', 'ContentType', 'vector');
+        exportgraphics(f2,'/results/logs/tora_sigmoid_last.pdf', 'ContentType', 'vector');
     else
-        exportgraphics(f,'tora_sigmoid_last.pdf','ContentType', 'vector');
+        exportgraphics(f,'tora_sigmoid.pdf', 'ContentType', 'vector');
+        exportgraphics(f2,'tora_sigmoid_last.pdf','ContentType', 'vector');
     end
 
 end

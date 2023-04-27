@@ -13,15 +13,7 @@ function t = reach()
     ub = [0.7; -0.6; -0.3; 0.6];
 %     offset = 10; % Applied this in the dynamics9.m function
 %     scale_factor = 1;
-    
-    % Custom plant reachability options
-    plant.options.taylorTerms = 4;
-    plant.options.zonotopeOrder = 200;
-    alg = 'poly';
-    plant.options.alg = alg;
-    plant.options.tensorOrder = 3;
-    plant.options.errorOrder = 10;
-    plant.options.intermediateOrder = 50;
+
     
     %% Reachability analysis
     init_set = Star(lb,ub);
@@ -29,12 +21,15 @@ function t = reach()
     reachAll = init_set;
     % Execute reachabilty analysis
     reachOptions.reachMethod = 'approx-star';
+    alg = 'lin'; % plant reachability
     t = tic;
     for i = 1:tFinal
         % Compute controller output set
         input_set = net.reach(init_set,reachOptions);
+        input_set = input_set.getBox(); % overapprox the control action set due to CORA errors when too many constraints are in zonotope
+        input_set = input_set.toStar();
         % Compute plant reachable set
-        init_set = plant.stepReachStar(init_set, input_set,alg);
+        init_set = plant.stepReachStar(init_set, input_set, alg);
         reachAll = [reachAll init_set];
     end
     t = toc(t);
@@ -73,7 +68,7 @@ function t = reach()
         exportgraphics(f1,'/results/logs/tora_3v4.pdf', 'ContentType', 'vector');
     else
         exportgraphics(f,'tora_1v2.pdf','ContentType', 'vector');
-        exportgraphics(f,'tora_3v4.pdf','ContentType', 'vector');
+        exportgraphics(f1,'tora_3v4.pdf','ContentType', 'vector');
     end
 
 end

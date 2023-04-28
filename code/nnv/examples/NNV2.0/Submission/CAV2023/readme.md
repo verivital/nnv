@@ -27,7 +27,7 @@ The paper contains the following computational elements:
 - RNNs (Section 4.3, Fig. 2(a))
 - Semantic Segmentation (Section 4.4, Fig. 3)
 
-To facilitate the review process, we also provide a way to reproduce a subset of the results, which includes Neural ODEs, RNNs and Semantic Segmentation results, as well as a smoke test which should only take a few minutes.
+To facilitate the review process, we also provide a way to reproduce a subset of the results (Neural ODEs, RNNs and Semantic Segmentation results), as well as a smoke test which should only take a few minutes.
 
 
 ### System Requirements
@@ -89,6 +89,8 @@ On the other hand, or the second one (_computation times_), there are a variety 
   - Table 2 (Verification of ACAS Xu properties 3 and 4) uses the exact method with parallel computation (8 cores in the paper). If the hardware where this is executed has a different number of cores used, these results would differ from those in the paper.
 
 For more details about possible timing differences when running MATLAB in different OS and hardware, see: https://www.mathworks.com/support/requirements/choosing-a-computer.html 
+
+Computation time estimates provided are based on paper results and published CodeOcean run.
 
 
 ## REPRODUCING THE RESULTS IN THE PAPER
@@ -299,3 +301,5 @@ Once it is finished (this should only take a few minutes), one can see one new f
 `fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
 
 
+_Note_
+The hash of the published files in Zenodo and CodeOcean do not fully match those provided here due to the inclusion of this `readme.md`. The CodeOcean capsule does not contain this `readme.md` as we created it after we had sent it for publication. The Zenodo files include an older version of this `readme.md`, but we needed to publish the code there first in order to include it in the AE instructions.

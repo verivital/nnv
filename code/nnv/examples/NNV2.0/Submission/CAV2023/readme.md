@@ -24,7 +24,7 @@ The paper contains the following computational elements:
 - RNNs (Section 4.3, Fig. 2(a))
 - Semantic Segmentation (Section 4.4, Fig. 3)
 
-To facilitate the review process, we also provide a way to reproduce a subset of the results, which includes Neural ODEs, RNNs and Semantic Segmentation results.
+To facilitate the review process, we also provide a way to reproduce a subset of the results, which includes Neural ODEs, RNNs and Semantic Segmentation results, as well as a smoke test which should only take a few minutes.
 
 
 ### System Requirements
@@ -41,9 +41,8 @@ Window 10 or Linux, but either should work (CodeOcean described below is run on 
 
 #### c. Dependencies
 
-Matlab 2022b
-
-Matlab toolboxes and support packages listed here: https://github.com/verivital/nnv#installation
+- Matlab 2022b
+- Matlab toolboxes and support packages listed here: https://github.com/verivital/nnv#installation
 
 #### d. Hardware
 
@@ -51,9 +50,12 @@ The computer needs > 30 GB RAM.  Note that a computer with less RAM may not be a
 
 ### Understanding the results
 
-First, we want to acknowledge an error (human error) found after we submitted the manuscript. In Table 2, there is a mismatch in the number of UNSAT instances of property 5 using the relax 25% method. While the manuscript says there are __5__ UNSAT instances, the actual number of UNSAT instances is __6__. 
+First, we want to acknowledge a mistake (human error) found after we submitted the manuscript. In Table 2, there is a mismatch in the number of UNSAT instances of property 5 using the relax 25% method. While the manuscript says there are __5__ UNSAT instances, the actual number of UNSAT instances is __6__. We apologize for this mistake, and we will update the final version of the manuscript (if the paper gets accepted), but this error does not have a large impact in the paper. The goal of Table 2 is to showcase the different Star methods available in NNV, and show:
+ 1) For more precise methods we can verify a larger amount of instances.
+ 2) This comes at a cost as more precise methods are also more expensive (time consuming) to compute.
 
-When reproducing the results of the paper, the following files are generated:
+
+Now we are ready to look into the generated results. When reproducing the results of the paper (https://github.com/verivital/nnv/blob/master/code/nnv/examples/NNV2.0/Submission/CAV2023/run_cav23.m), the following files are generated:
 -	`Table2.txt` - Section 4.1, Table 2 (Verification of ACAS Xu properties 3 and 4)
 -	`Table3.txt` - Section 4.1, Table 3 (Verification results of the RL, tllverify and oval21 benchmarks)
 -	`results_4.2-4.4.txt` - Verification and computation time results of section 4.2, 4.3 and 4.4
@@ -71,7 +73,7 @@ In the generated results files, there are two main categories
 1) Verification / Reachability results (i.e. _acc_nl.pdf_)
 2) Computation times (i.e. _rnn_verification_time.pdf_)
 
-For the first category, the reachability plots as well as the number of SAT and UNSAT properties verified are reproducible, with one expection mentioned above.
+For the first category, the reachability plots as well as the number of SAT and UNSAT properties verified are reproducible, with the one expection mentioned above.
 
 On the other hand, or the second one (_computation times_), there are a variety of reasons why these number may differ from those in the paper:
 - Hardware
@@ -111,9 +113,9 @@ To re-run all computations and reproduce the results, one selects "Reproducible 
 
 We next explain what this "Reproducible Run" process does. Note that while we have set it up with sufficient runtime to re-run a subset of the results (all except Tables 2 and 3), we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased.
 
-To reproduce a subset of the results (Sections 4.2 to 4.4), which reduces the computation time from ~14-15 hours to ~2 hours one can replace (uncomment) the `%RE_cav23_short` call in line 18 of `run_codeocean.m` with `RE_cav23_short`, and replace the `run_cav23.m` call in line 19 of `run_codeocean.m` with `%run_cav23`. Then, select "Reproducible Run". Once it is complete, all the results __except for__ Table2.txt and Table3.txt will be generated. The results can be accessed under the _logs_ tab in the last executed run.
+To reproduce a subset of the results (Sections 4.2 to 4.4), which reduces the computation time from ~14-15 hours to ~2 hours one can replace (uncomment) the `%RE_cav23_short` call in line 18 of `run_codeocean.m` with `RE_cav23_short`, and replace the `run_cav23` call in line 19 of `run_codeocean.m` with `%run_cav23`. Then, select "Reproducible Run". Once it is complete, all the results __except for__ Table2.txt and Table3.txt will be generated. The results can be accessed under the _logs_ tab in the last executed run.
 
-As the smoke test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run only two experiments instead of the full `run_cav23`. This can be done by replacing (commenting out) the `run_cav23.m` call in line 19 of `run_codeocean.m` with `%run_cav23`, and adding the following lines to the script (lines 20-24):
+As the smoke test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to run only two experiments instead of the full `run_cav23`. This can be done by replacing (commenting out) the `run_cav23` call in line 19 of `run_codeocean.m` with `%run_cav23`, and adding the following lines to the script (lines 20-24):
 
 ```
 cd NNV_vs_MATLAB/rl_benchmarks
@@ -127,14 +129,14 @@ Then, select "Reproducible Run". This should only take a few minutes (after the 
 
 `fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
 
-All results are generated into /results/logs/ directory and can be accessed once the `Reproducible Run` is finished, in the right column of the capsule.
+For every CodeOcean run, all results are generated into /results/logs/ directory and can be accessed once the `Reproducible Run` is finished, in the right column of the capsule under the __logs__ tab.
 
 For more information about the results, please see: https://github.com/verivital/nnv/edit/master/code/nnv/examples/NNV2.0/Submission/CAV2023/readme.md#understanding-the-results .
 
 
 ### Option 2: Manual / Standalone Installation
 
-This setup is if you want to delve more into NNV without relying on CodeOcean, but requires a Matlab installation and license. For the first three steps, more details are available here:
+This setup is if you want to delve more into NNV without relying on CodeOcean, but requires a Matlab installation and license. For the first steps (installation and setup), more details are available here:
 
 https://github.com/verivital/nnv#installation
 
@@ -160,7 +162,7 @@ https://github.com/verivital/nnv#installation
    Deep Learning Toolbox Converter for ONNX Model Format (https://www.mathworks.com/matlabcentral/fileexchange/67296-deep-learning-toolbox-converter-for-onnx-model-format)
    Deep Learning Toolbox Verification Library (https://www.mathworks.com/matlabcentral/fileexchange/118735-deep-learning-toolbox-verification-library)
 ```       
-   Note: Support packages can be installed in MATLAB's HOME tab > Add-Ons > Get Add-ons, search for the support package using the Add-on Explorer and click on the Install button.
+   Note: Support packages can be installed in MATLAB's HOME tab > Add-Ons > Get Add-ons, and then search for the support package using the Add-on Explorer and click on the Install button.
 
 
 ####  Install NNV (install.m)
@@ -180,7 +182,7 @@ https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
 In MATLAB, navigate to the CAV2023 submission folder at `code/nnv/examples/NNV2.0/Submission/CAV2023`.
 
-One can then execute the `run_cav23.m` script for the full paper results or `RE_cav23_short.m`, which reproduces all results from Sections 4.2 to 4.4 (about 1-2 hours of computation).
+One can then execute the `run_cav23.m` script for the full paper results (~15 hours) or `RE_cav23_short.m`, which reproduces all results from Sections 4.2 to 4.4 (~2 hours).
 
 All the tables and figures will be generated in the same folder (nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/). 
 
@@ -196,9 +198,7 @@ fpa_reach;
 plot_fpa;
 ```
 
-Once it is finished(this should only take a few minutes), one can see one new figure in the folder __nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/__:
+Once it is finished (this should only take a few minutes), one can see one new figure in the folder __nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/__:
 
 `fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
-
-
 

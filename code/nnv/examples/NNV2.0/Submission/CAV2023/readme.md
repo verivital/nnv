@@ -78,7 +78,7 @@ In the generated results files, there are two main categories
 
 For the first category, the reachability plots as well as the number of SAT and UNSAT properties verified are reproducible, with the one expection mentioned above.
 
-On the other hand, or the second one (_computation times_), there are a variety of reasons why these number may differ from those in the paper:
+For the second one (_computation times_), there are a variety of reasons why these numbers may differ from those in the paper:
 - Hardware
   - Move vs less powerful CPU cores.
 - OS
@@ -89,8 +89,6 @@ On the other hand, or the second one (_computation times_), there are a variety 
   - Table 2 (Verification of ACAS Xu properties 3 and 4) uses the exact method with parallel computation (8 cores in the paper). If the hardware where this is executed has a different number of cores used, these results would differ from those in the paper.
 
 For more details about possible timing differences when running MATLAB in different OS and hardware, see: https://www.mathworks.com/support/requirements/choosing-a-computer.html 
-
-Computation time estimates provided are based on paper results and published CodeOcean run.
 
 
 ## REPRODUCING THE RESULTS IN THE PAPER
@@ -282,7 +280,7 @@ Then, one can replace (uncomment) the `%RE_cav23_short` call in line 18 of `run_
 
 Finally, run the same docker command as above (https://github.com/verivital/nnv/edit/master/code/nnv/examples/NNV2.0/Submission/CAV2023/readme.md#full-results-1). Once it is complete, all the results __except for__ Table2.txt and Table3.txt will be generated. The results can be accessed in the folder: "your_folder/capsule-6689683/results/". 
 
-###### Smoke test
+##### Smoke test
 
 Similar to the subset results, we need to modify the `run_codeocean.m` file. To modify the file, navigate to "your_folder/capsule-6689683/code/" and open `run_codeocean.m` using your favorite editor/IDE. 
 
@@ -300,6 +298,11 @@ Once it is finished (this should only take a few minutes), one can see one new f
 
 `fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
 
+&nbsp;
+&nbsp;
+&nbsp;
 
-_Note_
-The hash of the published files in Zenodo and CodeOcean do not fully match those provided here due to the inclusion of this `readme.md`. The CodeOcean capsule does not contain this `readme.md` as we created it after we had sent it for publication. The Zenodo files include an older version of this `readme.md`, but we needed to publish the code there first in order to include it in the AE instructions.
+###### Notes
+_The hash of the published files in Zenodo and CodeOcean do not fully match those provided here in this GitHub repository due to the inclusion of this `readme.md`. The CodeOcean capsule does not contain this `readme.md` as we created it after we had sent it for publication. The Zenodo files include an older version of this `readme.md`, but we needed to publish the code there first in order to include its DOI in the AE instructions of this `readme.md`._
+
+_Computation time estimates provided are based on paper results and published CodeOcean run._

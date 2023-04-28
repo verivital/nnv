@@ -53,8 +53,8 @@ The computer needs > 30 GB RAM.  Note that a computer with less RAM may not be a
 
 ### Understanding the results
 
-First, we want to acknowledge a mistake (human error) found after we submitted the manuscript. In Table 2, there is a mismatch in the number of UNSAT instances of property 5 using the relax 25% method. While the manuscript says there are __5__ UNSAT instances, the actual number of UNSAT instances is __6__. We apologize for this mistake, and we will update the final version of the manuscript (if the paper gets accepted), but this error does not have a large impact in the paper. The goal of Table 2 is to showcase the different Star methods available in NNV, and show:
- 1) For more precise methods we can verify a larger amount of instances.
+First, we want to acknowledge a mistake (human error) found after we submitted the manuscript. In Table 2, there is a mismatch in the number of UNSAT instances of property 5 using the relax 25% method. While the manuscript says there are __5__ UNSAT instances, the actual number of UNSAT instances is __6__. We apologize for this mistake, and we will update the final version of the manuscript (if the paper gets accepted), but this error does not have a large impact on the paper. The goal of Table 2 is to showcase the different Star methods available in NNV, and show:
+ 1) For more precise methods we can verify a larger number of instances.
  2) This comes at a cost as more precise methods are also more expensive (time consuming) to compute.
 
 
@@ -73,10 +73,10 @@ Notes
 - Figures are generated in pdf and png format for CodeOcean, only in pdf format when running locally.
 
 In the generated results files, there are two main categories
-1) Verification / Reachability results (i.e. _acc_nl.pdf_)
-2) Computation times (i.e. _rnn_verification_time.pdf_)
+1) Verification / Reachability results (i.e., _acc_nl.pdf_)
+2) Computation times (i.e., _rnn_verification_time.pdf_)
 
-For the first category, the reachability plots as well as the number of SAT and UNSAT properties verified are reproducible, with the one expection mentioned above.
+For the first category, the reachability plots as well as the number of SAT and UNSAT properties verified are reproducible, with the one exception  mentioned above.
 
 For the second one (_computation times_), there are a variety of reasons why these numbers may differ from those in the paper:
 - Hardware
@@ -96,7 +96,7 @@ For more details about possible timing differences when running MATLAB in differ
 
 ### Option 1: CodeOcean Capsule
 
-NNV is configured to run without installation and without dependence upon users having Matlab licenses through CodeOcean, which has an agreement with the MathWorks to provide publicly available infrastructure for reproducing computational research.
+NNV is configured to run without installation and without dependence upon users having Matlab licenses through CodeOcean, which has an agreement with MathWorks to provide publicly available infrastructure for reproducing computational research.
 
 The published CodeOcean capsule may be accessed here:
 
@@ -225,7 +225,7 @@ Extract the files of the zip file downloaded (`capsule-6689683.zip`) in a folder
 
 __Retrieving MATLAB license__
 
-One needs to provide a MATLAB Licence file `license.lic` to run the code:
+One needs to provide a MATLAB License file `license.lic` to run the code:
 - Create a MATLAB License file: 
 	For the docker container to run MATLAB, one has to create a new license file for the container.
 	Log in with your MATLAB account at https://www.mathworks.com/licensecenter/licenses/
@@ -240,7 +240,7 @@ One needs to provide a MATLAB Licence file `license.lic` to run the code:
 	- Host ID: `12:34:56:78:9a:bc` # this should match your local machine MAC address
 	- Computer Login Name: `root`
 	- Activation Label: `<any name>`
-- Download the file and place it in the same folder the where you have extracted the files.
+- Download the file and place it in the same folder where you have extracted the files.
 
 #### Reproducing results
 
@@ -270,7 +270,7 @@ If the command above fails, remove the comment about the MAC address and execute
 docker run --rm --workdir /code --mac-address=12:34:56:78:9a:bc --volume "$PWD/license.lic":/MATLAB/licenses/network.lic --volume "$PWD/data":/data --volume "$PWD/code":/code --volume "$PWD/results":/results/logs registry.codeocean.com/published/a8573f9d-86b0-4289-897c-427f78b25d88:v1 ./run
 ```
 
-The above command ("docker run ...") will be used for the full results, subset results and smoke test, only difference is the content of the `run_codeocean.m` script. It is very important that the MAC address is changed to your local MAC address, and it must match that of the `license.lic` file previously download (MATLAB license).
+The above command ("docker run ...") will be used for the full results, subset results and smoke test, only difference is the content of the `run_codeocean.m` script. It is very important that the MAC address is changed to your local MAC address, and it must match that of the `license.lic` file previously downloaded (MATLAB license).
 
 ##### Subset results
 

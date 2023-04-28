@@ -14,10 +14,9 @@ https://codeocean.com/capsule/6689683/
 
 ## Overview
 
-We provide 3 ways to reproduce the results in the paper
+We provide 2 ways to reproduce the results in the paper
 - CodeOcean (recommended)
 - Standalone Installation
-- Docker 
  
 The paper contains the following computational elements:
 - Comparison NNV vs MATLAB (Section 4.1, Tables 2 and 3)
@@ -66,7 +65,7 @@ When reproducing the results of the paper, the following files are generated:
 -	`dilated_results_0.0001_3.pdf` - Fig. 3 (c) (Dilated SSNN)
 
 Notes
-- Figures are generated in pdf and png format for Docker and CodeOcean, only in pdf format when running locally.
+- Figures are generated in pdf and png format for CodeOcean, only in pdf format when running locally.
 
 In the generated results files, there are two main categories
 1) Verification / Reachability results (i.e. _acc_nl.pdf_)
@@ -110,9 +109,11 @@ https://codeocean.com/capsule/6689683/
 
 To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. 
 
-We next explain what this "Reproducible Run" process does. Note that while we have set it up with sufficient runtime to re-run a subset of the results (all except Tables 2 and 3), we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased. 
+We next explain what this "Reproducible Run" process does. Note that while we have set it up with sufficient runtime to re-run a subset of the results (all except Tables 2 and 3), we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased.
 
-As the smoke test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run only two experiments instead of the full `run_cav23.m`. This can be done by replacing (commenting out) the `run_cav23.m` call in line 19 of `run_codeocean.m` with `%run_cav23.m`, and adding the following lines to the script (lines 20-24):
+To reproduce a subset of the results (Sections 4.2 to 4.4), which reduces the computation time from ~14-15 hours to ~2 hours one can replace (uncomment) the `%RE_cav23_short` call in line 18 of `run_codeocean.m` with `RE_cav23_short`, and replace the `run_cav23.m` call in line 19 of `run_codeocean.m` with `%run_cav23`. Then, select "Reproducible Run". Once it is complete, all the results __except for__ Table2.txt and Table3.txt will be generated. The results can be accessed under the _logs_ tab in the last executed run.
+
+As the smoke test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to just run only two experiments instead of the full `run_cav23`. This can be done by replacing (commenting out) the `run_cav23.m` call in line 19 of `run_codeocean.m` with `%run_cav23`, and adding the following lines to the script (lines 20-24):
 
 ```
 cd NNV_vs_MATLAB/rl_benchmarks
@@ -127,6 +128,7 @@ Then, select "Reproducible Run". This should only take a few minutes (after the 
 `fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
 
 All results are generated into /results/logs/ directory and can be accessed once the `Reproducible Run` is finished, in the right column of the capsule.
+
 
 For more information about the results, please see: https://github.com/verivital/nnv/edit/master/code/nnv/examples/NNV2.0/Submission/CAV2023/readme.md#understanding-the-results .
 
@@ -204,43 +206,5 @@ Once it is complete (this should only take a few minutes), one can see one new f
 
 `fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
 
-### Docker
-
-To reproduce the results using Docker (no installation required, but MATLAB's license necessary), follow the next steps: 
-1.	Go to directory where zip file has been downloaded and extract the files:
-```
-cd your_folder	  
-unzip cav2023_AE_nnv.zip
-``` 
-2.	Set MAC-address and MATLAB R2022b License
- -	MAC-Address: Substitute the MAC address (now set to 02:42:ac:11:00:02) in the file "run_re" with the MAC address of your local machine.  
- -	MATLAB License: For the docker container to run MATLAB, one must create a new license file for the container. Log in with your MATLAB account at https://www.mathworks.com/licensecenter/licenses/  . Click on your license, and then navigate to  
-     - "Install and Activate" > "Activate to Retrieve License File" (...may differ depending on how your licensing is set up).  
-     -	Create a new license file with the following data:   
-         - MATLAB version: 2022b
-         - Host ID (MAC address): MAC address of your local machine (Docker’s default value: 02:42:ac:11:00:02)
-         - User: root  
-     - Finally, download the generated file "license.lic" and put it into the current directory "your_folder/license/" 
-
-3.	Run the code (from your_folder, where the files were extracted): 
-```
-chmod +x run_subset
-./run_subset	
-```
- 
-The results will be generated in subdirectory “results” (your_folder/results) 
--	`Table2.txt` - Section 4.1, Table 2 (Verification of ACAS Xu properties 3 and 4)
--	`Table3.txt` - Section 4.1, Table 3 (Verification results of the RL, tllverify and oval21 benchmarks)
--	`results_4.2-4.4.txt` - Verification and computation time results of section 4.2, 4.3 and 4.4
--	`rnn_verification_time.pdf` - Fig. 2 (a) (RNN Computation Times)
--	`acc_nl.pdf` - Fig. 2 (b) (Neural ODE, NNCS Nonlinear ACC)
--	`fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
--	`transposed_results_0.0001_1.pdf` - Fig. 3 (a) (Target Image)
--	`transposed_results_0.0001_3.pdf` - Fig. 3 (b) (Transposed SSNN)
--	`dilated_results_0.0001_1.pdf` - Fig. 3 (c) (Dilated SSNN)
-
-Notes
-- Tables 2 and 3 are not generated when the short script is executed.
-- Figures are generated in pdf and png format.
 
 

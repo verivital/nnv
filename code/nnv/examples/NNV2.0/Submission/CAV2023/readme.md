@@ -7,16 +7,19 @@ https://github.com/verivital/nnv
 ### CAV2023 AE Files:
 https://github.com/verivital/nnv/tree/master/code/nnv/examples/Submission/NNV2.0/CAV2023
 
-### CodeOcean Capsule:
-CodeOcean is a cloud-based execution environment we have configured to reproduce the paper results, discussed in more detail below. Published capsule:
+### Zenodo DOI:
+https://doi.org/10.5281/zenodo.7874494
 
-https://codeocean.com/capsule/6689683/
+### CodeOcean Capsule:
+CodeOcean is a cloud-based execution environment we have configured to reproduce the paper results, discussed in more detail below. 
+Published capsule: https://doi.org/10.24433/CO.0803700.v1
 
 ## Overview
 
-We provide 2 ways to reproduce the results in the paper
+We provide 3 ways to reproduce the results in the paper
 - CodeOcean (recommended)
 - Standalone Installation
+- Docker
  
 The paper contains the following computational elements:
 - Comparison NNV vs MATLAB (Section 4.1, Tables 2 and 3)
@@ -109,11 +112,17 @@ Prior execution of all results in this paper is available in the single executio
 
 https://codeocean.com/capsule/6689683/
 
+##### Full results
+
 To re-run all computations and reproduce the results, one selects "Reproducible Run," which will run scripts to reproduce the paper results. One first must clone the capsule under the menu Capsule->Duplicate to set up a variant with write permissions. 
 
 We next explain what this "Reproducible Run" process does. Note that while we have set it up with sufficient runtime to re-run a subset of the results (all except Tables 2 and 3), we suggest reviewers look at the prior runs and logs just discussed due to the long runtime and limited computational time available on CodeOcean. If there are any issues with this or reviewers experience runtime limitations, please let us know and we will try to have the quotas increased.
 
+##### Subset results
+
 To reproduce a subset of the results (Sections 4.2 to 4.4), which reduces the computation time from ~14-15 hours to ~2 hours one can replace (uncomment) the `%RE_cav23_short` call in line 18 of `run_codeocean.m` with `RE_cav23_short`, and replace the `run_cav23` call in line 19 of `run_codeocean.m` with `%run_cav23`. Then, select "Reproducible Run". Once it is complete, all the results __except for__ Table2.txt and Table3.txt will be generated. The results can be accessed under the _logs_ tab in the last executed run.
+
+##### Smoke test
 
 As the smoke test, after duplicating the capsule to make it editable, we would recommend modifying the `run_codeocean.m` script to run only two experiments instead of the full `run_cav23`. This can be done by replacing (commenting out) the `run_cav23` call in line 19 of `run_codeocean.m` with `%run_cav23`, and adding the following lines to the script (lines 20-24):
 
@@ -178,7 +187,7 @@ If Matlab is restarted, to work again, either `install.m` or `startup_nnv.m` mus
 
 https://github.com/verivital/nnv/blob/master/code/nnv/startup_nnv.m
 
-#### Run paper reproducibility
+##### Run paper reproducibility (full and short)
 
 In MATLAB, navigate to the CAV2023 submission folder at `code/nnv/examples/NNV2.0/Submission/CAV2023`.
 
@@ -188,6 +197,8 @@ All the tables and figures will be generated in the same folder (nnv/code/nnv/ex
 
 Notes
 - Tables 2 and 3 are not generated when the short script ("RE_cav23_short.m") is executed.
+
+##### Smoke test
 
 For a smoke test, one can navigate to the folder __nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/__, and copy the following lines in MATLAB's command window:
 ```
@@ -201,4 +212,90 @@ plot_fpa;
 Once it is finished (this should only take a few minutes), one can see one new figure in the folder __nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/__:
 
 `fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
+
+### Options 3: Docker
+
+We make use of the environment used for the CodeOcean by exporting it to one's local machine. We will describe the most important steps below, but for more information about this process, please see: https://help.codeocean.com/en/articles/2199842-exporting-capsules-and-reproducing-results-on-your-local-machine . This option requires a valid MATLAB license.
+
+__Export capsule__
+
+Navigate to the top left corner on the CodeOcean capsule (https://doi.org/10.24433/CO.0803700.v1) and click on `Capsule` > `Export...` (do not include data, not necessary for this AE) > `Export`.
+
+Extract the files of the zip file downloaded (`capsule-6689683.zip`) in a folder of your choosing.
+
+__Retrieving MATLAB license__
+
+One needs to provide a MATLAB Licence file `license.lic` to run the code:
+- Create a MATLAB License file: 
+	For the docker container to run MATLAB, one has to create a new license file for the container.
+	Log in with your MATLAB account at https://www.mathworks.com/licensecenter/licenses/
+	Click on your license, and then navigate to
+	1. "Install and Activate"
+	1. "Activate to Retrieve License File"
+	1. "Activate a Computer"
+	(...may differ depending on how your licensing is set up).
+- Choose:
+	- Release: `R2022b`
+	- Operating System: `Linux`
+	- Host ID: `12:34:56:78:9a:bc` # this should match your local machine MAC address
+	- Computer Login Name: `root`
+	- Activation Label: `<any name>`
+- Download the file and place it in the same folder the where you have extracted the files.
+
+#### Reproducing results
+
+In your terminal, navigate to the folder where you've extracted the capsule and execute the following command
+```shell
+cd code
+chmod +x run
+cd ..
+```
+
+##### Full results
+
+Then, execute the following command, adjusting parameters (MAC address) as needed:
+```shell
+docker run --rm \
+  --workdir /code \
+  --mac-address=12:34:56:78:9a:bc \ # this should match your local machine MAC address
+  --volume "$PWD/license.lic":/MATLAB/licenses/network.lic \
+  --volume "$PWD/data":/data \
+  --volume "$PWD/code":/code \
+  --volume "$PWD/results":/results/logs \
+  registry.codeocean.com/published/a8573f9d-86b0-4289-897c-427f78b25d88:v1 ./run
+```
+
+If the command above fails, remove the comment about the MAC address and execute it all in one line, e.g.
+```shell
+docker run --rm --workdir /code --mac-address=12:34:56:78:9a:bc --volume "$PWD/license.lic":/MATLAB/licenses/network.lic --volume "$PWD/data":/data --volume "$PWD/code":/code --volume "$PWD/results":/results/logs registry.codeocean.com/published/a8573f9d-86b0-4289-897c-427f78b25d88:v1 ./run
+```
+
+The above command ("docker run ...") will be used for the full results, subset results and smoke test, only difference is the content of the `run_codeocean.m` script. It is very important that the MAC address is changed to your local MAC address, and it must match that of the `license.lic` file previously download (MATLAB license).
+
+##### Subset results
+
+To run a subset of the results requires a modification in one file. To modify the file, navigate to "your_folder/capsule-6689683/code/" and open `run_codeocean.m` using your favorite editor/IDE. 
+
+Then, one can replace (uncomment) the `%RE_cav23_short` call in line 18 of `run_codeocean.m` with `RE_cav23_short`, and replace the `run_cav23` call in line 19 of `run_codeocean.m` with `%run_cav23`. 
+
+Finally, run the same docker command as above (https://github.com/verivital/nnv/edit/master/code/nnv/examples/NNV2.0/Submission/CAV2023/readme.md#full-results-1). Once it is complete, all the results __except for__ Table2.txt and Table3.txt will be generated. The results can be accessed in the folder: "your_folder/capsule-6689683/results/". 
+
+###### Smoke test
+
+Similar to the subset results, we need to modify the `run_codeocean.m` file. To modify the file, navigate to "your_folder/capsule-6689683/code/" and open `run_codeocean.m` using your favorite editor/IDE. 
+
+Then, one can replace (comment out) the `run_cav23` call in line 19 of `run_codeocean.m` with `%run_cav23`, and adding the following lines to the script (lines 20-24):
+
+```
+cd NNV_vs_MATLAB/rl_benchmarks
+verifyAll;
+cd ../../NeuralODEs/FPA
+fpa_reach;
+plot_fpa;
+```
+
+Once it is finished (this should only take a few minutes), one can see one new figure in the folder "your_folder/capsule-6689683/code/":
+
+`fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
+
 

@@ -21,10 +21,10 @@ nnv can be executed online without installing Matlab or other dependencies throu
        Deep Learning
        Image Processing
        Optimization
-       Parallel Processing
+       Parallel Computing
+       Statistics and Machine Learning
        Symbolic Math
        System Identification
-       Statistics and Machine Learning
    
     1.a) Install the following support package
        Deep Learning Toolbox Converter for ONNX Model Format (https://www.mathworks.com/matlabcentral/fileexchange/67296-deep-learning-toolbox-converter-for-onnx-model-format)

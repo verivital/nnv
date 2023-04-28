@@ -129,13 +129,7 @@ Then, select "Reproducible Run". This should only take a few minutes (after the 
 
 All results are generated into /results/logs/ directory and can be accessed once the `Reproducible Run` is finished, in the right column of the capsule.
 
-
 For more information about the results, please see: https://github.com/verivital/nnv/edit/master/code/nnv/examples/NNV2.0/Submission/CAV2023/readme.md#understanding-the-results .
-
-
-```
-ADD INSTRUCTION TO RUN THE SUBSET RESULTS, INCLUDE WHICH FILES ARE GENERATED
-```
 
 
 ### Option 2: Manual / Standalone Installation
@@ -157,9 +151,9 @@ https://github.com/verivital/nnv#installation
    Image Processing
    Optimization
    Parallel Computing
+   Statistics and Machine Learning
    Symbolic Math
    System Identification
-   Statistics and Machine Learning
  ```
 - Support packages
 ```
@@ -202,7 +196,7 @@ fpa_reach;
 plot_fpa;
 ```
 
-Once it is complete (this should only take a few minutes), one can see one new file in the folder __nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/__:
+Once it is finished(this should only take a few minutes), one can see one new figure in the folder __nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/__:
 
 `fpa.pdf` - Fig. 2 (c) (Neural ODE FPA)
 

@@ -233,7 +233,6 @@ classdef DepthConcatenationLayer < handle
             end
             
             L = DepthConcatenationLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames);
-            fprintf('\nParsing a depth concatenation layer is done successfully');
         end
 
     end

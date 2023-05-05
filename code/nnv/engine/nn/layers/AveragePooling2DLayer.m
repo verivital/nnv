@@ -232,7 +232,7 @@ classdef AveragePooling2DLayer < handle
             % date: 12/10/2018
             % update: 7/26/2019
            
-            y = vl_nnpool(double(input), obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'avg');         
+            y = vl_nnpool(input, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'avg');         
                    
         end
         
@@ -574,7 +574,6 @@ classdef AveragePooling2DLayer < handle
             end
 
             L = AveragePooling2DLayer(layer.Name, layer.PoolSize, layer.Stride, layer.PaddingSize, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
-            fprintf('\nParsing a Matlab avg pooling 2d layer is done successfully');
 
         end
         

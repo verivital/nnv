@@ -392,7 +392,6 @@ classdef MaxUnpooling2DLayer < handle
             end
             L = MaxUnpooling2DLayer(max_unpooling_2d_layer.Name, max_unpooling_2d_layer.NumInputs, max_unpooling_2d_layer.InputNames, max_unpooling_2d_layer.NumOutputs, max_unpooling_2d_layer.OutputNames);
             L.getPairedMaxPoolingName(conns, max_unpooling_2d_layer.Name);
-            fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
             
         end
         

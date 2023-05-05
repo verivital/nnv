@@ -213,7 +213,6 @@ classdef ReshapeLayer < handle
             end
 
             L = ReshapeLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, targetDim);
-            fprintf('Parsing a reshape layer is done successfully \n');
         end
 
     end

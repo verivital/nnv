@@ -284,7 +284,6 @@ classdef FlattenLayer < handle
             end
             
             L = FlattenLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames);
-            fprintf('\nParsing a flatten layer is done successfully');
             L.Type = class(layer);
         end
 

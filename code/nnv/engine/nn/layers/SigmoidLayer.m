@@ -124,7 +124,6 @@ classdef SigmoidLayer < ActivationFunctionLayer
             end
             
             L = SigmoidLayer(layer.Name, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
-            fprintf('\nParsing a keras sigmoid layer is done successfully');
             
         end
         

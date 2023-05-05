@@ -176,7 +176,7 @@ classdef NN < handle
 
             % Check validity of reachability method
             if exist("reachOptions",'var')
-                reachOptions = check_reachability_method(obj, reachOptions);
+                reachOptions = validate_reach_options(obj, reachOptions);
             else
                 reachOptions = struct; % empty options, run with default values
             end
@@ -850,7 +850,7 @@ classdef NN < handle
     methods (Access = protected) % not to be accessible by user
         
         % Check reachability options defined are allowed
-        function reachOptions = check_reachability_method(obj, reachOptions)
+        function reachOptions = validate_reach_options(obj, reachOptions)
             reach_method = reachOptions.reachMethod;
             if contains(reach_method, "exact")
                 for i=1:length(obj.Layers)
@@ -1173,7 +1173,12 @@ classdef NN < handle
                 obj.reachSet{end} = outSet;
             end
         end
+        
+        % Ensure precision for layer parameters and inputs is consistent
+        function validate_precision(obj, inSet)
+            
 
+        end
     end % end helper functions
     
     

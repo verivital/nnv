@@ -255,7 +255,6 @@ classdef ElementwiseAffineLayer < handle
                         
             L = ElementwiseAffineLayer(elementwise_affine_layer.Name, elementwise_affine_layer.Scale, elementwise_affine_layer.Offset, ...
                 elementwise_affine_layer.DoScale, elementwise_affine_layer.DoOffset);         
-            fprintf('\nParsing a Matlab elementwise affine layer is done successfully');
             
         end
         

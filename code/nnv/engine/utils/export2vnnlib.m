@@ -60,7 +60,7 @@ if nO > 1
     fprintf(fID,"))");
 else
     constraint = halfspaceConstraint2inequality_1(property.G, property.g);
-    fprintf(fID,"(assert "+constraint+")");
+    fprintf(fID,"(assert "+constraint);
 end
 
 % close and save file

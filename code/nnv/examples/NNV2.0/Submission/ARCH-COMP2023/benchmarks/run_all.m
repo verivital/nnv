@@ -102,7 +102,7 @@ function run_all()
     resultsCSV(16:17, :) = dp_csv;
     
     % Airplane
-    airplane_csv = {'Airplane', '', 'verified', airplane};
+    airplane_csv = {'Airplane', '', 'violated', airplane};
     resultsCSV(18,:) = airplane_csv;
     
     % Attitude Control
@@ -110,7 +110,7 @@ function run_all()
     resultsCSV(19,:) = attitude_csv;
     
     % Quad
-    quad_csv = {'QUAD', '', 'unknown', quad};
+    quad_csv = {'Quadrotor', '', 'unknown', quad};
     resultsCSV(20,:) = quad_csv;
     
     % Spacecraft Docking 

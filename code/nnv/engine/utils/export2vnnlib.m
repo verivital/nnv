@@ -54,13 +54,13 @@ nO = length(property.g); % number of output constraints
 if nO > 1
     fprintf(fID,"(assert (or \n");
     for i=1:nO
-        constraint = halfspaceConstrain2inequality(property.G(i,:), property.g(i));
+        constraint = halfspaceConstraint2inequality(property.G(i,:), property.g(i));
         fprintf(fID,"        "+constraint+"\n"); % format used in other vnnlib examples
     end
     fprintf(fID,"))");
 else
-    constraint = halfspaceConstrain2inequality(property.G, property.g);
-    fprintf(fID,"assert "+constraint);
+    constraint = halfspaceConstraint2inequality_1(property.G, property.g);
+    fprintf(fID,"(assert "+constraint+")");
 end
 
 % close and save file
@@ -71,19 +71,36 @@ end
 
 %% Helper functions
 
-function str = halfspaceConstrain2inequality(hRow, hVal)
+function str = halfspaceConstraint2inequality(hRow, hVal)
     % Input a halfspace row (G row) and the corresponding g value
     % Outputs a string to write in the vnnlib file
 
     locs = find(hRow ~= 0); % Find indexes that are not zero
     if hVal == 0 % Compare two indexes
         if hRow(locs(1)) > 0 % 
-            str = "(and (>= Y_"+string(locs(2)) + " " + "Y_"+string(locs(1))+ "))";
+            str = "(and (>= Y_"+string(locs(2)-1) + " " + "Y_"+string(locs(1)-1)+ "))";
         else
-            str = "(and (>= Y_"+string(locs(1)) + " " + "Y_"+string(locs(2)) + "))";
+            str = "(and (>= Y_"+string(locs(1)-1) + " " + "Y_"+string(locs(2)-1) + "))";
         end
     else % compare index to value
-        str = "(and (>= Y_"+string(locs(1)) + " " + num2str(hVal, '%.16f') + "))";
+        str = "(and (>= Y_"+string(locs(1)-1) + " " + num2str(hVal, '%.16f') + "))";
+    end
+
+end
+
+function str = halfspaceConstraint2inequality_1(hRow, hVal)
+    % Input a halfspace row (G row) and the corresponding g value
+    % Outputs a string to write in the vnnlib file
+
+    locs = find(hRow ~= 0); % Find indexes that are not zero
+    if hVal == 0 % Compare two indexes
+        if hRow(locs(1)) > 0 % 
+            str = "(>= Y_"+string(locs(2)-1) + " " + "Y_"+string(locs(1)-1)+ "))";
+        else
+            str = "(>= Y_"+string(locs(1)-1) + " " + "Y_"+string(locs(2)-1) + "))";
+        end
+    else % compare index to value
+        str = "(>= Y_"+string(locs(1)-1) + " " + num2str(hVal, '%.16f') + "))";
     end
 
 end

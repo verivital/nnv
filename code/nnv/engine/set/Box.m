@@ -175,15 +175,9 @@ classdef Box
             if N < 1
                 error('Invalid number of samples');
             end
-            
-            X = cell(1, obj.dim);
-            V1 = [];
-            for i=1:obj.dim
-                X{1, i} = (obj.ub(i) - obj.lb(i)).*rand(2*N, 1) + obj.lb(i);
-                V1 = vertcat(V1, X{1, i}');
-            end
-                            
-            samples = V1;
+            n = obj.dim;
+                        
+            samples = (obj.ub - obj.lb).*rand(n,N) + obj.lb;
                 
         end
         

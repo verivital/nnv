@@ -33,7 +33,7 @@ function result = verify_specification(reachSet, property)
                 Set = Set.toStar;
             end
             S = Set.intersectHalfSpace(property.G, property.g); % compute intersection with unsafe/not robust region
-            if isempty(S) 
+            if isempty(S)
                 result = 1; % no intersection with unsafe region = safe (unsat)
             elseif isempty(Set.intersectHalfSpace(-property.G, -property.g))
                 result = 0; % intersects with unsafe region but no intersection with safe area = unsafe (sat)

@@ -963,10 +963,13 @@ classdef NN < handle
             elseif strcmp(class_type, "min")
                 G(:, target) = -1;
             end
-            g = zeros(height(G),1);
+%             g = zeros(height(G),1);
 
             % Create HalfSapce to define robustness specification
-            Hs = HalfSpace(G, g);
+            Hs = [];
+            for i=1:height(G)
+                Hs = [Hs; HalfSpace(G(i,:), 0)];
+            end
         end
 
         % start parallel pool for computing 

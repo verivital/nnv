@@ -44,7 +44,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
         end
 
     % solve using glpk (linprog as backup)
-    elseif strcmp(lp_solve, 'glpk')
+    elseif strcmp(lp_solver, 'glpk')
         [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
         if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
             options = optimoptions(@linprog, 'Display','none'); 

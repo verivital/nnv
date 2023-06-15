@@ -748,16 +748,16 @@ classdef ImageStar < handle
             image_lb = zeros(obj.height, obj.width, obj.numChannel);
             image_ub = zeros(obj.height, obj.width, obj.numChannel);
             
-            reverseStr = '';
-            N = obj.height*obj.width*obj.numChannel;
-            fprintf('Optimizing ranges: ')
+%             reverseStr = '';
+%             N = obj.height*obj.width*obj.numChannel;
+%             fprintf('Optimizing ranges: ')
             for i=1:obj.height
                 for j=1:obj.width
                     for k=1:obj.numChannel
-                        msg = sprintf('%d/%d', i*j*k, N);
+%                         msg = sprintf('%d/%d', i*j*k, N);
                         [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k, lp_solver);                       
-                        fprintf([reverseStr, msg]);
-                        reverseStr = repmat(sprintf('\b'), 1, length(msg));
+%                         fprintf([reverseStr, msg]);
+%                         reverseStr = repmat(sprintf('\b'), 1, length(msg));
                     end
                 end
             end
@@ -1055,7 +1055,7 @@ classdef ImageStar < handle
                         end
                     end                
                     max_id = max_id1; 
-                    fprintf('\nThe local image has %d max candidates.', size(max_id,1));
+%                     fprintf('\nThe local image has %d max candidates.', size(max_id,1));
                     
                 end
                 

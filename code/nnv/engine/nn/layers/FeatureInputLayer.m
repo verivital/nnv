@@ -206,7 +206,6 @@ classdef FeatureInputLayer < handle
             end
             L = FeatureInputLayer(layer.Name, layer.InputSize, layer.Normalization, layer.NormalizationDimension,...
                 layer.Mean, layer.StandardDeviation, layer.Min, layer.Max);
-            fprintf('\nParsing a Matlab feature input layer is done successfully');
         end
         
     end

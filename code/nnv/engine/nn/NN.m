@@ -176,7 +176,7 @@ classdef NN < handle
 
             % Check validity of reachability method
             if exist("reachOptions",'var')
-                reachOptions = check_reachability_method(obj, reachOptions);
+                reachOptions = validate_reach_options(obj, reachOptions);
             else
                 reachOptions = struct; % empty options, run with default values
             end
@@ -850,7 +850,7 @@ classdef NN < handle
     methods (Access = protected) % not to be accessible by user
         
         % Check reachability options defined are allowed
-        function reachOptions = check_reachability_method(obj, reachOptions)
+        function reachOptions = validate_reach_options(obj, reachOptions)
             reach_method = reachOptions.reachMethod;
             if contains(reach_method, "exact")
                 for i=1:length(obj.Layers)
@@ -861,7 +861,7 @@ classdef NN < handle
                         end
                     end
                     if isa(obj.Layers{i}, "SigmoidLayer") || isa(obj.Layers{i}, "TanhLayer")
-                        warning("Exact reachability is not possible with layer " + class(obj.Layers{i} + ". Switching to approx-star."));
+                        warning("Exact reachability is not possible with layer " + class(obj.Layers{i}) + ". Switching to approx-star.");
                         reachOptions.reachMethod = "approx-star";
                     end
                 end
@@ -963,10 +963,13 @@ classdef NN < handle
             elseif strcmp(class_type, "min")
                 G(:, target) = -1;
             end
-            g = zeros(height(G),1);
+%             g = zeros(height(G),1);
 
             % Create HalfSapce to define robustness specification
-            Hs = HalfSpace(G, g);
+            Hs = [];
+            for i=1:height(G)
+                Hs = [Hs; HalfSpace(G(i,:), 0)];
+            end
         end
 
         % start parallel pool for computing 
@@ -1048,7 +1051,7 @@ classdef NN < handle
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
                     % concatenation layers (2 or more inputs with specific order {in1, in2, ... inX})
-                    elseif contains(obj.Layers{dest_indx}, 'Concatenation')
+                    elseif contains(class(obj.Layers{dest_indx}), 'Concatenation')
                         destP = dest{2};
                         if startsWith(destP, 'in')
                             input_num = str2double(destP(3:end));
@@ -1149,7 +1152,7 @@ classdef NN < handle
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
                     % concatenation layers (2 or more inputs with specific order {in1, in2, ... inX})
-                    elseif contains(obj.Layers{dest_indx}, 'Concatenation')
+                    elseif contains(class(obj.Layers{dest_indx}), 'Concatenation')
                         destP = dest{2};
                         if startsWith(destP, 'in')
                             input_num = str2double(destP(3:end));
@@ -1173,7 +1176,12 @@ classdef NN < handle
                 obj.reachSet{end} = outSet;
             end
         end
+        
+        % Ensure precision for layer parameters and inputs is consistent
+        function validate_precision(obj, inSet)
+            
 
+        end
     end % end helper functions
     
     

@@ -157,7 +157,6 @@ classdef SoftmaxLayer < handle
             end
             
             L = SoftmaxLayer(softmax_layer.Name, softmax_layer.NumInputs, softmax_layer.NumOutputs, softmax_layer.InputNames, softmax_layer.OutputNames);
-            fprintf('\nParsing a Matlab softmax layer is done successfully');
             
         end
         

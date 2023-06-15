@@ -373,7 +373,6 @@ classdef PixelClassificationLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.PixelClassificationLayer');
             end
             L = PixelClassificationLayer(pixel_classification_layer.Name, pixel_classification_layer.Classes, pixel_classification_layer.OutputSize, pixel_classification_layer.NumInputs, pixel_classification_layer.InputNames);
-            fprintf('\nParsing a Matlab pixel classification layer is done successfully');
         end
         
     end

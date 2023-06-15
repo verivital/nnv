@@ -34,18 +34,21 @@ classdef Box
             
             obj.center = 0.5 * (lb + ub);
             vec = 0.5 * (ub - lb);
-            for i=1:n1
-                if vec(i) ~= 0
-                    gen = cast(zeros(n1, 1), 'like', ub);
-                    gen(i) = vec(i);
-                    obj.generators = [obj.generators gen];
-                end                
-            end
-            
-            if norm(vec) == 0
-                obj.generators = cast(zeros(obj.dim, 1), 'like', ub);
-            end
-                
+%             for i=1:n1
+%                 if vec(i) ~= 0
+%                     gen = cast(zeros(n1, 1), 'like', ub);
+%                     gen(i) = vec(i);
+%                     obj.generators = [obj.generators gen];
+%                 end                
+%             end
+%             
+%             if norm(vec) == 0
+%                 obj.generators = cast(zeros(obj.dim, 1), 'like', ub);
+%             end
+            % Speeding up implementation
+            gens = diag(vec); % generate matrix
+            gens(:,all(gens(gens==0))) = []; % delete colums with no info
+            obj.generators = gens;
         end
         
         % single partition of a box
@@ -172,15 +175,9 @@ classdef Box
             if N < 1
                 error('Invalid number of samples');
             end
-            
-            X = cell(1, obj.dim);
-            V1 = [];
-            for i=1:obj.dim
-                X{1, i} = (obj.ub(i) - obj.lb(i)).*rand(2*N, 1) + obj.lb(i);
-                V1 = vertcat(V1, X{1, i}');
-            end
-                            
-            samples = V1;
+            n = obj.dim;
+                        
+            samples = (obj.ub - obj.lb).*rand(n,N) + obj.lb;
                 
         end
         

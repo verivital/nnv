@@ -1217,7 +1217,7 @@ classdef NN < handle
                 % ensure we get just the name and not specific properties
                 source = split(source, '/');
                 source = source{1};
-                fprintf('\n layer reachability: %s', source);
+%                 fprintf('\n layer reachability: %s', source);
                 source_indx = obj.name2indx(source); % indx in Layers array
                 
                 % 2) Get input to layer

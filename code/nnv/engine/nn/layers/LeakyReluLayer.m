@@ -15,30 +15,10 @@ classdef LeakyReluLayer < ActivationFunctionLayer
         % constructor of the class
         function obj = LeakyReluLayer(varargin)           
             % author: Diego Manzanas
-            % date: 12/06/2022    
+            % date: 12/06/2022
             
-            switch nargin
-                
-                case 6 % used for parsing a matlab relu layer
-                    obj.Name = varargin{1};
-                    obj.NumInputs = varargin{2};
-                    obj.InputNames = varargin{3};
-                    obj.NumOutputs = varargin{4};
-                    obj.OutputNames = varargin{5};
-                    obj.gamma = varargin{6};
-
-                case 1
-                    name = varargin{1};
-                    if ~ischar(name)
-                        error('Name is not char');
-                    else
-                        obj.Name = name;
-                    end                    
-                case 0
-                    obj.Name = 'leakyrelu_layer';
-                otherwise
-                    error('Invalid number of inputs (should be 0, 1 or 6)');
-            end 
+            obj = obj@ActivationFunctionLayer(varargin(1:5));
+            obj.gamma = varargin{6}; % scale in MATLAB LeakyRelu layer
              
         end
         
@@ -63,12 +43,22 @@ classdef LeakyReluLayer < ActivationFunctionLayer
                    
         end
         
+		function y = evaluateSequence(obj, input)
+            % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
+            % @y: 2 or 3-dimensional array, for example, y(:, :, :)
+            
+            % author: Neelanjana Pal
+            % date: 1/6/2023
+            
+            y = LeakyReLU.evaluate(input, obj.gamma);
+                   
+        end										 
     end
     
     methods % reachability methods
         
         % reachability using ImageStar
-        function images = reach_star_single_input(obj, in_image, method, option, relaxFactor, dis_opt, lp_solver)
+        function images = reach_star_single_input(obj, in_image, method, relaxFactor, dis_opt, lp_solver)
             % @in_image: an ImageStar input set
             % @method: = 'exact-star' or 'approx-star' or 'abs-dom'
             % @relaxFactor: of approx-star method
@@ -80,7 +70,7 @@ classdef LeakyReluLayer < ActivationFunctionLayer
             if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
                 error('input is not an ImageStar or Star');
             end
-            
+            option = [];
             if isa(in_image, "ImageStar")
                 h = in_image.height;
                 w = in_image.width;

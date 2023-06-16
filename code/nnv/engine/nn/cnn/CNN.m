@@ -803,7 +803,7 @@ classdef CNN < handle
             j = 0; % counter of number of layers
             for i=1:n
                 L = net.Layers(i);
-                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer')                  
+                if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') || isa(L, "nnet.cnn.layer.RegressionOutputLayer")                 
                     fprintf('\nLayer %d is a %s class which is neglected in the analysis phase', i, class(L));                   
                     if isa(L, 'nnet.cnn.layer.ImageInputLayer')
                         inputSize = L.InputSize;
@@ -817,10 +817,16 @@ classdef CNN < handle
                     
                     if isa(L, 'nnet.cnn.layer.ImageInputLayer')
                         Li = ImageInputLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.SequenceInputLayer')
+                        Li = SequenceInputLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.Convolution2DLayer') 
                         Li = Conv2DLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.ReLULayer')
                         Li = ReluLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.LeakyReLULayer')
+                        Li = LeakyReluLayer.parse(L);
+                    elseif isa(L, 'nnet.cnn.layer.TanhLayer')
+                        Li = TanhLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
                         Li = BatchNormalizationLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
@@ -831,7 +837,7 @@ classdef CNN < handle
                         Li = FullyConnectedLayer.parse(L);
                     elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
                         Li = PixelClassificationLayer.parse(L);
-                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer') || isa(L, 'nnet.onnx.layer.FlattenLayer')
+                    elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer') || isa(L, 'nnet.onnx.layer.FlattenLayer') || isa(L, 'nnet.onnx.layer.FlattenInto2dLayer')
                         Li = FlattenLayer.parse(L);
                     elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer')
                         Li = SigmoidLayer.parse(L);

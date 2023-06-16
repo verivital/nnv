@@ -96,6 +96,14 @@ classdef FullyConnectedLayer < handle
             % update: add support for sequence evaluacion (neuralode, RNN)
             %   -date: 03/17/2023 (Diego Manzanas)
             
+            n = size(x);
+            if length(n) == 2
+                x = reshape(x, [n(1)*n(2) 1]);
+            elseif length(n) == 3
+                x = reshape(x, [n(1)*n(2)*n(3) 1]);
+            else
+                error('Invalid input image');
+            end
             if size(x, 1) ~= size(obj.Weights, 2)
                 error('Inconsistent input vector')
             end
@@ -113,6 +121,15 @@ classdef FullyConnectedLayer < handle
              
         end 
         
+        function y = evaluateSequence(obj, input)
+            % @input: input
+            % @y: output
+            % author: Neelanjana Pal
+            % date: 1/6/2023
+
+            y = double(obj.Weights)*input + double(obj.Bias);
+        end
+
         % main reachability analysis function
         function IS = reach(varargin)
             % @in_image: an input imagestar
@@ -174,6 +191,65 @@ classdef FullyConnectedLayer < handle
             
         end
         
+        function IS = reachSequence(varargin)
+            % @in_image: an input imagestar
+            % @image: output set
+            % @option: = 'single' or 'parallel' 
+            
+            % author: Dung Tran
+            % date: 6/26/2019
+            % update: 1/6/2020  update reason: add zonotope method
+             
+            switch nargin
+                
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = varargin{3};
+                    option = varargin{4}; % computation option
+
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2}; % don't care the rest inputs
+                    method = varargin{3};
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
+            end
+            
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
+                IS = obj.reachSequence_star(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                IS = obj.reachSequence_zono(in_images, option);
+            else
+                error('Unknown reachability method');
+            end
+        end
+    
     end   
      
     methods % reachability methods
@@ -318,6 +394,38 @@ classdef FullyConnectedLayer < handle
             
         end
         
+        function image = reachSequence_star(obj, in_image, option)
+            % @in_image: input imagestar
+            % @image: output set
+            
+            % author: Dung Tran
+            % date: 6/26/2019
+            
+            
+            if ~isa(in_image, 'ImageStar')
+                error('Input set is not an ImageStar');
+            end
+            
+%             N = in_image.height*in_image.width*in_image.numChannel;
+%             if N~= obj.InputSize
+%                 error('Inconsistency between the size of the input image and the InputSize of the network');
+%             end
+                       
+            n = in_image.numPred;
+            V(:, :, 1, in_image.numPred + 1) = zeros(obj.OutputSize, in_image.width);
+            for i=1:n+1
+                I = in_image.V(:,:,:,i);
+                if i==1
+                    V(:, :,1,i) = double(obj.Weights)*I + double(obj.Bias);
+                else
+                    V(:, :,1,i) = double(obj.Weights)*I;
+                end
+            end
+            
+            image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+            
+        end
+    
     end
     
     

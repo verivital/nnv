@@ -148,7 +148,6 @@ classdef ReluLayer < ActivationFunctionLayer
             end
             
             L = ReluLayer(relu_layer.Name, relu_layer.NumInputs, relu_layer.InputNames, relu_layer.NumOutputs, relu_layer.OutputNames);
-            fprintf('\nParsing a Matlab relu layer is done successfully');
             
         end
         

@@ -1088,7 +1088,6 @@ classdef MaxPooling2DLayer < handle
             end
             
             L = MaxPooling2DLayer(max_Pooling_2d_Layer.Name, max_Pooling_2d_Layer.PoolSize, max_Pooling_2d_Layer.Stride, max_Pooling_2d_Layer.PaddingSize, max_Pooling_2d_Layer.HasUnpoolingOutputs, max_Pooling_2d_Layer.NumInputs, max_Pooling_2d_Layer.InputNames, max_Pooling_2d_Layer.NumOutputs, max_Pooling_2d_Layer.OutputNames);
-            fprintf('\nParsing a Matlab max pooling 2d layer is done successfully');
         end
         
     end

@@ -207,7 +207,6 @@ classdef ConcatenationLayer < handle
                 error('Input is not a concatenation layer');
             end
             L = ConcatenationLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, layer.Dimension);
-            fprintf('\nParsing a concatenation layer is done successfully');
         end
 
     end

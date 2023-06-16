@@ -444,7 +444,6 @@ classdef FullyConnectedLayer < handle
                 error('Input is not a Matlab nnet.cnn.layer.FullyConnectedLayer class');
             end
             L = FullyConnectedLayer(fully_connected_layer.Name, fully_connected_layer.Weights, fully_connected_layer.Bias);         
-            fprintf('\nParsing a Matlab fully connected layer is done successfully');
             
         end
         

@@ -250,9 +250,7 @@ classdef ImageInputLayer < handle
             
             L = ImageInputLayer(layer.Name, layer.InputSize, layer.Normalization, layer.NormalizationDimension,...
                 layer.Mean, layer.StandardDeviation, layer.Min, layer.Max);
-            
-            fprintf('\nParsing a Matlab image input layer is done successfully');
-            
+                        
         end
         
     end

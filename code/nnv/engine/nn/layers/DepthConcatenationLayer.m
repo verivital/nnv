@@ -13,7 +13,7 @@ classdef DepthConcatenationLayer < handle
         OutputNames = {'out'}; % default
     end
     
-    methods
+    methods % constructor 
         
         function obj = DepthConcatenationLayer(varargin)
             % @name: name of the layer
@@ -78,6 +78,7 @@ classdef DepthConcatenationLayer < handle
         
     methods % main methods
         
+
         % evaluate
         function outputs = evaluate(obj, inputs)
             % depth_concatenation layers takes usually two inputs, but allows many (N)
@@ -100,11 +101,11 @@ classdef DepthConcatenationLayer < handle
             for k = 2 : length(inputs)
                 outputs = outputs.concatenation(inputs{k});
             end
-            
+
         end
         
         % handle multiple inputs
-        function S = reach_multipleInputs(obj, inputs, option)
+        function S = reach_multipleInputs_Star(obj, inputs, option)
             % @inputs: an array of ImageStars
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar
@@ -115,16 +116,31 @@ classdef DepthConcatenationLayer < handle
             elseif isa(inputs{1,1}, 'ImageZono')
                 S(n) = ImageZono;
             else
-                error('Unknown input data set');
+                error('Unknown input data set. It must be ImageStar or ImageZono.');
             end
-          
+            % Assume no split sets, so one set per input 
+            for k=1:nI
+                if n ~= length(inputs{k})
+                    error('Length of input sets does not match across input connections');
+                end
+            end
+            % Reorg inputs to compute reach
+            inpSs = cell(n,1);
+            for k=1:n
+                inpS = [];
+                for i=1:nI
+                    inpS = [inpS inputs{i}(k)];
+                end
+                inpSs{k} = inpS;
+            end
+            % Compute reachability
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    S(i) = obj.reach_single_input(inputs(i));
+                    S(i) = obj.reach_single_input_star(inpSs{i});
                 end
             elseif strcmp(option, 'single') || isempty(option)
                 for i=1:n
-                    S(i) = obj.reach_single_input(inputs(i));
+                    S(i) = obj.reach_single_input_star(inpSs{i});
                 end
             else
                 error('Unknown computation option, should be parallel or single');
@@ -201,7 +217,6 @@ classdef DepthConcatenationLayer < handle
             end
             
             L = DepthConcatenationLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames);
-            fprintf('\nParsing a depth concatenation layer is done successfully');
         end
 
     end

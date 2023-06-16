@@ -441,9 +441,7 @@ classdef TransposedConv2DLayer < handle
             end
             
             L = TransposedConv2DLayer(layer.Name, layer.Weights, layer.Bias, layer.CroppingSize, layer.Stride, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
-                        
-            fprintf('\nParsing a Matlab transposed convolutional 2d layer is done successfully');
-            
+                                    
         end
 
     end

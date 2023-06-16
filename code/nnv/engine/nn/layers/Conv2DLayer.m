@@ -555,9 +555,7 @@ classdef Conv2DLayer < handle
             dilation_mat = conv2dLayer.DilationFactor;
             
             L = Conv2DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat, conv2dLayer.NumInputs, conv2dLayer.InputNames, conv2dLayer.NumOutputs, conv2dLayer.OutputNames);
-                        
-            fprintf('\nParsing a Matlab convolutional 2d layer is done successfully');
-            
+                                    
         end
         
         % parse input image with padding

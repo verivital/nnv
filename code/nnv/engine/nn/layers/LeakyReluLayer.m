@@ -119,7 +119,6 @@ classdef LeakyReluLayer < ActivationFunctionLayer
                 error('Input is not a Matlab nnet.cnn.layer.LeakyReLULayer class');
             end
             L = LeakyReluLayer(layer.Name, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames, layer.Scale);
-            fprintf('\nParsing a Matlab leaky relu layer is done successfully');
         end
         
     end

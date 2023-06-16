@@ -136,7 +136,6 @@ classdef TanhLayer < ActivationFunctionLayer
             end
             
             L = TanhLayer(layer.Name, layer.NumInputs, layer.InputNames, layer.NumOutputs, layer.OutputNames);
-            fprintf('\nParsing a tanh layer is done successfully');        
         end
         
     end

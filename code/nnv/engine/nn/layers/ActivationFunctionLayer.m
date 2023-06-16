@@ -1,7 +1,7 @@
 classdef ActivationFunctionLayer < handle
     % The ActivationFunction class in NN (parent of ReLU, LeakyReLU...)
     %   Contain constructor and reachability analysis methods
-    %   Diego Manzanas: 12/06/202
+    %   Diego Manzanas: 12/06/2022
     
     properties
         Name = 'act_func_layer';
@@ -145,6 +145,7 @@ classdef ActivationFunctionLayer < handle
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
+                    relaxFactor = 0;
                     dis_opt = [];
                     lp_solver = 'linprog';
                 
@@ -153,6 +154,7 @@ classdef ActivationFunctionLayer < handle
                     in_images = varargin{2};
                     method = varargin{3};
                     option = 'single';
+                    relaxFactor = 0;
                     dis_opt = [];
                     lp_solver = 'linprog';
                     
@@ -169,7 +171,11 @@ classdef ActivationFunctionLayer < handle
             end         
 
         end
-                 
+        
+        function seqs = reachSequence(varargin)
+            obj = varargin{1};
+            seqs = obj.reach(varargin{2:nargin});
+        end
     end
     
 end

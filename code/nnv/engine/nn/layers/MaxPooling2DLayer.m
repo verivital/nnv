@@ -265,7 +265,7 @@ classdef MaxPooling2DLayer < handle
             % update: set evaluation as previous "segnet" option as default
                 
             dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
-            [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize);
+            [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Padding', obj.PaddingSize);
             y = extractdata(dlY);
             obj.MaxIndx = indx;
             obj.InputSize = inputSize;

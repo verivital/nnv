@@ -140,6 +140,11 @@ classdef BatchNormalizationLayer < handle
             
         end 
         
+        function y = evaluateSequence(obj, input)
+            newInput = dlarray(input);
+            y = batchnorm(newInput, obj.Offset, obj.Scale, obj.TrainedMean, obj.TrainedVariance,"DataFormat",'CS','Epsilon',obj.Epsilon);
+            y = extractdata(y);
+        end
     end
     
     
@@ -317,7 +322,49 @@ classdef BatchNormalizationLayer < handle
 
         end
 
+        function image = reach_star_single_input_Seq(obj, in_image)
+            % @in_image: an input imagestar
+            % @image: output set
+            
+            % author: Neelanjana Pal
+            % date: 1/17/2023
+            
+            if ~isa(in_image, 'ImageStar')
+                error('The input is not an ImageStar object');
+            end
+                       
+            x = in_image;
+            std = sqrt(obj.TrainedVariance + obj.Epsilon);
+            x = x.affineMap(1./std, - obj.TrainedMean./std);
+            image = x.affineMap(obj.Scale, obj.Offset);
+            
+        end
+        
 
+        function images = reach_star_multipleInputs_Seq(obj, in_images, option)
+            % @in_images: an array of ImageStars input set
+            % @option: = 'parallel' or 'single' or empty
+            
+            % author: Neelanjana Pal
+            % date: 17/1/2023
+            
+            n = length(in_images);
+            images(n) = ImageStar;  
+            
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = obj.reach_star_single_input_Seq(in_images(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = obj.reach_star_single_input_Seq(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+
+            end
+        end
+       
         
         function images = reach(varargin)
             % @in_image: an input imagestar or imagezono
@@ -379,6 +426,60 @@ classdef BatchNormalizationLayer < handle
           
         end
                  
+        function images = reachSequence(varargin)
+        %obj = varargin{1};
+        %seqs = obj.reach(varargin{2:nargin});
+            switch nargin
+                
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
+            end
+
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')|| contains(method, "relax-star")
+                images = obj.reach_star_multipleInputs_Seq(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                images = obj.reach_zono_multipleInputs(in_images, option); %need to change
+            else
+                error("Unknown reachability method");
+            end
+            
+
+        end
     end
     
     

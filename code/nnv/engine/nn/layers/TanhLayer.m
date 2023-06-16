@@ -45,6 +45,16 @@ classdef TanhLayer < ActivationFunctionLayer
             y = reshape(y, n);
                    
         end
+		function y = evaluateSequence(~, input)
+            % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
+            % @y: 2 or 3-dimensional array, for example, y(:, :, :)
+            
+            % author: Neelanjana Pal
+            % date: 1/6/2023
+            
+            y = TanSig.evaluate(input);
+                   
+        end									   
         
     end
         
@@ -109,7 +119,7 @@ classdef TanhLayer < ActivationFunctionLayer
             end
 
         end
-                 
+                 								   
     end
     
     

@@ -1,21 +1,23 @@
-classdef DepthConcatenationLayer < handle
-    % Depth Concatenation Layer object
-    % Concatenate arrays along 3rd dimension (channels)
-    % Author: Diego Manzanas Lopez
-    % Date: 03/07/2023
-    % Update: Neelanjana Pal, 06/15/23
+classdef GlobalAveragePooling2DLayer < handle
+    % GlobalAveragePooling 2D Layer object
+    % downsamples the input by computing the mean of the height and width dimensions
+    % https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.globalAveragePooling2dLayer.html
+    % 
+    % Author: Neelanjana Pal
+    % Date: 06/07/2023
     
     properties
-        Name = 'DepthConcatLayer';
-        NumInputs = 1; % default
+        Name = 'AddLayer';          % default
+        NumInputs = 1;              % default
         InputNames = {'in1'}; % default
-        NumOutputs = 1; % default
-        OutputNames = {'out'}; % default
+        NumOutputs = 1;             % default
+        OutputNames = {'out'};      % default
     end
     
-    methods % constructor 
+    methods % constructor
         
-        function obj = DepthConcatenationLayer(varargin)
+        % create layer
+        function obj = GlobalAveragePooling2DLayer(varargin)
             % @name: name of the layer
             % @NumInputs: number of inputs
             % @NumOutputs: number of outputs,
@@ -34,16 +36,10 @@ classdef DepthConcatenationLayer < handle
                     name = varargin{1};
                     numInputs = 1;
                     numOutputs = 1;
-                    inputNames = {'in'};
-                    outputNames = {'out'};
-                case 0
-                    name = 'DepthConcatLayer';
-                    numInputs = 1;
-                    numOutputs = 1;
-                    inputNames = {'in'};
+                    inputNames = {'in1'};
                     outputNames = {'out'};
                 otherwise
-                    error('Invalid number of input arguments, should be 0, 1, or 5');        
+                    error('Invalid number of input arguments, should be 1 or 5');        
             end
             
             if ~ischar(name)
@@ -63,7 +59,7 @@ classdef DepthConcatenationLayer < handle
             end
             
             if ~iscell(outputNames)
-                error('Invalid output names, should be a cell');
+                error('num of inputs do not match with num of input names');
             end
             
             obj.Name = name;
@@ -78,69 +74,49 @@ classdef DepthConcatenationLayer < handle
         
     methods % main methods
         
-
         % evaluate
-        function outputs = evaluate(obj, inputs)
-            % depth_concatenation layers takes usually two inputs, but allows many (N)
-            % first input is obj, the rest are arrays from different layers
-            % Initialize image as the first one
-            outputs = inputs{1};
-            % Concatenate the inputs 
-            dim = 3;
-            for k=2:length(inputs)
-                outputs = cat(dim, outputs, inputs{k});
-            end
-                
+        function output = evaluate(obj, input)
+            % addition layer takes usually two inputs, but allows many (N)
+            %
+            input = dlarray(input,"SSCB");
+            output = extractdata(avgpool(input,'global'));
         end
  
-        % reach
-        function outputs = reach_single_input(obj, inputs)
-            % @inputs: input imagestar from each connected layer
-            % @outputs: output set
-            outputs = inputs{1};
-            for k = 2 : length(inputs)
-                outputs = outputs.concatenation(inputs{k});
+        % reach (TODO)
+        function output = reach_single_input(obj, input)
+            % @in_image: input imagestar
+            % @image: output set
+            
+            if ~isa(input, 'ImageStar')
+                error('The input is not an ImageStar object');
             end
-
+            Y = obj.evaluate(input.V);                       
+            output = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+            
         end
         
         % handle multiple inputs
-        function S = reach_multipleInputs_Star(obj, inputs, option)
+        function S = reach_multipleInputs(obj, inputs, option)
             % @inputs: an array of ImageStars
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar
             
             n = length(inputs);
-            if isa(inputs{1,1}, 'ImageStar')
+            if isa(inputs(1), 'ImageStar')
                 S(n) = ImageStar;
-            elseif isa(inputs{1,1}, 'ImageZono')
+            elseif isa(inputs(1), 'ImageZono')
                 S(n) = ImageZono;
             else
-                error('Unknown input data set. It must be ImageStar or ImageZono.');
+                error('Unknown input data set');
             end
-            % Assume no split sets, so one set per input 
-            for k=1:nI
-                if n ~= length(inputs{k})
-                    error('Length of input sets does not match across input connections');
-                end
-            end
-            % Reorg inputs to compute reach
-            inpSs = cell(n,1);
-            for k=1:n
-                inpS = [];
-                for i=1:nI
-                    inpS = [inpS inputs{i}(k)];
-                end
-                inpSs{k} = inpS;
-            end
-            % Compute reachability
+          
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    S(i) = obj.reach_single_input_star(inpSs{i});
+                    S(i) = obj.reach_single_input(inputs(i));
                 end
             elseif strcmp(option, 'single') || isempty(option)
                 for i=1:n
-                    S(i) = obj.reach_single_input_star(inpSs{i});
+                    S(i) = obj.reach_single_input(inputs(i));
                 end
             else
                 error('Unknown computation option, should be parallel or single');
@@ -196,8 +172,7 @@ classdef DepthConcatenationLayer < handle
             end
             
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || strcmp(method, 'approx-zono') || contains(method, "relax-star")
-%                 IS = obj.reach_multipleInputs(in_images, option);
-                IS = obj.reach_single_input(in_images);
+                IS = obj.reach_multipleInputs(in_images, option);
             else
                 error('Unknown reachability method');
             end
@@ -208,15 +183,16 @@ classdef DepthConcatenationLayer < handle
     
     
     methods(Static)
+        
         % parsing method
         function L = parse(layer)
             % create NNV layer from matlab
                       
-            if ~isa(layer, 'nnet.cnn.layer.DepthConcatenationLayer')
-                error('Input is not a depth concatenation layer');
+            if ~isa(layer, 'nnet.cnn.layer.GlobalAveragePooling2DLayer') 
+                error('Input is not a GlobalAveragePooling2DLayer layer');
             end
-            
-            L = DepthConcatenationLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames);
+            L = GlobalAveragePooling2DLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames);
+            fprintf('\nParsing a addition layer is done successfully');
         end
 
     end

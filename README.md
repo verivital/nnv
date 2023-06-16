@@ -146,6 +146,7 @@ A recent video demonstration of NNV is available.
 
 * [Hoang-Dung Tran (main developer)](https://scholar.google.com/citations?user=_RzS3uMAAAAJ&hl=en)
 * [Diego Manzanas Lopez](https://scholar.google.com/citations?user=kgpZCIAAAAAJ&hl=en)
+* [Neelanjana Pal](https://scholar.google.com/citations?user=3j_f-ewAAAAJ&hl=en)
 * [Weiming Xiang](https://scholar.google.com/citations?user=Vm_7JP8AAAAJ&hl=en)
 * [Stanley Bak](http://stanleybak.com/)
 * [Patrick Musau](https://scholar.google.com/citations?user=C2RS3i8AAAAJ&hl=en)

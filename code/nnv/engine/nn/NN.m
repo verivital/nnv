@@ -131,6 +131,25 @@ classdef NN < handle
             end
 
         end
+
+        function y = evaluateSequence(obj, x)
+            % Evaluation of a NN (compute output of NN given an input)
+            % @x: input vector x
+            % @y: output vector y
+            
+            for i=1:height(obj.Connections)
+                if i > 1
+                    x = obj.input_vals{1,i}; % 
+                end
+
+                L = obj.Layers{i};
+                y = L.evaluateSequence(x);
+                % Keep it simple for now 
+                if i < height(obj.Connections) % (Last number in destinations is the output)
+                    obj.input_vals{1,i+1} = y; % store layer input 
+                end
+            end
+        end
         
         % evaluate parallel
         function y = evaluate_parallel(obj, inputs)
@@ -216,10 +235,73 @@ classdef NN < handle
             % Perform reachability based on connections or assume no skip/sparse connections
             if isempty(obj.Connections)
                 outputSet = obj.reach_noConns(inputSet);
-            else
+            else 
                 outputSet = obj.reach_withConns(inputSet);
+            
             end
 
+        end
+    
+        function outputSet = reachSequence(obj, inputSet, reachOptions)
+            % inputSet: input set (type -> Star, ImageStar, Zono or ImageZono)   
+            % reachOptions: reachability options for NN (type -> struct)
+            %       Required Fields:
+            %           reachMethod (string)
+            %               select from {'approx-star','exact-star', 'abs-dom', approx-zono'}
+            %       Optional Fields:
+            %           numCores (int) -> default = 1
+            %           relaxFactor (int) -> default = 0
+            %           dis_opt ('display' or []), display options, use for debugging, default = [] (no display)
+            %           lp_solver ('glpk', 'linprog') -> default = 'glpk'
+
+            % Parse the inputs
+
+            % Ensure input set is a valid type
+            if ~ isa(inputSet,"Star") && ~ isa(inputSet,"ImageStar") && ~ isa(inputSet,"ImageZono") && ~ isa(inputSet,"Zono") 
+                error('Wrong input set type. Input set must be of type "Star", "ImageStar", "ImageZono", or "Zono"')
+            end
+
+            % Check validity of reachability method
+            if exist("reachOptions",'var')
+                reachOptions = check_reachability_method(obj, reachOptions);
+            else
+                reachOptions = struct; % empty options, run with default values
+            end
+
+            % Process reachability options
+            if ~isstruct(reachOptions)
+                error("The reachability parameters must be specified as a struct.")
+            else
+                if isfield(reachOptions, 'reachMethod')
+                    obj.reachMethod = reachOptions.reachMethod;
+                end
+                if isfield(reachOptions, 'numCores')
+                    obj.numCores = reachOptions.numCores;
+                end
+                if isfield(reachOptions, 'relaxFactor')
+                    obj.relaxFactor = reachOptions.relaxFactor;
+                end
+                if isfield(reachOptions, 'dis_opt')
+                    obj.dis_opt = reachOptions.dis_opt; % use for debuging
+                end
+                if isfield(reachOptions, 'lp_solver')
+                    obj.lp_solver = reachOptions.lp_solver;
+                end
+            end
+            
+            % Parallel computation or single core?
+            if  obj.numCores > 1
+                obj.start_pool;
+                obj.reachOption = 'parallel';
+            end
+
+            % Debugging option
+            if strcmp(obj.dis_opt, 'display')
+                fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
+            end
+            
+            outputSet = obj.reach_withConns(inputSet);
+            
         end
     
     end
@@ -1059,6 +1141,23 @@ classdef NN < handle
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
                         obj.input_vals{dest_indx}{input_num} = y;
+                    % concatenation layers (2 or more inputs with specific order {in1, in2, ... inX})
+                    elseif isa(obj.Layers{dest_indx}, 'DepthConcatenationLayer')
+                        destP = dest{2};
+                        if startsWith(destP, 'in')
+                            input_num = str2double(destP(3:end));
+                        else
+                            error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                        end
+                        obj.input_vals{dest_indx}{input_num} = y;
+                    elseif isa(obj.Layers{dest_indx}, 'AdditionLayer')
+                        destP = dest{2};
+                        if startsWith(destP, 'in')
+                            input_num = str2double(destP(3:end));
+                        else
+                            error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                        end
+                        obj.input_vals{dest_indx}{input_num} = y;
                     else
                         error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                     end
@@ -1112,11 +1211,13 @@ classdef NN < handle
 
             % Begin reachability computation
             for i=1:height(obj.Connections)
+                
                 % 1) Get name and index of layer
                 source = obj.Connections.Source(i);
                 % ensure we get just the name and not specific properties
                 source = split(source, '/');
                 source = source{1};
+                fprintf('\n layer reachability: %s', source);
                 source_indx = obj.name2indx(source); % indx in Layers array
                 
                 % 2) Get input to layer
@@ -1128,7 +1229,11 @@ classdef NN < handle
                 exec_len = length(obj.reachSet);
                 % ensure layer has not been eexcuted yet
                 if exec_len >= source_indx && isempty(obj.reachSet{source_indx})
-                    outSet = obj.Layers{source_indx}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                    if isequal(class(obj.Layers{1,1}), 'SequenceInputLayer')
+                        outSet = obj.Layers{source_indx}.reachSequence(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                    else
+                        outSet = obj.Layers{source_indx}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                    end
                     obj.reachSet{source_indx} = outSet;
                 end
                 
@@ -1153,6 +1258,23 @@ classdef NN < handle
                         end
                     % concatenation layers (2 or more inputs with specific order {in1, in2, ... inX})
                     elseif contains(class(obj.Layers{dest_indx}), 'Concatenation')
+                        destP = dest{2};
+                        if startsWith(destP, 'in')
+                            input_num = str2double(destP(3:end));
+                        else
+                            error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                        end
+                        obj.input_sets{dest_indx}{input_num} = outSet;
+                    % concatenation layers (2 or more inputs with specific order {in1, in2, ... inX})
+                    elseif isa(obj.Layers{dest_indx}, 'DepthConcatenationLayer')
+                        destP = dest{2};
+                        if startsWith(destP, 'in')
+                            input_num = str2double(destP(3:end));
+                        else
+                            error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
+                        end
+                        obj.input_sets{dest_indx}{input_num} = outSet;
+                    elseif isa(obj.Layers{dest_indx}, 'AdditionLayer')
                         destP = dest{2};
                         if startsWith(destP, 'in')
                             input_num = str2double(destP(3:end));

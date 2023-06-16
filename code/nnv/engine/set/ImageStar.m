@@ -453,6 +453,30 @@ classdef ImageStar < handle
                       
         end
         
+        % Minkowski Sum of two ImageStars is another Imagestar (y = x1 + x2)
+        function image = MinkowskiSum(obj, I)
+            
+            S1 = obj.toStar;
+            S2 = I.toStar;
+            S = S1.MinkowskiSum(S2);
+            [lb, ub] = S.getRanges;
+            S.predicate_lb = lb;
+            S.predicate_ub = ub;
+            
+            image = S.toImageStar(I.height, I.width, I.numChannel);
+
+        end
+        % concatenation of two ImageStars is another Imagestar (y = [x1 x2])
+        function image = concatenation(obj, I)
+            
+            S1 = obj.toStar;
+            S2 = I.toStar;
+            S = S1.concatenate(S2);
+
+            image = S.toImageStar(I.height, I.width, I.numChannel + obj.numChannel);
+
+        end
+
         % transform to Star
         function S = toStar(obj)
             

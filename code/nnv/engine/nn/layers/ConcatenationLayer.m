@@ -98,10 +98,14 @@ classdef ConcatenationLayer < handle
                 
         end
  
-        % reach (TODO)
-        function image = reach_single_input(obj, in_image)
+        % reach
+        function outputs = reach_single_input(obj, inputs)
             % @in_image: input imagestar
             % @image: output set
+            outputs = inputs{1};
+            for k = 2 : length(inputs)
+                outputs = outputs.concatenation(inputs{k});
+            end
             
         end
         
@@ -182,7 +186,8 @@ classdef ConcatenationLayer < handle
             end
             
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || strcmp(method, 'approx-zono') || contains(method, "relax-star")
-                IS = obj.reach_multipleInputs(in_images, option);
+%                 IS = obj.reach_multipleInputs(in_images, option);
+                IS = obj.reach_single_input(in_images);
             else
                 error('Unknown reachability method');
             end

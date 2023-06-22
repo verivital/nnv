@@ -119,7 +119,7 @@ classdef SigmoidLayer < ActivationFunctionLayer
             % modified: added onnx flatten sigmoid layers
             %       by: Neelanjana Pal
             % date: 6/25/2021
-            if ~isa(layer, 'nnet.keras.layer.SigmoidLayer') && ~isa(layer,'nnet.onnx.layer.SigmoidLayer')
+            if ~isa(layer, 'nnet.keras.layer.SigmoidLayer') && ~isa(layer,'nnet.onnx.layer.SigmoidLayer') && ~isa(layer,'nnet.cnn.layer.SigmoidLayer')
                 error('Input is not a sigmoid layer');
             end
             

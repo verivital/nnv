@@ -25,23 +25,59 @@ names = strings(n,1);
 % Parse network layer-by-layer
 for i=1:n
     L = Layers(i);
-%     fprintf('\nParsing Layer %d... \n', i);
+    fprintf('\nParsing Layer %d... \n', i);
+    customLayer_no_NLP = 0;
+    try
+       pat = digitsPattern(4);
+       if exist(str2num(extract(string(L.Name),pat)),integer) && isempty(struct2array(L.ONNXParams.Nonlearnables))
+        customLayer_no_NLP = 1;
+       end
+    catch
+        try
+            if contains(class(L), "PadLayer") && all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
+                customLayer_no_NLP = 1;
+            end
+        catch
+        end
+    end
+    
+
     % Layers with no effect on the reachability analysis
     if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') ...
-            || isa(L,"nnet.onnx.layer.VerifyBatchSizeLayer") || isa(L, "nnet.cnn.layer.RegressionOutputLayer")
+            || isa(L,"nnet.onnx.layer.VerifyBatchSizeLayer") || isa(L, "nnet.cnn.layer.RegressionOutputLayer") || customLayer_no_NLP == 1
         Li = PlaceholderLayer.parse(L);
 
     % Image Input Layer
     elseif isa(L, 'nnet.cnn.layer.ImageInputLayer')
         Li = ImageInputLayer.parse(L);
 
+    % Sequence Input Layer
+    elseif isa(L, 'nnet.cnn.layer.SequenceInputLayer')
+            Li = SequenceInputLayer.parse(L);
+
     % Convolutional 2D layer
     elseif isa(L, 'nnet.cnn.layer.Convolution2DLayer') 
         Li = Conv2DLayer.parse(L);
+    
+    % Convolutional 1D layer
+    elseif isa(L, 'nnet.cnn.layer.Convolution1DLayer') 
+            Li = Conv1DLayer.parse(L);
+
+     % Transposed Convolution 1D layer
+    elseif isa(L, 'nnet.cnn.layer.TransposedConvolution1DLayer') 
+            Li = TransposedConv1DLayer.parse(L);
 
     % ReLU Layer (also referred to as poslin)
     elseif isa(L, 'nnet.cnn.layer.ReLULayer')
         Li = ReluLayer.parse(L);
+
+    % LeakyReLU Layer
+    elseif isa(L, 'nnet.cnn.layer.LeakyReLULayer')
+            Li = LeakyReluLayer.parse(L);
+
+    % Tanh Layer
+    elseif isa(L, 'nnet.cnn.layer.TanhLayer')
+            Li = TanhLayer.parse(L);
 
     % Batch Normalization Layer
     elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
@@ -54,10 +90,22 @@ for i=1:n
     % Average Pooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')
         Li = AveragePooling2DLayer.parse(L);
+   
+    % Global Average Pooling 2D Layer
+    elseif isa(L, 'nnet.cnn.layer.GlobalAveragePooling2DLayer')
+        Li = GlobalAveragePooling2DLayer.parse(L);
 
     % Fully Connected Layer
     elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
         Li = FullyConnectedLayer.parse(L);
+
+    % Addition Layer
+    elseif isa(L, 'nnet.cnn.layer.AdditionLayer')
+        Li = AdditionLayer.parse(L);
+    
+    % Concatenation Layer
+    elseif isa(L, 'nnet.cnn.layer.ConcatenationLayer')
+        Li = ConcatenationLayer.parse(L);
 
     % Pixel Classification Layer (used for Semantic Segmentation output)
     elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
@@ -69,7 +117,7 @@ for i=1:n
         Li = FlattenLayer.parse(L);
 
     % Sigmoid Layer (also referred to as logsig)
-    elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer')
+    elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer') || isa(L, 'nnet.cnn.layer.SigmoidLayer')
         Li = SigmoidLayer.parse(L);
 
     % ElementWise Affine Layer (often used as a bias layer after FC layers)
@@ -77,7 +125,7 @@ for i=1:n
         Li = ElementwiseAffineLayer.parse(L);
     
     % Feature input layer
-    elseif isa(L, 'nnet.cnn.layer.FeatureInputLayer')
+    elseif isa(L, 'nnet.cnn.layer.FeatureInputLayer') || isa(L, 'nnet.onnx.layer.FeatureInputLayer')
         Li = FeatureInputLayer.parse(L); 
 
     % Transposed Convolution 2D Layer
@@ -93,14 +141,14 @@ for i=1:n
     % Depth Concatenation Layer (common in uNets)
     elseif isa(L, 'nnet.cnn.layer.DepthConcatenationLayer')
         Li = DepthConcatenationLayer.parse(L);
-
-    % Concatenation Layer (concat dim part of layer properties)
-    elseif isa(L, 'nnet.cnn.layer.ConcatenationLayer')
-        Li = ConcatenationLayer.parse(L);
     
     % Reshape Layer (custom created after parsing ONNX layers)
     elseif contains(class(L), "ReshapeLayer")
         Li = ReshapeLayer.parse(L);
+
+    % Reshape Layer (custom created after parsing ONNX layers)
+    elseif contains(class(L), "UpsampleLayer")
+        Li = UpsampleLayer.parse(L);
     
     % Custom flatten layers (avoid if possible)
     elseif contains(class(L), ["flatten"; "Flatten"])
@@ -150,4 +198,3 @@ net = NN(nnvLayers, conns);
 net.name2indx = name2number;
 
 end
-

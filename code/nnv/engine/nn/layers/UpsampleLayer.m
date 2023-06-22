@@ -1,22 +1,23 @@
-classdef ReshapeLayer < handle
-    % ReshapeLayer in NN
-    % reshapes the input into a specific dimensions, tipically a 2D into
+classdef UpsampleLayer < handle
+    % UpsampleLayer in NN
+    % upsamples the input into a specific dimensions, scaled by the 'scale' dimensions
+    % tipically a 2D into
     % 4D, from FullyConnected to Conv2D layers
 
-    % author: Diego Manzanas and Neelanjana Pal
-    % Date: 12/08/2022 06/20/2023
+    % author: Neelanjana Pal
+    % Date: 06/20/2023
     
     properties
-        Name = 'reshape_layer'; % default
+        Name = 'upsample_layer'; % default
         NumInputs = 1;          % default
         InputNames = {'in'};    % default
         NumOutputs = 1;         % default
         OutputNames = {'out'};  % default
-        targetDim = [];         % default
+        scaleDim = [1 1 1 1];   % default
     end
     
     methods
-        function obj = ReshapeLayer(varargin)
+        function obj = UpsampleLayer(varargin)
             switch nargin
                 
                 case 6
@@ -25,11 +26,11 @@ classdef ReshapeLayer < handle
                     numOutputs = varargin{3};
                     inputNames = varargin{4};
                     outputNames = varargin{5};
-                    targetDim = varargin{6};
+                    scaleDim = varargin{6};
                     
                 case 2
                     name = varargin{1};
-                    targetDim = varargin{2};
+                    scaleDim = varargin{2};
                     numInputs = 1;
                     numOutputs = 1;
                     inputNames = {'in'};
@@ -41,7 +42,7 @@ classdef ReshapeLayer < handle
                     numOutputs = 1;
                     inputNames = {'in'};
                     outputNames = {'out'};
-                    targetDim = [];
+                    scaleDim = [1 1 1 1];
              
                 otherwise
                     
@@ -74,7 +75,7 @@ classdef ReshapeLayer < handle
             obj.NumOutputs = numOutputs;
             obj.InputNames = inputNames;
             obj.OutputNames = outputNames;
-            obj.targetDim = targetDim;
+            obj.scaleDim = scaleDim;
                         
         end
     end
@@ -82,22 +83,18 @@ classdef ReshapeLayer < handle
     methods
         
         % evaluate
-        function reshape_xx = evaluate(obj,image)
+        function upsample = evaluate(obj,image)
             %@image: an multi-channels image
             %@flatten_im: flatten image
             
-            try
-                ipDim = prod(size(image));
-                idx = find(obj.targetDim < 0);
-                obj.targetDim(idx) = ipDim/prod(obj.targetDim(1:end ~= idx));
-            catch 
-                % do nothing
+            if length(obj.scaleDim) == 4
+                scaleDim = [obj.scaleDim(4), obj.scaleDim(3), 1];
+            elseif length(obj.scaleDim) == 3
+                scaleDim = [obj.scaleDim(3), obj.scaleDim(2), obj.scaleDim(1)];
             end
-            reshape_x = reshape(image, flip(obj.targetDim));
-            for i = 1:size(reshape_x,3)
-                reshape_xx(:,:,i) = reshape_x(:,:,i)';
-            end
-                
+
+            upsample = dlresize(dlarray(image), 'Scale', scaleDim, 'DataFormat', "SSS");%, 'Method', "nearest", 'GeometricTransformMode',  "half_pixel", 'NearestRoundingMode', "round");
+            upsample = extractdata(upsample);   
         end
     end
     
@@ -110,16 +107,24 @@ classdef ReshapeLayer < handle
             % TODO: implement this function, just need to modify the
             % dimensions of an ImageStar or convert a Star to an ImageStar
             % Should also support ImageZono and Zono
-            %error("TODO, Working on adding support for this layer.")
-            try
-                ipDim = numel(size(in_image));
-                idx = find(obj.targetDim < 0);
-                obj.targetDim(idx) = ipDim/prod(obj.targetDim(1:end ~= idx));
-            catch 
-                % do nothing
+            
+            if length(obj.scaleDim) == 4
+                scaleDim = [obj.scaleDim(4), obj.scaleDim(3), 1];
+            elseif length(obj.scaleDim) == 3
+                scaleDim = [obj.scaleDim(3), obj.scaleDim(2), obj.scaleDim(1)];
             end
-            image = in_image.reshapeImagestar(obj.targetDim);
-
+            
+            c = extractdata(dlresize(dlarray(in_image.V(:,:,:,1)), 'Scale', scaleDim, 'DataFormat', "SSS"));
+            V = extractdata(dlresize(dlarray(in_image.V(:,:,:,2:end)), 'Scale', scaleDim, 'DataFormat', "SSS"));
+            V_new = cat(4,c,V);
+            if isempty(in_image.im_lb) && isempty(in_image.im_ub)
+                im_lb = [];
+                im_ub = [];
+            else
+                im_lb = extractdata(dlresize(dlarray(in_image.im_lb), 'Scale', scaleDim, 'DataFormat', "SSS"));
+                im_ub = extractdata(dlresize(dlarray(in_image.im_lb), 'Scale', scaleDim, 'DataFormat', "SSS"));
+            end
+            image = ImageStar(V_new,in_image.C,in_image.d,in_image.pred_lb,in_image.pred_ub,im_lb,im_ub);
         end
         
         % handle multiple inputs
@@ -214,32 +219,26 @@ classdef ReshapeLayer < handle
         % parsing method
         
         function L = parse(layer)
-            % @layer: Custom Reshape Layer (created during importONNXLayers)
+            % @layer: Custom Upsample Layer (created during importONNXLayers)
             % @L: constructed layer
                       
-            if ~contains(class(layer), 'ReshapeLayer')
-                error('Input is not a reshape layer');
+            if ~contains(class(layer), 'UpsampleLayer')
+                error('Input is not a upsample layer');
             end
             
-            params = layer.ONNXParams.Nonlearnables;
+            params = layer.ONNXParams.Learnables;
             par_fields = fields(params);
             if length(par_fields) == 1
                 params = struct2cell(params);
-                targetDim = extractdata(params{1});
-                targetDim = reshape(targetDim, [1 length(targetDim)]);
-                
-%             elseif length(par_fields) > 1
-%                 params = struct2cell(params);
-%                 for i  = 1: length(params)
-%                     targetDim = extractdata(params{i,1});
-%                     targetDim = reshape(targetDim, [1 length(targetDim)]);
-%                     L = ReshapeLayer(append(layer.Name,char(i)), layer.NumInputs, layer.NumOutputs, layer.InputNames, append(layer.OutputNames,char(i)), targetDim);
-%                 end
+                scaleDim = extractdata(params{1});
+                scaleDim = reshape(scaleDim, [1 length(scaleDim)]);
+
             else
                 error('Parsing Reshape Layer was unsuccessful. We only support reshape layer with one Nonlearnable parameter.')
             end
 
-            L = ReshapeLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, targetDim);
+            L = UpsampleLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, scaleDim);
+            fprintf('Parsing a upsample layer is done successfully \n');
         end
 
     end

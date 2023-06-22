@@ -238,7 +238,6 @@ classdef UpsampleLayer < handle
             end
 
             L = UpsampleLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, scaleDim);
-            fprintf('Parsing a upsample layer is done successfully \n');
         end
 
     end

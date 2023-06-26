@@ -35,8 +35,8 @@ function property = load_vnnlib(propertyFile)
                 dim = dim + 1; % only have seen inputs defined as vectors, so this should work
                 % the more general approach would require some extra work, but should be easy as well
             elseif contains(tline, "declare-const") && contains(tline, "Y_")
-                lb_input = zeros(dim,1);
-                ub_input = zeros(dim,1);
+                lb_template = zeros(dim,1);
+                ub_template = zeros(dim,1);
                 dim = 0; % reset dimension counter
                 phase = "DeclareOutput";
                 continue;  % redo this line in correct phase
@@ -50,43 +50,61 @@ function property = load_vnnlib(propertyFile)
                 output_dim = dim;
                 dim = 1; % reset dimension counter
                 phase = "DefineInput";
+                % Initialize variables
+                 lb_input = lb_template;
+                ub_input = ub_template;
                 continue;  % redo this line in correct phase
             end
-        elseif phase == "DefineInput" % This only works for properties with one input set
-            % assign values to each input dimension
-            if contains(tline, "assert") && (contains(tline, 'and') || contains(tline, 'or')) && contains(tline, 'X_')
-                error("Currently do not support multiple input options");
+        elseif phase == "DefineInput" % assign lower and upper bounds to input variables (X)
+            % There are 3 options (as far as I am aware)
+            % 1) One input set -> multiple assert statements (2 per dimension (lower + upper))
+            % 2) Multiple input sets, one output set -> or statement defining in same line all constraints for all input dimensions)
+            % 3) Multiple input and output sets -> same as above, but including the output constraints in the same line as well
+
+            % What should the output look like?
+            % 1) [lb,ub] -> cell array of a 1 vector for lb and ub (e.g.lb = 1x1 cell)
+            % 2) lb = cell array of 1xM, M = number of statements in "or"
+            % 3) lb = ub = cell array of 1xM, prop = 1xM cell array of props
+
+            % In the case that only some variables can take on multiple
+            % input values, we'll throw an error for now (have not seen this case yet)
+            
+            % Determine which options to go with (option 1 is most common)
+            if contains(tline, "assert") && contains(tline, 'or') && contains(tline, 'X_')
+                if contains(tline, 'Y_') % option 3
+                    [lb_array, ub_array, prop_array] = process_combined_input_output(tline, lb_input, ub_input); 
+                else % option 2
+                    [lb_array, ub_array] = process_multiple_inputs(tline, lb_input, ub_input); 
+                end
             end
-            if contains(tline, ">=") || contains(tline, "<=")
-                if contains(tline, "X_")
-                    s = split(tline, '(');
-                    s = s(3:end);
-                    for k=1:length(s)
-                        t = split(s{k});
-                        dim = split(t{2},'_');
-                        dim = str2double(dim{2})+1;
-                        value = split(t{3},')');
-                        value = str2double(value{1});
-                        if contains(t{1},">=")
-                            lb_input(dim) = value;
-                        else
-                            ub_input(dim) = value;
-                        end
-                    end
-                    % assign bounds to each input variable
-                else
+
+            if contains(tline, ">") || contains(tline, "<") 
+                if contains(tline, "X_") % option 1
+                    [lb_input, ub_input] = process_input_constraint(tline, lb_input, ub_input);
+                   
+                else % move onto the next phase (define output constraints)
                     phase = "DefineOutput";
                     property.lb = lb_input;
                     property.ub = ub_input;
                     property.prop = {}; % initialize output of property (to be a collection of halfspaces)
                     continue; % redo this line in correct phase
+
                 end
             end
+
         elseif phase == "DefineOutput"
             % define output conditions/property
             if contains(tline, 'assert')
-                % check type of assertion, only linear constraints for now
-                if contains(tline, '>=') || contains(tline, '<=')
+                % There are a few options here
+                % 1) multiple single assertions -> One halfspace with M rows (H and g)
+                % 2) one or statement with multiple and assertions -> one halfspace for each "and" statement
+                %    2a) single assertions -> M halfsapces with only one ow each (H, g)
+                %    2b) multiple assertion -> treat each "and" statement as option 1
+                
+                % check output options
+
+                % Process any output assertion
+                if contains(tline, '>=') || contains(tline, '<=') || contains(tline, '>') || contains(tline, '<')
                     ast = process_assertion(tline, output_dim);
                 else
                     error("Property not supported yet for assertion: " + string(tline));
@@ -100,15 +118,10 @@ function property = load_vnnlib(propertyFile)
                     if length(last_ast) > 1 % means previous ast was an "or"
                         property.prop{n2+1} = ast;
                     else
-                        if ast.dim == last_ast.dim
-                            last_ast.Hg.G = [last_ast.Hg.G; ast.Hg.G];
-                            last_ast.Hg.g = [last_ast.Hg.g; ast.Hg.g];
-                            property.prop{n2} = last_ast;
-                        else
-                            property.prop{n2+1} = ast;
-                        end
+                        last_ast.Hg.G = [last_ast.Hg.G; ast.Hg.G];
+                        last_ast.Hg.g = [last_ast.Hg.g; ast.Hg.g];
+                        property.prop{n2} = last_ast;
                     end
-
                 end
             end
         else
@@ -123,12 +136,14 @@ function property = load_vnnlib(propertyFile)
         tline = fgetl(fileID);
     end % end while loop
     fclose(fileID); % close vnnlib file
+    % Check if there were multiple inputs
+    if exist('lb_array','var')
+        property.lb = lb_array;
+        property.ub = ub_array;
+    end
 end % end function
 
 %% Helper Functions
-
-% Notes:
-% Need to add a combination phase for properties that define inputs and outputs together (multiple properties within a property)
 
 % combine multiple lines into a single one if they belong to a single statement/assertion
 function tline = merge_lines(tline, fileID)
@@ -140,10 +155,9 @@ function tline = merge_lines(tline, fileID)
 end
 
 
+%% Helper Functions - OUTPUT
 
-%%%%%%%%%%%%%%%%%%%%%%
-%%%%  ASSERTION   %%%%
-%%%%%%%%%%%%%%%%%%%%%%
+% process output assertion
 function ast = process_assertion(tline, dim)
     ast = struct;           % initialize assertion
     ast.dim = dim;          % output dimension
@@ -157,7 +171,7 @@ function ast = process_assertion(tline, dim)
         end
         tline = strtrim(tline);
         % process linear constraint
-        if startsWith(tline,'(<=') || startsWith(tline,'(>=')
+        if startsWith(tline,'(<=') || startsWith(tline,'(>=') || startsWith(tline,'(<') || startsWith(tline,'(>')
             % get the mat and vector of one constraint
             % if a single constraint, H would be a [1,dim] mat, and g a scalar
             % These get added to ast.Hg
@@ -196,10 +210,7 @@ function ast = process_assertion(tline, dim)
     end
 end
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%   CONSTRAINT  %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%
+% process individual output constraint
 function [ast, len] = process_constraint(tline, ast)
     % process a single constraint
     len = 1;
@@ -216,7 +227,7 @@ function [ast, len] = process_constraint(tline, ast)
     % initialize values
     H = zeros(1, ast.dim);
     g = 0; 
-    if contains(op,"<=") % no need to change signs, same as in halfspace
+    if contains(op,"<=") || contains(op, "<") % no need to change signs, same as in halfspace
         H(idx1) = 1;
         if contains(var2,'Y')
             var2 = split(var2, ')');
@@ -246,11 +257,7 @@ function [ast, len] = process_constraint(tline, ast)
     ast.g = g;
 end
 
-
-
-%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%    AND    %%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%
+% process output "and "statement
 function [temp_ast, tline] = process_and(tline, ast)
     temp_ast.dim = ast.dim;
     temp_ast.Hg = {};
@@ -281,11 +288,7 @@ function [temp_ast, tline] = process_and(tline, ast)
     end
 end
 
-
-
-%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%    OR    %%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%
+% process output "or" statement
 function [ast, tline] = process_or(tline, ast)
     temp_ast.dim = ast.dim;
     temp_ast.Hg = {};
@@ -329,3 +332,66 @@ function [ast, tline] = process_or(tline, ast)
     ast = temp_ast; % only allow 1 OR statement, so it should be the one and only assertion in the vnnlib file
 end
 
+%% Helper Functions - INPUT
+
+% process input constraint
+function [lb_input, ub_input] =  process_input_constraint(tline, lb_input, ub_input)
+    s = split(tline, '(');
+    s = s(end);
+    for k=1:length(s)
+        t = split(s{k});
+        dim = split(t{2},'_');
+        dim = str2double(dim{2})+1;
+        value = split(t{3},')');
+        value = str2double(value{1});
+        if contains(t{1},">=")
+            lb_input(dim) = value;
+        else
+            ub_input(dim) = value;
+        end
+    end
+end
+
+% Process input assertion with combined input and output (or statement)
+function [lb_array, ub_array, prop_array] = process_combined_input_output(tline, lb_input, ub_input)
+    error("This is not supported yet. Work in progress...");
+end              
+
+% Process input assertion withmultiple input sets (or statement)
+function [lb_array, ub_array] = process_multiple_inputs(tline, lb_input, ub_input)
+    tline = tline(12:end); % remove '(assert (or'
+    pars = 1;
+    lb_array = {};
+    ub_array = {};
+    arr_count = 0;
+    while ~isempty(tline) > 0 && pars > 0
+        tline = strtrim(tline);
+        if startsWith(tline,'(<=') || startsWith(tline,'(>=')
+            % get the mat and vector of one constraint
+            % if a single constraint, H would be a [1,dim] mat, and g a scalar
+            % These get added to ast.Hg
+            constraint_char = split(tline, ')');
+            constraint_char = constraint_char{1};
+            [lb_input, ub_input] = process_input_constraint(constraint_char, lb_input, ub_input);
+            tline = tline(length(constraint_char)+2:end); % update tline, process remainder of assertion
+        
+        elseif startsWith(tline,'(or')
+            error("Currently we do not support an OR statement within and OR statement.")
+    
+        elseif startsWith(tline,'(and')
+            % parse all constraints with the "and" statement
+            % if multiple *and* statements, then H -> [# ands, dim], and g a [# ands, 1]
+            arr_count = arr_count + 1;
+            tline = tline(5:end);
+            pars = pars + 1;
+        
+        elseif startsWith(tline, ')')
+            pars = pars - 1;
+            tline = tline(2:end);
+            lb_array{arr_count} = lb_input;
+            ub_array{arr_count} = ub_input;
+        else
+            error("Something went wrong while processing vnnlib property with multiple inputs.")
+        end
+    end
+end

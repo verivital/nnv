@@ -459,13 +459,11 @@ classdef ImageStar < handle
             S1 = obj.toStar;
             S2 = I.toStar;
             S = S1.MinkowskiSum(S2);
-            [lb, ub] = S.getRanges;
-            S.predicate_lb = lb;
-            S.predicate_ub = ub;
             
             image = S.toImageStar(I.height, I.width, I.numChannel);
 
         end
+        
         % concatenation of two ImageStars is another Imagestar (y = [x1 x2])
         function image = concatenation(obj, I)
             
@@ -475,6 +473,35 @@ classdef ImageStar < handle
 
             image = S.toImageStar(I.height, I.width, I.numChannel + obj.numChannel);
 
+        end
+
+        % reshape an Imagestar with the target dimesion
+        function reshapedImage = reshapeImagestar(obj, targetDim)
+            targetDim = flip(targetDim);
+            in_star = obj.toStar();
+            for i = 1 : in_star.nVar+1
+                V(:,:,:,i) = reshape(in_star.V(:,i),targetDim);
+                for j = 1 : size(V(:,:,:,i),3)
+                    V1(:,:,j,i) = V(:,:,j,i)';
+                end
+            end
+            reshapedImage = ImageStar(V1,in_star.C, in_star.d, in_star.predicate_lb, in_star.predicate_ub);
+        end
+
+        % reshape an Imagestar with the target dimesion
+        function upsamplededImage = upsample(obj, scaleDim)
+            if length(scaleDim) == 4
+                scaleDim = [scaleDim(4), scaleDim(3), 1];
+            elseif length(scaleDim) == 3
+                scaleDim = [scaleDim(3), scaleDim(2), scaleDim(1)];
+            end
+            for i = 1 : in_star.nVar+1
+                V(:,:,:,i) = reshape(in_star.V(:,i),targetDim);
+                for j = 1 : size(V(:,:,:,i),3)
+                    V1(:,:,j,i) = V(:,:,j,i)';
+                end
+            end
+            reshapedImage = ImageStar(V1,in_star.C, in_star.d, in_star.predicate_lb, in_star.predicate_ub);
         end
 
         % transform to Star

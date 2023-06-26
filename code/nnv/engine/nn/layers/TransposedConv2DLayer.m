@@ -62,11 +62,11 @@ classdef TransposedConv2DLayer < handle
                     if length(w) ~= 4
                         error('Invalid weights array');
                     end
-                    if length(b) ~= 3
+                    if (w(3) > 1 && length(b) ~= 3) || (w(3) == 1 && length(obj.Bias) ~= 1)
                         error('Invalid biases array');
                     end
 
-                    if w(3) ~= b(3)
+                    if (w(3) >1 && w(3) ~= b(3)) || (w(3) == 1 && length(obj.Bias) ~= 1)
                         error('Inconsistency between filter weights and filter biases');
                     end
                     
@@ -249,8 +249,13 @@ classdef TransposedConv2DLayer < handle
             
             % author: Dung Tran
             % date: 4/22/2020
+            
+            % update: Neelanjana Pal
+            % date: 06/20/2023
                         
-            y = vl_nnconvt(input, double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            %y = vl_nnconvt(input, double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            input = dlarray(input);
+            y = extractdata(dltranspconv(input,obj.Weights,obj.Bias,"Cropping",obj.CroppingSize,"Stride",obj.Stride,"DataFormat",'SSCU'));
 
         end
                     
@@ -269,6 +274,9 @@ classdef TransposedConv2DLayer < handle
             
             % author: Dung Tran
             % date: 6/11/2019
+
+            % update: Neelanjana Pal
+            % date : 06/20/2023
             
             if ~isa(input, 'ImageStar')
                 error('The input is not an ImageStar object');
@@ -279,8 +287,10 @@ classdef TransposedConv2DLayer < handle
             end
             
             % compute output sets
-            c = vl_nnconvt(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-            V = vl_nnconvt(double(input.V(:,:,:,2:input.numPred + 1)), double(obj.Weights), [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);         
+%             c = vl_nnconvt(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+%             V = vl_nnconvt(double(input.V(:,:,:,2:input.numPred + 1)), double(obj.Weights), [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            c = extractdata(dltranspconv(dlarray(input.V(:,:,:,1)), obj.Weights, obj.Bias, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
+            V = extractdata(dltranspconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), obj.Weights, 0, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
             Y = cat(4, c, V);
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   

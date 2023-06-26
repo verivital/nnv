@@ -372,7 +372,7 @@ classdef Star
             if size(obj.C, 1) == size(X.C, 1) && size(obj.C, 2) == size(X.C, 2) && norm(obj.C - X.C) + norm(obj.d - X.d) < 0.0001
                V3 = V1 + V2;
                new_V = horzcat(new_c, V3);
-               S = Star(new_V, obj.C, obj.d); % new Star has the same number of basic vectors
+               S = Star(new_V, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub); % new Star has the same number of basic vectors
             else
                 V3 = horzcat(V1, V2);
                 new_c = obj.V(:, 1) + X.V(:, 1);

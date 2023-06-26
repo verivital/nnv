@@ -35,9 +35,6 @@ function result = verify_specification(reachSet, property)
             S = Set.intersectHalfSpace(property.G, property.g); % compute intersection with unsafe/not robust region
             if isempty(S)
                 result = 1; % no intersection with unsafe region = safe (unsat)
-            elseif isempty(Set.intersectHalfSpace(-property.G, -property.g))
-                result = 0; % intersects with unsafe region but no intersection with safe area = unsafe (sat)
-                break;
             else 
                 result = 2; % intersection with safe and unsafe region = unknown or unsafe
                 break;
@@ -55,9 +52,6 @@ function result = verify_specification(reachSet, property)
                 S = Set.intersectHalfSpace(property(cp).G, property(cp).g); 
                 if isempty(S)
                     continue; % does nothing, just need an statement, wanted to make this clear
-                elseif isempty(Set.intersectHalfSpace(-property(cp).G, -property(cp).g))
-                    result = 0; % sat, it violates the property
-                    cp = np;
                 else
                     result = 2; %  unknown if approx, sat if exact
                 end

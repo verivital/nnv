@@ -26,22 +26,58 @@ names = strings(n,1);
 for i=1:n
     L = Layers(i);
 %     fprintf('\nParsing Layer %d... \n', i);
+    customLayer_no_NLP = 0;
+    try
+       pat = digitsPattern(4);
+       if exist(str2num(extract(string(L.Name),pat)),integer) && isempty(struct2array(L.ONNXParams.Nonlearnables))
+        customLayer_no_NLP = 1;
+       end
+    catch
+        try
+            if contains(class(L), "PadLayer") && all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
+                customLayer_no_NLP = 1;
+            end
+        catch
+        end
+    end
+    
+
     % Layers with no effect on the reachability analysis
     if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') ...
-            || isa(L,"nnet.onnx.layer.VerifyBatchSizeLayer") || isa(L, "nnet.cnn.layer.RegressionOutputLayer")
+            || isa(L,"nnet.onnx.layer.VerifyBatchSizeLayer") || isa(L, "nnet.cnn.layer.RegressionOutputLayer") || customLayer_no_NLP == 1
         Li = PlaceholderLayer.parse(L);
 
     % Image Input Layer
     elseif isa(L, 'nnet.cnn.layer.ImageInputLayer')
         Li = ImageInputLayer.parse(L);
 
+    % Sequence Input Layer
+    elseif isa(L, 'nnet.cnn.layer.SequenceInputLayer')
+            Li = SequenceInputLayer.parse(L);
+
     % Convolutional 2D layer
     elseif isa(L, 'nnet.cnn.layer.Convolution2DLayer') 
         Li = Conv2DLayer.parse(L);
+    
+    % Convolutional 1D layer
+    elseif isa(L, 'nnet.cnn.layer.Convolution1DLayer') 
+            Li = Conv1DLayer.parse(L);
+
+     % Transposed Convolution 1D layer
+    elseif isa(L, 'nnet.cnn.layer.TransposedConvolution1DLayer') 
+            Li = TransposedConv1DLayer.parse(L);
 
     % ReLU Layer (also referred to as poslin)
     elseif isa(L, 'nnet.cnn.layer.ReLULayer')
         Li = ReluLayer.parse(L);
+
+    % LeakyReLU Layer
+    elseif isa(L, 'nnet.cnn.layer.LeakyReLULayer')
+            Li = LeakyReluLayer.parse(L);
+
+    % Tanh Layer
+    elseif isa(L, 'nnet.cnn.layer.TanhLayer')
+            Li = TanhLayer.parse(L);
 
     % Batch Normalization Layer
     elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
@@ -54,10 +90,22 @@ for i=1:n
     % Average Pooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')
         Li = AveragePooling2DLayer.parse(L);
+   
+    % Global Average Pooling 2D Layer
+    elseif isa(L, 'nnet.cnn.layer.GlobalAveragePooling2DLayer')
+        Li = GlobalAveragePooling2DLayer.parse(L);
 
     % Fully Connected Layer
     elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
         Li = FullyConnectedLayer.parse(L);
+
+    % Addition Layer
+    elseif isa(L, 'nnet.cnn.layer.AdditionLayer')
+        Li = AdditionLayer.parse(L);
+    
+    % Concatenation Layer
+    elseif isa(L, 'nnet.cnn.layer.ConcatenationLayer')
+        Li = ConcatenationLayer.parse(L);
 
     % Pixel Classification Layer (used for Semantic Segmentation output)
     elseif isa(L, 'nnet.cnn.layer.PixelClassificationLayer')
@@ -69,7 +117,7 @@ for i=1:n
         Li = FlattenLayer.parse(L);
 
     % Sigmoid Layer (also referred to as logsig)
-    elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer')
+    elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer') || isa(L, 'nnet.cnn.layer.SigmoidLayer')
         Li = SigmoidLayer.parse(L);
 
     % ElementWise Affine Layer (often used as a bias layer after FC layers)
@@ -77,7 +125,7 @@ for i=1:n
         Li = ElementwiseAffineLayer.parse(L);
     
     % Feature input layer
-    elseif isa(L, 'nnet.cnn.layer.FeatureInputLayer')
+    elseif isa(L, 'nnet.cnn.layer.FeatureInputLayer') || isa(L, 'nnet.onnx.layer.FeatureInputLayer')
         Li = FeatureInputLayer.parse(L); 
 
     % Transposed Convolution 2D Layer
@@ -93,14 +141,14 @@ for i=1:n
     % Depth Concatenation Layer (common in uNets)
     elseif isa(L, 'nnet.cnn.layer.DepthConcatenationLayer')
         Li = DepthConcatenationLayer.parse(L);
-
-    % Concatenation Layer (concat dim part of layer properties)
-    elseif isa(L, 'nnet.cnn.layer.ConcatenationLayer')
-        Li = ConcatenationLayer.parse(L);
     
     % Reshape Layer (custom created after parsing ONNX layers)
     elseif contains(class(L), "ReshapeLayer")
         Li = ReshapeLayer.parse(L);
+
+    % Reshape Layer (custom created after parsing ONNX layers)
+    elseif contains(class(L), "UpsampleLayer")
+        Li = UpsampleLayer.parse(L);
     
     % Custom flatten layers (avoid if possible)
     elseif contains(class(L), ["flatten"; "Flatten"])
@@ -140,14 +188,77 @@ for i=1:n
 end
 indxs = 1:n;
 
-% Assigning layer names to correspnding index
-name2number = containers.Map(names,indxs);
 
-% ConnectionsTable = table(new_sources, new_dests, 'VariableNames', {'Source', 'Destination'});
+% We compute the reachability and evaluation layer by layer, executing the
+% connections in the order they appear, so need to ensure the order makes sense:
+%  - sometimes some of the skipped connections (like in resnet or unets), they appear at the end so NNV returns the wrong output
+
+[nnvLayers, nnvConns, name2idx] = process_connections(nnvLayers, conns, names, indxs);
 
 % Create neural network
-net = NN(nnvLayers, conns);
-net.name2indx = name2number;
+net = NN(nnvLayers, nnvConns);
+net.name2indx = name2idx;
 
 end
 
+
+% Helper function for connections
+function [nnvLayers, nnvConns, name2number] = process_connections(nnvLayers, conns, names, idxs)
+    % Assigning layer names to correspnding index
+    name2number = containers.Map(names,idxs);
+
+    % Step 1 - initialize a variable to keep track of the number of inputs in NNV
+    count_inputs = ones(length(nnvLayers),1); % order is same as nnvLayers (default = 1)
+    for k=1:length(nnvLayers)
+        if contains(class(nnvLayers{k}), ["Concatenation", "Addition"])
+            count_inputs(k) = nnvLayers{k}.NumInputs;
+        elseif contains(class(nnvLayers{k}), "Input")
+            count_inputs(k) = 0; % this is the initial layer, no prior connections
+        end
+    end
+
+    % Step 2 - ensure these number of inputs are seen before executing
+    %       that layer, otherwise, move to the next connection
+    final_sources = [];
+    final_dests = [];
+    orig_sources = conns.Source;
+    orig_dests = conns.Destination;
+    skipped = idxs; %start with assumption that all connections are skipped
+
+    % start adding cnnections to the final list
+    while ~isempty(skipped) 
+        % Get connection idx
+        c = skipped(1);
+        skipped(1) = []; % like popping the first connection from the list
+        % get connection names
+        source_name = orig_sources{c};
+        dest_name = orig_dests{c};
+        % parse dest_name as it could be defined as name.in1 and so on, hen add it back at the end
+        dest_layer_name = split(dest_name, '/');
+%         if length(dest_layer_name) == 1
+        dest_layer_name = dest_layer_name{1};
+%             dest_layer_input = '';
+%         else
+%             dest_layer_input = ['/', dest_layer_name{2}];
+%             dest_layer_name = dest_layer_name{1};
+%         end
+        % check if source has an input counter of 0
+        source_idx = name2number(source_name);
+        if count_inputs(source_idx) == 0
+            dest_idx = name2number(dest_layer_name);
+            count_inputs(dest_idx) = count_inputs(dest_idx)-1;
+            final_sources = [final_sources; string(source_name)];
+            final_dests = [final_dests; string(dest_name)];
+        else
+            if isempty(skipped)
+                error("There is an unreachable connection")
+            else
+                skipped = [skipped, c];
+            end
+        end        
+        
+    end
+
+    nnvConns = table(final_sources, final_dests, 'VariableNames', {'Source', 'Destination'});    
+
+end

@@ -199,7 +199,7 @@ classdef AdditionLayer < handle
                 error('Input is not a AdditionLayer layer');
             end
             L = AdditionLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames);
-            fprintf('\nParsing a addition layer is done successfully');
+%             fprintf('\nParsing a addition layer is done successfully');
         end
 
     end

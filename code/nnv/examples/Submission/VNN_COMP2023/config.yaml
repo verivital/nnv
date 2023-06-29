@@ -1,6 +1,6 @@
 name: NNV
 ami: ami-0cce14f90c7ec05b5 
-scripts_dir: code/nnv/examples/Submission/VNN_COMP2023/vnncomp_scripts/
+scripts_dir: code/nnv/examples/Submission/VNN_COMP2023/
 manual_installation_step: False
 run_installation_script_as_root: False
 run_post_installation_script_as_root: False

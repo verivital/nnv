@@ -34,7 +34,7 @@ def prepare_instance(onnx: str, vnnlib: str) -> None:
     # eng.quit()
 
 
-def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
+def run_instance(category, onnx, vnnlib, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
 
     Parameters:
@@ -55,7 +55,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     status = 0 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
     #print('timestep :',toc) 
-    future = eng.run_vnncomp_instance(args.onnxfile,args.vnnlibfile,args.category,nargout=2,background=True)
+    future = eng.run_vnncomp_instance(category, onnx, vnnlib, outputlocation,background=True)
     
     try: 
         [status, total_time] = future.result(timeout=args.timeout)

@@ -15,6 +15,8 @@ fi
 
 echo "Installing $TOOL_NAME dependencies"
 
+/usr/local/matlab/bin/matlab -licmode online
+
 # sudo apt install -y python3-pip 
 # pip install numpy matlabengine
 #echo "Finding MATLAB (directory)"
@@ -23,15 +25,17 @@ echo "Installing $TOOL_NAME dependencies"
 # find / -type f -iname "MATLAB" # is matlab installed? where?
 
 # find / -type f -iname "license"
-sudo find / -type d -iname "licenses"
+#sudo find / -type d -iname "licenses"
 #find / -type f -name "*.lic"
 #sudo find / -type f -iname "installer_input.txt"
 # find . install
 ip link show
 ls /usr/share/licenses
 
-du -ac ~/.matlab/*/*lic
+du -ac ~/.matlab/
 ls -R /usr/local/matlab/licenses
+
+echo $USER
 
 # ifconfig
 

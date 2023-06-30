@@ -11,7 +11,7 @@ if [ "$1" != ${VERSION_STRING} ]; then
 	exit 1
 fi
 
-sudo killall apt apt-get
+# sudo killall apt apt-get
 
 echo "Installing $TOOL_NAME dependencies"
 
@@ -25,7 +25,11 @@ find / -type f -iname "MATLAB" # is matlab installed? where?
 # ifconfig
 
 # remove paths from any prior installation
-#matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
+matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
+
+/mnt/polyspace/bin/matlab -nodisplay -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
+
+/mnt/matlab/bin/matlab -nodisplay -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
 
 #matlab -nodisplay -r "cd '/home/ubuntu/work/nnv/code/nnv/'; install; addpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 

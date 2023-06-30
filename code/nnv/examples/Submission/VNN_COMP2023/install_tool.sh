@@ -16,13 +16,13 @@ echo "Installing $TOOL_NAME dependencies"
 sudo apt install -y python3-pip net-tools
 # pip install numpy matlabengine
 echo "Finding MATLAB (directory)"
-find / -type d -name "MATLAB" # is matlab installed? where?
+find / -type d -iname "MATLAB" # is matlab installed? where?
 echo "Finding MATLAB (anything)"
-find "MATLAB" # is matlab installed? where?
+find / "MATLAB" # is matlab installed? where?
 echo "Finding matlab (executable ?)"
-find matlab
+find / matlab
 echo "... Finding R2022b"
-find R2022b
+find / -type d -iname "R2022b"
 
 ifconfig
 

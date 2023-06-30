@@ -34,7 +34,7 @@ def prepare_instance(onnx: str, vnnlib: str) -> None:
     # eng.quit()
 
 
-def run_instance(onnx, vnnlib, timeout) -> None:
+def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
 
     Parameters:
@@ -51,6 +51,37 @@ def run_instance(onnx, vnnlib, timeout) -> None:
     print(f'Successfully connected to engine: {eng_name}.')
 
     # add logic for running the reachability analysis.
+
+    status = 0 #initialize with an 'Unknown' status
+    #toc = time.perf_counter()
+    #print('timestep :',toc) 
+    future = eng.run_vnncomp_instance(args.onnxfile,args.vnnlibfile,args.category,nargout=2,background=True)
+    
+    try: 
+        [status, total_time] = future.result(timeout=args.timeout)
+        #print('extra time = ',int(toc-tic))
+    except matlab.engine.TimeoutError:
+        print("timeout")
+        #print('extra time = ',int(toc-tic))
+        total_time = args.timeout
+        status = 3
+        
+    future.cancel()
+    eng.quit() 
+    
+    if status == 0:
+        result = 'unknown' #Unknown
+        #print('Unknown and time: ',total_time)
+    elif status == 1:
+        result = 'holds'
+        #print('Holds and time: ',total_time)
+    elif status == 3:
+        result = 'timeout'
+        #print('Timed Out and time: ',total_time)
+    
+    resultfile = args.outputlocation
+    with open(resultfile, 'w') as f:
+        f.write(result)
 
     eng.quit()
 

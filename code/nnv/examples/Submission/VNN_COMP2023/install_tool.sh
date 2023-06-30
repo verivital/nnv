@@ -25,18 +25,23 @@ echo "Installing $TOOL_NAME dependencies"
 # find / -type f -iname "license"
 sudo find / -type d -iname "licenses"
 #find / -type f -name "*.lic"
-sudo find / -type f -iname "installer_input.txt"
+#sudo find / -type f -iname "installer_input.txt"
 # find . install
+ip link show
+ls /usr/share/licenses
+
+du -ac ~/.matlab/*/*lic
+ls -R /usr/local/matlab/licenses
 
 # ifconfig
 
 # Add flag for online license
-/usr/local/matlab/bin/matlab -licmode online
+#/usr/local/matlab/bin/matlab -licmode online
 
 # remove paths from any prior installation
-matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
+#matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 
-matlab -nodisplay -nodesktop -nosplash -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
+#matlab -nodisplay -nodesktop -nosplash -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
 
 #matlab -nodisplay -r "cd '/home/ubuntu/work/nnv/code/nnv/'; install; addpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 

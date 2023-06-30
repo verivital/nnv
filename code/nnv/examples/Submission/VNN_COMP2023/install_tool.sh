@@ -13,8 +13,9 @@ fi
 
 echo "Installing $TOOL_NAME dependencies"
 
-sudo apt install -y python3-pip
-pip install numpy onnxruntime onnx scipy matlabengine
+# sudo apt install -y python3-pip
+# pip install numpy matlabengine
+ls /usr/local/MATLAB/ # is matlab installed?
 
 # remove paths from any prior installation
 matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"

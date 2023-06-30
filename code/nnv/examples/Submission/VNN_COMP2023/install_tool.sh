@@ -23,9 +23,9 @@ echo "Installing $TOOL_NAME dependencies"
 # find / -type f -iname "MATLAB" # is matlab installed? where?
 
 # find / -type f -iname "license"
-find / -type d -iname "licenses"
+sudo find / -type d -iname "licenses"
 #find / -type f -name "*.lic"
-find / -type f -iname "installer_input.txt"
+sudo find / -type f -iname "installer_input.txt"
 # find . install
 
 # ifconfig

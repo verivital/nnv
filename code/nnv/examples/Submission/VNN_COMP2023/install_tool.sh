@@ -11,6 +11,8 @@ if [ "$1" != ${VERSION_STRING} ]; then
 	exit 1
 fi
 
+sudo killall apt apt-get
+
 echo "Installing $TOOL_NAME dependencies"
 
 sudo apt install -y python3-pip net-tools
@@ -18,13 +20,9 @@ sudo apt install -y python3-pip net-tools
 echo "Finding MATLAB (directory)"
 find / -type d -iname "MATLAB" # is matlab installed? where?
 echo "Finding MATLAB (anything)"
-find / "MATLAB" # is matlab installed? where?
-echo "Finding matlab (executable ?)"
-find / matlab
-echo "... Finding R2022b"
-find / -type d -iname "R2022b"
+find / -type f -iname "MATLAB" # is matlab installed? where?
 
-ifconfig
+# ifconfig
 
 # remove paths from any prior installation
 #matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"

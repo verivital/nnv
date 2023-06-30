@@ -18,9 +18,9 @@ echo "Installing $TOOL_NAME dependencies"
 sudo apt install -y python3-pip 
 # pip install numpy matlabengine
 #echo "Finding MATLAB (directory)"
-#find / -type d -iname "MATLAB" # is matlab installed? where?
+find / -type d -iname "MATLAB" # is matlab installed? where?
 #echo "Finding MATLAB (anything)"
-#find / -type f -iname "MATLAB" # is matlab installed? where?
+find / -type f -iname "MATLAB" # is matlab installed? where?
 
 find / -type f -iname "license"
 find / -type d -iname "license"
@@ -29,11 +29,9 @@ find / -type f -name "*.lic"
 # ifconfig
 
 # remove paths from any prior installation
-# matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
+matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 
-/mnt/matlab/bin/matlab -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
-
-/mnt/matlab/bin/glnxa64/MATLAB
+matlab -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
 
 #matlab -nodisplay -r "cd '/home/ubuntu/work/nnv/code/nnv/'; install; addpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 

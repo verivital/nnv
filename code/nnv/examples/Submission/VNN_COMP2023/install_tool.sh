@@ -25,6 +25,7 @@ find / -type f -iname "MATLAB" # is matlab installed? where?
 find / -type f -iname "license"
 find / -type d -iname "license"
 find / -type f -name "*.lic"
+find . install
 
 # ifconfig
 

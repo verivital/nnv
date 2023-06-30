@@ -2,7 +2,7 @@ name: nnv
 ami: ami-02fbb965167e007cb
 scripts_dir: code/nnv/examples/Submission/VNN_COMP2023/
 manual_installation_step: False
-run_installation_script_as_root: True
+run_installation_script_as_root: False
 run_post_installation_script_as_root: False
 run_toolkit_as_root: False
 description: >

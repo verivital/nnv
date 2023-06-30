@@ -15,7 +15,7 @@ fi
 
 echo "Installing $TOOL_NAME dependencies"
 
-/usr/local/matlab/bin/matlab -licmode online
+#/usr/local/matlab/bin/matlab -licmode online
 
 # sudo apt install -y python3-pip 
 # pip install numpy matlabengine
@@ -29,15 +29,17 @@ echo "Installing $TOOL_NAME dependencies"
 #find / -type f -name "*.lic"
 #sudo find / -type f -iname "installer_input.txt"
 # find . install
-ip link show
-ls /usr/share/licenses
 
-du -ac ~/.matlab/
-ls -R /usr/local/matlab/licenses
+# ls /usr/share/licenses
 
-echo $USER
+#du -ac ~/.matlab/
+#ls -R /usr/local/matlab/licenses
 
-# ifconfig
+ip link show # get mac address (for licensing)
+
+echo $USER # get usernme (for licensing)
+
+mkdir ~/.matlab/R2022b_licenses 
 
 # Add flag for online license
 #/usr/local/matlab/bin/matlab -licmode online

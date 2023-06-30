@@ -27,13 +27,9 @@ sudo apt install -y python3-pip
 # remove paths from any prior installation
 # matlab -nodisplay -r "rmpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 
-/mnt/polyspace/bin/matlab -nodisplay -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
-
-/mnt/matlab/bin/matlab -nodisplay -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
+/mnt/matlab/bin/matlab -r "matlabshared.supportpkg.getInstalled; matlabshared.supportpkg.getSupportPackageRoot; matlabroot; ver; quit"
 
 /mnt/matlab/bin/glnxa64/MATLAB
-
-/mnt/polyspace/bin/glnxa64/MATLAB
 
 #matlab -nodisplay -r "cd '/home/ubuntu/work/nnv/code/nnv/'; install; addpath(genpath('/home/ubuntu/work/nnv/')); savepath; quit"
 

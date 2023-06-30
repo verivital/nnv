@@ -22,6 +22,10 @@ sudo apt install -y python3-pip
 #echo "Finding MATLAB (anything)"
 #find / -type f -iname "MATLAB" # is matlab installed? where?
 
+find / -type f -iname "license"
+find / -type d -iname "license"
+find / -type f -name "*.lic"
+
 # ifconfig
 
 # remove paths from any prior installation

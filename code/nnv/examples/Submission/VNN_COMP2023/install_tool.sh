@@ -16,7 +16,8 @@ fi
 echo "Installing $TOOL_NAME dependencies"
 
 curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/s/4p17xm4tlm8r9gs/sppFile.zip
-mkdir -p /usr/local/MATLAB/R2022b/SupportPackages
+sleep 60
+sudo mkdir -p /usr/local/MATLAB/R2022b/SupportPackages
 unzip sppFile.zip -d /usr/local/MATLAB/R2022b/SupportPackages
 
 #/usr/local/matlab/bin/matlab -licmode online

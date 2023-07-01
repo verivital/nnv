@@ -1,13 +1,13 @@
 %% Print out some info to prepare for the comp
 
 % remove paths from any prior installation (if any)
-rmpath(genpath('/home/ubuntu/work/nnv/')); savepath;
+rmpath(genpath('/home/ubuntu/toolkit/code/nnv/')); savepath;
 
 % installing nnv
-cd /home/ubuntu/work/nnv/code/nnv/;
+cd /home/ubuntu/toolkit/code/nnv/;
 install;
 % save path to NNV
-addpath(genpath('/home/ubuntu/work/nnv/')); savepath;
+addpath(genpath('/home/ubuntu/toolkit/code/nnv/')); savepath;
 
 disp("");
 disp("Support package path");

@@ -114,10 +114,10 @@ def _get_args() -> None:
 if __name__=="__main__":
     # parse the arguments.
     ACTION, PATH_TO_ONNX, PATH_TO_VNNLIB, *TIMEOUT, *OUTPUTLOCATION = _get_args()
-    if (ACTION == 'run_instance') 
+    if (ACTION == 'run_instance'):
         TIMEOUT = TIMEOUT[0]
         OUTPUTLOCATION = OUTPUTLOCATION[0]
-    else 
+    else:
         TIMEOUT = None
         OUTPUTLOCATION = None
 

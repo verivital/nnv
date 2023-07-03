@@ -1,6 +1,6 @@
-function result = run_vnncomp_instance(category, onnx, vnnlib)
+function [result, vTime] = run_vnncomp_instance(category, onnx, vnnlib)
 % single script to run all instances (supported) from the vnncomp2023
-
+t = tic; % start timer
 result = 2; % unknown (to start with)
 
 % Process:
@@ -50,6 +50,8 @@ disp(prop);
 % else
 %     error("Working on adding support to other vnnlib properties")
 % end
+
+vTime = toc(t); % save total computation time
 
 end
 
@@ -114,5 +116,22 @@ function [net,nnvnet] = load_vnncomp_network(category, onnx)
         % traffic: onnx to matlab: opset15 issues
         error("ONNX model not supported")
     end
+
+end
+
+
+function write_counterexample(outputfile, counterEx)
+    % First line - > sat
+    % after that, write the variables for each input dimension  of the counterexample
+    %
+    % Example:
+    %  ( (X_0 0.12132)
+    %    (X_1 3.45454)
+    %    ( .... )
+    %    (Y_0 2.32342)
+    %    (Y_1 3.24355)
+    %    ( ... )
+    %    (Y_N 0.02456))
+    %
 
 end

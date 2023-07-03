@@ -27,7 +27,7 @@ WAIT_FOR_CONNECTION_TO_CLOSE='import matlab.engine\nimport time\nwhile matlab.en
 python3 -c "exec('$WAIT_FOR_CONNECTION_TO_CLOSE')"
 
 # start the matlab engine in background and keep the connection open
-python3 execute.py 'prepare_instance' $ONNX_FILE $VNNLIB_FILE &
+python3 /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/execute.py 'prepare_instance' $ONNX_FILE $VNNLIB_FILE &
 
 WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1)'
 python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"

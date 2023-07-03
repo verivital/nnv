@@ -34,7 +34,7 @@ def prepare_instance(onnx: str, vnnlib: str) -> None:
     # eng.quit()
 
 
-def run_instance(category, onnx, vnnlib, outputlocation) -> None:
+def run_instance(category, onnx, vnnlib, timeot, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
 
     Parameters:
@@ -55,33 +55,37 @@ def run_instance(category, onnx, vnnlib, outputlocation) -> None:
     status = 0 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
     #print('timestep :',toc) 
-    future = eng.run_vnncomp_instance(category, onnx, vnnlib, outputlocation,background=True)
+    future = eng.run_vnncomp_instance(category, onnx, vnnlib, outputlocation, background=True)
     
     try: 
-        [status, total_time] = future.result(timeout=args.timeout)
+        [status, total_time] = future.result()
         #print('extra time = ',int(toc-tic))
     except matlab.engine.TimeoutError:
         print("timeout")
         #print('extra time = ',int(toc-tic))
-        total_time = args.timeout
+        total_time = timeout
         status = 3
         
     future.cancel()
     eng.quit() 
     
-    if status == 0:
-        result = 'unknown' #Unknown
-        #print('Unknown and time: ',total_time)
-    elif status == 1:
-        result = 'holds'
-        #print('Holds and time: ',total_time)
-    elif status == 3:
-        result = 'timeout'
-        #print('Timed Out and time: ',total_time)
-    
-    resultfile = args.outputlocation
-    with open(resultfile, 'w') as f:
-        f.write(result)
+#     if status == 2:
+#         result = 'unknown' #Unknown
+#         #print('Unknown and time: ',total_time)
+#     elif status == 1:
+#         result = 'unsat'
+#     elif status == 0:
+#         result = 'sat'
+#         #print('Holds and time: ',total_time)
+#     elif status == 3:
+#         result = 'timeout'
+#         #print('Timed Out and time: ',total_time)
+
+    if status == 3
+        resultfile = outputlocation
+        with open(resultfile, 'w') as f:
+            f.write(result)
+    # All the other results are written from matlab
 
     eng.quit()
 
@@ -89,7 +93,7 @@ def run_instance(category, onnx, vnnlib, outputlocation) -> None:
 def _get_args() -> None:
     """Get the arguments passed to the script from the command line.
     
-    Expected usage is : [ACTION, PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT]
+    Expected usage is : [ACTION, PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT, OUTPUTLOCATION]
     """
     args = sys.argv[1:]
     ACTION = args[0]
@@ -101,21 +105,26 @@ def _get_args() -> None:
     
     # run_instance expects: benchmark_category, onnx, vnnlib, timeout
     if (ACTION == 'run_instance'):
-        if len(args) != 4:
-            raise ValueError(f'Incorrect number of arguments, expected 4 got {len(args)}.')
+        if len(args) != 5:
+            raise ValueError(f'Incorrect number of arguments, expected 5 got {len(args)}.')
     
     return args
 
 
 if __name__=="__main__":
     # parse the arguments.
-    ACTION, PATH_TO_ONNX, PATH_TO_VNNLIB, *TIMEOUT = _get_args()
-    TIMEOUT = TIMEOUT[0] if (ACTION == 'run_instance') else None
+    ACTION, PATH_TO_ONNX, PATH_TO_VNNLIB, *TIMEOUT, *OUTPUTLOCATION = _get_args()
+    if (ACTION == 'run_instance') 
+        TIMEOUT = TIMEOUT[0]
+        OUTPUTLOCATION = OUTPUTLOCATION[0]
+    else 
+        TIMEOUT = None
+        OUTPUTLOCATION = None
 
     # implement logic for each action we might want to take.
     switcher = {
         'prepare_instance': lambda: prepare_instance(PATH_TO_ONNX, PATH_TO_VNNLIB), # prepare_instance(PATH_TO_ONNX, PATH_TO_VNNLIB),
-        'run_instance': lambda: run_instance(PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT) # run_instance(PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT),
+        'run_instance': lambda: run_instance(PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT, OUTPUTLOCATION) # run_instance(PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT, OUTPUTLOCATION),
     }
 
     # retrieve the correct function call based on the input action.

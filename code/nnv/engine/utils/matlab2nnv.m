@@ -193,7 +193,15 @@ indxs = 1:n;
 % connections in the order they appear, so need to ensure the order makes sense:
 %  - sometimes some of the skipped connections (like in resnet or unets), they appear at the end so NNV returns the wrong output
 
-[nnvLayers, nnvConns, name2idx] = process_connections(nnvLayers, conns, names, indxs);
+if height(conns) == length(nnvLayers) - 1 % fullyconnected layers, no skips
+    % Assigning layer names to correspnding index
+    name2idx = containers.Map(names,indxs);
+    nnvConns = conns;
+else
+    [nnvLayers, nnvConns, name2idx] = process_connections(nnvLayers, conns, names, indxs);
+end
+
+% ConnectionsTable = table(new_sources, new_dests, 'VariableNames', {'Source', 'Destination'});
 
 % Create neural network
 net = NN(nnvLayers, nnvConns);

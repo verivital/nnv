@@ -1,5 +1,6 @@
-function [result, vTime] = run_vnncomp_instance(category, onnx, vnnlib)
+function [result, vTime] = run_vnncomp_instance(category, onnx, vnnlib, outputfile)
 % single script to run all instances (supported) from the vnncomp2023
+
 t = tic; % start timer
 result = 2; % unknown (to start with)
 
@@ -14,28 +15,35 @@ result = 2; % unknown (to start with)
 
 % Load networks
 [net, nnvnet] = load_vnncomp_network(category, onnx);
-disp(net);
-disp(nnvnet);
+inputSize = net.Layers(1, 1).InputSize;
+% disp(net);
+% disp(nnvnet);
 
 % Load property to verify
-[lb,ub,prop] = load_vnnlib(vnnlib);
-disp(prop);
+property = load_vnnlib(vnnlib);
+lb = property.lb; % input lower bounds
+ub = property.ub; % input upper bounds
+prop = property.prop; % output spec to verify
+% disp(property);
+% disp(property.prop{1});
 
 % Steps 2 and 3 may be executed differently depends on how the vnnlib
 % properties are defined
 
 %% 2) SAT?
 
+nRand = 1000; % number of random inputs
+
 % Choose how to falsify based on vnnlib file
-% if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
-% 
+if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
+    counterEx = falsify_single(lb, ub, nRand, prop.Hg);
 % elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
-% 
-% elseif isa(lb, "cell") && length(prop) == 1
-% 
-% else
-%     error("Working on adding support to other vnnlib properties")
-% end
+%     
+% elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
+
+else
+    error("Working on adding support to other vnnlib properties")
+end
 
 
 %% 3) UNSAT?
@@ -51,7 +59,29 @@ disp(prop);
 %     error("Working on adding support to other vnnlib properties")
 % end
 
+
+%% 4) Process results
+
 vTime = toc(t); % save total computation time
+
+% Write results to output file
+if result == 0
+    fid = fopen(outputfile, 'w');
+    fprintf(fid, 'sat \n');
+    fclose(fid);
+    write_counterexample(outputfile, counterEx)
+elseif result == 1
+    fid = fopen(outputfile, 'w');
+    fprintf(fid, 'unsat \n');
+    fclose(fid);
+elseif result == 2
+    fid = fopen(outputfile, 'w');
+    fprintf(fid, 'unknown \n');
+    fclose(fid);
+end
+
+quit; % does this work when running matlab.engine from python in background?
+
 
 end
 
@@ -107,9 +137,14 @@ function [net,nnvnet] = load_vnncomp_network(category, onnx)
         net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
         nnvnet = "";
 
-    elseif contains(category, yolo)
+    elseif contains(category, "yolo")
         % yolo: onnx to matlab
         net = importONNXNetwork(onnx); % padlayer
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, "acasxu")
+        % acasxu: onnx to nnv
+        net = importONNXNetwork(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
         
     else % all other benchmarks
@@ -119,6 +154,13 @@ function [net,nnvnet] = load_vnncomp_network(category, onnx)
 
 end
 
+function xRand = create_random_examples(lb, ub, nR, inputSize)
+    xB = Box(lb, ub); % lb, ub must be vectors
+    xRand = xB.sample(nR);
+    xRand = reshape(xRand,[inputSize nR]); % reshape vectors into net input size
+    xRand(:,:,:,nR+1) = x; % add lower bound 
+    xRand(:,:,:,nR+2) = x; % add upper bound
+end
 
 function write_counterexample(outputfile, counterEx)
     % First line - > sat
@@ -135,3 +177,39 @@ function write_counterexample(outputfile, counterEx)
     %
 
 end
+
+function counterEx = falsify_single(lb, ub, nRand, Hs)
+    counterEx = nan;
+    xRand = create_random_examples(lb, ub, nRand, inputSize);
+    s = size(xRand);
+    n = length(z);
+    %  look for counterexamples
+    for i=1:s(n)
+        x = get_example(xRand, i);
+        yPred = predict(net, x);
+        % check if property violated
+        yPred = reshape(yPred, [], 1); % convert to column vector (if needed)
+        for h=1:length(Hs)
+            if Hs.contains(yPred) % property violated
+                counterEx = {x; yPred}; % save input/output of countex-example
+                break;
+            end
+        end
+    end
+    
+end
+
+function x = get_example(xRand,i)
+    s = size(xRand);
+    n = length(z);
+    if n == 4
+        x = xRand(:,:,:,i);
+    elseif n == 3
+        x = xRand(:,:,i);
+    elseif n == 2
+        x = xRand(:,i);
+    else
+        error("InputSize = "+string(s));
+    end
+end
+

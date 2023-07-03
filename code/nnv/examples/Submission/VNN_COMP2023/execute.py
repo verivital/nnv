@@ -81,10 +81,10 @@ def run_instance(category, onnx, vnnlib, timeot, outputlocation) -> None:
 #         result = 'timeout'
 #         #print('Timed Out and time: ',total_time)
 
-    if status == 3
+    if status == 3:
         resultfile = outputlocation
         with open(resultfile, 'w') as f:
-            f.write(result)
+            f.write('timeout')
     # All the other results are written from matlab
 
     eng.quit()

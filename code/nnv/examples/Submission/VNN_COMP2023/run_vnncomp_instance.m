@@ -36,14 +36,16 @@ nRand = 1000; % number of random inputs
 
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
-    counterEx = falsify_single(net, lb, ub, nRand, prop.Hg);
+    counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg);
 % elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
 %     
 % elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
 
 else
-    error("Working on adding support to other vnnlib properties")
+    warning("Working on adding support to other vnnlib properties")
 end
+
+disp(toc(t));
 
 
 %% 3) UNSAT?
@@ -53,6 +55,7 @@ reachOptions = struct;
 reachOptions.reachMethod = 'exact-star';
 reachOptions.reachOption = 'parallel';
 reachOptions.numCores = feature('numcores');
+% reachOptions.reachMethod = 'approx-star';
 
 if result == 2 % no counterexample found (otherwise, skip step 3 and write results)
 
@@ -70,7 +73,7 @@ if result == 2 % no counterexample found (otherwise, skip step 3 and write resul
 %     elseif isa(lb, "cell") && length(prop) == 1
     
     else
-        error("Working on adding support to other vnnlib properties")
+        warning("Working on adding support to other vnnlib properties")
     end
 
 end
@@ -78,6 +81,10 @@ end
 %% 4) Process results
 
 vTime = toc(t); % save total computation time
+
+disp(result);
+disp(vTime);
+disp( " ");
 
 % Write results to output file
 if result == 0
@@ -95,7 +102,7 @@ elseif result == 2
     fclose(fid);
 end
 
-quit; % does this work when running matlab.engine from python in background?
+% quit; % does this work when running matlab.engine from python in background?
 
 
 end
@@ -173,8 +180,8 @@ function xRand = create_random_examples(lb, ub, nR, inputSize)
     xB = Box(lb, ub); % lb, ub must be vectors
     xRand = xB.sample(nR);
     xRand = reshape(xRand,[inputSize nR]); % reshape vectors into net input size
-    xRand(:,:,:,nR+1) = x; % add lower bound 
-    xRand(:,:,:,nR+2) = x; % add upper bound
+%     xRand(:,:,:,nR+1) = x; % add lower bound 
+%     xRand(:,:,:,nR+2) = x; % add upper bound
 end
 
 function write_counterexample(outputfile, counterEx)
@@ -213,19 +220,25 @@ function write_counterexample(outputfile, counterEx)
 
 end
 
-function counterEx = falsify_single(net, lb, ub, nRand, Hs)
+function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs)
     counterEx = nan;
     xRand = create_random_examples(lb, ub, nRand, inputSize);
     s = size(xRand);
-    n = length(z);
+    n = length(s);
     %  look for counterexamples
-    for i=1:s(n)
-        x = get_example(xRand, i);
+    for i=1:s(n)+2
+        if i == 1 % attempt first with upper and lower bounds
+            x = reshape(lb, inputSize);
+        elseif i == 2
+            x = reshape(ub, inputSize);
+        else
+            x = get_example(xRand, i-2);
+        end
         yPred = predict(net, x);
         % check if property violated
         yPred = reshape(yPred, [], 1); % convert to column vector (if needed)
         for h=1:length(Hs)
-            if Hs.contains(yPred) % property violated
+            if Hs(h).contains(double(yPred)) % property violated
                 counterEx = {x; yPred}; % save input/output of countex-example
                 break;
             end
@@ -236,7 +249,7 @@ end
 
 function x = get_example(xRand,i)
     s = size(xRand);
-    n = length(z);
+    n = length(s);
     if n == 4
         x = xRand(:,:,:,i);
     elseif n == 3

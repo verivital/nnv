@@ -1,7 +1,8 @@
 %% Run some verification instances from the competition
 
 % path to benchmarks
-vnncomp_path = "/home/manzand/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
+% vnncomp_path = "/home/manzand/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
+vnncomp_path = "/home/dieman95/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
 
 % Go through some of the instances for every benchmark
 

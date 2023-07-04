@@ -36,7 +36,7 @@ nRand = 1000; % number of random inputs
 
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
-    counterEx = falsify_single(lb, ub, nRand, prop.Hg);
+    counterEx = falsify_single(net, lb, ub, nRand, prop.Hg);
 % elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
 %     
 % elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
@@ -48,17 +48,32 @@ end
 
 %% 3) UNSAT?
 
-% Choose how to verify based on vnnlib file
-% if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
-% 
-% elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
-% 
-% elseif isa(lb, "cell") && length(prop) == 1
-% 
-% else
-%     error("Working on adding support to other vnnlib properties")
-% end
+% Define reachability options
+reachOptions = struct;
+reachOptions.reachMethod = 'exact-star';
+reachOptions.reachOption = 'parallel';
+reachOptions.numCores = feature('numcores');
 
+if result == 2 % no counterexample found (otherwise, skip step 3 and write results)
+
+% Choose how to verify based on vnnlib file
+    if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
+        % Get input set
+        lb = reshape(lb, inputSize);
+        ub = reshape(ub, inputSize);
+        IS = ImageStar(lb, ub);
+        % Compute reachability
+        ySet = nnvnet.reach(IS, reachOptions);
+        result = verify_specification(ySet, prop);
+%     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
+%     
+%     elseif isa(lb, "cell") && length(prop) == 1
+    
+    else
+        error("Working on adding support to other vnnlib properties")
+    end
+
+end
 
 %% 4) Process results
 
@@ -176,9 +191,29 @@ function write_counterexample(outputfile, counterEx)
     %    (Y_N 0.02456))
     %
 
+    precision = '%.16g'; % set the precision for all variables written to txt file
+    % open file and start writing counterexamples
+    fid = fopen(outputfile, 'a+');
+    x = counterEx{1};
+    x = reshape(x, [], 1);
+    % begin specifying value for input example
+    fprintf(fid,'(');
+    for i = 1:length(x)
+        fprintf(fid, "(X_" + string(i-1) + " " + num2str(x(i), precision)+ ")\n");
+    end
+    y = counterEx{2};
+    y = reshape(y, [], 1);
+    % specify values for output example
+    for j =1:length(y)
+        fprintf(fid, "(Y_" + string(j-1) + " " + num2str(y(j), precision)+ ")\n");
+    end
+    fprintf(fid, ')');
+    % close and save file
+    fclose(fid);
+
 end
 
-function counterEx = falsify_single(lb, ub, nRand, Hs)
+function counterEx = falsify_single(net, lb, ub, nRand, Hs)
     counterEx = nan;
     xRand = create_random_examples(lb, ub, nRand, inputSize);
     s = size(xRand);

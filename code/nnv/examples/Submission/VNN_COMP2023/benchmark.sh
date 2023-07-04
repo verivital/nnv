@@ -6,6 +6,6 @@ do
 
     bash prepare_instance.sh 'v1' 'mnistfc' $onnx $vnnlib
 
-    bash run_instance.sh 'v1' 'mnistfc' $onnx $vnnlib $timeout
+    bash run_instance.sh 'v1' 'mnistfc' $onnx $vnnlib $timeout results.txt
 
 done < examples/cifar2020_instances.csv

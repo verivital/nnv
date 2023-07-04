@@ -18,7 +18,7 @@ import matlab.engine
 import time
 
 
-def prepare_instance(onnx: str, vnnlib: str) -> None:
+def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
     """Set up the MATLAB engine for running an instance.
 
     Parameters:
@@ -27,12 +27,6 @@ def prepare_instance(onnx: str, vnnlib: str) -> None:
     """
     # start matlab engine as a shared engine
     eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
-
-    # keep MATLAB engine open until manually killed
-    while True:
-        time.sleep(0.5)
-    # eng.quit()
-
 
 def run_instance(category, onnx, vnnlib, timeot, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
@@ -50,9 +44,11 @@ def run_instance(category, onnx, vnnlib, timeot, outputlocation) -> None:
 
     print(f'Successfully connected to engine: {eng_name}.')
 
+#     eng = matlab.engine.start_matlab()
+
     # add logic for running the reachability analysis.
 
-    status = 0 #initialize with an 'Unknown' status
+    status = 2 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
     #print('timestep :',toc) 
     future = eng.run_vnncomp_instance(category, onnx, vnnlib, outputlocation, background=True)
@@ -100,20 +96,20 @@ def _get_args() -> None:
 
     # prepare_instance expects: benchmark_category, onnx, vnnlib
     if (ACTION == 'prepare_instance'):
-        if len(args) != 3:
-            raise ValueError(f'Incorrect number of arguments, expected 3 got {len(args)}.')
+        if len(args) != 4:
+            raise ValueError(f'Incorrect number of arguments, expected 4 got {len(args)}.')
     
     # run_instance expects: benchmark_category, onnx, vnnlib, timeout
     if (ACTION == 'run_instance'):
-        if len(args) != 5:
-            raise ValueError(f'Incorrect number of arguments, expected 5 got {len(args)}.')
+        if len(args) != 6:
+            raise ValueError(f'Incorrect number of arguments, expected 6 got {len(args)}.')
     
     return args
 
 
 if __name__=="__main__":
     # parse the arguments.
-    ACTION, PATH_TO_ONNX, PATH_TO_VNNLIB, *OPTIONAL_ARGS = _get_args()
+    ACTION, CATEGORY, PATH_TO_ONNX, PATH_TO_VNNLIB, *OPTIONAL_ARGS = _get_args()
     if (ACTION == 'run_instance'):
         TIMEOUT = OPTIONAL_ARGS[0]
         OUTPUTLOCATION = OPTIONAL_ARGS[1]
@@ -123,8 +119,8 @@ if __name__=="__main__":
 
     # implement logic for each action we might want to take.
     switcher = {
-        'prepare_instance': lambda: prepare_instance(PATH_TO_ONNX, PATH_TO_VNNLIB), # prepare_instance(PATH_TO_ONNX, PATH_TO_VNNLIB),
-        'run_instance': lambda: run_instance(PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT, OUTPUTLOCATION) # run_instance(PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT, OUTPUTLOCATION),
+        'prepare_instance': lambda: prepare_instance(CATEGORY, PATH_TO_ONNX, PATH_TO_VNNLIB), # prepare_instance(PATH_TO_ONNX, PATH_TO_VNNLIB),
+        'run_instance': lambda: run_instance(CATEGORY, PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT, OUTPUTLOCATION) # run_instance(PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT, OUTPUTLOCATION),
     }
 
     # retrieve the correct function call based on the input action.

@@ -1,8 +1,8 @@
-function [result, vTime] = run_vnncomp_instance(category, onnx, vnnlib, outputfile)
+function [status, vTime] = run_vnncomp_instance(category, onnx, vnnlib, outputfile)
 % single script to run all instances (supported) from the vnncomp2023
 
 t = tic; % start timer
-result = 2; % unknown (to start with)
+status = 2; % unknown (to start with)
 
 % Process:
 %  1) Load components
@@ -57,7 +57,7 @@ reachOptions.reachOption = 'parallel';
 reachOptions.numCores = feature('numcores');
 % reachOptions.reachMethod = 'approx-star';
 
-if result == 2 % no counterexample found (otherwise, skip step 3 and write results)
+if status == 2 % no counterexample found (otherwise, skip step 3 and write results)
 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
@@ -67,7 +67,7 @@ if result == 2 % no counterexample found (otherwise, skip step 3 and write resul
         IS = ImageStar(lb, ub);
         % Compute reachability
         ySet = nnvnet.reach(IS, reachOptions);
-        result = verify_specification(ySet, prop);
+        status = verify_specification(ySet, prop);
 %     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
 %     
 %     elseif isa(lb, "cell") && length(prop) == 1
@@ -82,21 +82,21 @@ end
 
 vTime = toc(t); % save total computation time
 
-disp(result);
+disp(status);
 disp(vTime);
 disp( " ");
 
 % Write results to output file
-if result == 0
+if status == 0
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'sat \n');
     fclose(fid);
     write_counterexample(outputfile, counterEx)
-elseif result == 1
+elseif status == 1
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unsat \n');
     fclose(fid);
-elseif result == 2
+elseif status == 2
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unknown \n');
     fclose(fid);

@@ -57,7 +57,7 @@ reachOptions.reachOption = 'parallel';
 reachOptions.numCores = feature('numcores');
 % reachOptions.reachMethod = 'approx-star';
 
-if status == 2 % no counterexample found (otherwise, skip step 3 and write results)
+if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 

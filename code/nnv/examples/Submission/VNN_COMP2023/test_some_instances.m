@@ -6,7 +6,7 @@ vnncomp_path = "/home/dieman95/Documents/MATLAB/vnncomp2023_benchmarks/benchmark
 
 % Go through some of the instances for every benchmark
 
-% acasxu
+%% acasxu
 acas_path = vnncomp_path + "acasxu/";
 
 acas_instances = [...
@@ -26,5 +26,47 @@ acas_instances = [...
 for i=1:length(acas_instances)
     onnx = acas_path + acas_instances(i,1);
     vnnlib = acas_path + acas_instances(i,2);
-    run_vnncomp_instance("acasxu",onnx,vnnlib,'results.txt');
+    run_vnncomp_instance("acasxu",onnx,vnnlib,"acas_results_" + string(i)+".txt");
 end
+
+%% ViT
+
+vit_path = vnncomp_path + "vit/";
+
+vit_instances = [...
+    "onnx/ibp_3_3_8.onnx" , "vnnlib/ibp_3_3_8_3850.vnnlib";...
+    "onnx/pgd_2_3_16.onnx","vnnlib/pgd_2_3_16_1744.vnnlib";...
+    ];
+
+% Run verification for acas
+for i=1:length(vit_instances)
+    onnx = vit_path + vit_instances(i,1);
+    vnnlib = vit_path + vit_instances(i,2);
+    run_vnncomp_instance("vit",onnx,vnnlib,'results.txt');
+end
+
+
+%% nn4sys
+
+
+%% dist_shift
+
+
+%% traffic_sign
+% we should be able to support it, but matlab does not, so we would have to create the models manually...
+% can load most info with Keras importer
+
+%% collins_rul
+
+
+%% cgan
+
+
+%% vggnet
+
+
+%% ml4acopf
+
+
+%% tllverify
+

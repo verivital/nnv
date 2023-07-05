@@ -52,10 +52,10 @@ disp(toc(t));
 
 % Define reachability options
 reachOptions = struct;
-% reachOptions.reachMethod = 'exact-star';
-% reachOptions.reachOption = 'parallel';
-% reachOptions.numCores = feature('numcores');
-reachOptions.reachMethod = 'approx-star';
+reachOptions.reachMethod = 'exact-star';
+reachOptions.reachOption = 'parallel';
+reachOptions.numCores = feature('numcores');
+% reachOptions.reachMethod = 'approx-star';
 
 if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 

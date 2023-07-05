@@ -1,3 +1,5 @@
+function prepare_run()
+
 %% Print out some info to prepare for the comp
 
 % remove paths from any prior installation (if any)
@@ -26,3 +28,5 @@ disp(matlabshared.supportpkg.getSupportPackageRoot);
 
 savepath; 
 quit;
+
+end

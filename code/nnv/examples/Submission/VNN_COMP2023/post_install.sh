@@ -25,5 +25,9 @@ cd /usr/local/matlab/extern/engines/python
 python3 -m pip install .
 
 # TEST IF MATLAB ENGINE IS INSTALLED PROPERLY
-START_ENGINE ='import matlab.engine\nimport time\n eng = matlab.engine.start_matlab() \n pring(eng)'
+START_ENGINE ='import matlab.engine\nimport time\n eng = matlab.engine.start_matlab() \n print(eng) \n eng.prepare_run() \n exit()'
 python3 -c "exec('$START ENGINE')"
+
+# TEST IF WE CAN FIND MATLAB
+cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/
+./prepare_instance.sh v1 acasxu acas xu

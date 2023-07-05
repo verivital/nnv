@@ -15,6 +15,9 @@ rm /usr/local/matlab/licenses/license_info.xml
 # sudo mkdir /usr/local/MATLAB/R2022b
 
 sudo chmod -R 777 /usr/local/MATLAB/R2022b
+sudo chmod -R 775 /usr/local/MATLAB/R2022b/
+sudo chown root:ubuntu /usr/local/MATLAB/R2022b/
+sudo chmod -R a+rwX /usr/local/MATLAB/R2022b/
 
 matlab -nodisplay -r "cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/; prepare_run; quit"
 

@@ -23,3 +23,7 @@ pip install numpy
 
 cd /usr/local/matlab/extern/engines/python
 python3 -m pip install .
+
+# TEST IF MATLAB ENGINE IS INSTALLED PROPERLY
+START_ENGINE ='import matlab.engine\nimport time\n eng = matlab.engine.start_matlab() \n pring(eng)'
+python3 -c "exec('$START ENGINE')"

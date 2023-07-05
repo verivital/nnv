@@ -52,10 +52,10 @@ disp(toc(t));
 
 % Define reachability options
 reachOptions = struct;
-reachOptions.reachMethod = 'exact-star';
-reachOptions.reachOption = 'parallel';
-reachOptions.numCores = feature('numcores');
-% reachOptions.reachMethod = 'approx-star';
+% reachOptions.reachMethod = 'exact-star';
+% reachOptions.reachOption = 'parallel';
+% reachOptions.numCores = feature('numcores');
+reachOptions.reachMethod = 'approx-star';
 
 if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
@@ -176,12 +176,21 @@ function [net,nnvnet] = load_vnncomp_network(category, onnx)
 
 end
 
-function xRand = create_random_examples(lb, ub, nR, inputSize)
+function xRand = create_random_examples(net, lb, ub, nR, inputSize)
     xB = Box(lb, ub); % lb, ub must be vectors
-    xRand = xB.sample(nR);
+    xRand = xB.sample(nR-2);
+    xRand = [lb, ub, xRand];
     xRand = reshape(xRand,[inputSize nR]); % reshape vectors into net input size
-%     xRand(:,:,:,nR+1) = x; % add lower bound 
-%     xRand(:,:,:,nR+2) = x; % add upper bound
+    if isa(net, 'dlnetwork') % need to convert to dlarray
+        if isa(net.Layers(1, 1), 'nnet.cnn.layer.ImageInputLayer')
+            xRand = dlarray(xRand, "SSCB");
+        elseif isa(net.Layers(1, 1), 'nnet.cnn.layer.FeatureInputLayer') || isa(net.Layers(1, 1), 'nnet.onnx.layer.FeatureInputLayer')
+            xRand = dlarray(xRand, "CB");
+        else
+            disp(net.Layers(1,1));
+            error("Unknown input format");
+        end
+    end
 end
 
 function write_counterexample(outputfile, counterEx)
@@ -222,19 +231,17 @@ end
 
 function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs)
     counterEx = nan;
-    xRand = create_random_examples(lb, ub, nRand, inputSize);
+    xRand = create_random_examples(net, lb, ub, nRand, inputSize);
     s = size(xRand);
     n = length(s);
     %  look for counterexamples
-    for i=1:s(n)+2
-        if i == 1 % attempt first with upper and lower bounds
-            x = reshape(lb, inputSize);
-        elseif i == 2
-            x = reshape(ub, inputSize);
-        else
-            x = get_example(xRand, i-2);
-        end
+    for i=1:s(n)
+        x = get_example(xRand, i);
         yPred = predict(net, x);
+        if isa(x, 'dlarray') % if net is a dlnetwork
+            x = extractdata(x);
+            yPred = extractdata(yPred);
+        end
         % check if property violated
         yPred = reshape(yPred, [], 1); % convert to column vector (if needed)
         for h=1:length(Hs)
@@ -261,6 +268,3 @@ function x = get_example(xRand,i)
     end
 end
 
-
-% Update simulation function for dlnetworks
-% dlarray with format = "SSBC" is the typical one

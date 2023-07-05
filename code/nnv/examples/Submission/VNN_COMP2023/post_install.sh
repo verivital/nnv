@@ -14,7 +14,7 @@ rm /usr/local/matlab/licenses/license_info.xml
 
 # sudo mkdir /usr/local/MATLAB/R2022b
 
-sudo chown -R root:ubuntu /usr/local/MATLAB/R2022b
+sudo chmod -R 777 /usr/local/MATLAB/R2022b
 
 matlab -nodisplay -r "cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/; prepare_run; quit"
 
@@ -25,8 +25,8 @@ cd /usr/local/matlab/extern/engines/python
 python3 -m pip install .
 
 # TEST IF MATLAB ENGINE IS INSTALLED PROPERLY
-# START_ENGINE ='import matlab.engine\nimport time\n eng = matlab.engine.start_matlab() \n print(eng) \n eng.prepare_run() \n exit()'
-python3 -c "exec('import matlab.engine\nimport time\neng = matlab.engine.start_matlab() \nprint(eng) \neng.prepare_run(nargout = 0, backgorund=True) \nexit()')"
+# START_ENGINE ='import matlab.engine\nimport time\neng = matlab.engine.start_matlab() \nprint(eng) \neng.prepare_run() \nexit()'
+python3 -c "exec('import matlab.engine\nimport time\neng = matlab.engine.start_matlab() \nprint(eng) \neng.prepare_run(nargout = 0, background=True) \nexit()')"
 
 # TEST IF WE CAN FIND MATLAB
 cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/

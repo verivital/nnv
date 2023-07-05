@@ -42,7 +42,7 @@ vit_instances = [...
 for i=1:length(vit_instances)
     onnx = vit_path + vit_instances(i,1);
     vnnlib = vit_path + vit_instances(i,2);
-    run_vnncomp_instance("vit",onnx,vnnlib,'results.txt');
+    run_vnncomp_instance("vit",onnx,vnnlib,"vit_results_" + string(i)+".txt");
 end
 
 

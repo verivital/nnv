@@ -27,6 +27,7 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
     """
     # start matlab engine as a shared engine
     eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
+    print('Engine starting...')
 
 def run_instance(category, onnx, vnnlib, timeot, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
@@ -39,12 +40,12 @@ def run_instance(category, onnx, vnnlib, timeot, outputlocation) -> None:
     
     # find the matlab engine and connect to it;
     # there should only be 1 running matlab engine.
-#     eng_name = matlab.engine.find_matlab()[0]
-#     eng = matlab.engine.connect_matlab(name=eng_name)
+    eng_name = matlab.engine.find_matlab()[0]
+    eng = matlab.engine.connect_matlab(name=eng_name)
 # 
-#     print(f'Successfully connected to engine: {eng_name}.')
+    print(f'Successfully connected to engine: {eng_name}.')
 
-    eng = matlab.engine.start_matlab()
+#     eng = matlab.engine.start_matlab()
 
     # add logic for running the reachability analysis.
 

@@ -130,6 +130,11 @@ function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
         net = net.net;
         nnvnet = matlab2nnv(net);
 
+    elseif contains(category, "ml4acopf")
+        net = load(onnx);
+        net = net.net;
+        nnvnet = "";
+
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab
         if ~contains(onnxFile, "2048")
@@ -156,7 +161,7 @@ function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
             error("Loading this one is not supported...")
         end
         
-    elseif contains(category, "vgg16")
+    elseif contains(category, "vgg")
         % vgg16: onnx to matlab
         net = load(onnx);
         net = net.net;
@@ -199,7 +204,17 @@ function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
         net = load(onnx);
         net = net.net;
         nnvnet = matlab2nnv(net);
-        
+
+    elseif contains(category, 'test')
+        % test: onnx to nnv
+        if contains(onnx, "sat")
+            net = load(onnx);
+            net = net.net;
+            nnvnet = matlab2nnv(net);
+        else
+            error("Loading this one is not supported...")
+        end
+
     else % all other benchmarks
         % traffic: onnx to matlab: opset15 issues
         error("ONNX model not supported")
@@ -363,6 +378,10 @@ function x = get_example(xRand,i)
         x = xRand(:,:,i);
     elseif n == 2
         x = xRand(:,i);
+        xsize = size(x);
+        if xsize(1) ~= 1 && ~isa(x,"dlarray")
+            x = x';
+        end
     else
         error("InputSize = "+string(s));
     end

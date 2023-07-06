@@ -84,7 +84,7 @@ onnx = dir(nn4sys_path);
 
 for i=3:length(onnx)
     onnxFile = nn4sys_path + onnx(i).name;
-    if ~contains(onnxFile, "2048")
+    if contains(onnxFile, "lindex")
         net = load_vnncomp_network('nn4sys', onnxFile);
         name = onnx(i).name;
         name = name(1:end-5);
@@ -192,6 +192,24 @@ for i=3:length(onnx)
     save(['networks2023/', name], "net", "-v7.3");
 end
 
+%% test 
+
+disp("Running test examples...");
+
+test_path = vnncomp_path + "test/";
+
+onnxmodels = ["test_nano.onnx", "test_sat.onnx", "test_small.onnx", "test_tiny.onnx", "test_unsat.onnx"];
+
+for i = 1:length(onnxmodels)
+    if contains(onnxmodels(i), "sat")
+        onnxFile = test_path + onnxmodels(i);
+        net =  importONNXNetwork(onnxFile, "InputDataFormats", "BCSS");
+        name = char(onnxmodels(i));
+        name = name(1:end-5);
+        save(['networks2023/', name], "net", "-v7.3");
+    end
+end
+
 
 %% Loading function
 function net = load_vnncomp_network(category, onnx)
@@ -204,9 +222,7 @@ function net = load_vnncomp_network(category, onnx)
 
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab:
-        if ~contains(onnx, "2048")
-            net = importONNXLayers(onnx, "OutputDataFormats", "BC"); % lindex
-        end
+        net = importONNXLayers(onnx, "OutputDataFormats", "BC"); % lindex
         
     elseif contains(category, "dist_shift")
         % dist_shift: onnx to matlab:
@@ -246,7 +262,7 @@ function net = load_vnncomp_network(category, onnx)
 
     elseif contains(category, "ml4acopf")
         % ml4acopf: ?
-        net = importONNXNetwork(onnx);
+        net = importONNXNetwork(onnx, "InputDataFormats", "BC");
         
     else % all other benchmarks
         % traffic: onnx to matlab: opset15 issues

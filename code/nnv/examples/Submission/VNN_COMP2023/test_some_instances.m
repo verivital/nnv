@@ -64,7 +64,7 @@ acas_instances = [...
 for i=1:length(acas_instances)
     onnx = acas_path + acas_instances(i,1);
     vnnlib = acas_path + acas_instances(i,2);
-    %run_vnncomp2023_instance("acasxu",onnx,vnnlib,"acas_results_" + string(i)+".txt");
+    run_vnncomp2023_instance("acasxu",onnx,vnnlib,"acas_results_" + string(i)+".txt");
 end
 
 %% ViT
@@ -82,36 +82,36 @@ vit_instances = [...
 for i=1:length(vit_instances)
     onnx = vit_path + vit_instances(i,1);
     vnnlib = vit_path + vit_instances(i,2);
-    %run_vnncomp2023_instance("vit",onnx,vnnlib,"vit_results_" + string(i)+".txt");
+    run_vnncomp2023_instance("vit",onnx,vnnlib,"vit_results_" + string(i)+".txt");
 end
 
 
 %% nn4sys
 
-disp("Running nn4sys...")
-
-nn4sys_path = vnncomp_path + "nn4sys/";
-
-nn4sys_instances = [... % no instances found with pensieve_mid_parallel
-    "onnx/pensieve_big_simple.onnx", "vnnlib/pensieve_simple_0.vnnlib";...
-    "onnx/pensieve_small_parallel.onnx","vnnlib/pensieve_parallel_1.vnnlib";...
-    "onnx/pensieve_mid_simple.onnx" ," vnnlib/pensieve_simple_2.vnnlib";...
-    "onnx/pensieve_big_parallel.onnx", "vnnlib/pensieve_parallel_35.vnnlib";...
-    "onnx/pensieve_small_simple.onnx", "vnnlib/pensieve_simple_24.vnnlib";...
-    "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
-    "onnx/lindex_deep.onnx", "vnnlib/lindex_9000.vnnlib";...
-    "onnx/mscn_128d.onnx" , "vnnlib/cardinality_0_1_128.vnnlib";...
-    "onnx/mscn_128d_dual.onnx" , "vnnlib/cardinality_1_240_128_dual.vnnlib";...
-    "onnx/mscn_2048d.onnx" ,"vnnlib/cardinality_0_500_2048.vnnlib";...
-    "onnx/mscn_2048d_dual.onnx" ,"vnnlib/cardinality_1_1_2048_dual.vnnlib";...
-    ];
-
-% Run verification for nn4sys (onnx error)
-for i=1:length(nn4sys_instances)
-    onnx = nn4sys_path + nn4sys_instances(i,1);
-    vnnlib = nn4sys_path + nn4sys_instances(i,2);
-    %run_vnncomp2023_instance("nn4sys",onnx,vnnlib,"nn4sys_results_" + string(i)+".txt");
-end
+% disp("Running nn4sys...")
+% 
+% nn4sys_path = vnncomp_path + "nn4sys/";
+% 
+% nn4sys_instances = [... % no instances found with pensieve_mid_parallel
+%     "onnx/pensieve_big_simple.onnx", "vnnlib/pensieve_simple_0.vnnlib";...
+%     "onnx/pensieve_small_parallel.onnx","vnnlib/pensieve_parallel_1.vnnlib";...
+%     "onnx/pensieve_mid_simple.onnx" ," vnnlib/pensieve_simple_2.vnnlib";...
+%     "onnx/pensieve_big_parallel.onnx", "vnnlib/pensieve_parallel_35.vnnlib";...
+%     "onnx/pensieve_small_simple.onnx", "vnnlib/pensieve_simple_24.vnnlib";...
+%     "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
+%     "onnx/lindex_deep.onnx", "vnnlib/lindex_9000.vnnlib";...
+%     "onnx/mscn_128d.onnx" , "vnnlib/cardinality_0_1_128.vnnlib";...
+%     "onnx/mscn_128d_dual.onnx" , "vnnlib/cardinality_1_240_128_dual.vnnlib";...
+%     "onnx/mscn_2048d.onnx" ,"vnnlib/cardinality_0_500_2048.vnnlib";...
+%     "onnx/mscn_2048d_dual.onnx" ,"vnnlib/cardinality_1_1_2048_dual.vnnlib";...
+%     ];
+% 
+% % Run verification for nn4sys (onnx error)
+% for i=1:length(nn4sys_instances)
+%     onnx = nn4sys_path + nn4sys_instances(i,1);
+%     vnnlib = nn4sys_path + nn4sys_instances(i,2);
+%     run_vnncomp2023_instance("nn4sys",onnx,vnnlib,"nn4sys_results_" + string(i)+".txt");
+% end
 
 
 %% dist_shift
@@ -126,7 +126,7 @@ dist_instances = ["onnx/mnist_concat.onnx" ,"vnnlib/index7165_delta0.13.vnnlib"]
 for i=1:length(dist_instances)
     onnx = dist_path + dist_instances(i,1);
     vnnlib = dist_path + dist_instances(i,2);
-    % run_vnncomp2023_instance("dist_shift",onnx,vnnlib,"dist_results_" + string(i)+".txt");
+    run_vnncomp2023_instance("dist_shift",onnx,vnnlib,"dist_results_" + string(i)+".txt");
 end
 
 

@@ -14,6 +14,10 @@ status = 2; % unknown (to start with)
 %% 1) Load components
 
 % Load networks
+% have to go to this path for the networks to load properly... lovely
+old_path = pwd;
+% cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
 [net, nnvnet] = load_vnncomp_network(category, onnx);
 inputSize = net.Layers(1, 1).InputSize;
 % disp(net);
@@ -32,7 +36,7 @@ prop = property.prop; % output spec to verify
 
 %% 2) SAT?
 
-nRand = 1000; % number of random inputs
+nRand = 10; % number of random inputs
 
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
@@ -102,6 +106,7 @@ elseif status == 2
     fclose(fid);
 end
 
+cd(old_path); % go back to where we ran the functions from
 % quit; % does this work when running matlab.engine from python in background?
 
 
@@ -116,7 +121,7 @@ function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
     else
         onnx = char(onnx(end)); % string
     end
-    onnx = ['networks2023/', onnx(1:end-5), '.mat'];
+    onnx = [onnx(1:end-5), '.mat'];
 
     % collins_rul: onnx to nnvnet
     % collins_nets = load_collins_NNs;

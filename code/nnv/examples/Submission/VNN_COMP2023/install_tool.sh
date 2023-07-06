@@ -17,7 +17,13 @@ echo "Installing $TOOL_NAME dependencies"
 # curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/s/4p17xm4tlm8r9gs/sppFile.zip
 # sleep 60
 #  sudo mkdir -p /usr/local/MATLAB/R2022b/SupportPackages
-#sudo unzip sppFile.zip -d /usr/local/MATLAB/R2022b/SupportPackages
+# sudo unzip sppFile.zip -d /usr/local/MATLAB/R2022b/SupportPackages
+
+# LOOKS LIKE WE STILL NEED ONNX BECAUSE SOME LAYERS ARE IN THERE LIKE nnet.onnx.layer.ElementwiseAffineLayer
+# Does adding those functions to the path without actually installing them work??
+curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/s/4p17xm4tlm8r9gs/sppFile.zip
+sleep 60
+sudo unzip sppFile.zip -d cd /home/ubuntu/toolkit/code/nnv/
 
 cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/
 curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/scl/fi/7wr6dy1qe7k8c670ieunb/networks2023.zip?rlkey=eo40pf96qtvdhz11civ1u6jt1&dl=0

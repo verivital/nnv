@@ -246,7 +246,7 @@ function net = load_vnncomp_network(category, onnx)
 
     elseif contains(category, "ml4acopf")
         % ml4acopf: ?
-        net = importONNXNetwork(onnx, "TargetNetwork", "dlnetwork");
+        net = importONNXNetwork(onnx);
         
     else % all other benchmarks
         % traffic: onnx to matlab: opset15 issues

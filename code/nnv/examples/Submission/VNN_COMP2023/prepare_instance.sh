@@ -24,7 +24,7 @@ killall -q python3
 # killall -q python
 killall -q matlab
 
-WAIT_FOR_CONNECTION_TO_CLOSE='import matlab.engine\nimport time\nwhile matlab.engine.find_matlab(): time.sleep(1)'
+#WAIT_FOR_CONNECTION_TO_CLOSE='import matlab.engine\nimport time\nwhile matlab.engine.find_matlab(): time.sleep(1)'
 python3 -c "exec('$WAIT_FOR_CONNECTION_TO_CLOSE')"
 # python -c "exec('$WAIT_FOR_CONNECTION_TO_CLOSE')"
 
@@ -32,7 +32,7 @@ python3 -c "exec('$WAIT_FOR_CONNECTION_TO_CLOSE')"
 python3 /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/execute.py 'prepare_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE &
 # python execute.py 'prepare_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE &
 
-WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1) \n print(eng)'
+WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1) \nprint(eng)'
 python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 # python -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 

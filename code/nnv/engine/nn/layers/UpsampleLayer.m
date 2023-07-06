@@ -75,7 +75,7 @@ classdef UpsampleLayer < handle
             obj.NumOutputs = numOutputs;
             obj.InputNames = inputNames;
             obj.OutputNames = outputNames;
-            obj.scaleDim = scaleDim;
+            obj.scaleDim = flip(scaleDim);
                         
         end
     end
@@ -88,9 +88,9 @@ classdef UpsampleLayer < handle
             %@flatten_im: flatten image
             
             if length(obj.scaleDim) == 4
-                scaleDim = [obj.scaleDim(4), obj.scaleDim(3), 1];
+                scaleDim = obj.scaleDim(1:3);
             elseif length(obj.scaleDim) == 3
-                scaleDim = [obj.scaleDim(3), obj.scaleDim(2), obj.scaleDim(1)];
+                scaleDim = obj.scaleDim;
             end
 
             upsample = dlresize(dlarray(image), 'Scale', scaleDim, 'DataFormat', "SSS");%, 'Method', "nearest", 'GeometricTransformMode',  "half_pixel", 'NearestRoundingMode', "round");
@@ -109,20 +109,30 @@ classdef UpsampleLayer < handle
             % Should also support ImageZono and Zono
             
             if length(obj.scaleDim) == 4
-                scaleDim = [obj.scaleDim(4), obj.scaleDim(3), 1];
+                scaleDimC = obj.scaleDim(1:3);
+
             elseif length(obj.scaleDim) == 3
-                scaleDim = [obj.scaleDim(3), obj.scaleDim(2), obj.scaleDim(1)];
+                scaleDimC = obj.scaleDim;
             end
             
-            c = extractdata(dlresize(dlarray(in_image.V(:,:,:,1)), 'Scale', scaleDim, 'DataFormat', "SSS"));
-            V = extractdata(dlresize(dlarray(in_image.V(:,:,:,2:end)), 'Scale', scaleDim, 'DataFormat', "SSS"));
+            c = extractdata(dlresize(dlarray(in_image.V(:,:,:,1)), 'Scale', scaleDimC, 'DataFormat', "SSS"));
+
+            if size(in_image.V,4)>2
+                scaleDimV = [scaleDimC, 1];
+                dataformat = "SSSS";
+            else
+                scaleDimV = scaleDimC;
+                dataformat = "SSS";
+            end
+
+            V = extractdata(dlresize(dlarray(in_image.V(:,:,:,2:end)), 'Scale', scaleDimV, 'DataFormat', dataformat));
             V_new = cat(4,c,V);
             if isempty(in_image.im_lb) && isempty(in_image.im_ub)
                 im_lb = [];
                 im_ub = [];
             else
-                im_lb = extractdata(dlresize(dlarray(in_image.im_lb), 'Scale', scaleDim, 'DataFormat', "SSS"));
-                im_ub = extractdata(dlresize(dlarray(in_image.im_lb), 'Scale', scaleDim, 'DataFormat', "SSS"));
+                im_lb = extractdata(dlresize(dlarray(in_image.im_lb), 'Scale', scaleDimC, 'DataFormat', "SSS"));
+                im_ub = extractdata(dlresize(dlarray(in_image.im_lb), 'Scale', scaleDimC, 'DataFormat', "SSS"));
             end
             image = ImageStar(V_new,in_image.C,in_image.d,in_image.pred_lb,in_image.pred_ub,im_lb,im_ub);
         end

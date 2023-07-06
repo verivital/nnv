@@ -23,7 +23,7 @@ echo "Installing $TOOL_NAME dependencies"
 # Does adding those functions to the path without actually installing them work??
 curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/s/4p17xm4tlm8r9gs/sppFile.zip
 sleep 60
-sudo unzip sppFile.zip -d cd /home/ubuntu/toolkit/code/nnv/
+sudo unzip sppFile.zip -d cd /home/ubuntu/toolkit/code/nnv
 sudo rm sppFile.zip
 
 cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/

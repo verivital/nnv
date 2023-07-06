@@ -22,8 +22,8 @@ python3 -m pip install .
 
 # TEST IF MATLAB ENGINE IS INSTALLED PROPERLY
 # START_ENGINE ='import matlab.engine\nimport time\neng = matlab.engine.start_matlab() \nprint(eng) \neng.prepare_run() \nexit()'
-python3 -c "exec('import matlab.engine\nimport time\neng = matlab.engine.start_matlab() \nprint(eng) \neng.prepare_run(nargout = 0, background=True) \nexit()')"
+# python3 -c "exec('import matlab.engine\nimport time\neng = matlab.engine.start_matlab() \nprint(eng) \neng.prepare_run(nargout = 0, background=True) \nexit()')"
 
 # TEST IF WE CAN FIND MATLAB
-cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/
-./prepare_instance.sh v1 acasxu acas xu
+# cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/
+# ./prepare_instance.sh v1 acasxu acas xu

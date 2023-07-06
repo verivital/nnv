@@ -1,0 +1,9 @@
+name: nnv
+ami: ami-02fbb965167e007cb
+scripts_dir: code/nnv/examples/Submission/VNN_COMP2023/
+manual_installation_step: True
+run_installation_script_as_root: False
+run_post_installation_script_as_root: False
+run_toolkit_as_root: False
+description: >
+  Matlab Toolbox for Neural Network Verification. This toolbox implements reachability methods for analyzing deep learning models including but not limited to convolutional, recurrent and binary neural networks. NNV is also capable of analyzing neural networks on closed-loop controllers in autonomous cyber-physical systems (CPS).

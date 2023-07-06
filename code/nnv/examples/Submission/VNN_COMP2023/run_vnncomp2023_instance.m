@@ -24,6 +24,7 @@ inputSize = net.Layers(1, 1).InputSize;
 % disp(nnvnet);
 
 % Load property to verify
+warning(vnnlib); % somehow it is failing to open the vnnlib files...
 property = load_vnnlib(vnnlib);
 lb = property.lb; % input lower bounds
 ub = property.ub; % input upper bounds

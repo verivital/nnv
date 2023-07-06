@@ -30,7 +30,7 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
 #     print('Engine starting...')
     print("We aren't actually doing anything here...")
 
-def run_instance(category, onnx, vnnlib, timeot, outputlocation) -> None:
+def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
 
     Parameters:
@@ -54,8 +54,9 @@ def run_instance(category, onnx, vnnlib, timeot, outputlocation) -> None:
 
     status = 2 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
-    #print('timestep :',toc) 
-    future = eng.run_vnncomp2023_instance(category, onnx, vnnlib, outputlocation, nargout = 2,background=True)
+    #print('timestep :',toc)
+    print(vnnlib)
+    future = eng.run_vnncomp2023_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
     
     try: 
         [status, total_time] = future.result()
@@ -103,7 +104,7 @@ def _get_args() -> None:
         if len(args) != 4:
             raise ValueError(f'Incorrect number of arguments, expected 4 got {len(args)}.')
     
-    # run_instance expects: benchmark_category, onnx, vnnlib, timeout
+    # run_instance expects: benchmark_category, onnx, vnnlib, timeout, outputlocation
     if (ACTION == 'run_instance'):
         if len(args) != 6:
             raise ValueError(f'Incorrect number of arguments, expected 6 got {len(args)}.')
@@ -113,13 +114,13 @@ def _get_args() -> None:
 
 if __name__=="__main__":
     # parse the arguments.
-    ACTION, CATEGORY, PATH_TO_ONNX, PATH_TO_VNNLIB, *OPTIONAL_ARGS = _get_args()
-    if (ACTION == 'run_instance'):
-        TIMEOUT = OPTIONAL_ARGS[0]
-        OUTPUTLOCATION = OPTIONAL_ARGS[1]
-    else:
-        TIMEOUT = None
-        OUTPUTLOCATION = None
+    ACTION, CATEGORY, PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT = None, OUTPUTLOCATION = None = _get_args()
+#     if (ACTION == 'run_instance'):
+#         TIMEOUT = OPTIONAL_ARGS[0]
+#         OUTPUTLOCATION = OPTIONAL_ARGS[1]
+#     else:
+#         TIMEOUT = None
+#         OUTPUTLOCATION = None
 
     # implement logic for each action we might want to take.
     switcher = {

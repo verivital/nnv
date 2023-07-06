@@ -27,9 +27,9 @@ echo "Running $TOOL_NAME on benchmark instance in category '$CATEGORY' with onnx
 #export PYTHONPATH="$PYTHONPATH:$DIR/src"
 
 echo $PYTHONPATH
-TIMEOUT=$5
+# TIMEOUT=$5
 
-echo "Running $TOOL_NAME on benchmark instance in category '$CATEGORY' with onnx file '$ONNX_FILE', vnnlib file '$VNNLIB_FILE', and timeout $TIMEOUT"
+# echo "Running $TOOL_NAME on benchmark instance in category '$CATEGORY' with onnx file '$ONNX_FILE', vnnlib file '$VNNLIB_FILE', and timeout $TIMEOUT"
 
 python3 /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/execute.py 'run_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE $TIMEOUT $RESULTS_FILE
 # sudo python3 execute.py 'run_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE $TIMEOUT $RESULTS_FILE

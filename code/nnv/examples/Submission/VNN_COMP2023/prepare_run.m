@@ -11,22 +11,22 @@ install;
 % save path to NNV
 addpath(genpath('/home/ubuntu/toolkit/code/nnv/')); savepath;
 
-disp("");
-disp("Support package path");
-disp(matlabshared.supportpkg.getSupportPackageRoot);
+%disp("");
+%disp("Support package path");
+%disp(matlabshared.supportpkg.getSupportPackageRoot);
 
-disp(" ")
-disp("MATLAB root");
-disp(matlabroot);
+%disp(" ")
+%disp("MATLAB root");
+%disp(matlabroot);
 
 % set support package root to import onnx location
-matlabshared.supportpkg.setSupportPackageRoot('/usr/local/MATLAB/R2022b'); 
-addpath(genpath('/usr/local/MATLAB')); 
+%matlabshared.supportpkg.setSupportPackageRoot('/usr/local/MATLAB/R2022b'); 
+%addpath(genpath('/usr/local/MATLAB')); 
 
 disp("Support package path");
 disp(matlabshared.supportpkg.getSupportPackageRoot);
 
 savepath; 
-quit;
+% quit;
 
 end

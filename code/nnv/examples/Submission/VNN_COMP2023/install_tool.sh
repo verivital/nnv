@@ -24,6 +24,7 @@ echo "Installing $TOOL_NAME dependencies"
 curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/s/4p17xm4tlm8r9gs/sppFile.zip
 sleep 60
 sudo unzip sppFile.zip -d cd /home/ubuntu/toolkit/code/nnv/
+sudo rm sppFile.zip
 
 cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/
 curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/scl/fi/7wr6dy1qe7k8c670ieunb/networks2023.zip?rlkey=eo40pf96qtvdhz11civ1u6jt1&dl=0

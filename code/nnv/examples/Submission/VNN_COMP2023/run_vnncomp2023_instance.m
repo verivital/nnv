@@ -1,4 +1,4 @@
-function [status, vTime] = run_vnncomp_instance(category, onnx, vnnlib, outputfile)
+function [status, vTime] = run_vnncomp2023_instance(category, onnx, vnnlib, outputfile)
 % single script to run all instances (supported) from the vnncomp2023
 
 t = tic; % start timer
@@ -45,7 +45,7 @@ else
     warning("Working on adding support to other vnnlib properties")
 end
 
-disp(toc(t));
+% disp(toc(t));
 
 
 %% 3) UNSAT?
@@ -57,7 +57,7 @@ reachOptions = struct;
 % reachOptions.numCores = feature('numcores');
 reachOptions.reachMethod = 'approx-star';
 
-if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
+if status == 2 && isa(nnvnet, "NN")  && ~isa(reachOptions, 'struct') % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
@@ -107,15 +107,110 @@ end
 
 end
 
+function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
+% load vnncomp 2023 benchmark NNs (subset support)
 
-function [net,nnvnet] = load_vnncomp_network(category, onnx)
+    onnx = split(onnxFile,'/');
+    if iscell(onnx)
+        onnx = onnx{end}; % cell
+    else
+        onnx = char(onnx(end)); % string
+    end
+    onnx = ['networks2023/', onnx(1:end-5), '.mat'];
+
+    % collins_rul: onnx to nnvnet
+    % collins_nets = load_collins_NNs;
+    if contains(category, 'collins_rul')
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, "nn4sys")
+        % nn4sys: onnx to matlab
+        if ~contains(onnxFile, "2048")
+            net = load(onnx);
+            net = net.net;
+            nnvnet = matlab2nnv(net);
+        else
+            error("We don't have those");
+        end
+        
+    elseif contains(category, "dist_shift")
+        % dist_shift: onnx to matlab:
+        net = load(onnx);
+        net = net.net;        
+        nnvnet = "";
+        
+    elseif contains(category, "cgan")
+        % cgan
+        if ~contains(onnxFile, 'transformer')
+            net = load(onnx);
+            net = net.net;
+            nnvnet = matlab2nnv(net);
+        else
+            error("Loading this one is not supported...")
+        end
+        
+    elseif contains(category, "vgg16")
+        % vgg16: onnx to matlab
+        net = load(onnx);
+        net = net.net;
+        %reshapedInput = python_reshape(input,net_vgg.Layers(1,1).InputSize); % what is the input? assume it's all the same?
+        %nnvnet = matlab2nnv(net);
+        nnvnet = "";
+        
+    elseif contains(category, "tllverify")
+        % tllverify: onnx to matlab
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        
+    elseif contains(category, "vit")
+        % vit: onnx to matlab
+        net = load(onnx);
+        net = net.net;
+        nnvnet = "";
+        
+    elseif contains(category, "cctsdb_yolo")
+        % cctsdb_yolo: onnx to matnet
+        net = load(onnx);
+        net = net.net;
+        nnvnet = "";
+        
+    elseif contains(category, "collins_yolo")
+        % collins_yolo: onnx to matlab:
+        net = load(onnx);
+        net = net.net;
+        nnvnet = "";
+
+    elseif contains(category, "yolo")
+        % yolo: onnx to matlab
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, "acasxu")
+        % acasxu: onnx to nnv
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        
+    else % all other benchmarks
+        % traffic: onnx to matlab: opset15 issues
+        error("ONNX model not supported")
+    end
+
+end
+
+% Had to change this because importer fails using the command line...s
+function [net,nnvnet] = load_vnncomp_network_local(category, onnx)
 % load vnncomp 2023 benchmark NNs (subset support)
 
     % collins_rul: onnx to nnvnet
     % collins_nets = load_collins_NNs;
     if contains(category, 'collins_rul')
         net = importONNXNetwork(onnx);
-        nnvnet = matlab2nnv(onnx);
+        nnvnet = matlab2nnv(net);
 
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab:

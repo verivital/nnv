@@ -189,11 +189,10 @@ vgg_instances = ["onnx/vgg16-7.onnx","vnnlib/spec0_screw.vnnlib"];
 
 % Run verification for vgg16 (error when creating random examples, array size too large)
 % I can imagine that similar errors will be encountered when running verification
-for i=1:length(vgg_instances)
-    onnx = vgg_path + vgg_instances(i,1);
-    vnnlib = vgg_path + vgg_instances(i,2);
-    run_vnncomp2023_instance("vggnet16",onnx,vnnlib,"vgg_results_" + string(i)+".txt");
-end
+onnx = vgg_path + vgg_instances(1,1);
+vnnlib = vgg_path + vgg_instances(1,2);
+run_vnncomp2023_instance("vggnet16",onnx,vnnlib,"vgg_results_" + string(i)+".txt");
+
 
 %% ml4acopf
 

@@ -14,7 +14,7 @@ Date: June 28, 2023
 
 
 import sys
-import matlab.engine
+# import matlab.engine
 import time
 
 
@@ -103,24 +103,22 @@ def _get_args() -> None:
     if (ACTION == 'prepare_instance'):
         if len(args) != 4:
             raise ValueError(f'Incorrect number of arguments, expected 4 got {len(args)}.')
+        args.append(None) # timeout
+        args.append(None) # outputlocation
     
     # run_instance expects: benchmark_category, onnx, vnnlib, timeout, outputlocation
     if (ACTION == 'run_instance'):
         if len(args) != 6:
             raise ValueError(f'Incorrect number of arguments, expected 6 got {len(args)}.')
     
+    print(args)
+
     return args
 
 
 if __name__=="__main__":
     # parse the arguments.
     ACTION, CATEGORY, PATH_TO_ONNX, PATH_TO_VNNLIB, TIMEOUT, OUTPUTLOCATION = _get_args()
-#     if (ACTION == 'run_instance'):
-#         TIMEOUT = OPTIONAL_ARGS[0]
-#         OUTPUTLOCATION = OPTIONAL_ARGS[1]
-#     else:
-#         TIMEOUT = None
-#         OUTPUTLOCATION = None
 
     # implement logic for each action we might want to take.
     switcher = {

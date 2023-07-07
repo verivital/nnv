@@ -216,7 +216,7 @@ end
 end
 
 function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
-% load vnncomp 2023 benchmark NNs (subset support)
+% load vnncomp 2023 and 2022 benchmark NNs (subset support)
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
 
@@ -251,7 +251,6 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
             net = load(onnx);
             net = assembleNetwork(net.net);
             nnvnet = matlab2nnv(net);
-%             needReshape = 1;
         else
             error("We don't have those");
         end
@@ -276,9 +275,11 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
         % vgg16: onnx to matlab
         net = load(onnx);
         net = net.net;
-        %reshapedInput = python_reshape(input,net_vgg.Layers(1,1).InputSize); % what is the input? assume it's all the same?
-        %nnvnet = matlab2nnv(net);
-        nnvnet = "";
+        try
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
         needReshape = 1;
         
     elseif contains(category, "tllverify")
@@ -327,6 +328,59 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
         else
             error("Loading this one is not supported...")
         end
+
+    elseif contains(category, 'sri_resnet')
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
+        
+    elseif contains(category, 'biasfield')
+        % onnx to nnv
+        if contains(onnx, "base")
+            needReshape = 1;
+        end
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, 'rl_bench')
+        % rl: onnx to nnv
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, 'reach_prob')
+        % reach_prob: onnx to nnv
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, 'mnist_fc')
+        % mnist: onnx to nnv (input is different here, need to check our
+        % code still works for it)
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, 'cifar100')
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
+
+    elseif contains(category, 'oval')
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
+
+    elseif contains(category, 'cifar2020')
+        % onnx to nnv
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
 
     else % all other benchmarks
         % traffic: onnx to matlab: opset15 issues

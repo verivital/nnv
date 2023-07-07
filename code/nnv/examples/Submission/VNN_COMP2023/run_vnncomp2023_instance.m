@@ -16,9 +16,9 @@ status = 2; % unknown (to start with)
 % Load networks
 % have to go to this path for the networks to load properly... lovely
 old_path = pwd;
-cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
-% cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
-[net, nnvnet] = load_vnncomp_network(category, onnx);
+% cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+[net, nnvnet, needReshape] = load_vnncomp_network(category, onnx);
 inputSize = net.Layers(1, 1).InputSize;
 % disp(net);
 % disp(nnvnet);
@@ -42,18 +42,18 @@ nRand = 10; % number of random inputs
 
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
-    counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg);
+    counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg, needReshape);
 elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
     for spc = 1:length(lb) % try parfeval, parfor does not work for early return
-        counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg);
-        if ~isnan(counterEx)
+        counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg, needReshape);
+        if iscell(counterEx)
             break
         end
     end
 elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
     for arr = 1:length(lb) % try parfeval, parfor does not work for early return
-        counterEx = falsify_single(net, lb{arr}, ub{arr}, inputSize, nRand, prop{1}.Hg);
-        if ~isnan(counterEx)
+        counterEx = falsify_single(net, lb{arr}, ub{arr}, inputSize, nRand, prop{1}.Hg, needReshape);
+        if iscell(counterEx)
             break
         end
     end
@@ -71,7 +71,9 @@ reachOptions = struct;
 % reachOptions.reachMethod = 'exact-star';
 % reachOptions.reachOption = 'parallel';
 % reachOptions.numCores = feature('numcores');
-reachOptions.reachMethod = 'approx-star';
+% reachOptions.reachMethod = 'approx-star';
+reachOptions.reachMethod = 'relax-star-range';
+reachOptions.relaxFactor = 0.75;
 
 % Check if property was violated earlier
 if iscell(counterEx)
@@ -83,26 +85,96 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
         % Get input set
-        lb = reshape(lb, inputSize);
-        ub = reshape(ub, inputSize);
+%         if ~needReshape
+%             lb = reshape(lb, inputSize);
+%             ub = reshape(ub, inputSize);
+%         else
+%             lbS = python_reshape(lb{spc}, inputSize);
+%             ubS = python_reshape(ub{spc}, inputSize);
+%         end
+        if ~isscalar(inputSize)
+            lb = reshape(lb, inputSize);
+            ub = reshape(ub, inputSize);
+        end
+        if needReshape
+            lb = permute(lb, [2 1 3]);
+            ub = permute(ub, [2 1 3]);
+        end
         IS = ImageStar(lb, ub);
         % Compute reachability
         ySet = nnvnet.reach(IS, reachOptions);
         % Verify property
         status = verify_specification(ySet, prop);
     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
+        local_status = ones(length(lb),1);
         for spc = 1:length(lb)
             % Get input set
-            lb = reshape(lb, inputSize);
-            ub = reshape(ub, inputSize);
-            IS = ImageStar(lb, ub);
+%             if ~needReshape
+%                 lbS = reshape(lb{spc}, inputSize);
+%                 ubS = reshape(ub{spc}, inputSize);
+%             else
+%                 lbS = python_reshape(lb{spc}, inputSize);
+%                 ubS = python_reshape(ub{spc}, inputSize);
+%             end
+            if ~isscalar(inputSize)
+                lbS = reshape(lb{spc}, inputSize);
+                ubS = reshape(ub{spc}, inputSize);
+            else
+                lbS = lb{spc};
+                ubS = ub{spc};
+            end
+            if needReshape
+                lbS = permute(lbS, [2 1 3]);
+                ubS = permute(ubS, [2 1 3]);
+            end
+            IS = ImageStar(lbS, ubS);
             % Compute reachability
             ySet = nnvnet.reach(IS, reachOptions);
             % Verify property
-            status = verify_specification(ySet, prop);
+            if isempty(ySet.C)
+                dd = ySet.V; DD = ySet.V;
+                ySet = Star(dd,DD);
+            end
+            local_status(spc) = verify_specification(ySet, prop(spc));
+        end
+        if all(local_status == 1)
+            status = 1;
+        else
+            status = 2;
         end
     elseif isa(lb, "cell") && length(prop) == 1
-    
+        local_status = ones(length(lb),1);
+        for spc = 1:length(lb)
+            % Get input set
+%             if ~needReshape
+%                 lbS = reshape(lb{spc}, inputSize);
+%                 ubS = reshape(ub{spc}, inputSize);
+%             else
+%                 lbS = python_reshape(lb{spc}, inputSize);
+%                 ubS = python_reshape(ub{spc}, inputSize);
+%             end
+            if ~isscalar(inputSize)
+                lbS = reshape(lb{spc}, inputSize);
+                ubS = reshape(ub{spc}, inputSize);
+            else
+                lbS = lb{spc};
+                ubS = ub{spc};
+            end
+            if needReshape
+                lbS = permute(lbS, [2 1 3]);
+                ubS = permute(ubS, [2 1 3]);
+            end
+            IS = ImageStar(lbS, ubS);
+            % Compute reachability
+            ySet = nnvnet.reach(IS, reachOptions);
+            % Verify property
+            local_status(spc) = verify_specification(ySet, prop);
+        end
+        if all(local_status == 1)
+            status = 1;
+        else
+            status = 2;
+        end
     else
         warning("Working on adding support to other vnnlib properties")
     end
@@ -138,8 +210,10 @@ end
 
 end
 
-function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
+function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
 % load vnncomp 2023 benchmark NNs (subset support)
+
+    needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
 
     onnx = split(onnxFile,'/');
     if iscell(onnx)
@@ -163,10 +237,11 @@ function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
 
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab
-        if ~contains(onnxFile, "2048")
+        if contains(onnxFile, "lindex")
             net = load(onnx);
-            net = net.net;
+            net = assembleNetwork(net.net);
             nnvnet = matlab2nnv(net);
+%             needReshape = 1;
         else
             error("We don't have those");
         end
@@ -194,6 +269,7 @@ function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
         %reshapedInput = python_reshape(input,net_vgg.Layers(1,1).InputSize); % what is the input? assume it's all the same?
         %nnvnet = matlab2nnv(net);
         nnvnet = "";
+        needReshape = 1;
         
     elseif contains(category, "tllverify")
         % tllverify: onnx to matlab
@@ -206,6 +282,7 @@ function [net,nnvnet] = load_vnncomp_network(category, onnxFile)
         net = load(onnx);
         net = net.net;
         nnvnet = "";
+        needReshape= 1;
         
     elseif contains(category, "cctsdb_yolo")
         % cctsdb_yolo: onnx to matnet
@@ -317,11 +394,17 @@ function [net,nnvnet] = load_vnncomp_network_local(category, onnx)
 
 end
 
-function xRand = create_random_examples(net, lb, ub, nR, inputSize)
+function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape)
     xB = Box(lb, ub); % lb, ub must be vectors
     xRand = xB.sample(nR-2);
     xRand = [lb, ub, xRand];
-    xRand = reshape(xRand,[inputSize nR]); % reshape vectors into net input size
+    if needReshape
+        xRand = reshape(xRand, [inputSize nR]);
+        xRand = permute(xRand, [2 1 3 4]);
+%         xRand = python_reshape(xRand, [inputSize nR]);
+    else
+        xRand = reshape(xRand,[inputSize nR]); % reshape vectors into net input size
+    end
     if isa(net, 'dlnetwork') % need to convert to dlarray
         if isa(net.Layers(1, 1), 'nnet.cnn.layer.ImageInputLayer')
             xRand = dlarray(xRand, "SSCB");
@@ -370,9 +453,9 @@ function write_counterexample(outputfile, counterEx)
 
 end
 
-function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs)
+function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape)
     counterEx = nan;
-    xRand = create_random_examples(net, lb, ub, nRand, inputSize);
+    xRand = create_random_examples(net, lb, ub, nRand, inputSize, needReshape);
     s = size(xRand);
     n = length(s);
     %  look for counterexamples

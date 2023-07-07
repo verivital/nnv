@@ -112,7 +112,7 @@ nn4sys_path = vnncomp_path + "nn4sys/";
 
 nn4sys_instances = [... % all other networks are not supported...
     "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
-    "onnx/lindex_deep.onnx", "vnnlib/lindex_9000.vnnlib";...
+    "onnx/lindex_deep.onnx", "vnnlib/lindex_200.vnnlib";...
     ];
 
 % Run verification for nn4sys 
@@ -191,7 +191,7 @@ vgg_instances = ["onnx/vgg16-7.onnx","vnnlib/spec0_screw.vnnlib"];
 % I can imagine that similar errors will be encountered when running verification
 onnx = vgg_path + vgg_instances(1,1);
 vnnlib = vgg_path + vgg_instances(1,2);
-run_vnncomp2023_instance("vggnet16",onnx,vnnlib,"vgg_results_" + string(i)+".txt");
+run_vnncomp2023_instance("vggnet16",onnx,vnnlib,"vgg_results.txt");
 
 
 %% ml4acopf

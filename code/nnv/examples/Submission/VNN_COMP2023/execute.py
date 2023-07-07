@@ -39,15 +39,6 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         vnnlib  (str): the path to the .vnnlib file
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
-    
-    # find the matlab engine and connect to it;
-    # there should only be 1 running matlab engine.
-#     print("Finding open matlab sessions...")
-#     print(matlab.engine.find_matlab())
-#     eng_name = matlab.engine.find_matlab()[0]
-#     eng = matlab.engine.connect_matlab(name=eng_name)
-# # 
-#     print(f'Successfully connected to engine: {eng_name}.')
 
     eng = matlab.engine.start_matlab()
 
@@ -60,7 +51,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     future = eng.run_vnncomp2023_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
     
     try: 
-        [status, total_time] = future.result(timeout=timeout)
+        [status, total_time] = future.result(timeout=int(timeout))
         #print('extra time = ',int(toc-tic))
     except matlab.engine.TimeoutError:
         print("timeout")
@@ -70,26 +61,12 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         
     future.cancel()
     eng.quit() 
-    
-#     if status == 2:
-#         result = 'unknown' #Unknown
-#         #print('Unknown and time: ',total_time)
-#     elif status == 1:
-#         result = 'unsat'
-#     elif status == 0:
-#         result = 'sat'
-#         #print('Holds and time: ',total_time)
-#     elif status == 3:
-#         result = 'timeout'
-#         #print('Timed Out and time: ',total_time)
 
     if status == 3:
         resultfile = outputlocation
         with open(resultfile, 'w') as f:
             f.write('timeout')
     # All the other results are written from matlab
-
-#     eng.quit()
 
 
 def _get_args() -> None:

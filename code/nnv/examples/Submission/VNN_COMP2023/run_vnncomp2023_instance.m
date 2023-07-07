@@ -16,15 +16,16 @@ status = 2; % unknown (to start with)
 % Load networks
 % have to go to this path for the networks to load properly... lovely
 old_path = pwd;
-% cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
-cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+% cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
 [net, nnvnet] = load_vnncomp_network(category, onnx);
 inputSize = net.Layers(1, 1).InputSize;
 % disp(net);
 % disp(nnvnet);
+cd(old_path); % go back to where we ran the functions from
 
 % Load property to verify
-warning(vnnlib); % somehow it is failing to open the vnnlib files...
+% warning(vnnlib); % somehow it is failing to open the vnnlib files...
 property = load_vnnlib(vnnlib);
 lb = property.lb; % input lower bounds
 ub = property.ub; % input upper bounds
@@ -42,10 +43,20 @@ nRand = 10; % number of random inputs
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
     counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg);
-% elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
-%     
-% elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
-
+elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
+    for spc = 1:length(lb) % try parfeval, parfor does not work for early return
+        counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg);
+        if ~isnan(counterEx)
+            break
+        end
+    end
+elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
+    for arr = 1:length(lb) % try parfeval, parfor does not work for early return
+        counterEx = falsify_single(net, lb{arr}, ub{arr}, inputSize, nRand, prop{1}.Hg);
+        if ~isnan(counterEx)
+            break
+        end
+    end
 else
     warning("Working on adding support to other vnnlib properties")
 end
@@ -62,7 +73,12 @@ reachOptions = struct;
 % reachOptions.numCores = feature('numcores');
 reachOptions.reachMethod = 'approx-star';
 
-if status == 2 && isa(nnvnet, "NN")  && ~isa(reachOptions, 'struct') % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
+% Check if property was violated earlier
+if iscell(counterEx)
+    status = 0;
+end
+
+if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
@@ -72,10 +88,20 @@ if status == 2 && isa(nnvnet, "NN")  && ~isa(reachOptions, 'struct') % no counte
         IS = ImageStar(lb, ub);
         % Compute reachability
         ySet = nnvnet.reach(IS, reachOptions);
+        % Verify property
         status = verify_specification(ySet, prop);
-%     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
-%     
-%     elseif isa(lb, "cell") && length(prop) == 1
+    elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
+        for spc = 1:length(lb)
+            % Get input set
+            lb = reshape(lb, inputSize);
+            ub = reshape(ub, inputSize);
+            IS = ImageStar(lb, ub);
+            % Compute reachability
+            ySet = nnvnet.reach(IS, reachOptions);
+            % Verify property
+            status = verify_specification(ySet, prop);
+        end
+    elseif isa(lb, "cell") && length(prop) == 1
     
     else
         warning("Working on adding support to other vnnlib properties")
@@ -107,7 +133,6 @@ elseif status == 2
     fclose(fid);
 end
 
-cd(old_path); % go back to where we ran the functions from
 % quit; % does this work when running matlab.engine from python in background?
 
 

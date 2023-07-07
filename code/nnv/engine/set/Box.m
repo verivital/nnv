@@ -34,21 +34,25 @@ classdef Box
             
             obj.center = 0.5 * (lb + ub);
             vec = 0.5 * (ub - lb);
-%             for i=1:n1
-%                 if vec(i) ~= 0
-%                     gen = cast(zeros(n1, 1), 'like', ub);
-%                     gen(i) = vec(i);
-%                     obj.generators = [obj.generators gen];
-%                 end                
-%             end
-%             
-%             if norm(vec) == 0
-%                 obj.generators = cast(zeros(obj.dim, 1), 'like', ub);
-%             end
-            % Speeding up implementation
-            gens = diag(vec); % generate matrix
-            gens(:,all(gens(gens==0))) = []; % delete colums with no info
-            obj.generators = gens;
+
+            % Creating a large matrix may result in out of memory errors using first method...
+            try 
+                % Speeding up implementation
+                gens = diag(vec); % generate matrix
+                gens(:,all(gens(gens==0))) = []; % delete colums with no info
+                obj.generators = gens;
+            catch
+                % This works well for large input sets with few perturbed pixels
+                template_c = cast(zeros(obj.dim, 1), 'like', ub);
+                gen_locs = find(vec~= 0);
+                for i = gen_locs
+                    gen = template_c;
+                    gen(i) = vec(i);
+                    obj.generators = [obj.generators gen];
+                end
+
+            end
+            
         end
         
         % single partition of a box

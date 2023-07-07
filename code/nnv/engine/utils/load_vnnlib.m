@@ -72,7 +72,10 @@ function property = load_vnnlib(propertyFile)
             % Determine which options to go with (option 1 is most common)
             if contains(tline, "assert") && contains(tline, 'or') && contains(tline, 'X_')
                 if contains(tline, 'Y_') % option 3
-                    [lb_array, ub_array, prop_array] = process_combined_input_output(tline, lb_input, ub_input); 
+                    [lb_array, ub_array, prop_array] = process_combined_input_output(tline, lb_input, ub_input, output_dim);
+                    property.lb = lb_array;
+                    property.ub = ub_array;
+                    property.prop = prop_array;
                 else % option 2
                     [lb_array, ub_array] = process_multiple_inputs(tline, lb_input, ub_input); 
                 end
@@ -353,9 +356,63 @@ function [lb_input, ub_input] =  process_input_constraint(tline, lb_input, ub_in
 end
 
 % Process input assertion with combined input and output (or statement)
-function [lb_array, ub_array, prop_array] = process_combined_input_output(tline, lb_input, ub_input)
-    error("This is not supported yet. Work in progress...");
-end              
+function [lb_array, ub_array, prop_array] = process_combined_input_output(tline, lb_input, ub_input, output_dim)
+    all_cons = extractBetween(tline, '(and', '))');
+    n = length(all_cons); % how many [lb,ub,prop] combos do we have?
+    lb_array = cell(n,1);
+    ub_array = cell(n,1);
+    prop_array = cell(n,1);
+    for i = 1:length(all_cons)
+        combo = all_cons{i};
+        combo = combo + ")";
+        single_cons = extractBetween(combo, "(", ")");
+        % initialize a halfspace for each combo
+        H = [];
+        g = [];
+        for k=1:length(single_cons)
+            x = single_cons{k};
+            if contains(x, 'X')
+                [lb_input, ub_input] =  process_input_constraint(x, lb_input, ub_input);
+            else
+                [H, g] =  process_output_combo_constraint(tline, H, g, output_dim);
+            end
+        end
+        Hg = HalfSpace(H,g);
+        prop = struct;
+        prop.Hg = Hg;
+        prop.H = H;
+        prop.g = g;
+        lb_array{i} = lb_input;
+        ub_array{i} = ub_input;
+        prop_array{i} = prop;
+    end
+    
+end 
+
+function [H, g] =  process_output_combo_constraint(tline, H, g, output_dim)
+    % This is not ideal, but looks like these types of properties only
+    % compare Y with values, so can use same code as for input, but need to
+    % generalize this for the future
+    Hvec = zeros(1, output_dim);
+    s = split(tline, '(');
+    s = s(end);
+    for k=1:length(s)
+        t = split(s{k});
+        dim = split(t{2},'_');
+        dim = str2double(dim{2})+1;
+        value = split(t{3},')');
+        value = str2double(value{1});
+        if contains(t{1},">=") || contains(t{1}, ">")
+            Hvec(dim) = 1;
+            gval = value;
+        else
+            Hvec(dim) = -1;
+            gval = -value;
+        end
+        H = [H; Hvec];
+        g = [g; gval];
+    end
+end
 
 % Process input assertion withmultiple input sets (or statement)
 function [lb_array, ub_array] = process_multiple_inputs(tline, lb_input, ub_input)

@@ -16,15 +16,16 @@ status = 2; % unknown (to start with)
 % Load networks
 % have to go to this path for the networks to load properly... lovely
 old_path = pwd;
-% cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
-cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+% cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
 [net, nnvnet] = load_vnncomp_network(category, onnx);
 inputSize = net.Layers(1, 1).InputSize;
 % disp(net);
 % disp(nnvnet);
+cd(old_path); % go back to where we ran the functions from
 
 % Load property to verify
-warning(vnnlib); % somehow it is failing to open the vnnlib files...
+% warning(vnnlib); % somehow it is failing to open the vnnlib files...
 property = load_vnnlib(vnnlib);
 lb = property.lb; % input lower bounds
 ub = property.ub; % input upper bounds
@@ -73,7 +74,7 @@ reachOptions = struct;
 reachOptions.reachMethod = 'approx-star';
 
 % Check if property was violated earlier
-if ~isnan(counterEx)
+if iscell(counterEx)
     status = 0;
 end
 
@@ -132,7 +133,6 @@ elseif status == 2
     fclose(fid);
 end
 
-cd(old_path); % go back to where we ran the functions from
 % quit; % does this work when running matlab.engine from python in background?
 
 

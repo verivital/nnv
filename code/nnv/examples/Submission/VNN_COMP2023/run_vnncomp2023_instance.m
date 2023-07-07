@@ -16,8 +16,8 @@ status = 2; % unknown (to start with)
 % Load networks
 % have to go to this path for the networks to load properly... lovely
 old_path = pwd;
-% cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
-cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+% cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
 [net, nnvnet, needReshape] = load_vnncomp_network(category, onnx);
 inputSize = net.Layers(1, 1).InputSize;
 % disp(net);
@@ -61,19 +61,21 @@ else
     warning("Working on adding support to other vnnlib properties")
 end
 
-% disp(toc(t));
-
+toc(t);
 
 %% 3) UNSAT?
 
 % Define reachability options
 reachOptions = struct;
+
 % reachOptions.reachMethod = 'exact-star';
 % reachOptions.reachOption = 'parallel';
 % reachOptions.numCores = feature('numcores');
+
 % reachOptions.reachMethod = 'approx-star';
+
 reachOptions.reachMethod = 'relax-star-range';
-reachOptions.relaxFactor = 0.75;
+reachOptions.relaxFactor = 0.5; % solve only half of LP problems
 
 % Check if property was violated earlier
 if iscell(counterEx)
@@ -98,6 +100,7 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         ySet = nnvnet.reach(IS, reachOptions);
         % Verify property
         status = verify_specification(ySet, prop);
+        toc(t);
         if status == 2 % refine if unknown
             reachOptions = struct;
             reachOptions.reachMethod = 'approx-star';
@@ -105,29 +108,23 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             ySet = nnvnet.reach(IS, reachOptions);
             % Verify property
             status = verify_specification(ySet, prop);
-            if status == 2 % refine if unknown
-                reachOptions = struct;
-                reachOptions.reachMethod = 'exact-star';
-                reachOptions.reachOption = 'parallel';
-                reachOptions.numCores = feature('numcores');
-                % Compute reachability
-                ySet = nnvnet.reach(IS, reachOptions);
-                % Verify property
-                status = verify_specification(ySet, prop);
-            end
+            toc(t);
+%             if status == 2 % refine if unknown
+%                 reachOptions = struct;
+%                 reachOptions.reachMethod = 'exact-star';
+%                 reachOptions.reachOption = 'parallel';
+%                 reachOptions.numCores = feature('numcores');
+%                 % Compute reachability
+%                 ySet = nnvnet.reach(IS, reachOptions);
+%                 % Verify property
+%                 status = verify_specification(ySet, prop);
+%             end
         end
 
     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
         local_status = ones(length(lb),1);
         for spc = 1:length(lb)
             % Get input set
-%             if ~needReshape
-%                 lbS = reshape(lb{spc}, inputSize);
-%                 ubS = reshape(ub{spc}, inputSize);
-%             else
-%                 lbS = python_reshape(lb{spc}, inputSize);
-%                 ubS = python_reshape(ub{spc}, inputSize);
-%             end
             if ~isscalar(inputSize)
                 lbS = reshape(lb{spc}, inputSize);
                 ubS = reshape(ub{spc}, inputSize);
@@ -258,8 +255,12 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
     elseif contains(category, "dist_shift")
         % dist_shift: onnx to matlab:
         net = load(onnx);
-        net = net.net;        
-        nnvnet = "";
+        net = net.net;
+        try 
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
         
     elseif contains(category, "cgan")
         % cgan

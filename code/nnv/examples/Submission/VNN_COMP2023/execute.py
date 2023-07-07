@@ -59,7 +59,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     future = eng.run_vnncomp2023_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
     
     try: 
-        [status, total_time] = future.result(timeout=int(timeout))
+        [status, total_time] = future.result(timeout=float(timeout))
         #print('extra time = ',int(toc-tic))
     except matlab.engine.TimeoutError:
         print("timeout")

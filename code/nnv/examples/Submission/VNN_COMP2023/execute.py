@@ -50,16 +50,16 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
 
     eng = matlab.engine.start_matlab()
 
-    # add logic for running the reachability analysis.
+    eng.addpath(os.getcwd())
+    eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
 
     status = 2 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
     #print('timestep :',toc)
-    print(vnnlib)
     future = eng.run_vnncomp2023_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
     
     try: 
-        [status, total_time] = future.result()
+        [status, total_time] = future.result(timeout=timeout)
         #print('extra time = ',int(toc-tic))
     except matlab.engine.TimeoutError:
         print("timeout")

@@ -68,12 +68,12 @@ end
 
 % Define reachability options
 reachOptions = struct;
-reachOptions.reachMethod = 'exact-star';
+% reachOptions.reachMethod = 'exact-star';
 % reachOptions.reachOption = 'parallel';
 % reachOptions.numCores = feature('numcores');
 % reachOptions.reachMethod = 'approx-star';
-% reachOptions.reachMethod = 'relax-star-range';
-% reachOptions.relaxFactor = 0.5;
+reachOptions.reachMethod = 'relax-star-range';
+reachOptions.relaxFactor = 0.75;
 
 % Check if property was violated earlier
 if iscell(counterEx)

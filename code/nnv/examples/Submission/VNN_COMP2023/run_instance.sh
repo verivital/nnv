@@ -33,5 +33,6 @@ echo $PYTHONPATH
 
 python3 /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/execute.py 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"
 # sudo python3 execute.py 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"
+matlab -nodisplay -r "run_vnncomp2023_instance($CATEGORY, $ONNX, $VNNLIB_FILE, $RESULTS_FILE)" 
 
 echo ""

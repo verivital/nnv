@@ -85,13 +85,6 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
         % Get input set
-%         if ~needReshape
-%             lb = reshape(lb, inputSize);
-%             ub = reshape(ub, inputSize);
-%         else
-%             lbS = python_reshape(lb{spc}, inputSize);
-%             ubS = python_reshape(ub{spc}, inputSize);
-%         end
         if ~isscalar(inputSize)
             lb = reshape(lb, inputSize);
             ub = reshape(ub, inputSize);
@@ -105,6 +98,25 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         ySet = nnvnet.reach(IS, reachOptions);
         % Verify property
         status = verify_specification(ySet, prop);
+        if status == 2 % refine if unknown
+            reachOptions = struct;
+            reachOptions.reachMethod = 'approx-star';
+            % Compute reachability
+            ySet = nnvnet.reach(IS, reachOptions);
+            % Verify property
+            status = verify_specification(ySet, prop);
+            if status == 2 % refine if unknown
+                reachOptions = struct;
+                reachOptions.reachMethod = 'exact-star';
+                reachOptions.reachOption = 'parallel';
+                reachOptions.numCores = feature('numcores');
+                % Compute reachability
+                ySet = nnvnet.reach(IS, reachOptions);
+                % Verify property
+                status = verify_specification(ySet, prop);
+            end
+        end
+
     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
         local_status = ones(length(lb),1);
         for spc = 1:length(lb)
@@ -146,13 +158,6 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         local_status = ones(length(lb),1);
         for spc = 1:length(lb)
             % Get input set
-%             if ~needReshape
-%                 lbS = reshape(lb{spc}, inputSize);
-%                 ubS = reshape(ub{spc}, inputSize);
-%             else
-%                 lbS = python_reshape(lb{spc}, inputSize);
-%                 ubS = python_reshape(ub{spc}, inputSize);
-%             end
             if ~isscalar(inputSize)
                 lbS = reshape(lb{spc}, inputSize);
                 ubS = reshape(ub{spc}, inputSize);
@@ -229,6 +234,11 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
         net = load(onnx);
         net = net.net;
         nnvnet = matlab2nnv(net);
+        if contains(onnx, 'full_window_40')
+            needReshape = 2;
+        else
+            needReshape = 1;
+        end
 
     elseif contains(category, "ml4acopf")
         net = load(onnx);
@@ -326,81 +336,87 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
 end
 
 % Had to change this because importer fails using the command line...s
-function [net,nnvnet] = load_vnncomp_network_local(category, onnx)
-% load vnncomp 2023 benchmark NNs (subset support)
-
-    % collins_rul: onnx to nnvnet
-    % collins_nets = load_collins_NNs;
-    if contains(category, 'collins_rul')
-        net = importONNXNetwork(onnx);
-        nnvnet = matlab2nnv(net);
-
-    elseif contains(category, "nn4sys")
-        % nn4sys: onnx to matlab:
-        net = importONNXLayers(onnx, "OutputDataFormats", "BC"); % lindex
-        nnvnet = matlab2nnv(net);
-        
-    elseif contains(category, "dist_shift")
-        % dist_shift: onnx to matlab:
-        net = importONNXNetwork(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
-        nnvnet = "";
-        
-    elseif contains(category, "cgan")
-        % cgan
-        net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
-        nnvnet = matlab2nnv(net);
-        
-    elseif contains(category, "vgg16")
-        % vgg16: onnx to matlab
-        net = importONNXNetwork('vgg16-7.onnx'); % flattenlayer
-        %reshapedInput = python_reshape(input,net_vgg.Layers(1,1).InputSize); % what is the input? assume it's all the same?
-        %nnvnet = matlab2nnv(net);
-        nnvnet = "";
-        
-    elseif contains(category, "tllverify")
-        % tllverify: onnx to matlab
-        net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
-        nnvnet = matlab2nnv(net);
-        
-    elseif contains(category, "vit")
-        % vit: onnx to matlab
-        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
-        nnvnet = "";
-        
-    elseif contains(category, "cctsdb_yolo")
-        % cctsdb_yolo: onnx to matnet
-        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
-        nnvnet = "";
-        
-    elseif contains(category, "collins_yolo")
-        % collins_yolo: onnx to matlab:
-        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
-        nnvnet = "";
-
-    elseif contains(category, "yolo")
-        % yolo: onnx to matlab
-        net = importONNXNetwork(onnx); % padlayer
-        nnvnet = matlab2nnv(net);
-
-    elseif contains(category, "acasxu")
-        % acasxu: onnx to nnv
-        net = importONNXNetwork(onnx, "InputDataFormats","BCSS");
-        nnvnet = matlab2nnv(net);
-        
-    else % all other benchmarks
-        % traffic: onnx to matlab: opset15 issues
-        error("ONNX model not supported")
-    end
-
-end
+% function [net,nnvnet] = load_vnncomp_network_local(category, onnx)
+% % load vnncomp 2023 benchmark NNs (subset support)
+% 
+%     % collins_rul: onnx to nnvnet
+%     % collins_nets = load_collins_NNs;
+%     if contains(category, 'collins_rul')
+%         net = importONNXNetwork(onnx);
+%         nnvnet = matlab2nnv(net);
+% 
+%     elseif contains(category, "nn4sys")
+%         % nn4sys: onnx to matlab:
+%         net = importONNXLayers(onnx, "OutputDataFormats", "BC"); % lindex
+%         nnvnet = matlab2nnv(net);
+%         
+%     elseif contains(category, "dist_shift")
+%         % dist_shift: onnx to matlab:
+%         net = importONNXNetwork(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
+%         nnvnet = "";
+%         
+%     elseif contains(category, "cgan")
+%         % cgan
+%         net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
+%         nnvnet = matlab2nnv(net);
+%         
+%     elseif contains(category, "vgg16")
+%         % vgg16: onnx to matlab
+%         net = importONNXNetwork('vgg16-7.onnx'); % flattenlayer
+%         %reshapedInput = python_reshape(input,net_vgg.Layers(1,1).InputSize); % what is the input? assume it's all the same?
+%         %nnvnet = matlab2nnv(net);
+%         nnvnet = "";
+%         
+%     elseif contains(category, "tllverify")
+%         % tllverify: onnx to matlab
+%         net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
+%         nnvnet = matlab2nnv(net);
+%         
+%     elseif contains(category, "vit")
+%         % vit: onnx to matlab
+%         net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+%         nnvnet = "";
+%         
+%     elseif contains(category, "cctsdb_yolo")
+%         % cctsdb_yolo: onnx to matnet
+%         net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+%         nnvnet = "";
+%         
+%     elseif contains(category, "collins_yolo")
+%         % collins_yolo: onnx to matlab:
+%         net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+%         nnvnet = "";
+% 
+%     elseif contains(category, "yolo")
+%         % yolo: onnx to matlab
+%         net = importONNXNetwork(onnx); % padlayer
+%         nnvnet = matlab2nnv(net);
+% 
+%     elseif contains(category, "acasxu")
+%         % acasxu: onnx to nnv
+%         net = importONNXNetwork(onnx, "InputDataFormats","BCSS");
+%         nnvnet = matlab2nnv(net);
+%         
+%     else % all other benchmarks
+%         % traffic: onnx to matlab: opset15 issues
+%         error("ONNX model not supported")
+%     end
+% 
+% end
 
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape)
     xB = Box(lb, ub); % lb, ub must be vectors
     xRand = xB.sample(nR-2);
     xRand = [lb, ub, xRand];
     if needReshape
-        xRand = reshape(xRand, [inputSize nR]);
-        xRand = permute(xRand, [2 1 3 4]);
+        if needReshape ==2 % for collins only (full_window_40)
+            newSize = [inputSize(2) inputSize(1) inputSize(3:end)];
+            xRand = reshape(xRand, [newSize nR]);
+            xRand = permute(xRand, [2 1 3 4]);
+        else
+            xRand = reshape(xRand, [inputSize nR]);
+            xRand = permute(xRand, [2 1 3 4]);
+        end
 %         xRand = python_reshape(xRand, [inputSize nR]);
     else
         xRand = reshape(xRand,[inputSize nR]); % reshape vectors into net input size

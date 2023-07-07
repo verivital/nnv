@@ -14,6 +14,9 @@ classdef NN < handle
     %             Dr. Hoang Dung Tran
     % This is a generalized class, created in the refactoring of NNV in 2023 (NNV 2.0)
     %    It supports FFNNS, CNN, SEGNET, BNN and RNN from previous NNV version
+
+    % Update: Neelanjana Pal
+    % Date: 07/07/2023
     
     properties
         
@@ -1211,7 +1214,7 @@ classdef NN < handle
 
             % Begin reachability computation
             for i=1:height(obj.Connections)
-                
+
                 % 1) Get name and index of layer
                 source = obj.Connections.Source(i);
                 % ensure we get just the name and not specific properties
@@ -1293,7 +1296,7 @@ classdef NN < handle
             % case of the PixelClassificationLayer this is necessary)
             % Assume last layer in array is the output layer
             if isempty(obj.reachSet{end})
-                inSet = obj.input_sets{end};
+                inSet = obj.reachSet{end-1};
                 outSet = obj.Layers{end}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 obj.reachSet{end} = outSet;
             end

@@ -227,7 +227,7 @@ function [nnvLayers, nnvConns, name2number] = process_connections(nnvLayers, con
     final_dests = [];
     orig_sources = conns.Source;
     orig_dests = conns.Destination;
-    skipped = idxs; %start with assumption that all connections are skipped
+    skipped = 1: height(conns);%idxs; %start with assumption that all connections are skipped
 
     % start adding cnnections to the final list
     while ~isempty(skipped) 

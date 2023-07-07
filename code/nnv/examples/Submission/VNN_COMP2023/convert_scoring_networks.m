@@ -192,6 +192,8 @@ for i=3:length(onnx)
     save(['networks2023/', name], "net", "-v7.3");
 end
 
+%% Other 2023 benchmarks
+
 %% test 
 
 disp("Running test examples...");
@@ -211,6 +213,23 @@ for i = 1:length(onnxmodels)
 end
 
 
+%% yolo
+
+disp("Running yolo...");
+
+yolo_path = vnncomp_path + "yolo/onnx/";
+
+onnx = dir(yolo_path);
+
+for i = 3:length(onnx)
+    onnxFile = yolo_path + onnx(i).name;
+    net = load_vnncomp_network('yolo', onnxFile);
+    name = onnx(i).name;
+    name = name(1:end-5);
+    save(['networks2023/', name], "net", "-v7.3");
+end
+
+
 %% Loading function
 function net = load_vnncomp_network(category, onnx)
 % load vnncomp 2023 benchmark NNs (subset support)
@@ -222,7 +241,7 @@ function net = load_vnncomp_network(category, onnx)
 
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab:
-        net = importONNXLayers(onnx, "OutputDataFormats", "BC"); % lindex
+        net = importONNXNetowrk(onnx, "OutputDataFormats", "BC"); % lindex
         
     elseif contains(category, "dist_shift")
         % dist_shift: onnx to matlab:

@@ -27,9 +27,13 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
         vnnlib (str): the path to the .vnnlib file
     """
     # start matlab engine as a shared engine
-#     eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
-#     print('Engine starting...')
-    print("We aren't actually doing anything here...")
+    eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
+    print('Engine starting...')
+
+    # keep MATLAB engine open until manually killed
+    while True:
+        time.sleep(0.5)
+#     print("We aren't actually doing anything here...")
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
@@ -40,7 +44,11 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
 
-    eng = matlab.engine.start_matlab()
+#     eng = matlab.engine.start_matlab()
+    eng_name = matlab.engine.find_matlab()[0]
+    eng = matlab.engine.connect_matlab(name=eng_name)
+
+    print(f'Successfully connected to engine: {eng_name}.')
 
     eng.addpath(os.getcwd())
     eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))

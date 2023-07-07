@@ -46,14 +46,14 @@ if ~isa(lb, "cell") && length(prop) == 1 % one input, one output
 elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
     for spc = 1:length(lb) % try parfeval, parfor does not work for early return
         counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg, needReshape);
-        if ~isnan(counterEx)
+        if iscell(counterEx)
             break
         end
     end
 elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
     for arr = 1:length(lb) % try parfeval, parfor does not work for early return
         counterEx = falsify_single(net, lb{arr}, ub{arr}, inputSize, nRand, prop{1}.Hg, needReshape);
-        if ~isnan(counterEx)
+        if iscell(counterEx)
             break
         end
     end
@@ -68,10 +68,12 @@ end
 
 % Define reachability options
 reachOptions = struct;
-% reachOptions.reachMethod = 'exact-star';
+reachOptions.reachMethod = 'exact-star';
 % reachOptions.reachOption = 'parallel';
 % reachOptions.numCores = feature('numcores');
-reachOptions.reachMethod = 'approx-star';
+% reachOptions.reachMethod = 'approx-star';
+% reachOptions.reachMethod = 'relax-star-range';
+% reachOptions.relaxFactor = 0.5;
 
 % Check if property was violated earlier
 if iscell(counterEx)
@@ -83,12 +85,20 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
         % Get input set
-        if ~needReshape
+%         if ~needReshape
+%             lb = reshape(lb, inputSize);
+%             ub = reshape(ub, inputSize);
+%         else
+%             lbS = python_reshape(lb{spc}, inputSize);
+%             ubS = python_reshape(ub{spc}, inputSize);
+%         end
+        if ~isscalar(inputSize)
             lb = reshape(lb, inputSize);
             ub = reshape(ub, inputSize);
-        else
-            lbS = python_reshape(lb{spc}, inputSize);
-            ubS = python_reshape(ub{spc}, inputSize);
+        end
+        if needReshape
+            lb = permute(lb, [2 1 3]);
+            ub = permute(ub, [2 1 3]);
         end
         IS = ImageStar(lb, ub);
         % Compute reachability
@@ -99,18 +109,33 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         local_status = ones(length(lb),1);
         for spc = 1:length(lb)
             % Get input set
-            if ~needReshape
+%             if ~needReshape
+%                 lbS = reshape(lb{spc}, inputSize);
+%                 ubS = reshape(ub{spc}, inputSize);
+%             else
+%                 lbS = python_reshape(lb{spc}, inputSize);
+%                 ubS = python_reshape(ub{spc}, inputSize);
+%             end
+            if ~isscalar(inputSize)
                 lbS = reshape(lb{spc}, inputSize);
                 ubS = reshape(ub{spc}, inputSize);
             else
-                lbS = python_reshape(lb{spc}, inputSize);
-                ubS = python_reshape(ub{spc}, inputSize);
+                lbS = lb{spc};
+                ubS = ub{spc};
+            end
+            if needReshape
+                lbS = permute(lbS, [2 1 3]);
+                ubS = permute(ubS, [2 1 3]);
             end
             IS = ImageStar(lbS, ubS);
             % Compute reachability
             ySet = nnvnet.reach(IS, reachOptions);
             % Verify property
-            local_status(spc) = verify_specification(ySet, prop{spc});
+            if isempty(ySet.C)
+                dd = ySet.V; DD = ySet.V;
+                ySet = Star(dd,DD);
+            end
+            local_status(spc) = verify_specification(ySet, prop(spc));
         end
         if all(local_status == 1)
             status = 1;
@@ -121,12 +146,23 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         local_status = ones(length(lb),1);
         for spc = 1:length(lb)
             % Get input set
-            if ~needReshape
+%             if ~needReshape
+%                 lbS = reshape(lb{spc}, inputSize);
+%                 ubS = reshape(ub{spc}, inputSize);
+%             else
+%                 lbS = python_reshape(lb{spc}, inputSize);
+%                 ubS = python_reshape(ub{spc}, inputSize);
+%             end
+            if ~isscalar(inputSize)
                 lbS = reshape(lb{spc}, inputSize);
                 ubS = reshape(ub{spc}, inputSize);
             else
-                lbS = python_reshape(lb{spc}, inputSize);
-                ubS = python_reshape(ub{spc}, inputSize);
+                lbS = lb{spc};
+                ubS = ub{spc};
+            end
+            if needReshape
+                lbS = permute(lbS, [2 1 3]);
+                ubS = permute(ubS, [2 1 3]);
             end
             IS = ImageStar(lbS, ubS);
             % Compute reachability
@@ -201,11 +237,11 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
 
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab
-        if ~contains(onnxFile, "2048")
+        if contains(onnxFile, "lindex")
             net = load(onnx);
-            net = net.net;
+            net = assembleNetwork(net.net);
             nnvnet = matlab2nnv(net);
-            needReshape = 1;
+%             needReshape = 1;
         else
             error("We don't have those");
         end
@@ -363,7 +399,9 @@ function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape)
     xRand = xB.sample(nR-2);
     xRand = [lb, ub, xRand];
     if needReshape
-        xRand = python_reshape(xRand, [inputSize nR]);
+        xRand = reshape(xRand, [inputSize nR]);
+        xRand = permute(xRand, [2 1 3 4]);
+%         xRand = python_reshape(xRand, [inputSize nR]);
     else
         xRand = reshape(xRand,[inputSize nR]); % reshape vectors into net input size
     end

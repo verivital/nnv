@@ -403,11 +403,11 @@ function [H, g] =  process_output_combo_constraint(tline, H, g, output_dim)
         value = split(t{3},')');
         value = str2double(value{1});
         if contains(t{1},">=") || contains(t{1}, ">")
-            Hvec(dim) = 1;
-            gval = value;
-        else
             Hvec(dim) = -1;
             gval = -value;
+        else
+            Hvec(dim) = 1;
+            gval = value;
         end
         H = [H; Hvec];
         g = [g; gval];

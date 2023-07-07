@@ -28,17 +28,13 @@ for i=1:n
 %     fprintf('\nParsing Layer %d... \n', i);
     customLayer_no_NLP = 0;
     try
-        pat = digitsPattern(4);
-        if isa(str2num(extract(string(L.Name),pat)),'double') && isempty(struct2array(L.ONNXParams.Nonlearnables))
+        if contains(class(L), "FlattenLayer") && isempty(struct2array(L.ONNXParams.Nonlearnables))
+            customLayer_no_NLP = 1;
+        elseif contains(class(L), "PadLayer") && all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
             customLayer_no_NLP = 1;
         end
     catch
-        try
-            if contains(class(L), "PadLayer") && all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
-                customLayer_no_NLP = 1;
-            end
-        catch
-        end
+        
     end
     
 

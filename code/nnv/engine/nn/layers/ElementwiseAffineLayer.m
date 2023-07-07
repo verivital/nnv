@@ -54,7 +54,7 @@ classdef ElementwiseAffineLayer < handle
                     y = y.*obj.Scale;
             end
             if obj.DoOffset
-                y = y + reshape(obj.Offset, size(y));
+                y = y + obj.Offset; %reshape(obj.Offset, size(y));
             end          
         end 
        

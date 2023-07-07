@@ -32,6 +32,10 @@ for i=1:n
             customLayer_no_NLP = 1;
         elseif contains(class(L), "PadLayer") && all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
             customLayer_no_NLP = 1;
+        elseif contains(class(L), "Reshape_To_ReshapeLayer") && length(fields(L.ONNXParams.Nonlearnables))==2
+            % future: need to check if the previous layers output size ==
+            % last reshape layers dimension
+            customLayer_no_NLP = 1;
         end
     catch
         

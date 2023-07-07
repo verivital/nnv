@@ -16,6 +16,7 @@ Date: June 28, 2023
 import sys
 import matlab.engine
 import time
+import os
 
 
 def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:

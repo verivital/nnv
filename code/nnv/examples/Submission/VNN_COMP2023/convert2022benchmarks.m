@@ -117,7 +117,7 @@ for i=3:length(onnx)
     net = load_vnncomp_network('sri_resnet_a', onnxFile);
     name = onnx(i).name;
     name = name(1:end-5);
-    save(['networks2023/', name], "net", "-v7.3");
+    save(['networks2023/', name, '.mat'], "net", "-v7.3");
 end
 
 %% sri_resnet_b
@@ -131,10 +131,10 @@ for i=3:length(onnx)
     net = load_vnncomp_network('sri_resnet_b', onnxFile);
     name = onnx(i).name;
     name = name(1:end-5);
-    save(['networks2023/', name], "net", "-v7.3");
+    save(['networks2023/', name, '.mat'], "net", "-v7.3");
 end
 
-%% cifar2020 (pgd maybe not?)
+%% cifar2020
 
 cifar2020_path = vnncomp_path + "cifar2020/onnx/";
 

@@ -16,29 +16,24 @@ status = 2; % unknown (to start with)
 % Load networks
 % have to go to this path for the networks to load properly... lovely
 old_path = pwd;
-cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
-% cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+% cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+
 [net, nnvnet, needReshape] = load_vnncomp_network(category, onnx);
 inputSize = net.Layers(1, 1).InputSize;
-% disp(net);
-% disp(nnvnet);
+
 cd(old_path); % go back to where we ran the functions from
 
 % Load property to verify
-% warning(vnnlib); % somehow it is failing to open the vnnlib files...
 property = load_vnnlib(vnnlib);
 lb = property.lb; % input lower bounds
 ub = property.ub; % input upper bounds
 prop = property.prop; % output spec to verify
-% disp(property);
-% disp(property.prop{1});
 
-% Steps 2 and 3 may be executed differently depends on how the vnnlib
-% properties are defined
 
 %% 2) SAT?
 
-nRand = 10; % number of random inputs
+nRand = 100; % number of random inputs
 
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
@@ -66,16 +61,34 @@ toc(t);
 %% 3) UNSAT?
 
 % Define reachability options
-reachOptions = struct;
+% Could have chosen a bit better based on benchmarks, but it is what it is
 
-% reachOptions.reachMethod = 'exact-star';
-% reachOptions.reachOption = 'parallel';
-% reachOptions.numCores = feature('numcores');
+% Option 1
+reachOptions_relax100 = struct;
+reachOptions_relax100.reachMethod = 'relax-star-range';
+reachOptions_relax100.relaxFactor = 1; 
 
-% reachOptions.reachMethod = 'approx-star';
+% Option 2
+reachOptions_relax50 = struct;
+reachOptions_relax50.reachMethod = 'relax-star-range';
+reachOptions_relax50.relaxFactor = 0.5; 
 
-reachOptions.reachMethod = 'relax-star-range';
-reachOptions.relaxFactor = 0.5; % solve only half of LP problems
+% Option 3
+reachOptions_exact = struct;
+reachOptions_exact.reachMethod = 'exact-star';
+reachOptions_exact.reachOption = 'parallel';
+reachOptions_exact.numCores = feature('numcores');
+
+% Option 4
+reachOptions_approx.reachMethod = 'approx-star';
+
+% Choosing reachOptions (based on size, but not sure how to decice really...)
+if prod(inputSize) > 3000 % [32 32 3]
+    reachOptions = {reachOptions_relax100; reachOptions_relax50; reachOptions_approx};
+else
+    reachOptions = {reachOptions_relax50; reachOptions_approx; reachOptions_exact};
+end
+
 
 % Check if property was violated earlier
 if iscell(counterEx)
@@ -97,33 +110,25 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         end
         IS = ImageStar(lb, ub);
         % Compute reachability
-        ySet = nnvnet.reach(IS, reachOptions);
+        ySet = nnvnet.reach(IS, reachOptions{1});
         % Verify property
         status = verify_specification(ySet, prop);
-        toc(t);
         if status == 2 % refine if unknown
-            reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star';
             % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
+            ySet = nnvnet.reach(IS, reachOptions{2});
             % Verify property
             status = verify_specification(ySet, prop);
-            toc(t);
-%             if status == 2 % refine if unknown
-%                 reachOptions = struct;
-%                 reachOptions.reachMethod = 'exact-star';
-%                 reachOptions.reachOption = 'parallel';
-%                 reachOptions.numCores = feature('numcores');
-%                 % Compute reachability
-%                 ySet = nnvnet.reach(IS, reachOptions);
-%                 % Verify property
-%                 status = verify_specification(ySet, prop);
-%             end
+            if status == 2 % refine if unknown
+                % Compute reachability
+                ySet = nnvnet.reach(IS, reachOptions{3});
+                % Verify property
+                status = verify_specification(ySet, prop);
+            end
         end
 
     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
         local_status = ones(length(lb),1);
-        for spc = 1:length(lb)
+        parfor spc = 1:length(lb)
             % Get input set
             if ~isscalar(inputSize)
                 lbS = reshape(lb{spc}, inputSize);
@@ -138,13 +143,25 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             end
             IS = ImageStar(lbS, ubS);
             % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
+            ySet = nnvnet.reach(IS, reachOptions{1});
             % Verify property
             if isempty(ySet.C)
                 dd = ySet.V; DD = ySet.V;
                 ySet = Star(dd,DD);
             end
             local_status(spc) = verify_specification(ySet, prop(spc));
+            if local_status(spc) == 2 % refine if unknown
+                % Compute reachability
+                ySet = nnvnet.reach(IS, reachOptions{2});
+                % Verify property
+                local_status(spc) = verify_specification(ySet, prop(spc));
+                if local_status(spc) == 2 % refine if unknown
+                    % Compute reachability
+                    ySet = nnvnet.reach(IS, reachOptions{3});
+                    % Verify property
+                    local_status(spc) = verify_specification(ySet, prop(spc));
+                end
+            end
         end
         if all(local_status == 1)
             status = 1;
@@ -153,7 +170,7 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         end
     elseif isa(lb, "cell") && length(prop) == 1
         local_status = ones(length(lb),1);
-        for spc = 1:length(lb)
+        parfor spc = 1:length(lb)
             % Get input set
             if ~isscalar(inputSize)
                 lbS = reshape(lb{spc}, inputSize);
@@ -168,9 +185,21 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             end
             IS = ImageStar(lbS, ubS);
             % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
+            ySet = nnvnet.reach(IS, reachOptions{1});
             % Verify property
             local_status(spc) = verify_specification(ySet, prop);
+            if local_status(spc) == 2 % refine if unknown
+                % Compute reachability
+                ySet = nnvnet.reach(IS, reachOptions{2});
+                % Verify property
+                local_status(spc) = verify_specification(ySet, prop);
+                if local_status(spc) == 2 % refine if unknown
+                    % Compute reachability
+                    ySet = nnvnet.reach(IS, reachOptions{3});
+                    % Verify property
+                    local_status(spc) = verify_specification(ySet, prop);
+                end
+            end
         end
         if all(local_status == 1)
             status = 1;

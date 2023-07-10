@@ -18,27 +18,22 @@ status = 2; % unknown (to start with)
 old_path = pwd;
 % cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
 cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+
 [net, nnvnet, needReshape] = load_vnncomp_network(category, onnx);
 inputSize = net.Layers(1, 1).InputSize;
-% disp(net);
-% disp(nnvnet);
+
 cd(old_path); % go back to where we ran the functions from
 
 % Load property to verify
-% warning(vnnlib); % somehow it is failing to open the vnnlib files...
 property = load_vnnlib(vnnlib);
 lb = property.lb; % input lower bounds
 ub = property.ub; % input upper bounds
 prop = property.prop; % output spec to verify
-% disp(property);
-% disp(property.prop{1});
 
-% Steps 2 and 3 may be executed differently depends on how the vnnlib
-% properties are defined
 
 %% 2) SAT?
 
-nRand = 10; % number of random inputs
+nRand = 100; % number of random inputs
 
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
@@ -61,19 +56,39 @@ else
     warning("Working on adding support to other vnnlib properties")
 end
 
-% disp(toc(t));
-
+toc(t);
 
 %% 3) UNSAT?
 
 % Define reachability options
-reachOptions = struct;
-% reachOptions.reachMethod = 'exact-star';
-% reachOptions.reachOption = 'parallel';
-% reachOptions.numCores = feature('numcores');
-% reachOptions.reachMethod = 'approx-star';
-reachOptions.reachMethod = 'relax-star-range';
-reachOptions.relaxFactor = 0.75;
+% Could have chosen a bit better based on benchmarks, but it is what it is
+
+% Option 1
+reachOptions_relax100 = struct;
+reachOptions_relax100.reachMethod = 'relax-star-range';
+reachOptions_relax100.relaxFactor = 1; 
+
+% Option 2
+reachOptions_relax50 = struct;
+reachOptions_relax50.reachMethod = 'relax-star-range';
+reachOptions_relax50.relaxFactor = 0.5; 
+
+% Option 3
+reachOptions_exact = struct;
+reachOptions_exact.reachMethod = 'exact-star';
+reachOptions_exact.reachOption = 'parallel';
+reachOptions_exact.numCores = feature('numcores');
+
+% Option 4
+reachOptions_approx.reachMethod = 'approx-star';
+
+% Choosing reachOptions (based on size, but not sure how to decice really...)
+if prod(inputSize) > 3000 % [32 32 3]
+    reachOptions = {reachOptions_relax100; reachOptions_relax50; reachOptions_approx};
+else
+    reachOptions = {reachOptions_relax50; reachOptions_approx; reachOptions_exact};
+end
+
 
 % Check if property was violated earlier
 if iscell(counterEx)
@@ -95,23 +110,17 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         end
         IS = ImageStar(lb, ub);
         % Compute reachability
-        ySet = nnvnet.reach(IS, reachOptions);
+        ySet = nnvnet.reach(IS, reachOptions{1});
         % Verify property
         status = verify_specification(ySet, prop);
         if status == 2 % refine if unknown
-            reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star';
             % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
+            ySet = nnvnet.reach(IS, reachOptions{2});
             % Verify property
             status = verify_specification(ySet, prop);
             if status == 2 % refine if unknown
-                reachOptions = struct;
-                reachOptions.reachMethod = 'exact-star';
-                reachOptions.reachOption = 'parallel';
-                reachOptions.numCores = feature('numcores');
                 % Compute reachability
-                ySet = nnvnet.reach(IS, reachOptions);
+                ySet = nnvnet.reach(IS, reachOptions{3});
                 % Verify property
                 status = verify_specification(ySet, prop);
             end
@@ -119,15 +128,8 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
 
     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
         local_status = ones(length(lb),1);
-        for spc = 1:length(lb)
+        parfor spc = 1:length(lb)
             % Get input set
-%             if ~needReshape
-%                 lbS = reshape(lb{spc}, inputSize);
-%                 ubS = reshape(ub{spc}, inputSize);
-%             else
-%                 lbS = python_reshape(lb{spc}, inputSize);
-%                 ubS = python_reshape(ub{spc}, inputSize);
-%             end
             if ~isscalar(inputSize)
                 lbS = reshape(lb{spc}, inputSize);
                 ubS = reshape(ub{spc}, inputSize);
@@ -141,13 +143,25 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             end
             IS = ImageStar(lbS, ubS);
             % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
+            ySet = nnvnet.reach(IS, reachOptions{1});
             % Verify property
             if isempty(ySet.C)
                 dd = ySet.V; DD = ySet.V;
                 ySet = Star(dd,DD);
             end
             local_status(spc) = verify_specification(ySet, prop(spc));
+            if local_status(spc) == 2 % refine if unknown
+                % Compute reachability
+                ySet = nnvnet.reach(IS, reachOptions{2});
+                % Verify property
+                local_status(spc) = verify_specification(ySet, prop(spc));
+                if local_status(spc) == 2 % refine if unknown
+                    % Compute reachability
+                    ySet = nnvnet.reach(IS, reachOptions{3});
+                    % Verify property
+                    local_status(spc) = verify_specification(ySet, prop(spc));
+                end
+            end
         end
         if all(local_status == 1)
             status = 1;
@@ -156,7 +170,7 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         end
     elseif isa(lb, "cell") && length(prop) == 1
         local_status = ones(length(lb),1);
-        for spc = 1:length(lb)
+        parfor spc = 1:length(lb)
             % Get input set
             if ~isscalar(inputSize)
                 lbS = reshape(lb{spc}, inputSize);
@@ -171,9 +185,21 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             end
             IS = ImageStar(lbS, ubS);
             % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
+            ySet = nnvnet.reach(IS, reachOptions{1});
             % Verify property
             local_status(spc) = verify_specification(ySet, prop);
+            if local_status(spc) == 2 % refine if unknown
+                % Compute reachability
+                ySet = nnvnet.reach(IS, reachOptions{2});
+                % Verify property
+                local_status(spc) = verify_specification(ySet, prop);
+                if local_status(spc) == 2 % refine if unknown
+                    % Compute reachability
+                    ySet = nnvnet.reach(IS, reachOptions{3});
+                    % Verify property
+                    local_status(spc) = verify_specification(ySet, prop);
+                end
+            end
         end
         if all(local_status == 1)
             status = 1;
@@ -216,7 +242,7 @@ end
 end
 
 function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
-% load vnncomp 2023 benchmark NNs (subset support)
+% load vnncomp 2023 and 2022 benchmark NNs (subset support)
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
 
@@ -251,7 +277,6 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
             net = load(onnx);
             net = assembleNetwork(net.net);
             nnvnet = matlab2nnv(net);
-%             needReshape = 1;
         else
             error("We don't have those");
         end
@@ -259,8 +284,12 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
     elseif contains(category, "dist_shift")
         % dist_shift: onnx to matlab:
         net = load(onnx);
-        net = net.net;        
-        nnvnet = "";
+        net = net.net;
+        try 
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
         
     elseif contains(category, "cgan")
         % cgan
@@ -276,9 +305,11 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
         % vgg16: onnx to matlab
         net = load(onnx);
         net = net.net;
-        %reshapedInput = python_reshape(input,net_vgg.Layers(1,1).InputSize); % what is the input? assume it's all the same?
-        %nnvnet = matlab2nnv(net);
-        nnvnet = "";
+        try
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
         needReshape = 1;
         
     elseif contains(category, "tllverify")
@@ -327,6 +358,59 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
         else
             error("Loading this one is not supported...")
         end
+
+    elseif contains(category, 'sri_resnet')
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
+        
+    elseif contains(category, 'biasfield')
+        % onnx to nnv
+        if contains(onnx, "base")
+            needReshape = 1;
+        end
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, 'rl_bench')
+        % rl: onnx to nnv
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, 'reach_prob')
+        % reach_prob: onnx to nnv
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, 'mnist_fc')
+        % mnist: onnx to nnv (input is different here, need to check our
+        % code still works for it)
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, 'cifar100')
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
+
+    elseif contains(category, 'oval')
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
+
+    elseif contains(category, 'cifar2020')
+        % onnx to nnv
+        net = load(onnx);
+        net = net.net;
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
 
     else % all other benchmarks
         % traffic: onnx to matlab: opset15 issues

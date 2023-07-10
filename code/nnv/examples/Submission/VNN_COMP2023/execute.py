@@ -29,6 +29,10 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
     # start matlab engine as a shared engine
 #     eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
 #     print('Engine starting...')
+
+    # keep MATLAB engine open until manually killed
+#     while True:
+#         time.sleep(0.5)
     print("We aren't actually doing anything here...")
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
@@ -41,6 +45,10 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """
 
     eng = matlab.engine.start_matlab()
+#     eng_name = matlab.engine.find_matlab()[0]
+#     eng = matlab.engine.connect_matlab(name=eng_name)
+# 
+#     print(f'Successfully connected to engine: {eng_name}.')
 
     eng.addpath(os.getcwd())
     eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
@@ -51,7 +59,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     future = eng.run_vnncomp2023_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
     
     try: 
-        [status, total_time] = future.result(timeout=int(timeout))
+        [status, total_time] = future.result(timeout=float(timeout))
         #print('extra time = ',int(toc-tic))
     except matlab.engine.TimeoutError:
         print("timeout")

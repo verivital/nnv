@@ -26,8 +26,9 @@ sleep 60
 sudo unzip sppFile.zip -d /home/ubuntu/toolkit/code/nnv
 sudo rm sppFile.zip
 
+# This is called networks2023, but it contains the MATLAB networks for most of 2022 and 2023
 cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/
-curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/scl/fi/xq2c4eper8mekn9ohdo3e/networks2023.zip?rlkey=2jbytpp7ffbj23lrp77rh7wdw&dl=0
+curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/scl/fi/chb0fotern4r5sycz57r9/networks2023.zip?rlkey=1cwvh73b5zgtnb67xdrvlg8am&dl=0
 
 sleep 60
 

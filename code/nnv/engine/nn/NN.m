@@ -329,11 +329,11 @@ classdef NN < handle
 
             % Compute reachability
             Y = obj.reach(X, reachOptions); % Seems to be working
-            result = verify_specification(Y, property); 
+            result = verify_specification(Y, property.prop); 
 
             % Modify in case of unknown and exact
             if result == 2
-                if contains(net.reachMethod, "exact")
+                if contains(obj.reachMethod, "exact")
                     result = 0;
                 end
             end

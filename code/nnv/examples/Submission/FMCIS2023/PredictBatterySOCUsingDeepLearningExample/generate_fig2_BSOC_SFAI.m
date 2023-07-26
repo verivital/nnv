@@ -2,6 +2,7 @@
 % "Allowable (blue) and reachable (red) bounds for battery SOC dataset for
 % 100 consecutive time steps and 2 different SFAI noise values 1% (upper), and
 % 2.5% (lower) respectively" 
+load SOC_results.mat;
 
 for i = 1:3
     for j= 1:100

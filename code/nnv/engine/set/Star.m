@@ -1514,13 +1514,13 @@ classdef Star
             
             n = length(S);
             if n==1
-                S(1).plot(color);
+                Star.plot(S,color);
             else
                 for i=1:n-1
-                    S(i).plot(color);
+                    Star.plot(S(i),color);
                     hold on;
                 end
-                S(n).plot(color);
+                Star.plot(S(n), color);
             end
             
         end

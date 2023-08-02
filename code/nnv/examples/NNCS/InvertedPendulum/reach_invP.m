@@ -4,7 +4,8 @@ load sysd.mat;
 L1 = LayerS(W{1,1}, b{1,1}, 'poslin');
 L2 = LayerS(W{1,2}, b{2,1}, 'purelin');
 
-NN_Controller = FFNNS([L1 L2]); % feedforward neural network controller
+% NN_Controller = FFNNS([L1 L2]); % feedforward neural network controller
+NN_Controller = NN({L1;L2});
 Plant = DLinearODE(A, B, C, D, Ts);
 feedbackMap = [0]; % feedback map, y[k] 
 

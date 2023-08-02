@@ -1,0 +1,13 @@
+main_reach.m errors out during the constructions of the hybrid model
+
+---------------------------------------------------
+Error using transition
+Wrong input arguments for constructor of class: transition
+  transition.reset has redundant fields: b.
+  Type 'help transition' for more information.
+
+Error in buck_v2 (line 61)
+trans{1} = transition(guard, reset, 2);
+
+Error in main_reach (line 3)
+plant = HybridA(5,1,buck_v2,2);

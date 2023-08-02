@@ -90,10 +90,8 @@ classdef LinearODE
             % @u : control input
             % @y : output value
             
-            
             sys = ss(obj.A, obj.B, obj.C, obj.D);
             
-
             if size(x0, 1) ~= obj.dim || size(x0, 2) ~= 1
                 error('initial vector has an inappropriate dimension');
             end
@@ -134,13 +132,9 @@ classdef LinearODE
             % @sysd: discrete linear ODE
             
             sys = ss(obj.A, obj.B, obj.C, obj.D);
-            
             sys1 = c2d(sys, Ts); % convert to discrete model
-            
             sysd = DLinearODE(sys1.A, sys1.B, sys1.C, sys1.D, Ts);
-            
         end
-        
         
         % simulation-based reachability analysis for linearODE
         function R = simReach(obj, method, X0, U, h, N, m)
@@ -300,7 +294,6 @@ classdef LinearODE
             
         end
         
-        
         % reachability analysis of LinearODE using zonotope
         % reference: 1) Reachability of Uncertain Linear Systems Using
         % Zonotopes, Antoin Girard, HSCC2005.
@@ -357,9 +350,7 @@ classdef LinearODE
                 end
             end
             
-            
         end
-        
                 
     end
     
@@ -484,7 +475,6 @@ classdef LinearODE
             
         end
         
-        
         % simulation-based reachability analysis for dot{x} = Ax using
         % direct method and star set
         function R = simReachDirect(A, X0, h, N)
@@ -588,17 +578,9 @@ classdef LinearODE
                         
         end
         
-       
-        
-        % reachability analysis for linear ODE using zonotope
-        % main reference: Reachability of Uncertain Linear Systems Using
-        % Zonotopes. Antoine Girard, HSCC2005, 
-        
-        
-        
     end
-    
-    
-    
-    
+
 end
+% reachability analysis for linear ODE using zonotope
+% main reference: Reachability of Uncertain Linear Systems Using
+%                 Zonotopes. Antoine Girard, HSCC2005

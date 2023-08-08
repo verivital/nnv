@@ -67,7 +67,7 @@ classdef ConcatenationLayer < handle
                 error('Invalid output names, should be a cell');
             end
 
-            if ~iscalar(dim) || dim < 1
+            if ~isscalar(dim) || dim < 1
                 error('Concat dimension must be a positive integer')
             end
             
@@ -206,7 +206,7 @@ classdef ConcatenationLayer < handle
             if ~isa(layer, 'nnet.cnn.layer.ConcatenationLayer')
                 error('Input is not a concatenation layer');
             end
-            L = ConcatenationLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, layer.Dimension);
+            L = ConcatenationLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, layer.Dim);
         end
 
     end

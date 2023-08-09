@@ -12,6 +12,7 @@ classdef LinearODE
         nO = 0; % number of outputs
         controlPeriod = 0.1; % control period
         numReachSteps = 20; % number of simulation steps of the plant in one control period
+        intermediate_reachSet = []; % intermediate reachable set between control steps 
     end
     
     methods
@@ -164,6 +165,10 @@ classdef LinearODE
             if strcmp(method, 'krylov') && isempty(m)
                 error('Please choose the number of basic vectors for Krylov subspace m');
             end
+
+            if ~isempty(obj.intermediate_reachSet)
+                obj.intermediate_reachSet = X0;
+            end
                         
             if isempty(obj.B) || isempty(U) % the system has no control input              
                
@@ -193,7 +198,7 @@ classdef LinearODE
 %                 X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d);  % How it was before
                 X1 = Star(vertcat(zeros(obj.dim, k), U.V), U.C, U.d, U.predicate_lb,U.predicate_ub);
                 W = [eye(obj.dim) zeros(obj.dim, obj.nI)]; % mapping matrix
-                            
+
                 if strcmp(method, 'direct')
                     
 %                     R1 = LinearODE.simReachDirect(A1, X1, h, N); % Ru = W*R1 = [I O] * [x u]^T
@@ -291,7 +296,7 @@ classdef LinearODE
                 end               
                 
             end
-            
+            obj.intermediate_reachSet = [obj.intermediate_reachSet R(2:end)];
         end
         
         % reachability analysis of LinearODE using zonotope

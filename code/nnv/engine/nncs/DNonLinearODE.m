@@ -14,9 +14,6 @@ classdef DNonLinearODE < handle
         nO = 0; % number of outputs
         C; % output matrix y = Cx
         Ts = 0 ; % sampling time
-        intermediate_reachSet = []; % intermediate reachable set between steps
-        % if discrete timestep of plant is faster than discrete timestep of
-        % controller
     end
     
     methods

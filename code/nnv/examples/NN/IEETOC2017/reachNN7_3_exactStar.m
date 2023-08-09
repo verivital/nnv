@@ -1,5 +1,5 @@
 %% Example of reachability and verification for a randomly generated neural network
-% Smaller set, faster example
+% original example
 
 % Load the network (parameters)
 load NeuralNetwork7_3.mat;
@@ -23,9 +23,7 @@ Layers{end} = Ln;
 F = NN(Layers);
 
 % Define input set for the network
-% lb = [-1; -1; -1];
-% ub = -lb;
-lb = [0; 0 ; 0];
+lb = [-1; -1; -1];
 ub = [1; 1; 1];
 I = Star(lb, ub);
 
@@ -38,15 +36,6 @@ reachOptions.numCores = 4; % define number of cores for parallel execution
 te = tic;
 Re = F.reach(I, reachOptions); % exact reach set using stars
 te = toc(te);
-
-% select option for reachability algorithm
-reachOptions = struct; % initialize
-reachOptions.reachMethod = 'approx-star'; % reachability method
-
-% Comute reachability (approx)
-ta = tic;
-Ra = F.reach(I, reachOptions); % exact reach set using stars
-ta = toc(ta);
 
 % generate some input to test the output (evaluate network)
 e = 0.2;
@@ -68,8 +57,6 @@ end
 
 % Plot exact and approx sets 
 fig = figure;
-Star.plots(Ra,'b');
-hold on;
 Star.plots(Re,'c');
 hold on;
 
@@ -89,4 +76,4 @@ hold on;
 plot(y3(1,:), y3(2,:), 'x', 'Color', 'r');
 
 % Save figure
-saveas(fig,'exact_vs_approx.jpg');
+saveas(fig,'exact_larger.jpg');

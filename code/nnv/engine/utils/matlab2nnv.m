@@ -28,13 +28,12 @@ for i=1:n
 %     fprintf('\nParsing Layer %d... \n', i);
     customLayer_no_NLP = 0;
     try
-        if contains(class(L), "FlattenLayer") && isempty(struct2array(L.ONNXParams.Nonlearnables))
+        if contains(class(L), "FlattenLayer") && isempty(L.ONNXParams.Nonlearnables)
             customLayer_no_NLP = 1;
-        elseif contains(class(L), "PadLayer") && all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
-            customLayer_no_NLP = 1;
+        elseif contains(class(L), "PadLayer") %&& all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
+            customLayer_no_NLP = check_layer_parameters(L);
         elseif contains(class(L), "Reshape_To_ReshapeLayer") && length(fields(L.ONNXParams.Nonlearnables))==2
-            % future: need to check if the previous layers output size ==
-            % last reshape layers dimension
+            % future: need to check if the previous layers output size == last reshape layers dimension
             customLayer_no_NLP = 1;
         end
     catch
@@ -45,6 +44,9 @@ for i=1:n
     % Layers with no effect on the reachability analysis
     if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') ...
             || isa(L,"nnet.onnx.layer.VerifyBatchSizeLayer") || isa(L, "nnet.cnn.layer.RegressionOutputLayer") || customLayer_no_NLP == 1
+        Li = PlaceholderLayer.parse(L);
+
+    elseif customLayer_no_NLP
         Li = PlaceholderLayer.parse(L);
 
     % Image Input Layer
@@ -269,4 +271,22 @@ function [nnvLayers, nnvConns, name2number] = process_connections(nnvLayers, con
 
     nnvConns = table(final_sources, final_dests, 'VariableNames', {'Source', 'Destination'});    
 
+end
+
+
+% Check if custom layers can be skipped (e.g., pad layer with 0 padding does not change anything in the network)
+function status = check_layer_parameters(L)
+    status = 0;
+    if isempty(L.ONNXParams.Nonlearnables)
+        status = 1;
+    elseif contains(class(L), 'PadLayer')
+        params = struct2cell(L.ONNXParams.Nonlearnables);
+        for i=1:length(params)
+            tmp = extractdata(params{i});
+            if ~all(tmp==0)
+                error('Layer not supported');
+            end
+        end
+        status = 1;
+    end
 end

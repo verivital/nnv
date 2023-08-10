@@ -73,7 +73,7 @@ classdef LogSig
                 error('Input set is not a star set');
             end
            
-            if strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star')
+            if strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star') || contains(method, 'relax-star')
                 if relaxFactor == 0
                     S = LogSig.reach_star_approx_no_split(I, dis_opt, lp_solver);
                 else
@@ -116,11 +116,6 @@ classdef LogSig
                     error('Invalid number of input arguments, should be 1 or 2');
             end
             S = LogSig.multiStepLogSig_NoSplit(I, dis_opt, lp_solver);      % more efficient method compared with stepLogSig_NoSplit       
-%             n = I.dim;
-%             S = I;
-%             for i=1:n
-%                 S = LogSig.stepLogSig_NoSplit(S, i); 
-%             end
                         
         end
         
@@ -164,7 +159,6 @@ classdef LogSig
             % date: 3/19/2020
             % update: 4/2/2020
             
-            %[l, u] = I.Z.getRange(index);
             [l, u] = I.getRange(index);
             y_l = logsig(l);
             y_u = logsig(u);
@@ -416,24 +410,17 @@ classdef LogSig
             % author: Dung Tran
             % date: 3/19/2020
             
-            
-%             
-%             if ~isempty(I.Z) && I.nVar > 200
-%                 [l, u] = I.Z.getRange(index);
-%             else
-%                 [l, u] = I.getRange(index);
-%             end
-%           
-            fprintf('\nStepLogSig(Sigmoid)_NoSplit using approx-star at index %d', index);
-            [l, u] = I.estimateRange(index);
-            fprintf('\nEstimated Range at x[%d]:l = %.5f, u = %.5f', index, l, u);
+
+%             fprintf('\nStepLogSig(Sigmoid)_NoSplit using approx-star at index %d', index);
+%             [l, u] = I.estimateRange(index);
+%             fprintf('\nEstimated Range at x[%d]:l = %.5f, u = %.5f', index, l, u);
             [l, u] = I.getRange(index);
-            fprintf('\nComputed Range at x[%d]: l = %.5f, u = %.5f', index, l, u);           
+%             fprintf('\nComputed Range at x[%d]: l = %.5f, u = %.5f', index, l, u);           
             y_l = logsig(l);
             y_u = logsig(u);
             dy_l = logsig('dn', l);
             dy_u = logsig('dn', u);
-            fprintf('\ny_l = %.5f, y_u = %.5f, dy_l = %.5f, dy_u = %.5f', y_l, y_u, dy_l, dy_u);
+%             fprintf('\ny_l = %.5f, y_u = %.5f, dy_l = %.5f, dy_u = %.5f', y_l, y_u, dy_l, dy_u);
             
             if l == u
                 
@@ -500,7 +487,6 @@ classdef LogSig
                 else
                     new_Z = [];
                 end
-                
                 
                 S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub, new_Z);             
                 
@@ -571,7 +557,6 @@ classdef LogSig
                 % constraint 3: y <= (y(x1) - y(l))*(x - l)/(x1 - l) + y(l);
                 % constraint 4: y >= (y(x2) - y(u)) * (x - u)/(x2 - u) + y(u)
                 
-                               
                 n = I.nVar + 1;
                 
                 % constraint 1: y >= y'(l) * (x - l) + y(l)
@@ -661,8 +646,6 @@ classdef LogSig
                     error('Invalid number of input arguments, should be 1, 2 or 3');
             end
 
-            
-           %[l, u] = I.estimateRanges;
             N = I.dim;
             inds = 1:N;
             if strcmp(dis_opt, 'display')
@@ -677,8 +660,6 @@ classdef LogSig
             yu = logsig(u);
             dyl = logsig('dn', l);
             dyu = logsig('dn', u);
-
-           
 
             % l ~= u
             map2 = find(l ~= u);
@@ -790,20 +771,6 @@ classdef LogSig
                 % constraint 2: y <= min(y'(l), y'(u)) * (x - u) + y(u) 
                 C32 = [-dmin.*I.V(map1, 2:nv) V2(map1, :)];
                 d32 = dmin.*(I.V(map1, 1) - u(map1)) + b;
-
-
-%                 y1 = dmin.*(-l(map1)) + a;
-%                 y2 = dmin.*(-u(map1)) + b;
-%                 g2 = (y2 - a)./(-l(map1));
-%                 g1 = (y1 - b)./(-u(map1));
-% 
-%                 % constraint 3: y <= g2 * x + y2
-%                 C33 = [-g2.*I.V(map1, 2:nv) V2(map1, :)];
-%                 d33 = g2.*I.V(map1, 1) + y2;
-% 
-%                 % constraint 4: y >= g1 * x + y1
-%                 C34 = [g1.*I.V(map1, 2:nv) -V2(map1, :)];
-%                 d34 = -g1.*I.V(map1, 1) - y1;
 
                 l_map = l(map1);
                 u_map = u(map1);
@@ -1107,17 +1074,13 @@ classdef LogSig
             p = length(I);
             S = [];
             if isempty(parallel)
-                
                 for i=1:p
                     S =[S LogSig.reach_zono_approx(I(i))];
                 end
-                
             elseif strcmp(parallel, 'parallel')
-                
                 parfor i=1:p
                     S =[S, LogSig.reach_zono_approx(I(i))];
                 end
-                
             else
                 error('Unknown parallel computation option');
             end
@@ -1126,129 +1089,125 @@ classdef LogSig
         
     end
     
-methods(Static) % over-approximate reachability analysis using abstract domain
+    methods(Static) % over-approximate reachability analysis using abstract domain
     
     
-    function S = stepLogSig_absdom(I, index, l, u, y_l, y_u, dy_l, dy_u)
-        % @I: input star set
-        % @index: index of the neuron
-        % @l: l = min(x[index]), lower bound at neuron x[index] 
-        % @u: u = min(x[index]), upper bound at neuron x[index]
-        % @y_l: = logsig(l); output of logsig at lower bound
-        % @y_u: = logsig(u); output of logsig at upper bound
-        % @dy_l: derivative of LogSig at the lower bound
-        % @dy_u: derivative of LogSig at the upper bound
-
-        % @S: output star set
-
-        % author: Dung Tran
-        % date: 3/27/2020
+        function S = stepLogSig_absdom(I, index, l, u, y_l, y_u, dy_l, dy_u)
+            % @I: input star set
+            % @index: index of the neuron
+            % @l: l = min(x[index]), lower bound at neuron x[index] 
+            % @u: u = min(x[index]), upper bound at neuron x[index]
+            % @y_l: = logsig(l); output of logsig at lower bound
+            % @y_u: = logsig(u); output of logsig at upper bound
+            % @dy_l: derivative of LogSig at the lower bound
+            % @dy_u: derivative of LogSig at the upper bound
+    
+            % @S: output star set
+    
+            % author: Dung Tran
+            % date: 3/27/2020
+                    
+            if l == u
+                new_V = I.V;
+                new_V(index, 1:I.nVar+1) = 0;
+                new_V(index, 1) = y_l;
+                S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub);                
+            elseif l >= 0
+                % y is convex when x >= 0
+                % constraint 2: y <= y'(u) * (x - u) + y(u) 
+                % constraint 3: y >= (y(u) - y(l)) * (x - l) / (u - l) + y(l);
+    
+                n = I.nVar + 1;
+                % over-approximation constraints 
+                % constraint 2: y <= y'(u) * (x - u) + y(u)
+                C2 = [-dy_u*I.V(index, 2:n) 1];
+                d2 = dy_u * I.V(index, 1) - dy_u*u + y_u;
+                % constraint 3: y >= (y(u) - y(l)) * (x - l) / (u - l) + y(l);
+                a = (y_u - y_l)/(u - l);
+                C3 = [a*I.V(index, 2:n) -1];
+                d3 = a*l - y_l - a*I.V(index, 1);
+    
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_C = [C0; C2; C3];
+                new_d = [d0; d2; d3];
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, n+1);
+                new_V(index, n+1) = 1; 
+    
+                % update predicate bound
+                new_predicate_lb = [I.predicate_lb; y_l]; 
+                new_predicate_ub = [I.predicate_ub; y_u];
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+    
+            elseif u <= 0
+                % y is concave when x <= 0
+                % constraint 1: y >= y'(l) * (x - l) + y(l)
+                % constraint 3: y <= (y(u) - y(l)) * (x -l) / (u - l) + y(l);
+    
+                n = I.nVar + 1;
+                % over-approximation constraints 
+                % constraint 1: y >= y'(l) * (x - l) + y(l)
+                C1 = [dy_l*I.V(index, 2:n) -1];
+                d1 = -dy_l * I.V(index, 1) + dy_l*l - y_l; 
+                % constraint 3: y <= (y(u) - y(l)) * (x - l) / (u - l) + y(l);
+                a = (y_u - y_l)/(u - l);
+                C3 = [-a*I.V(index, 2:n) 1];
+                d3 = -a*l + y_l + a*I.V(index, 1);
+    
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_C = [C0; C1; C3];
+                new_d = [d0; d1; d3];
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, n+1);
+                new_V(index, n+1) = 1; 
+    
+                % update predicate bound
+                new_predicate_lb = [I.predicate_lb; y_l]; 
+                new_predicate_ub = [I.predicate_ub; y_u];
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+    
+            elseif l <0 && u >0
+                % y is concave for x in [l, 0] and convex for x
+                % in [0, u]
+                % split can be done here 
+    
                 
-        if l == u
-            new_V = I.V;
-            new_V(index, 1:I.nVar+1) = 0;
-            new_V(index, 1) = y_l;
-            S = Star(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub);                
-        elseif l >= 0
-            % y is convex when x >= 0
-            % constraint 2: y <= y'(u) * (x - u) + y(u) 
-            % constraint 3: y >= (y(u) - y(l)) * (x - l) / (u - l) + y(l);
-
-
-            n = I.nVar + 1;
-            % over-approximation constraints 
-            % constraint 2: y <= y'(u) * (x - u) + y(u)
-            C2 = [-dy_u*I.V(index, 2:n) 1];
-            d2 = dy_u * I.V(index, 1) - dy_u*u + y_u;
-            % constraint 3: y >= (y(u) - y(l)) * (x - l) / (u - l) + y(l);
-            a = (y_u - y_l)/(u - l);
-            C3 = [a*I.V(index, 2:n) -1];
-            d3 = a*l - y_l - a*I.V(index, 1);
-
-            m = size(I.C, 1);
-            C0 = [I.C zeros(m, 1)];
-            d0 = I.d;
-            new_C = [C0; C2; C3];
-            new_d = [d0; d2; d3];
-            new_V = [I.V zeros(I.dim, 1)];
-            new_V(index, :) = zeros(1, n+1);
-            new_V(index, n+1) = 1; 
-
-            % update predicate bound
-            new_predicate_lb = [I.predicate_lb; y_l]; 
-            new_predicate_ub = [I.predicate_ub; y_u];
-            S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
-
-
-        elseif u <= 0
-            % y is concave when x <= 0
-            % constraint 1: y >= y'(l) * (x - l) + y(l)
-            % constraint 3: y <= (y(u) - y(l)) * (x -l) / (u - l) + y(l);
-
-            n = I.nVar + 1;
-            % over-approximation constraints 
-            % constraint 1: y >= y'(l) * (x - l) + y(l)
-            C1 = [dy_l*I.V(index, 2:n) -1];
-            d1 = -dy_l * I.V(index, 1) + dy_l*l - y_l; 
-            % constraint 3: y <= (y(u) - y(l)) * (x - l) / (u - l) + y(l);
-            a = (y_u - y_l)/(u - l);
-            C3 = [-a*I.V(index, 2:n) 1];
-            d3 = -a*l + y_l + a*I.V(index, 1);
-
-            m = size(I.C, 1);
-            C0 = [I.C zeros(m, 1)];
-            d0 = I.d;
-            new_C = [C0; C1; C3];
-            new_d = [d0; d1; d3];
-            new_V = [I.V zeros(I.dim, 1)];
-            new_V(index, :) = zeros(1, n+1);
-            new_V(index, n+1) = 1; 
-
-            % update predicate bound
-            new_predicate_lb = [I.predicate_lb; y_l]; 
-            new_predicate_ub = [I.predicate_ub; y_u];
-            S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
-
-
-        elseif l <0 && u >0
-            % y is concave for x in [l, 0] and convex for x
-            % in [0, u]
-            % split can be done here 
-
+                % over-approximation constraints 
+                % constraint 1: y >= y'(l) * (x - l) + y(l)
+                % constraint 2: y <= y'(u) * (x - u) + y(u)
+               
+                n = I.nVar + 1;
+    
+                dy_min = min(dy_l, dy_u);
+                % constraint 1: y >= y'_min * (x - l) + y(l)
+                C1 = [dy_min*I.V(index, 2:n) -1];
+                d1 = -dy_min * I.V(index, 1) + dy_min*l - y_l; 
+                % constraint 2: y <= y'_min * (x - u) + y(u)
+                C2 = [-dy_min*I.V(index, 2:n) 1];
+                d2 = dy_min * I.V(index, 1) - dy_min*u + y_u;
+                
+                m = size(I.C, 1);
+                C0 = [I.C zeros(m, 1)];
+                d0 = I.d;
+                new_C = [C0; C1; C2];
+                new_d = [d0; d1; d2];
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = zeros(1, n+1);
+                new_V(index, n+1) = 1; 
+    
+                % update predicate bound
+                new_predicate_lb = [I.predicate_lb; y_l]; 
+                new_predicate_ub = [I.predicate_ub; y_u];
+                S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
+    
+            end
+    
             
-            % over-approximation constraints 
-            % constraint 1: y >= y'(l) * (x - l) + y(l)
-            % constraint 2: y <= y'(u) * (x - u) + y(u)
-           
-            n = I.nVar + 1;
-
-            dy_min = min(dy_l, dy_u);
-            % constraint 1: y >= y'_min * (x - l) + y(l)
-            C1 = [dy_min*I.V(index, 2:n) -1];
-            d1 = -dy_min * I.V(index, 1) + dy_min*l - y_l; 
-            % constraint 2: y <= y'_min * (x - u) + y(u)
-            C2 = [-dy_min*I.V(index, 2:n) 1];
-            d2 = dy_min * I.V(index, 1) - dy_min*u + y_u;
-            
-            m = size(I.C, 1);
-            C0 = [I.C zeros(m, 1)];
-            d0 = I.d;
-            new_C = [C0; C1; C2];
-            new_d = [d0; d1; d2];
-            new_V = [I.V zeros(I.dim, 1)];
-            new_V(index, :) = zeros(1, n+1);
-            new_V(index, n+1) = 1; 
-
-            % update predicate bound
-            new_predicate_lb = [I.predicate_lb; y_l]; 
-            new_predicate_ub = [I.predicate_ub; y_u];
-            S = Star(new_V, new_C, new_d, new_predicate_lb, new_predicate_ub);
-
         end
-
-        
-        
-    end
     
         function S = reach_absdom_approx(varargin)
         % @I: star input set
@@ -1301,662 +1260,667 @@ methods(Static) % over-approximate reachability analysis using abstract domain
 
     end
     
-    % dealing with multiple inputs in parallel
-    function S = reach_absdom_approx_multipleInputs(varargin)
-        % author: Dung Tran
-        % date: 3/27/2020
-
-        switch nargin
-            case 1
-                I = varargin{1};
-                parallel = []; % no parallel computation
-            case 2
-                I = varargin{1};
-                parallel = varargin{2};
-            otherwise
-                error('Invalid number of input arguments, should be 1 or 2');
-        end
-
-        p = length(I);
-        S = [];
-        if isempty(parallel)
-
-            for i=1:p
-                S =[S LogSig.reach_absdom_approx(I(i))];
+        % dealing with multiple inputs in parallel
+        function S = reach_absdom_approx_multipleInputs(varargin)
+            % author: Dung Tran
+            % date: 3/27/2020
+    
+            switch nargin
+                case 1
+                    I = varargin{1};
+                    parallel = []; % no parallel computation
+                case 2
+                    I = varargin{1};
+                    parallel = varargin{2};
+                otherwise
+                    error('Invalid number of input arguments, should be 1 or 2');
             end
-
-        elseif strcmp(parallel, 'parallel')
-
-            parfor i=1:p
-                S =[S, LogSig.reach_absdom_approx(I(i))];
+    
+            p = length(I);
+            S = [];
+            if isempty(parallel)
+    
+                for i=1:p
+                    S =[S LogSig.reach_absdom_approx(I(i))];
+                end
+    
+            elseif strcmp(parallel, 'parallel')
+    
+                parfor i=1:p
+                    S =[S, LogSig.reach_absdom_approx(I(i))];
+                end
+    
+            else
+                error('Unknown parallel computation option');
             end
-
-        else
-            error('Unknown parallel computation option');
+    
         end
 
     end
 
-end
+
+    methods(Static) % over-approximate reachability analysis using abstract-domain (absdom) based on eran
+    
+        % step over-approximate reachability analysis using abstract-domain
+        % we use absdom set to represent abstract-domain
+        function R = stepLogSig_rstar_two_constraints(I, index, l, u, y_l, y_u, dy_l, dy_u)
+            % @I: rstar-input set
+            % @index: index of neuron performing stepReach
+            % @l: l = min(x[index]), lower bound at neuron x[index]
+            % @u: u = max(x[index]), upper bound at neuron x[index]
+            % @y_l: = logsig(l); output of logsig at lower bound
+            % @y_u: = logsig(u); output of logsig at upper bound
+            % @dy_l: derivative of LogSig at the lower bound
+            % @dy_u: derivative of LogSig at the upper bound
+    
+            % @R: rstar output set
+    
+            % author: Sung Woo Choi
+            % date: 01/29/2021
+    
+            % reference: An Abstract Domain for Certifying Neural Networks,
+            % Gagandeep Singh, POPL 2019
+    
+            if ~isa(I, 'RStar')
+                error('Input is not a RStar');
+            end
+    
+            lower_a = I.lower_a;
+            upper_a = I.upper_a;
+            lb = I.lb;
+            ub = I.ub;
+            len = length(lower_a);
+            if l == u
+                new_V = I.V;
+                new_V(index,:) = 0;
+                new_V(index,1) = y_l;
+    
+                L = zeros(1, I.dim + 1);
+                L(index+1) = y_l;
+                lower_a{len}(index,:) = L;
+    
+                U = zeros(1, I.dim + 1);
+                U(index+1) = y_l;
+                upper_a{len}(index,:) = U;
+    
+                lb{len}(index) = y_l;
+                ub{len}(index) = y_u;
+    
+                R = RStar(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, lower_a, upper_a, lb, ub, I.iter);
+            else
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = 0;
+                new_V(index, end) = 1;
+    
+                C0 = [I.C zeros(size(I.C,1),1)];
+                d0 = I.d;
+    
+                if l >= 0
+                    lambda = (y_u - y_l)/(u - l);
+    
+                    % constraint 1: y[index] >= y(l) + lamda * (x[index] - l)
+                    L = zeros(1, I.dim + 1);
+                    L(1) = y_l - lambda*l;
+                    L(index+1) = lambda;
+                    lower_a{len}(index,:) = L;
+    
+                    C1 = [lambda*I.X(index,:) -1];
+                    d1 = -y_l - lambda*(I.c(index) - l);
+    
+                    % constraint 2: y[index] <= y(u) + y'(u) * (x[index] - u)
+                    U = zeros(1, I.dim + 1);
+                    U(1) = y_u - dy_u*u;
+                    U(index+1) = dy_u;
+                    upper_a{len}(index,:) = U;
+    
+                    C2 = [-dy_u*I.X(index,:) 1];
+                    d2 = y_u + dy_u*(I.c(index) - u);
+                elseif u <= 0
+                    lambda = (y_u - y_l)/(u - l);
+    
+                    % constraint 1: y[index] >= y(l) + y'(l) * (x[index] - l)
+                    L = zeros(1, I.dim + 1);
+                    L(1) = y_l - dy_l*l;
+                    L(index+1) = dy_l;
+                    lower_a{len}(index,:) = L;
+    
+                    C1 = [dy_l*I.X(index,:) -1];
+                    d1 = -y_l - dy_l*(I.c(index) - l);
+    
+                    % constraint 2: y[index] <= y(l) + lambda * (x[index] - l)
+                    U = zeros(1, I.dim + 1);
+                    U(1) = y_l - lambda*l;
+                    U(index+1) = lambda;
+                    upper_a{len}(index,:) = U;
+    
+                    C2 = [-lambda*I.X(index,:) 1];
+                    d2 = y_l + lambda*(I.c(index) - l);
+                else
+                    dlamda = min(dy_l , dy_u);
+                    % constraint 1: y[index] >= y(l) + y'(l) * (x[index] - l)
+                    L = zeros(1, I.dim + 1);
+                    L(1) = y_l - dlamda*l;
+                    L(index+1) = dlamda;
+                    lower_a{len}(index,:) = L;
+    
+                    C1 = [dlamda*I.X(index,:) -1];
+                    d1 = -y_l - dlamda*(I.c(index) - l);
+    
+                    % constraint 2: y[index] <= y(u) + y'(u) * (x[index] - u)
+                    U = zeros(1, I.dim + 1);
+                    U(1) = y_u - dlamda*u;
+                    U(index+1) = dlamda;
+                    upper_a{len}(index,:) = U;
+    
+                    C2 = [-dlamda*I.X(index,:) 1];
+                    d2 = y_u + dlamda*(I.c(index) - u);
+                end
+    
+                new_pred_lb = [I.predicate_lb; y_l];
+                new_pred_ub = [I.predicate_ub; y_u];
+    
+                lb{len}(index) = y_l;
+                ub{len}(index) = y_u;
+    
+                new_C = [C0; C1; C2];
+                new_d = [d0; d1; d2];
+    
+                R = RStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub, lower_a, upper_a, lb, ub, I.iter);
+            end
+        end
+        
+        function R = reach_relaxed_star_two_constraints_approx(I)
+            % @I: RStar imput set
+            % %A: RStar output set
+    
+            % author: Sung Woo Choi
+            % date: 01/29/2021
+    
+            % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
+            % Gagandeep Singh, POPL, 2019
+    
+            if ~isa(I, 'RStar')
+                error('Input is not a RStar');
+            end
+    
+            if isempty(I)
+                R = [];
+            else
+                lower_a = I.lower_a;
+                upper_a = I.upper_a;
+                lb = I.lb;
+                ub = I.ub;
+                len = length(lower_a);
+    
+                l = lb{len};
+                u = ub{len};
+                
+                y_l = logsig(l);
+                y_u = logsig(u);
+                dy_l = logsig('dn', l);
+                dy_u = logsig('dn', u);
+    
+                % create new matrices for lower and upper constraints and bounds.
+                lower_a{len+1} = zeros(I.dim, I.dim + 1);
+                upper_a{len+1} = zeros(I.dim, I.dim + 1);
+                lb{len+1} = zeros(I.dim, 1);
+                ub{len+1} = zeros(I.dim, 1);
+                R = RStar(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub, lower_a, upper_a, lb, ub, I.iter);
+    
+                for i=1:I.dim
+                    R = LogSig.stepLogSig_rstar_two_constraints(R, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i));
+                end
+            end
+        end
+    end
 
 
-methods(Static) % over-approximate reachability analysis using abstract-domain (absdom) based on eran
-
-    % step over-approximate reachability analysis using abstract-domain
-    % we use absdom set to represent abstract-domain
-    function R = stepLogSig_rstar_two_constraints(I, index, l, u, y_l, y_u, dy_l, dy_u)
-        % @I: rstar-input set
-        % @index: index of neuron performing stepReach
-        % @l: l = min(x[index]), lower bound at neuron x[index]
-        % @u: u = max(x[index]), upper bound at neuron x[index]
-        % @y_l: = logsig(l); output of logsig at lower bound
-        % @y_u: = logsig(u); output of logsig at upper bound
-        % @dy_l: derivative of LogSig at the lower bound
-        % @dy_u: derivative of LogSig at the upper bound
-
-        % @R: rstar output set
-
-        % author: Sung Woo Choi
-        % date: 01/29/2021
-
-        % reference: An Abstract Domain for Certifying Neural Networks,
-        % Gagandeep Singh, POPL 2019
-
-        if ~isa(I, 'RStar')
-            error('Input is not a RStar');
+    methods(Static) % over-approximate reachability analysis using abstract-domain (absdom) based on eran
+    
+        % step over-approximate reachability analysis using abstract-domain
+        % we use absdom set to represent abstract-domain
+        function R = stepLogSig_rstar_four_constraints(I, index, l, u, y_l, y_u, dy_l, dy_u)
+            % @I: rstar-input set
+            % @index: index of neuron performing stepReach
+            % @l: l = min(x[index]), lower bound at neuron x[index]
+            % @u: u = min(x[index]), upper bound at neuron x[index]
+            % @y_l: = logsig(l); output of logsig at lower bound
+            % @y_u: = logsig(u); output of logsig at upper bound
+            % @dy_l: derivative of LogSig at the lower bound
+            % @dy_u: derivative of LogSig at the upper bound
+    
+            % @R: rstar output set
+    
+            % author: Sung Woo Choi
+            % date: 01/29/2021
+    
+            % reference: An Abstract Domain for Certifying Neural Networks,
+            % Gagandeep Singh, POPL 2019
+    
+            if ~isa(I, 'RStar')
+                error('Input is not a RStar');
+            end
+    
+            lower_a = I.lower_a;
+            upper_a = I.upper_a;
+            lb = I.lb;
+            ub = I.ub;
+            len = length(lower_a);
+            if l == u
+                new_V = I.V;
+                new_V(index,:) = 0;
+                new_V(index,1) = y_l;
+    
+                L = zeros(1, I.dim + 1);
+                L(index+1) = y_l;
+                lower_a{len}(index,:) = L;
+    
+                U = zeros(1, I.dim + 1);
+                U(index+1) = y_l;
+                upper_a{len}(index,:) = U;
+    
+                lb{len}(index) = y_l;
+                ub{len}(index) = y_u;
+    
+                R = RStar(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, lower_a, upper_a, lb, ub, I.iter);
+            else
+                new_V = [I.V zeros(I.dim, 1)];
+                new_V(index, :) = 0;
+                new_V(index, end) = 1;
+    
+                C0 = [I.C zeros(size(I.C,1),1)];
+                d0 = I.d;
+    
+                if l >= 0
+                    lambda = (y_u - y_l)/(u - l);
+    
+                    % constraint 1: y[index] >= lamda * (x[index] - l) + y(l)
+                    L = zeros(1, I.dim + 1);
+                    L(1) = y_l - lambda*l;
+                    L(index+1) = lambda;
+                    lower_a{len}(index,:) = L;
+    
+                    C1 = [lambda*I.X(index,:) -1];
+                    d1 = -y_l - lambda*(I.c(index) - l);
+    
+                    % constraint 2: y[index] <= y'(u) * (x[index] - u) + y(u)
+                    U = zeros(1, I.dim + 1);
+                    U(1) = y_u - dy_u*u;
+                    U(index+1) = dy_u;
+                    upper_a{len}(index,:) = U;
+    
+                    C2 = [-dy_u*I.X(index,:) 1];
+                    d2 = y_u + dy_u*(I.c(index) - u);
+    
+                    % constraint 3: y[idex] <= y'(l) * (x[index] - l) + y(l)
+                    C3 = [-dy_l*I.X(index,:) 1];
+                    d3 = y_l + dy_l*(I.c(index) - l);
+    
+                    new_C = [C0; C1; C2; C3];
+                    new_d = [d0; d1; d2; d3];
+    
+                elseif u <= 0
+                    lambda = (y_u - y_l)/(u - l);
+    
+                    % constraint 1: y[index] >= y'(l) * (x[index] - l) + y(l)
+                    L = zeros(1, I.dim + 1);
+                    L(1) = y_l - dy_l*l;
+                    L(index+1) = dy_l;
+                    lower_a{len}(index,:) = L;
+    
+                    C1 = [dy_l*I.X(index,:) -1];
+                    d1 = -y_l - dy_l*(I.c(index) - l);
+    
+                    % constraint 2: y[index] <= lambda * (x[index] - l) + y(l)
+                    U = zeros(1, I.dim + 1);
+                    U(1) = y_l - lambda*l;
+                    U(index+1) = lambda;
+                    upper_a{len}(index,:) = U;
+    
+                    C2 = [-lambda*I.X(index,:) 1];
+                    d2 = y_l + lambda*(I.c(index) - l);
+    
+                    % constraint 3: y[index] >= y'(u) * (x[index] - u) + y(u)
+                    C3 = [dy_u*I.X(index,:) -1];
+                    d3 = -y_u - dy_u*(I.c(index) - u);
+    
+                    new_C = [C0; C1; C2; C3];
+                    new_d = [d0; d1; d2; d3];
+    
+                else
+                    dlambda = min(dy_l , dy_u);
+                    % constraint 1: y[index] >= y(l) + lamda' * (x[index] - l)
+                    L = zeros(1, I.dim + 1);
+                    L(1) = y_l - dlambda*l;
+                    L(index+1) = dlambda;
+                    lower_a{len}(index,:) = L;
+    
+                    C1 = [dlambda*I.X(index,:) -1];
+                    d1 = -y_l - dlambda*(I.c(index) - l);
+    
+                    % constraint 2: y[index] <= y(u) + lamda' * (x[index] - u)
+                    U = zeros(1, I.dim + 1);
+                    U(1) = y_u - dlambda*u;
+                    U(index+1) = dlambda;
+                    upper_a{len}(index,:) = U;
+    
+                    C2 = [-dlambda*I.X(index,:) 1];
+                    d2 = y_u + dlambda*(I.c(index) - u);
+    
+    %                 a = -dlambda * u + y_u;
+    %                 b = -dlambda * l + y_l;
+    % 
+    %                 % constraint 3: y[index] >= (b - y(u))/(-u) * x[index] + b
+    %                 g1 = (b - y_u)/(-u);
+    %                 C3 = [g1*I.X(index,:) -1];
+    %                 d3 = -g1*I.c(index) - b;
+    % 
+    %                 % constraint 4: y[index] <= (a - y(l))/(-l) * x[index] + a
+    %                 g2 = (a - y_l)/(-l);
+    %                 C4 = [-g2*I.X(index,:) 1];
+    %                 d4 = g2*I.c(index) + a;
+                    
+                    y_0 = logsig(0);
+                    dy_0 = logsig('dn', 0);
+                    gu_x = (y_u - dlambda * u - y_0) / (dy_0 - dlambda); % upper intersect x
+                    gu_y = dy_0 * gu_x + y_0;% upper intersect y
+                    gl_x = (y_l - dlambda * l - y_0) / (dy_0 - dlambda); % lower intersect x
+                    gl_y = dy_0 * gl_x + y_0; % lower intersect y
+    
+                    m_u = (y_l - gu_y)/(l - gu_x);
+                    m_l = (y_u - gl_y)/(u - gl_x);
+                    
+                    % constraint 3: y[index] >= m_l * x[index] - m_l*u + y_u
+                    C3 = [m_l*I.X(index, :) -1];
+                    d3 = -m_l*I.c(index) + m_l*u - y_u;
+                                    
+                    % constraint 4: y[index] <= m_u * x[index] - m_u*l + y_l
+                    C4 = [-m_u*I.X(index, :) 1];
+                    d4 = m_u*I.c(index) - m_u*l + y_l;
+    
+                    new_C = [C0; C1; C2; C3; C4];
+                    new_d = [d0; d1; d2; d3; d4];
+                end
+    
+                new_pred_lb = [I.predicate_lb; y_l];
+                new_pred_ub = [I.predicate_ub; y_u];
+    
+                lb{len}(index) = y_l;
+                ub{len}(index) = y_u;
+    
+                R = RStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub, lower_a, upper_a, lb, ub, I.iter);
+            end
         end
 
-        lower_a = I.lower_a;
-        upper_a = I.upper_a;
-        lb = I.lb;
-        ub = I.ub;
-        len = length(lower_a);
-        if l == u
-            new_V = I.V;
-            new_V(index,:) = 0;
-            new_V(index,1) = y_l;
-
-            L = zeros(1, I.dim + 1);
-            L(index+1) = y_l;
-            lower_a{len}(index,:) = L;
-
-            U = zeros(1, I.dim + 1);
-            U(index+1) = y_l;
-            upper_a{len}(index,:) = U;
-
-            lb{len}(index) = y_l;
-            ub{len}(index) = y_u;
-
-            R = RStar(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, lower_a, upper_a, lb, ub, I.iter);
-        else
-            new_V = [I.V zeros(I.dim, 1)];
-            new_V(index, :) = 0;
-            new_V(index, end) = 1;
-
-            C0 = [I.C zeros(size(I.C,1),1)];
-            d0 = I.d;
-
-            if l >= 0
-                lambda = (y_u - y_l)/(u - l);
-
-                % constraint 1: y[index] >= y(l) + lamda * (x[index] - l)
-                L = zeros(1, I.dim + 1);
-                L(1) = y_l - lambda*l;
-                L(index+1) = lambda;
-                lower_a{len}(index,:) = L;
-
-                C1 = [lambda*I.X(index,:) -1];
-                d1 = -y_l - lambda*(I.c(index) - l);
-
-                % constraint 2: y[index] <= y(u) + y'(u) * (x[index] - u)
-                U = zeros(1, I.dim + 1);
-                U(1) = y_u - dy_u*u;
-                U(index+1) = dy_u;
-                upper_a{len}(index,:) = U;
-
-                C2 = [-dy_u*I.X(index,:) 1];
-                d2 = y_u + dy_u*(I.c(index) - u);
-            elseif u <= 0
-                lambda = (y_u - y_l)/(u - l);
-
-                % constraint 1: y[index] >= y(l) + y'(l) * (x[index] - l)
-                L = zeros(1, I.dim + 1);
-                L(1) = y_l - dy_l*l;
-                L(index+1) = dy_l;
-                lower_a{len}(index,:) = L;
-
-                C1 = [dy_l*I.X(index,:) -1];
-                d1 = -y_l - dy_l*(I.c(index) - l);
-
-                % constraint 2: y[index] <= y(l) + lambda * (x[index] - l)
-                U = zeros(1, I.dim + 1);
-                U(1) = y_l - lambda*l;
-                U(index+1) = lambda;
-                upper_a{len}(index,:) = U;
-
-                C2 = [-lambda*I.X(index,:) 1];
-                d2 = y_l + lambda*(I.c(index) - l);
+        function R = reach_relaxed_star_four_constraints_approx(I)
+            % @I: RStar imput set
+            % %A: RStar output set
+    
+            % author: Sung Woo Choi
+            % date: 01/29/2021
+    
+            % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
+            % Gagandeep Singh, POPL, 2019
+    
+            if ~isa(I, 'RStar')
+                error('Input is not a RStar');
+            end
+    
+            if isempty(I)
+                R = [];
             else
+                lower_a = I.lower_a;
+                upper_a = I.upper_a;
+                lb = I.lb;
+                ub = I.ub;
+                len = length(lower_a);
+    
+                l = lb{len};
+                u = ub{len};
+                y_l = logsig(l);
+                y_u = logsig(u);
+                dy_l = logsig('dn', l);
+                dy_u = logsig('dn', u);
+    
+                % create new matrices for lower and upper constraints and bounds.
+                lower_a{len+1} = zeros(I.dim, I.dim + 1);
+                upper_a{len+1} = zeros(I.dim, I.dim + 1);
+                lb{len+1} = zeros(I.dim, 1);
+                ub{len+1} = zeros(I.dim, 1);
+                R = RStar(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub, lower_a, upper_a, lb, ub, I.iter);
+    
+                for i=1:I.dim
+                    R = LogSig.stepLogSig_rstar_four_constraints(R, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i));
+                end
+            end
+        end
+    end
+
+
+    methods(Static) % over-approximate reachability analysis using RStar0
+        % step over-approximate reachability analysis using relaxed star with
+        % zero constraints (RStar0)
+        function R = stepLogSig_rstar_zero_constraints(I, index, l, u, y_l, y_u, dy_l, dy_u)
+            % @I: RStar0-input set
+            % @index: index of neuron performing stepReach
+            % @l: l = min(x[index]), lower bound at neuron x[index]
+            % @u: u = min(x[index]), upper bound at neuron x[index]
+            % @y_l: = logsig(l); output of logsig at lower bound
+            % @y_u: = logsig(u); output of logsig at upper bound
+            % @dy_l: derivative of LogSig at the lower bound
+            % @dy_u: derivative of LogSig at the upper bound
+    
+            % @R: RStar0 output set
+    
+            % author: Sung Woo Choi
+            % date: 01/29/2021
+    
+            % reference: An Abstract Domain for Certifying Neural Networks,
+            % Gagandeep Singh, POPL 2019
+    
+            lower_a = I.lower_a;
+            upper_a = I.upper_a;
+            lb = I.lb;
+            ub = I.ub;
+            len = length(lower_a);
+            if l == u
+                L = zeros(1, I.dim + 1);
+                L(index+1) = y_l;
+                lower_a{len}(index,:) = L;
+    
+                U = zeros(1, I.dim + 1);
+                U(index+1) = y_l;
+                upper_a{len}(index,:) = U;
+    
+                lb{len}(index) = y_l;
+                ub{len}(index) = y_u;
+    
+                R = RStar0(lower_a, upper_a, lb, ub, I.iter);
+            else
+                lamda = (y_u - y_l)/(u - l);
                 dlamda = min(dy_l , dy_u);
-                % constraint 1: y[index] >= y(l) + y'(l) * (x[index] - l)
-                L = zeros(1, I.dim + 1);
-                L(1) = y_l - dlamda*l;
-                L(index+1) = dlamda;
-                lower_a{len}(index,:) = L;
-
-                C1 = [dlamda*I.X(index,:) -1];
-                d1 = -y_l - dlamda*(I.c(index) - l);
-
-                % constraint 2: y[index] <= y(u) + y'(u) * (x[index] - u)
-                U = zeros(1, I.dim + 1);
-                U(1) = y_u - dlamda*u;
-                U(index+1) = dlamda;
-                upper_a{len}(index,:) = U;
-
-                C2 = [-dlamda*I.X(index,:) 1];
-                d2 = y_u + dlamda*(I.c(index) - u);
-            end
-
-            new_pred_lb = [I.predicate_lb; y_l];
-            new_pred_ub = [I.predicate_ub; y_u];
-
-            lb{len}(index) = y_l;
-            ub{len}(index) = y_u;
-
-            new_C = [C0; C1; C2];
-            new_d = [d0; d1; d2];
-
-            R = RStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub, lower_a, upper_a, lb, ub, I.iter);
-        end
-    end
+                if l > 0
+                    % constraint 1: y[index] >= y(l) + lamda * (x[index] - l)
+                    L = zeros(1, I.dim + 1);
+                    L(1) = y_l - lamda*l;
+                    L(index+1) = lamda;
+                    lower_a{len}(index,:) = L;
+                else
+                    % constraint 1: y[index] >= y(l) + lamda' * (x[index] - l)
+                    L = zeros(1, I.dim + 1);
+                    L(1) = y_l - dlamda*l;
+                    L(index+1) = dlamda;
+                    lower_a{len}(index,:) = L;
+                end
     
-    function R = reach_relaxed_star_two_constraints_approx(I)
-        % @I: RStar imput set
-        % %A: RStar output set
-
-        % author: Sung Woo Choi
-        % date: 01/29/2021
-
-        % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
-        % Gagandeep Singh, POPL, 2019
-
-        if ~isa(I, 'RStar')
-            error('Input is not a RStar');
-        end
-
-        if isempty(I)
-            R = [];
-        else
-            lower_a = I.lower_a;
-            upper_a = I.upper_a;
-            lb = I.lb;
-            ub = I.ub;
-            len = length(lower_a);
-
-            l = lb{len};
-            u = ub{len};
-            
-            y_l = logsig(l);
-            y_u = logsig(u);
-            dy_l = logsig('dn', l);
-            dy_u = logsig('dn', u);
-
-            % create new matrices for lower and upper constraints and bounds.
-            lower_a{len+1} = zeros(I.dim, I.dim + 1);
-            upper_a{len+1} = zeros(I.dim, I.dim + 1);
-            lb{len+1} = zeros(I.dim, 1);
-            ub{len+1} = zeros(I.dim, 1);
-            R = RStar(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub, lower_a, upper_a, lb, ub, I.iter);
-
-            for i=1:I.dim
-                R = LogSig.stepLogSig_rstar_two_constraints(R, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i));
-            end
-        end
-    end
-end
-
-
-methods(Static) % over-approximate reachability analysis using abstract-domain (absdom) based on eran
-
-    % step over-approximate reachability analysis using abstract-domain
-    % we use absdom set to represent abstract-domain
-    function R = stepLogSig_rstar_four_constraints(I, index, l, u, y_l, y_u, dy_l, dy_u)
-        % @I: rstar-input set
-        % @index: index of neuron performing stepReach
-        % @l: l = min(x[index]), lower bound at neuron x[index]
-        % @u: u = min(x[index]), upper bound at neuron x[index]
-        % @y_l: = logsig(l); output of logsig at lower bound
-        % @y_u: = logsig(u); output of logsig at upper bound
-        % @dy_l: derivative of LogSig at the lower bound
-        % @dy_u: derivative of LogSig at the upper bound
-
-        % @R: rstar output set
-
-        % author: Sung Woo Choi
-        % date: 01/29/2021
-
-        % reference: An Abstract Domain for Certifying Neural Networks,
-        % Gagandeep Singh, POPL 2019
-
-        if ~isa(I, 'RStar')
-            error('Input is not a RStar');
-        end
-
-        lower_a = I.lower_a;
-        upper_a = I.upper_a;
-        lb = I.lb;
-        ub = I.ub;
-        len = length(lower_a);
-        if l == u
-            new_V = I.V;
-            new_V(index,:) = 0;
-            new_V(index,1) = y_l;
-
-            L = zeros(1, I.dim + 1);
-            L(index+1) = y_l;
-            lower_a{len}(index,:) = L;
-
-            U = zeros(1, I.dim + 1);
-            U(index+1) = y_l;
-            upper_a{len}(index,:) = U;
-
-            lb{len}(index) = y_l;
-            ub{len}(index) = y_u;
-
-            R = RStar(new_V, I.C, I.d, I.predicate_lb, I.predicate_ub, lower_a, upper_a, lb, ub, I.iter);
-        else
-            new_V = [I.V zeros(I.dim, 1)];
-            new_V(index, :) = 0;
-            new_V(index, end) = 1;
-
-            C0 = [I.C zeros(size(I.C,1),1)];
-            d0 = I.d;
-
-            if l >= 0
-                lambda = (y_u - y_l)/(u - l);
-
-                % constraint 1: y[index] >= lamda * (x[index] - l) + y(l)
-                L = zeros(1, I.dim + 1);
-                L(1) = y_l - lambda*l;
-                L(index+1) = lambda;
-                lower_a{len}(index,:) = L;
-
-                C1 = [lambda*I.X(index,:) -1];
-                d1 = -y_l - lambda*(I.c(index) - l);
-
-                % constraint 2: y[index] <= y'(u) * (x[index] - u) + y(u)
-                U = zeros(1, I.dim + 1);
-                U(1) = y_u - dy_u*u;
-                U(index+1) = dy_u;
-                upper_a{len}(index,:) = U;
-
-                C2 = [-dy_u*I.X(index,:) 1];
-                d2 = y_u + dy_u*(I.c(index) - u);
-
-                % constraint 3: y[idex] <= y'(l) * (x[index] - l) + y(l)
-                C3 = [-dy_l*I.X(index,:) 1];
-                d3 = y_l + dy_l*(I.c(index) - l);
-
-                new_C = [C0; C1; C2; C3];
-                new_d = [d0; d1; d2; d3];
-
-            elseif u <= 0
-                lambda = (y_u - y_l)/(u - l);
-
-                % constraint 1: y[index] >= y'(l) * (x[index] - l) + y(l)
-                L = zeros(1, I.dim + 1);
-                L(1) = y_l - dy_l*l;
-                L(index+1) = dy_l;
-                lower_a{len}(index,:) = L;
-
-                C1 = [dy_l*I.X(index,:) -1];
-                d1 = -y_l - dy_l*(I.c(index) - l);
-
-                % constraint 2: y[index] <= lambda * (x[index] - l) + y(l)
-                U = zeros(1, I.dim + 1);
-                U(1) = y_l - lambda*l;
-                U(index+1) = lambda;
-                upper_a{len}(index,:) = U;
-
-                C2 = [-lambda*I.X(index,:) 1];
-                d2 = y_l + lambda*(I.c(index) - l);
-
-                % constraint 3: y[index] >= y'(u) * (x[index] - u) + y(u)
-                C3 = [dy_u*I.X(index,:) -1];
-                d3 = -y_u - dy_u*(I.c(index) - u);
-
-                new_C = [C0; C1; C2; C3];
-                new_d = [d0; d1; d2; d3];
-
-            else
-                dlambda = min(dy_l , dy_u);
-                % constraint 1: y[index] >= y(l) + lamda' * (x[index] - l)
-                L = zeros(1, I.dim + 1);
-                L(1) = y_l - dlambda*l;
-                L(index+1) = dlambda;
-                lower_a{len}(index,:) = L;
-
-                C1 = [dlambda*I.X(index,:) -1];
-                d1 = -y_l - dlambda*(I.c(index) - l);
-
-                % constraint 2: y[index] <= y(u) + lamda' * (x[index] - u)
-                U = zeros(1, I.dim + 1);
-                U(1) = y_u - dlambda*u;
-                U(index+1) = dlambda;
-                upper_a{len}(index,:) = U;
-
-                C2 = [-dlambda*I.X(index,:) 1];
-                d2 = y_u + dlambda*(I.c(index) - u);
-
-%                 a = -dlambda * u + y_u;
-%                 b = -dlambda * l + y_l;
-% 
-%                 % constraint 3: y[index] >= (b - y(u))/(-u) * x[index] + b
-%                 g1 = (b - y_u)/(-u);
-%                 C3 = [g1*I.X(index,:) -1];
-%                 d3 = -g1*I.c(index) - b;
-% 
-%                 % constraint 4: y[index] <= (a - y(l))/(-l) * x[index] + a
-%                 g2 = (a - y_l)/(-l);
-%                 C4 = [-g2*I.X(index,:) 1];
-%                 d4 = g2*I.c(index) + a;
-                
-                y_0 = logsig(0);
-                dy_0 = logsig('dn', 0);
-                gu_x = (y_u - dlambda * u - y_0) / (dy_0 - dlambda); % upper intersect x
-                gu_y = dy_0 * gu_x + y_0;% upper intersect y
-                gl_x = (y_l - dlambda * l - y_0) / (dy_0 - dlambda); % lower intersect x
-                gl_y = dy_0 * gl_x + y_0; % lower intersect y
-
-                m_u = (y_l - gu_y)/(l - gu_x);
-                m_l = (y_u - gl_y)/(u - gl_x);
-                
-                % constraint 3: y[index] >= m_l * x[index] - m_l*u + y_u
-                C3 = [m_l*I.X(index, :) -1];
-                d3 = -m_l*I.c(index) + m_l*u - y_u;
-                                
-                % constraint 4: y[index] <= m_u * x[index] - m_u*l + y_l
-                C4 = [-m_u*I.X(index, :) 1];
-                d4 = m_u*I.c(index) - m_u*l + y_l;
-
-                new_C = [C0; C1; C2; C3; C4];
-                new_d = [d0; d1; d2; d3; d4];
-            end
-
-            new_pred_lb = [I.predicate_lb; y_l];
-            new_pred_ub = [I.predicate_ub; y_u];
-
-            lb{len}(index) = y_l;
-            ub{len}(index) = y_u;
-
-            R = RStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub, lower_a, upper_a, lb, ub, I.iter);
-        end
-    end
-
-    function R = reach_relaxed_star_four_constraints_approx(I)
-        % @I: RStar imput set
-        % %A: RStar output set
-
-        % author: Sung Woo Choi
-        % date: 01/29/2021
-
-        % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
-        % Gagandeep Singh, POPL, 2019
-
-        if ~isa(I, 'RStar')
-            error('Input is not a RStar');
-        end
-
-        if isempty(I)
-            R = [];
-        else
-            lower_a = I.lower_a;
-            upper_a = I.upper_a;
-            lb = I.lb;
-            ub = I.ub;
-            len = length(lower_a);
-
-            l = lb{len};
-            u = ub{len};
-            y_l = logsig(l);
-            y_u = logsig(u);
-            dy_l = logsig('dn', l);
-            dy_u = logsig('dn', u);
-
-            % create new matrices for lower and upper constraints and bounds.
-            lower_a{len+1} = zeros(I.dim, I.dim + 1);
-            upper_a{len+1} = zeros(I.dim, I.dim + 1);
-            lb{len+1} = zeros(I.dim, 1);
-            ub{len+1} = zeros(I.dim, 1);
-            R = RStar(I.V, I.C, I.d, I.predicate_lb, I.predicate_ub, lower_a, upper_a, lb, ub, I.iter);
-
-            for i=1:I.dim
-                R = LogSig.stepLogSig_rstar_four_constraints(R, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i));
-            end
-        end
-    end
-end
-
-
-methods(Static) % over-approximate reachability analysis using RStar0
-    % step over-approximate reachability analysis using relaxed star with
-    % zero constraints (RStar0)
-    function R = stepLogSig_rstar_zero_constraints(I, index, l, u, y_l, y_u, dy_l, dy_u)
-        % @I: RStar0-input set
-        % @index: index of neuron performing stepReach
-        % @l: l = min(x[index]), lower bound at neuron x[index]
-        % @u: u = min(x[index]), upper bound at neuron x[index]
-        % @y_l: = logsig(l); output of logsig at lower bound
-        % @y_u: = logsig(u); output of logsig at upper bound
-        % @dy_l: derivative of LogSig at the lower bound
-        % @dy_u: derivative of LogSig at the upper bound
-
-        % @R: RStar0 output set
-
-        % author: Sung Woo Choi
-        % date: 01/29/2021
-
-        % reference: An Abstract Domain for Certifying Neural Networks,
-        % Gagandeep Singh, POPL 2019
-
-        lower_a = I.lower_a;
-        upper_a = I.upper_a;
-        lb = I.lb;
-        ub = I.ub;
-        len = length(lower_a);
-        if l == u
-            L = zeros(1, I.dim + 1);
-            L(index+1) = y_l;
-            lower_a{len}(index,:) = L;
-
-            U = zeros(1, I.dim + 1);
-            U(index+1) = y_l;
-            upper_a{len}(index,:) = U;
-
-            lb{len}(index) = y_l;
-            ub{len}(index) = y_u;
-
-            R = RStar0(lower_a, upper_a, lb, ub, I.iter);
-        else
-            lamda = (y_u - y_l)/(u - l);
-            dlamda = min(dy_l , dy_u);
-            if l > 0
-                % constraint 1: y[index] >= y(l) + lamda * (x[index] - l)
-                L = zeros(1, I.dim + 1);
-                L(1) = y_l - lamda*l;
-                L(index+1) = lamda;
-                lower_a{len}(index,:) = L;
-            else
-                % constraint 1: y[index] >= y(l) + lamda' * (x[index] - l)
-                L = zeros(1, I.dim + 1);
-                L(1) = y_l - dlamda*l;
-                L(index+1) = dlamda;
-                lower_a{len}(index,:) = L;
-            end
-
-            if u <=0
-                % constraint 2: y[index] <= y(u) + lamda * (x[index] - u)
-                U = zeros(1, I.dim + 1);
-                U(1) = y_u - lamda*u;
-                U(index+1) = lamda;
-                upper_a{len}(index,:) = U;
-            else
-                % constraint 2: y[index] <= y(u) + lamda' * (x[index] - u)
-                U = zeros(1, I.dim + 1);
-                U(1) = y_u - dlamda*u;
-                U(index+1) = dlamda;
-                upper_a{len}(index,:) = U;
-            end
-
-            lb{len}(index) = y_l;
-            ub{len}(index) = y_u;
-
-            R = RStar0(lower_a, upper_a, lb, ub, I.iter);
-        end
-    end
-
-    function R = reach_relaxed_star_zero_constraints_approx(I)
-        % @I: RStar0 input set
-        % R: RStar0 output set
-
-        % author: Sung Woo Choi
-        % date: 01/29/2021
-
-        % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
-        % Gagandeep Singh, POPL, 2019
-
-        if ~isa(I, 'RStar0')
-            error('Input is not a RStar0');
-        end
-
-        if isempty(I)
-            R = [];
-        else
-            lower_a = I.lower_a;
-            upper_a = I.upper_a;
-            lb = I.lb;
-            ub = I.ub;
-            len = length(lower_a);
-
-            l = lb{len};
-            u = ub{len};
-            y_l = logsig(l);
-            y_u = logsig(u);
-            dy_l = logsig('dn', l);
-            dy_u = logsig('dn', u);
-
-            % create new matrices for lower and upper constraints and bounds.
-            lower_a{len+1} = zeros(I.dim, I.dim + 1);
-            upper_a{len+1} = zeros(I.dim, I.dim + 1);
-            lb{len+1} = zeros(I.dim, 1);
-            ub{len+1} = zeros(I.dim, 1);
-            R = RStar0(lower_a, upper_a, lb, ub, I.iter);
-
-            for i=1:I.dim
-                R = LogSig.stepLogSig_rstar_zero_constraints(R, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i));
-            end
-        end
-    end
-end
-
-
-methods(Static) % main reach method
+                if u <=0
+                    % constraint 2: y[index] <= y(u) + lamda * (x[index] - u)
+                    U = zeros(1, I.dim + 1);
+                    U(1) = y_u - lamda*u;
+                    U(index+1) = lamda;
+                    upper_a{len}(index,:) = U;
+                else
+                    % constraint 2: y[index] <= y(u) + lamda' * (x[index] - u)
+                    U = zeros(1, I.dim + 1);
+                    U(1) = y_u - dlamda*u;
+                    U(index+1) = dlamda;
+                    upper_a{len}(index,:) = U;
+                end
     
-    % main function for reachability analysis
-    function R = reach(varargin)
-        % @I: an array of star input sets
-        % @method: 'approx-star' or 'approx-zono' or 'abs-dom' 
-        % @option: = 'parallel' or [] using parallel computation or not
+                lb{len}(index) = y_l;
+                ub{len}(index) = y_u;
+    
+                R = RStar0(lower_a, upper_a, lb, ub, I.iter);
+            end
+        end
 
-        % author: Dung Tran
-        % date: 3/27/2019
-        % update: 4/2/2020
-        % update: 6/26/2020: add relaxed approx-star method
-        % update 7/15/2020: add display option
-        %        7/16/2020: add lp_solver option
-        % update: 01/29/2020: add absdom & rstar (Sung Woo Choi)
+        function R = reach_relaxed_star_zero_constraints_approx(I)
+            % @I: RStar0 input set
+            % R: RStar0 output set
+    
+            % author: Sung Woo Choi
+            % date: 01/29/2021
+    
+            % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
+            % Gagandeep Singh, POPL, 2019
+    
+            if ~isa(I, 'RStar0')
+                error('Input is not a RStar0');
+            end
+    
+            if isempty(I)
+                R = [];
+            else
+                lower_a = I.lower_a;
+                upper_a = I.upper_a;
+                lb = I.lb;
+                ub = I.ub;
+                len = length(lower_a);
+    
+                l = lb{len};
+                u = ub{len};
+                y_l = logsig(l);
+                y_u = logsig(u);
+                dy_l = logsig('dn', l);
+                dy_u = logsig('dn', u);
+    
+                % create new matrices for lower and upper constraints and bounds.
+                lower_a{len+1} = zeros(I.dim, I.dim + 1);
+                upper_a{len+1} = zeros(I.dim, I.dim + 1);
+                lb{len+1} = zeros(I.dim, 1);
+                ub{len+1} = zeros(I.dim, 1);
+                R = RStar0(lower_a, upper_a, lb, ub, I.iter);
+    
+                for i=1:I.dim
+                    R = LogSig.stepLogSig_rstar_zero_constraints(R, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i));
+                end
+            end
+        end
+    end
 
-        switch nargin
-            
-            case 6
-                I = varargin{1};
-                method = varargin{2};
-                reachOption = varargin{3};
-                relaxFactor = varargin{4}; % used for aprox-star only
-                dis_opt = varargin{5}; % display option
-                lp_solver = varargin{6};
+
+    methods(Static) % main reach method
+        
+        % main function for reachability analysis
+        function R = reach(varargin)
+            % @I: an array of star input sets
+            % @method: 'approx-star' or 'approx-zono' or 'abs-dom' 
+            % @option: = 'parallel' or [] using parallel computation or not
+    
+            % author: Dung Tran
+            % date: 3/27/2019
+            % update: 4/2/2020
+            % update: 6/26/2020: add relaxed approx-star method
+            % update 7/15/2020: add display option
+            %        7/16/2020: add lp_solver option
+            % update: 01/29/2020: add absdom & rstar (Sung Woo Choi)
+    
+            switch nargin
                 
-            case 5
-                I = varargin{1};
-                method = varargin{2};
-                reachOption = varargin{3};
-                relaxFactor = varargin{4}; % used for aprox-star only
-                dis_opt = varargin{5}; % display option
-                lp_solver = 'linprog';
-            case 4
-                I = varargin{1};
-                method = varargin{2};
-                reachOption = varargin{3};
-                relaxFactor = varargin{4}; % used for aprox-star only
-                dis_opt = []; % display option
-                lp_solver = 'linprog';
+                case 6
+                    I = varargin{1};
+                    method = varargin{2};
+                    reachOption = varargin{3};
+                    relaxFactor = varargin{4}; % used for aprox-star only
+                    dis_opt = varargin{5}; % display option
+                    lp_solver = varargin{6};
+                    
+                case 5
+                    I = varargin{1};
+                    method = varargin{2};
+                    reachOption = varargin{3};
+                    relaxFactor = varargin{4}; % used for aprox-star only
+                    dis_opt = varargin{5}; % display option
+                    lp_solver = 'linprog';
+                case 4
+                    I = varargin{1};
+                    method = varargin{2};
+                    reachOption = varargin{3};
+                    relaxFactor = varargin{4}; % used for aprox-star only
+                    dis_opt = []; % display option
+                    lp_solver = 'linprog';
+    
+                case 3
+                    I = varargin{1};
+                    method = varargin{2};
+                    reachOption = varargin{3};
+                    relaxFactor = 0; % used for aprox-star only
+                    dis_opt = []; % display option
+                    lp_solver = 'linprog';
+                case 2
+                    I = varargin{1};
+                    method = varargin{2};
+                    reachOption = [];
+                    relaxFactor = 0; % used for aprox-star only
+                    dis_opt = []; % display option
+                    lp_solver = 'linprog';
+                case 1
+                    I = varargin{1};
+                    method = 'approx-star';
+                    reachOption = [];
+                    relaxFactor = 0; % for relaxed approx-star method
+                    dis_opt = [];
+                    lp_solver = 'linprog';
+                otherwise
+                    error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
+            end
 
-            case 3
-                I = varargin{1};
-                method = varargin{2};
-                reachOption = varargin{3};
-                relaxFactor = 0; % used for aprox-star only
-                dis_opt = []; % display option
-                lp_solver = 'linprog';
-            case 2
-                I = varargin{1};
-                method = varargin{2};
-                reachOption = [];
-                relaxFactor = 0; % used for aprox-star only
-                dis_opt = []; % display option
-                lp_solver = 'linprog';
-            case 1
-                I = varargin{1};
+            if contains(method, 'relax-star')
                 method = 'approx-star';
-                reachOption = [];
-                relaxFactor = 0; % for relaxed approx-star method
-                dis_opt = [];
-                lp_solver = 'linprog';
-            otherwise
-                error('Invalid number of input arguments (should be 1, 2, 3, 4, 5, or 6)');
-        end
-
-        if strcmp(method, 'approx-star') || strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star-split') 
-            
-            R = LogSig.reach_star_approx(I, method, reachOption, relaxFactor, dis_opt, lp_solver);
-
-        elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
-
-            R = LogSig.reach_zono_approx(I);
-
-        elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
-
-            R = LogSig.reach_absdom_approx(I);
-            
-        elseif strcmp(method, 'approx-rstar-2') % over-approximate analysis using relaxed star with 2 constraints
-           
-            R = LogSig.reach_relaxed_star_two_constraints_approx(I);
-            
-        elseif strcmp(method, 'approx-rstar-4') % over-approximate analysis using relaxed star with 4 constraints
-            
-            R = LogSig.reach_relaxed_star_four_constraints_approx(I);
-            
-        elseif strcmp(method, 'approx-rstar-0')
-            
-            R = LogSig.reach_relaxed_star_zero_constraints_approx(I);
-            
-        else
-            error('Unknown or unsupported reachability method for layer with LogSig activation function');
-        end
-
-    end
+                warning('Using default approx-star method for computing reacable set of Sigmoid layer');
+            end
     
-end
+            if strcmp(method, 'approx-star') || strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star-split')
+                
+                R = LogSig.reach_star_approx(I, method, reachOption, relaxFactor, dis_opt, lp_solver);
+    
+            elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope
+    
+                R = LogSig.reach_zono_approx(I);
+    
+            elseif strcmp(method, 'abs-dom')  % over-approximate analysis using abstract-domain
+    
+                R = LogSig.reach_absdom_approx(I);
+                
+            elseif strcmp(method, 'approx-rstar-2') % over-approximate analysis using relaxed star with 2 constraints
+               
+                R = LogSig.reach_relaxed_star_two_constraints_approx(I);
+                
+            elseif strcmp(method, 'approx-rstar-4') % over-approximate analysis using relaxed star with 4 constraints
+                
+                R = LogSig.reach_relaxed_star_four_constraints_approx(I);
+                
+            elseif strcmp(method, 'approx-rstar-0')
+                
+                R = LogSig.reach_relaxed_star_zero_constraints_approx(I);
+                
+            else
+                error('Unknown or unsupported reachability method for layer with LogSig activation function');
+            end
+    
+        end
+        
+    end
     
 end
 

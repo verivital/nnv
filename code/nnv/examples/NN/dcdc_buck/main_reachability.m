@@ -1,31 +1,35 @@
+% Load network info
 load network.mat;
-Layers = [];
+% weights
 W = network.weights;
+% bias
 b = network.bias;
-n = length(b);
+n = length(b); % number of layers
+Layers = cell(n,1);
 for i=1:n - 1
-    bi = cell2mat(b(i));
-    Wi = cell2mat(W(i));
-    Li = Layer(Wi, bi, 'ReLU');
-    Layers = [Layers Li];
+    Li = LayerS(W{i}, b{i}, 'poslin'); % relu (hidden layers)
+    Layers{i} = Li;
 end
-bn = cell2mat(b(n));
-Wn = cell2mat(W(n));
-Ln = Layer(Wn, bn, 'Linear');
+Layers{end} = LayerS(W{n}, b{n}, 'purelin'); % linear (output)
 
-Layers = [Layers Ln];
-F = FFNN(Layers);
+% Create network based on layer array
+F = NN(Layers);
 
+% Define input set
 % x = [error, vref, vout, icurrent]
 lb = [-3; 5; 5; 0];
 ub = [3; 15; 15; 15];
+I = Star(lb,ub);
 
-% normalize input
+% Define reachability parameters
+reachOptions = struct;
+reachOptions.reachMethod = 'exact-star';
+numCores = feature('numcores');
+reachOptions.numCores = numCores;
 
-V = Reduction.getVertices(lb, ub);
+% Compute reachability analsysis
+t = tic;
+R = F.reach(I, reachOptions); % exact reach set
+toc(t);
 
-I = Polyhedron('V', V');
-
-[R, t] = F.reach(I, 'exact', 4, []); % exact reach set
-save F.mat F; % save the verified network
-F.print('F.info'); % print all information to a file
+% About 1-2 minutes to compute

@@ -6,7 +6,17 @@ P2 = Polyhedron('lb', 0, 'ub', 1);
 
 P = Conversion.concatenatePolyhedron([P1 P2]);
 
-figure; 
-P.plot;
+% figure; 
+% P.plot;
 
+targetV = [
+    1	0	1;
+    1	0	0;
+    -1	0	1;
+    -1	0	0;
+    -1	2	0;
+    -1	2	1;
+    1	2	0;
+    1	2	1];
 
+assert(all((P.V == targetV),'all'), "Concatenation of Polyhedra failed");

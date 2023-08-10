@@ -691,6 +691,7 @@ classdef NN < handle
                 for j=1:m
                     if U(j).contains(y)
                         counter_inputs = [counter_inputs V(:, i)];
+                        break
                     end
                 end
             end
@@ -906,7 +907,7 @@ classdef NN < handle
     
 
     % helper functions
-    methods (Access = protected) % not to be accessible by user
+    methods
         
         % Check reachability options defined are allowed
         function reachOptions = validate_reach_options(obj, reachOptions)

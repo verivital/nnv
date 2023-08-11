@@ -91,38 +91,48 @@ disp(T);
 %% Part 3 - Verification with exact analysis
 % Results still show lots of unknown input sets
 % Let's refine the verification process using the exact analysis
+% (just do one of them as an example)
 
 reachOptions = struct;
 reachOptions.reachMethod = 'exact-star';
 numCores = feature('numcores');
 reachOptions.numCores = numCores;
 
-% verify the network with eps = 0.02 (only unknowns)
+% Exact-reachability 
 unk_idxs = find(rob_res2(:,1)==2)';
 t = tic;
-for i=unk_idxs
-    rob_res2(unk_idxs(i),1) = net.verify_robustness(S_eps_002(i), reachOptions, labels(i));
-end
-exact_time2 = toc(t);
+rob_res2(unk_idxs(end),1) = net.verify_robustness(S_eps_002(unk_idxs(end)), reachOptions, labels(unk_idxs(end)));
+toc(t);
 
-% verify the network with eps = 0.05 (only unknowns)
-unk_idxs = find(rob_res5(:,1)==2)';
-t = tic;
-for i=unk_idxs
-    rob_res5(i,1) = net.verify_robustness(S_eps_005(i), reachOptions, labels(i));
-end
-exact_time5 = toc(t);
+% Could also run the evaluaiton on all  unknown images by uncommenting the
+% following code:
 
-% Results summary
-epsilon = [0.02; 0.05];
-verify_time_approx = [verify_time2; verify_time5];
-verifi_time_exact = [exact_time2; exact_time5];
-falsify_time = [falsify_time2; falsify_time5];
-safe = [sum(rob_res2(:,1)==1); sum(rob_res5(:,1) == 1)];
-unsafe = [sum(rob_res2(:,1) == 0); sum(rob_res5(:,1) == 0)];
-unknown = [sum(rob_res2(:,1) == 2); sum(rob_res5(:,1) == 2)];
-
-disp("Updated table after verification with exact analysis...");
-
-T = table(epsilon, safe, unsafe, unknown, verify_time_approx, falsify_time, verify_time_exact);
-disp(T);
+% verify the network with eps = 0.02 (only unknowns)
+% unk_idxs = find(rob_res2(:,1)==2)';
+% t = tic;
+% for i=unk_idxs
+%     rob_res2(unk_idxs(i),1) = net.verify_robustness(S_eps_002(unk_idxs(i)), reachOptions, labels(unk_idxs(i)));
+% end
+% exact_time2 = toc(t);
+% 
+% % verify the network with eps = 0.05 (only unknowns)
+% unk_idxs = find(rob_res5(:,1)==2)';
+% t = tic;
+% for i=unk_idxs
+%     rob_res5(i,1) = net.verify_robustness(S_eps_005(i), reachOptions, labels(i));
+% end
+% exact_time5 = toc(t);
+% 
+% % Results summary
+% epsilon = [0.02; 0.05];
+% verify_time_approx = [verify_time2; verify_time5];
+% verifi_time_exact = [exact_time2; exact_time5];
+% falsify_time = [falsify_time2; falsify_time5];
+% safe = [sum(rob_res2(:,1)==1); sum(rob_res5(:,1) == 1)];
+% unsafe = [sum(rob_res2(:,1) == 0); sum(rob_res5(:,1) == 0)];
+% unknown = [sum(rob_res2(:,1) == 2); sum(rob_res5(:,1) == 2)];
+% 
+% disp("Updated table after verification with exact analysis...");
+% 
+% T = table(epsilon, safe, unsafe, unknown, verify_time_approx, falsify_time, verify_time_exact);
+% disp(T);

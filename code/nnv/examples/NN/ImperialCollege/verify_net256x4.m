@@ -5,7 +5,7 @@ load net256x4.mat;
 load inputSet.mat;
 
 % Select number of sets to evaluate (max of 50)
-N = 25;
+N = 12;
 rob_res2 = zeros(N,2);
 reachOptions = struct;
 reachOptions.reachMethod = 'approx-star';
@@ -30,8 +30,8 @@ verify_time5 = toc(t);
 epsilon = [0.02; 0.05];
 verify_time = [verify_time2; verify_time5];
 safe = [sum(rob_res2(:,1)==1); sum(rob_res5(:,1) == 1)];
-unsafe = [sum(rob_res2 == 0); sum(rob_res5(:,1) == 0)];
-unknown = [sum(rob_res2 == 2); sum(rob_res5(:,1) == 2)];
+unsafe = [sum(rob_res2(:,1) == 0); sum(rob_res5(:,1) == 0)];
+unknown = [sum(rob_res2(:,1) == 2); sum(rob_res5(:,1) == 2)];
 
-T = table(epsilon, safe, unsafe, unknown, verify_time);
+T = table(epsilon, safe, unsafe, unknown, verify_time)
 

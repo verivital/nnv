@@ -70,12 +70,9 @@ classdef NonLinearODE < handle
         end
         
         function obj = NonLinearODE_hyst(hyst_ha)
-            
             % pull arguments from hyst ha
             obj = NonLinearODE();
-            
             obj.ha = hyst_ha;
-            
         end
         
         % set default parameters
@@ -134,7 +131,6 @@ classdef NonLinearODE < handle
             if errorOrder < 1
                 error('Invalid error order');
             end
-            
             obj.options.errorOrder = errorOrder;
         end
         
@@ -295,7 +291,6 @@ classdef NonLinearODE < handle
            reachTime = toc(start);
         end
         
-        
         % step reach using star set used for neural network control system
         function S = stepReachStar(obj, init_set, input_set, varargin)
             % @init_set: initial set, a star
@@ -366,7 +361,6 @@ classdef NonLinearODE < handle
             % we return S as the reach set at t = controlperiod
         end
         
-        
         % evaluate (simulate) the plant with specific input and state
         function [t, y] = evaluate(obj, x0, u)
             % @x0: initial state
@@ -387,7 +381,6 @@ classdef NonLinearODE < handle
             [t,y] = simulate(sys, simOpt,odeOptions);
         end
 
-        
     end
 
     methods % other
@@ -458,6 +451,7 @@ classdef NonLinearODE < handle
             end
             
         end
+    
     end
     
 end

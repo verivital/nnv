@@ -14,9 +14,6 @@ classdef DNonLinearODE < handle
         nO = 0; % number of outputs
         C; % output matrix y = Cx
         Ts = 0 ; % sampling time
-        intermediate_reachSet = []; % intermediate reachable set between steps
-        % if discrete timestep of plant is faster than discrete timestep of
-        % controller
     end
     
     methods
@@ -253,6 +250,7 @@ classdef DNonLinearODE < handle
                 obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
             end
         end
+        
         % evaluate (simulate) the plant with specific input and state
         % using ode45 solver
         function y = evaluate(obj, x0, u)
@@ -273,12 +271,7 @@ classdef DNonLinearODE < handle
             y = obj.dynamics_func(x0, u);
             
         end
-        
-        % implement box?
-        
-        % implement polyhedron?
-        
-        % add simulation based evaluation?
+
         
     end
 end

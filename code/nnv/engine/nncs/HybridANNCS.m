@@ -263,7 +263,6 @@ classdef HybridANNCS < handle
             
         end
         
-        
         % verify safety after doing reachability analysis
         % unsafe region defined by: unsafe_mat * x <= unsafe_vec
         function [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
@@ -274,7 +273,6 @@ classdef HybridANNCS < handle
             % @unsafe_vec: unsafe region vector
             % @numOfCores: number of cores using for checking safety
             % @safe: = 1: safe, 0: unsafe or unknown
-            
             
             t = tic;
             
@@ -491,7 +489,6 @@ classdef HybridANNCS < handle
             
         end
         
-        
         % automatically falsify nncs using random simulations
         function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, falsifyPRM)
             % Syntax:
@@ -564,15 +561,11 @@ classdef HybridANNCS < handle
             falsify_time = toc(t);
            
         end
-        
-        
-       
-                                  
+                            
     end
     
     
     methods(Static)
-        
          
         % check if a trace violates safety specification
         function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
@@ -626,10 +619,10 @@ classdef HybridANNCS < handle
             
         end
        
-        
     end
     
     methods
+
         % verify method
         function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
             % Syntax:
@@ -685,9 +678,11 @@ classdef HybridANNCS < handle
             verifyTime = toc(t);
             
         end
+    
     end
     
     methods % plot method
+        
         % plot output reach set
         % output reach set is derived by mapping the state reach set by
         % a maping matrix, M 

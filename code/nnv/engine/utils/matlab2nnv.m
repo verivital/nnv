@@ -209,6 +209,10 @@ end
 net = NN(nnvLayers, nnvConns);
 net.name2indx = name2idx;
 
+% Get input and output sizes
+outSize = getOutputSize(Mnetwork);
+net.OutputSize = outSize; 
+
 end
 
 
@@ -288,5 +292,16 @@ function status = check_layer_parameters(L)
             end
         end
         status = 1;
+    end
+end
+
+% Get output size of the network
+function outSize = getOutputSize(network)
+outSize = 0; % default
+    if isa(network, "SeriesNetwork")
+        outputLayer = network.Layers(end);
+        if isa(outputLayer, "nnet.cnn.layer.ClassificationOutputLayer")
+            outSize = outputLayer.OutputSize;
+        end
     end
 end

@@ -99,7 +99,6 @@ classdef LinearNNCS < handle
             
         end
         
-        
         % start parallel pool for computing
         function start_pool(obj)
             
@@ -116,7 +115,6 @@ classdef LinearNNCS < handle
             end   
             
         end
-        
         
         % reach
         function [R, reachTime] = reach(obj, reachPRM)
@@ -473,8 +471,6 @@ classdef LinearNNCS < handle
             % author: Dung Tran
             % date: 9/30/2019
             
-            
-            
             h = obj.controlPeriod/obj.plantNumOfSimSteps; % simulation timestep for the plant model 
             if k==1
                 
@@ -501,7 +497,6 @@ classdef LinearNNCS < handle
                 nX = length(X0);
                                                                 
                 % compute exact reachable set of the continuous plant from t[k] to t[k+1] using star set
-                
                 X = [];
                 obj.plantIntermediateReachSet{k} = cell(1, nX); 
                 for i=1:nX                                        
@@ -525,9 +520,6 @@ classdef LinearNNCS < handle
             end
         end
         
-        
-            
-            
         % controller step Reach for step k
         function U = controllerStepReach(obj, k)
             % @k: step
@@ -554,7 +546,6 @@ classdef LinearNNCS < handle
             
             % author: Dung Tran
             % date: 10/1/2019
-            
             
             X = obj.plantReachSet{k};
             n = length(X);
@@ -596,29 +587,20 @@ classdef LinearNNCS < handle
                                  end
 
                              elseif strcmp(obj.method, 'approx-star')
-                                 
                                     I1 = obj.ref_I.concatenate(Y(i));
-                                 
                              end
-                             
 
                          end
 
                     end
- 
                     I = [I I1];
-                    
                 end  
                 
             end
             
-            
         end
         
-        
-        
         % get output reach set
-        
         function Y = getOutputReachSet(obj, map_mat, map_vec)
             % @map_mat: a mapping matrix
             % @map_vec: mapping vector
@@ -627,7 +609,6 @@ classdef LinearNNCS < handle
             
             % author: Dung Tran
             % date: 10/2/2019
-            
             
             if isempty(obj.plantIntermediateReachSet )
                 error('Plant reach set is empty, please perform reachability analysis first');
@@ -673,7 +654,6 @@ classdef LinearNNCS < handle
             % author: Dung Tran
             % date: 10/2/2019
             
-            
             if isempty(obj.plantIntermediateReachSet )
                 error('Plant reach set is empty, please perform reachability analysis first');
             end
@@ -688,7 +668,6 @@ classdef LinearNNCS < handle
                 error('Plot only <= 3 dimensional outputs, the maximum allowable number of rows in map_mat is 3');
             end
             
-            
             if ~isempty(map_vec) && (size(map_vec, 2) ~= 1)
                 error('map vector should have one column');
             end
@@ -698,8 +677,6 @@ classdef LinearNNCS < handle
             end
               
             % get output reach sets
-          
-               
             X = obj.plantIntermediateReachSet{k};
             nX = length(X);
             
@@ -721,12 +698,10 @@ classdef LinearNNCS < handle
             
         end
                      
-            
     end
         
     
     methods % PLOT REACHABLE SETS
-        
         
         % plot controller reach sets
         function plotControllerReachSets(varargin)
@@ -742,7 +717,6 @@ classdef LinearNNCS < handle
             
             % author: Dung Tran
             % date: 10/2/2019
-            
                        
             switch nargin
                 
@@ -886,7 +860,6 @@ classdef LinearNNCS < handle
             
         end
         
-        
         % plot output reach set
         % output reach set is derived by mapping the state reach set by
         % a maping matrix, M 
@@ -898,7 +871,6 @@ classdef LinearNNCS < handle
             
             % author: Dung Tran
             % date: 10/2/2019
-            
             
             Y = obj.getOutputReachSet(map_mat, map_vec);
             
@@ -958,7 +930,6 @@ classdef LinearNNCS < handle
             
         end
         
-        
         % plot step output reachable sets
         function plotStepOutputReachSets(obj, option, k)
             % @out_mat: a mapping matrix
@@ -973,7 +944,6 @@ classdef LinearNNCS < handle
             % date: 10/2/2019
             % update: 11/2/2019
             
-            
             Y = obj.getStepOutputReachSet(option.outputMatrix, option.outputVector, k); % output set at step k
             
             if ~isempty(option.boundaryMatrix) && ~isempty(option.boundaryVector)               
@@ -985,9 +955,7 @@ classdef LinearNNCS < handle
             h = obj.controlPeriod / obj.plantNumOfSimSteps;
                        
             % plot output reach sets
-            
             Dim = size(option.outputMatrix, 1);
-            
                        
             if Dim == 1 % plot 1D, output versus time steps
 
@@ -1025,9 +993,7 @@ classdef LinearNNCS < handle
                         frame = getframe(gcf); % 'gcf' can handle if you zoom in to take a movie.
                         writeVideo(option.reachVideo, frame);
                     end   
-                    
-                    
-                    
+
                end                    
 
             end
@@ -1079,13 +1045,11 @@ classdef LinearNNCS < handle
             
         end
           
-        
     end
     
     
     
     methods % VERIFICATION METHOD
-        
         
         function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
             % @reachPRM: reachability parameters consists of following
@@ -1111,7 +1075,6 @@ classdef LinearNNCS < handle
             % author: Dung Tran
             % date: 10/2/2019
             % update: 3/15/2020
-            
                         
             unsafe_mat = unsafeRegion.G;
             unsafe_vec = unsafeRegion.g;
@@ -1172,7 +1135,6 @@ classdef LinearNNCS < handle
                         counterExamples = [counterExamples C1];
                     end
                     
-                    
                 elseif strcmp(obj.method, 'approx-star')
                     [safe, counterExamples, ~] = obj.falsify(falsifyPRM);
                 end
@@ -1192,16 +1154,12 @@ classdef LinearNNCS < handle
             
             verifyTime = toc(t);
             
-            
         end
-        
-        
-        
+
     end
     
     
     methods %SIMULATION
-        
         
         % simulate the system
         function [simTrace, controlTrace, simTime] = simulate(obj, init_state, ref_input, numSteps)
@@ -1239,7 +1197,6 @@ classdef LinearNNCS < handle
                error('Invalid ref_input vector, should have %d elements', obj.nI_ref);
            end
            
-           
            simTrace = zeros(dim, numSteps + 1);
            simTrace(:,1) = init_state;
            controlTrace = zeros(obj.plant.nI, numSteps + 1);
@@ -1264,7 +1221,6 @@ classdef LinearNNCS < handle
            simTime = toc(t); 
            
         end
-        
         
         % generate a number of simulation traces, used for falsification
         function [sim_Traces, control_Traces, genTime] = generateTraces(obj, init_set, ref_input, numSteps, N)
@@ -1330,9 +1286,7 @@ classdef LinearNNCS < handle
             obj.controlTraces = control_Traces;
             genTime = toc(t);
             
-
         end
-        
         
     end
     
@@ -1367,7 +1321,6 @@ classdef LinearNNCS < handle
                 otherwise
                     error('Invalid number of inputs, should be 1, 2, or 3');
             end
-                    
             
             if isempty(obj.simTraces)
                 error('simulation traces are empty, please do simulation first, i.e., run simulate method');
@@ -1388,14 +1341,13 @@ classdef LinearNNCS < handle
             plot(T, simTrace(index, :), markers, 'color', color);
             
         end
-        
-        
-        
+
     end
     
     
-    methods % FALSIFICATION USING SIMULATION
+    methods % falsification
         
+        % FALSIFICATION USING SIMULATION
         function [safe, falsifyTraces, falsifyTime] = falsify(obj, falsifyPRM)
             % @fasifyPRM: falsification parameters including following
             % inputs:
@@ -1411,7 +1363,6 @@ classdef LinearNNCS < handle
             %        = 2: unknown (falsification is incomplete)
             % @falsifyTrace: falsified traces
             % @falsifyTime: falsification time
-            
             
             % author: Dung Tran
             % date: 10/3/2019
@@ -1462,8 +1413,6 @@ classdef LinearNNCS < handle
                        
             
         end
-        
-        
         
         % PLOT FALSIFICATION TRACES
         function plotFalsifyTraces(varargin)
@@ -1516,11 +1465,8 @@ classdef LinearNNCS < handle
             
         end
                
-        
     end
     
-    
-    
-    
+
 end
 

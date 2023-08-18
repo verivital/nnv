@@ -20,7 +20,6 @@ classdef DLinearODE
         % constructor
         function obj = DLinearODE(A, B, C, D, Ts)
             
-                
             [nA, mA] = size(A);
             [nB, mB] = size(B);
             [nC, mC] = size(C);
@@ -49,7 +48,6 @@ classdef DLinearODE
             obj.dim = nA;
             obj.Ts = Ts;
                 
-            
         end
         
         % simulate the time response of discrete linearODE system
@@ -58,9 +56,7 @@ classdef DLinearODE
             % @u : control input
             % @y : output value
             
-            
             sys = ss(obj.A, obj.B, obj.C, obj.D, obj.Ts);
-            
 
             if size(x0, 1) ~= obj.dim || size(x0, 2) ~= 1
                 error('initial vector has an inappropriate dimension');
@@ -100,12 +96,9 @@ classdef DLinearODE
         
         % convert to continuous linear ODE
         function sysc = d2c(obj)
-            
             sysd = ss(obj.A, obj.B, obj.C, obj.D, obj.Ts);
             sys1 = d2c(sysd);
-            
             sysc = LinearODE(sys1.A, sys1.B, sys1.C, sys1.D);
-            
         end
         
         % reachability analysis of DlinearODE using Polyhedra
@@ -146,8 +139,7 @@ classdef DLinearODE
             
         end
         
-        % reachability analysis of DlinearODE using Polyhedra with parallel
-        % computing
+        % reachability analysis of DlinearODE using Polyhedra with parallel computing
         function P = stepReachPolyhedron_parallel(obj, I, U, n_cores)
             % @I: set of intial condition
             % @U: an array of set of control input
@@ -176,7 +168,6 @@ classdef DLinearODE
             end
             
         end
-        
         
         % reachability analysis of DlinearODE using star set
         function S = stepReachStar(obj, I, U)
@@ -213,7 +204,6 @@ classdef DLinearODE
             else
                 S = [];
             end          
-            
             
         end
         
@@ -267,7 +257,6 @@ classdef DLinearODE
             B = Z.getBox;
             
         end
-        
         
     end
     

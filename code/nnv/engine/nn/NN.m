@@ -691,6 +691,7 @@ classdef NN < handle
                 for j=1:m
                     if U(j).contains(y)
                         counter_inputs = [counter_inputs V(:, i)];
+                        break
                     end
                 end
             end
@@ -890,49 +891,23 @@ classdef NN < handle
             % compute reach sets
             Y = obj.reach(X, reachOptions);
             
-            % Verification results (what we should do)
-%             if ny == n
-%                 result = zeros(n,1);
-%                 for i=1:n
-%                     result(i) = obj.checkRobust(Y(i), target(i));
-%                 end
-%             else
-%                 result = obj.checkRobust(Y(end), target);
-%             end
-            % getting ranges and comparing
-            rb = zeros(n,1);
-            for i=1:n
-                max_cands = Y(i).get_max_point_candidates;
-                if length(max_cands) == 1
-                    if max_cands == y(i)
-                        rb(i) = 1;
-                    end
-                else
-                    a = (max_cands == y(i));
-                    if sum(a) == 0
-                        rb(i) = 0;
-                    else
-                        max_cands(max_cands == y(i)) = [];
-                        m = length(max_cands);
-                        for j=1:m
-                            if Y(i).is_p1_larger_than_p2(max_cands(j), y(i))
-                                rb(i) = 2; % find a counter example?
-                                break;
-                            else
-                                rb(i) = 1;
-                            end
-                        end
-                    end
+            % Verification results
+            if ny == n
+                result = zeros(n,1);
+                for i=1:n
+                    result(i) = obj.checkRobust(Y(i), target(i));
                 end
+            else
+                result = obj.checkRobust(Y(end), target);
             end
-            result = rb;
+            
         end 
 
     end % end methods
     
 
     % helper functions
-    methods (Access = protected) % not to be accessible by user
+    methods
         
         % Check reachability options defined are allowed
         function reachOptions = validate_reach_options(obj, reachOptions)

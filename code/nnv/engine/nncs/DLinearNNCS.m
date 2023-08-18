@@ -93,7 +93,6 @@ classdef DLinearNNCS < handle
             
         end
         
-        
         % start parallel pool for computing
         function start_pool(obj)
             
@@ -110,7 +109,6 @@ classdef DLinearNNCS < handle
             end   
             
         end
-        
         
         % reach
         function [R, reachTime] = reach(obj,reachPRM)
@@ -199,8 +197,6 @@ classdef DLinearNNCS < handle
             
             
         end
-        
-        
         
         % live reachability analysis, plot reachable set on the fly
         function [R, reachTime] = reachLive(varargin)
@@ -419,9 +415,6 @@ classdef DLinearNNCS < handle
             
         end
         
-        
-        
-        
         % plant step reach for step k
         function X = plantStepReach(obj, k)
             % @k: step
@@ -470,10 +463,7 @@ classdef DLinearNNCS < handle
                                 
             end
         end
-        
-        
-            
-            
+         
         % controller step Reach for step k
         function U = controllerStepReach(obj, k)
             % @k: step
@@ -561,10 +551,7 @@ classdef DLinearNNCS < handle
             
         end
         
-        
-        
         % get output reach set
-        
         function Y = getOutputReachSet(obj, map_mat, map_vec)
             % @map_mat: a mapping matrix
             % @map_vec: mapping vector
@@ -829,8 +816,6 @@ classdef DLinearNNCS < handle
             
         end
         
-        
-        
         % plot controller reach sets
         function plotControllerReachSets(varargin)
             % @color: color
@@ -989,7 +974,6 @@ classdef DLinearNNCS < handle
             
         end
         
-        
         % plot output reach set
         % output reach set is derived by mapping the state reach set by
         % a maping matrix, M 
@@ -1044,7 +1028,6 @@ classdef DLinearNNCS < handle
             
         end
         
-        
         % plot step output reachable sets
         function plotStepOutputReachSets(obj, color, map_mat, map_vec, k)
             % @map_mat: a mapping matrix
@@ -1097,7 +1080,6 @@ classdef DLinearNNCS < handle
     
     
     methods % VERIFICATION METHOD
-        
         
         function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
             % @reachPRM: reachability parameters consists of following
@@ -1209,8 +1191,6 @@ classdef DLinearNNCS < handle
             
         end
         
-        
-        
     end
     
     
@@ -1274,7 +1254,6 @@ classdef DLinearNNCS < handle
            simTime = toc(t); 
            
         end
-        
         
         % generate a number of simulation traces, used for falsification
         function [sim_Traces, control_Traces, genTime] = generateTraces(obj, init_set, ref_input, numSteps, N)
@@ -1343,7 +1322,6 @@ classdef DLinearNNCS < handle
 
         end
         
-        
     end
     
     
@@ -1398,8 +1376,6 @@ classdef DLinearNNCS < handle
             plot(T, simTrace(index, :), markers, 'color', color);
             
         end
-        
-        
         
     end
     
@@ -1471,8 +1447,6 @@ classdef DLinearNNCS < handle
             
         end
         
-        
-        
         % PLOT FALSIFICATION TRACES
         function plotFalsifyTraces(varargin)
             % @index: index of the state needs to be plotted
@@ -1524,10 +1498,7 @@ classdef DLinearNNCS < handle
             
         end
                
-        
     end
-    
-    
     
     
 end

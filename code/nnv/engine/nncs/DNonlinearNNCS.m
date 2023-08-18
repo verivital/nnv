@@ -256,7 +256,6 @@ classdef DNonlinearNNCS < handle
             
         end
         
-        
         % verify safety after doing reachability analysis
         % unsafe region defined by: unsafe_mat * x <= unsafe_vec
         function [safe, checkingTime] = check_safety(obj, unsafe_mat, unsafe_vec, numOfCores)
@@ -476,7 +475,6 @@ classdef DNonlinearNNCS < handle
             
         end
         
-        
         % automatically falsify nncs using random simulations
         function [falsify_result, falsify_time, counter_sim_traces, counter_control_traces, counter_init_states, counter_ref_inputs] = falsify(obj, falsifyPRM)
             % @falsifyPRM: falsification parameters including following
@@ -548,13 +546,10 @@ classdef DNonlinearNNCS < handle
         end
         
         
-       
-                                  
     end
     
     
     methods(Static)
-        
          
         % check if a trace violates safety specification
         function violate = check_trace(simTrace, unsafe_mat, unsafe_vec)
@@ -605,10 +600,10 @@ classdef DNonlinearNNCS < handle
             
         end
        
-        
     end
     
     methods
+
         % verify method
         function [safe, counterExamples, verifyTime] = verify(obj, reachPRM, unsafeRegion)
             % @reachPRM: reachability parameters consists of following
@@ -666,10 +661,12 @@ classdef DNonlinearNNCS < handle
             verifyTime = toc(t);
             
         end
+    
     end
     
     
-      methods % plot method
+    methods % plot method
+
         % plot output reach set
         % output reach set is derived by mapping the state reach set by
         % a maping matrix, M 
@@ -732,8 +729,6 @@ classdef DNonlinearNNCS < handle
             
         end
         
-        
-        
         function Y = getOutputReachSet(obj, map_mat, map_vec)
             % @map_mat: a mapping matrix
             % @map_vec: mapping vector
@@ -776,8 +771,6 @@ classdef DNonlinearNNCS < handle
             end
             
         end
-        
-        
         
     end
     

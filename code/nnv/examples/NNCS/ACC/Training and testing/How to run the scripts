@@ -22,5 +22,5 @@
 ****Note****: The script "generateOnetrace.m" is called from "nnTrainController.m" to generate data for training.  
 
 
-
+****Note****: Model Predictive Control toolbox is needed to run the scripts.
 

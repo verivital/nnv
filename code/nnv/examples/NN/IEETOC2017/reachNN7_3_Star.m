@@ -1,39 +1,60 @@
+%% Example of reachability and verification for a randomly generated neural network
+% Smaller set, faster example
+
+% Load the network (parameters)
 load NeuralNetwork7_3.mat;
-Layers = [];
+
+% Create NNV model
 n = length(b);
+Layers = cell(n,1);
+% hidden layers are all ReLUs
 for i=1:n - 1
     bi = cell2mat(b(i));
     Wi = cell2mat(W(i));
     Li = LayerS(Wi, bi, 'poslin');
-    Layers = [Layers Li];
+    Layers{i} = Li;
 end
+% output layer is linear
 bn = cell2mat(b(n));
 Wn = cell2mat(W(n));
 Ln = LayerS(Wn, bn, 'purelin');
+Layers{end} = Ln;
+% Create NN model
+F = NN(Layers);
 
-Layers = [Layers Ln];
-
-F = FFNNS(Layers);
-
-lb = [-1; -1; -1];
-ub = -lb;
+% Define input set for the network
+% lb = [-1; -1; -1];
+% ub = -lb;
+lb = [0; 0 ; 0];
+ub = [1; 1; 1];
 I = Star(lb, ub);
 
+% select option for reachability algorithm
+reachOptions = struct; % initialize
+reachOptions.reachMethod = 'exact-star'; % reachability method
+reachOptions.numCores = 4; % define number of cores for parallel execution
+
+% Comute reachability (exact)
+te = tic;
+Re = F.reach(I, reachOptions); % exact reach set using stars
+te = toc(te);
 
 % select option for reachability algorithm
+reachOptions = struct; % initialize
+reachOptions.reachMethod = 'approx-star'; % reachability method
 
-[R, t] = F.reach(I, 'exact-star', 4); % exact reach set using stars
-save F.mat F; % save the verified network
-F.print('F.info'); % print all information to a file
+% Comute reachability (approx)
+ta = tic;
+Ra = F.reach(I, reachOptions); % exact reach set using stars
+ta = toc(ta);
 
-
-% generate some input to test the output
-e = 0.25;
+% generate some input to test the output (evaluate network)
+e = 0.2;
 x = [];
 y = [];
-for x1=-1:e:1
-    for x2=-1:e:1
-        for x3=-1:e:1
+for x1 = lb(1):e:ub(1)
+    for x2 = lb(2):e:ub(2)
+        for x3=lb(3):e:ub(3)
             xi = [x1; x2; x3];
             yi = F.evaluate(xi);
             x = [x, xi];
@@ -42,18 +63,30 @@ for x1=-1:e:1
     end
 end
 
-fig = figure;
-Star.plots(R);
-hold on;
-plot(y(1, :), y(2, :), 'o');
 
+%% Visualize results
+
+% Plot exact and approx sets 
+fig = figure;
+Star.plots(Ra,'b');
+hold on;
+Star.plots(Re,'c');
+hold on;
+
+% Plot some of the evaluated inputs
+plot(y(1, :), y(2, :), '.', 'Color', 'k');
+
+% Evaluate upper, lower bounds
 y1 = F.evaluate(lb);
 y2 = F.evaluate(ub);
 y3 = F.evaluate((lb+ub)/2);
 
-hold on;
+% Plot upper and lower bound results
 plot(y1(1,:), y1(2,:), 'x', 'Color', 'r');
 hold on;
 plot(y2(1,:), y2(2,:), 'x', 'Color', 'r');
 hold on;
 plot(y3(1,:), y3(2,:), 'x', 'Color', 'r');
+
+% Save figure
+saveas(fig,'exact_vs_approx.jpg');

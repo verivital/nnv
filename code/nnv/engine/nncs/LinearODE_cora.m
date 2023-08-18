@@ -26,6 +26,8 @@ classdef LinearODE_cora < handle
     % date: 10/12/2020
 
     % Note: we construct a LinearODE plant with default option (CORA)
+    %    this class was created for comparison with our Star-based methods
+    %    Please, see LinearODE.m for the default linearODE class in NNV
     
     properties
         A = []; % system matrix A
@@ -292,5 +294,6 @@ classdef LinearODE_cora < handle
             sys = linearSys(obj.A, obj.B, [], obj.C, obj.D);
             [t,y] = simulate(sys, simOpt);
         end
+    
     end
 end

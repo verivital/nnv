@@ -961,6 +961,14 @@ classdef Star
             neg_mat = obj.V;
             pos_mat(pos_mat < 0) = 0; 
             neg_mat(neg_mat > 0) = 0;
+
+            % ensure predicate bounds are not empty (if empty, set to 1 and -1)
+            if isempty(obj.predicate_lb)
+                obj.predicate_lb = -1*ones(obj.nVar,1); 
+            end
+            if isempty(obj.predicate_ub)
+                obj.predicate_ub = ones(obj.nVar,1);
+            end
             
             xmin1 = pos_mat*[0; obj.predicate_lb];
             xmax1 = pos_mat*[0; obj.predicate_ub];

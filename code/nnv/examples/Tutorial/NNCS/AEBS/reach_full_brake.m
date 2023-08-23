@@ -4,7 +4,7 @@
 %% Load components
 
 % reinforcement learning controller
-load controller.mat; % controller with saturation activation function at the output
+load('models/controller.mat'); % controller with saturation activation function at the output
 rl_layer1 = LayerS(W{1, 1}, b{1, 1}', 'poslin');
 rl_layer2 = LayerS(W{1, 2}, b{1, 2}', 'poslin');
 rl_layer3 = LayerS(W{1, 3}, b{1, 3}', 'satlin');
@@ -15,7 +15,7 @@ rl_controller = NN(layers_controller);
 norm_mat = [1/250 0 0; 0 3.6/120 0; 0 0 1/20]; % normalized matrix
 
 % transformation NN
-load transform.mat;
+load('models/transform.mat');
 tf_layer1 = LayerS(W{1, 1}, b{1, 1}', 'poslin');
 tf_layer2 = LayerS(W{1, 2}, b{1, 2}', 'poslin');
 tf_layer3 = LayerS(W{1, 3}, b{1, 3}', 'purelin');
@@ -52,8 +52,8 @@ lb = [97; 25.2; 0];
 ub = [97.5; 25.5; 0];
 init_set = Star(lb, ub); % initial condition of the plant
 
-% N = 90; % number of control steps
-N = 10;
+N = 90; % number of control steps
+% N = 10;
 
 X0 = init_set; % step 0: initial state of plant
 S = X0;

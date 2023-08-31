@@ -440,8 +440,10 @@ classdef ImageStar < handle
                 error('Inconsistent number of channels between scale array and the ImageStar');
             end
             
-            if ~isempty(scale)
+            if ~isempty(scale) && (isvector(scale) || isscalar(scale))
                 new_V = scale.*obj.V;
+            elseif ~isempty(scale) && ismatrix(scale)
+                new_V = pagemtimes(scale,obj.V);
             else
                 new_V = obj.V;
             end
@@ -503,6 +505,52 @@ classdef ImageStar < handle
             end
             reshapedImage = ImageStar(V1,in_star.C, in_star.d, in_star.predicate_lb, in_star.predicate_ub);
         end
+        
+        function image = recurrentMap(obj, h_t_1, inputWeight, recurrentWeight, bias)
+            n = obj.numPred;
+            N = obj.height*obj.width*obj.numChannel;
+            for i=1:n+1
+                I = in_image.V(:,:,:,i);
+                %I = reshape(I,N,1); % flatten input
+                if i==1
+                    V(1, 1,:,i) = double(inputWeight)*I + double(recurrentWeight)*h_t_1 + double(bias);
+                else
+                    V(1, 1,:,i) = double(inputWeight)*I;
+                end
+            end
+        end
+        
+        function image = HadamardProduct(obj, I)
+            S1 = obj.toStar;
+            S2 = I.toStar;
+            S = S1.HadamardProduct(S2);
+            
+            image = S.toImageStar(I.height, I.width, I.numChannel);
+        end
+
+        % required for lstm layer
+        function images = splitImageStar(varargin)
+            obj = varargin{1};
+            dim = varargin{2};
+            numSplit =  varargin{3};
+            images = [];
+            [lb,ub] = obj.getRanges;
+            if dim == "col" && numSplit == obj.width
+                lb = reshape(lb,[obj.height, obj.width]);
+                ub = reshape(ub,[obj.height, obj.width]);
+                for i = 1: obj.width
+                    S = ImageStar(lb(:,i),ub(:,i));
+                    images = [images, S];
+                end
+            elseif dim == "row"
+                lb = reshape(lb,[length(lb)/numSplit, numSplit]);
+                ub = reshape(ub,[length(ub)/numSplit, numSplit]);
+                for i = 1: numSplit
+                    S = ImageStar(lb(:,i),ub(:,i));
+                    images = [images, S];
+                end  
+            end
+        end
 
         % transform to Star
         function S = toStar(obj)
@@ -534,9 +582,17 @@ classdef ImageStar < handle
         function bool = isEmptySet(obj)
             % author: Dung Tran
             % date: 1/10/2020
-            
-            S = obj.toStar;
-            bool = S.isEmptySet;
+            % update: Neelanjana, 8/18/2023
+
+            % S = obj.toStar;
+            % bool = S.isEmptySet;
+
+            [lb, ub] = obj.getRanges;
+            if isempty(lb) && isempty(ub)
+                bool = 1;
+            else
+                bool = 0;
+            end
         end
         
         % contain, check if ImageStar contains an image

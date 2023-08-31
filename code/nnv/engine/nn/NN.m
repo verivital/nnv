@@ -141,6 +141,7 @@ classdef NN < handle
             % @y: output vector y
             
             for i=1:height(obj.Connections)
+                i
                 if i > 1
                     x = obj.input_vals{1,i}; % 
                 end
@@ -265,11 +266,11 @@ classdef NN < handle
             end
 
             % Check validity of reachability method
-            if exist("reachOptions",'var')
-                reachOptions = check_reachability_method(obj, reachOptions);
-            else
-                reachOptions = struct; % empty options, run with default values
-            end
+            % if exist("reachOptions",'var')
+            %     reachOptions = check_reachability_method(obj, reachOptions);
+            % else
+            %     reachOptions = struct; % empty options, run with default values
+            % end
 
             % Process reachability options
             if ~isstruct(reachOptions)

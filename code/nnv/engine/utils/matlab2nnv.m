@@ -85,6 +85,10 @@ for i=1:n
     elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
         Li = BatchNormalizationLayer.parse(L);
 
+    % Layer Normalization Layer
+    elseif isa(L, 'nnet.cnn.layer.LayerNormalizationLayer')
+        Li = LayerNormalizationLayer.parse(L);
+
     % Max Pooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
         Li = MaxPooling2DLayer.parse(L);
@@ -96,6 +100,10 @@ for i=1:n
     % Global Average Pooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.GlobalAveragePooling2DLayer')
         Li = GlobalAveragePooling2DLayer.parse(L);
+
+    % Global Average Pooling 1D Layer
+    elseif isa(L, 'nnet.cnn.layer.GlobalAveragePooling1DLayer')
+        Li = GlobalAveragePooling1DLayer.parse(L);
 
     % Fully Connected Layer
     elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
@@ -151,6 +159,10 @@ for i=1:n
     % Reshape Layer (custom created after parsing ONNX layers)
     elseif contains(class(L), "UpsampleLayer")
         Li = UpsampleLayer.parse(L);
+
+    % Reshape Layer (custom created after parsing ONNX layers)
+    elseif isa(L, 'nnet.cnn.layer.LSTMLayer')
+        Li = LstmLayer.parse(L);
     
     % Custom flatten layers (avoid if possible)
     elseif contains(class(L), ["flatten"; "Flatten"])

@@ -523,9 +523,53 @@ classdef Conv2DLayer < handle
             y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
 
         end
-                    
 
-        
+        function y1 = evaluateSequence(obj, input)
+            % @input: 3-dimensional array, for example, input(:, :, :)
+            % @y: high-dimensional array (output volume), depth of output = number of filters
+            
+            % author: Neelanjana Pal
+            % date: 20/8/2023
+
+            input = permute(input,[1,3,2]);
+            I1 = input(:,:,1);
+            W1 = obj.Weights(:,:,1,1);
+            if isa(input, "single")
+                obj.Weights = single(obj.Weights);
+                obj.Bias = single(obj.Bias);
+                option = "single";
+            elseif isa(input,"double")
+                obj.Weights = double(obj.Weights);
+                obj.Bias = double(obj.Bias);
+                option = "double";
+            else
+                error('Unknown precison option');               
+            end
+            
+            [h, w] = Conv2DLayer.get_size_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);   
+            y(:,:, obj.NumFilters) = zeros(w, h, option); % preallocate 3D matrix
+            for i=1:obj.NumFilters % number of filters   64                
+               % compute feature map with i^th filter 
+                for j=1:obj.NumChannels % filter for j^th channel of input 
+                    W1 = obj.Weights(:,:,j, i);   
+                    I1 = input(:, :, j); % the j^th input channel
+                    c = Conv2DLayer.compute_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);
+                    if j==1
+                        y(:, :, i) = c;
+                    else
+                        y(:, :, i) = y(:, :, i) + c;
+                    end                    
+                end
+                [ny, my] = size(y(:, :, i));
+                if ~isempty(obj.Bias)
+                    y(:, :, i) = y(:, :, i) + double(obj.Bias(:, :, i)) * ones(ny, my, option); 
+                end
+                y0 = reshape(y(:,:,i)',ny*my,1);
+                y0 = reshape(y0,[ny,my]);
+                y1(:,:,i) = y0';
+            end
+            y1 = permute(y1,[1,3,2]);
+        end
     end
     
     
@@ -785,6 +829,59 @@ classdef Conv2DLayer < handle
             
         end
         
+        function S = reach_star_single_input_Sequence(obj, input)
+            % @inputs: an ImageStar input set
+            % @S: an imagestar with number of channels = obj.NumFilters
+            
+            if ~isa(input, 'ImageStar')
+                error('The input is not an ImageStar object');
+            end
+            
+            % compute output sets
+            
+            if isempty(input.im_lb) && isempty(input.im_ub)
+                c = obj.evaluateSequence(input.V(:,:,:,1));
+                layer = obj;
+                layer.Bias = [];
+                parfor i = 2: size(input.V,4)
+                    V(:,:,:,i) = layer.evaluateSequence(input.V(:,:,:,i));
+                end
+                V(:,:,:,1) = c;
+                S = ImageStar(V, input.C, input.d, input.pred_lb, input.pred_ub);
+            else
+                im_lb = input.im_lb;
+                im_ub = input.im_ub;
+                lb = obj.evaluateSequence(im_lb);
+                ub = obj.evaluateSequence(im_ub);
+
+                S = ImageStar(lb,ub);
+            end
+           
+            
+        end
+
+        function images = reach_star_multipleInputs_Sequence(obj, in_images, option)
+            % @in_images: an array of ImageStars input set
+            % @option: 
+            % @images: an array of ImageStars output set
+            
+            n = length(in_images);
+            images(n) = ImageStar; 
+            
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    images(i) = obj.reach_star_single_input_Sequence(in_images(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    images(i) = obj.reach_star_single_input_Sequence(in_images(i));
+                end
+            else
+                error('Unknown computation option');
+
+            end
+           
+        end
         
         % hangle multiple inputs
         function images = reach_star_multipleInputs(obj, in_images, option)
@@ -837,8 +934,6 @@ classdef Conv2DLayer < handle
 
         end
 
-        
-        
         % reach star with multiple inputs
         function images = reach(varargin)
             % @inputs: an array of ImageStar or ImageZono input set
@@ -902,7 +997,67 @@ classdef Conv2DLayer < handle
             
         end
         
-        
+        function images = reachSequence(varargin)
+            % @inputs: an array of ImageStar or ImageZono input set
+            % @S: an array of ImageStar output set
+                        
+            % author: Neelanjana Pal
+            % date: 8/20/2023
+            
+            switch nargin
+                
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = varargin{3};
+                    option = 'single';
+                case 2
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = 'approx-star';
+                    option = 'single';
+                    
+                otherwise
+                    error('Invalid number of input arguments, should be 1, 2, 3, 4, 5 or 6');
+            end
+         
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom')|| contains(method, "relax-star")
+                images = obj.reach_star_multipleInputs_Sequence(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                images = obj.reach_zono_multipleInputs_Sequence(in_images, option);                
+            else
+                error("Unknown reachability method");
+            end
+            
+        end
     end
     
 end

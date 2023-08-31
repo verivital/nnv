@@ -1,14 +1,12 @@
-classdef BatchNormalizationLayer < handle
-    % The Batch Normalization Layer class in CNN
+classdef LayerNormalizationLayer < handle
+    % The Layer Normalization Layer class in CNN
     %   Contain constructor and reachability analysis methods   
-    %   Dung Tran: 1/1/2020
+    %  Neelanjana Pal: 8/30/2023
     
     properties
-        Name = 'BatchNormalizationLayer';
+        Name = 'LayerNormalizationLayer';
         
         NumChannels = [];
-        TrainedMean = [];
-        TrainedVariance = [];
         
         % Hyperparameters 
         Epsilon = 0.00001;  % default value
@@ -30,9 +28,9 @@ classdef BatchNormalizationLayer < handle
     methods
         
         % constructor of the class
-        function obj = BatchNormalizationLayer(varargin)           
-            % author: Dung Tran
-            % date: 1/1/2020    
+        function obj = LayerNormalizationLayer(varargin)           
+            % author:Neelanjana Pal
+            % date: 8/30/2023    
             % update: 
             
             
@@ -48,10 +46,6 @@ classdef BatchNormalizationLayer < handle
                         obj.Name = varargin{i+1};
                     elseif strcmp(varargin{i}, 'NumChannels')
                         obj.NumChannels = varargin{i+1};
-                    elseif strcmp(varargin{i}, 'TrainedMean')
-                        obj.TrainedMean = double(varargin{i+1});
-                    elseif strcmp(varargin{i}, 'TrainedVariance')
-                        obj.TrainedVariance = double(varargin{i+1});
                     elseif strcmp(varargin{i}, 'Epsilon')
                         obj.Epsilon = double(varargin{i+1});
                     elseif strcmp(varargin{i}, 'Offset')
@@ -88,70 +82,15 @@ classdef BatchNormalizationLayer < handle
     methods
         
         function y = evaluate_old(obj, input)
-            % @input: input image
-            % @y: output image with normalization
-            
-            % author: Dung Tran
-            % date: 1/1/2020
-                             
-            if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                y = input - obj.TrainedMean;
-                for i=1:obj.NumChannels
-                    y(:,:,i) = y(:,:,i)/(sqrt(obj.TrainedVariance(1,1,i) + obj.Epsilon));
-                    y(:,:,i) = obj.Scale(1, 1, i)*y(:,:,i) + obj.Offset(1,1,i);
-                end
-                
-            else
-                y = input;
-            end
-                               
-        end       
-        
-        function y = evaluate(obj, input)
-            % @input: input image
-            % @y: output image with normalization
-            
-            % author: Mykhailo Ivashchenko
-            % date: 9/17/2022
-            
-            if(length(size(input)) == 2) && size(obj.TrainedMean, 1) == 1 && size(obj.TrainedMean, 2) == 1 && length(size(obj.TrainedMean)) == 3
-                obj.TrainedMean = reshape(obj.TrainedMean, [size(obj.TrainedMean, 3) 1]);
-                obj.TrainedVariance = reshape(obj.TrainedVariance, [size(obj.TrainedVariance, 3) 1]);
-                obj.Epsilon = reshape(obj.Epsilon, [size(obj.Epsilon, 3) 1]);
-                obj.Offset = reshape(obj.Offset, [size(obj.Offset, 3) 1]);
-                obj.Scale = reshape(obj.Scale, [size(obj.Scale, 3) 1]);
-                obj.NumChannels = 1;
-            end
-            
-            if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                y = input - obj.TrainedMean;
-                for i=1:obj.NumChannels
-                    y(:,:,i) = y(:,:,i)./(sqrt(obj.TrainedVariance(:,:,i) + obj.Epsilon));
-                    y(:,:,i) = obj.Scale(:, :, i).*y(:,:,i) + obj.Offset(:,:,i);
-                end
-                
-            elseif ~isempty(obj.Scale) && ~isempty(obj.Offset) && isempty(obj.TrainedVariance) && isempty(obj.TrainedMean)
-                y = input;
-                if obj.NumChannels == 1
-                    y = obj.Scale.*y + obj.Offset;
-                else
-                    for i=1:obj.NumChannels
-                        y(:,:,i) = obj.Scale(:, :, i).*y(:,:,i) + obj.Offset(:,:,i);
-                    end
-                end
-            else
-                y = input;
-            end
-            
             
         end 
         
         function y = evaluateSequence(obj, input)
             newInput = dlarray(input);
             if length(size(input))==2
-                y = batchnorm(newInput, obj.Offset, obj.Scale, obj.TrainedMean, obj.TrainedVariance,"DataFormat",'CS','Epsilon',obj.Epsilon);
+                y = layernorm(newInput, obj.Offset, obj.Scale,"DataFormat",'CS','Epsilon',obj.Epsilon);
             elseif length(size(input))==3
-                y = batchnorm(newInput, obj.Offset, obj.Scale, obj.TrainedMean, obj.TrainedVariance,"DataFormat",'SCS','Epsilon',obj.Epsilon);
+                y = layernorm(newInput, obj.Offset, obj.Scale,"DataFormat",'SCS','Epsilon',obj.Epsilon);
             end
             y = extractdata(y);
         end
@@ -167,7 +106,7 @@ classdef BatchNormalizationLayer < handle
             % @in_image: an input imagestar
             % @image: output set
             
-            % author: Dung Tran
+            % author:Neelanjana Pal
             % date: 1/7/2020
             
             if ~isa(in_image, 'ImageStar')
@@ -175,7 +114,7 @@ classdef BatchNormalizationLayer < handle
             end
             
             if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
-                error('Batch Normalization Layer does not have enough parameters');
+                error('Layer Normalization Layer does not have enough parameters');
             end
             
             var = obj.TrainedVariance;
@@ -253,7 +192,7 @@ classdef BatchNormalizationLayer < handle
             % @in_image: an input ImageZono
             % @image: output set
             
-            % author: Dung Tran
+            % author:Neelanjana Pal
             %  date: 1/7/2020
             
             if ~isa(in_image, 'ImageZono')
@@ -261,7 +200,7 @@ classdef BatchNormalizationLayer < handle
             end
             
             if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
-                error('Batch Normalization Layer does not have enough parameters');
+                error('Layer Normalization Layer does not have enough parameters');
             end
             
             var = obj.TrainedVariance;
@@ -283,7 +222,7 @@ classdef BatchNormalizationLayer < handle
             % @in_images: an array of ImageStars input set
             % @option: = 'parallel' or 'single' or empty
             
-            % author: Dung Tran
+            % author:Neelanjana Pal
             % date: 1/7/2020
             
             n = length(in_images);
@@ -312,7 +251,7 @@ classdef BatchNormalizationLayer < handle
             % @in_images: an array of ImageZonos input set
             % @option: = 'parallel' or 'single' or empty
 
-            % author: Dung Tran
+            % author:Neelanjana Pal
             % date: 1/7/2020
 
             n = length(in_images);
@@ -395,7 +334,7 @@ classdef BatchNormalizationLayer < handle
             % @image: output set
             % @option: = 'single' or 'parallel' 
             
-            % author: Dung Tran
+            % author:Neelanjana Pal
             % date: 6/26/2019
              
             switch nargin
@@ -513,15 +452,15 @@ classdef BatchNormalizationLayer < handle
             % @layer: batch normalization layer
             % @L: constructed layer
                         
-            % author: Dung Tran
-            % date: 1/1/2020
+            % author:Neelanjana Pal
+            % date: 8/30/2023
             
             
-            if ~isa(layer, 'nnet.cnn.layer.BatchNormalizationLayer')
-                error('Input is not a Matlab nnet.cnn.layer.BatchNormalizationLayer class');
+            if ~isa(layer, 'nnet.cnn.layer.LayerNormalizationLayer')
+                error('Input is not a Matlab nnet.cnn.layer.LayerNormalizationLayer class');
             end
                        
-            L = BatchNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels, 'TrainedMean', layer.TrainedMean, 'TrainedVariance', layer.TrainedVariance, 'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale, 'NumInputs', layer.NumInputs, 'InputNames', layer.InputNames, 'NumOutputs', layer.NumOutputs, 'OutputNames', layer.OutputNames);
+            L = LayerNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels,'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale, 'NumInputs', layer.NumInputs, 'InputNames', layer.InputNames, 'NumOutputs', layer.NumOutputs, 'OutputNames', layer.OutputNames);
             
         end
         

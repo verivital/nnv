@@ -236,7 +236,12 @@ classdef AveragePooling2DLayer < handle
                    
         end
         
-        
+        function y = evaluateSequence(obj, input)
+            input = permute(input,[1,3,2]);
+            y = obj.evaluate(input);
+            y = permute(y,[1,3,2]);
+        end
+
         % parallel evaluation on an array of inputs
         function y = evaluate_parallel(obj, inputs)
             % @inputs: an array of inputs
@@ -491,6 +496,49 @@ classdef AveragePooling2DLayer < handle
             
         end
         
+        function S = reach_star_multipleInputs_Sequence(obj, inputs, option)
+            % @inputs: an array of ImageStars
+            % @option: = 'parallel' or 'single'
+            % @S: output ImageStar
+            
+            % author: Neelanjana Pal
+            % date: 8/22/2023
+            
+            n = length(inputs);
+            S(n) = ImageStar;
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    S(i) = obj.reach_star_single_input_Sequence(inputs(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    S(i) = obj.reach_star_single_input_Sequence(inputs(i));
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+            
+        end
+        
+        function S = reach_star_single_input_Sequence(obj, input)
+            % @inputs: an ImageStar input set
+            % @option: = 'single' single core for computation
+            %          = 'parallel' multiple cores for parallel computation
+            % @S: an imagestar with number of channels = obj.NumFilters
+            
+            % author: Neelanjana Pal
+            % date: 8/22/2023
+            
+            if ~isa(input, 'ImageStar')
+                error('The input is not an ImageStar object');
+            end
+            for i = 1: size(input.V,4)
+                Y(:,:,:,i) = obj.evaluateSequence(input.V(:,:,:,i));
+            end
+            S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+        end
+        
+       
         % general function for reachability analysis
         function IS = reach(varargin)
             % @in_image: an input imagestar
@@ -555,6 +603,66 @@ classdef AveragePooling2DLayer < handle
             
         end
         
+        function IS = reachSequence(varargin)
+            % @in_image: an input imagestar
+            % @image: output set
+            % @option: = 'single' or 'parallel' 
+            
+            % author: Neelanjana Pal
+            % date: 8/22/2023        
+            
+             
+            switch nargin
+                
+                case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
+            end
+            
+            
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
+                IS = obj.reach_star_multipleInputs_Sequence(in_images, option);
+            elseif strcmp(method, 'approx-zono')
+                IS = obj.reach_zono_multipleInputs_Sequence(in_images, option);    
+            else
+                error("Unknown reachability method");
+            end
+           
+            end
     end
     
 

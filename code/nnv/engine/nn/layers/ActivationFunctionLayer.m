@@ -174,7 +174,11 @@ classdef ActivationFunctionLayer < handle
         
         function seqs = reachSequence(varargin)
             obj = varargin{1};
+            % relaxFactor = 0.8;
             seqs = obj.reach(varargin{2:nargin});
+            [lb,ub] = seqs.getRanges;
+            seqs.im_lb = lb;
+            seqs.im_ub = ub;
         end
     end
     

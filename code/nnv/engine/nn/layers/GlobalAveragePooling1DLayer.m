@@ -1,4 +1,4 @@
-classdef GlobalAveragePooling2DLayer < handle
+classdef GlobalAveragePooling1DLayer < handle
     % GlobalAveragePooling 2D Layer object
     % downsamples the input by computing the mean of the height and width dimensions
     % https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.globalAveragePooling2dLayer.html
@@ -7,7 +7,7 @@ classdef GlobalAveragePooling2DLayer < handle
     % Date: 06/07/2023
     
     properties
-        Name = 'GlobalAvgPoolingLayer';          % default
+        Name = 'GlobalAvgPooling1DLayer';          % default
         NumInputs = 1;              % default
         InputNames = {'in1'}; % default
         NumOutputs = 1;             % default
@@ -17,7 +17,7 @@ classdef GlobalAveragePooling2DLayer < handle
     methods % constructor
         
         % create layer
-        function obj = GlobalAveragePooling2DLayer(varargin)
+        function obj = GlobalAveragePooling1DLayer(varargin)
             % @name: name of the layer
             % @NumInputs: number of inputs
             % @NumOutputs: number of outputs,
@@ -78,21 +78,40 @@ classdef GlobalAveragePooling2DLayer < handle
         function output = evaluate(obj, input)
             % addition layer takes usually two inputs, but allows many (N)
             %
-            input = dlarray(input,"SSCB");
-            output = extractdata(avgpool(input,'global'));
+            input = dlarray(input',"SC");
+            output = extractdata(avgpool(input,'global'))';
         end
- 
+        
+        function output = evaluateSequence(obj, input)
+            output = obj.evaluate(input);
+        end
+
         % reach (TODO)
-        function output = reach_single_input(obj, input)
+        function image = reach_single_input(obj, input)
             % @in_image: input imagestar
             % @image: output set
             
             if ~isa(input, 'ImageStar')
                 error('The input is not an ImageStar object');
             end
-            Y = obj.evaluate(input.V);                       
-            output = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
-            
+            % Y = obj.evaluate(input.V);                       
+            % output = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+            if isempty(input.im_lb) && isempty(input.im_ub)
+                c = obj.evaluateSequence(input.V(:,:,:,1));
+                layer = obj;
+                parfor i = 2: size(in_image.V,4)
+                    V(:,:,:,i) = layer.evaluateSequence(input.V(:,:,:,i));
+                end
+                V(:,:,:,1) = c;
+                image = ImageStar(V, input.C, input.d, input.pred_lb, input.pred_ub);
+            else
+                im_lb = input.im_lb;
+                im_ub = input.im_ub;
+                lb = obj.evaluateSequence(im_lb);
+                ub = obj.evaluateSequence(im_ub);
+    
+                image = ImageStar(lb,ub);
+            end 
         end
         
         % handle multiple inputs
@@ -192,10 +211,10 @@ classdef GlobalAveragePooling2DLayer < handle
         function L = parse(layer)
             % create NNV layer from matlab
                       
-            if ~isa(layer, 'nnet.cnn.layer.GlobalAveragePooling2DLayer') 
-                error('Input is not a GlobalAveragePooling2DLayer layer');
+            if ~isa(layer, 'nnet.cnn.layer.GlobalAveragePooling1DLayer') 
+                error('Input is not a GlobalAveragePooling1DLayer layer');
             end
-            L = GlobalAveragePooling2DLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames);
+            L = GlobalAveragePooling1DLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames);
         end
 
     end

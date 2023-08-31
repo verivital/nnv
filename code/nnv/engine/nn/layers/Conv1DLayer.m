@@ -353,8 +353,13 @@ classdef Conv1DLayer < handle
             else
                 error('Unknown precision option');
             end
-            
-            y = vl_nnconv1d(input, obj.Weights, obj.Bias,obj.Stride, obj.PaddingSize, obj.DilationFactor);
+            n = length(size(input));
+            if n==2
+                input = dlarray(input');
+                y = dlconv(input, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","SC");
+                y = extractdata(y)';
+            end
+                % y = vl_nnconv1d(input, obj.Weights, obj.Bias,obj.Stride, obj.PaddingSize, obj.DilationFactor);
 
         end
               
@@ -387,8 +392,6 @@ classdef Conv1DLayer < handle
             dilation_mat = conv1dLayer.DilationFactor;
             
             L = Conv1DLayer(layer_name, filter_weights, filter_bias, padding_mat, stride_mat, dilation_mat, conv1dLayer.NumInputs, conv1dLayer.InputNames, conv1dLayer.NumOutputs, conv1dLayer.OutputNames);
-                        
-            fprintf('\nParsing a Matlab convolutional 1d layer is done successfully');
             
         end
         
@@ -572,13 +575,28 @@ classdef Conv1DLayer < handle
             end
 
             % compute output sets
-            c = vl_nnconv1d(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias)', obj.Stride, obj.PaddingSize, obj.DilationFactor);
-            n = size(input.V(:,:,:,2:input.numPred + 1),4);
-            for i = 1:n
-                V(:,:,1,i) = vl_nnconv1d(double(input.V(:,:,:,i+1)), double(obj.Weights), 0, obj.Stride, obj.PaddingSize, obj.DilationFactor);         
+            % c = vl_nnconv1d(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias)', obj.Stride, obj.PaddingSize, obj.DilationFactor);
+            % n = size(input.V(:,:,:,2:input.numPred + 1),4);
+            % for i = 1:n
+            %     V(:,:,1,i) = vl_nnconv1d(double(input.V(:,:,:,i+1)), double(obj.Weights), 0, obj.Stride, obj.PaddingSize, obj.DilationFactor);         
+            % end
+            % Y = cat(4, c, V);
+            % S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+            if isempty(input.im_lb) && isempty(input.im_ub)
+                layer = obj;
+                c = layer.evaluateSequence(input.V(:,:,:,1));
+                layer.Bias = [];
+                n = size(input.V(:,:,:,2:input.numPred + 1),4);
+                for i = 1:n
+                    V(:,:,1,i) = layer.evaluateSequence(input.V(:,:,:,i+1));
+                end
+                Y = cat(4, c, V);
+                S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+            else
+                lb = obj.evaluateSequence(input.im_lb);
+                ub = obj.evaluateSequence(input.im_ub);
+                S = ImageStar(lb,ub);
             end
-            Y = cat(4, c, V);
-            S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   
         end
         

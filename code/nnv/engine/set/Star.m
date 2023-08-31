@@ -366,6 +366,42 @@ classdef Star
                 
         end
         
+        function S = HadamardProduct(obj, X)
+            % @X: another star with same dimension
+            % @S: new star
+            
+            if ~isa(X, 'Star')
+                error('Input matrix is not a Star');
+            else
+                if X.dim ~= obj.dim
+                    error('Input star and current star have different dimensions');
+                end
+            end
+            
+            m1 = size(obj.V, 2);
+            m2 = size(X.V, 2);
+            V1 = obj.V(:, 2:m1);
+            V2 = X.V(:, 2:m2);
+            new_c = obj.V(:, 1) .* X.V(:, 1);
+            
+            % check if two Star has the same constraints
+            if size(obj.C, 1) == size(X.C, 1) && size(obj.C, 2) == size(X.C, 2) && norm(obj.C - X.C) + norm(obj.d - X.d) < 0.0001
+               V3 = V1 .* V2;
+               new_V = horzcat(new_c, V3);
+               S = Star(new_V, obj.C, obj.d, obj.predicate_lb, obj.predicate_ub); % new Star has the same number of basic vectors
+            else
+                V3 = horzcat(V1, V2);
+                % new_c = obj.V(:, 1) + X.V(:, 1);
+                new_V = horzcat(new_c, V3);        
+                new_C = blkdiag(obj.C, X.C);        
+                new_d = vertcat(obj.d, X.d);
+                new_pred_lb = [obj.predicate_lb; X.predicate_lb];
+                new_pred_ub = [obj.predicate_ub; X.predicate_ub];
+                S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub); % new Star has more number of basic vectors
+            end
+
+        end
+
         % New Minkowski Sum (used for Recurrent Layer reachability)
         function S = Sum(obj, X)
             % @X: another star with same dimension
@@ -1263,7 +1299,13 @@ classdef Star
                 error('Inconsistent dimension in the ImageStar and the original Star set');
             end
             
-            IS = ImageStar(reshape(obj.V, [height, width, numChannel,  obj.nVar + 1]), obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+            if ~isempty(obj.state_lb) && ~isempty(obj.state_ub)
+                lb = reshape(obj.state_lb,[height, width, numChannel]);
+                ub = reshape(obj.state_ub,[height, width, numChannel]);
+                IS = ImageStar(reshape(obj.V, [height, width, numChannel,  obj.nVar + 1]), obj.C, obj.d, obj.predicate_lb, obj.predicate_ub, lb, ub);
+            else
+                IS = ImageStar(reshape(obj.V, [height, width, numChannel,  obj.nVar + 1]), obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+            end
                 
         end
 

@@ -95,6 +95,10 @@ classdef SequenceInputLayer < handle
             end
                                
         end
+
+        function y = evaluate(obj, input)
+            y = obj.evaluateSequence(input);
+        end
          
     end
         

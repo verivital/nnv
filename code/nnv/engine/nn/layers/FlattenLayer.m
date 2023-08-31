@@ -141,6 +141,10 @@ classdef FlattenLayer < handle
             
                 
         end
+    
+        function flatten_im = evaluateSequence(obj, image)
+            flatten_im = squeeze(image);
+        end
     end
     
     methods % reachability method
@@ -261,7 +265,120 @@ classdef FlattenLayer < handle
   
         end
         
+        function image = reach_single_input_Sequence(obj, in_image)
+            % @in_image: input imagestar
+            % @image: output set
+            
+            % author: Neelanjana Pal
+            % date: 8/23/2023
+            
+            
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'ImageZono')
+                error('Input set is not an ImageStar or ImageZono');
+            end
+            
+            % c = obj.evaluateSequence(in_image.V(:,:,:,1));
+            % n = in_image.numPred;
+            % % V(1, 1, :, in_image.numPred + 1) = zeros(N, 1);        
+            % for i=1:n+1
+            %     V(:, :, i) = obj.evaluate(in_image.V(:,:,:,i));
+            % end
+            % V(:,:,1) = c;
+            V(:,:,1,:) = squeeze(in_image.V);
+            image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+            
+        end
         
+        % handle multiple inputs
+        function S = reach_multipleInputs_Sequence(obj, inputs, option)
+            % @inputs: an array of ImageStars
+            % @option: = 'parallel' or 'single'
+            % @S: output ImageStar
+            
+            % author: Neelanjana Pal
+            % date: 8/23/2023
+            
+            n = length(inputs);
+            if isa(inputs(1), 'ImageStar')
+                S(n) = ImageStar;
+            elseif isa(inputs(1), 'ImageZono')
+                S(n) = ImageZono;
+            else
+                error('Unknown input data set');
+            end
+          
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    S(i) = obj.reach_single_input_Sequence(inputs(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    S(i) = obj.reach_single_input_Sequence(inputs(i));
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+            
+        end
+        
+        function IS = reachSequence(varargin)
+            % @in_image: an input imagestar
+            % @image: output set
+            % @option: = 'single' or 'parallel' 
+            
+            % author: Neelanjana Pal
+            % date: 8/23/2023
+           
+             
+            switch nargin
+                
+                 case 7
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    % relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                    % lp_solver = varargin{7}; do not use
+                
+                case 6
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                    % dis_opt = varargin{6}; do not use
+                
+                case 5
+                    obj = varargin{1};
+                    in_images = varargin{2};
+                    method = varargin{3};
+                    option = varargin{4};
+                    %relaxFactor = varargin{5}; do not use
+                
+                case 4
+                    obj = varargin{1};
+                    in_images = varargin{2}; 
+                    method = varargin{3};
+                    option = varargin{4}; % computation option
+
+                case 3
+                    obj = varargin{1};
+                    in_images = varargin{2}; % don't care the rest inputs
+                    method = varargin{3};
+                    option = [];
+                otherwise
+                    error('Invalid number of input arguments (should be 2, 3, 4, 5 or 6)');
+            end
+            
+            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || strcmp(method, 'approx-zono') || contains(method, "relax-star")
+                IS = obj.reach_multipleInputs_Sequence(in_images, option);
+            else
+                error('Unknown reachability method');
+            end
+
+        end
+    
     end
     
     

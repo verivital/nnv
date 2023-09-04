@@ -1,3 +1,3 @@
 % Testing different ways to load neural networks into NNV
 
-net1 = 
+% net1 = 

@@ -211,7 +211,7 @@ classdef SatLin
             p = length(I);
             S = [];
             
-            if isempty(option)
+            if isempty(option) || strcmp(option, 'single')
                 
                 for i=1:p
                     S =[S, SatLin.stepReach(I(i), index, lp_solver)];

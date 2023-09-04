@@ -5,42 +5,20 @@
 %variables made by a test are not available to other tests.
 
 
-%shared variables
-
-
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_SEGNET_evaluate.m
-
-
 %% test 1: SEGNET evaluate
 
 load SegNet.mat;
-nnvSegNet = SEGNET.parse(net, 'SetNet');
-im = readimage(imds, 1); 
-tic;
-y = nnvSegNet.evaluate(im);
-toc;
-tic;
-y1 = activations(net, im, net.Layers(31).Name);
-toc;
+nnvSegNet = matlab2nnv(net);
 
-tic;
-y2 = nnvSegNet.evaluate(im, 30);
-toc;
+% Load data
+dataSetDir = fullfile(toolboxdir('vision'),'visiondata','triangleImages');
+imageDir = fullfile(dataSetDir,'trainingImages');
+labelDir = fullfile(dataSetDir,'trainingLabels');
+imds = imageDatastore(imageDir);
+% classNames = ["triangle","background"];
+% labelIDs   = [255 0];
+% pxds = pixelLabelDatastore(labelDir,classNames,labelIDs);
 
-
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_SEGNET_parse.m
-
-
-%% test 2: SEGNET parse
-
-load SegNet.mat;
-nnvSegNet = SEGNET.parse(net, 'SetNet');
 im = readimage(imds, 1); 
 tic;
 y = nnvSegNet.evaluate(im);

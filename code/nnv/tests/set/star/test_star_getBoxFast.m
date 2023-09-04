@@ -6,7 +6,7 @@ B1 = I1.getBox();
 B2 = I1.getBoxFast();
 
 figure;
-B2.plot;
+Box.plot(B2);
 hold on;
-B1.plot;
+Box.plot(B1);
 

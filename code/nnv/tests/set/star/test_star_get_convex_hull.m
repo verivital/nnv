@@ -10,9 +10,9 @@ I2 = Star(V', I2.A, I2.b); % star set 2
 S = Star.get_convex_hull([I1, I2]);
 
 figure;
-S.plot; 
+S.plot();
 hold on;
-I1.plot;
+Star.plot(I1);
 hold on;
-I2.plot;
+Star.plot(I2);
 

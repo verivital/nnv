@@ -213,6 +213,8 @@ classdef NN < handle
                 end
                 if isfield(reachOptions, 'numCores')
                     obj.numCores = reachOptions.numCores;
+                else
+                    obj.numCores = 1;
                 end
                 if isfield(reachOptions, 'relaxFactor')
                     obj.relaxFactor = reachOptions.relaxFactor;
@@ -266,11 +268,11 @@ classdef NN < handle
             end
 
             % Check validity of reachability method
-            % if exist("reachOptions",'var')
-            %     reachOptions = check_reachability_method(obj, reachOptions);
-            % else
-            %     reachOptions = struct; % empty options, run with default values
-            % end
+            if exist("reachOptions",'var')
+                reachOptions = validate_reach_options(obj, reachOptions);
+            else
+                reachOptions = struct; % empty options, run with default values
+            end
 
             % Process reachability options
             if ~isstruct(reachOptions)
@@ -572,16 +574,18 @@ classdef NN < handle
             end
             
             % performing reachability analysis
-            [R, ~] = obj.reach(I, reachOptions);        
+            R = obj.reach(I, reachOptions);        
                       
             % censure correct set format for checking safety
             n = length(R);
             m = length(U);
-            R1 = Star;
-            if ~isa(R, "Star")
+            if ~isa(R, 'Star')
+                R1 = Star;
                 for i=1:n
                     R1(i) = R(i).toStar; % transform to star sets
                 end
+            else
+                R1 = R;
             end
             
             % Possible counter inputs
@@ -607,7 +611,7 @@ classdef NN < handle
                 for i=1:n
                     for j=1:m
                         S = R1(i).intersectHalfSpace(U(j).G, U(j).g);
-                        if ~isempty(S) && strcmp(method, 'exact-star')
+                        if ~isempty(S) && strcmp(reachOptions.reachMethod, 'exact-star')
                             I1 = Star(I.V, S.C, S.d); % violate input set
                             violate_inputs = [violate_inputs I1];
                         else
@@ -934,6 +938,11 @@ classdef NN < handle
                         error('Invalid relaxFactor. The value of relax factor must be between 0 and 1');
                     end
                 end
+            end
+            % Ensure reachability is done in a single core
+            if ~contains(reach_method, 'exact')
+                reachOptions.reachOption = 'single';
+                reachOptions.numCores = 1;
             end
         end
 
@@ -1437,7 +1446,42 @@ classdef NN < handle
             end
  
         end
+        
+    end
 
+    methods (Static)  % semantic segmentation helper functions
+
+        % get paired max pooling layer name
+        function maxpooling_layer_name = getPairedMaxPoolingName(Connections, unpooling_layer_name)
+            % @unpooling_layer_name: the name of the unmaxpooling layer
+            % @maxpooling_layer_name: the name of the paired max pooling layer           
+            
+            if isempty(Connections)
+                error('No connection table');
+            end
+            
+            if ~ischar(unpooling_layer_name)
+                error('Invalid unpooling_layer_name');
+            else
+                dest_name = sprintf("%s/indices", unpooling_layer_name);
+            end
+            
+            n = size(Connections, 1);
+            source_name = [];
+            for i=1:n                
+                if strcmp(Connections.Destination(i), dest_name)
+                    source_name = Connections.Source(i);
+                    break;
+                end
+            end
+            
+            if isempty(source_name)
+                error('Unknown destination name');
+            end
+            
+            maxpooling_layer_name = erase(source_name{1}, "/indices");            
+        end
+    
     end
     
 end

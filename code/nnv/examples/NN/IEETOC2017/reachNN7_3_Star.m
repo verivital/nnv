@@ -30,18 +30,20 @@ ub = [1; 1; 1];
 I = Star(lb, ub);
 
 % select option for reachability algorithm
-reachOptions = struct; % initialize
-reachOptions.reachMethod = 'exact-star'; % reachability method
-reachOptions.numCores = 4; % define number of cores for parallel execution
+% reachOptions = struct; % initialize
+% reachOptions.reachMethod = 'exact-star'; % reachability method
+% reachOptions.numCores = 4; % define number of cores for parallel execution
 
 % Comute reachability (exact)
-te = tic;
-Re = F.reach(I, reachOptions); % exact reach set using stars
-te = toc(te);
+% te = tic;
+% Re = F.reach(I, reachOptions); % exact reach set using stars
+% te = toc(te);
 
 % select option for reachability algorithm
 reachOptions = struct; % initialize
-reachOptions.reachMethod = 'approx-star'; % reachability method
+% reachOptions.reachMethod = 'relax-star-range'; % reachability method
+% reachOptions.relaxFactor = 0.0;
+reachOptions.reachMethod = 'approx-star';
 
 % Comute reachability (approx)
 ta = tic;
@@ -68,7 +70,7 @@ end
 
 % Plot exact and approx sets 
 fig = figure;
-Star.plots(Ra,'b');
+Star.plot(Ra,'b');
 hold on;
 Star.plots(Re,'c');
 hold on;
@@ -89,4 +91,4 @@ hold on;
 plot(y3(1,:), y3(2,:), 'x', 'Color', 'r');
 
 % Save figure
-saveas(fig,'exact_vs_approx.jpg');
+% saveas(fig,'exact_vs_approx.jpg');

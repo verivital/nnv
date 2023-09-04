@@ -2091,6 +2091,8 @@ classdef PosLin
                 fprintf('\nNNV have not yet support Exact Face-Latice Method');
             elseif strcmp(method, 'approx-face-latice') % over-approximate analysis using face-latice
                 fprintf('\nNNV have not yet support Approximate Face-Latice Method');
+            else
+                error("This reachability method does not exist");
             end
                             
         end

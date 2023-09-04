@@ -6,7 +6,7 @@ I = Star(V', I0.A, I0.b, I0.Internal.lb, I0.Internal.ub); % input star
 X = I.sample(100);
 
 figure;
-I.plot;
+Star.plot(I);
 hold on;
 plot(X(1, :), X(2, :), 'ob'); % sampled inputs
 
@@ -21,7 +21,7 @@ t2 = toc(t);
 Y = PosLin.evaluate(X);
 
 figure;
-S.plot;
+Star.plot(S);
 hold on;
 Star.plots(S1);
 hold on;

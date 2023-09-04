@@ -10,9 +10,9 @@ I2 = Star(V', I2.A, I2.b); % star set 2
 I21 = I2.convexHull(I1);
 
 figure;
-I21.plot; 
+Star.plot(I21); 
 hold on;
-I1.plot;
+Star.plot(I1);
 hold on;
-I2.plot;
+Star.plot(I2);
 

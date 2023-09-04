@@ -580,18 +580,17 @@ classdef ImageStar < handle
         
         % checking if an ImageStar is an empty set
         function bool = isEmptySet(obj)
-            % author: Dung Tran
-            % date: 1/10/2020
-            % update: Neelanjana, 8/18/2023
-
-            % S = obj.toStar;
-            % bool = S.isEmptySet;
-
-            [lb, ub] = obj.getRanges;
-            if isempty(lb) && isempty(ub)
-                bool = 1;
-            else
-                bool = 0;
+            
+            try
+                S = obj.toStar;
+                bool = S.isEmptySet;
+            catch
+                [lb, ub] = obj.getRanges;
+                if isempty(lb) && isempty(ub)
+                    bool = 1;
+                else
+                    bool = 0;
+                end
             end
         end
         

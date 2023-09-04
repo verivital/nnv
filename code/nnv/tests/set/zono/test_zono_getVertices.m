@@ -6,6 +6,6 @@ V = Z.getVertices;
 P = Polyhedron('V', V');
 
 figure;
-Z.plot;
+Zono.plot(Z);
 figure;
 P.plot;

@@ -7,6 +7,6 @@ W = [2 1; 1 -1];
 I2 = I1.convexHull_with_linearTransform(W);
 
 figure;
-I2.plot;
+Star.plot(I2);
 hold on;
-I1.plot;
+Star.plot(I1);

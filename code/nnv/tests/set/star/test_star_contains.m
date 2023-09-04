@@ -9,7 +9,7 @@ b1 = S.contains(s1);
 b2 = S.contains(s2);
 
 figure;
-S.plot;
+Star.plot(S);
 hold on;
 plot(s1(1,:), s1(2,:), 'blue-o');
 hold on;

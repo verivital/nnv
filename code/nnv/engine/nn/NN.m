@@ -1095,6 +1095,10 @@ classdef NN < handle
                 exec_len = length(obj.features);
                 % ensure layer has not been evaluated yet
                 if isempty(obj.features{source_indx})
+                    if isa(obj.Layers{source_indx}, 'MaxUnpooling2DLayer')
+                        obj.Layers{source_indx}.MaxPoolIndx = obj.Layers{obj.name2indx(obj.Layers{source_indx}.PairedMaxPoolingName)}.MaxIndx;
+                        obj.Layers{source_indx}.MaxPoolSize = obj.Layers{obj.name2indx(obj.Layers{source_indx}.PairedMaxPoolingName)}.InputSize;
+                    end
                     y = obj.Layers{source_indx}.evaluate(x);
                     obj.features{source_indx} = y;
                 else
@@ -1107,16 +1111,12 @@ classdef NN < handle
                 dest_name = dest{1};
                 dest_indx = obj.name2indx(dest_name); % indx in Layers array
                 % check if there source has multiple inputs (concat layer, unpooling ...)
-                if length(dest) > 1
+                if length(dest) > 2
                     % unpooling option
                     if isa(obj.Layers{dest_indx}, 'MaxUnpooling2DLayer')
                         destP = dest{2};
                         if strcmp(destP, 'in')
                             obj.input_vals{dest_indx} = y; % store layer input
-                        elseif strcmp(destP, 'indices')
-                            obj.Layers{dest_indx}.MaxPoolIndx = obj.Layers{source_indx}.MaxIndx;
-                        elseif strcmp(destP, 'size')
-                            obj.Layers{dest_indx}.MaxPoolSize = obj.Layers{source_indx}.InputSize;
                         else
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
@@ -1153,6 +1153,7 @@ classdef NN < handle
                     obj.input_vals{dest_indx} = y;
                 end
             end
+                
             % Check if last layer is executed (default is last layer is not executed, but in the 
             % case of the PixelClassificationLayer this is necessary)
             % Assume last layer in array is the output layer
@@ -1288,10 +1289,10 @@ classdef NN < handle
         end
         
         % Ensure precision for layer parameters and inputs is consistent
-        function validate_precision(obj, inSet)
-            
-
-        end
+        % function validate_precision(obj, inSet)
+        % 
+        % 
+        % end
     end % end helper functions
     
     
@@ -1446,7 +1447,7 @@ classdef NN < handle
             end
  
         end
-        
+
     end
 
     methods (Static)  % semantic segmentation helper functions

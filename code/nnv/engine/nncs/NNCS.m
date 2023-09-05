@@ -160,7 +160,7 @@ classdef NNCS < handle
                  fprintf('Reachability analysis for the controller \n');
                  fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                  input_set = obj.nextInputSetStar(fb_I{1});
-                 [U,~] = obj.controller.reach(input_set, 'exact-star', n_cores); % control set at step i
+                 U = obj.controller.reach(input_set); % control set at step i
                  U1 = Star.get_hypercube_hull(U);   
                  
                  % reachability analysis for plant

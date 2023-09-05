@@ -39,7 +39,9 @@ classdef Box
             try 
                 % Speeding up implementation
                 gens = diag(vec); % generate matrix
-                gens(:,all(gens(gens==0))) = []; % delete colums with no info
+                if numel(gens) > 1
+                    gens(:,all(gens(gens==0))) = []; % delete colums with no info
+                end
                 obj.generators = gens;
             catch
                 % This works well for large input sets with few perturbed pixels

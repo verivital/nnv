@@ -104,7 +104,7 @@ classdef NNCS < handle
             if nI ~= 1
                 error('FeedbackMap should have one column');
             end
-            if nO * plant.nO > controller.nI
+            if nO * plant.nO > controller.InputSize
                 error('Two many feedback inputs');
             end
                         
@@ -112,9 +112,9 @@ classdef NNCS < handle
             obj.plant = plant;
             obj.feedbackMap = feedbackMap;
             obj.nO = plant.nO;
-            obj.nI = controller.nI;
+            obj.nI = controller.InputSize;
             obj.nI_fb = nO * plant.nO;
-            obj.nI_ref = controller.nI - obj.nI_fb;
+            obj.nI_ref = obj.nI - obj.nI_fb;
             
         end
                        
@@ -346,14 +346,12 @@ classdef NNCS < handle
                 end
             end
             
-            
-%             [~,y1] = obj.plant.evaluate([0 step], x0, 0); % first step simulation
             [~,y1] = obj.plant.evaluate(x0, 0); % first step simulation
             n = size(y1, 1);
             obj.simTrace = [];
             obj.controlTrace = [];
             obj.simTrace = [obj.simTrace y1(n, :)'];
-            obj.controlTrace = zeros(obj.controller.nO, 1); % control signal of the first step is zero
+            obj.controlTrace = zeros(obj.controller.OutputSize, 1); % control signal of the first step is zero
       
             if n_steps >= 2
                 

@@ -65,32 +65,28 @@ classdef LinearNNCS < handle
             % date: 9/30/2019
             
             
-            if  ~isa(controller, 'FFNNS')
-                error('The controller is not a feedforward neural network');
-            end
-            
-            if ~controller.isPieceWiseNetwork
-                error('The controller is not a piecewise network, i.e., there exists a layer whose activation function is not piecewise linear');
+            if  ~isa(controller, 'NN')
+                error('The controller is not neural network');
             end
             
             if ~isa(plant, 'LinearODE')
                 error('The plant is not a linear system');
             end            
                         
-            if plant.nO > controller.nI
+            if plant.nO > controller.InputSize
                 error('Inconsistency between number of feedback outputs and number of controller inputs');
             end
             
-            if plant.nI ~= controller.nO
+            if plant.nI ~= controller.OutputSize
                 error('Inconsistency between the number of plant inputs and the number of controller outputs');
             end
                         
             obj.controller = controller;
             obj.plant = plant;
             obj.nO = plant.nO; % number of outputs of the system == number of the plant's outputs
-            obj.nI = controller.nI; % number of input to the controller
+            obj.nI = controller.InputSize; % number of input to the controller
             obj.nI_fb = plant.nO; % number of feedback inputs to the controller
-            obj.nI_ref = controller.nI - obj.nI_fb; % number of reference inputs to the controller
+            obj.nI_ref = obj.nI - obj.nI_fb; % number of reference inputs to the controller
             obj.plantNumOfSimSteps = obj.plant.numReachSteps;
             obj.controlPeriod = obj.plant.controlPeriod;
             new_A = [obj.plant.A obj.plant.B; zeros(obj.plant.nI, obj.plant.dim) zeros(obj.plant.nI, obj.plant.nI)];
@@ -160,12 +156,13 @@ classdef LinearNNCS < handle
             if ~isempty(ref_input1) && ~isa(ref_input1, 'Star') && size(ref_input1, 2) ~= 1 && size(ref_input1, 1) ~= obj.nI_ref
                 error('Invalid reference input vector');
             end
-            
-            
+
             obj.ref_I = ref_input1;
             obj.numCores = numCores1;
             obj.method = method1; 
             obj.init_set = init_set1;
+            obj.controller.reachMethod = method1;
+            obj.controller.numCores = numCores1;
             
             obj.plantReachSet = cell(1, numOfSteps);
             obj.plantIntermediateReachSet = cell(1,numOfSteps);
@@ -176,291 +173,20 @@ classdef LinearNNCS < handle
             end
             
             t = tic; 
-            
             for k=1:numOfSteps
-                
                 X = obj.plantStepReach(k);
-                
                 if strcmp(obj.method, 'exact-star')
-                
                     obj.plantReachSet{k} = X;
-                
                 elseif strcmp(obj.method, 'approx-star')
-                    
                     B = Star.get_hypercube_hull(X);
                     obj.plantReachSet{k} = B.toStar; % combine all stars into a single over-approximate star
-                    
+                    % obj.plantReachSet{k} = X;
                 end
-                
                 obj.controllerReachSet{k} = obj.controllerStepReach(k);               
-                
             end
-            
             reachTime = toc(t);
-            
             obj.reachTime = reachTime; 
-            
             R = obj.plantReachSet;
-            
-            
-        end
-        
-        % live reachability analysis, plot reachable set on the fly
-        % produce video for the analysis
-        function [R, reachTime] = reachLive(varargin)
-            % @init_set: initial set of state, a star set
-            % @ref_input: reference input, may be a vector or a star set
-            % @numOfSteps: number of steps
-            % @method: 'exact-star' or 'approx-star'
-            % @numCores: number of cores used in computation
-            % NOTE***: parallel computing may not help due to
-            % comuninication overhead in the computation
-            % @map_mat: output mapping matrix 
-            % @map_vec: output mapping bias vector
-            % *** We plot y = map_mat * x + map_vec on-the-fly
-            % @color: color for plotting
-            
-            % author: Dung Tran
-            % date: 10/1/2019
-            % update: 11/6/2019
-            
-            obj = varargin{1};
-            option.initSet = [];
-            option.refInput = [];
-            option.reachMethod = 'approx-star';
-            option.numCores = 1;
-            option.plantNumOfSimSteps = 20;
-            map_mat = zeros(1, obj.plant.dim);
-            map_mat(1) = 1;
-            option.outputMatrix = map_mat;
-            option.outputVector = [];
-            option.outputSetColor = 'blue';
-            option.boundaryMatrix = [];
-            option.boundaryVector = [];
-            option.boundarySetColor = 'red'; 
-            option.figureTitle = 'Reachable Sets';
-            option.figureXLabel = '';
-            option.figureYLabel = '';
-            option.videoRecord = true;
-            option.videoName = 'reachVideo';
-            option.videoFrameRate = 4; % frame per second
-            
-            n = length(varargin);
-            if n < 4
-                error('Not enough inputs for analysis');
-            end
-            
-            option.initSet = varargin{2};
-            if ~isa(option.initSet, 'Star')
-                error('Initial set is not a star set');
-            end
-            
-            option.refInput = varargin{3};
-            if ~isempty(option.refInput) && ~isa(option.refInput, 'Star') && size(option.refInput, 2) ~= 1 && size(option.refInput, 1) ~= obj.nI_ref
-                error('Invalid reference input vector');
-            end
-            
-            option.numOfSteps = varargin{4};
-            if option.numOfSteps < 1
-                error('Invalid number of control steps');
-            end
- 
-            for i=5:n
-                if ischar(varargin{i})
-                    
-                    % parse reach method
-                    if strcmp(varargin{i}, 'reachMethod')                       
-                        if ~strcmp(varargin{i+1}, 'approx-star') || ~strcmp(varargin{i+1}, 'exact-star')
-                            error('Unknown reachability method');
-                        else
-                            option.reachMethod = varargin{i+1};
-                        end
-                    end
-                                        
-                    % parse numCores
-                    if strcmp(varargin{i}, 'numCores')
-                        if varargin{i+1} < 1 
-                            error('Invalid number of cores used for computation');
-                        else
-                            option.numCores = varargin{i+1};
-                        end
-                    end
-                    
-                    % parse plantNumOfSimSteps
-                    if strcmp(varargin{i}, 'plantNumOfSimSteps')
-                        if varargin{i+1} < 1 
-                            error('Invalid number of simulation steps for reachability of the plant');
-                        else
-                            option.plantNumOfSimSteps = varargin{i+1};
-                        end
-                    end
-                    
-                    % parse output matrix
-                    if strcmp(varargin{i}, 'outputMatrix')
-                        if ~ismatrix(varargin{i+1}) 
-                            error('Invalid output Matrix');
-                        else 
-                            option.outputMatrix = varargin{i+1};
-                        end
-                    end
-                    
-                    % parse output vector
-                    if strcmp(varargin{i}, 'outputVector')
-                        if ~ismatrix(varargin{i+1}) 
-                            error('Invalid output Vector');
-                        else 
-                            option.outputVector = varargin{i+1};
-                        end
-                    end
-                    
-                    % parse boundary matrix
-                    if strcmp(varargin{i}, 'boundaryMatrix')
-                        if ~ismatrix(varargin{i+1}) 
-                            error('Invalid boundary Matrix');
-                        else 
-                            option.boundaryMatrix = varargin{i+1};
-                        end
-                    end
-                    
-                    % parse boundary matrix
-                    if strcmp(varargin{i}, 'boundaryVector')
-                        if ~ismatrix(varargin{i+1}) 
-                            error('Invalid boundary Vector');
-                        else 
-                            option.boundaryVector = varargin{i+1};
-                        end
-                    end
-                    
-                    % parse outputReachSet color
-                    if strcmp(varargin{i}, 'outputSetColor')
-                        option.outputSetColor = varargin{i+1};
-                    end
-                    
-                    % parse boundaryReachSet color
-                    if strcmp(varargin{i}, 'boudarySetColor')
-                        option.boundarySetColor = varargin{i+1};
-                    end
-                    
-                    % parse figureTitle
-                    if strcmp(varargin{i}, 'figureTitle')
-                        option.figureTitle = varargin{i+1};
-                    end
-                    
-                     % parse figureXLabel
-                    if strcmp(varargin{i}, 'figureXLabel')
-                        option.figureXLabel = varargin{i+1};
-                    end
-                    
-                    
-                    % parse figureYLabel
-                    if strcmp(varargin{i}, 'figureYLabel')
-                        option.figureYLabel = varargin{i+1};
-                    end
-                    
-                    % parse videoRecord
-                    if strcmp(varargin{i}, 'videoRecord')
-                        option.videoRecord = varargin{i+1};
-                    end
-                    
-                    % parse videoName
-                    if strcmp(varargin{i}, 'videoName')
-                        option.videoName = varargin{i+1};
-                    end
-                    
-                    % parse videoFrameRate
-                    if strcmp(varargin{i}, 'videoFrameRate')
-                        option.videoFrameRate = varargin{i+1};
-                    end
-                    
-                end
-
-            end
-                      
-            obj.ref_I = option.refInput;
-            obj.numCores = option.numCores;
-            obj.method = option.reachMethod; 
-            obj.init_set = option.initSet;
-            
-            obj.plantNumOfSimSteps = option.plantNumOfSimSteps;
-            obj.plantReachSet = cell(option.plantNumOfSimSteps, 1);
-            obj.controllerReachSet = cell(option.plantNumOfSimSteps, 1);
-            
-                
-            if obj.numCores > 1
-                obj.start_pool;
-            end
-            
-            
-            if option.videoRecord                
-                option.reachVideo = VideoWriter(option.videoName); % Name it.
-                option.reachVideo.FrameRate = option.videoFrameRate; % How many frames per second.
-                open(option.reachVideo);
-            end
-
-            t = tic; 
-            
-            for k=1:option.numOfSteps
-                
-                X = obj.plantStepReach(k);
-                
-                if strcmp(obj.method, 'exact-star')
-                
-                    obj.plantReachSet{k} = X;
-                
-                elseif strcmp(obj.method, 'approx-star')
-                    
-                    B = Star.get_hypercube_hull(X);
-                    obj.plantReachSet{k} = B.toStar; % combine all stars into a single over-approximate star
-                    
-                end
-                
-                obj.controllerReachSet{k} = obj.controllerStepReach(k); 
-                
-                % live plotting reachable set
-                
-                if size(map_mat, 1) == 1
-                    
-                    obj.plotStepOutputReachSets(option, k);
-                    
-                    N = fix(k/10);
-                   
-                    if N == 0
-                        times = 0: obj.controlPeriod: k*obj.controlPeriod;
-                    else
-                        times = 0: N*obj.controlPeriod: k*obj.controlPeriod;
-                    end
-                    ax = gca;
-                    ax.XTick = times;
-                    hold on;      
-                                        
-                elseif (size(map_mat, 1) == 2) || (size(map_mat, 1) == 3)
-                    
-                    obj.plotStepOutputReachSets(option, k);
-                    
-                elseif size(indexes, 1) > 3
-                    error('NNV plots only three-dimensional output reachable set, please limit number of rows in map_mat <= 3');
-                end
-                
-                 % make video
-                if option.videoRecord
-                    frame = getframe(gcf); % 'gcf' can handle if you zoom in to take a movie.
-                    writeVideo(option.reachVideo, frame);
-                end   
-                
-
-            end
-            
-            if option.videoRecord
-                close(option.reachVideo);
-            end
-            
-            reachTime = toc(t);
-            
-            obj.reachTime = reachTime; 
-            
-            R = obj.plantReachSet;
-            
-            
         end
         
         % plant step reach for step k
@@ -478,7 +204,6 @@ classdef LinearNNCS < handle
                 new_V = [obj.init_set.V; zeros(obj.plant.nI, obj.init_set.nVar + 1)];
                 trans_init_set = Star(new_V, obj.init_set.C, obj.init_set.d, obj.init_set.predicate_lb, obj.init_set.predicate_ub);
                 % step 2: perform the reachability analysis for the time elapse in the first step    
-                
                  X_imd_trans = obj.transPlant.simReach(obj.plantReachMethod, trans_init_set, [], h, obj.plantNumOfSimSteps, []);
                  X_imd = [];
                  for i=1:obj.plantNumOfSimSteps +1
@@ -507,6 +232,7 @@ classdef LinearNNCS < handle
                         new_V = [X0(i).V; U0_i(j).V];
                         trans_init_set = Star(new_V, U0_i(j).C, U0_i(j).d, U0_i(j).predicate_lb, U0_i(j).predicate_ub);
                         X_imd = obj.transPlant.simReach(obj.plantReachMethod, trans_init_set, [], h, obj.plantNumOfSimSteps, []);
+                        % X_imd = obj.transPlant.simReach(obj.plantReachMethod, X0(i), U0_i, h, obj.plantNumOfSimSteps, []);
                         X1 = [];
                         for l=1:obj.plantNumOfSimSteps + 1
                             X1 = [X1 X_imd(l).affineMap(obj.transPlant.C, [])]; 
@@ -528,14 +254,12 @@ classdef LinearNNCS < handle
             % author: Dung Tran
             % date: 10/1/2019
 
-
             I = obj.getControllerInputSet(k);
             n = length(I);
             
             for i=1:n
-                U{i} = obj.controller.reach(I(i), 'exact-star', obj.numCores);
+                U{i} = obj.controller.reach(I(i));
             end
-        
 
         end
         

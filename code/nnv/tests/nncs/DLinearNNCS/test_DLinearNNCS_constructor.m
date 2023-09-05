@@ -1,10 +1,4 @@
-% Reachability analysis for Linear ACC model
-% Dung Tran: 9/30/2019
-
-
-
-
-%% System model
+% System model
 % x1 = lead_car position
 % x2 = lead_car velocity
 % x3 = lead_car internal state
@@ -41,21 +35,22 @@ plantd = plant.c2d(0.1); % discrete plant model
 % a_lead = -2 
 
 
-%% Controller
-load controller_3_20.mat;
+% Controller
+load('../controller_3_20.mat');
 
 n = length(weights);
-Layers = [];
+Layers = {};
 for i=1:n - 1
     L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
-    Layers = [Layers L];
+    Layers{i} = L;
 end
-L = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
-Layers = [Layers L];
-Controller = FFNNS(Layers); % feedforward neural network controller
+Layers{n} = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
+Controller = NN(Layers); % feedforward neural network controller
+Controller.InputSize = 5;
+Controller.OutputSize = 1;
 
 
-%% NNCS 
+% NNCS 
 
 ncs = DLinearNNCS(Controller, plantd); % a discrete linear neural network control system
 

@@ -8,12 +8,12 @@ I2 = I1.getOrientedBox();
 I3 = I1.getBox();
 
 figure;
-I2.plot;
+Box.plot(I2);
 hold on;
-I1.plot;
+Star.plot(I1);
 
 figure;
-I3.plot;
+Box.plot(I3);
 hold on;
-I1.plot;
+Star.plot(I1);
 

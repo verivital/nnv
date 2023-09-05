@@ -25,18 +25,18 @@ merge1 = Star.merge_stars(I, 2, 'single');
 
 
 figure;
-merge1(1).plot; 
+Star.plot(merge1(1)); 
 
 figure; 
-merge1(2).plot; 
+Star.plot(merge1(2)); 
 
 figure;
-I1.plot;
+Star.plot(I1);
 figure;
-I2.plot;
+Star.plot(I2);
 figure;
-I3.plot;
+Star.plot(I3);
 figure;
-I4.plot;
+Star.plot(I4);
 
 

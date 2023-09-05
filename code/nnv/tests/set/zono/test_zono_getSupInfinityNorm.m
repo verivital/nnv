@@ -9,6 +9,6 @@ Z2 = Zono(c2, V2);
 r2 = Z2.getSupInfinityNorm();
 
 figure;
-Z1.plot;
+Zono.plot(Z1);
 hold on;
-Z2.plot;
+Zono.plot(Z2);

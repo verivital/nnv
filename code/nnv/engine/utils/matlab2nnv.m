@@ -145,8 +145,6 @@ for i=1:n
     % Max Unpooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.MaxUnpooling2DLayer')
         Li = MaxUnpooling2DLayer.parse(L, conns);
-        pairedMaxPoolingName = NN.getPairedMaxPoolingName(connects, Li.Name);
-        Li.setPairedMaxPoolingName(pairedMaxPoolingName);
 
     % Depth Concatenation Layer (common in uNets)
     elseif isa(L, 'nnet.cnn.layer.DepthConcatenationLayer')
@@ -258,22 +256,25 @@ function [nnvLayers, nnvConns, name2number] = process_connections(nnvLayers, con
         skipped(1) = []; % like popping the first connection from the list
         % get connection names
         source_name = orig_sources{c};
+        source_layer_name = split(source_name, '/');
+        if length(source_layer_name) > 1 % either a layer with multiple dets or some "properties" like size are getting sent to other layers
+            sec_name = source_layer_name{2};
+            if ~contains(sec_name, 'out')
+                continue;
+            end
+        end
+        source_layer_name = source_layer_name{1};
         dest_name = orig_dests{c};
-        % parse dest_name as it could be defined as name.in1 and so on, hen add it back at the end
+        % parse dest_name as it could be defined as name/in1 and so on, then add it back at the end
         dest_layer_name = split(dest_name, '/');
-%         if length(dest_layer_name) == 1
         dest_layer_name = dest_layer_name{1};
-%             dest_layer_input = '';
-%         else
-%             dest_layer_input = ['/', dest_layer_name{2}];
-%             dest_layer_name = dest_layer_name{1};
-%         end
+
         % check if source has an input counter of 0
-        source_idx = name2number(source_name);
+        source_idx = name2number(source_layer_name);
         if count_inputs(source_idx) == 0
             dest_idx = name2number(dest_layer_name);
             count_inputs(dest_idx) = count_inputs(dest_idx)-1;
-            final_sources = [final_sources; string(source_name)];
+            final_sources = [final_sources; string(source_layer_name)];
             final_dests = [final_dests; string(dest_name)];
         else
             if isempty(skipped)

@@ -213,6 +213,8 @@ classdef NN < handle
                 end
                 if isfield(reachOptions, 'numCores')
                     obj.numCores = reachOptions.numCores;
+                else
+                    obj.numCores = 1;
                 end
                 if isfield(reachOptions, 'relaxFactor')
                     obj.relaxFactor = reachOptions.relaxFactor;
@@ -266,11 +268,11 @@ classdef NN < handle
             end
 
             % Check validity of reachability method
-            % if exist("reachOptions",'var')
-            %     reachOptions = check_reachability_method(obj, reachOptions);
-            % else
-            %     reachOptions = struct; % empty options, run with default values
-            % end
+            if exist("reachOptions",'var')
+                reachOptions = validate_reach_options(obj, reachOptions);
+            else
+                reachOptions = struct; % empty options, run with default values
+            end
 
             % Process reachability options
             if ~isstruct(reachOptions)
@@ -572,16 +574,18 @@ classdef NN < handle
             end
             
             % performing reachability analysis
-            [R, ~] = obj.reach(I, reachOptions);        
+            R = obj.reach(I, reachOptions);        
                       
             % censure correct set format for checking safety
             n = length(R);
             m = length(U);
-            R1 = Star;
-            if ~isa(R, "Star")
+            if ~isa(R, 'Star')
+                R1 = Star;
                 for i=1:n
                     R1(i) = R(i).toStar; % transform to star sets
                 end
+            else
+                R1 = R;
             end
             
             % Possible counter inputs
@@ -607,7 +611,7 @@ classdef NN < handle
                 for i=1:n
                     for j=1:m
                         S = R1(i).intersectHalfSpace(U(j).G, U(j).g);
-                        if ~isempty(S) && strcmp(method, 'exact-star')
+                        if ~isempty(S) && strcmp(reachOptions.reachMethod, 'exact-star')
                             I1 = Star(I.V, S.C, S.d); % violate input set
                             violate_inputs = [violate_inputs I1];
                         else
@@ -935,6 +939,11 @@ classdef NN < handle
                     end
                 end
             end
+            % Ensure reachability is done in a single core
+            if ~contains(reach_method, 'exact')
+                reachOptions.reachOption = 'single';
+                reachOptions.numCores = 1;
+            end
         end
 
         % Create input set based on input vector and bounds
@@ -1086,6 +1095,10 @@ classdef NN < handle
                 exec_len = length(obj.features);
                 % ensure layer has not been evaluated yet
                 if isempty(obj.features{source_indx})
+                    if isa(obj.Layers{source_indx}, 'MaxUnpooling2DLayer')
+                        obj.Layers{source_indx}.MaxPoolIndx = obj.Layers{obj.name2indx(obj.Layers{source_indx}.PairedMaxPoolingName)}.MaxIndx;
+                        obj.Layers{source_indx}.MaxPoolSize = obj.Layers{obj.name2indx(obj.Layers{source_indx}.PairedMaxPoolingName)}.InputSize;
+                    end
                     y = obj.Layers{source_indx}.evaluate(x);
                     obj.features{source_indx} = y;
                 else
@@ -1098,16 +1111,12 @@ classdef NN < handle
                 dest_name = dest{1};
                 dest_indx = obj.name2indx(dest_name); % indx in Layers array
                 % check if there source has multiple inputs (concat layer, unpooling ...)
-                if length(dest) > 1
+                if length(dest) > 2
                     % unpooling option
                     if isa(obj.Layers{dest_indx}, 'MaxUnpooling2DLayer')
                         destP = dest{2};
                         if strcmp(destP, 'in')
                             obj.input_vals{dest_indx} = y; % store layer input
-                        elseif strcmp(destP, 'indices')
-                            obj.Layers{dest_indx}.MaxPoolIndx = obj.Layers{source_indx}.MaxIndx;
-                        elseif strcmp(destP, 'size')
-                            obj.Layers{dest_indx}.MaxPoolSize = obj.Layers{source_indx}.InputSize;
                         else
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
@@ -1144,6 +1153,7 @@ classdef NN < handle
                     obj.input_vals{dest_indx} = y;
                 end
             end
+                
             % Check if last layer is executed (default is last layer is not executed, but in the 
             % case of the PixelClassificationLayer this is necessary)
             % Assume last layer in array is the output layer
@@ -1279,10 +1289,10 @@ classdef NN < handle
         end
         
         % Ensure precision for layer parameters and inputs is consistent
-        function validate_precision(obj, inSet)
-            
-
-        end
+        % function validate_precision(obj, inSet)
+        % 
+        % 
+        % end
     end % end helper functions
     
     
@@ -1438,6 +1448,41 @@ classdef NN < handle
  
         end
 
+    end
+
+    methods (Static)  % semantic segmentation helper functions
+
+        % get paired max pooling layer name
+        function maxpooling_layer_name = getPairedMaxPoolingName(Connections, unpooling_layer_name)
+            % @unpooling_layer_name: the name of the unmaxpooling layer
+            % @maxpooling_layer_name: the name of the paired max pooling layer           
+            
+            if isempty(Connections)
+                error('No connection table');
+            end
+            
+            if ~ischar(unpooling_layer_name)
+                error('Invalid unpooling_layer_name');
+            else
+                dest_name = sprintf("%s/indices", unpooling_layer_name);
+            end
+            
+            n = size(Connections, 1);
+            source_name = [];
+            for i=1:n                
+                if strcmp(Connections.Destination(i), dest_name)
+                    source_name = Connections.Source(i);
+                    break;
+                end
+            end
+            
+            if isempty(source_name)
+                error('Unknown destination name');
+            end
+            
+            maxpooling_layer_name = erase(source_name{1}, "/indices");            
+        end
+    
     end
     
 end

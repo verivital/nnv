@@ -10,9 +10,9 @@ b = [0.5; 0.5; 0];
 S2 = S1.affineMap(W, b);
 
 figure;
-S1.plot;
+Star.plot(S1);
 hold on;
-S2.plot;
+Star.plot(S2);
 
 
 S = [S1 S2];

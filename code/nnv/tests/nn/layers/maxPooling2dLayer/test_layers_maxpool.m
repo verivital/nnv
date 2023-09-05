@@ -141,9 +141,9 @@ L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
 
 output = L.reach_star_approx(image);
 
-profile on;
+% profile on;
 exact_output = L.reach_star_exact(image);
-profile viewer;
+% profile viewer;
 
 
 

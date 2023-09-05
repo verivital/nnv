@@ -274,25 +274,39 @@ classdef Star
             
         end
         
-        % sampling a star set 
-        function x = sample(obj, N)
+        % sampling a star set (TODO: optimize sampling)
+        function V = sample(obj, N)
             % @N: number of points in the samples
             % @x: a set of N sampled points in the star set 
+            % author: Dung Tran
+            % date: 1/3/2019
             
             if N < 1
                 error('Invalid number of samples');
             end
             
-            % get predicate bounds
-            lb = obj.predicate_lb;
-            ub = obj.predicate_ub;
-            % input dimensions
-            n = obj.dim;
-            % random values (samples) within the predicate bounds
-            values = (ub - lb).*rand(n,N) + lb;
-            % generate random inputs from the initial star set
-            x = obj.V(:,1) + obj.V(:,2:end)'*values;
-                     
+            B = obj.getBox;
+            if isempty(B)
+                V = [];
+            else
+                lb = B.lb;
+                ub = B.ub;
+                X = cell(1, obj.dim);
+                V1 = [];
+                for i=1:obj.dim
+                    X{1, i} = (ub(i) - lb(i)).*rand(2*N, 1) + lb(i);
+                    V1 = vertcat(V1, X{1, i}');
+                end
+                V = [];
+                for i=1:2*N
+                    if obj.contains(V1(:, i))
+                        V = [V V1(:, i)];
+                    end
+                end
+                if size(V, 2) > N               
+                    V = V(:, 1:N);
+                end             
+            end
         end
         
         % affine mapping of star set S = Wx + b;
@@ -867,7 +881,7 @@ classdef Star
                         xmax(i) = V1(i,1);
                     else
                         [fval, exitflag] = lpsolver(-f(i, :), C1, d1, [], [], pred_lb, pred_ub, lp_solver); 
-                        if exitflag == 1
+                        if ismember(exitflag, ["l1","g5"])
                             xmax(i) = -fval + V1(i, 1);
                         else
                             error("Cannot find an optimal solution, exitflag = " + string(exitflag));
@@ -997,6 +1011,14 @@ classdef Star
             neg_mat = obj.V;
             pos_mat(pos_mat < 0) = 0; 
             neg_mat(neg_mat > 0) = 0;
+
+            % ensure predicate bounds are not empty (if empty, set to 1 and -1)
+            if isempty(obj.predicate_lb)
+                obj.predicate_lb = -1*ones(obj.nVar,1); 
+            end
+            if isempty(obj.predicate_ub)
+                obj.predicate_ub = ones(obj.nVar,1);
+            end
             
             xmin1 = pos_mat*[0; obj.predicate_lb];
             xmax1 = pos_mat*[0; obj.predicate_ub];
@@ -1047,7 +1069,7 @@ classdef Star
                 end
  
                 [fval, exitflag] = lpsolver(-f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub);
-                if exitflag > 0
+                if ismember(exitflag, ["l1","g5"])
                     ub(i) = -fval;
                 else
                     error('Cannot find an optimal solution, exitflag = %d', exitflag);
@@ -1517,10 +1539,7 @@ classdef Star
         % plot an array of Star (plot exactly, this is time consuming)
         function plots(varargin)
             % @S: an array of Stars
-            % @colar: color
-            
-            % author: Dung Tran
-            % date: update in 10/2/2019
+            % @color: color
             
             switch nargin
                 

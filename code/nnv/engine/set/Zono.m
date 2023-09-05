@@ -547,20 +547,20 @@ classdef Zono
             for i=1:n-1
                 max_gens = max_order * Z(i).dim;
                 if max_gens >= size(Z(i).V, 2)
-                    Z(i).plot(color);
+                    Zono.plot(Z(i), color);
                 else
                     Zr = Z(i).orderReduction_box(max_gens);
-                    Zr.plot(color);
+                    Zono.plot(Zr,color);
                 end
                 hold on;
             end
             
             max_gens = max_order * Z(n).dim;
             if max_gens >= size(Z(n).V, 2)
-                Z(n).plot(color);
+                Zono.plot(Z(n),color);
             else
                 Zr = Z(n).orderReduction_box(max_gens);
-                Zr.plot(color);
+                Zono.plot(Zr,color);
             end
             
         end

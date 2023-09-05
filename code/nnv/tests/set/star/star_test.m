@@ -19,10 +19,10 @@ S2 = Star(V2, C2, d2);
 S3 = S1.MinkowskiSum(S2);
 
 fig = figure;
-S2.plot;
+Star.plot(S1);
 hold on;
-S1.plot;
+Star.plot(S2);
 hold on;
-S3.plot;
+Star.plot(S3);
 
 B2 = S2.getBox();

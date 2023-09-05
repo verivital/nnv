@@ -64,32 +64,28 @@ classdef DLinearNNCS < handle
             % date: 9/30/2019
             
             
-            if  ~isa(controller, 'FFNNS')
-                error('The controller is not a feedforward neural network');
-            end
-            
-            if ~controller.isPieceWiseNetwork
-                error('The controller is not a piecewise network, i.e., there exists a layer whose activation function is not piecewise linear');
+            if  ~isa(controller, 'NN')
+                error('The controller is not a neural network');
             end
             
             if ~isa(plant, 'DLinearODE')
                 error('The plant is not a discrete linear system');
             end            
                         
-            if plant.nO > controller.nI
+            if plant.nO > controller.InputSize
                 error('Inconsistency between number of feedback outputs and number of controller inputs');
             end
             
-            if plant.nI ~= controller.nO
+            if plant.nI ~= controller.OutputSize
                 error('Inconsistency between the number of plant inputs and the number of controller outputs');
             end
                         
             obj.controller = controller;
             obj.plant = plant;
             obj.nO = plant.nO; % number of outputs of the system == number of the plant's outputs
-            obj.nI = controller.nI; % number of input to the controller
+            obj.nI = controller.InputSize; % number of input to the controller
             obj.nI_fb = plant.nO; % number of feedback inputs to the controller
-            obj.nI_ref = controller.nI - obj.nI_fb; % number of reference inputs to the controller
+            obj.nI_ref = obj.nI - obj.nI_fb; % number of reference inputs to the controller
             
         end
         
@@ -158,7 +154,9 @@ classdef DLinearNNCS < handle
             
             obj.ref_I = ref_input1;
             obj.numCores = numCores1;
-            obj.method = method1; 
+            obj.controller.numCores = numCores1;
+            obj.method = method1;
+            obj.controller.reachMethod = method1;
             obj.init_set = init_set1;
             
             obj.plantReachSet = cell(numOfSteps, 1);
@@ -345,7 +343,9 @@ classdef DLinearNNCS < handle
                       
             obj.ref_I = ref_input1;
             obj.numCores = numCores1;
-            obj.method = method1; 
+            obj.controller.numCores = numCores1;
+            obj.method = method1;
+            obj.controller.reachMethod = method1;
             obj.init_set = init_set1;
             
             obj.plantReachSet = cell(numOfSteps, 1);
@@ -477,7 +477,7 @@ classdef DLinearNNCS < handle
             n = length(I);
             
             for i=1:n
-                U{i} = obj.controller.reach(I(i), 'exact-star', obj.numCores);
+                U{i} = obj.controller.reach(I(i));
             end
         
 

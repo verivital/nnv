@@ -5,7 +5,7 @@ Z1 = Zono(c1, V1');
 Z2 = Z1.orderReduction_box(3);
 
 figure;
-Z2.plot;
+Zono.plot(Z2);
 hold on;
-Z1.plot;
+Zono.plot(Z1);
 

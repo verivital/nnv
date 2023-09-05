@@ -10,8 +10,8 @@ Z2 = Zono(c2, V2);
 Z3 = Z2.convexHull(Z1);
 
 figure;
-Z3.plot;
+Zono.plot(Z3);
 hold on;
-Z2.plot;
+Zono.plot(Z2);
 hold on; 
-Z1.plot;
+Zono.plot(Z1);

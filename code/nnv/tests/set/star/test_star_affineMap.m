@@ -14,9 +14,9 @@ S1 = S.affineMap(W, b);
 
 
 figure;
-S.plot;
+Star.plot(S);
 hold on;
-S1.plot;
+Star.plot(S1);
 
 lb = [0; -1; 0];
 ub = [1; 1; 1];
@@ -26,4 +26,4 @@ W = rand(3,3);
 S4 = S3.affineMap(W, []);
 
 
-P = Polyhedron('A', C, 'b', d)
+P = Polyhedron('A', C, 'b', d);

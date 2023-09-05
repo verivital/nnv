@@ -11,19 +11,19 @@ Z12 = Z1.convexHull(Z2);
 
 
 figure;
-Z12.plot;
+Zono.plot(Z12);
 hold on;
-Z1.plot;
+Zono.plot(Z1);
 hold on;
-Z2.plot;
+Zono.plot(Z2);
 
 Z3 = Z1.convexHull_with_linearTransform(W);
 figure;
-Z3.plot;
+Zono.plot(Z3);
 hold on;
-Z1.plot;
+Zono.plot(Z1);
 hold on;
-Z2.plot;
+Zono.plot(Z2);
 
 
 

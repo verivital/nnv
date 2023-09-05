@@ -1,19 +1,3 @@
-%to run this as a test, use results_layers_maxunpool=runtests('test_layers_maxunpool')
-%requirements: file must start or end with test
-%each test starts with two percent signs followed by the name
-%shared vairables must appear before first test
-%variables made by a test are not available to other tests.
-
-
-%shared variables
-
-
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_MaxUnPooling2DLayer_evaluation.m
-
-
 %% test 1: MaxUnPooling2DLayer evaluation
 
 % original input volume: color image with 3 channels
@@ -22,19 +6,13 @@ inputVol(:, :, 2) = [1 2 2 1; 2 1 2 0; 2 2 2 0; 1 1 1 0]; % channel 2 input matr
 inputVol(:, :, 3) = [0 0 2 2; 0 2 1 1; 0 2 0 0; 0 2 1 0]; % channel 3 input matrix
 
 L = MaxPooling2DLayer([2 2], [2 2], [0 0 0 0]);
-
 y = L.evaluate(inputVol);
 
 L1 = MaxUnpooling2DLayer();
-
-
-y1 = L1.evaluate(y, L.MaxIndx, L.InputSize);
-
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_MaxUnPooling2DLayer_reach_star.m
-
+L1.PairedMaxPoolingName = 'max_pooling_2d_layer';
+L1.MaxPoolIndx = L.MaxIndx;
+L1.MaxPoolSize = L.InputSize;
+y1 = L1.evaluate(y);
 
 %% test 2: MaxUnPooling2DLayer reach star
 

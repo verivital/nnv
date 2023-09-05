@@ -10,6 +10,6 @@ g = [-1];
 S1 = S.intersectHalfSpace(H, g);
 
 figure;
-S.plot;
+Star.plot(S);
 hold on;
-S1.plot;
+Star.plot(S1);

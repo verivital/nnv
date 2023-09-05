@@ -103,7 +103,7 @@ classdef HardSig
             p = length(I);
             S = [];
             
-            if isempty(option)
+            if isempty(option) || strcmp(option, 'single')
                 for i=1:p
                     S =[S, SatLin.stepReach(I(i), index)];
                 end
@@ -121,7 +121,7 @@ classdef HardSig
         function S = reach_star_exact(I, option)
             % @I: an array of star input sets
             % @option: = 'parallel' use parallel option
-            %          = '' do not use parallel option
+            %          = 'single' do not use parallel option
             
             % author: Dung Tran
             % date: 27/2/2019

@@ -6,6 +6,6 @@ S = Star([center V], P.A, P.b);
 S1 = S.scalarMap(0.7);
 
 figure;
-S.plot;
+Star.plot(S);
 hold on;
-S1.plot;
+Star.plot(S1);

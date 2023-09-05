@@ -20,10 +20,10 @@ S12 = S1.MinkowskiSum(S2);
 S13 = S1.MinkowskiSum(S3);
 
 figure;
-S12.plot;
+Star.plot(S12);
 hold on;
-S1.plot;
+Star.plot(S1);
 hold on;
-S2.plot;
+Star.plot(S2);
 figure;
-S12.plot;
+Star.plot(S13);

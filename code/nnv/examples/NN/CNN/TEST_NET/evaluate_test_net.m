@@ -1,6 +1,3 @@
-clc;
-clear;
-
 % Load mnist data set
 load('test_images.mat');
 % load cnn
@@ -18,7 +15,7 @@ Y = zeros(N, 1);
 % check if CNN work ok
 correct_num = 0;
 for i=1:N
-    Y(i) = classify(net, IM_data(:,:,i));
+    Y(i) = classify(net, IM_data(:,:,i)); % classify each image (can do this faster by having all N images as input in the same array...)
     if Y(i) ~= IM_labels(i)
         fprintf('\nNetwork evaluations give wrong results for the %d^th image', i);
         fprintf('\nLabels = %d, classification result = %d', IM_labels(i), Y(i));

@@ -1,7 +1,3 @@
-
-clc;
-clear;
-
 fprintf('\n\n=============================LOAD VGG19 ======================\n');
 
 % Load the trained model 
@@ -21,16 +17,17 @@ IS = ImageStar(double(V), C, d, pred_lb, pred_ub);
 
 fprintf('\n\n========= PARSE VGG19 FOR REACHABILITY ANALYSIS ============\n');
 
-net = CNN.parse(net, 'VGG19');
+net = matlab2nnv(net);
 
 fprintf('\n\n======= DO REACHABILITY ANLAYSIS WITH EXACT-STAR METHOD ======\n');
 
-net.reach(IS, 'exact-star');
+reachOptions = struct;
+reachOptions.reachMethod = 'exact-star';
+net.reach(IS, reachOptions);
 
-exactReachSet = net.reachSet{44};
+exactReachSet = net.reachSet{end};
 
-fprintf('\n\n========REACHABILITY IS DONE IN %.5f SECONDS==========\n', net.totalReachTime);
-
+fprintf('\n\n========REACHABILITY IS DONE IN %.5f SECONDS==========\n', sum(net.reachTime));
 
 
 point1 = [1 1 946]; % bell pepper index

@@ -1218,11 +1218,13 @@ classdef NN < handle
                 exec_len = length(obj.reachSet);
                 % ensure layer has not been eexcuted yet
                 if exec_len >= source_indx && isempty(obj.reachSet{source_indx})
+                    t = tic;
                     if isequal(class(obj.Layers{1,1}), 'SequenceInputLayer')
                         outSet = obj.Layers{source_indx}.reachSequence(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                     else
                         outSet = obj.Layers{source_indx}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                     end
+                    obj.reachTime(source_indx) = toc(t);
                     obj.reachSet{source_indx} = outSet;
                 end
                 

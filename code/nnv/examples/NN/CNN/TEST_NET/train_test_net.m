@@ -57,7 +57,7 @@ YValidation = imdsValidation.Labels;
 
 accuracy = sum(YPred == YValidation)/numel(YValidation)
 
-save TEST_NET.mat net; 
+% save TEST_NET.mat net; 
 
 N = 2000; % get 100 images and its labels from the imdsValidation
 IM_data = zeros(28, 28, N);
@@ -67,4 +67,4 @@ for i=1:N
     IM_labels(i) = imdsValidation.Labels(i);
 end
 
-save test_images.mat IM_data IM_labels
+% save test_images.mat IM_data IM_labels

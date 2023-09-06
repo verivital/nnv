@@ -1,4 +1,4 @@
-%% Robustness verification of a CNN (L infinity adversarial attack)
+%% Robustness verification of a NN (L infinity adversarial attack)
 
 % Load network 
 mnist_model = load('mnist_model_fc.mat');
@@ -15,7 +15,7 @@ imds = imageDatastore(digitDatasetPath, ...
 
 % Load first image in dataset
 [img, fileInfo] = readimage(imds,7500);
-target = double(fileInfo.Label); % label = 0 (index 1 for our network)
+target = double(fileInfo.Label); % label = 7 (index 8 for our network)
 img = double(img); % convert to double
 numClasses = net.OutputSize;
 
@@ -43,6 +43,7 @@ IS = ImageStar(lb_clip, ub_clip); % this is the input set we will use
 % Evaluate input image
 Y_outputs = net.evaluate(img); 
 [~, yPred] = max(Y_outputs); % (expected: y = 1)
+
 % Evaluate lower and upper bounds
 LB_outputs = net.evaluate(lb_clip);
 [~, LB_Pred] = max(LB_outputs); % (expected: y = 1)

@@ -1,0 +1,5 @@
+All data for the ACAS Xu benchmark can be found in
+ - networks (onnx)
+    nnv/data/ACASXu/onnx/
+ - properties (vnnlib)
+    nnv/data/ACASXu/vnnlib

@@ -29,22 +29,13 @@ I = Star(lb, ub);
 
 % select option for reachability algorithm
 reachOptions = struct; % initialize
-reachOptions.reachMethod = 'exact-star'; % reachability method
-reachOptions.numCores = 4; % define number of cores for parallel execution
-
-% Comute reachability (exact)
-te = tic;
-Re = F.reach(I, reachOptions); % exact reach set using stars
-te = toc(te);
-
-% select option for reachability algorithm
-reachOptions = struct; % initialize
-reachOptions.reachMethod = 'approx-star';
+reachOptions.reachMethod = 'relax-star-range'; % reachability method
+reachOptions.relaxFactor = 0.0;
 
 % Comute reachability (approx)
-ta = tic;
-Ra = F.reach(I, reachOptions); % exact reach set using stars
-ta = toc(ta);
+tr = tic;
+Rr = F.reach(I, reachOptions); % exact reach set using stars
+tr = toc(tr);
 
 % generate some input to test the output (evaluate network)
 e = 0.2;
@@ -65,26 +56,21 @@ end
 %% Visualize results
 
 % Plot exact and approx sets 
-fig = figure;
-Star.plot(Ra,'b');
-hold on;
-Star.plots(Re,'c');
-hold on;
-
-% Plot some of the evaluated inputs
-plot(y(1, :), y(2, :), '.', 'Color', 'k');
-
-% Evaluate upper, lower bounds
-y1 = F.evaluate(lb);
-y2 = F.evaluate(ub);
-y3 = F.evaluate((lb+ub)/2);
-
-% Plot upper and lower bound results
-plot(y1(1,:), y1(2,:), 'x', 'Color', 'r');
-hold on;
-plot(y2(1,:), y2(2,:), 'x', 'Color', 'r');
-hold on;
-plot(y3(1,:), y3(2,:), 'x', 'Color', 'r');
-
-% Save figure
-% saveas(fig,'exact_vs_approx.jpg');
+% fig = figure;
+% Star.plots(Rr,'r');
+% hold on;
+% 
+% % Plot some of the evaluated inputs
+% plot(y(1, :), y(2, :), '.', 'Color', 'k');
+% 
+% % Evaluate upper, lower bounds
+% y1 = F.evaluate(lb);
+% y2 = F.evaluate(ub);
+% y3 = F.evaluate((lb+ub)/2);
+% 
+% % Plot upper and lower bound results
+% plot(y1(1,:), y1(2,:), 'x', 'Color', 'r');
+% hold on;
+% plot(y2(1,:), y2(2,:), 'x', 'Color', 'r');
+% hold on;
+% plot(y3(1,:), y3(2,:), 'x', 'Color', 'r');

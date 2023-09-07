@@ -5,7 +5,8 @@
 t = tic; % track total time for the training
 
 % Load data
-imds = imageDatastore('images', 'IncludeSubfolders',true,'LabelSource','foldernames');
+gtsrb_path = [nnvroot(), filesep, 'data', filesep, 'GTSRB', filesep];
+imds = imageDatastore(gtsrb_path, 'IncludeSubfolders',true,'LabelSource','foldernames');
 
 inputSize = [30 29];
 imds.ReadFcn = @(loc)imresize(imread(loc),inputSize);

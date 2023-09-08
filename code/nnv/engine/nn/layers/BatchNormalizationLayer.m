@@ -1,5 +1,5 @@
 classdef BatchNormalizationLayer < handle
-    % The Batch Normalization Layer class in CNN
+    % The Batch Normalization Layer class 
     %   Contain constructor and reachability analysis methods   
     %   Dung Tran: 1/1/2020
     
@@ -81,32 +81,12 @@ classdef BatchNormalizationLayer < handle
              
         end
         
-        
     end
         
-    % evaluation method
-    methods
+    
+    methods % evaluation functions
         
-        function y = evaluate_old(obj, input)
-            % @input: input image
-            % @y: output image with normalization
-            
-            % author: Dung Tran
-            % date: 1/1/2020
-                             
-            if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                y = input - obj.TrainedMean;
-                for i=1:obj.NumChannels
-                    y(:,:,i) = y(:,:,i)/(sqrt(obj.TrainedVariance(1,1,i) + obj.Epsilon));
-                    y(:,:,i) = obj.Scale(1, 1, i)*y(:,:,i) + obj.Offset(1,1,i);
-                end
-                
-            else
-                y = input;
-            end
-                               
-        end       
-        
+        % Evaluate input 
         function y = evaluate(obj, input)
             % @input: input image
             % @y: output image with normalization
@@ -143,9 +123,9 @@ classdef BatchNormalizationLayer < handle
                 y = input;
             end
             
-            
         end 
         
+        % Evaluate input sequence
         function y = evaluateSequence(obj, input)
             newInput = dlarray(input);
             if length(size(input))==2
@@ -155,14 +135,13 @@ classdef BatchNormalizationLayer < handle
             end
             y = extractdata(y);
         end
+    
     end
     
     
+    methods % reachability functions
         
-    % exact reachability analysis using ImageStar or ImageZono
-    methods
-        
-        
+        % reachability method of a single star (in_image is a 1x1 ImageStar)
         function image = reach_star_single_input_old(obj, in_image)
             % @in_image: an input imagestar
             % @image: output set
@@ -193,6 +172,7 @@ classdef BatchNormalizationLayer < handle
             
         end
         
+        % reachability method of a single star (in_image is a 1x1 ImageStar)
         function image = reach_star_single_input(obj, in_image)
             % @in_image: an input imagestar
             % @image: output set
@@ -237,8 +217,15 @@ classdef BatchNormalizationLayer < handle
                     end
                     x = x.affineMap(l, -l.*obj.TrainedMean);
                 end   
-                
-                image = x.affineMap(obj.Scale, obj.Offset);
+                if numel(obj.Scale) == obj.NumChannels
+                    x.V = pagemtimes(scale,x.V);
+                    if ~isempty(offset)
+                        x.V(:,:,:,1) = x.V(:,:,:,1) + offset;
+                    end
+                    image = x;
+                else
+                    image = x.affineMap(obj.Scale, obj.Offset);
+                end
             elseif isa(image, 'Star')
                 l = scale ./ sqrt(var + eps);
                 
@@ -249,6 +236,7 @@ classdef BatchNormalizationLayer < handle
             
         end
         
+        % Reachability of the layer when in_image is a ImageZono or multiple ImageZonos
         function image = reach_zono(obj, in_image)
             % @in_image: an input ImageZono
             % @image: output set
@@ -279,6 +267,7 @@ classdef BatchNormalizationLayer < handle
             
         end
         
+        % Reachability analysis when in_image is an array of ImageStar sets 
         function images = reach_star_multipleInputs(obj, in_images, option)
             % @in_images: an array of ImageStars input set
             % @option: = 'parallel' or 'single' or empty
@@ -307,7 +296,7 @@ classdef BatchNormalizationLayer < handle
             end
         end
         
-        
+        % Reachability of the layer when in_image is an array of ImageZono sets
         function images = reach_zono_multipleInputs(obj, in_images, option)
             % @in_images: an array of ImageZonos input set
             % @option: = 'parallel' or 'single' or empty
@@ -331,7 +320,8 @@ classdef BatchNormalizationLayer < handle
             end
 
         end
-
+        
+        % reach function for a single inputImageStar sequence
         function image = reach_star_single_input_Sequence(obj, in_image)
             % @in_image: an input imagestar
             % @image: output set
@@ -364,7 +354,7 @@ classdef BatchNormalizationLayer < handle
             end 
         end
         
-
+        % reach function when input set is a sequence
         function images = reach_star_multipleInputs_Sequence(obj, in_images, option)
             % @in_images: an array of ImageStars input set
             % @option: = 'parallel' or 'single' or empty
@@ -388,8 +378,8 @@ classdef BatchNormalizationLayer < handle
 
             end
         end
-       
         
+        % Main reach function
         function images = reach(varargin)
             % @in_image: an input imagestar or imagezono
             % @image: output set
@@ -449,7 +439,8 @@ classdef BatchNormalizationLayer < handle
             end
           
         end
-                 
+        
+        % Main reach function when input set is a sequence
         function images = reachSequence(varargin)
         %obj = varargin{1};
         %seqs = obj.reach(varargin{2:nargin});
@@ -504,29 +495,25 @@ classdef BatchNormalizationLayer < handle
             
 
         end
+    
     end
     
     
     methods(Static)
-         % parse a trained batch normalization layer from matlab
+
+        % parse a trained batch normalization layer from matlab
         function L = parse(layer)
             % @layer: batch normalization layer
             % @L: constructed layer
-                        
-            % author: Dung Tran
-            % date: 1/1/2020
-            
             
             if ~isa(layer, 'nnet.cnn.layer.BatchNormalizationLayer')
                 error('Input is not a Matlab nnet.cnn.layer.BatchNormalizationLayer class');
             end
-                       
             L = BatchNormalizationLayer('Name', layer.Name, 'NumChannels', layer.NumChannels, 'TrainedMean', layer.TrainedMean, 'TrainedVariance', layer.TrainedVariance, 'Epsilon', layer.Epsilon, 'Offset', layer.Offset, 'Scale', layer.Scale, 'NumInputs', layer.NumInputs, 'InputNames', layer.InputNames, 'NumOutputs', layer.NumOutputs, 'OutputNames', layer.OutputNames);
             
         end
         
     end
-    
     
     
 end

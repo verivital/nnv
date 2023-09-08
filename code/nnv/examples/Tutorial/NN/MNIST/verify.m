@@ -88,8 +88,3 @@ hold on;
 xlim([-0.5 9.5]);
 scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');
 
-
-
-   
-
-

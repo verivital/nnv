@@ -72,6 +72,7 @@ for i=1:N
     if any([yPred, LB_Pred, UB_Pred] ~= target)
         results(i,1) = 0;
         results(i,2) = toc(t);
+        continue;
     end
     
     % Now, we can do the verification process of this image w/ L_inf attack

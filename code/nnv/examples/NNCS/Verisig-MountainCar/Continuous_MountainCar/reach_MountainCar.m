@@ -84,7 +84,7 @@ for i=1:1 % test for first initial set
     reachPRM.init_set = init_set;
     [reachSet{i, 1}, reachTime(i)] = ncs.reach(reachPRM);
 end
-disp("Reachbility computation done")
+disp("Reachability computation done")
 
 %% Visualization
 S = reachSet{1,1};

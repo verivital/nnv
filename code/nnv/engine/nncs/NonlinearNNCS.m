@@ -48,7 +48,7 @@ classdef NonlinearNNCS < handle
         controlSet = []; % control signal of the controller over time
         simTrace = []; % simulation trace
         controlTrace = []; % control trace
-        execFirst = 'controller'; % default
+        execFirst = 'controller'; % execute first (default: controller, other options: plant)
 
     end
     

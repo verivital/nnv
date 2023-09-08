@@ -86,11 +86,11 @@ classdef NonLinearODE < handle
             option.taylorTerms = 4; % number of taylor terms for reachable sets
             option.zonotopeOrder = 20; % zonotope order
             option.intermediateOrder = 20; 
-            option.reductionTechnique = 'girard';
+            % option.reductionTechnique = 'girard';
             option.errorOrder = 1;
             option.reductionInterval = 1e3;
             option.maxError = 0.1*ones(obj.dim, 1);
-            option.tensorOrder=3; % Recommended 2 or 3
+            option.tensorOrder=3; % Recommended 2 or 3 (minimum 3 for poly)
             option.alg = 'lin'; % 'lin-adaptive' or 'poly-adaptive' recommended (no need to select other parameters)
             
             obj.options = option; % default option

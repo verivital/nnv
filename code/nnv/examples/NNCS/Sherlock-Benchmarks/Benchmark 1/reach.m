@@ -16,6 +16,8 @@ Controller.InputSize = 2;
 Controller.OutputSize = 1;
 
 % Plant
+controlPeriod = 0.2;
+reachStep = 0.01;
 Plant = NonLinearODE(2, 1, @dynamics, reachStep, controlPeriod, eye(2));
 
 % NNCS

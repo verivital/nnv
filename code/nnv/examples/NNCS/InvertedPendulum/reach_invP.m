@@ -27,7 +27,7 @@ init_set = Star(lb,ub);
 
 N = 10; % number of step
 n_cores = 1; % number of cores 
-reachPRM.numSteps = 10;
+reachPRM.numSteps = 25;
 reachPRM.numCores = n_cores;
 reachPRM.ref_input = [];
 reachPRM.reachMethod = 'approx-star';

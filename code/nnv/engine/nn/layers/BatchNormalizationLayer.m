@@ -140,59 +140,21 @@ classdef BatchNormalizationLayer < handle
     
     
     methods % reachability functions
-        
-        % reachability method of a single star (in_image is a 1x1 ImageStar)
-        function image = reach_star_single_input_old(obj, in_image)
-            % @in_image: an input imagestar
-            % @image: output set
-            
-            % author: Dung Tran
-            % date: 1/7/2020
-            
-            if ~isa(in_image, 'ImageStar')
-                error('Input is not an ImageStar');
-            end
-            
-            if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
-                error('Batch Normalization Layer does not have enough parameters');
-            end
-            
-            var = obj.TrainedVariance;
-            eps = obj.Epsilon;
-            mean = obj.TrainedMean;
-            scale = obj.Scale; 
-            offset = obj.Offset;
-            l(1,1, obj.NumChannels) = 0;
-            for i=1:obj.NumChannels
-                l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
-            end
-            
-            x = in_image.affineMap(l, -l.*mean);
-            image = x.affineMap(scale, offset);
-            
-        end
-        
+                
         % reachability method of a single star (in_image is a 1x1 ImageStar)
         function image = reach_star_single_input(obj, in_image)
             % @in_image: an input imagestar
             % @image: output set
             
-            % author: Mykhailo Ivashchenko
-            % date: 9/17/2022
-            
-            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star') % CHANGED
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star') % input may be Star or ImageStar
                 error('Input is not a Star or ImageStar');
             end
-                       
-            var = obj.TrainedVariance;
-            eps = obj.Epsilon;
-            mean = obj.TrainedMean;
-            scale = obj.Scale; 
-            offset = obj.Offset;
-                        
+            
+            % make copy of input set
             image = in_image;
             
             if isa(image, 'ImageStar')
+                % Get parameters to the right shape
                 if(length(size(obj.TrainedMean)) == 2) && size(image.V, 1) == 1 && size(image.V, 2) == 1 && length(size(image.V)) == 4
                     obj.TrainedMean = reshape(obj.TrainedMean, [1 1 size(obj.TrainedMean, 1)]);
                     obj.TrainedVariance = reshape(obj.TrainedVariance, [1 1 size(obj.TrainedVariance, 1)]);
@@ -208,34 +170,41 @@ classdef BatchNormalizationLayer < handle
                     obj.NumChannels = 1;
                 end
                 
+                % Begin reachability analysis
                 x = in_image;
                 
+                % If mean and variance exist
                 if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                    l(1,1, obj.NumChannels) = 0;
+                    % 1) Normalized all elements of x (for each channel independently)
+                    % 1a) substract mean from elements of x per channel
                     for i=1:obj.NumChannels
-                        l(1,1,i) = 1/sqrt(obj.TrainedVariance(1,1,i) + obj.Epsilon);
+                        x.V(:,:,i,1) = x.V(:,:,i,1) - obj.TrainedMean(:,:,i);
                     end
-                    x = x.affineMap(l, -l.*obj.TrainedMean);
-                end   
-                if numel(obj.Scale) == obj.NumChannels
-                    x.V = pagemtimes(scale,x.V);
-                    if ~isempty(offset)
-                        x.V(:,:,:,1) = x.V(:,:,:,1) + offset;
+                    % 1b) Divide by sqrt(variance + epsilon)
+                    for i=1:obj.NumChannels
+                        x.V(:,:,i,:) = x.V(:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,i) + obj.Epsilon);
+                    end
+                    % 2) Batch normalization operation further shifts and scales the activations using Scale and Offset values
+                    % 2a) Scale values
+                    for i=1:obj.NumChannels
+                        x.V(:,:,i,:) = x.V(:,:,i,:) .* obj.Scale(:,:,i);
+                    end
+                    % 2b) Apply offset
+                    for i=1:obj.NumChannels
+                        x.V(:,:,i,1) = x.V(:,:,i,1) + obj.Offset(:,:,i);
                     end
                     image = x;
-                else
-                    image = x.affineMap(obj.Scale, obj.Offset);
                 end
-            elseif isa(image, 'Star')
-                l = scale ./ sqrt(var + eps);
                 
+            elseif isa(image, 'Star')
+                l = obj.Scale ./ sqrt(obj.TrainedVariance + obj.Epsilon);
                 for i=1:size(image.V, 2)
-                    image.V(:, i) = ((image.V(:, i) - mean) .* l + offset);
+                    image.V(:, i) = ((image.V(:, i) - obj.TrainedMean) .* l + obj.Offset);
                 end
             end
             
         end
-        
+
         % Reachability of the layer when in_image is a ImageZono or multiple ImageZonos
         function image = reach_zono(obj, in_image)
             % @in_image: an input ImageZono

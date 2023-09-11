@@ -80,8 +80,8 @@ __NN__
     * [Robustness verification of a single image](code/nnv/examples/Tutorial/NN/MNIST/verify_fc.m) using a [model with fully-connected and ReLU layers](code/nnv/examples/Tutorial/NN/MNIST/training_fc.m).
     * [Robustness verification of a single image](code/nnv/examples/Tutorial/NN/MNIST/verify.m) using a [model with Convolutional, Pooling, Batch Normalization, ReLU, and fully-connected layers](code/nnv/examples/Tutorial/NN/MNIST/training.m)
 * Robustness verification on the GTSRB dataset.
-    * Includes [training](code/nnv/examples/Tutorial/NN/GTSRB/train.m) and [verification](code/nnv/examples/Tutorial/NN/GTSRB/verify.m) scripts as well.
-* Comparison of exact (sound and complete) and approximate (sound and incomplete) methods using Star sets [exact vs approx](code/nnv/examples/Tutorial/NN/randomNN/reachNN7_3_Star.m)
+    * Includes [training](code/nnv/examples/Tutorial/NN/GTSRB/train.m) and [verification](code/nnv/examples/Tutorial/NN/GTSRB/verify_robust_27.m) scripts as well.
+* Comparison of exact (sound and complete) and approximate (sound and incomplete) methods using Star sets [exact vs approx](code/nnv/examples/Tutorial/NN/randomNN/reach_exact_vs_approx.m)
 
 __NNCS__
   

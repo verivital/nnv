@@ -1,8 +1,3 @@
-
-clc;
-clear;
-
-
 fprintf('\n\n=============================LOAD VGG16 ======================\n');
 
 % Load the trained model 
@@ -49,9 +44,11 @@ IS = ImageStar(double(V), C, d, pred_lb, pred_ub);
 
 fprintf('\n\n========= PARSE VGG16 FOR REACHABILITY ANALYSIS ============\n');
 
-net = CNN.parse(net, 'VGG16');
+net = matlab2nnv(net);
 
 fprintf('\n\n======= DO REACHABILITY ANLAYSIS WITH APPROX-STAR METHOD ======\n');
 
-net.reach(IS, 'approx-star');
+reachOptions = struct;
+reachOptions.reachMethod = 'approx-star';
+R = net.reach(IS, reachOptions);
 

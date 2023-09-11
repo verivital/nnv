@@ -1,25 +1,30 @@
-% This script does reachability analysis for mountain car benchmark and
-% plot some reachable set
+% Reachability analysis for mountain car benchmark 
 
+%% NNCS
+
+% Controller
 load MountainCar_ReluController.mat;
 W = nnetwork.W; % weight matrices
 b = nnetwork.b; % bias vectors
+
 n = length(W);
-Layers = [];
+Layers = {};
 for i=1:n - 1
     L = LayerS(W{1, i}, b{1, i}, 'poslin');
-    Layers = [Layers L];
+    Layers{i} = L;
 end
-L = LayerS(W{1, n}, b{1, n}, 'purelin');
-Layers = [Layers L];
-Controller = FFNNS(Layers); % feedforward neural network controller
+Layers{n} = LayerS(W{1, n}, b{1, n}, 'purelin');
+Controller = NN(Layers); % feedforward neural network controller
+Controller.InputSize = 2;
+Controller.OutputSize = 1;
 
+% Plant
 Ts = 0.5; 
 output_mat = [1 0; 0 1];
 Plant = DNonLinearODE(2, 1, @discrete_car_dynamics, Ts, output_mat); % two states and one input
 
+% NNCS
 feedbackMap = [0]; % feedback map, y[k] = [p[k]; v[k]], feedback both position and velocity with no delay 
-
 ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 
 % initial condition of the Plant (the car)
@@ -27,6 +32,8 @@ ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 
 % This initial condition come from the paper: 
 % Verisig: verifying safety properties of hybrid systems with neural network controllers, Radoslav Ivanov, HSCC2019, 
+
+%% Experiment conditions
 
 p0 = cell(13, 1);
 p0{1,1} = [-0.41; -0.4];
@@ -51,14 +58,18 @@ safety_checkingTime = zeros(13, 1); % safety checking time
 verifyTime = zeros(13,1); % total verification time = reachTime + safety_checkingTime
 reachSet = cell(13, 1);
 
+%% Reachability analysis
+
+% Parameterss
 input_ref = []; % empty input reference in this case study
-N = 10;  % takes 20 seconds 
+N = 10;  
 n_cores = 4; % number of cores 
 reachPRM.numSteps = N;
 reachPRM.ref_input = input_ref;
 reachPRM.reachMethod = 'approx-star';
 reachPRM.numCores = n_cores;
 
+% Reach computation
 for i=1:1 % test for first initial set
     init_pos = p0{i, 1};
     init_vel = v0;
@@ -71,6 +82,7 @@ for i=1:1 % test for first initial set
     [reachSet{i, 1}, reachTime(i)] = ncs.reach(reachPRM);
 end
 
+%% Visualization
 S = reachSet{1,1};
 %Star.plots(S);
 Star.plotBoxes_2D_noFill(S, 1, 2, 'blue');

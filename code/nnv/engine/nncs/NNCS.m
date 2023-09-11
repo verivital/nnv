@@ -16,7 +16,6 @@ classdef NNCS < handle
         %             u(k) <---- controller |<---- y(k-d)-----(output feedback) 
         %                                   |<----- v(k)------(reference input)                                    
         
-        
         % the input to neural net controller is grouped into 2 group
         % the first group contains all the reference inputs
         % the second group contains all the output feedback with delays
@@ -157,14 +156,14 @@ classdef NNCS < handle
              for i=2:n_steps + 1
                  
                  % reachability analysis for  controller
-                 fprintf('Reachability analysis for the controller \n');
+                 % fprintf('Reachability analysis for the controller \n');
                  fb_I = obj.reachSetTree.extract_fb_ReachSet(i - 1);   
                  input_set = obj.nextInputSetStar(fb_I{1});
-                 [U,~] = obj.controller.reach(input_set, 'exact-star', n_cores); % control set at step i
+                 U = obj.controller.reach(input_set); % control set at step i
                  U1 = Star.get_hypercube_hull(U);   
                  
                  % reachability analysis for plant
-                 fprintf('\nReachability analysis for the plant \n');
+                 % fprintf('\nReachability analysis for the plant \n');
                  U1 = U1.toStar();
                  obj.controlSet = [obj.controlSet U1];
                  R = obj.plant.stepReachStar(fb_I{1}(length(fb_I{1})), U1);                 

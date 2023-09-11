@@ -1,40 +1,38 @@
+%% NNCS
+
+% Controller
 load controller.mat;
 
 weights = network.weights;
 bias = network.bias;
 n = length(weights);
-Layers = [];
+Layers = {};
 for i=1:n - 1
-    L = Layer(weights{1, i}, bias{1, i}, 'ReLU');
-    Layers = [Layers L];
+    Layers{i} = LayerS(weights{1, i}, bias{1, i}, 'poslin');
 end
+Layers{n} = LayerS(weights{1, n}, bias{1, n}, 'purelin');
+Controller = NN(Layers); % feedforward neural network controller
+Controller.InputSize = 3;
+Controller.OutputSize = 1;
 
-L = Layer(weights{1, n}, bias{1, n}, 'Linear');
+% offset = 10;
+% scale_factor = 1;
 
-Layers = [Layers L];
-
-Controller = FFNN(Layers); % feedforward neural network controller
-offset = 10;
-scale_factor = 1;
+% Plant
 controlPeriod = 0.2;
 reachStep = 0.01;
-Plant = NonLinearODE(3, 1, @dynamics);
-Plant.set_timeStep(0.01); % time step for reachability analysis of the plant
-Plant.set_tFinal(0.1); % Ts = 0.2, sampling time for control signal from neural network controller
+% Plant.set_timeStep(0.01); % time step for reachability analysis of the plant
+% Plant.set_tFinal(0.1); % Ts = 0.2, sampling time for control signal from neural network controller
 output_mat = [1 0 0;0 1 0; 0 0 1]; % feedback 
-Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
+% Plant.set_output_mat(output_mat); % Define the outputs that is feedback to the controller
+Plant = NonLinearODE(3, 1, @dynamics, 0.01, 0.1, output_mat);
 
+% NNCS
 feedbackMap = [0]; % feedback map, y[k] 
-
 ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 
-% initial condition of the Plant
-
-
-% reference input for neural network controller
-
-
-N = 50; % number of control steps   
+%% Reachability analysis
+N = 3; % number of control steps   
 
 n_cores = 4; % number of cores
 
@@ -43,11 +41,19 @@ ub = [0.45; 0.35; 0.45];
 init_set = Star(lb, ub);
 input_ref = [];
 
+% Evaluate
 [simTrace, controlTrace] = ncs.evaluate(0.2, N, lb, []);
 
-[P, reachTime] = ncs.reach('approx-star', init_set, input_ref, n_cores, N);
+% Reachability parameters
+reachPRM.numSteps = N;
+reachPRM.numCores = 1;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.ref_input = input_ref;
+reachPRM.init_set = init_set;
+
+% Reachability computation
+[P, reachTime] = ncs.reach(reachPRM);
 
 fig = figure;
 Star.plotBoxes_2D_noFill(P, 1, 2, 'blue');
-saveas(fig, 'reachSet.pdf');
-save result.mat reachTime ncs;
+

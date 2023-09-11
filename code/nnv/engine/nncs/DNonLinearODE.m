@@ -224,31 +224,29 @@ classdef DNonLinearODE < handle
                 end
             end
             
-            for i=1:N
-%                 N = length(R);
-                Z = R(i).timePoint.set; % get the reachset 
-%                 Z = R(i).timePoint.set;
-                Nn = length(Z); % number of sets in the reachset (1 x timeStep)
-                Ss = [];
-                for ik=1:Nn
-                    Z1 = Z{ik};
-                    Nz = length(Z1);
-                    for iz=1:Nz
-                        try
-                            Z2 = Z1{iz}.Z;
-                        catch
-                            Z2 = Z1.Z; % get c and V 
-                        end
-    %                     Z = Z.Z; % get c and V 
-                        c = Z2(:,1); % center vector
-                        V = Z2(:, 2:size(Z2, 2)); % generators
-
-                        Zz = Zono(c, V);
-                        Ss = [Ss Zz.toStar];
-                    end
-                end
-                obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
-            end
+    %         for i=1:N
+    %             Z = R(i).timePoint.set; % get the reachset 
+    %             Nn = length(Z); % number of sets in the reachset (1 x timeStep)
+    %             Ss = [];
+    %             for ik=1:Nn
+    %                 Z1 = Z{ik};
+    %                 Nz = length(Z1);
+    %                 for iz=1:Nz
+    %                     try
+    %                         Z2 = Z1{iz}.Z;
+    %                     catch
+    %                         Z2 = Z1.Z; % get c and V 
+    %                     end
+    % %                     Z = Z.Z; % get c and V 
+    %                     c = Z2(:,1); % center vector
+    %                     V = Z2(:, 2:size(Z2, 2)); % generators
+    % 
+    %                     Zz = Zono(c, V);
+    %                     Ss = [Ss Zz.toStar];
+    %                 end
+    %             end
+    %             % obj.intermediate_reachSet = [obj.intermediate_reachSet Ss];
+    %         end
         end
         
         % evaluate (simulate) the plant with specific input and state

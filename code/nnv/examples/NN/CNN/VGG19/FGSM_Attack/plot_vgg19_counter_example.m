@@ -1,19 +1,10 @@
-
-clc;
-clear;
-
-fprintf('\n\n=============================LOAD VGG16 ======================\n');
-
-clc;
-clear;
-
 fprintf('\n\n=============================LOAD VGG19 ======================\n');
 
 % Load the trained model 
 net = vgg19();
 
 fprintf('\n\n======================== PARSING VGG19 =======================\n');
-nnvNet = CNN.parse(net, 'VGG19');
+nnvNet = matlab2nnv(net);
 
 
 fprintf('\n\n=========CONSTRUCT INPUT SET (AN IMAGESTAR SET) =============\n');
@@ -28,18 +19,15 @@ C = [1;-1];   % pred_lb % <= alpha <= pred_ub percentage of FGSM attack
 d = [pred_ub; -pred_lb];
 IS = ImageStar(double(V), C, d, pred_lb, pred_ub);
 
-fprintf('\n\n========= PARSE VGG19 FOR REACHABILITY ANALYSIS ============\n');
-
-nnvNet = CNN.parse(net, 'VGG19');
-
 fprintf('\n\n======= DO REACHABILITY ANLAYSIS WITH EXACT-STAR METHOD ======\n');
 
-nnvNet.reach(IS, 'exact-star');
+reachOptions = struct;
+reachOptions.reachMethod = 'exact-star';
+nnvNet.reach(IS, reachOptions);
 
-exactReachSet = nnvNet.reachSet{44};
+exactReachSet = nnvNet.reachSet{end};
 
-fprintf('\n\n========REACHABILITY IS DONE IN %.5f SECONDS==========\n', nnvNet.totalReachTime);
-
+fprintf('\n\n========REACHABILITY IS DONE IN %.5f SECONDS==========\n', sum(nnvNet.reachTime));
 
 
 point1 = [1 1 946]; % bell pepper index

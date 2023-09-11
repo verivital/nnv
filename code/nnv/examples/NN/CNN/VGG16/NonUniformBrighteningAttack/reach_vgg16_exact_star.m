@@ -1,8 +1,3 @@
-
-clc;
-clear;
-
-
 fprintf('\n=============================LOAD VGG16 ======================\n');
 
 % Load the trained model 
@@ -48,12 +43,14 @@ IS = ImageStar(V, C, d, pred_lb, pred_ub);
 
 fprintf('\n========= PARSE VGG16 FOR REACHABILITY ANALYSIS ============\n');
 
-net = CNN.parse(net, 'VGG16');
+net = matlab2nnv(net);
 
 fprintf('\n======= DO REACHABILITY ANLAYSIS WITH EXACT-STAR METHOD ======\n');
 
-numCores = 1;
-net.reach(IS, 'exact-star', numCores);
+reachOptions = struct;
+reachOptions.reachMethod = 'exact-star';
+reachOptions.numCores = 1;
+R = net.reach(IS, reachOptions);
 
 
 

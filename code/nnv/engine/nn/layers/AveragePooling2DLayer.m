@@ -29,11 +29,10 @@ classdef AveragePooling2DLayer < handle
     end
     
     
-    % setting hyperparameters method
-    methods
+    methods % setting hyperparameters
         
         % constructor of the class
-        function obj = AveragePooling2DLayer(varargin)           
+        function obj = AveragePooling2DLayer(varargin)
             % author: Dung Tran
             % date: 6/17/2019    
             % update: 4/19/2020
@@ -191,7 +190,6 @@ classdef AveragePooling2DLayer < handle
             
         end
         
-        
         % set padding 
         function set_padding(obj, padding)
             % @padding: padding matrix
@@ -213,11 +211,10 @@ classdef AveragePooling2DLayer < handle
             end
         end
         
-        
     end
         
-    % evaluation method
-    methods
+    
+    methods % evaluation functions
         
         function y = evaluate(obj, input)
             % @input: high-dimensional array, for example, input(:, :, :), 
@@ -254,9 +251,7 @@ classdef AveragePooling2DLayer < handle
                 y = [y obj.evaluate(inputs(i))];               
             end
             
-            
         end
-        
         
         % parse input image with padding
         function padded_I = get_zero_padding_input(obj, input)
@@ -295,13 +290,11 @@ classdef AveragePooling2DLayer < handle
                     padded_I(t+1:t+h, l+1:l+w, i) = input(:, :, i); % new constructed input volume
                 end              
                 
-                
             else
                 error('Invalid input');
             end
                          
         end
-        
         
         % compute feature map for specific input and weight
         function averageMap = compute_averageMap(obj, input)
@@ -383,7 +376,6 @@ classdef AveragePooling2DLayer < handle
 
         end
         
-        
         % precompute height and width of average map
         function [h, w] = get_size_averageMap(obj, input)
             % @input: is input 
@@ -409,10 +401,10 @@ classdef AveragePooling2DLayer < handle
         
     end
         
-    % reachability analysis using star set
-    methods
-        % reachability analysis method using Stars
-        % a star represent a set of images (2D matrix of h x w)
+    
+    methods % reachability analysis functions
+        
+        % reachability analysis for one ImageStar
         function S = reach_star_single_input(obj, input)
             % @inputs: an ImageStar input set
             % @option: = 'single' single core for computation
@@ -538,7 +530,6 @@ classdef AveragePooling2DLayer < handle
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
         end
         
-       
         % general function for reachability analysis
         function IS = reach(varargin)
             % @in_image: an input imagestar
@@ -549,7 +540,6 @@ classdef AveragePooling2DLayer < handle
             % date: 6/26/2019
             % update: 1/6/2020   update reason: add zonotope method
             % update: 7/15/2020: add lp_solver option         
-            
              
             switch nargin
                 
@@ -591,7 +581,6 @@ classdef AveragePooling2DLayer < handle
                 otherwise
                     error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
-            
             
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs(in_images, option);
@@ -610,7 +599,6 @@ classdef AveragePooling2DLayer < handle
             
             % author: Neelanjana Pal
             % date: 8/22/2023        
-            
              
             switch nargin
                 
@@ -653,7 +641,6 @@ classdef AveragePooling2DLayer < handle
                     error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
-            
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs_Sequence(in_images, option);
             elseif strcmp(method, 'approx-zono')
@@ -662,20 +649,18 @@ classdef AveragePooling2DLayer < handle
                 error("Unknown reachability method");
             end
            
-            end
+        end
+    
     end
     
 
     methods(Static)
+        
         % parse a trained averagePooling2dLayer from matlab
         function L = parse(layer)
             % @layer: a average pooling 2d layer from matlab deep
             % neural network tool box
             % @L : a AveragePooling2DLayer obj for reachability analysis purpose
-
-            % author: Dung Tran
-            % date: 7/26/2019
-
 
             if ~isa(layer, 'nnet.cnn.layer.AveragePooling2DLayer')
                 error('Input is not a Matlab nnet.cnn.layer.AveragePooling2DLayer class');

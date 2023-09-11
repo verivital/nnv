@@ -65,12 +65,10 @@ classdef Conversion
              P1 = Conversion.removeEqualities(P);
              c = cast(zeros(dim, 1), 'like', P1.A);
              V = cast(eye(dim), 'like', P1.A);
-             
-             S = Star([c V], P1.A, P1.b);
-             nV = S.nVar; 
-             S.predicate_lb = cast(-ones(nV,1), 'like', P1.A);
-             S.predicate_ub = cast(ones(nV,1), 'like', P1.A);  
-
+             P1.outerApprox;
+             pred_lb = P1.Internal.lb;
+             pred_ub = P1.Internal.ub;  
+             S = Star([c V], P1.A, P1.b, pred_lb, pred_ub);
          end
          
          % Polyhedron to Box

@@ -1,39 +1,36 @@
+%% NNCS
+
+% Controller
 load controller.mat;
 
 weights = network.weights;
 bias = network.bias;
 n = length(weights);
-Layers = [];
+Layers = {};
 for i=1:n - 1
-    L = Layer(weights{1, i}, bias{1, i}, 'poslin');
-    Layers = [Layers L];
+    Layers{i} = LayerS(weights{1, i}, bias{1, i}, 'poslin');
 end
+Layers{n} = LayerS(weights{1, n}, bias{1, n}, 'purelin');
+Controller = NN(Layers); % feedforward neural network controller
+Controller.InputSize = 3;
+Controller.OutputSize = 1;
+% offset = 10;
+% scale_factor = 1;
 
-L = Layer(weights{1, n}, bias{1, n}, 'purelin');
-
-Layers = [Layers L];
-
-Controller = FFNN(Layers); % feedforward neural network controller
-offset = 10;
-scale_factor = 1;
+% Plant
 reachStep = 0.02;
 controlPeriod = 0.2;
 output_mat = eye(3);
-Plant = NonLinearODE(2, 1, @dynamics, reachStep, controlPeriod, output_mat);
+Plant = NonLinearODE(3, 1, @dynamics, reachStep, controlPeriod, output_mat);
 
+% NNCS
 feedbackMap = [0]; % feedback map, y[k] 
-
 ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 
-% initial condition of the Plant
 
-
-% reference input for neural network controller
-
-
-N = 50; % number of control steps   
-
-n_cores = 4; % number of cores
+%% Analysis
+N = 4; % number of control steps   
+n_cores = 1; % number of cores
 
 lb = [0.3; 0.3; -0.4];
 ub = [0.4; 0.4; -0.3];
@@ -42,9 +39,17 @@ input_ref = [];
 
 [simTrace, controlTrace] = ncs.evaluate(0.2, N, lb, []);
 
-[P, reachTime] = ncs.reach('approx-star', init_set, input_ref, n_cores, N);
+% Reachability parameters
+reachPRM.numSteps = N;
+reachPRM.numCores = 1;
+reachPRM.reachMethod = 'approx-star';
+reachPRM.ref_input = input_ref;
+reachPRM.init_set = init_set;
 
+% Reachability computation
+[P, reachTime] = ncs.reach(reachPRM);
+
+% Visualize
 fig = figure;
 Star.plotBoxes_2D_noFill(P, 1, 2, 'blue');
-saveas(fig, 'reachSet.pdf');
-save result.mat reachTime ncs;
+

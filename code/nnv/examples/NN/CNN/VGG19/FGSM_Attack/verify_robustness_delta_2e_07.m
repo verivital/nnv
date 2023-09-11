@@ -1,14 +1,10 @@
-
-clc;
-clear;
-
 fprintf('\n\n=============================LOAD VGG19 ======================\n');
 
 % Load the trained model 
 net = vgg19();
 
 fprintf('\n\n======================== PARSING VGG19 =======================\n');
-nnvNet = CNN.parse(net, 'VGG19');
+nnvNet = matlab2nnv(net);
 
 
 fprintf('\n\n=========CONSTRUCT INPUT SET (AN IMAGESTAR SET) =============\n');
@@ -37,11 +33,17 @@ for i=1:n
     IS = ImageStar(V, C, d, pred_lb(i), pred_ub(i));
     
     fprintf('\n\n=================== VERIFYING ROBUSTNESS FOR l = %.5f, delta = %.8f ====================\n', l(i), delta);
+    % exact-star
+    reachOptions = struct;
+    reachOptions.reachMethod = 'exact-star';
     t = tic;
-    [robust_exact(i), ~] = nnvNet.verifyRobustness(IS, correct_id, 'exact-star');
+    robust_exact(i) = nnvNet.verify_robustness(IS, reachOptions, correct_id);
     VT_exact(i) = toc(t);
+    % approx-star
+    reachOptions = struct;
+    reachOptions.reachMethod = 'approx-star';
     t = tic; 
-    [robust_approx(i), ~] = nnvNet.verifyRobustness(IS, correct_id, 'approx-star');
+    robust_approx(i) = nnvNet.verify_robustness(IS, reachOptions, correct_id);
     VT_approx(i) = toc(t);
 end
 
@@ -54,11 +56,5 @@ for i=1:n
     fprintf('\n %.6f          %.8f              %d        %.5f           %d         %.5f', l(i), delta, robust_exact(i), VT_exact(i), robust_approx(i), VT_approx(i));
 end
 
-
-save verificationResult_2e_07.mat robust_exact VT_exact robust_approx VT_approx;
-
-
-
-
-
+% save verificationResult_2e_07.mat robust_exact VT_exact robust_approx VT_approx;
 

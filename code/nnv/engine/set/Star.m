@@ -1142,8 +1142,7 @@ classdef Star
             % author: Dung Tran
             % date: 
             % update: 6/16/2020
-            % update: 7/15/2020 The isEmptySet method in Polyhedron object
-            % has bug
+            % update: 7/15/2020 The isEmptySet method in Polyhedron object has bug
             
             f = zeros(1, obj.nVar); % objective function
             [~, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, 'linprog', 'emptySet');
@@ -1474,7 +1473,7 @@ classdef Star
                 otherwise
                     error('Invalid number of input arguments, should be 1, 2, 3, 4, or 5');
             end
-            
+
             if isempty(map_mat)
                 if obj.dim > 3
                     error('Cannot visualize the star set in > 3 dimensional space, please plot a projection of the star set');
@@ -1485,7 +1484,7 @@ classdef Star
                             P = obj.toPolyhedron;
                             P.plot('color', color);
                         catch
-                            warning('The number of predicate variables is high (%d). This can cause an error for MPT plotting');
+                            warning('There was an error with MPT plotting');
                             warning('NNV plots an over-approximation of the star set using a box instead');
                             B = obj.getBox;
                             B.plot;

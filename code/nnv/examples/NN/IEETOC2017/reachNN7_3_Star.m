@@ -23,26 +23,22 @@ Layers{end} = Ln;
 F = NN(Layers);
 
 % Define input set for the network
-% lb = [-1; -1; -1];
-% ub = -lb;
 lb = [0; 0 ; 0];
 ub = [1; 1; 1];
 I = Star(lb, ub);
 
 % select option for reachability algorithm
-% reachOptions = struct; % initialize
-% reachOptions.reachMethod = 'exact-star'; % reachability method
-% reachOptions.numCores = 4; % define number of cores for parallel execution
+reachOptions = struct; % initialize
+reachOptions.reachMethod = 'exact-star'; % reachability method
+reachOptions.numCores = 4; % define number of cores for parallel execution
 
 % Comute reachability (exact)
-% te = tic;
-% Re = F.reach(I, reachOptions); % exact reach set using stars
-% te = toc(te);
+te = tic;
+Re = F.reach(I, reachOptions); % exact reach set using stars
+te = toc(te);
 
 % select option for reachability algorithm
 reachOptions = struct; % initialize
-% reachOptions.reachMethod = 'relax-star-range'; % reachability method
-% reachOptions.relaxFactor = 0.0;
 reachOptions.reachMethod = 'approx-star';
 
 % Comute reachability (approx)

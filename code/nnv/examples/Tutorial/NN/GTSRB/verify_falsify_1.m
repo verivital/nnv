@@ -1,38 +1,36 @@
-%% Robustness verification of a NN (L infinity adversarial attack)
+%% Robustness verification of a CNN (L infinity adversarial attack)
 
 % Load network 
-mnist_model = load('mnist_model.mat');
+model = load('gtsrb_model.mat');
 
 % Create NNV model
-net = matlab2nnv(mnist_model.net);
+net = matlab2nnv(model.net);
 
-% Load data (no download necessary)
-digitDatasetPath = fullfile(matlabroot,'toolbox','nnet','nndemos', ...
-    'nndatasets','DigitDataset');
-% Images
-imds = imageDatastore(digitDatasetPath, ...
-    'IncludeSubfolders',true,'LabelSource','foldernames');
+% Load data
+gtsrb_path = [nnvroot(), filesep, 'data', filesep, 'GTSRB', filesep];
+imds = imageDatastore(gtsrb_path, 'IncludeSubfolders',true,'LabelSource','foldernames');
+
+inputSize = [30 29];
+imds.ReadFcn = @(loc)imresize(imread(loc),inputSize);
 
 % Load one image in dataset
-[img, fileInfo] = readimage(imds,10);
-target = double(fileInfo.Label); % label = 0 (index 1 for our network)
-img = double(img); % convert to double
+[img, fileInfo] = readimage(imds,259); % imahe 1000 is misclassified
 
-% Visualize image;
-figure;
-imshow(img);
+% Visualize image 
+% figure;
+% imshow(img);
 
-% Create input set
-
+    % Get image info
+    target = double(fileInfo.Label); % target label
+    img = double(img); % convert to double
+    
+    % Create input set
+    
 % One way to define it is using original image +- disturbance (L_inf epsilon)
 ones_ = ones(size(img));
-disturbance = 1 .* ones_; % one pixel value (images are not normalized, they get normalized in the ImageInputLayer)
-I = ImageStar(img, -disturbance, disturbance);
+disturbance = 1 .* ones_; % one pixel color value (images are not normalized, they get normalized in the ImageInputLayer)
 
-% Can also define it with just lower and upper bounds
-I2 = ImageStar(img-disturbance, img+disturbance);
-
-% However, we need to ensure the values are within the valid range for pixels ([0 255])
+% Ensure the values are within the valid range for pixels ([0 255])
 lb_min = zeros(size(img)); % minimum allowed values for lower bound is 0
 ub_max = 255*ones(size(img)); % maximum allowed values for upper bound is 255
 lb_clip = max((img-disturbance),lb_min);
@@ -43,14 +41,22 @@ IS = ImageStar(lb_clip, ub_clip); % this is the input set we will use
 % Let's evaluate the image and the lower and upper bounds to ensure these
 % are correctly classified
 
+% Evaluate input image
+t = tic;
+Y_outputs = net.evaluate(img); 
+[~, yPred] = max(Y_outputs); % (expected: y = target)
+
 % Evaluate lower and upper bounds
 LB_outputs = net.evaluate(lb_clip);
-[~, LB_Pred] = max(LB_outputs); % (expected: yPred = target)
+[~, LB_Pred] = max(LB_outputs); % (expected: y = target)
 UB_outputs = net.evaluate(ub_clip);
-[~, UB_Pred] = max(UB_outputs); % (expected: yPred = target)
-% Evaluate input image
-Y_outputs = net.evaluate(img); 
-[~, yPred] = max(Y_outputs); % (expected: yPred = target)
+[~, UB_Pred] = max(UB_outputs); % (expected: y = target)
+t_eval = toc(t);
+
+if yPred == target && any([LB_Pred, UB_Pred] ~= target)
+    disp("Neural Network is not robust!");
+    disp("Counterexample found in "+string(t_eval)+" seconds");
+end
 
 % Now, we can do the verification process of this image w/ L_inf attack
 
@@ -66,6 +72,8 @@ res_approx = net.verify_robustness(IS, reachOptions, target);
 
 if res_approx == 1
     disp("Neural network is verified to be robust!")
+elseif any([yPred, LB_Pred, UB_Pred] ~= target)
+    disp("Neural network is not robust!");
 else
     disp("Unknown result")
 end
@@ -88,11 +96,10 @@ mid_range = (lb_out + ub_out)/2;
 range_size = ub_out - mid_range;
 
 % Label for x-axis
-x = [0 1 2 3 4 5 6 7 8 9];
+x = 1:net.OutputSize;
 
 % Visualize set ranges and evaluation points
 figure;
 errorbar(x, mid_range, range_size, '.');
 hold on;
-xlim([-0.5 9.5]);
 scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');

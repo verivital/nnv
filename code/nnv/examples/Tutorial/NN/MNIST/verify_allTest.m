@@ -4,7 +4,7 @@
 %% Load data into NNV
 
 % Load network 
-mnist_model = load('mnist_model_fc.mat');
+mnist_model = load('mnist_model.mat');
 
 % Create NNV model
 net = matlab2nnv(mnist_model.net);
@@ -117,4 +117,4 @@ disp(" ");
 disp("It took a total of "+string(totalTime) + " seconds to compute the verification results, an average of "+string(avgTime)+" seconds per image");
 
 % Save results
-save('results_verify_fc_allTest.mat', 'results');
+save('results_verify_allTest.mat', 'results');

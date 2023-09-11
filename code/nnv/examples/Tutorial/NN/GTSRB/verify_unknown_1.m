@@ -1,26 +1,29 @@
-%% Robustness verification of a NN (L infinity adversarial attack)
+%% Robustness verification of a CNN (L infinity adversarial attack)
 
 % Load network 
-mnist_model = load('mnist_model.mat');
+model = load('gtsrb_model.mat');
 
 % Create NNV model
-net = matlab2nnv(mnist_model.net);
+net = matlab2nnv(model.net);
 
-% Load data (no download necessary)
-digitDatasetPath = fullfile(matlabroot,'toolbox','nnet','nndemos', ...
-    'nndatasets','DigitDataset');
-% Images
-imds = imageDatastore(digitDatasetPath, ...
-    'IncludeSubfolders',true,'LabelSource','foldernames');
+% Load data
+gtsrb_path = [nnvroot(), filesep, 'data', filesep, 'GTSRB', filesep];
+imds = imageDatastore(gtsrb_path, 'IncludeSubfolders',true,'LabelSource','foldernames');
+
+inputSize = [30 29];
+imds.ReadFcn = @(loc)imresize(imread(loc),inputSize);
 
 % Load one image in dataset
 [img, fileInfo] = readimage(imds,10);
-target = double(fileInfo.Label); % label = 0 (index 1 for our network)
-img = double(img); % convert to double
 
-% Visualize image;
+% Visualize image 
 figure;
 imshow(img);
+
+% Get image info
+target = double(fileInfo.Label); % target label
+img = double(img); % convert to double
+
 
 % Create input set
 
@@ -43,14 +46,15 @@ IS = ImageStar(lb_clip, ub_clip); % this is the input set we will use
 % Let's evaluate the image and the lower and upper bounds to ensure these
 % are correctly classified
 
-% Evaluate lower and upper bounds
-LB_outputs = net.evaluate(lb_clip);
-[~, LB_Pred] = max(LB_outputs); % (expected: yPred = target)
-UB_outputs = net.evaluate(ub_clip);
-[~, UB_Pred] = max(UB_outputs); % (expected: yPred = target)
 % Evaluate input image
 Y_outputs = net.evaluate(img); 
-[~, yPred] = max(Y_outputs); % (expected: yPred = target)
+[~, yPred] = max(Y_outputs); % (expected: y = target)
+
+% Evaluate lower and upper bounds
+LB_outputs = net.evaluate(lb_clip);
+[~, LB_Pred] = max(LB_outputs); % (expected: y = target)
+UB_outputs = net.evaluate(ub_clip);
+[~, UB_Pred] = max(UB_outputs); % (expected: y = target)
 
 % Now, we can do the verification process of this image w/ L_inf attack
 
@@ -66,6 +70,8 @@ res_approx = net.verify_robustness(IS, reachOptions, target);
 
 if res_approx == 1
     disp("Neural network is verified to be robust!")
+elseif any([yPred, LB_Pred, UB_Pred] ~= target)
+    disp("Neural network is not robust!");
 else
     disp("Unknown result")
 end
@@ -88,11 +94,10 @@ mid_range = (lb_out + ub_out)/2;
 range_size = ub_out - mid_range;
 
 % Label for x-axis
-x = [0 1 2 3 4 5 6 7 8 9];
+x = 1:net.OutputSize;
 
 % Visualize set ranges and evaluation points
 figure;
 errorbar(x, mid_range, range_size, '.');
 hold on;
-xlim([-0.5 9.5]);
 scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');

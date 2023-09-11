@@ -14,9 +14,16 @@ inputSize = [30 29];
 imds.ReadFcn = @(loc)imresize(imread(loc),inputSize);
 
 % Load one image in dataset
-[img, fileInfo] = readimage(imds,10);
-target = double(fileInfo.Label); % label = 0 (index 1 for our network)
+[img, fileInfo] = readimage(imds,30000);
+
+% Visualize image 
+figure;
+imshow(img);
+
+% Get image info
+target = double(fileInfo.Label); % target label
 img = double(img); % convert to double
+
 
 % Create input set
 
@@ -41,12 +48,13 @@ IS = ImageStar(lb_clip, ub_clip); % this is the input set we will use
 
 % Evaluate input image
 Y_outputs = net.evaluate(img); 
-[~, yPred] = max(Y_outputs); % (expected: y = 1)
+[~, yPred] = max(Y_outputs); % (expected: y = target)
+
 % Evaluate lower and upper bounds
 LB_outputs = net.evaluate(lb_clip);
-[~, LB_Pred] = max(LB_outputs); % (expected: y = 1)
+[~, LB_Pred] = max(LB_outputs); % (expected: y = target)
 UB_outputs = net.evaluate(ub_clip);
-[~, UB_Pred] = max(UB_outputs); % (expected: y = 1)
+[~, UB_Pred] = max(UB_outputs); % (expected: y = target)
 
 % Now, we can do the verification process of this image w/ L_inf attack
 
@@ -58,7 +66,7 @@ reachOptions.reachMethod = 'approx-star'; % using approxiate method
 
 % Verification
 t = tic;
-res_approx = net.verify_robustness(I, reachOptions, target);
+res_approx = net.verify_robustness(IS, reachOptions, target);
 
 if res_approx == 1
     disp("Neural network is verified to be robust!")
@@ -71,19 +79,23 @@ toc(t);
 
 %% Let's visualize the ranges for every possible output
 
+% Get output reachable set
 R = net.reachSet{end};
 
+% Get (overapproximate) ranges for each output index
 [lb_out, ub_out] = R.getRanges;
 lb_out = squeeze(lb_out);
 ub_out = squeeze(ub_out);
 
+% Get middle point for each output and range sizes
 mid_range = (lb_out + ub_out)/2;
-
 range_size = ub_out - mid_range;
 
+% Label for x-axis
 x = 1:net.OutputSize;
 
+% Visualize set ranges and evaluation points
+figure;
 errorbar(x, mid_range, range_size, '.');
 hold on;
-% xlim([-0.5 43.5]);
 scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');

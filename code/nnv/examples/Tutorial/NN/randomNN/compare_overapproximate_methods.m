@@ -26,23 +26,44 @@ lb = [0; 0 ; 0];
 ub = [1; 1; 1];
 I = Star(lb, ub);
 
-% select option for reachability algorithm
-reachOptions = struct; % initialize
-reachOptions.reachMethod = 'exact-star'; % reachability method
-
-% Comute reachability (exact)
-te = tic;
-Re = F.reach(I, reachOptions); % exact reach set using stars
-te = toc(te);
+%% Reachability 1
 
 % select option for reachability algorithm
 reachOptions = struct; % initialize
 reachOptions.reachMethod = 'approx-star';
 
-% Comute reachability (approx)
-ta = tic;
-Ra = F.reach(I, reachOptions); % exact reach set using stars
-ta = toc(ta);
+% Comute reachability 
+t1 = tic;
+R1 = F.reach(I, reachOptions); % exact reach set using stars
+t1 = toc(t1);
+
+%% Reachability 2
+
+% select option for reachability algorithm
+reachOptions = struct; % initialize
+reachOptions.reachMethod = 'relax-star-range'; % other option (-area, -random, -bound)
+reachOptions.relaxFactor = 0.1; % must declare a relaxFactor for any relax method
+% relaxFactor must be between 0 and 1 (.1 -> do 90% of LP, skip the other 90%)
+
+% Comute reachability 
+t2 = tic;
+R2 = F.reach(I, reachOptions); % exact reach set using stars
+t2 = toc(t2);
+
+%% Reachability 3
+
+% select option for reachability algorithm
+reachOptions = struct; % initialize
+reachOptions.reachMethod = 'relax-star-range'; % other option (-area, -random, -bound)
+reachOptions.relaxFactor = 0.25; % must declare a relaxFactor for any relax method
+% relaxFactor must be between 0 and 1 (.25 -> do 75% of LP, skip the other 25%)
+
+% Comute reachability 
+t3 = tic;
+R3 = F.reach(I, reachOptions); % exact reach set using stars
+t3 = toc(t3);
+
+%% Simulations
 
 % generate some input to test the output (evaluate network)
 e = 0.2;
@@ -62,26 +83,14 @@ end
 
 %% Visualize results
 
-monocolor = false;
-
-% Plot exact and approx sets 
+% Plot computed sets 
 fig = figure;
-Star.plot(Ra,'c');
+Star.plot(R3,'b');
 hold on;
-if monocolor
-    Star.plots(Re,'b'); % if monocolor, plot all exact sets in cyan
-else
-    plot_color = ['r', 'g', 'b', 'm', 'y'];
-    k = 1;
-    for i = 1:length(Re)
-        Star.plot(Re(i), plot_color(k))
-        hold on;
-        k = k+1;
-        if k > length(plot_color)
-            k = 1;
-        end
-    end
-end
+Star.plot(R2,'r');
+hold on;
+Star.plot(R1,'c');
+hold on;
 
 % Plot some of the evaluated inputs
 plot(y(1, :), y(2, :), '.', 'Color', 'k');
@@ -97,7 +106,4 @@ hold on;
 plot(y2(1,:), y2(2,:), 'x', 'Color', 'k');
 hold on;
 plot(y3(1,:), y3(2,:), 'x', 'Color', 'k');
-
-% Save figure
-% saveas(fig,'outputSet_colors.jpg');
 

@@ -36,6 +36,8 @@ epsilon = 1; % pixel values (images are not normalized, they get normalized in t
 
 % to save results (robustness and time)
 results = zeros(N,2);
+
+% Define reachability method
 reachOptions = struct;
 reachOptions.reachMethod = 'approx-star';
 
@@ -101,6 +103,7 @@ for i=1:N
 end
 
 % Get summary results
+N = length(results);
 rob = sum(results(:,1) == 1);
 not_rob = sum(results(:,1) == 0);
 unk = sum(results(:,1) == 2);
@@ -110,9 +113,9 @@ avgTime = totalTime/N;
 % Print results to screen
 disp("======= ROBUSTNESS RESULTS ==========")
 disp(" ");
-disp("Number of robust images = "+string(rob)+ ", equivalent to " + string(100*rob/N) + "% of the dataset.");
-disp("Number of not robust images = " +string(not_rob)+ ", equivalent to " + string(100*not_rob/N) + "% of the dataset.")
-disp("Number of unknown images = "+string(unk)+ ", equivalent to " + string(100*unk/N) + "% of the dataset.");
+disp("Number of robust images = "+string(rob)+ ", equivalent to " + string(100*rob/N) + "% of the samples.");
+disp("Number of not robust images = " +string(not_rob)+ ", equivalent to " + string(100*not_rob/N) + "% of the samples.")
+disp("Number of unknown images = "+string(unk)+ ", equivalent to " + string(100*unk/N) + "% of the samples.");
 disp(" ");
 disp("It took a total of "+string(totalTime) + " seconds to compute the verification results, an average of "+string(avgTime)+" seconds per image");
 

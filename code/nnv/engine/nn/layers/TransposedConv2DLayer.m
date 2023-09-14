@@ -287,10 +287,10 @@ classdef TransposedConv2DLayer < handle
             end
             
             % compute output sets
-%             c = vl_nnconvt(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-%             V = vl_nnconvt(double(input.V(:,:,:,2:input.numPred + 1)), double(obj.Weights), [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-            c = extractdata(dltranspconv(dlarray(input.V(:,:,:,1)), obj.Weights, obj.Bias, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
-            V = extractdata(dltranspconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), obj.Weights, 0, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
+            c = vl_nnconvt(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            V = vl_nnconvt(double(input.V(:,:,:,2:input.numPred + 1)), double(obj.Weights), [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            % c = extractdata(dltranspconv(dlarray(input.V(:,:,:,1)), obj.Weights, obj.Bias, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
+            % V = extractdata(dltranspconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), obj.Weights, 0, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
             Y = cat(4, c, V);
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   

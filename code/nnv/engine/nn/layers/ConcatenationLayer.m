@@ -102,11 +102,13 @@ classdef ConcatenationLayer < handle
         function outputs = reach_single_input(obj, inputs)
             % @in_image: input imagestar
             % @image: output set
-            outputs = inputs{1};
-            for k = 2 : length(inputs)
-                outputs = outputs.concatenation(inputs{k});
+            % outputs = inputs{1};
+            % concatenate along the dimension (obj.Dim), usually channels (3)
+            new_V = inputs{1}.V;
+            for i = 2:length(inputs)
+                new_V = cat(obj.Dim, new_V, inputs{i}.V);
             end
-            
+            outputs = ImageStar(new_V, inputs{1}.C, inputs{1}.d, inputs{1}.pred_lb, inputs{1}.pred_ub);
         end
         
         % handle multiple inputs

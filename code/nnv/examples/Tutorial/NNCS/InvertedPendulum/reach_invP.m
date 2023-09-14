@@ -20,15 +20,12 @@ ncs = NNCS(Controller, Plant, feedbackMap); % the neural network control system
 
 %% Reachability analysis
 % initial set of state of the plant x = [-0.1 <= x[1] <= -0.05, 0.85 <= x[2] <= 0.9, x[3] = 0; x[4] = 0]
-% lb = [0.08; 0.2; 0; 0];
-% ub = [0.1; 0.4; 0; 0];
 lb = [-0.1; 0.85; 0; 0];
 ub = [-0.05; 0.9; 0; 0];
 init_set = Star(lb,ub);
 
-N = 10; % number of step
 n_cores = 1; % number of cores 
-reachPRM.numSteps = 45;
+reachPRM.numSteps = 35; % number of control steps
 reachPRM.numCores = n_cores;
 reachPRM.ref_input = [];
 reachPRM.reachMethod = 'approx-star';

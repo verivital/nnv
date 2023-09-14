@@ -60,7 +60,7 @@ reachOptions.reachMethod = 'approx-star'; % using approxiate method
 
 % Verification
 t = tic;
-res_approx = net.verify_robustness(I, reachOptions, target);
+res_approx = net.verify_robustness(IS, reachOptions, target);
 
 if res_approx == 1
     disp("Neural network is verified to be robust!")
@@ -85,6 +85,7 @@ range_size = ub_out - mid_range;
 
 x = [0 1 2 3 4 5 6 7 8 9];
 
+figure;
 errorbar(x, mid_range, range_size, '.');
 hold on;
 xlim([-0.5 9.5]);
@@ -94,13 +95,11 @@ scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');
 %% Let's see what the exact method looks like
 
 reachOptions = struct; % initialize
-reachOptions.reachMethod = 'exact-star'; % using approxiate method
-numCores = feature('numcores');
-reachOptions.numCores = numCores;
+reachOptions.reachMethod = 'exact-star'; % using exact method
 
 % Verification
 t = tic;
-res_approx = net.verify_robustness(I, reachOptions, target);
+res_approx = net.verify_robustness(IS, reachOptions, target);
 
 if res_approx == 1
     disp("Neural network is verified to be robust!")

@@ -1,4 +1,4 @@
-%% Robustness verification of a CNN (L infinity adversarial attack)
+%% Robustness verification of a NN (L infinity adversarial attack)
 
 % Load network 
 model = load('gtsrb_model.mat');

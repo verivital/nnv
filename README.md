@@ -39,8 +39,9 @@ _Previous_
 3. Clone or download the NNV toolbox from (https://github.com/verivital/nnv)
     
     Note: to operate correctly, nnv depends on other tools (CORA, NNMT, HyST, onnx2nnv), which are included as git submodules. As such, you must clone recursively, e.g., with the following:
-    
+    ```
     git clone --recursive https://github.com/verivital/nnv.git
+    ```
 
 4. Open MATLAB, then go to the directory where NNV exists on your machine, then run the `install.m` script located at /nnv/
     
@@ -81,7 +82,7 @@ __NN__
     * [Robustness verification of a single image](code/nnv/examples/Tutorial/NN/MNIST/verify.m) using a [model with Convolutional, Pooling, Batch Normalization, ReLU, and fully-connected layers](code/nnv/examples/Tutorial/NN/MNIST/training.m)
 * Robustness verification on the GTSRB dataset.
     * Includes [training](code/nnv/examples/Tutorial/NN/GTSRB/train.m) and [verification](code/nnv/examples/Tutorial/NN/GTSRB/verify_robust_27.m) scripts as well.
-* Comparison of exact (sound and complete) and approximate (sound and incomplete) methods using Star sets [exact vs approx](code/nnv/examples/Tutorial/NN/randomNN/reach_exact_vs_approx.m)
+* Comparison of exact (sound and complete) and approximate (sound and incomplete) methods using Star sets [exact vs approx](code/nnv/examples/Tutorial/NN/compareReachability/reach_exact_vs_approx.m)
 
 __NNCS__
   

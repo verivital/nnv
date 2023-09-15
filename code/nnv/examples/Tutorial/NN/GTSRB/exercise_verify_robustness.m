@@ -1,10 +1,10 @@
 %% Robustness verification of a NN (L infinity adversarial attack)
 
-% Load network 
-model = load('gtsrb_model.mat');
+% Load network (gtsrb_model.mat)
+model = ; % load the file containing the neural network (net -> SeriesNetwork)
 
 % Create NNV model
-net = matlab2nnv(model.net);
+net = ; % convert Series Network (from MATLAB) to NNV
 
 % Load data
 gtsrb_path = [nnvroot(), filesep, 'data', filesep, 'GTSRB', filesep];
@@ -14,7 +14,8 @@ inputSize = [30 29];
 imds.ReadFcn = @(loc)imresize(imread(loc),inputSize);
 
 % Load one image in dataset
-[img, fileInfo] = readimage(imds,259); 
+im_idx = ; % choose an index number
+[img, fileInfo] = readimage(imds,im_idx);
 
 % Visualize image 
 figure;
@@ -25,17 +26,11 @@ target = double(fileInfo.Label); % target label
 img = double(img); % convert to double
     
 % Create input set
-    
-% One way to define it is using original image +- disturbance (L_inf epsilon)
-ones_ = ones(size(img));
-disturbance = 1 .* ones_; % one pixel color value (images are not normalized, they get normalized in the ImageInputLayer)
 
-% Ensure the values are within the valid range for pixels ([0 255])
-lb_min = zeros(size(img)); % minimum allowed values for lower bound is 0
-ub_max = 255*ones(size(img)); % maximum allowed values for upper bound is 255
-lb_clip = max((img-disturbance),lb_min);
-ub_clip = min((img+disturbance), ub_max);
-IS = ImageStar(lb_clip, ub_clip); % this is the input set we will use
+% need to define lower and upper bounds based on an L_infinity perturbation
+% of epsilon value = 1
+% Set must be an Imagestar defined by upper and lower bounds
+IS = ; % this is the input set we will use (ImageStar)
 
 
 % Let's evaluate the image and the lower and upper bounds to ensure these
@@ -43,13 +38,13 @@ IS = ImageStar(lb_clip, ub_clip); % this is the input set we will use
 
 % Evaluate input image
 t = tic;
-Y_outputs = net.evaluate(img); 
+Y_outputs = ; % complete function to evaluate image
 [~, yPred] = max(Y_outputs); % (expected: y = target)
 
 % Evaluate lower and upper bounds
-LB_outputs = net.evaluate(lb_clip);
+LB_outputs = ; % complete function to evaluate lower bound
 [~, LB_Pred] = max(LB_outputs); % (expected: y = target)
-UB_outputs = net.evaluate(ub_clip);
+UB_outputs = ; % complete function to evaluate upper bounds
 [~, UB_Pred] = max(UB_outputs); % (expected: y = target)
 t_eval = toc(t);
 
@@ -66,9 +61,9 @@ end
 reachOptions = struct; % initialize
 reachOptions.reachMethod = 'approx-star'; % using approxiate method
 
-% Verification
+% Robustness verification
 t = tic;
-res_approx = net.verify_robustness(IS, reachOptions, target);
+res_approx = net.verify_robustness(); % complete the function 
 
 if res_approx == 1
     disp("Neural network is verified to be robust!")
@@ -80,26 +75,3 @@ end
 
 toc(t);
 
-
-%% Let's visualize the ranges for every possible output
-
-% Get output reachable set
-R = net.reachSet{end};
-
-% Get (overapproximate) ranges for each output index
-[lb_out, ub_out] = R.getRanges;
-lb_out = squeeze(lb_out);
-ub_out = squeeze(ub_out);
-
-% Get middle point for each output and range sizes
-mid_range = (lb_out + ub_out)/2;
-range_size = ub_out - mid_range;
-
-% Label for x-axis
-x = 1:net.OutputSize;
-
-% Visualize set ranges and evaluation points
-figure;
-errorbar(x, mid_range, range_size, '.');
-hold on;
-scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');

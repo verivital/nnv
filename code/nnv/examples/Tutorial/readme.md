@@ -1,16 +1,16 @@
 # ESWeek 2023 - Trustworthy AI and Safe Autonomy (NNV Tutorial)
 
 ## Getting Started
-We recommend using MATLAB Online to participate in this tutorial, but one can also use a local installation of MATLAB and NNV to follow along as well.
+We recommend using MATLAB Online (**prior license not required!**) to participate in this tutorial, but one can also use a local installation of MATLAB and NNV to follow along as well.
 
 It is important that participants complete this section before arrriving to the tutorial.
 
 #### MATLAB Online Instructions
 
-Registered participants who registered for the tutorial have received a link with a MATLAB license to use in this tutorial. If a participant has not received it, 
-please contact the organizers about it. 
+Registered participants should have received a link with a MATLAB license to use in this tutorial. If a participant has not received it, 
+please contact the organizers. 
 
-###### Note: this license is not necessary if participants already have a valid license with the toolboxes listed in [installation instructions](/README.md#installation).
+###### Note: this license is not required if participants already have a valid license for all the toolboxes listed in [installation instructions](/README.md#installation).
 
 Create a copy of NNV into your MathWorks account (personal MATLAB Drive):
 [NNV Online](https://drive.matlab.com/sharing/6861a9c9-f818-45ab-b7cc-380bbfb2be0e) 

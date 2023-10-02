@@ -320,52 +320,21 @@ classdef Conv1DLayer < handle
     methods
         
         % evaluate
-        function y = evaluateSequence(varargin)
+        function y = evaluateSequence(obj, input)
             % @input: 2-dimensional array, for example, input(:, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
-            % @option: 'single' or 'double' or empty precision of
-            % computation
-            
-            switch nargin
-                
-                case 2
-                    obj = varargin{1};
-                    input = varargin{2};
-                    option = 'double';
-                    input = double(input);
 
-                case 3
-                    obj = varargin{1};
-                    input = varargin{2};
-                    option = varargin{3};
-                                      
-                otherwise 
-                    error('Invalid number of inputs, should be 1 or 2');
-                
-            end
-            
-            if strcmp(option, 'single')
-                obj.Weights = single(obj.Weights);
-                obj.Bias = single(obj.Bias);
-            elseif strcmp(option, 'double')
-                obj.Weights = double(obj.Weights);
-                obj.Bias = double(obj.Bias);
-            else
-                error('Unknown precision option');
-            end
             n = length(size(input));
             if n==2
                 input = dlarray(input');
                 y = dlconv(input, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","SC");
                 y = extractdata(y)';
             end
-                % y = vl_nnconv1d(input, obj.Weights, obj.Bias,obj.Stride, obj.PaddingSize, obj.DilationFactor);
 
         end
               
         
     end
-    
     
     
     methods(Static) % parsing, get zero input pading, compute feature maps
@@ -378,11 +347,9 @@ classdef Conv1DLayer < handle
             
             % Neelanjana Pal: 10/25/2021
             
-            
             if ~isa(conv1dLayer, 'nnet.cnn.layer.Convolution1DLayer')
                 error('Input is not a Matlab nnet.cnn.layer.Convolution1DLayer class');
             end
-            
             
             layer_name = conv1dLayer.Name; 
             filter_weights = conv1dLayer.Weights;
@@ -574,14 +541,6 @@ classdef Conv1DLayer < handle
                 error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannels);
             end
 
-            % compute output sets
-            % c = vl_nnconv1d(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias)', obj.Stride, obj.PaddingSize, obj.DilationFactor);
-            % n = size(input.V(:,:,:,2:input.numPred + 1),4);
-            % for i = 1:n
-            %     V(:,:,1,i) = vl_nnconv1d(double(input.V(:,:,:,i+1)), double(obj.Weights), 0, obj.Stride, obj.PaddingSize, obj.DilationFactor);         
-            % end
-            % Y = cat(4, c, V);
-            % S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
             if isempty(input.im_lb) && isempty(input.im_ub)
                 layer = obj;
                 c = layer.evaluateSequence(input.V(:,:,:,1));
@@ -614,10 +573,10 @@ classdef Conv1DLayer < handle
             end
             
             % compute output sets
-            c = vl_nnconv1d(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias)', obj.Stride, obj.PaddingSize, obj.DilationFactor);
+            c = vl_nnconv1d(input.V(:,:,:,1), obj.Weights, obj.Bias', obj.Stride, obj.PaddingSize, obj.DilationFactor);
             n = size(input.V(:,:,:,2:input.numPred + 1),4);
             for i = 1:n
-                V(:,:,1,i) = vl_nnconv1d(double(input.V(:,:,:,i+1)), double(obj.Weights), 0, obj.Stride, obj.PaddingSize, obj.DilationFactor);         
+                V(:,:,1,i) = vl_nnconv1d(input.V(:,:,:,i+1), obj.Weights, 0, obj.Stride, obj.PaddingSize, obj.DilationFactor);         
             end
             Y = cat(4, c, V);
             Z = ImageZono(Y);

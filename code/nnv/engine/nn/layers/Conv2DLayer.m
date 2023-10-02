@@ -419,83 +419,13 @@ classdef Conv2DLayer < handle
     
     methods % evaluation methods
         
-        function y = evaluate2(obj, input, option)
-            % @input: 3-dimensional array, for example, input(:, :, :)
-            % @y: high-dimensional array (output volume), depth of output = number of filters
-            % @option = 'single'
-            
-            % author: Dung Tran
-            % date: 12/10/2018
-            
-            I1 = input(:,:,1);
-            W1 = obj.Weights(:,:,1,1);
-            if strcmp(option, 'single') && ~strcmp(option, 'double')
-                obj.Weights = single(obj.Weights);
-                obj.Bias = single(obj.Bias);
-            elseif strcmp(option, 'double')
-                obj.Weights = double(obj.Weights);
-                obj.Bias = double(obj.Bias);
-            else
-                error('Unknown precison option');               
-            end
-            [h, w] = Conv2DLayer.get_size_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);   
-            y(:,:, obj.NumFilters) = zeros(h, w, option); % preallocate 3D matrix
-            for i=1:obj.NumFilters % number of filters                   
-                y(:, :, i) = obj.Bias(:, :, i)* ones(h, w, option); % initialize output by bias matrix    
-                % compute feature map with i^th filter 
-                for j=1:obj.NumChannels % filter for j^th channel of input 
-                    W1 = obj.Weights(:,:,j, i);   
-                    I1 = input(:, :, j); % the j^th input channel
-                    if j==1
-                        y(:, :, i) = Conv2DLayer.compute_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);
-                    else
-                        y(:, :, i) = y(:, :, i) + Conv2DLayer.compute_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);
-                    end                    
-                end
-                [ny, my] = size(y(:, :, i));
-                y(:, :, i) = y(:, :, i) + double(obj.Bias(:, :, i)) * ones(ny, my, option);                               
-            end
-                   
-        end
-        
         % evaluate using matconvnet
-        function y = evaluate(varargin)
+        function y = evaluate(obj, input)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
-            % @option: 'single' or 'double' or empty precision of
-            % computation
-            
             
             % author: Dung Tran
             % date: 7/18/2019
-            
-            switch nargin
-                
-                case 2
-                    obj = varargin{1};
-                    input = varargin{2};
-                    option = 'double';
-                    input = double(input);
-
-                case 3
-                    obj = varargin{1};
-                    input = varargin{2};
-                    option = varargin{3};
-                                      
-                otherwise 
-                    error('Invalid number of inputs, should be 1 or 2');
-                
-            end
-            
-            if strcmp(option, 'single')
-                obj.Weights = single(obj.Weights);
-                obj.Bias = single(obj.Bias);
-            elseif strcmp(option, 'double')
-                obj.Weights = double(obj.Weights);
-                obj.Bias = double(obj.Bias);
-            else
-                error('Unknown precision option');
-            end
             
             y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
 
@@ -511,17 +441,6 @@ classdef Conv2DLayer < handle
             input = permute(input,[1,3,2]);
             I1 = input(:,:,1);
             W1 = obj.Weights(:,:,1,1);
-            if isa(input, "single")
-                obj.Weights = single(obj.Weights);
-                obj.Bias = single(obj.Bias);
-                option = "single";
-            elseif isa(input,"double")
-                obj.Weights = double(obj.Weights);
-                obj.Bias = double(obj.Bias);
-                option = "double";
-            else
-                error('Unknown precison option');               
-            end
             
             [h, w] = Conv2DLayer.get_size_featureMap(I1, W1, obj.PaddingSize, obj.Stride, obj.DilationFactor);   
             y(:,:, obj.NumFilters) = zeros(w, h, option); % preallocate 3D matrix
@@ -539,7 +458,7 @@ classdef Conv2DLayer < handle
                 end
                 [ny, my] = size(y(:, :, i));
                 if ~isempty(obj.Bias)
-                    y(:, :, i) = y(:, :, i) + double(obj.Bias(:, :, i)) * ones(ny, my, option); 
+                    y(:, :, i) = y(:, :, i) + obj.Bias(:, :, i) * ones(ny, my, option); 
                 end
                 y0 = reshape(y(:,:,i)',ny*my,1);
                 y0 = reshape(y0,[ny,my]);
@@ -570,8 +489,8 @@ classdef Conv2DLayer < handle
             end
             
             % compute output sets
-            c = vl_nnconv(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-            V = vl_nnconv(double(input.V(:,:,:,2:input.numPred + 1)), double(obj.Weights), [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
+            c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+            V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
             Y = cat(4, c, V);
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   
@@ -591,8 +510,8 @@ classdef Conv2DLayer < handle
             end
             
             % compute output sets
-            c = vl_nnconv(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-            V = vl_nnconv(double(input.V(:,:,:,2:input.numPreds + 1)), double(obj.Weights), [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
+            c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+            V = vl_nnconv(input.V(:,:,:,2:input.numPreds + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
             Y = cat(4, c, V);
             Z = ImageZono(Y);
             

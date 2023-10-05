@@ -43,7 +43,8 @@ for i=1:n
 
     % Layers with no effect on the reachability analysis
     if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') ...
-            || isa(L,"nnet.onnx.layer.VerifyBatchSizeLayer") || isa(L, "nnet.cnn.layer.RegressionOutputLayer") || customLayer_no_NLP == 1
+            || isa(L,"nnet.onnx.layer.VerifyBatchSizeLayer") || isa(L, "nnet.cnn.layer.RegressionOutputLayer") ...
+            || customLayer_no_NLP == 1 || isa(L, "nnet.onnx.layer.CustomOutputLayer")
         Li = PlaceholderLayer.parse(L);
 
     elseif customLayer_no_NLP

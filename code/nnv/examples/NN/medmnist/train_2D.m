@@ -23,7 +23,7 @@ end
 % --------------------------------------------------------
 %    DATASET        BEST ACC        Small (ours)     Large (ours) 
 % PathMNIST          0.911             0.8259
-% ChestMNIST         0.948     
+% ChestMNIST         0.948             0.9474
 % DermaMNIST         0.768             0.7092
 % OCTMNIST           0.776             0.6540
 % PneumoniaMNIST     0.884             0.8189

@@ -5,7 +5,7 @@ medmnist_path = "data/mat_files/"; % path to data
 datasets = dir(medmnist_path+"*.mat");
 
 for i=1:length(datasets)
-    if ~endsWith(datasets(i).name, "3d.mat")
+    if ~endsWith(datasets(i).name, "3d.mat") || ~contains(datasets(i).name, "chest")
         try
             train_medmnist(medmnist_path+datasets(i).name);
         catch ME

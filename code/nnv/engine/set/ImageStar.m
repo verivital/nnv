@@ -380,10 +380,10 @@ classdef ImageStar < handle
                 images = obj.IM;
             else
                 V1 = [cast(zeros(obj.numPred, 1),'like', obj.C)  eye(obj.numPred)];
-                S = Star(V1, obj.C, obj.d);                
+                S = Star(V1, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
                 pred_samples = S.sample(N); 
                 
-                M = length(pred_samples);
+                M = size(pred_samples,2);
                 images = cell(1, M);
                 for i=1:M
                     images{i} = obj.evaluate(pred_samples(:, i));

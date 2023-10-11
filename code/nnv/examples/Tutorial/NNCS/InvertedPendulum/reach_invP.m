@@ -1,4 +1,12 @@
-% Reachability analyisis of inverted pendulum NNCS
+%% Reachability analyisis of inverted pendulum NNCS
+
+% inverted pendulum dynamics (linear dynamics, 4 states)
+%
+% - System states
+%  - x1 = x position
+%  - x2 = pendulum angle
+%  - x3 = velocity (x)
+%  - x4 = angular velocity (pendulum)
 
 %% NNCS
 load controller.mat;

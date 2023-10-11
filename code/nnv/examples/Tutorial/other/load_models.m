@@ -12,10 +12,9 @@ net2 = matlab2nnv(net);
 acas_path = [nnvroot(), filesep, 'data', filesep, 'ACASXu', filesep];
 networks = dir(acas_path+"onnx/*.onnx");
 
-net_acas = importONNXNetwork([networks(1).folder filesep networks(1).name], "InputDataFormats","BCSS");
+net_acas = importNetworkFromONNX([networks(1).folder filesep networks(1).name], "InputDataFormats","BCSS");
 net3 = matlab2nnv(net_acas);
 
 %% Example 4: Load tensorflow/keras model
 net_h5 = importKerasNetwork('../../../tests/io/models/final_model.h5');
 net4 = matlab2nnv(net_h5);
-

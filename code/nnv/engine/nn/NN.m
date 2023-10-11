@@ -141,7 +141,6 @@ classdef NN < handle
             % @y: output vector y
             
             for i=1:height(obj.Connections)
-                i
                 if i > 1
                     x = obj.input_vals{1,i}; % 
                 end

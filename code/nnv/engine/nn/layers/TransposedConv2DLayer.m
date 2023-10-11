@@ -21,7 +21,6 @@ classdef TransposedConv2DLayer < handle
         CroppingSize = [0 0 0 0]; % Outputsize reduction
         % Cropping = [0 0]; 
         
-        
         % Learnable Parmeters/ Used for reachability analysis
         Weights = [];
         Bias = [];
@@ -140,7 +139,6 @@ classdef TransposedConv2DLayer < handle
                     filter_bias = varargin{2};
                     cropping_mat = varargin{3};
                     stride_mat = varargin{4};
-                                                  
                     
                     w = size(filter_weights);
                     b = size(filter_bias);
@@ -187,7 +185,6 @@ classdef TransposedConv2DLayer < handle
                     end
                     obj.Stride = stride_mat;  
                     
-                    
                 case 2
                     
                     filter_weights = varargin{1};
@@ -221,31 +218,23 @@ classdef TransposedConv2DLayer < handle
                     if length(w) == 4 && w(3) ~= b(3)
                         error('Inconsistency between filter weights and filter biases');
                     end
-                                        
-                           
                                     
                 otherwise
                     error('Invalid number of inputs (should be 2, 5, or 6)');
                                  
             end
-                    
 
         end
-        
                 
     end
     
     
-    % evaluation method
-    methods
+    methods % evaluation methods
                 
         % evaluate using matconvnet
         function y = evaluate(obj, input)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
-            % @option: 'single' or 'double' or empty precision of
-            % computation
-            
             
             % author: Dung Tran
             % date: 4/22/2020
@@ -259,14 +248,13 @@ classdef TransposedConv2DLayer < handle
 
         end
                     
-
-        
     end
     
        
-    % reachability analysis using star set
     
-    methods
+    
+    methods % reachability analysis 
+
         % reachability analysis method using ImageStar
         function S = reach_star_single_input(obj, input)
             % @inputs: an ImageStar input set
@@ -287,8 +275,8 @@ classdef TransposedConv2DLayer < handle
             end
             
             % compute output sets
-            c = vl_nnconvt(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-            V = vl_nnconvt(double(input.V(:,:,:,2:input.numPred + 1)), double(obj.Weights), [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            c = vl_nnconvt(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            V = vl_nnconvt(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
             % c = extractdata(dltranspconv(dlarray(input.V(:,:,:,1)), obj.Weights, obj.Bias, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
             % V = extractdata(dltranspconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), obj.Weights, 0, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
             Y = cat(4, c, V);
@@ -310,15 +298,14 @@ classdef TransposedConv2DLayer < handle
             end
             
             % compute output sets
-            c = vl_nnconvt(double(input.V(:,:,:,1)), double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-            V = vl_nnconvt(double(input.V(:,:,:,2:input.numPred + 1)), double(obj.Weights), [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);         
+            c = vl_nnconvt(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            V = vl_nnconvt(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);         
             Y = cat(4, c, V);
             Z = ImageZono(Y);
             
         end
         
-        
-        % hangle multiple inputs
+        % multiple inputs (Stars)
         function images = reach_star_multipleInputs(obj, in_images, option)
             % @in_images: an array of ImageStars input set
             % @option: 
@@ -340,7 +327,6 @@ classdef TransposedConv2DLayer < handle
                 end
             else
                 error('Unknown computation option');
-
             end
             
         end
@@ -369,8 +355,6 @@ classdef TransposedConv2DLayer < handle
 
         end
 
-        
-        
         % reach star with multiple inputs
         function images = reach(varargin)
             % @inputs: an array of ImageStar or ImageZono input set
@@ -430,11 +414,10 @@ classdef TransposedConv2DLayer < handle
             
         end
         
-        
     end
     
     
-    methods(Static) % parsing, get zero input pading, compute feature maps
+    methods(Static) % parsing
         
         % parse a trained transposeConvolutional2dLayer from matlab
         function L = parse(layer)

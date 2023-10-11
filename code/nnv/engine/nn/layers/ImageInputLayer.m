@@ -62,9 +62,9 @@ classdef ImageInputLayer < handle
             % @y: output image with normalization
             
             if strcmp(obj.Normalization, 'none')
-                y = double(x);
+                y = x;
             elseif strcmp(obj.Normalization, 'zerocenter')
-                y = double(x) - double(obj.Mean); % zerocenter nomalization
+                y = x - obj.Mean; % zerocenter nomalization
             else
                 error('The normalization method is not supported yet.')
             end

@@ -12,7 +12,7 @@ vnnlibs = dir(acas_path+"vnnlib/*.vnnlib");
 % Select network to verify
 model_number = 45; % select network 1 out of 45
 net_path = [networks(1).folder filesep networks(model_number).name];
-net = importONNXNetwork(net_path, InputDataFormats='BCSS');
+net = importNetworkFromONNX(net_path, InputDataFormats='BCSS');
 
 % Select property to verify
 prop_name = 'prop_3.vnnlib'; % select property 3 (options 1 to 10)

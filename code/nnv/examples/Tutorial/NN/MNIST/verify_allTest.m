@@ -1,5 +1,9 @@
 %% Robustness verification of a NN (L infinity adversarial attack)
-
+%  if f(x) = y, then forall x' in X s.t. ||x - x'||_{\infty} <= eps,
+%  then f(x') = y = f(x)
+%
+% certified robustness: 
+%  what % of correctly classified inputs satisfies the above provably
 
 %% Load data into NNV
 

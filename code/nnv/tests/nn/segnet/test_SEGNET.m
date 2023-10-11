@@ -10,6 +10,7 @@ labelDir = fullfile(dataSetDir,'trainingLabels');
 imds = imageDatastore(imageDir);
 
 im = readimage(imds, 1);
+im = single(im);
 
 tic;
 y = nnvSegNet.evaluate(im);

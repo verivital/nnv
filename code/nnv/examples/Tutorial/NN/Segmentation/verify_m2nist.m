@@ -60,3 +60,16 @@ toc(t);
 % Visualize results
 net.plot_segmentation_output_set(ver_rs{1}, eval_seg_ims{1});
 
+
+
+%% Notes
+% IoU = Intersection over Union
+%  
+% IoU = TP / (TP + FP + FN), where
+%  
+%  - TP = true positive
+%  - FP = false positive
+%  - FN = false negative
+% 
+% These metrics are all computed in terms of number of pixels
+

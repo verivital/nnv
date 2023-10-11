@@ -1,4 +1,6 @@
 %% Robustness verification of a NN (L infinity adversarial attack)
+%  if f(x) = y, then forall x' in X s.t. ||x - x'||_{\infty} <= eps,
+%  then f(x') = y = f(x)
 
 % Load network (gtsrb_model.mat)
 model = ; % load the file containing the neural network (net -> SeriesNetwork)

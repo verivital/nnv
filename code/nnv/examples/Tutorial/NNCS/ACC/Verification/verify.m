@@ -1,7 +1,10 @@
 %% Safety verification using reachability analysis of ACC
 
+%% Show scenario
+imshow("ACC_scenario.png");
 % Example from: https://www.mathworks.com/help/mpc/ug/adaptive-cruise-control-using-model-predictive-controller.html
 
+%% Begin verification
 % Load components
 net = load_NN_from_mat('controller_5_20.mat');
 % define step-size for reachability of the plant

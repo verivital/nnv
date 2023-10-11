@@ -2,6 +2,12 @@
 % author: Dung Tran
 % date: 6/3/2019
 
+%% Show AEBS scenario
+imshow("AEBS_scenario.png");
+% From Tran et al., "Safety Verification of Cyber-Physical Systems with
+% Reinforcement Learning Control", EMSOFT'19
+
+%% Begin verification
 % normalization 
 norm_mat = [1/250 0 0; 0 3.6/120 0; 0 0 1/20]; % normalized matrix
 

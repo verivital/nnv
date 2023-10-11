@@ -104,10 +104,27 @@ classdef ConcatenationLayer < handle
             % @image: output set
             % outputs = inputs{1};
             % concatenate along the dimension (obj.Dim), usually channels (3)
-            new_V = inputs{1}.V;
+            
+            % Get max size of V
+            vSize = size(inputs{1}.V);
             for i = 2:length(inputs)
-                new_V = cat(obj.Dim, new_V, inputs{i}.V);
+                if numel(size(inputs{i}.V)) > numel(vSize)
+                    vSize = inputs{i}.V;
+                end
             end
+            
+            % Initialize V
+            new_V = zeros(vSize, 'like', inputs{1}.V);
+            new_V(:,:,:,1:size(inputs{1}.V,4)) = inputs{1}.V;
+            % Generate V
+            for i = 2:length(inputs)
+                % ensure all Vs are same dimension
+                tempV = zeros(vSize, 'like', inputs{1}.V);
+                tempV(:,:,:,1:size(inputs{i}.V,4)) = inputs{i}.V;
+                new_V = cat(obj.Dim, new_V, tempV);
+            end
+
+            % Create output set
             outputs = ImageStar(new_V, inputs{1}.C, inputs{1}.d, inputs{1}.pred_lb, inputs{1}.pred_ub);
         end
         

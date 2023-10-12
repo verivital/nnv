@@ -13,7 +13,7 @@ classdef Conv2DLayer < handle
     %   Dung Tran: 12/5/2018
     
     properties
-        Name = 'convolutional_layer';
+        Name = 'convolutional_2d_layer';
         % Hyperparameters
         FilterSize = []; % height and width of filters
         NumChannels = 'auto';
@@ -754,7 +754,7 @@ classdef Conv2DLayer < handle
         function L = parse(conv2dLayer)
             % @conv2dLayer: a convolutional 2d layer from matlab deep
             % neural network tool box
-            % @L : a Cov2DLayer for reachability analysis purpose
+            % @L : a Conv2DLayer for reachability analysis purpose
 
             if ~isa(conv2dLayer, 'nnet.cnn.layer.Convolution2DLayer')
                 error('Input is not a Matlab nnet.cnn.layer.Convolution2DLayer class');

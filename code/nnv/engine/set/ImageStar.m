@@ -529,7 +529,7 @@ classdef ImageStar < handle
         end
 
         % required for lstm layer
-        function images = splitImageStar(varargin)
+        function images = splitSet(varargin)
             obj = varargin{1};
             dim = varargin{2};
             numSplit =  varargin{3};
@@ -641,7 +641,7 @@ classdef ImageStar < handle
             end
             
             if ((point2(1) < 1) || (point2(1) > obj.height) || (point2(2) < 1) || (point2(2) > obj.width) || (point2(3) < 1) || (point2(3) > obj.numChannel))
-                error('The first input point is invalid');
+                error('The second input point is invalid');
             end
             
             n = obj.numPred + 1; 

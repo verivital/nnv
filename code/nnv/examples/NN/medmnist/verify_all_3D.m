@@ -26,7 +26,7 @@ for i=1:length(datasets)
             load(dataset);
         
             % data to verify (test set)
-            test_images = permute(test_images, [2 3 4 1]);
+            test_images = permute(test_images, [2 3 4 5 1]);
             test_labels = test_labels + 1;
 
             % load network
@@ -37,15 +37,16 @@ for i=1:length(datasets)
             adv_attack = struct;
             adv_attack.Name = "linf";
             adv_attack.epsilon = 1; % {epsilon} color values
-            adv_attack.max_pixels = 784; % Max number of pixels to modify from input image
+            % adv_attack.max_pixels = 784; % Max number of pixels to modify from input image
+            adv_attack.max_pixels = 1; % Max number of pixels to modify from input image
 
             % select images to verify
-            N = 50;
-            inputs = test_images(:,:,:,1:N);
+            N = 2;
+            inputs = test_images(:,:,:,:,1:N);
             targets = test_labels(1:N);
 
             % verify images
-            results = verify_medmnist2d(net, inputs, targets, adv_attack);
+            results = verify_medmnist3d(net, inputs, targets, adv_attack);
 
             % save results
             save("results/verification_"+datasets(i).name, "results", "adv_attack");

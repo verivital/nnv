@@ -305,7 +305,7 @@ classdef LstmLayer < handle
                     c_t_1 = ImageStar();
                 end
                 
-                S = in_image.splitImageStar('col',in_image.width);
+                S = in_image.splitSet('col',in_image.width);
 
                 for i = 1 : length(S)
                     S1 = S(i).affineMap(obj.inputWeights, obj.bias);
@@ -313,7 +313,7 @@ classdef LstmLayer < handle
                         S1R = h_t_1.affineMap(obj.recurrentWeights,[]);
                         S1 = S1.MinkowskiSum(S1R);
                     end
-                    gates = S1.splitImageStar('row',4);
+                    gates = S1.splitSet('row',4);
                     i_t = LogSig.reach(gates(1).toStar);
                     f_t = LogSig.reach(gates(2).toStar);
                     g_t = TanSig.reach(gates(3).toStar);

@@ -6,6 +6,7 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
     % Check what type of attack to consider
     if strcmp(attack.Name, 'linf')
         epsilon = attack.epsilon;
+        max_pixels = attack.max_pixels;
     else
         error("Adversarial attack not supported.");
     end
@@ -18,10 +19,10 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
         min_value = -inf;
     end
 
-    % check the inputs size is in the correct order (num of images in dim 4)
-    N = length(targets); % number of images to verify
-    if size(inputs,4) ~= N
-        error("Number of images and targets must be the same. Ensure number of images are in dimension 4 of inputs.")
+    % check the inputs size is in the correct order (num of volumes in dim 4)
+    N = length(targets); % number of volumes to verify
+    if size(inputs,5) ~= N
+        error("Number of volumes and targets must be the same. Ensure number of volumes are in dimension 5 of input array.")
     end
 
     % Initialize variables
@@ -36,18 +37,18 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
 
         % print progress
         % if ~mod(i, 3)
-        disp("Verifying image " + string(i) + " of " + string(N) + "...");
+        disp("Verifying input volume " + string(i) + " of " + string(N) + "...");
         % end
 
-        % Create set of images
-        img = inputs(:,:,:,i);
-        I = l_inf_attack(img, epsilon, max_pixels, max_value, min_value);
+        % Create set of volume images
+        vol = inputs(:,:,:,:,i);
+        I = L_inf_attack(vol, epsilon, max_pixels, max_value, min_value);
 
         t = tic; % start timer
 
         % Check for missclassification
-        img = single(img);
-        y = net.evaluate(img);
+        vol = single(vol);
+        y = net.evaluate(vol);
         [~, y] = max(y);
         if y ~= targets(i)
             results(1, i) = -1; % missclassified
@@ -74,12 +75,15 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
 
 end
 
-% Return an ImageStar of an linf attack
-function I = l_inf_attack(img, epsilon, max_value, min_value)
-    imgSize = size(img);
-    disturbance = epsilon * ones(imgSize, "like", img); % disturbance value
-    lb = max(img - disturbance, min_value);
-    ub = min(img + disturbance, max_value);
-    I = ImageStar(single(lb), single(ub)); % default: single (assume onnx input models)
+% Return a VolumeStar of an Linf attack
+function I = L_inf_attack(vol, epsilon, max_pixels, max_value, min_value)
+    volSize = size(vol);
+    n = numel(vol);
+    idxs = randperm(n, max_pixels); % select some random pixels from the input volume
+    disturbance = zeros(volSize, "like", vol); % initialize array (mostly zeros)
+    disturbance(idxs) = epsilon; % change to {epsilon} the randomly selected pixels
+    lb = max(vol - disturbance, min_value);
+    ub = min(vol + disturbance, max_value);
+    I = VolumeStar(single(lb), single(ub)); % default: single (assume onnx input models)
 end
 

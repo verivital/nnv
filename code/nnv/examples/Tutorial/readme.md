@@ -1,9 +1,11 @@
-# ESWeek 2023 - Trustworthy AI and Safe Autonomy (NNV Tutorial)
+# Verification and Validation of Neural Networks in Automated Vehicles (NNV Tutorial) - E2023 IEEE IAVVC
+
+Previous tutorial at EMSOFT'23 (Embedded Systems Week 2023)
 
 ## Getting Started
 We recommend using MATLAB Online (**prior license not required!**) to participate in this tutorial, but one can also use a local installation of MATLAB and NNV to follow along as well.
 
-It is important that participants complete this section before arrriving to the tutorial.
+It is important that participants complete this section before arriving at the tutorial.
 
 #### MATLAB Online Instructions
 
@@ -13,10 +15,10 @@ please contact the organizers.
 ###### Note: this license is not required if participants already have a valid license for all the toolboxes listed in [installation instructions](/README.md#installation).
 
 Create a copy of NNV into your MathWorks account (personal MATLAB Drive):
-[NNV Online](https://drive.matlab.com/sharing/6861a9c9-f818-45ab-b7cc-380bbfb2be0e) 
+[NNV Online](https://drive.matlab.com/sharing/6861a9c9-f818-45ab-b7cc-380bbfb2be0e)
   - Click on `Open in MATLAB Online` -> `Copy Folder`
   - This will prompt you to log into your account (or register if you don’t have one)
-###### Note: copying NNV online may take anywhere from 15 minutes to over an hour.
+###### Note: copying NNV online may take anywhere from 15 minutes to a couple of hours.
 
 #### Standalone Installation
 

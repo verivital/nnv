@@ -1330,6 +1330,27 @@ classdef Star
                 
         end
 
+        % convert to VolumeStar set
+        function VS = toVolumeStar(obj, height, width, depth, numChannel)
+            % @height: height of VolumeStar
+            % @width:  width of VolumeStar
+            % @depth:  depth of VolumeStar
+            % @numChannel: number of channels in VolumeStar
+            
+            if obj.dim ~= height*width*depth*numChannel
+                error('Inconsistent dimension in the VolumeStar and the original Star set');
+            end
+            
+            if ~isempty(obj.state_lb) && ~isempty(obj.state_ub)
+                lb = reshape(obj.state_lb,[height, width, depth, numChannel]);
+                ub = reshape(obj.state_ub,[height, width, depth, numChannel]);
+                VS = VolumeStar(reshape(obj.V, [height, width, depth, numChannel,  obj.nVar + 1]), obj.C, obj.d, obj.predicate_lb, obj.predicate_ub, lb, ub);
+            else
+                VS = VolumeStar(reshape(obj.V, [height, width, depth, numChannel,  obj.nVar + 1]), obj.C, obj.d, obj.predicate_lb, obj.predicate_ub);
+            end
+                
+        end
+
         % reset a row of a star set to zero
         function S = resetRow(obj, map)
             % @map: an array of indexes

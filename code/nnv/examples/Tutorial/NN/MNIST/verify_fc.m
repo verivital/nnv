@@ -17,14 +17,14 @@ imds = imageDatastore(digitDatasetPath, ...
 
 % Load first image in dataset
 [img, fileInfo] = readimage(imds,7500);
-target = double(fileInfo.Label); % label = 7 (index 8 for our network)
-img = double(img); % convert to double
+target = single(fileInfo.Label); % label = 7 (index 8 for our network)
+img = single(img); % change precision
 numClasses = net.OutputSize;
 
 % Create input set
 
 % One way to define it is using original image +- disturbance (L_inf epsilon)
-ones_ = ones(size(img));
+ones_ = ones(size(img), 'single');
 disturbance = 1 .* ones_; % one pixel value (images are not normalized, they get normalized in the ImageInputLayer)
 I = ImageStar(img, -disturbance, disturbance);
 

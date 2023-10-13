@@ -113,7 +113,7 @@ classdef FlattenLayer < handle
                     flatten_im = permute(image, [3 2 1]); % keras flatten layer
                     flatten_im = reshape(flatten_im, [1 1 n(1)*n(2)*n(3)]);
                 else
-                    error('Invalid input image');
+                    error('Invalid input.');
                 end
                 
             elseif strcmp(obj.Type, 'nnet.cnn.layer.FlattenLayer')        
@@ -121,8 +121,10 @@ classdef FlattenLayer < handle
                     flatten_im = reshape(image, [1 n(1)*n(2)]);
                 elseif length(n) == 3
                     flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)]);
+                elseif length(n) == 4
+                    flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)*n(4)]);
                 else
-                    error('Invalid input image');
+                    error('Invalid input.');
                 end 
             elseif strcmp(obj.Type, 'nnet.onnx.layer.FlattenLayer') || strcmp(obj.Type, 'nnet.onnx.layer.FlattenInto2dLayer') 
                 % C-style flatten
@@ -149,27 +151,33 @@ classdef FlattenLayer < handle
     
     methods % reachability method
         
-        function image = reach_single_input(obj, in_image)
-            % @in_image: input imagestar
-            % @image: output set
+        function outSet = reach_single_input(obj, in_set)
+            % @in_set: input set
+            % @outSet: output set
             
             % author: Dung Tran
             % date: 6/9/2020
             
-            
-            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'ImageZono')
-                error('Input set is not an ImageStar or ImageZono');
+            if isa(in_set, 'ImageStar') || ~isa(in_set, 'ImageZono')
+                N = in_set.height*in_set.width*in_set.numChannel;
+                n = in_set.numPred;
+                V(1, 1, :, in_set.numPred + 1) = zeros(N, 1);        
+                for i=1:n+1
+                    V(1, 1,:,i) = obj.evaluate(in_set.V(:,:,:,i));
+                end
+                outSet = ImageStar(V, in_set.C, in_set.d, in_set.pred_lb, in_set.pred_ub);
+
+            elseif isa(in_set, "VolumeStar") % could also just return a Star set after flatten
+                N = in_set.height*in_set.width*in_set.depth*in_set.numChannel;
+                n = in_set.numPred;
+                V(:, in_set.numPred + 1) = zeros(N, 1);        
+                for i=1:n+1
+                    V(:,i) = obj.evaluate(in_set.V(:,:,:,:,i));
+                end
+                outSet = Star(V, in_set.C, in_set.d, in_set.pred_lb, in_set.pred_ub);
+            else
+                error('Invalid input set (ImageStar, ImageZono or VolumeStar)');
             end
-            
-            N = in_image.height*in_image.width*in_image.numChannel;
-                                   
-            n = in_image.numPred;
-            V(1, 1, :, in_image.numPred + 1) = zeros(N, 1);        
-            for i=1:n+1
-                V(1, 1,:,i) = obj.evaluate(in_image.V(:,:,:,i));
-            end
-            
-            image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
             
         end
         
@@ -187,6 +195,8 @@ classdef FlattenLayer < handle
                 S(n) = ImageStar;
             elseif isa(inputs(1), 'ImageZono')
                 S(n) = ImageZono;
+            elseif isa(inputs(1), 'VolumeStar')
+                S(n) = VolumeStar;
             else
                 error('Unknown input data set');
             end

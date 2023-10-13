@@ -6,7 +6,7 @@ net = matlab2nnv(net.net);
 
 % Load images
 images = load('../../../NN/SemanticSegmentation/M2NIST/m2nist_6484_test_images.mat');
-im_data = images.im_data;
+im_data = single(images.im_data);
 
 % Create example input set
 Nmax = 50; % maximum allowable number of attacked pixels
@@ -43,8 +43,8 @@ end
 % Define input set as ImageStar
 dif_im = im - at_im;
 noise = -dif_im;
-V(:,:,:,1) = double(im); % center of set
-V(:,:,:,2) = double(noise); % basis vectors
+V(:,:,:,1) = im; % center of set
+V(:,:,:,2) = noise; % basis vectors
 C = [1; -1]; % constraints
 d = [1; de-1];
 IS = ImageStar(V, C, d, 1-de, 1); % input set

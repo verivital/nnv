@@ -9,7 +9,7 @@ classdef Conv1DLayer < handle
     %   Neelanjana Pal: 10/25/2021
     
     properties
-        Name = 'convolutional_1dlayer';
+        Name = 'convolutional_1d_layer';
         % Hyperparameters
         FilterSize = 1; % height and width of filters
         NumChannels = 'auto';   

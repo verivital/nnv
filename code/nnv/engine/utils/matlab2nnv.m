@@ -53,10 +53,18 @@ for i=1:n
     % Image Input Layer
     elseif isa(L, 'nnet.cnn.layer.ImageInputLayer')
         Li = ImageInputLayer.parse(L);
+    
+    % Image 3D Input Layer 
+    elseif isa(L, 'nnet.cnn.layer.Image3DInputLayer')
+        Li = Image3DInputLayer.parse(L);
 
     % Sequence Input Layer
     elseif isa(L, 'nnet.cnn.layer.SequenceInputLayer')
             Li = SequenceInputLayer.parse(L);
+
+    % Convolutional 3D layer
+    elseif isa(L, 'nnet.cnn.layer.Convolution3DLayer') 
+        Li = Conv3DLayer.parse(L);
 
     % Convolutional 2D layer
     elseif isa(L, 'nnet.cnn.layer.Convolution2DLayer') 
@@ -97,6 +105,10 @@ for i=1:n
     % Average Pooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.AveragePooling2DLayer')
         Li = AveragePooling2DLayer.parse(L);
+
+    % Average Pooling 3D Layer
+    elseif isa(L, 'nnet.cnn.layer.AveragePooling3DLayer')
+        Li = AveragePooling3DLayer.parse(L);
    
     % Global Average Pooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.GlobalAveragePooling2DLayer')

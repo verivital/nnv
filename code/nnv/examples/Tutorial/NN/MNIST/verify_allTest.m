@@ -33,7 +33,7 @@ numClasses = net.OutputSize; % # of classes in dataset
 
 % Adversarial attack (L_inf attack)
 % One way to define it is using original image +- disturbance (L_inf epsilon)
-ones_ = ones([28 28]); % size of image
+ones_ = ones([28 28], 'single'); % size of image
 epsilon = 1; % pixel values (images are not normalized, they get normalized in the ImageInputLayer)
 
 %% Main computation
@@ -48,8 +48,8 @@ for i=1:N
 
     % Load image in dataset
     [img, fileInfo] = readimage(imdsEval,i);
-    target = double(fileInfo.Label); % label = 0 (index 1 for our network)
-    img = double(img); % convert to double
+    target = single(fileInfo.Label); % label = 0 (index 1 for our network)
+    img = single(img); % change precision
 
     % Adversarial attack
     disturbance = epsilon * ones_;
@@ -105,6 +105,7 @@ for i=1:N
 end
 
 % Get summary results
+N = length(results);
 rob = sum(results(:,1) == 1);
 not_rob = sum(results(:,1) == 0);
 unk = sum(results(:,1) == 2);

@@ -93,7 +93,7 @@ classdef FullyConnectedLayer < handle
             % author: Dung Tran
             % date: 6/26/2019
             % 
-            % update: add support for sequence evaluacion (neuralode, RNN)
+            % update: add support for sequence evaluation (neuralode, RNN)
             %   -date: 03/17/2023 (Diego Manzanas)
             
             n = size(x);

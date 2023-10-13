@@ -23,13 +23,13 @@ figure;
 imshow(img);
 
 % Get image info
-target = double(fileInfo.Label); % target label
-img = double(img); % convert to double
+target = single(fileInfo.Label); % target label
+img = single(img); % change precision
     
 % Create input set
     
 % One way to define it is using original image +- disturbance (L_inf epsilon)
-ones_ = ones(size(img));
+ones_ = ones(size(img), 'single');
 disturbance = 1 .* ones_; % one pixel color value (images are not normalized, they get normalized in the ImageInputLayer)
 
 % Ensure the values are within the valid range for pixels ([0 255])

@@ -1,5 +1,5 @@
 classdef AveragePooling2DLayer < handle
-    % The convolutional 2D layer class
+    % The average pooling 2D layer class
     %   Contain constructor and reachability analysis methods
     % Main references:
     % 1) An intuitive explanation of convolutional neural networks: 

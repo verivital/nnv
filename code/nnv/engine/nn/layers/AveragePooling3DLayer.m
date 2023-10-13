@@ -202,7 +202,7 @@ classdef AveragePooling3DLayer < handle
             
             x = dlarray(input, "SSSC");
             y = avgpool(x, obj.PoolSize, 'Stride', obj.Stride, 'Padding', obj.PaddingSize);
-            y = extractdata(x);
+            y = extractdata(y);
                    
         end
 

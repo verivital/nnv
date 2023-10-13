@@ -68,7 +68,7 @@ hold on;
 Star.plot(R7,'c');
 hold on;
 Star.plot(R8,'r');
-saveas(gcf, 'affineTransformations.png');
+% saveas(gcf, 'affineTransformations.png');
 
 
 %% Helper functions

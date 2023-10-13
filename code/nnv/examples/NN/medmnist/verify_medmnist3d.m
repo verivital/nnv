@@ -1,7 +1,7 @@
-function results = verify_medmnist3d(net, inputs, targets, attack, max_value, min_value)
+function results = verify_medmnist3d(net, matlabNet, inputs, targets, attack, max_value, min_value)
     % verify medmnist with inputs (input images), targets (labels) and attack
     % (struct with adversarial attack info)
-    % results =  verify_medmnist(inputs, targets, attack, max_value*, min_value*)
+    % results =  verify_medmnist(net, matlabNet, inputs, targets, attack, max_value*, min_value*)
     
     % Check what type of attack to consider
     if strcmp(attack.Name, 'linf')
@@ -31,6 +31,7 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
     % Define reachability parameters
     reachOptions = struct;
     reachOptions.reachMethod = 'approx-star';
+    reachOptions.dis_opt = 'display';
     
     % Evaluate all images
     for i = 1:N
@@ -57,9 +58,9 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
         end
 
         % Check for falsification with upper and lower bounds
-        yUpper = net.evaluate(I.im_ub);
+        yUpper = net.evaluate(I.vol_ub);
         [~, yUpper] = max(yUpper);
-        yLower = net.evaluate(I.im_lb);
+        yLower = net.evaluate(I.vol_lb);
         [~, yLower] = max(yLower);
         if yUpper ~= targets(i) || yLower ~= targets(i)
             results(1,i) = 0; % not robust

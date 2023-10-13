@@ -96,14 +96,8 @@ classdef FullyConnectedLayer < handle
             % update: add support for sequence evaluation (neuralode, RNN)
             %   -date: 03/17/2023 (Diego Manzanas)
             
-            n = size(x);
-            if length(n) == 2
-                x = reshape(x, [n(1)*n(2) 1]);
-            elseif length(n) == 3
-                x = reshape(x, [n(1)*n(2)*n(3) 1]);
-            else
-                error('Invalid input image');
-            end
+            x = squeeze(x); % remove higher dimensions of 1
+
             if size(x, 1) ~= size(obj.Weights, 2)
                 error('Inconsistent input vector')
             end
@@ -127,7 +121,7 @@ classdef FullyConnectedLayer < handle
             % author: Neelanjana Pal
             % date: 1/6/2023
 
-            y = double(obj.Weights)*input + double(obj.Bias);
+            y = obj.Weights*input + obj.Bias;
         end
 
         % main reachability analysis function

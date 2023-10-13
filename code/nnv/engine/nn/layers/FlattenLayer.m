@@ -122,7 +122,7 @@ classdef FlattenLayer < handle
                 elseif length(n) == 3
                     flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)]);
                 elseif length(n) == 4
-                    flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)*n(4)]);
+                    flatten_im = reshape(image, [1 1 1 n(1)*n(2)*n(3)*n(4)]);
                 else
                     error('Invalid input.');
                 end 

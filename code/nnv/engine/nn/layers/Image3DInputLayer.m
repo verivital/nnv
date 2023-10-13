@@ -71,8 +71,8 @@ classdef Image3DInputLayer < handle
             % @in_image: an input ImageStar
             % @image: an output ImageStar
             
-            if ~isa(in_image, 'ImageStar')
-                error('Input is not an ImageStar');
+            if ~isa(in_image, 'VolumeStar')
+                error('Input is not an VolumeStar');
             end
 
             % Compute normalization
@@ -95,7 +95,7 @@ classdef Image3DInputLayer < handle
             %         or a single ImageStar set
             
             n = length(in_images);
-            images(n) = ImageStar;
+            images(n) = VolumeStar;
 
             if strcmp(option, 'parallel')
                 parfor i=1:n

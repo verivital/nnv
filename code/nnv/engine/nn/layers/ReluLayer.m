@@ -30,8 +30,8 @@ classdef ReluLayer < ActivationFunctionLayer
         
     end
         
-    % evaluation method
-    methods
+    
+    methods % evaluation methods
         
         function y = evaluate(~, input)
             % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
@@ -41,18 +41,17 @@ classdef ReluLayer < ActivationFunctionLayer
             % date: 6/26/2019
             
             % @y: high-dimensional array (output volume)
-            
+
             n = size(input);
-            N = 1;
-            for i=1:length(n)
-                N = N*n(i);
-            end
+            N = prod(n);
             
             I = reshape(input, [N 1]);
             y = PosLin.evaluate(I);
             y = reshape(y, n);
-                   
+
         end
+
+
 		function y = evaluateSequence(~, input)
             % @input: 2 or 3-dimensional array, for example, input(:, :, :), 
             % @y: 2 or 3-dimensional array, for example, y(:, :, :)
@@ -84,11 +83,24 @@ classdef ReluLayer < ActivationFunctionLayer
             % update: 7/15/2020: add display option
             % update 7/16/2020: add lp_solver option
                         
-            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
-                error('input is not an ImageStar or Star');
+            if ~isa(in_image, 'VolumeStar') && ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
+                error('input is not an ImageStar, Star or VolumeStar');
             end
-            
-            if isa(in_image, 'ImageStar')
+            if isa(in_image, 'VolumeStar')
+                % get dimensions of VolumeStar
+                h = in_image.height;
+                w = in_image.width;
+                dp = in_image.depth;
+                c = in_image.numChannel;
+                % transform to star and compute relu reachability
+                Y = PosLin.reach(in_image.toStar, method, [], relaxFactor); % reachable set computation with ReLU
+                n = length(Y);
+                % transform back to VolumeStar
+                images(n) = VolumeStar;
+                for i=1:n
+                    images(i) = Y(i).toVolumeStar(h,w,dp, c);
+                end
+            elseif isa(in_image, 'ImageStar')
                 h = in_image.height;
                 w = in_image.width;
                 c = in_image.numChannel;

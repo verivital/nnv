@@ -7,7 +7,7 @@ function out = is_container()
             out = 0;
         end
         % 'docker container detected'
-    elseif ispath('/home/runner/work/')
+    elseif isfolder('/home/runner/work/') % for GitHub actions
         out = 1;
     else
         out = 0;

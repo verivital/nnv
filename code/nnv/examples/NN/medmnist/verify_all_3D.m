@@ -1,11 +1,5 @@
 %% Verify all possible 3D classification models for medmnist data
 
-%% Notes:
-% - To verify these networks we need to add support for a few layers:
-%   - Image3DInputLayer
-%   - Convolution3DLayer
-%   - AveragePooling3DLayer
-
 
 medmnist_path = "data/mat_files/"; % path to data
 
@@ -31,25 +25,44 @@ for i=1:length(datasets)
 
             % load network
             load("models/model_"+string(datasets(i).name));
+            matlabNet = net;
             net = matlab2nnv(net);
 
             % adversarial attack
-            adv_attack = struct;
-            adv_attack.Name = "linf";
-            adv_attack.epsilon = 1; % {epsilon} color values
-            % adv_attack.max_pixels = 784; % Max number of pixels to modify from input image
-            adv_attack.max_pixels = 1; % Max number of pixels to modify from input image
+            attack_option = 'bright'; % default (darkening attack)
+            switch attack_option
+                case 'linf'
+                    adv_attack = struct;
+                    adv_attack.Name = "linf";
+                    adv_attack.epsilon = 1; % {epsilon} color values
+                    % adv_attack.max_pixels = 784; % Max number of pixels to modify from input image
+                    adv_attack.max_pixels = 1; % Max number of pixels to modify from input image
+                case 'dark'
+                    adv_attack = struct;
+                    adv_attack.Name = "dark";
+                    adv_attack.threshold = 150; % perturb pixels over this value
+                    adv_attack.max_pixels = 50; % Max number of pixels to modify from input image
+                    adv_attack.noise_de = 1; % disturbance (noise) on pixels
+                case 'bright'
+                    adv_attack = struct;
+                    adv_attack.Name = "bright";
+                    adv_attack.threshold = 100; % perturb pixels below this value
+                    adv_attack.max_pixels = 50; % Max number of pixels to modify from input image
+                    adv_attack.noise_de = 1; % disturbance (noise) on pixels
+                otherwise
+                    error("Wrong attack");
+            end
 
-            % select images to verify
-            N = 2;
+            % select volumes to verify
+            N = 200;
             inputs = test_images(:,:,:,:,1:N);
             targets = test_labels(1:N);
 
-            % verify images
+            % verify volumes
             results = verify_medmnist3d(net, inputs, targets, adv_attack);
 
             % save results
-            save("results/verification_"+datasets(i).name, "results", "adv_attack");
+            save("results/verification_"+adv_attack.Name+"_"+datasets(i).name, "results", "adv_attack");
 
             % print results to screen
             disp("======= ROBUSTNESS RESULTS ==========")

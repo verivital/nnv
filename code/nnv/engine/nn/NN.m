@@ -192,8 +192,9 @@ classdef NN < handle
             % Parse the inputs
 
             % Ensure input set is a valid type
-            if ~ isa(inputSet,"Star") && ~ isa(inputSet,"ImageStar") && ~ isa(inputSet,"ImageZono") && ~ isa(inputSet,"Zono") 
-                error('Wrong input set type. Input set must be of type "Star", "ImageStar", "ImageZono", or "Zono"')
+            if ~isa(inputSet,"Star") && ~isa(inputSet,"ImageStar") && ~isa(inputSet, "VolumeStar")...
+                    && ~isa(inputSet,"ImageZono") && ~isa(inputSet,"Zono") 
+                error('Wrong input set type. Input set must be of type "Star", "ImageStar", "VolumeStar", "ImageZono", or "Zono"')
             end
 
             % Check validity of reachability method
@@ -1217,6 +1218,9 @@ classdef NN < handle
                 exec_len = length(obj.reachSet);
                 % ensure layer has not been eexcuted yet
                 if exec_len >= source_indx && isempty(obj.reachSet{source_indx})
+                    if strcmp(obj.dis_opt, 'display')
+                        fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, source);
+                    end
                     t = tic;
                     if isequal(class(obj.Layers{1,1}), 'SequenceInputLayer')
                         outSet = obj.Layers{source_indx}.reachSequence(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);

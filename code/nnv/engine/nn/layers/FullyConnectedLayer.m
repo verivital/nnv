@@ -101,9 +101,12 @@ classdef FullyConnectedLayer < handle
                 x = reshape(x, [n(1)*n(2) 1]);
             elseif length(n) == 3
                 x = reshape(x, [n(1)*n(2)*n(3) 1]);
+            elseif length(n) == 4
+                x = reshape(x, [n(1)*n(2)*n(3)*n(4) 1]);
             else
-                error('Invalid input image');
+                error('Invalid input');
             end
+
             if size(x, 1) ~= size(obj.Weights, 2)
                 error('Inconsistent input vector')
             end
@@ -127,7 +130,7 @@ classdef FullyConnectedLayer < handle
             % author: Neelanjana Pal
             % date: 1/6/2023
 
-            y = double(obj.Weights)*input + double(obj.Bias);
+            y = obj.Weights*input + obj.Bias;
         end
 
         % main reachability analysis function

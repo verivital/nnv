@@ -406,8 +406,8 @@ classdef Conv3DLayer < handle
             
             % compute output sets
             c = dlconv(dlarray(input.V(:,:,:,:,1), "SSSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-            V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), "SSSCB", obj.Weights, [], 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);        
-            Y = cat(4, extractdata(c), extractdata(V));
+            V = dlconv(dlarray(input.V(:,:,:,:,2:input.numPred + 1), "SSSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);        
+            Y = cat(5, extractdata(c), extractdata(V));
             S = VolumeStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   
         end
@@ -419,7 +419,7 @@ classdef Conv3DLayer < handle
             % @volumes: an array of VolumeStars output set
             
             n = length(in_volumes);
-            volumes(n) = IVolumeStar; 
+            volumes(n) = VolumeStar; 
             
             if strcmp(option, 'parallel')
                 parfor i=1:n

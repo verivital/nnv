@@ -200,9 +200,9 @@ classdef AveragePooling3DLayer < handle
             %
             % @y: high-dimensional array (output volume), depth of output = number of filters
             
-            x = dlarray(input, "SSSC");
+            x = dlarray(input, "SSSCB");
             y = avgpool(x, obj.PoolSize, 'Stride', obj.Stride, 'Padding', obj.PaddingSize);
-            y = extractdata(x);
+            y = extractdata(y);
                    
         end
 

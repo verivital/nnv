@@ -103,24 +103,46 @@ classdef BatchNormalizationLayer < handle
                 obj.NumChannels = 1;
             end
             
-            if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                y = input - obj.TrainedMean;
-                for i=1:obj.NumChannels
-                    y(:,:,i) = y(:,:,i)./(sqrt(obj.TrainedVariance(:,:,i) + obj.Epsilon));
-                    y(:,:,i) = obj.Scale(:, :, i).*y(:,:,i) + obj.Offset(:,:,i);
-                end
-                
-            elseif ~isempty(obj.Scale) && ~isempty(obj.Offset) && isempty(obj.TrainedVariance) && isempty(obj.TrainedMean)
-                y = input;
-                if obj.NumChannels == 1
-                    y = obj.Scale.*y + obj.Offset;
-                else
+            % input -> 3d image / volume
+            if length(size(input)) == 4 || (length(size(input)) == 3 && obj.NumChannels == 1)
+                if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
+                    y = input - obj.TrainedMean;
                     for i=1:obj.NumChannels
+                        y(:,:,:,i) = y(:,:,:,i)./(sqrt(obj.TrainedVariance(:,:,:,i) + obj.Epsilon));
+                        y(:,:,:,i) = obj.Scale(:,:,:,i).*y(:,:,:,i) + obj.Offset(:,:,:,i);
+                    end
+                elseif ~isempty(obj.Scale) && ~isempty(obj.Offset) && isempty(obj.TrainedVariance) && isempty(obj.TrainedMean)
+                    y = input;
+                    if obj.NumChannels == 1
+                        y = obj.Scale.*y + obj.Offset;
+                    else
+                        for i=1:obj.NumChannels
+                            y(:,:,:,i) = obj.Scale(:,:,:,i).*y(:,:,:,i) + obj.Offset(:,:,:,i);
+                        end
+                    end
+                else
+                    y = input;
+                end
+            % input => image or feature vector
+            else
+                if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
+                    y = input - obj.TrainedMean;
+                    for i=1:obj.NumChannels
+                        y(:,:,i) = y(:,:,i)./(sqrt(obj.TrainedVariance(:,:,i) + obj.Epsilon));
                         y(:,:,i) = obj.Scale(:, :, i).*y(:,:,i) + obj.Offset(:,:,i);
                     end
+                elseif ~isempty(obj.Scale) && ~isempty(obj.Offset) && isempty(obj.TrainedVariance) && isempty(obj.TrainedMean)
+                    y = input;
+                    if obj.NumChannels == 1
+                        y = obj.Scale.*y + obj.Offset;
+                    else
+                        for i=1:obj.NumChannels
+                            y(:,:,i) = obj.Scale(:, :, i).*y(:,:,i) + obj.Offset(:,:,i);
+                        end
+                    end
+                else
+                    y = input;
                 end
-            else
-                y = input;
             end
             
         end 
@@ -146,14 +168,42 @@ classdef BatchNormalizationLayer < handle
             % @in_image: an input imagestar
             % @image: output set
             
-            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star') % input may be Star or ImageStar
-                error('Input is not a Star or ImageStar');
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star') && ~isa(in_image, 'VolumeStar') % input may be Star or ImageStar
+                error('Input is not a Star, ImageStar or VolumeStar');
             end
             
             % make copy of input set
             image = in_image;
+
+            if isa(image, 'VolumeStar')
+                
+                % Begin reachability analysis
+                x = in_image;
+                
+                % If mean and variance exist
+                if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
+                    % 1) Normalized all elements of x (for each channel independently)
+                    % 1a) substract mean from elements of x per channel
+                    for i=1:obj.NumChannels
+                        x.V(:,:,:,i,1) = x.V(:,:,:,i,1) - obj.TrainedMean(:,:,:,i);
+                    end
+                    % 1b) Divide by sqrt(variance + epsilon)
+                    for i=1:obj.NumChannels
+                        x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,:,i) + obj.Epsilon);
+                    end
+                    % 2) Batch normalization operation further shifts and scales the activations using Scale and Offset values
+                    % 2a) Scale values
+                    for i=1:obj.NumChannels
+                        x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* obj.Scale(:,:,:,i);
+                    end
+                    % 2b) Apply offset
+                    for i=1:obj.NumChannels
+                        x.V(:,:,:,i,1) = x.V(:,:,:,i,1) + obj.Offset(:,:,:,i);
+                    end
+                    image = x;
+                end
             
-            if isa(image, 'ImageStar')
+            elseif isa(image, 'ImageStar')
                 % Get parameters to the right shape
                 if(length(size(obj.TrainedMean)) == 2) && size(image.V, 1) == 1 && size(image.V, 2) == 1 && length(size(image.V)) == 4
                     obj.TrainedMean = reshape(obj.TrainedMean, [1 1 size(obj.TrainedMean, 1)]);
@@ -245,7 +295,9 @@ classdef BatchNormalizationLayer < handle
             % date: 1/7/2020
             
             n = length(in_images);
-            if isa(in_images(n), 'ImageStar')
+            if isa(in_images(n), 'VolumeStar')
+                images(n) = VolumeStar;
+            elseif isa(in_images(n), 'ImageStar')
                 images(n) = ImageStar; 
             else
                 images(n) = Star; 

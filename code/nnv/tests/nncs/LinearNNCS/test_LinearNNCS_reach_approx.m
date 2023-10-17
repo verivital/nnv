@@ -86,7 +86,7 @@ init_set = Star(lb, ub);
 
 reachPRM.init_set = Star(lb, ub);
 reachPRM.ref_input = [30; 1.4];
-reachPRM.numSteps = 4;
+reachPRM.numSteps = 10;
 reachPRM.reachMethod = 'approx-star';
 reachPRM.numCores = 1;
 

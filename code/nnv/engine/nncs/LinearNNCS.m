@@ -229,10 +229,11 @@ classdef LinearNNCS < handle
                     mU = length(U0_i); % number of control sets corresponding to the initial set of state X0(i)
                     obj.plantIntermediateReachSet{k}{i} = cell(mU, 1);
                     for j=1:mU
-                        new_V = [X0(i).V; U0_i(j).V];
+                        x0V = zeros(size(U0_i(j).V), "like", U0_i(j).V); % ensure same dimensions
+                        x0V(1:size(X0(i).V,1),1:size(X0(i).V,2)) = X0(i).V; % cretae X0 basis vectors
+                        new_V = [x0V; U0_i(j).V]; % new basis vectors
                         trans_init_set = Star(new_V, U0_i(j).C, U0_i(j).d, U0_i(j).predicate_lb, U0_i(j).predicate_ub);
                         X_imd = obj.transPlant.simReach(obj.plantReachMethod, trans_init_set, [], h, obj.plantNumOfSimSteps, []);
-                        % X_imd = obj.transPlant.simReach(obj.plantReachMethod, X0(i), U0_i, h, obj.plantNumOfSimSteps, []);
                         X1 = [];
                         for l=1:obj.plantNumOfSimSteps + 1
                             X1 = [X1 X_imd(l).affineMap(obj.transPlant.C, [])]; 
@@ -651,7 +652,6 @@ classdef LinearNNCS < handle
                 error('We can plot only 3-dimensional output set, please limit the number of row of the mapping matrix to <= 3');
             end
             
-            
         end
         
         % plot step output reachable sets
@@ -765,8 +765,6 @@ classdef LinearNNCS < handle
                 error('We can plot only 3-dimensional output set, please limit the number of row of the mapping matrix to <= 3');
             end
             
-            
-            
         end
           
     end
@@ -863,9 +861,7 @@ classdef LinearNNCS < handle
                     [safe, counterExamples, ~] = obj.falsify(falsifyPRM);
                 end
             
-            
             end
-            
             
             if strcmp(safe, 'UNSAFE')
                 fprintf('\n\nThe neural network control system is unsafe, NNV produces counter-examples');
@@ -1134,7 +1130,6 @@ classdef LinearNNCS < handle
             falsifyTraces = obj.falsifyTraces; 
             falsifyTime = toc(t);
             obj.falsifyTime = falsifyTime;
-                       
             
         end
         

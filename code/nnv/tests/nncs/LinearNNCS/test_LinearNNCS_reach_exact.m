@@ -88,7 +88,8 @@ reachPRM.init_set = Star(lb, ub);
 reachPRM.ref_input = [30; 1.4];
 reachPRM.numSteps = 4;
 reachPRM.reachMethod = 'exact-star';
-reachPRM.numCores = 4;
+% reachPRM.numCores = 4;
+reachPRM.numCores = 1; % limited cores for testing
 
 [R, reachTime] = ncs.reach(reachPRM);
 

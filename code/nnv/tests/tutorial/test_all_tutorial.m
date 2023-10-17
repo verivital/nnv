@@ -3,7 +3,9 @@
 cd ../../examples/Tutorial/NN/'ACAS Xu'/;
 
 %% 1) NN: ACAS Xu (verify_onnx_vnnlib)
-verify_onnx_vnnlib;
+if ~is_container() % importers (support packages) are not installed
+    verify_onnx_vnnlib;
+end
 
 %% 2) NN: GTSRB (verify_falsify_1)
 cd ../GTSRB;
@@ -49,7 +51,9 @@ reach_invP;
 
 %% 14) Other: load models
 cd ../../other;
-load_models;
+if ~is_container() % importers (support packages) are not installed
+    load_models;
+end
 
 %% 15) Other: set representations
 set_representations;

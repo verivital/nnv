@@ -12,7 +12,7 @@ I0 = readimage(imds, 1);
 
 % Adjust size of the image 
 sz = net.Layers(1).InputSize; 
-I = I0(1:sz(1),1:sz(2),1:sz(3));
+I = single(I0(1:sz(1),1:sz(2),1:sz(3)));
 
 n = size(I);
 N = numel(I);

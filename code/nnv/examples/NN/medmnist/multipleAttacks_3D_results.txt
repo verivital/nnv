@@ -1,0 +1,342 @@
+*******************************************************
+================= PROCESSING RESULTS: results/verification_multipleAttacks_adrenalmnist3d.mat ...
+... processing dark attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  152
+Number of not robust images      =  0
+Number of unknown images         =  10
+Number of missclassified images  =  38
+Average computation time of 0.097665
+ 
+... processing dark attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  152
+Number of not robust images      =  0
+Number of unknown images         =  10
+Number of missclassified images  =  38
+Average computation time of 0.093128
+ 
+... processing dark attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  152
+Number of not robust images      =  0
+Number of unknown images         =  10
+Number of missclassified images  =  38
+Average computation time of 0.10202
+ 
+... processing bright attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  160
+Number of not robust images      =  0
+Number of unknown images         =  2
+Number of missclassified images  =  38
+Average computation time of 0.23374
+ 
+... processing bright attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  160
+Number of not robust images      =  0
+Number of unknown images         =  2
+Number of missclassified images  =  38
+Average computation time of 0.19122
+ 
+... processing bright attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  157
+Number of not robust images      =  0
+Number of unknown images         =  5
+Number of missclassified images  =  38
+Average computation time of 0.26513
+ 
+*******************************************************
+*******************************************************
+================= PROCESSING RESULTS: results/verification_multipleAttacks_fracturemnist3d.mat ...
+... processing dark attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  64
+Number of not robust images      =  0
+Number of unknown images         =  21
+Number of missclassified images  =  115
+Average computation time of 0.077774
+ 
+... processing dark attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  62
+Number of not robust images      =  0
+Number of unknown images         =  23
+Number of missclassified images  =  115
+Average computation time of 0.084388
+ 
+... processing dark attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  61
+Number of not robust images      =  0
+Number of unknown images         =  24
+Number of missclassified images  =  115
+Average computation time of 0.078273
+ 
+... processing bright attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  85
+Number of not robust images      =  0
+Number of unknown images         =  0
+Number of missclassified images  =  115
+Average computation time of 0.27232
+ 
+... processing bright attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  84
+Number of not robust images      =  0
+Number of unknown images         =  1
+Number of missclassified images  =  115
+Average computation time of 0.23118
+ 
+... processing bright attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  80
+Number of not robust images      =  0
+Number of unknown images         =  5
+Number of missclassified images  =  115
+Average computation time of 0.22384
+ 
+*******************************************************
+*******************************************************
+================= PROCESSING RESULTS: results/verification_multipleAttacks_nodulemnist3d.mat ...
+... processing dark attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  90
+Number of not robust images      =  0
+Number of unknown images         =  83
+Number of missclassified images  =  27
+Average computation time of 0.11423
+ 
+... processing dark attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  80
+Number of not robust images      =  0
+Number of unknown images         =  93
+Number of missclassified images  =  27
+Average computation time of 0.12654
+ 
+... processing dark attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  81
+Number of not robust images      =  0
+Number of unknown images         =  92
+Number of missclassified images  =  27
+Average computation time of 0.13058
+ 
+... processing bright attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  161
+Number of not robust images      =  0
+Number of unknown images         =  12
+Number of missclassified images  =  27
+Average computation time of 0.14372
+ 
+... processing bright attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  138
+Number of not robust images      =  0
+Number of unknown images         =  35
+Number of missclassified images  =  27
+Average computation time of 0.14722
+ 
+... processing bright attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  116
+Number of not robust images      =  0
+Number of unknown images         =  57
+Number of missclassified images  =  27
+Average computation time of 0.17602
+ 
+*******************************************************
+*******************************************************
+================= PROCESSING RESULTS: results/verification_multipleAttacks_organmnist3d.mat ...
+... processing dark attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  2
+Number of not robust images      =  0
+Number of unknown images         =  173
+Number of missclassified images  =  25
+Average computation time of 0.14552
+ 
+... processing dark attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  2
+Number of not robust images      =  0
+Number of unknown images         =  173
+Number of missclassified images  =  25
+Average computation time of 0.14997
+ 
+... processing dark attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  2
+Number of not robust images      =  0
+Number of unknown images         =  173
+Number of missclassified images  =  25
+Average computation time of 0.16166
+ 
+... processing bright attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  28
+Number of not robust images      =  0
+Number of unknown images         =  147
+Number of missclassified images  =  25
+Average computation time of 0.18946
+ 
+... processing bright attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  23
+Number of not robust images      =  0
+Number of unknown images         =  152
+Number of missclassified images  =  25
+Average computation time of 0.22786
+ 
+... processing bright attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  16
+Number of not robust images      =  0
+Number of unknown images         =  159
+Number of missclassified images  =  25
+Average computation time of 0.28619
+ 
+*******************************************************
+*******************************************************
+================= PROCESSING RESULTS: results/verification_multipleAttacks_synapsemnist3d.mat ...
+... processing dark attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  200
+Number of not robust images      =  0
+Number of unknown images         =  0
+Number of missclassified images  =  0
+Average computation time of 0.10852
+ 
+... processing dark attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  200
+Number of not robust images      =  0
+Number of unknown images         =  0
+Number of missclassified images  =  0
+Average computation time of 0.117
+ 
+... processing dark attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  200
+Number of not robust images      =  0
+Number of unknown images         =  0
+Number of missclassified images  =  0
+Average computation time of 0.12074
+ 
+... processing bright attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  200
+Number of not robust images      =  0
+Number of unknown images         =  0
+Number of missclassified images  =  0
+Average computation time of 0.15097
+ 
+... processing bright attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  200
+Number of not robust images      =  0
+Number of unknown images         =  0
+Number of missclassified images  =  0
+Average computation time of 0.15911
+ 
+... processing bright attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  200
+Number of not robust images      =  0
+Number of unknown images         =  0
+Number of missclassified images  =  0
+Average computation time of 0.20001
+ 
+*******************************************************
+*******************************************************
+================= PROCESSING RESULTS: results/verification_multipleAttacks_vesselmnist3d.mat ...
+... processing dark attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  150
+Number of not robust images      =  0
+Number of unknown images         =  14
+Number of missclassified images  =  36
+Average computation time of 0.11734
+ 
+... processing dark attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  154
+Number of not robust images      =  0
+Number of unknown images         =  10
+Number of missclassified images  =  36
+Average computation time of 0.11599
+ 
+... processing dark attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  156
+Number of not robust images      =  0
+Number of unknown images         =  8
+Number of missclassified images  =  36
+Average computation time of 0.10129
+ 
+... processing bright attack  with 50 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  164
+Number of not robust images      =  0
+Number of unknown images         =  0
+Number of missclassified images  =  36
+Average computation time of 0.19815
+ 
+... processing bright attack  with 100 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  163
+Number of not robust images      =  0
+Number of unknown images         =  1
+Number of missclassified images  =  36
+Average computation time of 0.18294
+ 
+... processing bright attack  with 200 pixels perturbed with noise of 3
+----------- ROBUSTNESS RESULTS -------------
+Verification results of 200 images.
+Number of robust images          =  161
+Number of not robust images      =  0
+Number of unknown images         =  3
+Number of missclassified images  =  36
+Average computation time of 0.15325
+ 
+*******************************************************

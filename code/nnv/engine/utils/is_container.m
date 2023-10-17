@@ -7,6 +7,8 @@ function out = is_container()
             out = 0;
         end
         % 'docker container detected'
+    elseif ispath('/home/runner/work/')
+        out = 1;
     else
         out = 0;
         % 'docker container not detected'

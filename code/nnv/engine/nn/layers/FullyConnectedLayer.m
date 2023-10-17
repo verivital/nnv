@@ -96,7 +96,16 @@ classdef FullyConnectedLayer < handle
             % update: add support for sequence evaluation (neuralode, RNN)
             %   -date: 03/17/2023 (Diego Manzanas)
             
-            x = squeeze(x); % remove higher dimensions of 1
+            n = size(x);
+            if length(n) == 2
+                x = reshape(x, [n(1)*n(2) 1]);
+            elseif length(n) == 3
+                x = reshape(x, [n(1)*n(2)*n(3) 1]);
+            elseif length(n) == 4
+                x = reshape(x, [n(1)*n(2)*n(3)*n(4) 1]);
+            else
+                error('Invalid input');
+            end
 
             if size(x, 1) ~= size(obj.Weights, 2)
                 error('Inconsistent input vector')

@@ -158,7 +158,7 @@ classdef FlattenLayer < handle
             % author: Dung Tran
             % date: 6/9/2020
             
-            if isa(in_set, 'ImageStar') || ~isa(in_set, 'ImageZono')
+            if isa(in_set, 'ImageStar') || isa(in_set, 'ImageZono')
                 N = in_set.height*in_set.width*in_set.numChannel;
                 n = in_set.numPred;
                 V(1, 1, :, in_set.numPred + 1) = zeros(N, 1);        
@@ -196,7 +196,7 @@ classdef FlattenLayer < handle
             elseif isa(inputs(1), 'ImageZono')
                 S(n) = ImageZono;
             elseif isa(inputs(1), 'VolumeStar')
-                S(n) = VolumeStar;
+                S(n) = Star; % convert to Star as we move to a 2D set
             else
                 error('Unknown input data set');
             end

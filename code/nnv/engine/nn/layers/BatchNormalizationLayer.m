@@ -295,7 +295,9 @@ classdef BatchNormalizationLayer < handle
             % date: 1/7/2020
             
             n = length(in_images);
-            if isa(in_images(n), 'ImageStar')
+            if isa(in_images(n), 'VolumeStar')
+                images(n) = VolumeStar;
+            elseif isa(in_images(n), 'ImageStar')
                 images(n) = ImageStar; 
             else
                 images(n) = Star; 

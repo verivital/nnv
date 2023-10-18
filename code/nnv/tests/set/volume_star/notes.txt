@@ -1,0 +1,1 @@
+Add tests for volumestar, i.e. constructor, getRange, affineMap, etc

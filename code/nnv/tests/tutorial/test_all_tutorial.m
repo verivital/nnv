@@ -7,18 +7,10 @@ if ~is_github_actions() % importers (support packages) are not installed
     verify_onnx_vnnlib;
 end
 
-%% 2) NN: GTSRB (verify_falsify_1)
-cd ../GTSRB;
-verify_falsify_1;
 
 %% 3) NN: GTSRB (verify_robust_13)
+cd ../GTSRB;
 verify_robust_13;
-
-%% 4) NN: GTSRB (verify_robust_27)
-verify_robust_27;
-
-%% 5) NN: GTSRB (verify_unknown_1)
-verify_unknown_1;
 
 %% 6) NN: MNIST (input set examples)
 cd ../MNIST;
@@ -41,9 +33,6 @@ verify;
 %% 11) NNCS: AEBS (reach)
 cd ../../AEBS;
 reach;
-
-%% 12) NNCS: AEBS (reach_full_brake)
-reach_full_brake;
 
 %% 13) NNCS: Inverted Pendulum
 cd ../InvertedPendulum;

@@ -1,6 +1,6 @@
 function out = is_github_actions()
     nnvpath = nnvroot();
-    file_path = [nnvpath, 'github_actions.txt'];
+    file_path = [nnvpath, '/github_actions.txt'];
     % for debugging
     disp(nnvpath);
     disp(file_path);

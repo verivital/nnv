@@ -32,4 +32,5 @@ jobs:
       - name: Run all tests
         uses: matlab-actions/run-command@v1
         with:
-          command: disp('Running NNV custom testing procedure!'); mkdir('/github_actions-true'); cd("code/nnv"); install; results = runtests('tests', 'IncludeSubfolders', true); assertSuccess(results);
+          command: disp('Running NNV custom testing procedure!'); diary github_actions.txt; disp('creating file for testing'); diary off; cd("code/nnv"); install; disp(pwd); disp(is_github_actions()); results = runtests('tests', 'IncludeSubfolders', true); assertSuccess(results);
+          # command: disp('Running NNV custom testing procedure!'); mkdir('/github_actions-true'); cd("code/nnv"); install; results = runtests('tests', 'IncludeSubfolders', true); assertSuccess(results);

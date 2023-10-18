@@ -1,5 +1,7 @@
 function out = is_github_actions()
-    if isfolder('/github_actions-true')
+    nnvpath = nnvroot();
+    file_path = [nnvpath, 'github_actions.txt'];
+    if isfile(file_path)
         out = 1;
         % 'github actions detected'
     else

@@ -3,7 +3,7 @@
 cd ../../examples/Tutorial/NN/'ACAS Xu'/;
 
 %% 1) NN: ACAS Xu (verify_onnx_vnnlib)
-if ~is_container() % importers (support packages) are not installed
+if ~is_github_actions() % importers (support packages) are not installed
     verify_onnx_vnnlib;
 end
 
@@ -51,7 +51,7 @@ reach_invP;
 
 %% 14) Other: load models
 cd ../../other;
-if ~is_container() % importers (support packages) are not installed
+if ~is_github_actions() % importers (support packages) are not installed
     load_models;
 end
 

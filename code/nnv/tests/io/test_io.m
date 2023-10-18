@@ -10,7 +10,7 @@ net = matlab2nnv(net);
 
 
 %% Test 3: Load onnx model
-if ~is_container() % importers (support packages) are not installed in MATLAB actions
+if ~is_github_actions() % importers (support packages) are not installed in MATLAB actions
     net_onnx = importONNXNetwork('mobilenetv2-1.0.onnx');
     % net = matlab2nnv(net_onnx);
     % This should get error: 

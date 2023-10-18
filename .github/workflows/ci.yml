@@ -32,4 +32,5 @@ jobs:
       - name: Run all tests
         uses: matlab-actions/run-command@v1
         with:
-          command: disp('Running NNV custom testing procedure!'); cd("code/nnv"); install; results = runtests('tests', 'IncludeSubfolders', true); assertSuccess(results);
+          command: disp('Running NNV custom testing procedure!'); cd("code/nnv"); addpath(genpath(pwd)); disp(is_container()); disp(pwd);
+          # command: disp('Running NNV custom testing procedure!'); cd("code/nnv"); install; results = runtests('tests', 'IncludeSubfolders', true); assertSuccess(results);

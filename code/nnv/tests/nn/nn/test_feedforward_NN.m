@@ -1,30 +1,35 @@
+rng(0); % ensure test won't fail due to random seed
+
 %% test 1:  falsify
+
+% create NN
 W = [1 1; 0 1];
 b = [0; 0.5];
 L = LayerS(W, b, 'poslin');
 Layers = {L};
 
-
 F = NN(Layers);
 
-
+% create input set
 lb = [-1; -1];
 ub = [1; 1];
-
 I = Star(lb, ub);
 
+% compute reachability
 R = F.reach(I);
 
+% Create unsafe region
 G = [-1 0];
 g = [-1.5];
-
 U = HalfSpace(G, g);
 
+% define number of samples to attempt falsification
 n_samples = 1000;
-
+% find counter examples
 counter_inputs = F.falsify(I, U, n_samples);
 counter_outputs = F.evaluate(counter_inputs);
 
+% Visualize results
 figure;
 subplot(1, 2, 1);
 Star.plot(I);

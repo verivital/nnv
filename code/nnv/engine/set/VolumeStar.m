@@ -391,7 +391,7 @@ classdef VolumeStar < handle
             S2 = I.toStar;
             S = S1.MinkowskiSum(S2);
             
-            volume = S.toVolumeStar(I.height, I.width, I.depth, I.numChannel); % TODO: implement this function in Star set
+            volume = S.toVolumeStar(I.height, I.width, I.depth, I.numChannel); 
 
         end
         

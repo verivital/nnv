@@ -45,17 +45,6 @@ end
 
 img_scores = net.evaluate(img);
 
-% but what are we verifying exactly? we could compute interval differences
-% with original scores (img_scores) to see how things change, but what does
-% that mean?
-
-% Let's do the attribution method (baseline) computation, 
-% but using the input generation of the noise tunnel
-
-% We cannot use the exact sets we computed, but we can get the ranges for
-% all the outputs and use those for the attribution calculation for each
-% pixel
-
 ub = zeros(size(img));
 lb = zeros(size(img));
 
@@ -84,3 +73,4 @@ colorbar;
 subplot(2,2,3);
 imshow(diff, 'Colormap',winter, 'DisplayRange',[min(diff, [], 'all'), max(diff, [], 'all')]);
 colorbar;
+saveas(gcf, "single_pixel_range.png");

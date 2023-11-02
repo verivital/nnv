@@ -1,54 +1,34 @@
 %% Let's create some examples for medmnist 2D and 3D
 
-%% Dataset 1
-% We start with bloodmnist
-data1 = "data/mat_files/bloodmnist.mat";
-load(data1);
+%% All 2D datasets
 
-test_images = permute(test_images, [2 3 4 1]);
-test_labels = test_labels + 1;
+datapath = "data/mat_files/";
+datafiles = ["bloodmnist"; "breastmnist.mat"; "dermamnist.mat"; "octmnist.mat"; "organamnist.mat"; ...
+    "organcmnist.mat"; "organsmnist.mat"; "pathmnist.mat"; "pneumoniamnist"; "retinamnist.mat"; "tissuemnist.mat"];
 
-outputSize = 8; % number of classes in dataset
 N = 10; % number of vnnlib files to create
 epsilon = [1,2,3]; % {epsilon} pixel color values for every channel
 
-name = "vnnlib/bloodmnist_linf_";
-
-for i=1:N
-    img = test_images(:,:,:,i);
-    outputSpec = create_output_spec(outputSize, test_labels(i));
-    for j=1:length(epsilon)
-        [lb,ub] = l_inf_attack(img, epsilon(j), 255, 0);
-        vnnlibfile = name+string(epsilon(j))+"_"+string(i)+".vnnlib";
-        export2vnnlib(lb, ub, outputSize, outputSpec, vnnlibfile);
-        disp("Created property "+vnnlibfile);
-    end
-end
-
-
-%% Dataset 2
-% Now we choose a grayscale dataset for 2D classification
-% pneumoniamnist
-data1 = "data/mat_files/pneumoniamnist.mat";
-load(data1);
-
-test_images = permute(test_images, [2 3 4 1]);
-test_labels = test_labels + 1;
-
-outputSize = 8; % number of classes in dataset
-N = 10; % number of vnnlib files to create
-epsilon = [1,2,3]; % {epsilon} pixel color values for every channel
-
-name = "vnnlib/pneumoniamnist_linf_";
-
-for i=1:N
-    img = test_images(:,:,:,i);
-    outputSpec = create_output_spec(outputSize, test_labels(i));
-    for j=1:length(epsilon)
-        [lb,ub] = l_inf_attack(img, epsilon(j), 255, 0);
-        vnnlibfile = name+string(epsilon(j))+"_"+string(i)+".vnnlib";
-        export2vnnlib(lb, ub, outputSize, outputSpec, vnnlibfile);
-        disp("Created property "+vnnlibfile);
+for k=1:length(datafiles)
+    % load data
+    load(datapath + datafiles(k));
+    % preprocess dataa
+    test_images = permute(test_images, [2 3 4 1]);
+    test_labels = test_labels + 1;
+    outputSize = length(unique(test_labels)); % number of classes in dataset
+    % create file name
+    dataname = split(datafiles(k), '.');
+    name = "vnnlib/" + dataname{1} + "_linf_";
+    % create vnnlib files
+    for i=1:N
+        img = test_images(:,:,:,i);
+        outputSpec = create_output_spec(outputSize, test_labels(i));
+        for j=1:length(epsilon)
+            [lb,ub] = l_inf_attack(img, epsilon(j), 255, 0);
+            vnnlibfile = name+string(epsilon(j))+"_"+string(i)+".vnnlib";
+            export2vnnlib(lb, ub, outputSize, outputSpec, vnnlibfile);
+            disp("Created property "+vnnlibfile);
+        end
     end
 end
 

@@ -1,0 +1,45 @@
+; Based on AcasXu 
+
+(declare-const X_0 Real)
+(declare-const X_1 Real)
+(declare-const X_2 Real)
+(declare-const X_3 Real)
+(declare-const X_4 Real)
+
+(declare-const Y_0 Real)
+(declare-const Y_1 Real)
+(declare-const Y_2 Real)
+(declare-const Y_3 Real)
+(declare-const Y_4 Real)
+
+; INPUTS
+;
+(assert (<= X_0 0.679857769))
+(assert (>= X_0 0.6))
+
+(assert (<= X_1 0.5))
+(assert (>= X_1 -0.5))
+
+(assert (<= X_2 0.5))
+(assert (>= X_2 -0.5))
+
+(assert (<= X_3 0.5))
+(assert (>= X_3 0.45))
+
+(assert (<= X_4 -0.45))
+(assert (>= X_4 -0.5))
+
+
+; OUTPUTS 
+; what this technically means is that the sum of those boolean assertions has to be less than 0.25, 
+; which means that is more than two of the output conditions are found to be SAT, then the property is SAT.
+;
+(assert (>= 
+  (+ 
+    (>= Y_0 3.991125645861615)
+    (>= Y_1 0.1)
+    (>= Y_2 0.0)
+    (>= Y_3 1.13243254354354)
+    (>= Y_4 2.24365465765787698)
+  ) 0.25)
+)

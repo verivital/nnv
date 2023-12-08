@@ -103,6 +103,10 @@ classdef Conv2DLayer < handle
                     end
 
                     obj.Bias = filter_bias;
+
+                    if isempty(padding_mat)
+                        padding_mat = [0 0 0 0];
+                    end
                                         
                     p = size(padding_mat);
                    
@@ -176,7 +180,11 @@ classdef Conv2DLayer < handle
                     end
 
                     obj.Bias = filter_bias;
-                                        
+                    
+                    if isempty(padding_mat)
+                        padding_mat = [0 0 0 0];
+                    end
+
                     p = size(padding_mat);
                    
                     if  length(p) ~= 2 || p(2) ~= 4|| p(1) ~= 1
@@ -239,6 +247,10 @@ classdef Conv2DLayer < handle
                         error('Inconsistency between filter weights and filter biases');
                     end
                     
+                    if isempty(padding_mat)
+                        padding_mat = [0 0 0 0];
+                    end
+
                     p = size(padding_mat);
                     if  length(p) ~= 2 || p(2) ~= 4|| p(1) ~= 1
                         error('Invalid padding matrix');

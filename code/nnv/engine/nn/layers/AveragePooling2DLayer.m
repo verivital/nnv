@@ -228,8 +228,20 @@ classdef AveragePooling2DLayer < handle
             % author: Dung Tran
             % date: 12/10/2018
             % update: 7/26/2019
-           
-            y = vl_nnpool(input, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'avg');         
+
+            outputType = "double"; % default
+            
+            if isa(input, "single")
+                input = double(input); % vn_nnconv requires inputs to be of double precision
+                outputType = "single";
+            end
+
+            y = vl_nnpool(input, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'avg');
+
+            % Return output with correct precision
+            if strcmp(outputType, "single")
+                y = single(y);
+            end
                    
         end
         

@@ -374,7 +374,7 @@ function [lb_array, ub_array, prop_array] = process_combined_input_output(tline,
             if contains(x, 'X')
                 [lb_input, ub_input] =  process_input_constraint(x, lb_input, ub_input);
             else
-                [H, g] =  process_output_combo_constraint(tline, H, g, output_dim);
+                [H, g] =  process_output_combo_constraint(x, H, g, output_dim);
             end
         end
         Hg = HalfSpace(H,g);

@@ -1,18 +1,18 @@
 
 
 %% test 1: AveragePooling2DLayer Compute averageMap
-% I = [1 0 2 3; 4 6 6 8; 3 1 1 0; 1 2 2 4]; % input
-% L = AveragePooling2DLayer([2 2], [2 2], [0 0 0 0]);
-% averageMap = L.compute_averageMap(I);
-% 
-% checker=[(I(1, 1)+I(1, 2)+I(2, 1)+I(2, 2))/4, (I(1, 3)+I(1, 4)+I(2, 3)+I(2, 4))/4; (I(3, 1)+I(3, 2)+I(4, 1)+I(4, 2))/4, (I(3, 3)+I(3, 4)+I(4, 3)+I(4, 4))/4];
-% assert(isequal(checker, averageMap))
-% 
-% 
-% %% test 2: AveragePooling2DLayer constructor
-% L1 = AveragePooling2DLayer('test_average_pooling_2d_layer', [2 2], [1 1], [0 0 0 0]);
-% L2 = AveragePooling2DLayer();
-% L3 = AveragePooling2DLayer([3 3], [1 1], [0 0 0 0]);
+I = [1 0 2 3; 4 6 6 8; 3 1 1 0; 1 2 2 4]; % input
+L = AveragePooling2DLayer([2 2], [2 2], [0 0 0 0]);
+averageMap = L.compute_averageMap(I);
+
+checker=[(I(1, 1)+I(1, 2)+I(2, 1)+I(2, 2))/4, (I(1, 3)+I(1, 4)+I(2, 3)+I(2, 4))/4; (I(3, 1)+I(3, 2)+I(4, 1)+I(4, 2))/4, (I(3, 3)+I(3, 4)+I(4, 3)+I(4, 4))/4];
+assert(isequal(checker, averageMap))
+
+
+%% test 2: AveragePooling2DLayer constructor
+L1 = AveragePooling2DLayer('test_average_pooling_2d_layer', [2 2], [1 1], [0 0 0 0]);
+L2 = AveragePooling2DLayer();
+L3 = AveragePooling2DLayer([3 3], [1 1], [0 0 0 0]);
 
 
 %% test 3: AveragePooling2DLayer evaluation
@@ -22,7 +22,7 @@ inputVol(:, :, 2) = [1 2 2 1 2; 2 1 2 0 2; 2 2 2 0 1; 1 1 1 0 0; 1 0 2 2 1]; % c
 inputVol(:, :, 3) = [0 0 2 2 1; 0 2 1 1 2; 0 2 0 0 1; 0 2 1 0 1; 1 2 1 0 0]; % channel 3 input matrix
 
 L = AveragePooling2DLayer([3 3], [2 2], [0 0 0 0]);
-y = L.evaluate(single(inputVol));
+y = L.evaluate(inputVol);
 
 for i=1:3
     for j=1:2
@@ -38,15 +38,6 @@ for i=1:3
     % display(y(:,:,i));
     % display(inputVol(:,:,i));
 end
-
-%% test 3b: AveragePooling2DLayer evaluation (single precision)
-% original input volume: color image with 3 channels
-inputVol(:, :, 1) = [0 0 2 0 0; 1 2 0 2 0; 0 0 2 2 0; 0 2 2 2 2; 2 2 2 1 1]; % channel 1 input matrix
-inputVol(:, :, 2) = [1 2 2 1 2; 2 1 2 0 2; 2 2 2 0 1; 1 1 1 0 0; 1 0 2 2 1]; % channel 2 input matrix
-inputVol(:, :, 3) = [0 0 2 2 1; 0 2 1 1 2; 0 2 0 0 1; 0 2 1 0 1; 1 2 1 0 0]; % channel 3 input matrix
-
-L = AveragePooling2DLayer([3 3], [2 2], [0 0 0 0]);
-y = L.evaluate(single(inputVol));
 
 
 %% test 4: AveragePooling2DLayer get zero padding input

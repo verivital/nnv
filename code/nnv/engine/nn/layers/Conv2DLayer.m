@@ -435,27 +435,11 @@ classdef Conv2DLayer < handle
         function y = evaluate(obj, input)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
-
-            outputType = "double"; % default
             
-            if isa(input, "single")
-                input = double(input); % vn_nnconv requires inputs to be of double precision
-                outputType = "single";
-            end
-
-            % Compute evaluation
-            if isa(obj.Weights, "single")
-                y = vl_nnconv(input, double(obj.Weights), double(obj.Bias), 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-            elseif isa(obj.Weights, "double")
-                y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-            else
-                error("Input and layer parameters must be single or double precision.")
-            end
-
-            % Return output with correct precision
-            if strcmp(outputType, "single")
-                y = single(y);
-            end
+            % author: Dung Tran
+            % date: 7/18/2019
+            
+            y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
 
         end
 
@@ -517,8 +501,8 @@ classdef Conv2DLayer < handle
             end
             
             % compute output sets
-            c = obj.evaluate(input.V(:,:,:,1));
-            V = obj.evaluate(input.V(:,:,:,2:input.numPred + 1));         
+            c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+            V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
             Y = cat(4, c, V);
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   
@@ -538,8 +522,8 @@ classdef Conv2DLayer < handle
             end
             
             % compute output sets
-            c = obj.evaluate(input.V(:,:,:,1));
-            V = obj.evaluate(input.V(:,:,:,2:input.numPred + 1)); 
+            c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+            V = vl_nnconv(input.V(:,:,:,2:input.numPreds + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
             Y = cat(4, c, V);
             Z = ImageZono(Y);
             

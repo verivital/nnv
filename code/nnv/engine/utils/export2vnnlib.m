@@ -106,7 +106,10 @@ function str = halfspaceConstraint2inequality_1(hRow, hVal)
     % Outputs a string to write in the vnnlib file
 
     locs = find(hRow ~= 0); % Find indexes that are not zero
-    if hVal == 0 % Compare two indexes
+    if length(locs) > 1
+        if hVal ~= 0 % Compare two indexes
+            error("Only allowed index to index comparison, or 1 index to value, but not both.")
+        end
         if hRow(locs(1)) > 0 % 
             str = "(>= Y_"+string(locs(2)-1) + " " + "Y_"+string(locs(1)-1)+ "))";
         else

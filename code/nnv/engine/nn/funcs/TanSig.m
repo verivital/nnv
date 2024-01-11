@@ -59,7 +59,7 @@ classdef TanSig
             if ~isa(I, 'Star')
                 error('Input set is not a star set');
             end            
-            if strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star')
+            if strcmp(method, 'approx-star-no-split') || strcmp(method, 'approx-star') || contains(method, 'relax-star')
                 if relaxFactor == 0
                     S = TanSig.multiStepTanSig_NoSplit(I, dis_opt, lp_solver);
                 else

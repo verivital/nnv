@@ -656,6 +656,30 @@ classdef ImageStar < handle
             
         end
         
+        % change variable precision
+        function S = changeVarsPrecision(obj, precision)
+            S = obj;
+            if strcmp(precision, 'single')
+                S.V = single(S.V);
+                S.C = single(S.C);
+                S.d = single(S.d);
+                S.pred_lb = single(S.pred_lb); 
+                S.pred_ub = single(S.pred_lb);
+                S.im_lb = single(S.im_lb); 
+                S.im_ub = single(S.im_ub);
+            elseif strcmp(precision, 'double')
+                S.V = double(S.V);
+                S.C = double(S.C);
+                S.d = double(S.d);
+                S.pred_lb = double(S.pred_lb); 
+                S.pred_ub = double(S.pred_lb);
+                S.im_lb = double(S.im_lb); 
+                S.im_ub = double(S.im_ub);
+            else
+                error("Only single or double precision arrays allowed. GpuArray/dlarray are coming.")
+            end
+        end
+
     end
 
 

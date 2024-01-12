@@ -64,11 +64,12 @@ S = Star(lb, ub);
 
 S1 = S.affineMap([1 0 0 0 0; 0 1 0 0 0], []); % 2D, dims 1 and 2
 figure;
-Star.plot(S1);
+Star.plotBoxes_2D(S1,1,2,'r');
+hold on;
 
 S3 = S.affineMap([1 0 0 0 0; 0 1 0 0 0; 0 0 1 0 0], []); % 3D, dims 1,2 and 3
 figure;
-Star.plot(S3);
+Star.plotBoxes_3D(S3,1,2,3,'r');
 
 % 2) Plot an overapproximation (box around Star) of the set and plot
 

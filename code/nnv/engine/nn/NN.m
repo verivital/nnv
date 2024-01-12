@@ -237,13 +237,15 @@ classdef NN < handle
             if strcmp(obj.dis_opt, 'display')
                 fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
             end
+
+            % ensure NN parameters and input set share same precision
+            inputSet = obj.consistentPrecision(inputSet); % change only input, this can be changed in the future
             
             % Perform reachability based on connections or assume no skip/sparse connections
             if isempty(obj.Connections)
                 outputSet = obj.reach_noConns(inputSet);
             else 
                 outputSet = obj.reach_withConns(inputSet);
-            
             end
 
         end
@@ -943,6 +945,25 @@ classdef NN < handle
             if ~contains(reach_method, 'exact')
                 reachOptions.reachOption = 'single';
                 reachOptions.numCores = 1;
+            end
+        end
+        
+        % Ensure input and parameter precision is the same
+        function inputSet = consistentPrecision(obj, inputSet)
+            % (assume parameters have same precision across layers)
+            % approach: change input precision based on network parameters
+            inputPrecision = class(inputSet.V);
+            netPrecision = 'double'; % default
+            for i=1:length(obj.Layers)
+                if isa(obj.Layers{i}, "FullyConnectedLayer") || isa(obj.Layers{i}, "Conv2DLayer")
+                    netPrecision = class(obj.Layers{i}.Weights);
+                    break;
+                end
+            end
+            if ~strcmp(inputPrecision, netPrecision)
+                % input and parameter precision does not match
+                warning("Changing input set precision to "+string(netPrecision));
+                inputSet = inputSet.changeVarsPrecision(netPrecision);
             end
         end
 

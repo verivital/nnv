@@ -441,7 +441,11 @@ classdef ImageStar < handle
             end
             
             if ~isempty(scale) && (isvector(scale) || isscalar(scale))
-                new_V = scale.*obj.V;
+                try
+                    new_V = scale.*obj.V;
+                catch
+                    new_V = pagemtimes(scale,obj.V);
+                end
             elseif ~isempty(scale) && ismatrix(scale)
                 new_V = pagemtimes(scale,obj.V);
             else
@@ -490,8 +494,8 @@ classdef ImageStar < handle
             reshapedImage = ImageStar(V1,in_star.C, in_star.d, in_star.predicate_lb, in_star.predicate_ub);
         end
 
-        % reshape an Imagestar with the target dimesion
-        function upsamplededImage = upsample(obj, scaleDim)
+        % upsample imagestar for specific dimension
+        function reshapedImage = upsample(obj, scaleDim)
             if length(scaleDim) == 4
                 scaleDim = [scaleDim(4), scaleDim(3), 1];
             elseif length(scaleDim) == 3

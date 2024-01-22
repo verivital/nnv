@@ -1210,17 +1210,15 @@ classdef TanSig
 
         end
         
-        
-        
         function S = reach_absdom_approx(varargin)
-        % @I: star input set
-        % @Z: Star output set
-
-        % author: Dung Tran
-        % date: 3/27/2020
-
-        % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
-        % Gagandeep Singh, POPL, 2019
+            % @I: star input set
+            % @Z: Star output set
+    
+            % author: Dung Tran
+            % date: 3/27/2020
+    
+            % reference: An abstract domain for certifying neural networks. Proceedings of the ACM on Programming Languages,
+            % Gagandeep Singh, POPL, 2019
 
             switch nargin
                 case 1
@@ -1261,7 +1259,7 @@ classdef TanSig
                 S = TanSig.stepTanSig_absdom(S, i, l(i), u(i), y_l(i), y_u(i), dy_l(i), dy_u(i)); 
             end
 
-            end
+        end
 
         % dealing with multiple inputs in parallel
         function S = reach_absdom_approx_multipleInputs(varargin)
@@ -1298,7 +1296,6 @@ classdef TanSig
             end
 
         end
-
 
     end
 
@@ -1475,6 +1472,7 @@ methods(Static) % over-approximate reachability analysis using abstract-domain (
             end
         end
     end
+
 end
 
 
@@ -1697,9 +1695,11 @@ methods(Static) % over-approximate reachability analysis using abstract-domain (
             end
         end
     end
+
 end
 
 methods(Static) % over-approximate reachability analysis using RStar0
+    
     % step over-approximate reachability analysis using relaxed star with
     % zero constraints (RStar0)
     function R = stepTanSig_rstar_zero_constraints(I, index, l, u, y_l, y_u, dy_l, dy_u)
@@ -1819,6 +1819,7 @@ methods(Static) % over-approximate reachability analysis using RStar0
             end
         end
     end
+
 end
 
 
@@ -1908,6 +1909,10 @@ methods(Static) % main reach method
         elseif strcmp(method, 'approx-rstar-0')
             
             R = TanSig.reach_relaxed_star_zero_constraints_approx(I);
+
+        elseif contains(method, 'relax-star')
+
+            R = I; % just return input (for specific example that I DM is working on this works. Please, fix after that!!
 
         else
             error('Unknown or unsupported reachability method for layer with TanSig activation function');

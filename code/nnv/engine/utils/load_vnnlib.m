@@ -35,8 +35,8 @@ function property = load_vnnlib(propertyFile)
                 dim = dim + 1; % only have seen inputs defined as vectors, so this should work
                 % the more general approach would require some extra work, but should be easy as well
             elseif contains(tline, "declare-const") && contains(tline, "Y_")
-                lb_template = zeros(dim,1);
-                ub_template = zeros(dim,1);
+                lb_template = zeros(dim,1,'single');
+                ub_template = zeros(dim,1,'single');
                 dim = 0; % reset dimension counter
                 phase = "DeclareOutput";
                 continue;  % redo this line in correct phase
@@ -51,7 +51,7 @@ function property = load_vnnlib(propertyFile)
                 dim = 1; % reset dimension counter
                 phase = "DefineInput";
                 % Initialize variables
-                 lb_input = lb_template;
+                lb_input = lb_template;
                 ub_input = ub_template;
                 continue;  % redo this line in correct phase
             end
@@ -240,7 +240,7 @@ function [ast, len] = process_constraint(tline, ast)
             H(idx2) = -1;
         else
             var2 = split(var2, ')');
-            g = str2double(var2{1});
+            g = single(str2double(var2{1}));
         end
     else
         H(idx1) = -1;
@@ -252,7 +252,7 @@ function [ast, len] = process_constraint(tline, ast)
             H(idx2) = 1;
         else
             var2 = split(var2, ')');
-            g = -str2double(var2{1});
+            g = -single(str2double(var2{1}));
         end
     end
     % Add constraint (H, g) to assertion variable (ast)
@@ -346,7 +346,7 @@ function [lb_input, ub_input] =  process_input_constraint(tline, lb_input, ub_in
         dim = split(t{2},'_');
         dim = str2double(dim{2})+1;
         value = split(t{3},')');
-        value = str2double(value{1});
+        value = single(str2double(value{1}));
         if contains(t{1},">=")
             lb_input(dim) = value;
         else
@@ -374,7 +374,7 @@ function [lb_array, ub_array, prop_array] = process_combined_input_output(tline,
             if contains(x, 'X')
                 [lb_input, ub_input] =  process_input_constraint(x, lb_input, ub_input);
             else
-                [H, g] =  process_output_combo_constraint(tline, H, g, output_dim);
+                [H, g] =  process_output_combo_constraint(x, H, g, output_dim);
             end
         end
         Hg = HalfSpace(H,g);
@@ -401,7 +401,7 @@ function [H, g] =  process_output_combo_constraint(tline, H, g, output_dim)
         dim = split(t{2},'_');
         dim = str2double(dim{2})+1;
         value = split(t{3},')');
-        value = str2double(value{1});
+        value = single(str2double(value{1}));
         if contains(t{1},">=") || contains(t{1}, ">")
             Hvec(dim) = -1;
             gval = -value;

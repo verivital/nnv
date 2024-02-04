@@ -39,7 +39,7 @@ function process_multiple_attacks(results)
     noise_vals = [1;2;3];
     for i = 1:n(3)
         for j = 1:n(4)
-            for k = n(5)
+            for k = 1:n(5)
                 % Print what results we are looking into
                 disp("... processing " + names(i) + " attack  with " ...
                     +string(max_pixels(j)) + " pixels perturbed with noise of "+ string(noise_vals(k)));

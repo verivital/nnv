@@ -280,7 +280,22 @@ classdef ImageZono < handle
             S = obj.toImageStar;
             S = S.toStar;
         end
-
+        
+        % change variable precision
+        function S = changeVarsPrecision(obj, precision)
+            S = obj;
+            if strcmp(precision, 'single')
+                S.V = single(S.V);
+                S.lb_image = single(S.lb_image); 
+                S.ub_image = single(S.ub_image);
+            elseif strcmp(precision, 'double')
+                S.V = double(S.V);
+                S.lb_image = double(S.lb_image); 
+                S.ub_image = double(S.ub_image);
+            else
+                error("Only single or double precision arrays allowed. GpuArray/dlarray are coming.")
+            end
+        end
     end
   
        

@@ -523,7 +523,30 @@ classdef VolumeStar < handle
             
         end
         
-        % TODO: add a 3D projection to ImageStar
+        % change variable precision
+        function S = changeVarsPrecision(obj, precision)
+            S = obj;
+            if strcmp(precision, 'single')
+                S.V = single(S.V);
+                S.C = single(S.C);
+                S.d = single(S.d);
+                S.pred_lb = single(S.pred_lb); 
+                S.pred_ub = single(S.pred_lb);
+                S.vol_lb = single(S.vol_lb); 
+                S.vol_ub = single(S.vol_ub);
+            elseif strcmp(precision, 'double')
+                S.V = double(S.V);
+                S.C = double(S.C);
+                S.d = double(S.d);
+                S.pred_lb = double(S.pred_lb); 
+                S.pred_ub = double(S.pred_lb);
+                S.vol_lb = double(S.vol_lb); 
+                S.vol_ub = double(S.vol_ub);
+            else
+                error("Only single or double precision arrays allowed. GpuArray/dlarray are coming.")
+            end
+        end
+
     end
 
 

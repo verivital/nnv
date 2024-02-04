@@ -1448,6 +1448,30 @@ classdef Star
                         
         end
         
+        % change variable precision
+        function S = changeVarsPrecision(obj, precision)
+            S = obj;
+            if strcmp(precision, 'single')
+                S.V = single(S.V);
+                S.C = single(S.C);
+                S.d = single(S.d);
+                S.predicate_lb = single(S.predicate_lb); 
+                S.predicate_ub = single(S.predicate_lb);
+                S.state_lb = single(S.state_lb); 
+                S.state_ub = single(S.state_ub);
+            elseif strcmp(precision, 'double')
+                S.V = double(S.V);
+                S.C = double(S.C);
+                S.d = double(S.d);
+                S.predicate_lb = double(S.predicate_lb); 
+                S.predicate_ub = double(S.predicate_lb);
+                S.state_lb = double(S.state_lb); 
+                S.state_ub = double(S.state_ub);
+            else
+                error("Only single or double precision arrays allowed. GpuArray/dlarray are coming.")
+            end
+        end
+
     end
     
 
@@ -1526,8 +1550,14 @@ classdef Star
                         end
                     end
                 else
-                    P = obj.toPolyhedron;
-                    P.plot('color', color);
+                    if isa(obj.V, 'single') || isa(obj.C,'single') || isa(obj.d, 'single')
+                        S = obj.changeVarsPrecision('double');
+                        P = S.toPolyhedron;
+                        P.plot('color', color);
+                    else
+                        P = obj.toPolyhedron;
+                        P.plot('color', color);
+                    end
                 end
             
             else

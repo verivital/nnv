@@ -343,6 +343,20 @@ classdef Zono
             imageStar = im1.toImageStar(height, width, numChannels);
             
         end
+        
+        % change variable precision
+        function S = changeVarsPrecision(obj, precision)
+            S = obj;
+            if strcmp(precision, 'single')
+                S.V = single(S.V);
+                S.c = single(S.c);
+            elseif strcmp(precision, 'double')
+                S.V = double(S.V);
+                S.c = double(S.c);
+            else
+                error("Only single or double precision arrays allowed. GpuArray/dlarray are coming.")
+            end
+        end
 
     end
 

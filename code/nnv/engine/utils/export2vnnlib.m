@@ -72,7 +72,7 @@ else
     nO = length(property.g); % number of output constraints
     for i=1:nO
         constraint = halfspaceConstraint2inequality_1(property.G(i,:), property.g(i));
-        fprintf(fID,"(assert "+constraint);
+        fprintf(fID,"(assert "+constraint+" \n");
     end
 end
 
@@ -116,7 +116,11 @@ function str = halfspaceConstraint2inequality_1(hRow, hVal)
             str = "(>= Y_"+string(locs(1)-1) + " " + "Y_"+string(locs(2)-1) + "))";
         end
     else % compare index to value
-        str = "(>= Y_"+string(locs(1)-1) + " " + num2str(hVal, '%.16f') + "))";
+        if hRow(locs) > 0
+            str = "(<= Y_"+string(locs(1)-1) + " " + num2str(hVal, '%.16f') + "))";
+        else
+            str = "(>= Y_"+string(locs(1)-1) + " " + num2str(hVal, '%.16f') + "))";
+        end
     end
 
 end

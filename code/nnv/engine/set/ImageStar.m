@@ -859,7 +859,7 @@ classdef ImageStar < handle
          
         end
         
-        % get lowew bound and upper bound images of an imagestar
+        % get lower bound and upper bound images of an imagestar
         function [image_lb, image_ub] = getRanges(varargin)
             % @image_lb: lower bound image
             % @image_ub: upper bound image

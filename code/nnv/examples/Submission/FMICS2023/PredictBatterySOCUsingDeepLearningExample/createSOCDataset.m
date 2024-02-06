@@ -3,7 +3,7 @@ function dataset = createSOCDataset(input, output, predictedOutput, seqL, delta,
 % and stores in a struct variable 'dataset'
 %   input           : single-featured or multi-featured time series
 %   output          : desired output for the dataset
-%   preictedOutput  : output predicted by the NN model
+%   predictedOutput  : output predicted by the NN model
 %   sqeL            : desired sequence length of each segment of time-series
 %   delta           : extent of deviation allowed in output (scale of 0-100)%
 %   type            : the dataset type, "cons"->consecutive, "rand"->random

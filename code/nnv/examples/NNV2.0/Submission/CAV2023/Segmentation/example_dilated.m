@@ -2,7 +2,7 @@ function example_dilated()
     % Run a segmentation example using a segnet with transposed convolution
     
     % Load network
-    net = load("\m2nist_dilated_72iou_24layer.mat");
+    net = load("m2nist_dilated_72iou_24layer.mat");
     net = matlab2nnv(net.net);
     
     % Load images

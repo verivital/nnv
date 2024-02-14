@@ -2,11 +2,11 @@ function example_transposed()
     % Run a segmentation example using a segnet with transposed convolution
     
     % Load network
-    net = load("models/m2nist_75iou_transposedcnn_avgpool.mat");
+    net = load("m2nist_75iou_transposedcnn_avgpool.mat");
     net = matlab2nnv(net.net);
     
     % Load images
-    images = load('data/M2NIST/m2nist_6484_test_images.mat');
+    images = load('m2nist_6484_test_images.mat');
     im_data = images.im_data;
     
     % Create example input set

@@ -305,14 +305,14 @@ classdef MaxPooling2DLayer < handle
                 % input volume has only one channel                
                 h = n(1); % height of input
                 w = n(2); % width of input 
-                padded_I = zeros(t + h + b, l + w + r);
+                padded_I = cast(zeros(t + h + b, l + w + r), 'like', input);
                 padded_I(t+1:t+h,l+1:l+w) = input; % new constructed input volume
             elseif length(n) > 2
                 % input volume may has more than one channel
                 h = n(1); % height of input
                 w = n(2); % width of input 
                 d = n(3); % depth of input (number of channel)
-                padded_I = zeros(t + h + b, l + w + r, d); % preallocate 3D matrix
+                padded_I = cast(zeros(t + h + b, l + w + r, d), 'like', input); % preallocate 3D matrix
                 for i=1:d
                     padded_I(t+1:t+h, l+1:l+w, i) = input(:, :, i); % new constructed input volume
                 end              
@@ -336,7 +336,7 @@ classdef MaxPooling2DLayer < handle
                 c = obj.get_zero_padding_input(ims.V(:,:,:,1));
                 k = size(c);
                 n = ims.numPred;
-                V1(:,:,:,n+1) = zeros(k);
+                V1(:,:,:,n+1) = cast(zeros(k), 'like', ims.V);
                 for i=1:n
                     V1(:,:,:,i+1) = obj.get_zero_padding_input(ims.V(:,:,:,i+1));
                 end
@@ -371,7 +371,7 @@ classdef MaxPooling2DLayer < handle
             
             % compute feature map for each cell of map do it in parallel using cpu or gpu
             % TODO: explore power of using GPU for this problem
-            maxMap = zeros(1, h*w); % using single vector for parallel computation
+            maxMap = cast(zeros(1, h*w), 'like', in_image.V); % using single vector for parallel computation
 
             for l=1:h*w
                 a = mod(l, w);
@@ -466,7 +466,7 @@ classdef MaxPooling2DLayer < handle
             end
             
             [h, w] = obj.get_size_maxMap(input.V(:,:,1,1));
-            new_V(:,:,input.numChannel, input.numPred+1) = zeros(h,w);
+            new_V(:,:,input.numChannel, input.numPred+1) = cast(zeros(h,w), 'like', input.V);
             
             % get max points for each channel
             channel_maxPoints(:,:,input.numChannel) = zeros(3, h*w);
@@ -540,7 +540,7 @@ classdef MaxPooling2DLayer < handle
             
             % check max_id first           
             max_index = cell(h, w, pad_image.numChannel);
-            maxMap_basis_V(:,:,pad_image.numChannel, pad_image.numPred+1) = zeros(h,w); % pre-allocate basis matrix for the maxmap
+            maxMap_basis_V(:,:,pad_image.numChannel, pad_image.numPred+1) = cast(zeros(h,w), 'like', in_image.V); % pre-allocate basis matrix for the maxmap
             split_pos = [];
             
             % compute max_index and split_index when applying maxpooling operation
@@ -813,7 +813,7 @@ classdef MaxPooling2DLayer < handle
                 fprintf('\n%d new variables are introduced\n', l);
             end                   
             % update new basis matrix
-            new_V(:,:,pad_image.numChannel,np+1) = zeros(h,w);
+            new_V(:,:,pad_image.numChannel,np+1) = cast(zeros(h,w), 'like', in_image.V);
             new_pred_index = 0;
             for k=1:pad_image.numChannel
                 for i=1:h
@@ -835,10 +835,10 @@ classdef MaxPooling2DLayer < handle
             
             %update constraint matrix C and constraint vector d
             N = obj.PoolSize(1) * obj.PoolSize(2);            
-            new_C = zeros(new_pred_index*(N + 1), np);
-            new_d = zeros(new_pred_index*(N + 1), 1);
-            new_pred_lb = zeros(new_pred_index, 1); % update lower bound and upper bound of new predicate variables
-            new_pred_ub = zeros(new_pred_index, 1); 
+            new_C = cast(zeros(new_pred_index*(N + 1), np), 'like', in_image.V);
+            new_d = cast(zeros(new_pred_index*(N + 1), 1), 'like', in_image.V);
+            new_pred_lb = cast(zeros(new_pred_index, 1), 'like', in_image.V); % update lower bound and upper bound of new predicate variables
+            new_pred_ub = cast(zeros(new_pred_index, 1), 'like', in_image.V);
             new_pred_index = 0;
             for k=1:pad_image.numChannel
                 for i=1:h
@@ -849,14 +849,14 @@ classdef MaxPooling2DLayer < handle
                             new_pred_index = new_pred_index + 1;                           
                             startpoint = startPoints{i,j};
                             points = pad_image.get_localPoints(startpoint, obj.PoolSize);
-                            C1 = zeros(1, np);
+                            C1 = cast(zeros(1, np), 'like', in_image.V);
                             C1(pad_image.numPred + new_pred_index) = 1;
                             [lb, ub] = pad_image.get_localBound(startpoint, obj.PoolSize, k, lp_solver);
                             new_pred_lb(new_pred_index) = lb;
                             new_pred_ub(new_pred_index) = ub;
                             d1 = ub;                           
-                            C2 = zeros(N, np);
-                            d2 = zeros(N, 1);
+                            C2 = cast(zeros(N, np),'like', in_image.V);
+                            d2 = cast(zeros(N, 1), 'like', in_image.V);
                             for g=1:N
                                 point = points(g,:);
                                 % add new predicate constraint: xi - y <= 0
@@ -876,7 +876,7 @@ classdef MaxPooling2DLayer < handle
             end
             
             n = size(pad_image.C, 1);
-            C = [pad_image.C zeros(n, new_pred_index)];
+            C = [pad_image.C cast(zeros(n, new_pred_index), 'like', in_image.V)];
             new_C = [C; new_C];
             new_d = [pad_image.d; new_d];
             new_pred_lb = [pad_image.pred_lb; new_pred_lb];

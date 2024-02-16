@@ -371,7 +371,7 @@ classdef MaxPooling2DLayer < handle
             
             % compute feature map for each cell of map do it in parallel using cpu or gpu
             % TODO: explore power of using GPU for this problem
-            maxMap = cast(zeros(1, h*w), 'like', in_image.V); % using single vector for parallel computation
+            maxMap = cast(zeros(1, h*w), 'like', input); % using single vector for parallel computation
 
             for l=1:h*w
                 a = mod(l, w);

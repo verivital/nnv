@@ -51,6 +51,6 @@ for a=1:length(names)
 end
 
 % save results
-save("results/verification_multipleAttacks_nodulemnist3d_debug.mat", "results", "outputSets");
+save("results/verification_multipleAttacks_nodulemnist3d_debug.mat", "results", "outputSets", "-v7.3");
 
 

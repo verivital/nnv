@@ -86,7 +86,6 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
         % Compute reachability for verification
         results(1,i) = net.verify_robustness(I, reachOptions, targets(i));
         results(2,i) = toc(t);
-        % disp(" ");
 
     end
 
@@ -143,8 +142,8 @@ function I = dark_attack(vol, max_pixels, threshold, noise_disturbance)
     V(:,:,:,:,1) = vol; % center of set
     V(:,:,:,:,2) = noise; % basis vectors
     C = [1; -1]; % constraints
-    d = [255; noise_disturbance-255];
-    I = VolumeStar(V, C, d, 255-noise_disturbance, 255); % input set
+    d = [1; noise_disturbance-1];
+    I = VolumeStar(V, C, d, 1-noise_disturbance, 1); % input set
 
 end
 
@@ -162,7 +161,7 @@ function I = bright_attack(vol, max_pixels, threshold, noise_disturbance)
         for j=1:size(vol,2)
             for k=1:size(vol,3)
                 if vol(i,j,k) < threshold
-                    at_vol(i,j,k) = 1;
+                    at_vol(i,j,k) = 255;
                     ct = ct + 1;
                     if ct >= max_pixels
                         flag = 1;
@@ -180,11 +179,12 @@ function I = bright_attack(vol, max_pixels, threshold, noise_disturbance)
     end
 
     % Define input set as VolumeStar
-    dif_vol = vol - at_vol;
-    noise = -dif_vol;
+    dif_vol = -vol + at_vol;
+    noise = dif_vol;
     V(:,:,:,:,1) = vol;   % center of set
     V(:,:,:,:,2) = noise; % basis vectors
     C = [1; -1];          % constraints
-    d = [255; noise_disturbance-255]; % constraints
-    I = VolumeStar(V, C, d, 255-noise_disturbance, 255); % input set
+    d = [1-noise_disturbance; -1]; % constraints
+    I = VolumeStar(V, C, d, 1-noise_disturbance, 1); % input set
+
 end

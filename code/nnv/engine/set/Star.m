@@ -1166,9 +1166,21 @@ classdef Star
             if obj.dim ~= S.dim
                 error('Two sets have different dimension');
             end
+
+            if isa(obj.V, 'single') || isa(obj.C,'single') || isa(obj.d, 'single')
+                S1 = obj.changeVarsPrecision('double');
+            else
+                S1 = obj;
+            end
+
+            if isa(S.V, 'single') || isa(S.C,'single') || isa(S.d, 'single')
+                S2 = S.changeVarsPrecision('double');
+            else
+                S2 = S;
+            end
             
-            P1 = obj.toPolyhedron();
-            P2 = S.toPolyhedron();
+            P1 = S1.toPolyhedron();
+            P2 = S2.toPolyhedron();
             
             bool = (P1 <= P2);
             

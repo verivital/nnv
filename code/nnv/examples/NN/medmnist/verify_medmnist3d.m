@@ -35,6 +35,8 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
     % Define reachability parameters
     reachOptions = struct;
     reachOptions.reachMethod = 'approx-star';
+    % reachOptions.reachMethod = 'relax-star-area';
+    % reachOptions.relaxFactor = 0.5; % solve only 1-relaxFactor of LPs for the 2 relu layers in the network
     % reachOptions.dis_opt = 'display';
     
     % Evaluate all images
@@ -86,6 +88,7 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
         % Compute reachability for verification
         results(1,i) = net.verify_robustness(I, reachOptions, targets(i));
         results(2,i) = toc(t);
+        disp(toc(t));
 
     end
 

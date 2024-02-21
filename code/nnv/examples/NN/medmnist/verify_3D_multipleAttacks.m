@@ -29,9 +29,9 @@ for i=1:length(datasets)
             net = matlab2nnv(net);
 
             % adversarial attacks
-            names = ["dark";"bright"];
-            max_pixels = [50;100;200];
-            noise_vals = [1;2;3];
+            names = ["dark"; "bright"];
+            max_pixels = [50; 100; 200];
+            noise_vals = [1/255; 2/255; 3/255];
 
             % select volumes to verify
             N = 200;

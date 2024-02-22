@@ -813,7 +813,7 @@ classdef Star
                 if ismember(exitflag, ["l1","g5"])
                     xmax = -fval + obj.V(index, 1);
                 else
-                    error('Cannot find an optimal solution, exitflag = %d', exitflag);
+                    error('Cannot find an optimal solution, exitflag = %s', exitflag);
                 end      
             end
             

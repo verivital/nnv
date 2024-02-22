@@ -1,4 +1,4 @@
-function results = verify_medmnist3d(net, inputs, targets, attack, max_value, min_value)
+function [results, errors] = verify_medmnist3d(net, inputs, targets, attack, reachOptions, max_value, min_value)
     % verify medmnist with inputs (input images), targets (labels) and attack
     % (struct with adversarial attack info)
     % results =  verify_medmnist(net, matlabNet, inputs, targets, attack, max_value*, min_value*)
@@ -31,16 +31,12 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
 
     % Initialize variables
     results = zeros(2,N); % 1-> verify result, 2-> verify time
-    
-    % Define reachability parameters
-    reachOptions = struct;
-    reachOptions.reachMethod = 'approx-star';
-    % reachOptions.reachMethod = 'relax-star-area';
-    % reachOptions.relaxFactor = 0.5; % solve only 1-relaxFactor of LPs for the 2 relu layers in the network
-    % reachOptions.dis_opt = 'display';
+    errors = cell(1,N); % we got one error from an LP optimization, let's see if that is common occurrence or a one time thing
     
     % Evaluate all images
     for i = 1:N
+
+        ME = []; % to keep track of errors just in case
 
         % print progress
         % if ~mod(i, 3)
@@ -86,9 +82,16 @@ function results = verify_medmnist3d(net, inputs, targets, attack, max_value, mi
         end
 
         % Compute reachability for verification
-        results(1,i) = net.verify_robustness(I, reachOptions, targets(i));
+        try
+            results(1,i) = net.verify_robustness(I, reachOptions, targets(i));
+        catch ME
+            results(1,i) = -2;
+            warning(ME.message);
+        end
+
+        % Save results
         results(2,i) = toc(t);
-        disp(toc(t));
+        errors{i} = ME;
 
     end
 
@@ -187,7 +190,7 @@ function I = bright_attack(vol, max_pixels, threshold, noise_disturbance)
     V(:,:,:,:,1) = vol;   % center of set
     V(:,:,:,:,2) = noise; % basis vectors
     C = [1; -1];          % constraints
-    d = [1-noise_disturbance; -1]; % constraints
+    d = [1; -1];          % constraints
     I = VolumeStar(V, C, d, 1-noise_disturbance, 1); % input set
 
 end

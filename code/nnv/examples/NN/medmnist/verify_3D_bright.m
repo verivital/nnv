@@ -30,7 +30,7 @@ for i=1:length(datasets)
     net = matlab2nnv(net);
 
     % adversarial attacks
-    names = ["dark"];
+    names = ["bright"];
     max_pixels = [50; 100; 200];
     noise_vals = [2/255; 3/255; 4/255];
 
@@ -66,7 +66,7 @@ for i=1:length(datasets)
     end
 
     % save results
-    save("results/verification_darkening_"+datasets(i).name, "results", "reachOptions");
+    save("results/verification_bright_"+datasets(i).name, "results", "reachOptions", "errors");
 
 end
 

@@ -3,8 +3,9 @@
 %% All 2D datasets
 
 datapath = "data/mat_files/";
-datafiles = ["bloodmnist"; "breastmnist.mat"; "dermamnist.mat"; "octmnist.mat"; "organamnist.mat"; ...
-    "organcmnist.mat"; "organsmnist.mat"; "pathmnist.mat"; "pneumoniamnist"; "retinamnist.mat"; "tissuemnist.mat"];
+% datafiles = ["bloodmnist"; "breastmnist.mat"; "dermamnist.mat"; "octmnist.mat"; "organamnist.mat"; ...
+%     "organcmnist.mat"; "organsmnist.mat"; "pathmnist.mat"; "pneumoniamnist.mat"; "retinamnist.mat"; "tissuemnist.mat"];
+datafiles = "pneumoniamnist.mat";
 
 N = 10; % number of vnnlib files to create
 epsilon = [1,2,3]; % {epsilon} pixel color values for every channel

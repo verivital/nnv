@@ -30,9 +30,9 @@ for i=1:length(datasets)
     net = matlab2nnv(net);
 
     % adversarial attacks
-    names = ["dark"];
+    names = ["dark", "bright","linf"];
     max_pixels = [50; 100; 200];
-    noise_vals = [2/255; 3/255; 4/255];
+    noise_vals = [1/255; 2/255; 3/255];
 
     % select volumes to verify
     N = 200;
@@ -46,7 +46,7 @@ for i=1:length(datasets)
     % verify volumes with all attack combos
     for a = 1:length(names)
         for b = 1:length(max_pixels)
-            parfor c = 1:length(noise_vals)
+            for c = 1:length(noise_vals)
                 % create attack from variables
                 adv_attack = struct;
                 adv_attack.Name = names(a);

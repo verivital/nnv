@@ -952,7 +952,7 @@ classdef NN < handle
         function inputSet = consistentPrecision(obj, inputSet)
             % (assume parameters have same precision across layers)
             % approach: change input precision based on network parameters
-            inputPrecision = class(inputSet.V);
+            inputPrecision = class(inputSet(1).V);
             netPrecision = 'double'; % default
             for i=1:length(obj.Layers)
                 if isa(obj.Layers{i}, "FullyConnectedLayer") || isa(obj.Layers{i}, "Conv2DLayer")
@@ -963,7 +963,9 @@ classdef NN < handle
             if ~strcmp(inputPrecision, netPrecision)
                 % input and parameter precision does not match
                 warning("Changing input set precision to "+string(netPrecision));
-                inputSet = inputSet.changeVarsPrecision(netPrecision);
+                for i = 1:length(inputSet)
+                    inputSet(i) = inputSet(i).changeVarsPrecision(netPrecision);
+                end
             end
         end
 

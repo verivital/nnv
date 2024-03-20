@@ -20,7 +20,7 @@ nFiles = length(res_files);
 res_summary = zeros(nFiles, 5);
 
 % Write results to a file
-% diary multipleAttacks_3D_results.txt
+diary multipleAttacks_3D_results.txt
 
 % Begin processing
 for i=1:nFiles
@@ -41,7 +41,7 @@ for i=1:nFiles
 end
 
 % Close results file
-% diary off;
+diary off;
 
 
 %% Helper functions

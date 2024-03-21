@@ -347,14 +347,12 @@ classdef NonLinearODE < handle
                 for ik=1:Nz
                     try
                         Z1 = zonotope(Z{ik}); % ensure it's a zonotope
-                        Z1 = Z1.Z;
+                        % Z1 = Z1.Z;
                     catch
                         Z1 = zonotope(Z);
-                        Z1 = Z1.Z; % get c and V 
+                        % Z1 = Z1.Z; % get c and V 
                     end
-                    c = Z1(:,1); % center vector
-                    V = Z1(:, 2:size(Z1, 2)); % generators
-                    Zz = Zono(c, V);
+                    Zz = Zono(Z1.c, Z1.G);
                     S = [S Zz.toStar];
                 end
             end
@@ -402,14 +400,12 @@ classdef NonLinearODE < handle
                         for iz=1:Nz
                             try
                                 Z2 = zonotope(Z1{iz}); % ensure it's a zonotope
-                                Z2 = Z2.Z;
+                                % Z2 = Z2.Z;
                             catch
                                 Z2 = zonotope(Z1); % ensure it's a zonotope
-                                Z2 = Z2.Z; % get c and V 
+                                % Z2 = Z2.Z; % get c and V 
                             end
-                            c = Z2(:,1); % center vector
-                            V = Z2(:, 2:size(Z2, 2)); % generators
-                            Zz = Zono(c, V);
+                            Zz = Zono(Z2.c, Z2.G);
                             Ss = [Ss Zz.toStar];
                         end
                     end
@@ -435,14 +431,12 @@ classdef NonLinearODE < handle
                         for iz=1:Nz
                             try
                                 Z2 = zonotope(Z1{iz}); % ensure it's a zonotope
-                                Z2 = Z2.Z;
+                                % Z2 = Z2.Z;
                             catch
                                 Z2 = zonotope(Z1); % ensure it's a zonotope
-                                Z2 = Z2.Z; % get c and V 
+                                % Z2 = Z2.Z; % get c and V 
                             end
-                            c = Z2(:,1); % center vector
-                            V = Z2(:, 2:size(Z2, 2)); % generators
-                            Zz = Zono(c, V);
+                            Zz = Zono(Z2.c, Z2.G);
                             Ss = [Ss Zz.toStar];
                         end
                     end

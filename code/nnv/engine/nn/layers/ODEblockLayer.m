@@ -127,5 +127,15 @@ classdef ODEblockLayer
     
     end
 
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (unsure if CORA supports GPU, prob
+            % not)
+        end
+        
+    end
+
 end
 

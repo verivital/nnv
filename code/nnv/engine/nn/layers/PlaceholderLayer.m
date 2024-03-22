@@ -53,6 +53,15 @@ classdef PlaceholderLayer < handle
         end
 
     end
+
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
+        
+    end
     
     methods(Static)
         

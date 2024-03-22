@@ -547,6 +547,31 @@ classdef VolumeStar < handle
             end
         end
 
+        % change device target for the set
+        function S = changeDevice(obj, deviceTarget)
+            S = obj;
+            if strcmp(deviceTarget, 'cpu')
+                S.V = gather(S.V);
+                S.C = gather(S.C);
+                S.d = gather(S.d);
+                S.predicate_lb = gather(S.predicate_lb); 
+                S.predicate_ub = gather(S.predicate_lb);
+                S.vol_lb = gather(S.vol_lb); 
+                S.vol_ub = gather(S.vol_ub);
+            elseif strcmp(deviceTarget, 'gpu')
+                S.V = gpuArray(S.V);
+                S.C = gpuArray(S.C);
+                S.d = gpuArray(S.d);
+                S.predicate_lb = gpuArray(S.predicate_lb); 
+                S.predicate_ub = gpuArray(S.predicate_lb);
+                S.vol_lb = gpuArray(S.vol_lb); 
+                S.vol_ub = gpuArray(S.vol_ub);
+            else
+                error("Device target must be 'cpu' or 'gpu'.");
+            end
+
+        end
+
     end
 
 

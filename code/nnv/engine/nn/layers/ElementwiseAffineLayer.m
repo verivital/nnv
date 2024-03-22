@@ -19,9 +19,7 @@ classdef ElementwiseAffineLayer < handle
     methods
         
         % constructor of the class
-        function obj = ElementwiseAffineLayer(varargin)           
-            % author: Neelanjana Pal
-            % date: 6/28/2021     
+        function obj = ElementwiseAffineLayer(varargin)    
             
             switch nargin
                 
@@ -60,7 +58,7 @@ classdef ElementwiseAffineLayer < handle
        
     end   
      
- methods % reachability method
+    methods % reachability method
         
         %(reachability analysis using imagestar)
         function image = reach_star_single_input(obj, in_image)
@@ -103,7 +101,7 @@ classdef ElementwiseAffineLayer < handle
     
                 % Process offset last
                 if obj.DoOffset
-                    offset = squeeze(obj.Offset);
+                    % offset = squeeze(obj.Offset);
     %                 a = size(offset);
                     if isscalar(obj.Offset)
                         V = V + obj.Offset;
@@ -231,23 +229,26 @@ classdef ElementwiseAffineLayer < handle
   
         end
         
-        
     end
-    
+
+    methods % helper functions
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Scale = gpuArray(obj.Scale);
+            obj.Offset = gpuArray(obj.Offset);
+        end
+
+    end
     
     
     methods(Static)
         
-         
         % parse a trained elementwise affine layer from matlab
         function L = parse(elementwise_affine_layer)
             % @elementwise_affine_layer: a elementwise affine layer from matlab deep
             % neural network tool box
-            % @L : a ElementwiseAffineLayer obj for reachability analysis purpose
-            
-            % author: Neelanjana Pal
-            % date: 6/28/2021
-            
+            % @L : a ElementwiseAffineLayer obj for reachability analysis purpose            
             
             if ~isa(elementwise_affine_layer, 'nnet.onnx.layer.ElementwiseAffineLayer')
                 error('Input is not a Matlab nnet.onnx.layer.ElementwiseAffineLayer class');
@@ -258,10 +259,7 @@ classdef ElementwiseAffineLayer < handle
             
         end
         
-        
     end
-    
-    
     
     
 end

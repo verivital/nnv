@@ -369,6 +369,12 @@ classdef Conv3DLayer < handle
             end
             
         end
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Weights = gpuArray(obj.Weights);
+            obj.Bias = gpuArray(obj.Bias);
+        end
         
     end
     

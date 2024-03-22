@@ -204,6 +204,14 @@ classdef NN < handle
                 reachOptions = struct; % empty options, run with default values
             end
 
+            % Change if want to execute on GPU
+            if isfield(reachOptions, 'device')
+                if strcmp(reachOptions.device, 'gpu')
+                    obj = obj.params2gpu;
+                    inputSet = inputSet.changeDevice('gpu');
+                end
+            end
+
             % Process reachability options
             if ~isstruct(reachOptions)
                 error("The reachability parameters must be specified as a struct.")
@@ -946,6 +954,7 @@ classdef NN < handle
                 reachOptions.reachOption = 'single';
                 reachOptions.numCores = 1;
             end
+            
         end
         
         % Ensure input and parameter precision is the same
@@ -966,6 +975,15 @@ classdef NN < handle
                 for i = 1:length(inputSet)
                     inputSet(i) = inputSet(i).changeVarsPrecision(netPrecision);
                 end
+            end
+        end
+
+        % Change paramters to gpu
+        function obj = params2gpu(obj)
+            % change the parameters layer by layer
+            for i = 1:length(obj.Layers)
+                gpuLayer = obj.Layers{i}.toGPU;
+                obj.Layers{i} = gpuLayer;
             end
         end
 
@@ -1316,11 +1334,6 @@ classdef NN < handle
             end
         end
         
-        % Ensure precision for layer parameters and inputs is consistent
-        % function validate_precision(obj, inSet)
-        % 
-        % 
-        % end
     end % end helper functions
     
     

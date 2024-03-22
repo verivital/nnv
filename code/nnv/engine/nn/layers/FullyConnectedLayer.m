@@ -252,6 +252,12 @@ classdef FullyConnectedLayer < handle
                 error('Unknown reachability method');
             end
         end
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Weights = gpuArray(obj.Weights);
+            obj.Bias = gpuArray(obj.Bias);
+        end
     
     end   
      
@@ -277,14 +283,14 @@ classdef FullyConnectedLayer < handle
                 end
                            
                 n = in_image.numPred;
-                V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1);        
+                V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1, 'like', in_image.V);        
                 for i=1:n+1
                     I = in_image.V(:,:,:,i);
                     I = reshape(I,N,1); % flatten input
                     if i==1
-                        V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
+                        V(1, 1,:,i) = obj.Weights*I + obj.Bias;
                     else
-                        V(1, 1,:,i) = double(obj.Weights)*I;
+                        V(1, 1,:,i) = obj.Weights*I;
                     end
                 end
                 % output set

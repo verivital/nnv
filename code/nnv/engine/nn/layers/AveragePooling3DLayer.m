@@ -187,6 +187,11 @@ classdef AveragePooling3DLayer < handle
             end
 
         end
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
         
     end
         

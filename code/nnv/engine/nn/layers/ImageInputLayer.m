@@ -20,7 +20,6 @@ classdef ImageInputLayer < handle
         StandardDeviation = [];
         Min = [];
         Max = [];
-
     end
     
     
@@ -49,6 +48,14 @@ classdef ImageInputLayer < handle
                 otherwise
                     error("Wrong number of inputs, it must be 0,1,2, or 8.")
             end
+        end
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Mean = gpuArray(obj.Mean);
+            obj.Max = gpuArray(obj.Max);
+            obj.Min = gpuArray(obj.Min);
+            obj.StandardDeviation = gpuArray(obj.StandardDeviation);
         end
         
     end

@@ -28,11 +28,7 @@ classdef LayerNormalizationLayer < handle
     methods
         
         % constructor of the class
-        function obj = LayerNormalizationLayer(varargin)           
-            % author:Neelanjana Pal
-            % date: 8/30/2023    
-            % update: 
-            
+        function obj = LayerNormalizationLayer(varargin)          
             
             if mod(nargin, 2) ~= 0
                 error('Invalid number of arguments');
@@ -72,7 +68,12 @@ classdef LayerNormalizationLayer < handle
                 
             end
                 
-             
+        end
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Offset = gpuArray(obj.Offset);
+            obj.Scale = gpuArray(obj.Scale);
         end
         
         
@@ -80,10 +81,6 @@ classdef LayerNormalizationLayer < handle
         
     % evaluation method
     methods
-        
-        function y = evaluate_old(obj, input)
-            
-        end 
         
         function y = evaluateSequence(obj, input)
             newInput = dlarray(input);
@@ -94,13 +91,13 @@ classdef LayerNormalizationLayer < handle
             end
             y = extractdata(y);
         end
+
     end
     
     
         
     % exact reachability analysis using ImageStar or ImageZono
     methods
-        
         
         function image = reach_star_single_input_old(obj, in_image)
             % @in_image: an input imagestar

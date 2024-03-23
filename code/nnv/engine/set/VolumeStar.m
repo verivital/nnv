@@ -348,7 +348,7 @@ classdef VolumeStar < handle
             for i=1:obj.numChannel
                 volume(:, :, :, i) = obj.V(:, :, :, i, 1);
                 for j=2:obj.numPred + 1
-                    volume(:, :, i) = volume(:, :, :, i) + pred_val(j-1) * obj.V(:, :, :, i, j);
+                    volume(:, :, :, i) = volume(:, :, :, i) + pred_val(j-1) * obj.V(:, :, :, i, j);
                 end
             end
                       

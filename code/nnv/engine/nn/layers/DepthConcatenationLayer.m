@@ -80,7 +80,7 @@ classdef DepthConcatenationLayer < handle
         
 
         % evaluate
-        function outputs = evaluate(obj, inputs)
+        function outputs = evaluate(~, inputs)
             % depth_concatenation layers takes usually two inputs, but allows many (N)
             % first input is obj, the rest are arrays from different layers
             % Initialize image as the first one
@@ -94,7 +94,7 @@ classdef DepthConcatenationLayer < handle
         end
  
         % reach
-        function outputs = reach_single_input(obj, inputs)
+        function outputs = reach_single_input(~, inputs)
             % @inputs: input imagestar from each connected layer
             % @outputs: output set
             outputs = inputs{1};
@@ -204,6 +204,13 @@ classdef DepthConcatenationLayer < handle
   
         end
         
+    end
+
+    methods % helper functions
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
     end
     
     

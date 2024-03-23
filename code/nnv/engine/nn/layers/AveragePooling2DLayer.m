@@ -211,6 +211,11 @@ classdef AveragePooling2DLayer < handle
             end
         end
         
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
+
     end
         
     
@@ -228,8 +233,14 @@ classdef AveragePooling2DLayer < handle
             % author: Dung Tran
             % date: 12/10/2018
             % update: 7/26/2019
-           
-            y = vl_nnpool(input, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'avg');         
+            
+            if isa(input, 'gpuArray')
+                x = dlarray(input, "SSCB");
+                y = avgpool(x, obj.PoolSize, 'Stride', obj.Stride, 'Padding', obj.PaddingSize);
+                y = extractdata(y);
+            else
+                y = vl_nnpool(input, obj.PoolSize, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Method', 'avg'); 
+            end
                    
         end
         

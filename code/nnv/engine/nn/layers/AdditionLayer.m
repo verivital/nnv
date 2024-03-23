@@ -75,7 +75,7 @@ classdef AdditionLayer < handle
     methods % main methods
         
         % evaluate
-        function outputs = evaluate(obj, inputs)
+        function outputs = evaluate(~, inputs)
             % addition layer takes usually two inputs, but allows many (N)
             %
             % first input is obj, the second is a cell array containing the
@@ -89,8 +89,8 @@ classdef AdditionLayer < handle
                 
         end
  
-        % reach (TODO)
-        function outputs = reach_single_input(obj, inputs)
+        % reach 
+        function outputs = reach_single_input(~, inputs)
             % @in_image: input imagestar
             % @image: output set
             
@@ -184,6 +184,15 @@ classdef AdditionLayer < handle
                 error('Unknown reachability method');
             end
   
+        end
+        
+    end
+
+    methods % helper functions
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (no params)
         end
         
     end

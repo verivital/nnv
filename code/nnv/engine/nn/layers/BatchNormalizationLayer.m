@@ -30,7 +30,7 @@ classdef BatchNormalizationLayer < handle
     methods
         
         % constructor of the class
-        function obj = BatchNormalizationLayer(varargin)           
+        function obj = BatchNormalizationLayer(varargin)
             % author: Dung Tran
             % date: 1/1/2020    
             % update: 
@@ -81,6 +81,15 @@ classdef BatchNormalizationLayer < handle
              
         end
         
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Offset = gpuArray(obj.Offset);
+            obj.Scale = gpuArray(obj.Scale);
+            obj.Epsilon = gpuArray(obj.Epsilon);
+            obj.TrainedMean = gpuArray(obj.TrainedMean);
+            obj.TrainedVariance = gpuArray(obj.TrainedVariance);
+        end
+
     end
         
     

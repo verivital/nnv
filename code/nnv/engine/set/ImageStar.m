@@ -684,6 +684,31 @@ classdef ImageStar < handle
             end
         end
 
+        % change device target for the set
+        function S = changeDevice(obj, deviceTarget)
+            S = obj;
+            if strcmp(deviceTarget, 'cpu')
+                S.V = gather(S.V);
+                S.C = gather(S.C);
+                S.d = gather(S.d);
+                S.pred_lb = gather(S.pred_lb); 
+                S.pred_ub = gather(S.pred_lb);
+                S.im_lb = gather(S.im_lb); 
+                S.im_ub = gather(S.im_ub);
+            elseif strcmp(deviceTarget, 'gpu')
+                S.V = gpuArray(S.V);
+                S.C = gpuArray(S.C);
+                S.d = gpuArray(S.d);
+                S.pred_lb = gpuArray(S.pred_lb); 
+                S.pred_ub = gpuArray(S.pred_lb);
+                S.im_lb = gpuArray(S.im_lb); 
+                S.im_ub = gpuArray(S.im_ub);
+            else
+                error("Device target must be 'cpu' or 'gpu'.");
+            end
+
+        end
+
     end
 
 

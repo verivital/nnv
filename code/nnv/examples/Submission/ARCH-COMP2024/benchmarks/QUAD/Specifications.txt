@@ -1,0 +1,19 @@
+Initial states:
+x1 = [-0.4, 0.4]
+x2 = [-0.4, 0.4]
+x3 = [-0.4, 0.4]
+x4 = [-0.4, 0.4]
+x5 = [-0.4, 0.4]
+x6 = [-0.4, 0.4]
+x7 = 0
+x8 = 0
+x9 = 0
+x10 = 0
+x11 = 0
+x12 = 0
+
+t = 5 seconds
+control period = 0.1 s
+
+Property:
+The control goal is to stabilize the attitude x3 to a goal region [0.94, 1.06] in 5 seconds (50 time steps).

@@ -209,6 +209,15 @@ classdef ReshapeLayer < handle
         
     end
 
+        methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to do here
+        end
+        
+    end
+
 
     methods(Static)
         % parsing method

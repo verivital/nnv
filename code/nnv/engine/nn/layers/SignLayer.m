@@ -151,7 +151,17 @@ classdef SignLayer < handle
                 end
             end
         end
-    end    
+    end
+
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to do here
+        end
+        
+    end
+
 end
 
 

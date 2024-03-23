@@ -1,0 +1,17 @@
+Initial states:
+x1 = [-0.45, -0.44]
+x2 = [-0.55, -0.54]
+x3 = [0.65, 0.66]
+x4 = [-0.75, -0.74]
+x5 = [0.85, 0.86]
+x6 = [-0.65, -0.64]
+
+t = 3 seconds
+control period = 0.1 s
+
+Safety Property:
+We would like to verify whether the system will reach the following unsafe
+set Xu in 3 seconds (30 time steps), where Xu is defined as a 6-dimensional region:
+
+x1 ∈ [-0.2,0],     x2 ∈ [-0.5, -0.4],  x3 ∈ [0, 0.2]
+x4 ∈ [-0.7, -0.6]  x5 ∈ [0.7, 0.8],  x6 ∈ [-0.4, -0.2]

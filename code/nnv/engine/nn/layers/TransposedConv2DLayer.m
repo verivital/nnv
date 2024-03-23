@@ -16,10 +16,8 @@ classdef TransposedConv2DLayer < handle
         NumFilters = 0; % number of filters
         Stride = [1 1]; % step size for traversing input
         
-        
         CroppingMode = 'manual';
         CroppingSize = [0 0 0 0]; % Outputsize reduction
-        % Cropping = [0 0]; 
         
         % Learnable Parmeters/ Used for reachability analysis
         Weights = [];
@@ -37,9 +35,6 @@ classdef TransposedConv2DLayer < handle
         
         % constructor of the class
         function obj = TransposedConv2DLayer(varargin)           
-            % author: Dung Tran
-            % date: 12/5/2018    
-            % update: 
             
             switch nargin
                 
@@ -72,7 +67,6 @@ classdef TransposedConv2DLayer < handle
                     obj.NumFilters = w(3);
                     obj.NumChannels = w(4);
                     obj.FilterSize = [w(1) w(2)];
-                                         
                 
                 case 5
                     
@@ -235,12 +229,6 @@ classdef TransposedConv2DLayer < handle
         function y = evaluate(obj, input)
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
-            
-            % author: Dung Tran
-            % date: 4/22/2020
-            
-            % update: Neelanjana Pal
-            % date: 06/20/2023
                         
             %y = vl_nnconvt(input, double(obj.Weights), double(obj.Bias), 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
             input = dlarray(input);
@@ -251,20 +239,12 @@ classdef TransposedConv2DLayer < handle
     end
     
        
-    
-    
     methods % reachability analysis 
 
         % reachability analysis method using ImageStar
         function S = reach_star_single_input(obj, input)
             % @inputs: an ImageStar input set
             % @S: an imagestar with number of channels = obj.NumFilters
-            
-            % author: Dung Tran
-            % date: 6/11/2019
-
-            % update: Neelanjana Pal
-            % date : 06/20/2023
             
             if ~isa(input, 'ImageStar')
                 error('The input is not an ImageStar object');
@@ -275,10 +255,13 @@ classdef TransposedConv2DLayer < handle
             end
             
             % compute output sets
-            c = vl_nnconvt(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-            V = vl_nnconvt(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-            % c = extractdata(dltranspconv(dlarray(input.V(:,:,:,1)), obj.Weights, obj.Bias, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
-            % V = extractdata(dltranspconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), obj.Weights, 0, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
+            if isa(input.V, 'gpuArray')
+                c = extractdata(dltranspconv(dlarray(input.V(:,:,:,1)), obj.Weights, obj.Bias, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
+                V = extractdata(dltranspconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), obj.Weights, 0, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
+            else
+                c = vl_nnconvt(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+                V = vl_nnconvt(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            end
             Y = cat(4, c, V);
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   
@@ -311,9 +294,6 @@ classdef TransposedConv2DLayer < handle
             % @option: 
             % @images: an array of ImageStars output set
             
-            % author: Dung Tran
-            % date: 1/7/2020
-            
             n = length(in_images);
             images(n) = ImageStar; 
             
@@ -334,9 +314,6 @@ classdef TransposedConv2DLayer < handle
         function images = reach_zono_multipleInputs(obj, in_images, option)
             % @in_images: an array of ImageZonos input set
             % @option: = 'parallel' or 'single' or empty
-
-            % author: Dung Tran
-            % date: 1/7/2020
 
             n = length(in_images);
             images(n) = ImageZono; 
@@ -359,9 +336,6 @@ classdef TransposedConv2DLayer < handle
         function images = reach(varargin)
             % @inputs: an array of ImageStar or ImageZono input set
             % @S: an array of ImageStar output set
-                        
-            % author: Dung Tran
-            % date: 7/16/2019
             
             switch nargin
                 case 7
@@ -369,22 +343,18 @@ classdef TransposedConv2DLayer < handle
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    % relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
-                    % lp_solver = varargin{7}; do not use
+
                 case 6
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
+
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -415,6 +385,16 @@ classdef TransposedConv2DLayer < handle
         end
         
     end
+
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Weights = gpuArray(obj.Weights);
+            obj.Bias = gpuArray(obj.Bias);
+        end
+        
+    end
     
     
     methods(Static) % parsing
@@ -423,11 +403,7 @@ classdef TransposedConv2DLayer < handle
         function L = parse(layer)
             % @layer: a transpose convolutional 2d layer from matlab deep
             % neural network tool box
-            % @L : a TransposeCov2DLayer for reachability analysis purpose
-            
-            % author: Dung Tran
-            % date: 4/22/2020
-            
+            % @L : a TransposeCov2DLayer for reachability analysis purpose            
             
             if ~isa(layer, 'nnet.cnn.layer.TransposedConvolution2DLayer')
                 error('Input is not a Matlab nnet.cnn.layer.TransposedConvolution2DLayer class');

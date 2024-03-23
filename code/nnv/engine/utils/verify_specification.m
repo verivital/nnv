@@ -49,6 +49,9 @@ function result = verify_specification(reachSet, property)
                 if ~isa(Set, "Star")
                     Set = Set.toStar;
                 end
+                if isa(Set.V, 'gpuArray')
+                    Set = Set.changeDevice('cpu');
+                end
                 S = Set.intersectHalfSpace(property(cp).G, property(cp).g); 
                 if isempty(S)
                     continue; % does nothing, just need an statement, wanted to make this clear

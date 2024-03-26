@@ -365,6 +365,11 @@ classdef PixelClassificationLayer < handle
         function obj = toGPU(obj)
             % nothing to change in here (no params)
         end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, ~)
+            % nothing to change in here (no params)
+        end
         
     end
     

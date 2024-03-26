@@ -134,6 +134,11 @@ classdef ODEblockLayer
             % nothing to change in here (unsure if CORA supports GPU, prob
             % not)
         end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, ~)
+            % nothing to change in here (no params)
+        end
         
     end
 

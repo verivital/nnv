@@ -568,6 +568,25 @@ classdef RecurrentLayer
             obj.bh = gpuArray(obj.bh);
             obj.bo = gpuArray(obj.bo);
         end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Wh = double(obj.Wh);
+                obj.Wi = double(obj.Wi);
+                obj.Wo = double(obj.Wo);
+                obj.bh = double(obj.bh);
+                obj.bo = double(obj.bo);
+            elseif strcmp(precision, "single")
+                obj.Wh = single(obj.Wh);
+                obj.Wi = single(obj.Wi);
+                obj.Wo = single(obj.Wo);
+                obj.bh = single(obj.bh);
+                obj.bo = single(obj.bo);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
         
     end
     

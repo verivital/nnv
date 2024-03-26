@@ -271,6 +271,19 @@ classdef LayerS
             obj.W = gpuArray(obj.W);
             obj.b = gpuArray(obj.b);
         end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.W = double(obj.W);
+                obj.b = double(obj.b);
+            elseif strcmp(precision, "single")
+                obj.W = single(obj.W);
+                obj.b = single(obj.b);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
         
     end
 

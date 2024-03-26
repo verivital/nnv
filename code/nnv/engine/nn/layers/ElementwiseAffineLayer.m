@@ -239,6 +239,19 @@ classdef ElementwiseAffineLayer < handle
             obj.Offset = gpuArray(obj.Offset);
         end
 
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Offset = double(obj.Offset);
+                obj.Scale = double(obj.Scale);
+            elseif strcmp(precision, "single")
+                obj.Offset = single(obj.Offset);
+                obj.Scale = single(obj.Scale);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
+
     end
     
     

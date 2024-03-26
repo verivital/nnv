@@ -381,6 +381,10 @@ classdef MaxUnpooling2DLayer < handle
         function obj = toGPU(obj)
             % nothing to change in here (no params)
         end
+        % Change params precision
+        function obj = changeParamsPrecision(obj, ~)
+
+        end
         
     end
     

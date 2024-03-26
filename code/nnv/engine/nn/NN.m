@@ -987,6 +987,15 @@ classdef NN < handle
             end
         end
 
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            % change the parameters layer by layer
+            for i = 1:length(obj.Layers)
+                pLayer = obj.Layers{i}.changeParamsPrecision(precision);
+                obj.Layers{i} = pLayer;
+            end
+        end
+
         % Create input set based on input vector and bounds
         function R = create_input_set(obj, x_in, disturbance, lb_allowable, ub_allowable) % assume tol is applied to every vale of the input
             % R = create_input_set(obj, x_in, disturbance, lb_allowable, ub_allowable)

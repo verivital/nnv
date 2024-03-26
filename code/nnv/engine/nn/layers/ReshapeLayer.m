@@ -215,6 +215,11 @@ classdef ReshapeLayer < handle
         function obj = toGPU(obj)
             % nothing to do here
         end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, ~)
+            % nothing to change in here (no params)
+        end
         
     end
 

@@ -258,6 +258,19 @@ classdef FullyConnectedLayer < handle
             obj.Weights = gpuArray(obj.Weights);
             obj.Bias = gpuArray(obj.Bias);
         end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Weights = double(obj.Weights);
+                obj.Bias = double(obj.Bias);
+            elseif strcmp(precision, "single")
+                obj.Weights = single(obj.Weights);
+                obj.Bias = single(obj.Bias);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
     
     end   
      

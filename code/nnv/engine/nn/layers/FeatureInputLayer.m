@@ -52,6 +52,23 @@ classdef FeatureInputLayer < handle
             obj.Min = gpuArray(obj.Min);
             obj.StandardDeviation = gpuArray(obj.StandardDeviation);
         end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Mean = double(obj.Mean);
+                obj.Max = double(obj.Max);
+                obj.Min = double(obj.Min);
+                obj.StandardDeviation = double(obj.StandardDeviation);
+            elseif strcmp(precision, "single")
+                obj.Mean = single(obj.Mean);
+                obj.Max = single(obj.Max);
+                obj.Min = single(obj.Min);
+                obj.StandardDeviation = single(obj.StandardDeviation);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
         
     end
         

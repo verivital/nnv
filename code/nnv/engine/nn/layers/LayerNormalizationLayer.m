@@ -74,6 +74,22 @@ classdef LayerNormalizationLayer < handle
         function obj = toGPU(obj)
             obj.Offset = gpuArray(obj.Offset);
             obj.Scale = gpuArray(obj.Scale);
+            obj.Epsilon = gpuArray(obj.Epsilon);
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Offset = double(obj.Offset);
+                obj.Scale = double(obj.Scale);
+                obj.Epsilon = double(obj.Epsilon);
+            elseif strcmp(precision, "single")
+                obj.Offset = single(obj.Offset);
+                obj.Scale = single(obj.Scale);
+                obj.Epsilon = single(obj.Epsilon);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
         end
         
         

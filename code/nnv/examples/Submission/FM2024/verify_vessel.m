@@ -1,5 +1,5 @@
 %% Verify vessel dataset
-% VesselMNIST3D, input size: 28x28x28
+% vesselMNIST3D, input size: 28x28x28
 
 % Data
 dataset = "../../../../../data/medmnist/mat_files/vesselmnist3d.mat"; % path to data
@@ -19,50 +19,150 @@ load(modelpath);
 matlabNet = net;
 net = matlab2nnv(net);
 
-% adversarial attack
-attack_option = 'bright'; % default (darkening attack)
-switch attack_option
-    case 'linf'
-        adv_attack = struct;
-        adv_attack.Name = "linf";
-        adv_attack.epsilon = 1; % {epsilon} color values
-        % adv_attack.max_pixels = 784; % Max number of pixels to modify from input image
-        adv_attack.max_pixels = 1; % Max number of pixels to modify from input image
-    case 'dark'
-        adv_attack = struct;
-        adv_attack.Name = "dark";
-        adv_attack.threshold = 150; % perturb pixels over this value
-        adv_attack.max_pixels = 50; % Max number of pixels to modify from input image
-        adv_attack.noise_de = 1; % disturbance (noise) on pixels
-    case 'bright'
-        adv_attack = struct;
-        adv_attack.Name = "bright";
-        adv_attack.threshold = 100; % perturb pixels below this value
-        adv_attack.max_pixels = 50; % Max number of pixels to modify from input image
-        adv_attack.noise_de = 1; % disturbance (noise) on pixels
-    otherwise
-        error("Wrong attack");
-end
-
 % select volumes to verify
-N = 200;
-inputs = test_images(:,:,:,:,1:N);
-targets = test_labels(1:N);
+N = 24; % even for numCores
+inputs = single(test_images(:,:,:,:,1:N));
+targets = single(test_labels(1:N));
+
+% Reachability parameters
+reachOptions = struct;
+reachOptions.reachMethod = 'relax-star-area';
+reachOptions.relaxFactor = 0.95;
+
+
+%% Attack 1
+
+% adv_attack = struct;
+%???????
+
+% results = zeros(N,2); % verification result, time
 
 % verify volumes
-results = verify_medmnist3d(net, inputs, targets, adv_attack);
+% parfor i=1:N
+%     img = squeeze(inputs(:,:,:,:,i));
+%     target = targets(i);
+%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+% end
 
 % save results
-save("results/verification_"+adv_attack.Name+"_vessel.mat", "results", "adv_attack");
+% save("results/verification_vessel_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
 
-% print results to screen
-% disp("======= ROBUSTNESS RESULTS ==========")
-% disp(" ");
-% disp("Verification results of " + string(N) + " images.")
-% disp("Number of robust images          =  " + string(sum(results(1,:) == 1)));
-% disp("Number of not robust images      =  " + string(sum(results(1,:) == 0)));
-% disp("Number of unknown images         =  " + string(sum(results(1,:) == 2)));
-% disp("Number of missclassified images  =  " + string(sum(results(1,:) == -1)))
-% disp(" ");
-% disp("Total computation time of " + string(sum(results(2,:))));
+
+%% Attack 2
+
+adv_attack = struct;
+
+% results = zeros(N,2); % verification result, time
+% 
+% % verify volumes
+% parfor i=1:N
+%     img = squeeze(inputs(:,:,:,:,i));
+%     target = targets(i);
+%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+% end
+% 
+% % save results
+% save("results/verification_vessel_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
+
+
+%% Attack 3
+
+% adv_attack = struct;
+% 
+% results = zeros(N,2); % verification result, time
+% 
+% % verify volumes
+% parfor i=1:N
+%     img = squeeze(inputs(:,:,:,:,i));
+%     target = targets(i);
+%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+% end
+% 
+% % save results
+% save("results/verification_vessel_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
+
+
+%% Attack 4
+
+% adv_attack = struct;
+%
+% results = zeros(N,2); % verification result, time
+% 
+% % verify volumes
+% parfor i=1:N
+%     img = squeeze(inputs(:,:,:,:,i));
+%     target = targets(i);
+%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+% end
+% 
+% % save results
+% save("results/verification_vessel_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
+
+
+%% Attack 5
+
+% adv_attack = struct;
+% 
+% results = zeros(N,2); % verification result, time
+% 
+% % verify volumes
+% parfor i=1:N
+%     img = squeeze(inputs(:,:,:,:,i));
+%     target = targets(i);
+%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+% end
+% 
+% % save results
+% save("results/verification_vessel_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
+
+
+%% Attack 6
+
+% adv_attack = struct;
+%
+% results = zeros(N,2); % verification result, time
+% 
+% % verify volumes
+% parfor i=1:N
+%     img = squeeze(inputs(:,:,:,:,i));
+%     target = targets(i);
+%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+% end
+% 
+% % save results
+% save("results/verification_vessel_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
+
+
+%% Attack 7
+
+% adv_attack = struct;
+% 
+% results = zeros(N,2); % verification result, time
+% 
+% % verify volumes
+% parfor i=1:N
+%     img = squeeze(inputs(:,:,:,:,i));
+%     target = targets(i);
+%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+% end
+% 
+% % save results
+% save("results/verification_vessel_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
+
+
+%% Attack 8
+
+% adv_attack = struct;
+% 
+% results = zeros(N,2); % verification result, time
+% 
+% % verify volumes
+% parfor i=1:N
+%     img = squeeze(inputs(:,:,:,:,i));
+%     target = targets(i);
+%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+% end
+% 
+% % save results
+% save("results/verification_vessel_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
 

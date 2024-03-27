@@ -289,7 +289,6 @@ classdef FullyConnectedLayer < handle
                     I = reshape(I,N,1); % flatten input
                     if i==1
                         V(1, 1,:,i) = obj.Weights*I + obj.Bias;
-                        V2(1,1,:,i) = gpuArray(obj.Weights)*I + gpuArray(obj.Bias);
                     else
                         V(1, 1,:,i) = obj.Weights*I;
                     end

@@ -1,1 +1,0 @@
-Dataset can be downloaded here: https://github.com/MedMNIST/MedMNIST

@@ -531,7 +531,7 @@ classdef VolumeStar < handle
                 S.C = single(S.C);
                 S.d = single(S.d);
                 S.pred_lb = single(S.pred_lb); 
-                S.pred_ub = single(S.pred_lb);
+                S.pred_ub = single(S.pred_ub);
                 S.vol_lb = single(S.vol_lb); 
                 S.vol_ub = single(S.vol_ub);
             elseif strcmp(precision, 'double')
@@ -539,7 +539,7 @@ classdef VolumeStar < handle
                 S.C = double(S.C);
                 S.d = double(S.d);
                 S.pred_lb = double(S.pred_lb); 
-                S.pred_ub = double(S.pred_lb);
+                S.pred_ub = double(S.pred_ub);
                 S.vol_lb = double(S.vol_lb); 
                 S.vol_ub = double(S.vol_ub);
             else
@@ -555,7 +555,7 @@ classdef VolumeStar < handle
                 S.C = gather(S.C);
                 S.d = gather(S.d);
                 S.predicate_lb = gather(S.predicate_lb); 
-                S.predicate_ub = gather(S.predicate_lb);
+                S.predicate_ub = gather(S.predicate_ub);
                 S.vol_lb = gather(S.vol_lb); 
                 S.vol_ub = gather(S.vol_ub);
             elseif strcmp(deviceTarget, 'gpu')
@@ -563,7 +563,7 @@ classdef VolumeStar < handle
                 S.C = gpuArray(S.C);
                 S.d = gpuArray(S.d);
                 S.predicate_lb = gpuArray(S.predicate_lb); 
-                S.predicate_ub = gpuArray(S.predicate_lb);
+                S.predicate_ub = gpuArray(S.predicate_ub);
                 S.vol_lb = gpuArray(S.vol_lb); 
                 S.vol_ub = gpuArray(S.vol_ub);
             else

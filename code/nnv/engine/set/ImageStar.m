@@ -668,7 +668,7 @@ classdef ImageStar < handle
                 S.C = single(S.C);
                 S.d = single(S.d);
                 S.pred_lb = single(S.pred_lb); 
-                S.pred_ub = single(S.pred_lb);
+                S.pred_ub = single(S.pred_ub);
                 S.im_lb = single(S.im_lb); 
                 S.im_ub = single(S.im_ub);
             elseif strcmp(precision, 'double')
@@ -676,7 +676,7 @@ classdef ImageStar < handle
                 S.C = double(S.C);
                 S.d = double(S.d);
                 S.pred_lb = double(S.pred_lb); 
-                S.pred_ub = double(S.pred_lb);
+                S.pred_ub = double(S.pred_ub);
                 S.im_lb = double(S.im_lb); 
                 S.im_ub = double(S.im_ub);
             else
@@ -692,7 +692,7 @@ classdef ImageStar < handle
                 S.C = gather(S.C);
                 S.d = gather(S.d);
                 S.pred_lb = gather(S.pred_lb); 
-                S.pred_ub = gather(S.pred_lb);
+                S.pred_ub = gather(S.pred_ub);
                 S.im_lb = gather(S.im_lb); 
                 S.im_ub = gather(S.im_ub);
             elseif strcmp(deviceTarget, 'gpu')
@@ -700,7 +700,7 @@ classdef ImageStar < handle
                 S.C = gpuArray(S.C);
                 S.d = gpuArray(S.d);
                 S.pred_lb = gpuArray(S.pred_lb); 
-                S.pred_ub = gpuArray(S.pred_lb);
+                S.pred_ub = gpuArray(S.pred_ub);
                 S.im_lb = gpuArray(S.im_lb); 
                 S.im_ub = gpuArray(S.im_ub);
             else

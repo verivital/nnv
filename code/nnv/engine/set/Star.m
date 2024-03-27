@@ -1468,7 +1468,7 @@ classdef Star
                 S.C = single(S.C);
                 S.d = single(S.d);
                 S.predicate_lb = single(S.predicate_lb); 
-                S.predicate_ub = single(S.predicate_lb);
+                S.predicate_ub = single(S.predicate_ub);
                 S.state_lb = single(S.state_lb); 
                 S.state_ub = single(S.state_ub);
             elseif strcmp(precision, 'double')
@@ -1476,7 +1476,7 @@ classdef Star
                 S.C = double(S.C);
                 S.d = double(S.d);
                 S.predicate_lb = double(S.predicate_lb); 
-                S.predicate_ub = double(S.predicate_lb);
+                S.predicate_ub = double(S.predicate_ub);
                 S.state_lb = double(S.state_lb); 
                 S.state_ub = double(S.state_ub);
             else
@@ -1492,7 +1492,7 @@ classdef Star
                 S.C = gather(S.C);
                 S.d = gather(S.d);
                 S.predicate_lb = gather(S.predicate_lb); 
-                S.predicate_ub = gather(S.predicate_lb);
+                S.predicate_ub = gather(S.predicate_ub);
                 S.state_lb = gather(S.state_lb); 
                 S.state_ub = gather(S.state_ub);
             elseif strcmp(deviceTarget, 'gpu')
@@ -1500,7 +1500,7 @@ classdef Star
                 S.C = gpuArray(S.C);
                 S.d = gpuArray(S.d);
                 S.predicate_lb = gpuArray(S.predicate_lb); 
-                S.predicate_ub = gpuArray(S.predicate_lb);
+                S.predicate_ub = gpuArray(S.predicate_ub);
                 S.state_lb = gpuArray(S.state_lb); 
                 S.state_ub = gpuArray(S.state_ub);
             else

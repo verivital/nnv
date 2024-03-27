@@ -72,6 +72,7 @@ else
 end
 
 toc(t);
+net_app = net;
 
 
 %% Let's visualize the ranges for every possible output

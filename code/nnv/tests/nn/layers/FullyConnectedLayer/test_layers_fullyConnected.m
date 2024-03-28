@@ -92,8 +92,7 @@ b = rand(4, 1);
 fc = FullyConnectedLayer(W,b);
 
 Rd = fc.reach_star_single_input(image_star);
-IS = image_star.changeVarsPrecision('single');
-Rs = fc.reach_star_single_input(image_star);
+Rs = fc.reach_star_single_input(image_star_s);
 
 V_error = abs(Rs.V - Rd.V);
 max(V_error, [], 'all')
@@ -113,10 +112,10 @@ W = rand(4, 48);
 b = rand(4, 1);
 fc = FullyConnectedLayer(W,b);
 ydd = fc.evaluate(IM);
-yds = fc.evaluate(single(IM));
+yds = fc.evaluate(IMs);
 fc = fc.changeParamsPrecision('single');
 ysd = fc.evaluate(IM);
-yss = fc.evaluate(single(IM));
+yss = fc.evaluate(IMs);
 
 % somehow these 2 are the same
 assert(all(yss == yds)) 
@@ -130,8 +129,8 @@ max(diff_sd, [], 'all')
 %% test 7: contain (inference in reach set) - Double
 
 rng(0);
-W = rand(4, 48);
-b = rand(4, 1);
+W = rand(4, 48, 'double');
+b = rand(4, 1, 'double');
 fc = FullyConnectedLayer(W,b);
 % inference
 y = fc.evaluate(IM);
@@ -165,4 +164,52 @@ R2 = R2.toStar;
 
 assert(all(y > lb));
 assert(all(y < ub));
+
+%% test 9: contain (inference in reach set) - Single - GPUArray
+
+if gpuDeviceCount 
+
+    rng(0);
+    W = gpuArray(rand(4, 48, 'single'));
+    b = gpuArray(rand(4, 1, 'single'));
+    fc = FullyConnectedLayer(W,b);
+    % inference
+    y = fc.evaluate(gpuArray(IMs));
+    y = double(y);
+    % reach set
+    image_star_s = image_star_s.changeDevice('gpu');
+    R2 = fc.reach_star_single_input(image_star_s);
+    R2 = R2.toStar;
+    % R = R.changeVarsPrecision('double');
+    
+    [lb,ub] = R2.estimateRanges;
+    
+    assert(all(y > lb));
+    assert(all(y < ub));
+
+end
+
+
+%% test 9: contain (inference in reach set) - Double - GPUArray
+
+if gpuDeviceCount 
+    
+    rng(0);
+    W = gpuArray(rand(4, 48, 'double'));
+    b = gpuArray(rand(4, 1, 'double'));
+    fc = FullyConnectedLayer(W,b);
+    % inference
+    y = fc.evaluate(gpuArray(IM));
+    % reach set
+    image_star = image_star.changeDevice('gpu');
+    R2 = fc.reach_star_single_input(image_star);
+    R2 = R2.toStar;
+    
+    [lb,ub] = R2.estimateRanges;
+    
+    assert(all(y > lb));
+    assert(all(y < ub));
+
+end
+
 

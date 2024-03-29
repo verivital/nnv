@@ -167,6 +167,7 @@ RUN git clone https://github.com/verivital/onnx2nnv.git
 RUN git clone https://github.com/verivital/nnvmt.git
 
 # handled via postInstall zip release sometimes, but we need some bug fixes from latest release that we made for FORMATS'22 package
+# forcing rebuild of codeocean 2024-03-25 due to cora submodule update
 RUN git clone https://github.com/verivital/CORA.git
 
 # these ls commands are just to force a new build so that the cloned repo is latest and not the cached one in the prior docker container image

@@ -459,7 +459,33 @@ classdef LstmLayer < handle
             
         end
         
-     end
+    end
+
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.bias = gpuArray(obj.bias);
+            obj.inputWeights = gpuArray(obj.inputWeights);
+            obj.recurrentWeights = gpuArray(obj.recurrentWeights);
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.bias = double(obj.bias);
+                obj.inputWeights = double(obj.inputWeights);
+                obj.recurrentWeights = double(obj.recurrentWeights);
+            elseif strcmp(precision, "single")
+                obj.bias = single(obj.bias);
+                obj.inputWeights = single(obj.inputWeights);
+                obj.recurrentWeights = single(obj.recurrentWeights);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
+        
+    end
     
     
     methods(Static)

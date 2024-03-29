@@ -68,6 +68,16 @@ classdef GlobalAveragePooling2DLayer < handle
             obj.InputNames = inputNames;
             obj.OutputNames = outputNames; 
         end
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, ~)
+            
+        end
             
     end
         

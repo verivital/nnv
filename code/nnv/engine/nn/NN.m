@@ -204,6 +204,14 @@ classdef NN < handle
                 reachOptions = struct; % empty options, run with default values
             end
 
+            % Change if want to execute on GPU
+            if isfield(reachOptions, 'device')
+                if strcmp(reachOptions.device, 'gpu')
+                    obj = obj.params2gpu;
+                    inputSet = inputSet.changeDevice('gpu');
+                end
+            end
+
             % Process reachability options
             if ~isstruct(reachOptions)
                 error("The reachability parameters must be specified as a struct.")
@@ -308,7 +316,7 @@ classdef NN < handle
                 fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
             end
             
-            outputSet = obj.reach_withConns(inputSet);
+            outputSet = obj.reach_withConns(inputSet, 'sequence');
             
         end
     
@@ -946,6 +954,7 @@ classdef NN < handle
                 reachOptions.reachOption = 'single';
                 reachOptions.numCores = 1;
             end
+            
         end
         
         % Ensure input and parameter precision is the same
@@ -966,6 +975,24 @@ classdef NN < handle
                 for i = 1:length(inputSet)
                     inputSet(i) = inputSet(i).changeVarsPrecision(netPrecision);
                 end
+            end
+        end
+
+        % Change paramters to gpu
+        function obj = params2gpu(obj)
+            % change the parameters layer by layer
+            for i = 1:length(obj.Layers)
+                gpuLayer = obj.Layers{i}.toGPU;
+                obj.Layers{i} = gpuLayer;
+            end
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            % change the parameters layer by layer
+            for i = 1:length(obj.Layers)
+                pLayer = obj.Layers{i}.changeParamsPrecision(precision);
+                obj.Layers{i} = pLayer;
             end
         end
 
@@ -1212,13 +1239,19 @@ classdef NN < handle
         end
 
         % reach NN based on connections table (test it)
-        function outSet = reach_withConns(obj, inSet)
+        function outSet = reach_withConns(obj, inSet, varargin)
             % Initialize variables to store reachable sets and computation time
             obj.reachSet = cell(1, obj.numLayers);
             obj.reachTime = zeros(1, obj.numLayers);
             obj.input_sets = cell(1, height(obj.Connections)); % store input reach sets for each layer
             if strcmp(obj.dis_opt, 'display')
                 fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
+            end
+
+            if nargin == 3
+                reachType = varargin{1};
+            else
+                reachType = 'default';
             end
 
             % Begin reachability computation
@@ -1245,7 +1278,7 @@ classdef NN < handle
                         fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, source);
                     end
                     t = tic;
-                    if isequal(class(obj.Layers{1,1}), 'SequenceInputLayer')
+                    if strcmp(reachType, 'sequence')
                         outSet = obj.Layers{source_indx}.reachSequence(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                     else
                         outSet = obj.Layers{source_indx}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
@@ -1311,16 +1344,15 @@ classdef NN < handle
             % Assume last layer in array is the output layer
             if isempty(obj.reachSet{end})
                 inSet = obj.reachSet{end-1};
-                outSet = obj.Layers{end}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                if strcmp(reachType, 'sequence')
+                    outSet = obj.Layers{end}.reachSequence(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                else
+                    outSet = obj.Layers{end}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                end
                 obj.reachSet{end} = outSet;
             end
         end
         
-        % Ensure precision for layer parameters and inputs is consistent
-        % function validate_precision(obj, inSet)
-        % 
-        % 
-        % end
     end % end helper functions
     
     

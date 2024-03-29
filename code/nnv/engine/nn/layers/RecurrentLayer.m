@@ -32,6 +32,7 @@ classdef RecurrentLayer
         lp_solver = 'linprog'; % lp solver option, 'linprog' or 'glpk'
         relaxFactor = 0; % use only for approx-star method
     end
+
     
     methods % constructor - evaluation - sampling
         % Constructor
@@ -113,8 +114,6 @@ classdef RecurrentLayer
                            
         end
         
-        
-        
         % Evaluation method
         function y = evaluate(obj, x)  % evaluation of this layer with a specific vector
             % @x: an input sequence of length n, x[i] is the input at time
@@ -185,7 +184,6 @@ classdef RecurrentLayer
                 end              
                 
             end
-                      
             
             y1 = obj.Wo*h1 + obj.bo;
             
@@ -210,7 +208,6 @@ classdef RecurrentLayer
                 error('Unknown or unsupported activation function');
             end
         end
-        
             
     end
     
@@ -231,7 +228,6 @@ classdef RecurrentLayer
             
             % parse inputs 
             switch nargin
-                
                 
                 case 7
                     obj = varargin{1};
@@ -419,12 +415,9 @@ classdef RecurrentLayer
                         end
                         O{i} = M2;
                         
-                        
                     end
                 end
-                
- 
-                
+                                
             else
                 
                 for i=1:n
@@ -559,18 +552,42 @@ classdef RecurrentLayer
                 end
                 O = O1;
             end
-            
        
         end
-        
-        
         
     end
     
     
-    methods % flattening a layer into a sequence of operation
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Wh = gpuArray(obj.Wh);
+            obj.Wi = gpuArray(obj.Wi);
+            obj.Wo = gpuArray(obj.Wo);
+            obj.bh = gpuArray(obj.bh);
+            obj.bo = gpuArray(obj.bo);
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Wh = double(obj.Wh);
+                obj.Wi = double(obj.Wi);
+                obj.Wo = double(obj.Wo);
+                obj.bh = double(obj.bh);
+                obj.bo = double(obj.bo);
+            elseif strcmp(precision, "single")
+                obj.Wh = single(obj.Wh);
+                obj.Wi = single(obj.Wi);
+                obj.Wo = single(obj.Wo);
+                obj.bh = single(obj.bh);
+                obj.bo = single(obj.bo);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
         
-       
     end
     
     methods(Static) 
@@ -607,11 +624,7 @@ classdef RecurrentLayer
             L = RecurrentLayer(S);
         end
         
-        
     end
-    
-    
-    
-    
+        
 end
 

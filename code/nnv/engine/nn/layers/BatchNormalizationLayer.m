@@ -30,7 +30,7 @@ classdef BatchNormalizationLayer < handle
     methods
         
         % constructor of the class
-        function obj = BatchNormalizationLayer(varargin)           
+        function obj = BatchNormalizationLayer(varargin)
             % author: Dung Tran
             % date: 1/1/2020    
             % update: 
@@ -81,6 +81,34 @@ classdef BatchNormalizationLayer < handle
              
         end
         
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Offset = gpuArray(obj.Offset);
+            obj.Scale = gpuArray(obj.Scale);
+            obj.Epsilon = gpuArray(obj.Epsilon);
+            obj.TrainedMean = gpuArray(obj.TrainedMean);
+            obj.TrainedVariance = gpuArray(obj.TrainedVariance);
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Offset = double(obj.Offset);
+                obj.Scale = double(obj.Scale);
+                obj.Epsilon = double(obj.Epsilon);
+                obj.TrainedMean = double(obj.TrainedMean);
+                obj.TrainedVariance = double(obj.TrainedVariance);
+            elseif strcmp(precision, "single")
+                obj.Offset = single(obj.Offset);
+                obj.Scale = single(obj.Scale);
+                obj.Epsilon = single(obj.Epsilon);
+                obj.TrainedMean = single(obj.TrainedMean);
+                obj.TrainedVariance = single(obj.TrainedVariance);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
+
     end
         
     

@@ -198,10 +198,6 @@ classdef FullyConnectedLayer < handle
             % @in_image: an input imagestar
             % @image: output set
             % @option: = 'single' or 'parallel' 
-            
-            % author: Dung Tran
-            % date: 6/26/2019
-            % update: 1/6/2020  update reason: add zonotope method
              
             switch nargin
                 
@@ -210,24 +206,18 @@ classdef FullyConnectedLayer < handle
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    % relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
-                    % lp_solver = varargin{7}; do not use
                 
                 case 6
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
                 
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
                 
                 case 4
                     obj = varargin{1};
@@ -252,6 +242,25 @@ classdef FullyConnectedLayer < handle
                 error('Unknown reachability method');
             end
         end
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Weights = gpuArray(obj.Weights);
+            obj.Bias = gpuArray(obj.Bias);
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Weights = double(obj.Weights);
+                obj.Bias = double(obj.Bias);
+            elseif strcmp(precision, "single")
+                obj.Weights = single(obj.Weights);
+                obj.Bias = single(obj.Bias);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
     
     end   
      
@@ -261,9 +270,6 @@ classdef FullyConnectedLayer < handle
         function image = reach_star_single_input(obj, in_image)
             % @in_image: input imagestar
             % @image: output set
-            
-            % author: Dung Tran
-            % date: 6/26/2019
             
             if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
                 error('Input set is not an ImageStar or Star');
@@ -277,14 +283,14 @@ classdef FullyConnectedLayer < handle
                 end
                            
                 n = in_image.numPred;
-                V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1);        
+                V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1, 'like', in_image.V);
                 for i=1:n+1
                     I = in_image.V(:,:,:,i);
                     I = reshape(I,N,1); % flatten input
                     if i==1
-                        V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
+                        V(1, 1,:,i) = obj.Weights*I + obj.Bias;
                     else
-                        V(1, 1,:,i) = double(obj.Weights)*I;
+                        V(1, 1,:,i) = obj.Weights*I;
                     end
                 end
                 % output set
@@ -300,9 +306,6 @@ classdef FullyConnectedLayer < handle
             % @inputs: an array of ImageStars
             % @option: = 'parallel' or 'single'
             % @S: output ImageStar
-            
-            % author: Dung Tran
-            % date: 1/6/2020
             
             n = length(inputs);
             if isa(inputs, "ImageStar")
@@ -331,10 +334,7 @@ classdef FullyConnectedLayer < handle
         function image = reach_zono(obj, in_image)
             % @in_image: input imagezono
             % @image: output set
-            
-            % author: Dung Tran
-            % date: 1/2/2020
-            
+
             if ~isa(in_image, 'ImageZono') && ~isa(in_image, 'Zono')
                 error('Input set is not an ImageZono or Zono');
             end
@@ -371,9 +371,6 @@ classdef FullyConnectedLayer < handle
             % @option: = 'parallel' or 'single'
             % @S: output ImageZono
             
-            % author: Dung Tran
-            % date: 1/6/2020
-            
             n = length(inputs);
             if isa(inputs, 'ImageZono')
                 S(n) = ImageZono;
@@ -397,22 +394,13 @@ classdef FullyConnectedLayer < handle
             
         end
         
-        function image = reachSequence_star(obj, in_image, option)
+        function image = reachSequence_star(obj, in_image, ~)
             % @in_image: input imagestar
-            % @image: output set
-            
-            % author: Dung Tran
-            % date: 6/26/2019
-            
+            % @image: output set            
             
             if ~isa(in_image, 'ImageStar')
                 error('Input set is not an ImageStar');
             end
-            
-%             N = in_image.height*in_image.width*in_image.numChannel;
-%             if N~= obj.InputSize
-%                 error('Inconsistency between the size of the input image and the InputSize of the network');
-%             end
                        
             n = in_image.numPred;
             V(:, :, 1, in_image.numPred + 1) = zeros(obj.OutputSize, in_image.width);
@@ -439,9 +427,6 @@ classdef FullyConnectedLayer < handle
             % @fully_connecteted_Layer: a fully connected layer from matlab deep
             % neural network tool box
             % @L : a FullyConnectedLayer obj for reachability analysis purpose
-            
-            % author: Dung Tran
-            % date: 6/26/2019
             
             if ~isa(fully_connected_layer, 'nnet.cnn.layer.FullyConnectedLayer')
                 error('Input is not a Matlab nnet.cnn.layer.FullyConnectedLayer class');

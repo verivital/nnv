@@ -1,9 +1,3 @@
-%to run this as a test, use results_layers_fullyConnected=runtests('test_layers_fullyConnected')
-%requirements: file must start or end with test
-%each test starts with two percent signs followed by the name
-%shared vairables must appear before first test
-%variables made by a test are not available to other tests.
-
 
 %shared variables
 % image input set
@@ -22,13 +16,23 @@ UB(:,:,3) = UB(:,:,2);
 image_star = ImageStar(IM, LB, UB);
 image_zono = ImageZono(LB, UB);
 
+% image input set
+IMs(:,:,1) = single([1 1 0 1; 0 0 1 1; 1 0 1 0; 1 1 1 1]); % center image channel 1
+IMs(:,:,2) = single([0 1 0 0; 1 0 0 1; 0 1 1 0; 0 0 0 1]); % center image channel 2
+IMs(:,:,3) = single([1 1 1 1; 1 1 0 1; 0 1 1 0; 1 0 1 0]); % center image channel 3
 
-%___________________________________________________________________________________________________
-%tests below originally taken from test_FullyConnectedLayer_constructor.m
+LBs(:,:,1) = single([-0.1 -0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]); % attack on pixel (1,1) and (1,2)
+LBs(:,:,2) = single([-0.1 -0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]); 
+LBs(:,:,3) = LB(:,:,2);
+
+UBs(:,:,1) = single([0.1 0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]);
+UBs(:,:,2) = single([0.1 0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]);
+UBs(:,:,3) = UB(:,:,2);
+
+image_star_s = ImageStar(IMs, LBs, UBs);
 
 
 %% test 1: FullyConnected Constructor
-
 
 % construct FullyConnectedLayer objects
 W = rand(4, 48);
@@ -37,78 +41,175 @@ fc = FullyConnectedLayer(W,b);
 fc1 = FullyConnectedLayer('fc1', W, b);
 
 
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_FullyConnectedLayer_reach_star_exact.m
-
-
 %% test 2: FullyConnected reach star exact
-
-
 
 % construct a FullyConnectedLayer object
 W = rand(4, 48);
 b = rand(4,1);
 fc = FullyConnectedLayer(W,b);
 
-%output = fc.reach_star_exact(image_star);
-%output2 = fc.reach_zono_exact(image_zono);
-
-output = fc.reach_star_single_input(image_star);
-output2 = fc.reach_zono(image_zono);
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_FullyConnectedLayer_reach_zono_exact.m
+fc.reach_star_single_input(image_star);
+fc.reach_zono(image_zono);
 
 
 %% test 3: FullyConnected reach zono exact
 
-
-
 % construct a FullyConnectedLayer object
 W = rand(4, 48);
 b = rand(4,1);
 fc = FullyConnectedLayer(W,b);
 
-%output = fc.reach_zono_exact(image_zono);
 output = fc.reach_zono(image_zono);
 
+%% test 4: Fullyconnected precision check (parameters)
+
+rng(0);
+W = rand(4, 48);
+b = rand(4, 1);
+fc = FullyConnectedLayer(W,b);
+Rd = fc.reach_star_single_input(image_star);
+
+W = single(W);
+b = single(b);
+fc = FullyConnectedLayer(W,b);
+Rs = fc.reach_star_single_input(image_star);
+
+V_error = abs(Rs.V - Rd.V);
+max(V_error, [], 'all')
+
+[lb_s, ub_s] = Rs.getRanges;
+[lb_d, ub_d] = Rd.getRanges;
+
+error_tolerance = 1e-5;
+all(abs(lb_s-lb_d) <= error_tolerance)
+all(abs(ub_s-ub_d) <= error_tolerance)
+
+%% test 5: Fullyconnected precision check (set)
+
+rng(0);
+W = rand(4, 48);
+b = rand(4, 1);
+fc = FullyConnectedLayer(W,b);
+
+Rd = fc.reach_star_single_input(image_star);
+Rs = fc.reach_star_single_input(image_star_s);
+
+V_error = abs(Rs.V - Rd.V);
+max(V_error, [], 'all')
+
+[lb_s, ub_s] = Rs.getRanges;
+[lb_d, ub_d] = Rd.getRanges;
+
+error_tolerance = 1e-5;
+all(abs(lb_s-lb_d) <= error_tolerance)
+all(abs(ub_s-ub_d) <= error_tolerance)
 
 
+%% test 6: Fullyconnected evaluate precision check
+
+rng(0);
+W = rand(4, 48);
+b = rand(4, 1);
+fc = FullyConnectedLayer(W,b);
+ydd = fc.evaluate(IM);
+yds = fc.evaluate(IMs);
+fc = fc.changeParamsPrecision('single');
+ysd = fc.evaluate(IM);
+yss = fc.evaluate(IMs);
+
+% somehow these 2 are the same
+assert(all(yss == yds)) 
+assert(all(ysd == yss))
+
+% But they are not if both are double precision
+diff_sd = abs(ydd - yds);
+max(diff_sd, [], 'all')
 
 
+%% test 7: contain (inference in reach set) - Double
+
+rng(0);
+W = rand(4, 48, 'double');
+b = rand(4, 1, 'double');
+fc = FullyConnectedLayer(W,b);
+% inference
+y = fc.evaluate(IM);
+% reach set
+R = fc.reach_star_single_input(image_star);
+R = R.toStar;
+
+assert(R.contains(y));
+
+[lb,ub] = R.estimateRanges;
+
+assert(all(y > lb));
+assert(all(y < ub));
 
 
+%% test 8: contain (inference in reach set) - Single
+
+rng(0);
+W = rand(4, 48, 'single');
+b = rand(4, 1, 'single');
+fc = FullyConnectedLayer(W,b);
+% inference
+y = fc.evaluate(IMs);
+y = double(y);
+% reach set
+R2 = fc.reach_star_single_input(image_star_s);
+R2 = R2.toStar;
+% R = R.changeVarsPrecision('double');
+
+[lb,ub] = R2.estimateRanges;
+
+assert(all(y > lb));
+assert(all(y < ub));
+
+%% test 9: contain (inference in reach set) - Single - GPUArray
+
+if gpuDeviceCount 
+
+    rng(0);
+    W = gpuArray(rand(4, 48, 'single'));
+    b = gpuArray(rand(4, 1, 'single'));
+    fc = FullyConnectedLayer(W,b);
+    % inference
+    y = fc.evaluate(gpuArray(IMs));
+    y = double(y);
+    % reach set
+    image_star_s = image_star_s.changeDevice('gpu');
+    R2 = fc.reach_star_single_input(image_star_s);
+    R2 = R2.toStar;
+    % R = R.changeVarsPrecision('double');
+    
+    [lb,ub] = R2.estimateRanges;
+    
+    assert(all(y > lb));
+    assert(all(y < ub));
+
+end
 
 
+%% test 9: contain (inference in reach set) - Double - GPUArray
 
+if gpuDeviceCount 
+    
+    rng(0);
+    W = gpuArray(rand(4, 48, 'double'));
+    b = gpuArray(rand(4, 1, 'double'));
+    fc = FullyConnectedLayer(W,b);
+    % inference
+    y = fc.evaluate(gpuArray(IM));
+    % reach set
+    image_star = image_star.changeDevice('gpu');
+    R2 = fc.reach_star_single_input(image_star);
+    R2 = R2.toStar;
+    
+    [lb,ub] = R2.estimateRanges;
+    
+    assert(all(y > lb));
+    assert(all(y < ub));
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+end
 
 

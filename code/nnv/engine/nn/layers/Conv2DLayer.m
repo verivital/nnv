@@ -425,6 +425,25 @@ classdef Conv2DLayer < handle
             end
             
         end
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Weights = gpuArray(obj.Weights);
+            obj.Bias = gpuArray(obj.Bias);
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Weights = double(obj.Weights);
+                obj.Bias = double(obj.Bias);
+            elseif strcmp(precision, "single")
+                obj.Weights = single(obj.Weights);
+                obj.Bias = single(obj.Bias);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
         
     end
     
@@ -436,11 +455,10 @@ classdef Conv2DLayer < handle
             % @input: 3-dimensional array, for example, input(:, :, :)
             % @y: high-dimensional array (output volume), depth of output = number of filters
             
-            % author: Dung Tran
-            % date: 7/18/2019
+            % y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+            y = dlconv(dlarray(input, "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+            y = extractdata(y);
             
-            y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-
         end
 
         function y1 = evaluateSequence(obj, input)
@@ -501,8 +519,15 @@ classdef Conv2DLayer < handle
             end
             
             % compute output sets
-            c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-            V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);         
+            if ~isa(input.V, 'gpuArray')
+                c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+                V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);   
+            else
+                c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                c = extractdata(c);
+                V = extractdata(V);
+            end
             Y = cat(4, c, V);
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   

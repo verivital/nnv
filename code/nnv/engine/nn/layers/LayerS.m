@@ -258,19 +258,37 @@ classdef LayerS
 
                 end
 
-
-
             end
-
-
 
         end
 
     end
 
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.W = gpuArray(obj.W);
+            obj.b = gpuArray(obj.b);
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.W = double(obj.W);
+                obj.b = double(obj.b);
+            elseif strcmp(precision, "single")
+                obj.W = single(obj.W);
+                obj.b = single(obj.b);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
+        
+    end
+
 
     methods % flattening a layer into a sequence of operation
-
 
         function Ops = flatten(obj, reachMethod)
             % @reachMethod: reachability method
@@ -281,7 +299,6 @@ classdef LayerS
             % date: 1/18/2020
 
             O1 = Operation('AffineMap', obj.W, obj.b);
-
 
             if strcmp(obj.f, 'poslin')
 
@@ -346,7 +363,6 @@ classdef LayerS
 
             elseif strcmp(obj.f, 'tansig')
 
-
                 if strcmp(reachMethod, 'exact-star')
                     error('\nCannot do exact analysis for layer with logsig activation function, use approximate method');
                 elseif strcmp(reachMethod, 'approx-star')
@@ -364,7 +380,6 @@ classdef LayerS
         end
 
     end
-
 
 
 end

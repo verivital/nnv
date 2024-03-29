@@ -16,7 +16,7 @@ classdef ActivationFunctionLayer < handle
     methods
         
         % constructor of the class
-        function obj = ActivationFunctionLayer(varargin)           
+        function obj = ActivationFunctionLayer(varargin)
             % author: Diego Mazanas Lopez
             % date: 12/06/2022
 
@@ -104,7 +104,6 @@ classdef ActivationFunctionLayer < handle
             
         end
         
-        
         % MAIN REACHABILITY METHOD
         function images = reach(varargin)
             % @in_image: an input imagestar
@@ -172,6 +171,7 @@ classdef ActivationFunctionLayer < handle
 
         end
         
+        % reach for time-sequence data
         function seqs = reachSequence(varargin)
             obj = varargin{1};
             % relaxFactor = 0.8;
@@ -180,6 +180,21 @@ classdef ActivationFunctionLayer < handle
             seqs.im_lb = lb;
             seqs.im_ub = ub;
         end
+    
+    end
+
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, ~)
+            % nothing to change in here (no params)
+        end
+        
     end
     
 end

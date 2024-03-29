@@ -1144,7 +1144,7 @@ classdef Star
             % update: 6/16/2020
             % update: 7/15/2020 The isEmptySet method in Polyhedron object has bug
             
-            f = zeros(1, obj.nVar); % objective function
+            f = zeros(1, obj.nVar, 'like', obj.V); % objective function
             [~, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, 'linprog', 'emptySet');
             if ismember(exitflag,["l1", "g2", "g5"])
                 bool = 0;
@@ -1468,7 +1468,7 @@ classdef Star
                 S.C = single(S.C);
                 S.d = single(S.d);
                 S.predicate_lb = single(S.predicate_lb); 
-                S.predicate_ub = single(S.predicate_lb);
+                S.predicate_ub = single(S.predicate_ub);
                 S.state_lb = single(S.state_lb); 
                 S.state_ub = single(S.state_ub);
             elseif strcmp(precision, 'double')
@@ -1476,12 +1476,37 @@ classdef Star
                 S.C = double(S.C);
                 S.d = double(S.d);
                 S.predicate_lb = double(S.predicate_lb); 
-                S.predicate_ub = double(S.predicate_lb);
+                S.predicate_ub = double(S.predicate_ub);
                 S.state_lb = double(S.state_lb); 
                 S.state_ub = double(S.state_ub);
             else
                 error("Only single or double precision arrays allowed. GpuArray/dlarray are coming.")
             end
+        end
+        
+        % change device target for the set
+        function S = changeDevice(obj, deviceTarget)
+            S = obj;
+            if strcmp(deviceTarget, 'cpu')
+                S.V = gather(S.V);
+                S.C = gather(S.C);
+                S.d = gather(S.d);
+                S.predicate_lb = gather(S.predicate_lb); 
+                S.predicate_ub = gather(S.predicate_ub);
+                S.state_lb = gather(S.state_lb); 
+                S.state_ub = gather(S.state_ub);
+            elseif strcmp(deviceTarget, 'gpu')
+                S.V = gpuArray(S.V);
+                S.C = gpuArray(S.C);
+                S.d = gpuArray(S.d);
+                S.predicate_lb = gpuArray(S.predicate_lb); 
+                S.predicate_ub = gpuArray(S.predicate_ub);
+                S.state_lb = gpuArray(S.state_lb); 
+                S.state_ub = gpuArray(S.state_ub);
+            else
+                error("Device target must be 'cpu' or 'gpu'.");
+            end
+
         end
 
     end

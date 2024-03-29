@@ -18,9 +18,19 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
         opts = 'normal';
     end
 
-    % ensure variables are all of type double
-    f = double(f); A = double(A); b = double(b); lb = double(lb);
-    Aeq = double(Aeq); Beq = double(Beq); ub = double(ub); 
+    dataType = class(f);
+
+    if strcmp(dataType, "gpuArray") % ensure it is not a gpuArray
+        f = gather(f); A = gather(A); b = gather(b); lb = gather(lb);
+        Aeq = gather(Aeq); Beq = gather(Beq); ub = gather(ub); 
+    end
+
+    dataType = class(f); 
+
+    if strcmp(dataType, "single") % ensure variables are all of type double
+        f = double(f); A = double(A); b = double(b); lb = double(lb);
+        Aeq = double(Aeq); Beq = double(Beq); ub = double(ub); 
+    end
     
     % Solve using linprog (glpk as backup)
     if strcmp(lp_solver, 'linprog')

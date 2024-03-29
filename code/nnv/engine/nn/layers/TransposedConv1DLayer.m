@@ -17,11 +17,8 @@ classdef TransposedConv1DLayer < handle
         NumFilters = 0; % number of filters
         Stride = 1; % step size for traversing input
         
-        
         CroppingMode = 'manual';
-        CroppingSize = [0 0]; % Outputsize reduction
-        % Cropping = [0 0]; 
-        
+        CroppingSize = [0 0]; % Outputsize reduction        
         
         % Learnable Parmeters/ Used for reachability analysis
         Weights = [];
@@ -72,7 +69,6 @@ classdef TransposedConv1DLayer < handle
                     obj.NumChannels = w(3);
                     
                     obj.FilterSize = w(1);
-                                         
                 
                 case 5
                     
@@ -102,11 +98,7 @@ classdef TransposedConv1DLayer < handle
                         obj.NumChannels = w(3);
                         obj.FilterSize = w(1);
                         obj.Weights = filter_weights;
-%                     elseif length(w) == 4
-%                         obj.NumFilters = w(3);
-%                         obj.NumChannels = w(4);
-%                         obj.FilterSize = [w(1) w(2)];
-%                         obj.Weights = filter_weights;
+
                     else
                         error('Invalid weight matrix');
                     end
@@ -135,7 +127,6 @@ classdef TransposedConv1DLayer < handle
                     filter_bias = varargin{2};
                     cropping_mat = varargin{3};
                     stride_mat = varargin{4};
-                                                  
                     
                     w = size(filter_weights);
                     b = size(filter_bias);
@@ -151,11 +142,7 @@ classdef TransposedConv1DLayer < handle
                         obj.NumChannels = w(3);
                         obj.FilterSize = w(1);
                         obj.Weights = filter_weights;
-%                     elseif length(w) == 4
-%                         obj.NumFilters = w(3);
-%                         obj.NumChannels = w(4);
-%                         obj.FilterSize = [w(1) w(2)];
-%                         obj.Weights = filter_weights;
+
                     else
                         error('Invalid weight matrix');
                     end
@@ -176,12 +163,7 @@ classdef TransposedConv1DLayer < handle
                     end
                     obj.CroppingSize = cropping_mat;
                                                
-%                     s = size(stride_mat);
-%                     if length(s) ~= 2 || s(1) ~= 1
-%                         error('Invalid stride matrix');
-%                     end
                     obj.Stride = stride_mat;  
-                    
                     
                 case 2
                     
@@ -202,11 +184,7 @@ classdef TransposedConv1DLayer < handle
                         obj.NumChannels = w(3);
                         obj.FilterSize = w(1);
                         obj.Weights = filter_weights;
-%                     elseif length(w) == 4
-%                         obj.NumFilters = w(3);
-%                         obj.NumChannels = w(4);
-%                         obj.FilterSize = [w(1) w(2)];
-%                         obj.Weights = filter_weights;
+
                     else
                         error('Invalid weight matrix');
                     end                  
@@ -216,17 +194,13 @@ classdef TransposedConv1DLayer < handle
                     if length(w) == 3 && w(2) ~= b(2)
                         error('Inconsistency between filter weights and filter biases');
                     end
-                                        
-                           
-                                    
+                                                                            
                 otherwise
                     error('Invalid number of inputs (should be 2, 5, or 6)');
                                  
             end
-                    
 
         end
-        
                 
     end
     
@@ -244,14 +218,11 @@ classdef TransposedConv1DLayer < handle
             y = vl_nnconvt1d(input, double(obj.Weights), double(obj.Bias), obj.Stride, obj.CroppingSize);
 
         end
-                    
-
         
     end
     
        
     % reachability analysis using star set
-    
     methods
         % reachability analysis method using ImageStar
         function S = reach_star_single_input(obj, input)
@@ -348,9 +319,7 @@ classdef TransposedConv1DLayer < handle
                 error('Unknown computation option');
             end
 
-        end
-
-        
+        end        
         
         % reach star with multiple inputs
         function images = reachSequence(varargin)
@@ -366,22 +335,18 @@ classdef TransposedConv1DLayer < handle
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    % relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
-                    % lp_solver = varargin{7}; do not use
+
                 case 6
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
+
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
                 case 4
                     obj = varargin{1};
                     in_images = varargin{2};
@@ -411,6 +376,29 @@ classdef TransposedConv1DLayer < handle
             
         end
         
+    end
+
+    
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            obj.Weights = gpuArray(obj.Weights);
+            obj.Bias = gpuArray(obj.Bias);
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, precision)
+            if strcmp(precision, "double")
+                obj.Weights = double(obj.Weights);
+                obj.Bias = double(obj.Bias);
+            elseif strcmp(precision, "single")
+                obj.Weights = single(obj.Weights);
+                obj.Bias = single(obj.Bias);
+            else
+                error("Parameter numerical precision must be 'single' or 'double'");
+            end
+        end
         
     end
     

@@ -93,7 +93,6 @@ classdef SoftmaxLayer < handle
             % author: Dung Tran
             % date: 4/14/2020
             
-            
             if isvector(image)
                 prob_im = softmax(image);                
             else
@@ -127,7 +126,6 @@ classdef SoftmaxLayer < handle
             % @OS: imageStar output set = IS
             % we don't care method and reach option for softmax
             
-            
             % author: Dung Tran
             % date: 4/14/2020
             
@@ -136,7 +134,19 @@ classdef SoftmaxLayer < handle
             
         end
         
-        
+    end
+
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to do here
+        end
+
+        % Change params precision
+        function obj = changeParamsPrecision(obj, ~)
+
+        end
         
     end
     
@@ -151,7 +161,6 @@ classdef SoftmaxLayer < handle
             % author: Dung Tran
             % date: 4/14/2020
             
-            
             if ~isa(softmax_layer, 'nnet.cnn.layer.SoftmaxLayer')
                 error('Input is not a Matlab nnet.cnn.layer.SoftmaxLayer');
             end
@@ -160,7 +169,8 @@ classdef SoftmaxLayer < handle
             
         end
         
-        
     end
+
+
 end
 

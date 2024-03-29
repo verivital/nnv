@@ -374,6 +374,19 @@ classdef MaxUnpooling2DLayer < handle
         end
     
     end
+
+    methods % helper method
+
+        % change params to gpuArrays
+        function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
+        % Change params precision
+        function obj = changeParamsPrecision(obj, ~)
+
+        end
+        
+    end
     
     
     methods(Static) % parsing matlab layer

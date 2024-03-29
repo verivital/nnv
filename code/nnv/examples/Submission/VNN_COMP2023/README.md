@@ -34,5 +34,6 @@ TODO:
 
 2) Go to https://github.com/ChristopherBrix/vnncomp2023_benchmarks, clone the repo and run (in your desired folder) ./setup.sh
 
-3) Change line 4 in 'test_some_instances.m' to the folder where you downloaded the benchmarks.
+3) Change line 4 in `test_some_instances.m` to the folder where you downloaded the benchmarks.
 
+4) Run `test_some_instances.m`. Change the instances tested as desired from the vnncomp_benchmarks repo.

@@ -316,7 +316,7 @@ classdef NN < handle
                 fprintf('\nPerform reachability analysis for the network %s \n', obj.Name);
             end
             
-            outputSet = obj.reach_withConns(inputSet);
+            outputSet = obj.reach_withConns(inputSet, 'sequence');
             
         end
     
@@ -1239,13 +1239,19 @@ classdef NN < handle
         end
 
         % reach NN based on connections table (test it)
-        function outSet = reach_withConns(obj, inSet)
+        function outSet = reach_withConns(obj, inSet, varargin)
             % Initialize variables to store reachable sets and computation time
             obj.reachSet = cell(1, obj.numLayers);
             obj.reachTime = zeros(1, obj.numLayers);
             obj.input_sets = cell(1, height(obj.Connections)); % store input reach sets for each layer
             if strcmp(obj.dis_opt, 'display')
                 fprintf('\nPerform reachability analysis for the network %s...', obj.Name);
+            end
+
+            if nargin == 3
+                reachType = varargin{1};
+            else
+                reachType = 'default';
             end
 
             % Begin reachability computation
@@ -1272,7 +1278,7 @@ classdef NN < handle
                         fprintf('\nPerforming analysis for Layer %d (%s)...', i-1, source);
                     end
                     t = tic;
-                    if isequal(class(obj.Layers{1,1}), 'SequenceInputLayer')
+                    if strcmp(reachType, 'sequence')
                         outSet = obj.Layers{source_indx}.reachSequence(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                     else
                         outSet = obj.Layers{source_indx}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
@@ -1338,7 +1344,11 @@ classdef NN < handle
             % Assume last layer in array is the output layer
             if isempty(obj.reachSet{end})
                 inSet = obj.reachSet{end-1};
-                outSet = obj.Layers{end}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                if strcmp(reachType, 'sequence')
+                    outSet = obj.Layers{end}.reachSequence(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                else
+                    outSet = obj.Layers{end}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                end
                 obj.reachSet{end} = outSet;
             end
         end

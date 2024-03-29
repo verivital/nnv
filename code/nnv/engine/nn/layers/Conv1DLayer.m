@@ -35,7 +35,7 @@ classdef Conv1DLayer < handle
     methods
         
         % constructor of the class
-        function obj = Conv1DLayer(varargin)                
+        function obj = Conv1DLayer(varargin)
             
             switch nargin
                 
@@ -58,8 +58,10 @@ classdef Conv1DLayer < handle
                         error('Layer name should be a char array');
                     end
                     
-                    
                     w = size(filter_weights);
+                    if length(w) == 2
+                        w = [w 1]; % add 1 as the third dimension
+                    end
                     b = size(filter_bias);
                     
                     if length(w) ~= 3
@@ -86,12 +88,8 @@ classdef Conv1DLayer < handle
                         error('Invalid padding matrix');
                     end
                     obj.PaddingSize = padding_mat;
-
                     obj.Stride = stride_mat;
-                                 
                     obj.DilationFactor = dilation_mat;
-                    
-                    
                 
                 case 6
                     
@@ -107,7 +105,6 @@ classdef Conv1DLayer < handle
                     else
                         error('Layer name should be a char array');
                     end
-                    
                     
                     w = size(filter_weights);
                     b = size(filter_bias);
@@ -140,8 +137,6 @@ classdef Conv1DLayer < handle
              
                     obj.DilationFactor = dilation_mat;
                     
-                    
-                
                 case 5
                     
                     filter_weights = varargin{1};
@@ -166,11 +161,7 @@ classdef Conv1DLayer < handle
                         obj.NumChannels = w(2);
                         obj.FilterSize = w(1);
                         obj.Weights = filter_weights;
-%                     elseif length(w) == 4
-%                         obj.NumFilters = w(4);
-%                         obj.NumChannels = w(3);
-%                         obj.FilterSize = w(1);
-%                         obj.Weights = filter_weights;
+
                     else
                         error('Invalid weight matrix');
                     end
@@ -190,9 +181,7 @@ classdef Conv1DLayer < handle
                         error('Invalid padding matrix');
                     end
                     obj.PaddingSize = padding_mat;
-                                               
                     obj.Stride = stride_mat;
-               
                     obj.DilationFactor = dilation_mat;                   
                     
                     
@@ -217,11 +206,7 @@ classdef Conv1DLayer < handle
                         obj.NumChannels = w(2);
                         obj.FilterSize = w(1);
                         obj.Weights = filter_weights;
-%                     elseif length(w) == 4
-%                         obj.NumFilters = w(4);
-%                         obj.NumChannels = w(3);
-%                         obj.FilterSize = w(1);
-%                         obj.Weights = filter_weights;
+
                     else
                         error('Invalid weight matrix');
                     end                 
@@ -243,15 +228,8 @@ classdef Conv1DLayer < handle
                     error('Invalid number of inputs (should be 2, 5, or 6)');
                                  
             end
-                    
-                
-            
-            
-            
-            
-             
-        end
 
+        end
         
         % set padding 
         function set_padding(obj, padding)
@@ -345,13 +323,22 @@ classdef Conv1DLayer < handle
 
             n = length(size(input));
             if n==2
-                input = dlarray(input');
-                y = dlconv(input, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","SC");
-                y = extractdata(y)';
+                try % not sure how whis work so we'll try both ways and one should do it
+                    x = dlarray(input');
+                    y = dlconv(x, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","SC");
+                    y = extractdata(y)';
+                catch
+                    x = dlarray(input);
+                    y = dlconv(x, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","SC");
+                    y = extractdata(y);
+                end
+            elseif n==3
+                input = dlarray(input);
+                y = dlconv(input, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","TSC");
+                y = extractdata(y);
             end
 
         end
-              
         
     end
     
@@ -389,7 +376,6 @@ classdef Conv1DLayer < handle
             
             % author: Neelanjana Pal
             % date: 10/28/2021
-
             
             n = size(input);        
             if length(paddingSize) ~= 2
@@ -398,7 +384,6 @@ classdef Conv1DLayer < handle
             
             l = paddingSize(1);
             r = paddingSize(2);
- 
             
             if length(n) == 2 
                 % input volume has only one channel                
@@ -420,13 +405,11 @@ classdef Conv1DLayer < handle
                     I(1:h, l+1:l+w, i) = input(:, :, i); % new constructed input volume
                 end              
                 
-                
             else
                 error('Invalid input');
             end
                          
         end
-        
         
         % compute feature map for specific input and weight
         function featureMap = compute_featureMap(input, W, padding, stride, dilation)
@@ -436,7 +419,6 @@ classdef Conv1DLayer < handle
             % @stride: step size for traversing input
             % @dilation: factor for dilated convolution     
             % @featureMap: convolved feature (also called feature map)
-            
             
             % author: Neelanjana Pal
             % date: 10/28/2021
@@ -473,7 +455,6 @@ classdef Conv1DLayer < handle
             % TODO: explore power of using GPU for this problem
             
             featureMap = zeros(1, h*w); % using single vector for parallel computation
-           
 
             for l=1:h*w
                 a = mod(l, w);
@@ -512,7 +493,6 @@ classdef Conv1DLayer < handle
 
         end
         
-        
         % precompute height and width of feature map
         function [h, w] = get_size_featureMap(input, W, padding, stride, dilation)
             % @input: is input 
@@ -539,12 +519,9 @@ classdef Conv1DLayer < handle
 
         end
         
-
-        
     end
        
     % reachability analysis using star set
-    
     methods
         % reachability analysis method using Stars
         % a star represent a set of images (2D matrix of h x w)
@@ -556,9 +533,9 @@ classdef Conv1DLayer < handle
                 error('The input is not an ImageStar object');
             end
             
-            if input.height ~= obj.NumChannels
-                error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannels);
-            end
+            % if input.height ~= obj.NumChannels
+            %     error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannels);
+            % end
 
             if isempty(input.im_lb) && isempty(input.im_ub)
                 layer = obj;
@@ -601,7 +578,6 @@ classdef Conv1DLayer < handle
             Z = ImageZono(Y);
             
         end
-        
         
         % hangle multiple inputs
         function images = reach_star_multipleInputs(obj, in_signals, option)
@@ -648,8 +624,6 @@ classdef Conv1DLayer < handle
 
         end
 
-        
-        
         % reach star with multiple inputs
         function images = reachSequence(varargin)
             % @inputs: an array of ImageStar or ImageZono input set
@@ -662,23 +636,18 @@ classdef Conv1DLayer < handle
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    % relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
-                    % lp_solver = varargin{7}; do not use
+
                 case 6
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
-                    % dis_opt = varargin{6}; do not use
                 
                 case 5
                     obj = varargin{1};
                     in_images = varargin{2};
                     method = varargin{3};
                     option = varargin{4};
-                    %relaxFactor = varargin{5}; do not use
                 
                 case 4
                     obj = varargin{1};
@@ -709,7 +678,6 @@ classdef Conv1DLayer < handle
             end
             
         end
-        
         
     end
     

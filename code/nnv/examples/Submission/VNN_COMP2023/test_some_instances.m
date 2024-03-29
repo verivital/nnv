@@ -1,8 +1,8 @@
 %% Run some verification instances from the competition
 
 % path to benchmarks
-% vnncomp_path = "/home/manzand/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
-vnncomp_path = "/home/dieman95/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
+vnncomp_path = "/home/manzand/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/"; % change to whatever local path vnncomp benchmarks are stored
+% vnncomp_path = "/home/dieman95/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
 
 % Go through some of the instances for every benchmark
 % It looks like unless the networks are fully fully supported, we get errors...
@@ -62,6 +62,7 @@ acas_instances = [...
 
 % Run verification for acas 
 for i=1:length(acas_instances)
+    disp(i);
     onnx = acas_path + acas_instances(i,1);
     vnnlib = acas_path + acas_instances(i,2);
     run_vnncomp2023_instance("acasxu",onnx,vnnlib,"acas_results_" + string(i)+".txt");

@@ -3,6 +3,7 @@ function [status, vTime] = run_vnncomp2023_instance(category, onnx, vnnlib, outp
 
 t = tic; % start timer
 status = 2; % unknown (to start with)
+locally = true; % change to false for submission
 
 % Process:
 %  1) Load components
@@ -14,15 +15,18 @@ status = 2; % unknown (to start with)
 %% 1) Load components
 
 % Load networks
-% have to go to this path for the networks to load properly... lovely
-old_path = pwd;
-% cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
-cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
-
-[net, nnvnet, needReshape] = load_vnncomp_network(category, onnx);
+if locally
+    [net, nnvnet, needReshape] = load_vnncomp_network_local(category, onnx);
+else
+    % have to go to this path for the networks to load properly... lovely
+    % old_path = pwd;
+    % cd /home/dieman95/Documents/MATLAB/nnv/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+    % cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2023/networks2023/;
+    [net, nnvnet, needReshape] = load_vnncomp_network(category, onnx);
+    % cd(old_path); % go back to where we ran the functions from
+end
 inputSize = net.Layers(1, 1).InputSize;
 
-cd(old_path); % go back to where we ran the functions from
 
 % Load property to verify
 property = load_vnnlib(vnnlib);
@@ -419,74 +423,88 @@ function [net,nnvnet, needReshape] = load_vnncomp_network(category, onnxFile)
 
 end
 
-% Had to change this because importer fails using the command line...s
-% function [net,nnvnet] = load_vnncomp_network_local(category, onnx)
-% % load vnncomp 2023 benchmark NNs (subset support)
-% 
-%     % collins_rul: onnx to nnvnet
-%     % collins_nets = load_collins_NNs;
-%     if contains(category, 'collins_rul')
-%         net = importONNXNetwork(onnx);
-%         nnvnet = matlab2nnv(net);
-% 
-%     elseif contains(category, "nn4sys")
-%         % nn4sys: onnx to matlab:
-%         net = importONNXLayers(onnx, "OutputDataFormats", "BC"); % lindex
-%         nnvnet = matlab2nnv(net);
-%         
-%     elseif contains(category, "dist_shift")
-%         % dist_shift: onnx to matlab:
-%         net = importONNXNetwork(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
-%         nnvnet = "";
-%         
-%     elseif contains(category, "cgan")
-%         % cgan
-%         net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
-%         nnvnet = matlab2nnv(net);
-%         
-%     elseif contains(category, "vgg16")
-%         % vgg16: onnx to matlab
-%         net = importONNXNetwork('vgg16-7.onnx'); % flattenlayer
-%         %reshapedInput = python_reshape(input,net_vgg.Layers(1,1).InputSize); % what is the input? assume it's all the same?
-%         %nnvnet = matlab2nnv(net);
-%         nnvnet = "";
-%         
-%     elseif contains(category, "tllverify")
-%         % tllverify: onnx to matlab
-%         net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
-%         nnvnet = matlab2nnv(net);
-%         
-%     elseif contains(category, "vit")
-%         % vit: onnx to matlab
-%         net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
-%         nnvnet = "";
-%         
-%     elseif contains(category, "cctsdb_yolo")
-%         % cctsdb_yolo: onnx to matnet
-%         net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
-%         nnvnet = "";
-%         
-%     elseif contains(category, "collins_yolo")
-%         % collins_yolo: onnx to matlab:
-%         net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
-%         nnvnet = "";
-% 
-%     elseif contains(category, "yolo")
-%         % yolo: onnx to matlab
-%         net = importONNXNetwork(onnx); % padlayer
-%         nnvnet = matlab2nnv(net);
-% 
-%     elseif contains(category, "acasxu")
-%         % acasxu: onnx to nnv
-%         net = importONNXNetwork(onnx, "InputDataFormats","BCSS");
-%         nnvnet = matlab2nnv(net);
-%         
-%     else % all other benchmarks
-%         % traffic: onnx to matlab: opset15 issues
-%         error("ONNX model not supported")
-%     end
-% 
-% end
+% Had to change this because importer fails using the command line...
+function [net,nnvnet,needReshape] = load_vnncomp_network_local(category, onnx)
+% load vnncomp 2023 benchmark NNs (subset support)
+
+    needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
+    % collins_rul: onnx to nnvnet
+    % collins_nets = load_collins_NNs;
+    if contains(category, 'collins_rul')
+        net = importONNXNetwork(onnx);
+        nnvnet = matlab2nnv(net);
+        if contains(onnx, 'full_window_40')
+            needReshape = 2;
+        else
+            needReshape = 1;
+        end
+
+    elseif contains(category, "nn4sys")
+        % nn4sys: onnx to matlab:
+        if contains(onnx, "lindex")
+            net = importONNXLayers(onnx, "OutputDataFormats", "BC"); % lindex
+            nnvnet = matlab2nnv(net);
+            % net = assembleNetwork(net.net);
+            % nnvnet = matlab2nnv(net);
+        else
+            error("We don't have those");
+        end
+
+    elseif contains(category, "dist_shift")
+        % dist_shift: onnx to matlab:
+        net = importONNXNetwork(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
+        nnvnet = "";
+
+    elseif contains(category, "cgan")
+        % cgan
+        net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, "vgg16")
+        % vgg16: onnx to matlab
+        net = importONNXNetwork('vgg16-7.onnx'); % flattenlayer
+        %reshapedInput = python_reshape(input,net_vgg.Layers(1,1).InputSize); % what is the input? assume it's all the same?
+        %nnvnet = matlab2nnv(net);
+        nnvnet = "";
+        needReshape = 1;
+
+    elseif contains(category, "tllverify")
+        % tllverify: onnx to matlab
+        net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, "vit")
+        % vit: onnx to matlab
+        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+        nnvnet = "";
+        needReshape= 1;
+
+    elseif contains(category, "cctsdb_yolo")
+        % cctsdb_yolo: onnx to matnet
+        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+        nnvnet = "";
+
+    elseif contains(category, "collins_yolo")
+        % collins_yolo: onnx to matlab:
+        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+        nnvnet = "";
+
+    elseif contains(category, "yolo")
+        % yolo: onnx to matlab
+        net = importONNXNetwork(onnx); % padlayer
+        nnvnet = matlab2nnv(net);
+
+    elseif contains(category, "acasxu")
+        % acasxu: onnx to nnv
+        net = importONNXNetwork(onnx, "InputDataFormats","BCSS");
+        nnvnet = matlab2nnv(net);
+
+    else % all other benchmarks
+        % traffic: onnx to matlab: opset15 issues
+        error("ONNX model not supported")
+    end
+
+end
 
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape)
     xB = Box(lb, ub); % lb, ub must be vectors

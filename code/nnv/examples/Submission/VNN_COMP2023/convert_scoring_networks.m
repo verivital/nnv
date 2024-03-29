@@ -1,12 +1,12 @@
 %% Run some verification instances from the competition
 
 % path to benchmarks
-% vnncomp_path = "/home/manzand/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
-vnncomp_path = "/home/dieman95/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
+vnncomp_path = "/home/manzand/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
+% vnncomp_path = "/home/dieman95/Documents/MATLAB/vnncomp2023_benchmarks/benchmarks/";
 
 % Go through some of the instances for every benchmark
 % It looks like unless the networks are fully fully supported, we get errors...
-% Same problem we ra into when running with no GUI ...
+% Same problem we ran into when running with no GUI ...
 % 
 % Error using matlab.internal.indentcodeLegacy
 %This feature is not supported because:
@@ -39,6 +39,9 @@ vnncomp_path = "/home/dieman95/Documents/MATLAB/vnncomp2023_benchmarks/benchmark
 %Error in run_vnncomp2023_instance>load_vnncomp_network (line 127)
 %        net = importONNXNetwork(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
 
+if ~isfolder("networks2023")
+    mkdir("networks2023")
+end
 
 
 %% acasxu
@@ -196,21 +199,21 @@ end
 
 %% test 
 
-disp("Running test examples...");
-
-test_path = vnncomp_path + "test/";
-
-onnxmodels = ["test_nano.onnx", "test_sat.onnx", "test_small.onnx", "test_tiny.onnx", "test_unsat.onnx"];
-
-for i = 1:length(onnxmodels)
-    if contains(onnxmodels(i), "sat")
-        onnxFile = test_path + onnxmodels(i);
-        net =  importONNXNetwork(onnxFile, "InputDataFormats", "BCSS");
-        name = char(onnxmodels(i));
-        name = name(1:end-5);
-        save(['networks2023/', name], "net", "-v7.3");
-    end
-end
+% disp("Running test examples...");
+% 
+% test_path = vnncomp_path + "test/";
+% 
+% onnxmodels = ["test_nano.onnx", "test_sat.onnx", "test_small.onnx", "test_tiny.onnx", "test_unsat.onnx"];
+% 
+% for i = 1:length(onnxmodels)
+%     if contains(onnxmodels(i), "sat")
+%         onnxFile = test_path + onnxmodels(i);
+%         net =  importONNXNetwork(onnxFile, "InputDataFormats", "BCSS");
+%         name = char(onnxmodels(i));
+%         name = name(1:end-5);
+%         save(['networks2023/', name], "net", "-v7.3");
+%     end
+% end
 
 
 %% yolo
@@ -237,51 +240,51 @@ function net = load_vnncomp_network(category, onnx)
     % collins_rul: onnx to nnvnet
     % collins_nets = load_collins_NNs;
     if contains(category, 'collins_rul')
-        net = importONNXNetwork(onnx);
+        net = importNetworkFromONNX(onnx);
 
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab:
-        net = importONNXNetowrk(onnx, "OutputDataFormats", "BC"); % lindex
+        net = importNetworkFromONNX(onnx, "OutputDataFormats", "BC"); % lindex
         
     elseif contains(category, "dist_shift")
         % dist_shift: onnx to matlab:
-        net = importONNXNetwork(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
+        net = importNetworkFromONNX(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
         
     elseif contains(category, "cgan")
         % cgan
-        net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
+        net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
         
     elseif contains(category, "vgg")
         % vgg16: onnx to matlab
-        net = importONNXNetwork(onnx); % flattenlayer
+        net = importNetworkFromONNX(onnx); % flattenlayer
         
     elseif contains(category, "tllverify")
         % tllverify: onnx to matlab
-        net = importONNXNetwork(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
+        net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
         
     elseif contains(category, "vit")
         % vit: onnx to matlab
-        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+        net = importNetworkFromONNX(onnx );
         
     elseif contains(category, "cctsdb_yolo")
         % cctsdb_yolo: onnx to matnet
-        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+        net = importNetworkFromONNX(onnx);
         
     elseif contains(category, "collins_yolo")
         % collins_yolo: onnx to matlab:
-        net = importONNXNetwork(onnx, "TargetNetwork","dlnetwork" );
+        net = importNetworkFromONNX(onnx);
 
     elseif contains(category, "yolo")
         % yolo: onnx to matlab
-        net = importONNXNetwork(onnx); % padlayer
+        net = importNetworkFromONNX(onnx); % padlayer
 
     elseif contains(category, "acasxu")
         % acasxu: onnx to nnv
-        net = importONNXNetwork(onnx, "InputDataFormats","BCSS");
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
 
     elseif contains(category, "ml4acopf")
         % ml4acopf: ?
-        net = importONNXNetwork(onnx, "InputDataFormats", "BC");
+        net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
         
     else % all other benchmarks
         % traffic: onnx to matlab: opset15 issues

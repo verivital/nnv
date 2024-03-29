@@ -36,5 +36,3 @@ TODO:
 
 3) Change line 4 in 'test_some_instances.m' to the folder where you downloaded the benchmarks.
 
-
-3) 

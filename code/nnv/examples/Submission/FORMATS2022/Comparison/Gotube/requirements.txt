@@ -6,7 +6,7 @@ numpy==1.19.4
 Pillow==8.0.1
 pyparsing==2.4.7
 python-dateutil==2.8.1
-scipy==1.5.4
+scipy==1.11.1
 six==1.15.0
 torch==1.7.1
 typing-extensions==3.7.4.3

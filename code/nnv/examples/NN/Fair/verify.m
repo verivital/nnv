@@ -12,6 +12,8 @@ onnx_model_1 = fullfile('fair_model_ffnn_pytorch_50_100_50.onnx');
 % Load the ONNX file as DAGNetwork
 netONNX = importONNXNetwork(onnx_model_1, 'OutputLayerType', 'classification', 'InputDataFormats', {'BC'});
 
+analyzeNetwork(netONNX)
+
 % Convert the DAGNetwork to NNV format
 net = matlab2nnv(netONNX);
  
@@ -32,15 +34,15 @@ variableFeatures = max_values - min_values > 0;
 min_values(~variableFeatures) = 0; % Avoids changing constant features
 max_values(~variableFeatures) = 1; % Avoids division by zero 
 
-% Apply normalization
-X_test_loaded(:, variableFeatures) = (X_test_loaded(:, variableFeatures) - min_values(variableFeatures)) ./ (max_values(variableFeatures) - min_values(variableFeatures));
+% % Apply normalization
+% X_test_loaded(:, variableFeatures) = (X_test_loaded(:, variableFeatures) - min_values(variableFeatures)) ./ (max_values(variableFeatures) - min_values(variableFeatures));
 
 % Count total observations
 total_obs = size(X_test_loaded, 2);
 % disp(['There are total ', num2str(total_obs), ' observations']);
 
 % Number of observations we want to test
-numObs = 200;
+numObs = 100;
 
 %% Verification
 
@@ -49,13 +51,13 @@ results = zeros(numObs,2);
 
 % First, we define the reachability options
 reachOptions = struct; % initialize
-reachOptions.reachMethod = 'approx-star'; % using approxiate method
+reachOptions.reachMethod = 'relax-star-area'; % using approxiate method
 
-nR = 67; % ---> just chosen arbitrarily
+nR = 75; % ---> just chosen arbitrarily
 
 % ADJUST epsilon value here
-% epsilon = [0.0001,0.01,0.25,0.5,1.0];
-epsilon = [0.01,0.75];
+epsilon = [0.0];
+% epsilon = [0.001,0.01,0.25];
 
 %
 % Set up results
@@ -69,68 +71,84 @@ met = repmat("relax", [numObs, nE]); % method used to compute result, changed fr
 % rng(500); % Set a seed for reproducibility
 rand_indices = randsample(total_obs, numObs);
 
-for e=1:length(epsilon) 
-% Iterate through all observations
-for i=1:numObs
-    idx = rand_indices(i);
-    [IS, xRand] = L_inf_attack(X_test_loaded(:, idx), epsilon(e), nR, min_values, max_values);
-     %
-     % Try falsification, then relax star, if unknown, try approx-star
-     %
-     t = tic;
-     for xR=1:length(nR+3)
-        im = xRand(:, xR);
-        predictedLabels = net.evaluate(im);
-        [~, Pred] = max(predictedLabels);
-        if Pred == y_test_loaded(i) % the current label of the orignal image
-            res(i,e) = 0; % counterexample found
-            time(i,e) = toc(t);
-            met(i,e) = "counterexample";
-            continue;
+for e=1:length(epsilon)
+    % Reset the timeout flag
+    assignin('base', 'timeoutOccurred', false);
+
+    % Create and configure the timer
+    verificationTimer = timer;
+    verificationTimer.StartDelay = 500;  % Set timer for 200 seconds
+    verificationTimer.TimerFcn = @(myTimerObj, thisEvent) ...
+    assignin('base', 'timeoutOccurred', true);
+    start(verificationTimer);  % Start the timer
+
+    for i=1:numObs
+        idx = rand_indices(i);
+        [IS, xRand] = L_inf_attack(X_test_loaded(:, idx), epsilon(e), nR, min_values, max_values);
+       
+        t = tic;  % Start timing the verification for each sample
+
+        try
+            for xR=1:length(nR+3)
+                im = xRand(:, xR);
+                predictedLabels = net.evaluate(im);
+                [~, Pred] = max(predictedLabels);
+                if Pred == y_test_loaded(i)
+                    res(i,e) = 0; % counterexample found
+                    time(i,e) = toc(t);
+                    met(i,e) = "counterexample";
+                    continue;
+                end
+            end
+
+            temp = net.verify_robustness(IS, reachOptions, y_test_loaded(i));
+            if temp ~= 1 && temp ~= 0
+                reachOptions.reachMethod = 'approx-star';
+                temp = net.verify_robustness(IS, reachOptions, y_test_loaded(i));
+                met(i,e) = 'approx';
+            end
+            res(i,e) = temp; % robust result
+        catch ME
+            met(i,e) = ME.message;
+            temp = -1;
         end
-     end
 
-     try
-        % relax star
-        temp = net.verify_robustness(IS,reachOptions,y_test_loaded(i));
-        % approx reachability if relax star unknown
-        if temp ~= 1 && temp ~= 0
-            reachOptions = struct;
-            reachOptions.reachMethod = 'exact-star';
-            temp = net.verify_robustness(IS,reachOptions,y_test_loaded(i));
-            met(i,e) = 'exact';
+        time(i,e) = toc(t); % store computation time
+
+        % Check for timeout flag
+        if evalin('base', 'timeoutOccurred')
+            disp(['Timeout reached for epsilon = ', num2str(epsilon(e)), ': stopping verification for this epsilon.']);
+            res(i+1:end,e) = 2; % Mark remaining as unknown
+            break; % Exit the inner loop after timeout
         end
-      catch ME
-        met(i,e) = ME.message;
-        temp = -1;
-     end
-      res(i,e) = temp; % robust result
-      time(i, e) = toc(t); % store computation time
 
-           
-      % reset reachOptions
-      reachOptions.reachMethod = 'relax-star-area';
-      reachOptions.relaxFactor = 0.5;
+        % Reset reachOptions
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.5;
+    end
+
+    % Summary results, stopping, and deleting the timer should be outside the inner loop
+    stop(verificationTimer);
+    delete(verificationTimer);
+
+    % Get summary results
+    N = numObs;
+    rob = sum(res(:,e)==1);
+    not_rob = sum(res(:,e) == 0);
+    unk = sum(res(:,e) == 2);
+    totalTime = sum(time(:,e));
+    avgTime = totalTime/N;
+    
+    % Print results to screen
+    disp("======= ROBUSTNESS RESULTS e: "+string(epsilon(e))+" ==========")
+    disp(" ");
+    disp("Number of robust samples = "+string(rob)+ ", equivalent to " + string(100*rob/N) + "% of the samples.");
+    disp("Number of not robust samples = " +string(not_rob)+ ", equivalent to " + string(100*not_rob/N) + "% of the samples.")
+    disp("Number of unknown samples = "+string(unk)+ ", equivalent to " + string(100*unk/N) + "% of the samples.");
+    disp(" ");
+    disp("It took a total of "+string(totalTime) + " seconds to compute the verification results, an average of "+string(avgTime)+" seconds per sample");
 end
-% Get summary results
-N = numObs;
-rob = sum(res(:,e)==1);
-not_rob = sum(res(:,e) == 0);
-unk = sum(res(:,e) == 2);
-totalTime = sum(time(:,e));
-avgTime = totalTime/N;
 
-% Print results to screen
-disp("======= ROBUSTNESS RESULTS e: "+string(epsilon(e))+" ==========")
-disp(" ");
-disp("Number of robust samples = "+string(rob)+ ", equivalent to " + string(100*rob/N) + "% of the samples.");
-disp("Number of not robust samples = " +string(not_rob)+ ", equivalent to " + string(100*not_rob/N) + "% of the samples.")
-disp("Number of unknown samples = "+string(unk)+ ", equivalent to " + string(100*unk/N) + "% of the samples.");
-disp(" ");
-disp("It took a total of "+string(totalTime) + " seconds to compute the verification results, an average of "+string(avgTime)+" seconds per sample");
-
-save("robustness_results_ex1","res","time","epsilon","met");
-end
 
 %% Helper Function
 % Adjusted for fairness check -> only apply perturbation to desired
@@ -143,15 +161,24 @@ function [IS, xRand] = L_inf_attack(x, epsilon, nR, min_values, max_values)
 
     % Initialize disturbance to only affect specified sensitive rows
     disturbance = zeros(SampleSize, "like", x);
-    row_indices = [1, 9]; % Define which rows to perturb
-    
-    % Check if the row indices are within the valid range
-    if max(row_indices) <= size(x, 1)  % Ensure the highest index doesn't exceed the number of rows
-        disturbance(row_indices, :) = epsilon;  % Apply epsilon to specified rows across all columns
-    else
-        error('The input data does not have enough rows.');
-    end
+    specific_rows = [9]; % Rows with specific perturbations
+    specific_epsilons = [1]; % Corresponding specific perturbations
 
+    % Apply specific perturbations to rows 8 and 9
+    for i = 1:length(specific_rows)
+        if specific_rows(i) <= size(x, 1)
+            disturbance(specific_rows(i), :) = specific_epsilons(i);
+        else
+            error('The input data does not have enough rows.');
+        end
+    end
+    
+    % Apply general epsilon to all other rows except 8 and 9
+    for row = 1:size(x, 1)
+        if ~ismember(row, specific_rows)
+            disturbance(row, :) = epsilon;
+        end
+    end
 
     % Calculate disturbed lower and upper bounds considering min and max values
     lb = max(x - disturbance, min_values);

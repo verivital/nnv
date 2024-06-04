@@ -8,7 +8,7 @@ function t = reach_point()
     net = importNetworkFromONNX('networks/nn-nav-point.onnx', "InputDataFormats", "BC");
     net = matlab2nnv(net);
     % Load plant
-    reachStep = 0.002;
+    reachStep = 0.01;
     controlPeriod = 0.02;
     plant = NonLinearODE(4, 2, @dynamics, reachStep, controlPeriod, eye(4));
     plant.set_tensorOrder(2);

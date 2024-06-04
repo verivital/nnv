@@ -4,7 +4,7 @@ function rT = reach()
 
 % Load components
 net = load_NN_from_mat('controller_5_20.mat');
-reachStep = 0.02;
+reachStep = 0.05;
 controlPeriod = 0.1;
 output_mat = [0 0 0 0 1 0;1 0 0 -1 0 0; 0 1 0 0 -1 0]; % feedback: relative distance, relative velocity and ego-car velocity
 plant = NonLinearODE(6,1,@dynamicsACC, reachStep, controlPeriod, output_mat);
@@ -34,7 +34,6 @@ reachPRM.init_set = init_set;
 reachPRM.numCores = 1;
 reachPRM.reachMethod = 'approx-star';
 [R,rT] = nncs.reach(reachPRM);
-% disp("Time to compute ACC reach sets: " +string(rT));
 
 % Save results
 if is_codeocean

@@ -8,7 +8,7 @@ function t = reach_set()
     net = importNetworkFromONNX('networks/nn-nav-set.onnx', "InputDataFormats", "BC");
     net = matlab2nnv(net);
     % Load plant
-    reachStep = 0.002;
+    reachStep = 0.01;
     controlPeriod = 0.02;
     plant = NonLinearODE(4, 2, @dynamics, reachStep, controlPeriod, eye(4));
     plant.set_tensorOrder(2);
@@ -31,7 +31,6 @@ function t = reach_set()
     % Begin computation
     t = tic;
     for i=1:num_steps
-        disp(i);
 
         % Compute controller output set
         input_set = net.reach(init_set,reachOptions);
@@ -39,7 +38,6 @@ function t = reach_set()
         % Compute plant reachable set
         init_set = plant.stepReachStar(init_set, input_set,'lin');
         reachAll = [reachAll init_set];
-        toc(t);
 
     end
 
@@ -49,7 +47,7 @@ function t = reach_set()
     %% Visualize results
     plant.get_interval_sets;
 
-    f2 = figure;
+    f1 = figure;
     % rectangle('Position',[-1,-1,2,2],'FaceColor',[0 0.5 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
     hold on;
     Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
@@ -57,7 +55,7 @@ function t = reach_set()
     xlabel('x_1');
     ylabel('x_2');
     
-    f5 = figure;
+    f2 = figure;
     % rectangle('Position',[-1,-1,2,2],'FaceColor',[0 0.5 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
     hold on;
     Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,4,'b');

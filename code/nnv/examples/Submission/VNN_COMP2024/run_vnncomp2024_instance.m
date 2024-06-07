@@ -1,4 +1,4 @@
-function [status, vTime] = run_vnncomp2024_instance(category, onnx, vnnlib, outputfile)
+function [status, tTime] = run_vnncomp2024_instance(category, onnx, vnnlib, outputfile)
 
 % single script to run all instances (supported) from the vnncomp2024
 
@@ -57,7 +57,7 @@ else
     warning("Working on adding support to other vnnlib properties");
 end
 
-toc(t);
+cEX_time = toc(t);
 
 %% 3) UNSAT?
 
@@ -92,6 +92,7 @@ toc(t);
 
 reachOptions = struct;
 reachOptions.reachMethod = 'approx-star';
+% reachOptions.reachMethod = 'exact-star';
 
 
 % Check if property was violated earlier
@@ -99,26 +100,15 @@ if iscell(counterEx)
     status = 0;
 end
 
+vT = tic;
+
 if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
+
+        IS = create_input_set(lb, ub, inputSize, needReshape);
         
-        % Get input bounds
-        if ~isscalar(inputSize)
-            lb = reshape(lb, inputSize);
-            ub = reshape(ub, inputSize);
-        end
-
-        % Format bounds into correct dimensions
-        if needReshape
-            lb = permute(lb, [2 1 3]);
-            ub = permute(ub, [2 1 3]);
-        end
-
-        % Create input set
-        IS = ImageStar(lb, ub);
-
         % Compute reachability
         ySet = nnvnet.reach(IS, reachOptions);
 
@@ -130,21 +120,11 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         local_status = ones(length(lb),1); % track status for each specification in the vnnlib
         
         parfor spc = 1:length(lb) % We can compute these in parallel for faster computation
+
+            lb_spc = lb{spc};
+            ub_spc = ub{spc};
             
-            % Get input bounds
-            if ~isscalar(inputSize)
-                lb_spc = reshape(lb{spc}, inputSize);
-                ub_spc = reshape(ub{spc}, inputSize);
-            end
-    
-            % Format bounds into correct dimensions
-            if needReshape
-                lb_spc = permute(lb_spc, [2 1 3]);
-                ub_spc = permute(ub_spc, [2 1 3]);
-            end
-    
-            % Create input set
-            IS = ImageStar(lb_spc, ub_spc);
+            IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
     
             % Compute reachability
             ySet = nnvnet.reach(IS, reachOptions);
@@ -173,20 +153,10 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
         
         parfor spc = 1:length(lb) % We can compute these in parallel for faster computation
             
-            % Get input bounds
-            if ~isscalar(inputSize)
-                lb_spc = reshape(lb{spc}, inputSize);
-                ub_spc = reshape(ub{spc}, inputSize);
-            end
-    
-            % Format bounds into correct dimensions
-            if needReshape
-                lb_spc = permute(lb_spc, [2 1 3]);
-                ub_spc = permute(ub_spc, [2 1 3]);
-            end
-    
-            % Create input set
-            IS = ImageStar(lb_spc, ub_spc);
+            lb_spc = lb{spc};
+            ub_spc = ub{spc};
+            
+            IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
     
             % Compute reachability
             ySet = nnvnet.reach(IS, reachOptions);
@@ -209,27 +179,34 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
 
 end
 
+vT = toc(vT);
+
 %% 4) Process results
 
-vTime = toc(t); % save total computation time
+tTime = toc(t); % save total computation time
 
-disp(status);
-disp(vTime);
+disp("Verification result: " + string(status));
+disp("Counterexample search time: " + string(cEX_time));
+disp("Reachability time: " + string(vT));
+disp("Total Time: "+ string(tTime));
 disp( " ");
 
 % Write results to output file
 if status == 0
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'sat \n');
+    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
     write_counterexample(outputfile, counterEx)
 elseif status == 1
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unsat \n');
+    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
 elseif status == 2
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unknown \n');
+    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
 end
 
@@ -238,10 +215,41 @@ end
 
 end
 
+%% Helper functions
 
+function IS = create_input_set(lb, ub, inputSize, needReshape)
+
+    % Get input bounds
+    if ~isscalar(inputSize)
+        lb = reshape(lb, inputSize);
+        ub = reshape(ub, inputSize);
+    end
+
+    % Format bounds into correct dimensions
+    if needReshape == 1
+        lb = permute(lb, [2 1 3]);
+        ub = permute(ub, [2 1 3]);
+    elseif needReshape == 2
+        newSize = [inputSize(2) inputSize(1) inputSize(3:end)];
+        lb = reshape(lb, newSize);
+        lb = permute(lb, [2 1 3 4]);
+        ub = reshape(ub, newSize);
+        ub = permute(ub, [2 1 3 4]);
+    end
+
+    % Create input set
+    % IS = ImageStar(lb, ub); % too many constraints, slower
+    i_diff = ub - lb;
+    V(:,:,:,1) = lb; % assume lb is center of set (instead of img)
+    V(:,:,:,2) = i_diff ; % basis vectors
+    C = [1; -1]; % constraints
+    d = [1; -1];
+    IS = ImageStar(V, C, d, 0, 1); % input set
+
+end
 
 function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
-% load vnncomp 2023 benchmark NNs 
+% load participating vnncomp 2024 benchmark NNs 
 %
 % Regular Track Benchmarks
 % - 2024
@@ -289,7 +297,7 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab:
         if contains(onnx, "lindex")
-            % nn4sys: onnx to matlab:
+            % nn4sys: onnx to nnv
             net = importNetworkFromONNX(onnx, "OutputDataFormats", "BC"); % lindex
             nnvnet = matlab2nnv(net);
         else
@@ -297,49 +305,56 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         end
 
     elseif contains(category, "ml4acopf")
-        % ml4acopf: ?
+        % ml4acopf: onnx to matlab
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
         nnvnet = "";
 
     elseif contains(category, "dist_shift")
-        % dist_shift: onnx to matlab:
+        % dist_shift: onnx to matlab, , matlab to nnv?
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
-        nnvnet = "";
+        try 
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
 
     elseif contains(category, "cgan")
-        % cgan
+        % cgan: onnx to nnv
         net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
         nnvnet = matlab2nnv(net);
 
-    elseif contains(category, "vgg16")
+    elseif contains(category, "vggnet16")
         % vgg16: onnx to matlab
         net = importNetworkFromONNX(onnx); % flattenlayer
         nnvnet = "";
         needReshape = 1;
 
     elseif contains(category, "tllverify")
-        % tllverify: onnx to matlab
-        net = importNetworkFromONNX((onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
+        % tllverify: onnx to nnv
+        net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
         nnvnet = matlab2nnv(net);
 
     elseif contains(category, "vit")
         % vit: onnx to matlab
-        net = importNetworkFromONNX(onnx);
+        net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
         nnvnet = "";
         needReshape= 1;
 
     elseif contains(category, "cctsdb_yolo")
-        % cctsdb_yolo: onnx to matnet
+        % cctsdb_yolo: onnx to matlab
+        error("We do not support this one");
+        % net = importNetworkFromONNX(onnx);
+        % nnvnet = "";
+        % needReshape = ?;
+        % We cannot support this one
+
+    elseif contains(category, "collins_yolo")
+        % collins_yolo: onnx to matlab
         net = importNetworkFromONNX(onnx);
         nnvnet = "";
 
-    elseif contains(category, "collins_yolo")
-        % collins_yolo: onnx to matlab:
-        net = importNetworkFromONNX(onnx, "TargetNetwork","dlnetwork" );
-        nnvnet = "";
-
     elseif contains(category, "yolo")
-        % yolo: onnx to matlab
+        % yolo: onnx to nnv
         net = importNetworkFromONNX(onnx); % padlayer
         nnvnet = matlab2nnv(net);
 
@@ -347,6 +362,54 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         % acasxu: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
+
+    elseif contains(category, "cifar100")
+        % cifar100: onnx to nnv
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
+
+    elseif contains(category, "tinyimagenet")
+        % tinyimagenet: onnx to nnv
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
+        nnvnet = matlab2nnv(net);
+        % needReshpae = ?
+
+    elseif contains(category, "LinearizeNN")
+        % LinerizeNN: onnx to nnv
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+        nnvnet = matlab2nnv(net);
+        % needReshape = ?
+
+    elseif contains(category, "safeNLP")
+        % safeNLP: onnx to nnv
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+        nnvnet = matlab2nnv(net);
+        % needReshape = ?
+
+    elseif contains(category, "cora")
+        % cora benchmark: onnx 2 nnv
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+        nnvnet = matlab2nnv(net);
+        % needReshape = ?
+
+    elseif contains(category, "LSNC")
+        % lyapunov benchmark: onnx to nnv (barely, some IR and opset version differences)
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+        nnvnet = "";
+        % needReshape = ?
+
+    elseif contains(category, "generation")
+        % dynaroars/vnncomp-benchmark-generation
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
+        nnvnet = matlab2nnv(net);
+        % needReshape = ?
+
+    elseif contains(category, "metaroom")
+        % metaroom: onnx to matlab
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
+        nnvnet = matlab2nnv(net);
+        needReshape = 2;
 
     else % all other benchmarks
         % traffic: onnx to matlab: opset15 issues
@@ -362,7 +425,7 @@ function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape)
     xRand = xB.sample(nR-2);
     xRand = [lb, ub, xRand];
     if needReshape
-        if needReshape ==2 % for collins only (full_window_40)
+        if needReshape ==2 % for collins only (full_window_40) and metaroom
             newSize = [inputSize(2) inputSize(1) inputSize(3:end)];
             xRand = reshape(xRand, [newSize nR]);
             xRand = permute(xRand, [2 1 3 4]);

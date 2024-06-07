@@ -136,7 +136,7 @@ for i=1:n
 
     % Flatten Layer
     elseif isa(L, 'nnet.keras.layer.FlattenCStyleLayer') || isa(L, 'nnet.cnn.layer.FlattenLayer') || isa(L, 'nnet.onnx.layer.FlattenLayer') ...
-            || isa(L, 'nnet.onnx.layer.FlattenInto2dLayer')
+            || isa(L, 'nnet.onnx.layer.FlattenInto2dLayer') || isa(L, 'nnet.onnx.layer.Flatten3dInto2dLayer')
         Li = FlattenLayer.parse(L);
 
     % Sigmoid Layer (also referred to as logsig)

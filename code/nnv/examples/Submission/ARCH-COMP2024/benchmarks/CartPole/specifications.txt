@@ -1,0 +1,14 @@
+Initial states:
+
+x1 = [-0.1, 0.1]
+x2 = [-0.05, 0.05]
+x3 = [-0.1, 0.1]
+x4 = [-0.05, 0.05]
+
+t = 10 seconds
+control period 0.02 s
+
+Property:
+
+For t > 8.0 s
+x1, x3, x4 should be in [-0.001, 0.001]

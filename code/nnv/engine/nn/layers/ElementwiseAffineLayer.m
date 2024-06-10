@@ -137,7 +137,7 @@ classdef ElementwiseAffineLayer < handle
                 end
                 % Offset (bias)
                 if obj.DoOffset
-                    image = image.affineMap(diag(ones(1,a.dim)), obj.Offset); % x + b
+                    image = image.affineMap(diag(ones(1,image.dim)), obj.Offset); % x + b
                 end
             end
             
@@ -150,7 +150,15 @@ classdef ElementwiseAffineLayer < handle
             % @S: output ImageStar
             
             n = length(inputs);
-            S(n) = ImageStar;
+
+            % Initialize output variables
+            if isa(inputs, "ImageStar")
+                S(n) = ImageStar;
+            else
+                S(n) = Star;
+            end
+
+            % Begin computing reachability one set at a time
             if strcmp(option, 'parallel')
                 parfor i=1:n
                     S(i) = obj.reach_star_single_input(inputs(i));

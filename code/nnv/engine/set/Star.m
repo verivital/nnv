@@ -535,7 +535,12 @@ classdef Star
                 
                 if ~isempty(obj.state_lb) && ~isempty(obj.state_ub)
                     B = Box(obj.state_lb, obj.state_ub);
+
                 else
+                    
+                    if isa(obj.V, 'single') || isa(obj.C, 'single') || isa(obj.d, 'single')
+                        obj = obj.changeVarsPrecision('double');
+                    end
                     
                     lb = zeros(obj.dim, 1);
                     ub = zeros(obj.dim, 1);

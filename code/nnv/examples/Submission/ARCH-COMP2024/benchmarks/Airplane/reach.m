@@ -14,19 +14,19 @@ function t = reach()
     % define the plant as specified by nnv
     plant = NonLinearODE(12,6,@dynamics, reachStep, controlPeriod, eye(12));
     % Set plant reachability options
-    plant.set_taylorTerms(20)
+    plant.set_taylorTerms(2)
     plant.set_zonotopeOrder(10);
 
 %% Reachability analysis 
 
     % Initial set (smaller partition to falsify property)
-    lb = [0; 0; 0; 0; 0.8; 0; 0; 0; 0; 0; 0; 0];
-    ub = [0; 0; 0; 0; 0.81; 0; 0; 0; 0; 0; 0; 0];
+    lb = [0; 0; 0; 1; 1; 1; 0.99; 0; 0; 0; 0; 0];
+    ub = [0; 0; 0; 1; 1; 1; 1; 0; 0; 0; 0; 0];
     init_set = Star(lb,ub);
     % Store all reachable sets
     reachAll = init_set;
     % Execute reachabilty analysis
-    num_steps = 8;
+    num_steps = 20;
     reachOptions.reachMethod = 'approx-star';
     t = tic;
     for i=1:num_steps
@@ -51,10 +51,10 @@ function t = reach()
     f2 = figure;
     rectangle('Position',[-1,-1,2,2],'FaceColor',[0 0.5 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
     hold on;
-    Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,2,5,'b');
+    Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,2,7,'b');
     grid;
     xlabel('x_2');
-    ylabel('x_5');
+    ylabel('x_7');
     
     f5 = figure;
     rectangle('Position',[-1,-1,2,2],'FaceColor',[0 0.5 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
@@ -66,10 +66,10 @@ function t = reach()
 
     % Save figure
     if is_codeocean
-        exportgraphics(f2,'/results/logs/airplane_2v5.pdf', 'ContentType', 'vector');
+        exportgraphics(f2,'/results/logs/airplane_2v7.pdf', 'ContentType', 'vector');
         exportgraphics(f5,'/results/logs/airplane_8v9.pdf', 'ContentType', 'vector');
     else
-        exportgraphics(f2,'airplane_3v4.pdf','ContentType', 'vector');
+        exportgraphics(f2,'airplane_2v7.pdf','ContentType', 'vector');
         exportgraphics(f5,'airplane_8v9.pdf', 'ContentType', 'vector');
     end
 

@@ -4,19 +4,19 @@ function t = reach()
 
     % Load components and set reachability parameters
     net = load_NN_from_mat('controllerTora.mat');
-    reachStep = 0.1;
+    reachStep = 0.05;
     controlPeriod = 1;
     plant = NonLinearODE(4,1,@dynamics9, reachStep, controlPeriod, eye(4));
-    tFinal = 4;
+    tFinal = 9;
     % Initial set
     lb = [0.6; -0.7; -0.4; 0.5];
     % ub = [0.7; -0.6; -0.3; 0.6];
     ub = [0.6001; -0.7; -0.4; 0.5];
-    plant.options.tensorOrder = 2;
+    plant.options.tensorOrder = 3;
     plant.options.taylorTerms = 4;
     plant.options.zonotopeOrder = 200;
-    plant.options.errorOrder = 100;
-    plant.options.intermediateOrder = 200;
+    plant.options.errorOrder = 10;
+    plant.options.intermediateOrder = 50;
 
     
     %% Reachability analysis
@@ -39,7 +39,7 @@ function t = reach()
         % init_set = init_set.toStar();
         reachAll = [reachAll init_set];
     end
-    t = toc(t);
+    t = toc(t); % split after 8 steps again? 9?
     
     % Save results
     if is_codeocean

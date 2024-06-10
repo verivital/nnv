@@ -1,4 +1,4 @@
-function t = reach()
+% function t = reach()
 
 %% Reachability analysis of the Unicycle (benchmark 10)
     
@@ -43,6 +43,7 @@ function t = reach()
         % Compute plant reachable set
         init_set = plantReach(plant,init_set,input_set,'lin');
         reachAll = [reachAll init_set];
+        disp(i);
     end
     t = toc(t);
     
@@ -79,7 +80,7 @@ function t = reach()
         exportgraphics(f1,'unicycle_3v4.pdf', 'ContentType', 'vector');
     end
 
-end
+% end
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

@@ -136,7 +136,7 @@ classdef FlattenLayer < handle
                 else
                     error('Invalid input.');
                 end 
-            elseif strcmp(obj.Type, 'nnet.onnx.layer.FlattenLayer') || strcmp(obj.Type, 'nnet.onnx.layer.FlattenInto2dLayer') 
+            elseif strcmp(obj.Type, 'nnet.onnx.layer.FlattenLayer') || strcmp(obj.Type, 'nnet.onnx.layer.FlattenInto2dLayer') || strcmp(obj.Type, 'nnet.onnx.layer.Flatten3dInto2dLayer')
                 % C-style flatten
                 if length(n) == 2
                     image = permute(image,[2 1]);
@@ -144,7 +144,11 @@ classdef FlattenLayer < handle
                 elseif length(n) == 3
                     image = permute(image,[2 1 3]);
                     flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)]);
+                elseif length(n) == 4
+                    image = permute(image, [3 2 1 4]);
+                    flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)*n(4)]);
                 else
+                    fprintf("Invalid input image with size %d", length(n));
                     error('Invalid input image');
                 end 
             else
@@ -383,7 +387,8 @@ classdef FlattenLayer < handle
             % date: 6/25/2021
                       
             if ~isa(layer, 'nnet.keras.layer.FlattenCStyleLayer') && ~isa(layer, 'nnet.cnn.layer.FlattenLayer') ...
-                    && ~isa(layer, 'nnet.onnx.layer.FlattenLayer') && ~isa(layer, 'nnet.onnx.layer.FlattenInto2dLayer')
+                    && ~isa(layer, 'nnet.onnx.layer.FlattenLayer') && ~isa(layer, 'nnet.onnx.layer.FlattenInto2dLayer') ...
+                    && ~isa(layer, 'nnet.onnx.layer.Flatten3dInto2dLayer')
                 error('Input is not a flatten layer');
             end
             

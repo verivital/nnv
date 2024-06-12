@@ -1,4 +1,4 @@
-% function t = reach()
+function t = reach()
 
 %% Reachability analysis of the Unicycle (benchmark 10)
     
@@ -33,8 +33,8 @@
     % Store all reachable sets
     reachAll = init_set;
     % Execute reachabilty analysis
-%     steps = 25;
-    steps = 50;
+    steps = 25;
+    % steps = 50;
     reachOptions.reachMethod ='approx-star';
     t = tic;
     for i=1:steps
@@ -80,7 +80,7 @@
         exportgraphics(f1,'unicycle_3v4.pdf', 'ContentType', 'vector');
     end
 
-% end
+end
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

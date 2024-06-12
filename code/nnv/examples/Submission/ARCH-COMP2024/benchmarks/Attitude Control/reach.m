@@ -1,4 +1,4 @@
-% function t = reach()
+function t = reach()
 
 %% Reachability analysis of the aircarft attitude benchmark
 
@@ -97,7 +97,7 @@
         exportgraphics(f,'attitude_5v6.pdf','ContentType', 'vector');
     end
 
-% end
+end
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

@@ -1,4 +1,4 @@
-% function rT = reach_point()
+function rT = reach_point()
 
     %% Reachability analysis of NAV Benchmark
     
@@ -118,4 +118,4 @@
         exportgraphics(f,'nav-point.pdf','ContentType', 'vector');
     end
 
-    % end
+end

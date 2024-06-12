@@ -1,4 +1,4 @@
-% function rT = reach_set()
+function rT = reach_set()
 
     %% Reachability analysis of NAV Benchmark
     
@@ -92,4 +92,4 @@
 
     % end
 
-% end
+end

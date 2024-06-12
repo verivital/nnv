@@ -1,4 +1,4 @@
-% function t = reach_more()
+function t = reach_more()
 
     %% Reachability analysis of Double Pendulum Benchmark
     
@@ -79,7 +79,7 @@
         exportgraphics(f1,'double_pendulum_more_3v4.pdf','ContentType', 'vector');
     end
 
-% end
+end
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

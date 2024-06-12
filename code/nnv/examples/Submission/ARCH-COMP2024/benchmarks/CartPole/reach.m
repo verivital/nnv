@@ -1,4 +1,4 @@
-% function t = reach()
+function t = reach()
 
     %% Reachability analysis of Cartpole Benchmark
     
@@ -13,6 +13,7 @@
     plant = NonLinearODE(4,1,@dynamics, reachStep, controlPeriod, eye(4));
     plant.set_tensorOrder(2);
 
+    t = tic;
 
     %% Reachability analysis
 
@@ -28,17 +29,25 @@
         reachAll = init_set;
         num_steps = 500;
         reachOptions.reachMethod = 'approx-star';
-        t = tic;
+        % t = tic;
         for i=1:num_steps
             disp(i);
             % Compute controller output set
             input_set = net.reach(init_set,reachOptions);
             % Compute plant reachable set
-            init_set = plant.stepReachStar(init_set, input_set,'lin');
+            init_set = plantReach(plant,init_set,input_set,'lin');
             reachAll = [reachAll init_set];
-            toc(t);
+            % toc(t);
         end
-        t = toc(t);
+        % t = toc(t);
+    end
+    t = toc(t);
+
+    % Save results
+    if is_codeocean
+        save('/results/logs/cartpole.mat', 'reachAll','t','-v7.3');
+    else
+        save('cartpole.mat', 'reachAll','t','-v7.3');
     end
     
     %% Visualize results
@@ -56,11 +65,22 @@
     % ylabel('\theta');
     % xlim([0 0.6])
     % ylim([0.95 1.25])
+    
     % Save figure
-    % if is_codeocean
-    %     exportgraphics(f,'/results/logs/cartpole.pdf', 'ContentType', 'vector');
-    % else
-    %     exportgraphics(f,'cartpole.pdf','ContentType', 'vector');
-    % end
+    if is_codeocean
+        exportgraphics(f,'/results/logs/cartpole.pdf', 'ContentType', 'vector');
+    else
+        exportgraphics(f,'cartpole.pdf','ContentType', 'vector');
+    end
 
-% end
+end
+
+%% Helper function
+function init_set = plantReach(plant,init_set,input_set,algoC)
+    nS = length(init_set); % based on approx-star, number of sets should be equal
+    ss = [];
+    for k=1:nS
+            ss =[ss plant.stepReachStar(init_set(k), input_set(k),algoC)];
+    end
+    init_set = ss;
+end

@@ -1,4 +1,4 @@
-function t = reach_more()
+% function t = reach_more()
 
     %% Reachability analysis of Double Pendulum Benchmark
     
@@ -55,17 +55,17 @@ function t = reach_more()
     plant.get_interval_sets;
     
     f = figure;
-    Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
-    hold on;
     rectangle('Position',[-1.5,-1.5,3,3],'FaceColor',[0 0.2 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
+    hold on;
+    Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,1,2,'b');
     grid;
     xlabel('x1');
     ylabel('x2');
     
     f1 = figure;
-    Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,4,'b');
+    rectangle('Position',[-1.5,-1.5,3,3],'FaceColor',[0 0.2 0 0.5],'EdgeColor','y', 'LineWidth',0.1);
     hold on;
-    rectangle('Position',[-1.5,-1.5,3,3],'FaceColor',[0 0.2 0 0.5],'EdgeColor','y', 'LineWidth',0.1)
+    Star.plotBoxes_2D_noFill(plant.intermediate_reachSet,3,4,'b');
     grid;
     xlabel('x3');
     ylabel('x4');
@@ -79,7 +79,7 @@ function t = reach_more()
         exportgraphics(f1,'double_pendulum_more_3v4.pdf','ContentType', 'vector');
     end
 
-end
+% end
 
 %% Helper function
 function init_set = plantReach(plant,init_set,input_set,algoC)

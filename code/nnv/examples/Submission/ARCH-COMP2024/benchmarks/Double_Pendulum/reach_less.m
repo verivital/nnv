@@ -18,8 +18,8 @@ function t = reach_less()
 
     % Initial set
     % lb = [1.0; 1.0;1.0;1.0];
-    lb = [1.29; 1.29;1.29;1.29];
-    ub = [1.3; 1.3;1.3;1.3];
+    lb = [1.29; 1.29; 1.29;1.29];
+    ub = [1.3 ; 1.3 ; 1.3 ;1.3 ];
     % ub = [1.01; 1.01;1.01;1.01];
     init_set = Star(lb,ub);
     % Input set
@@ -30,7 +30,7 @@ function t = reach_less()
     reachAll = init_set;
     % Execute reachabilty analysis
     % for i =1:steps
-    num_steps = 4;
+    num_steps = 10; % 20 % begin split at 8 steps or so, we may be able to get something done but it would take forever
     reachOptions.reachMethod = 'approx-star';
     t = tic;
     for i=1:num_steps

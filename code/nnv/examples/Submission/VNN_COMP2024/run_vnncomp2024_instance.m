@@ -93,6 +93,8 @@ cEX_time = toc(t);
 reachOptions = struct;
 reachOptions.reachMethod = 'approx-star';
 % reachOptions.reachMethod = 'exact-star';
+% reachOptions.device = 'cpu';
+% reachOptions.numCores = 24; % logical cores
 
 
 % Check if property was violated earlier
@@ -185,6 +187,10 @@ vT = toc(vT);
 
 tTime = toc(t); % save total computation time
 
+if status == 2 && strcmp(reachOptions.reachMethod, 'exact-star')
+    status = 0;
+end
+
 disp("Verification result: " + string(status));
 disp("Counterexample search time: " + string(cEX_time));
 disp("Reachability time: " + string(vT));
@@ -238,13 +244,7 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
     end
 
     % Create input set
-    % IS = ImageStar(lb, ub); % too many constraints, slower
-    i_diff = ub - lb;
-    V(:,:,:,1) = lb; % assume lb is center of set (instead of img)
-    V(:,:,:,2) = i_diff ; % basis vectors
-    C = [1; -1]; % constraints
-    d = [1; -1];
-    IS = ImageStar(V, C, d, 0, 1); % input set
+    IS = ImageStar(lb, ub); % 
 
 end
 
@@ -502,6 +502,7 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
         end
         % check if property violated
         yPred = reshape(yPred, [], 1); % convert to column vector (if needed)
+        % disp([x;yPred']);
         for h=1:length(Hs)
             if Hs(h).contains(double(yPred)) % property violated
                 counterEx = {x; yPred}; % save input/output of countex-example

@@ -6,7 +6,8 @@ benchmarks = dir(vnncomp_path);
 
 notSupported = {'test'; 'traffic_signs_recognition'; 'cctsdb_yolo'}; % skip for now
 
-for i=4:length(benchmarks)
+% for i=4:length(benchmarks)
+for i=4 % only do acasxu
 
     if ~contains(notSupported, benchmarks(i).name) % skip evaluation of benchmarks not supported
 
@@ -17,7 +18,7 @@ for i=4:length(benchmarks)
         results_dir = "results_approx_" + benchmarks(i).name;
         mkdir(results_dir);
     
-        for k=1:size(instances,1)
+        for k=1:size(instances, 1)
             
             onnx = benchpath + filesep + instances(k,1);
             vnnlib = benchpath + filesep + instances(k,2);

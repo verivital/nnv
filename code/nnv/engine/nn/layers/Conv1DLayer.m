@@ -521,10 +521,10 @@ classdef Conv1DLayer < handle
         
     end
        
-    % reachability analysis using star set
-    methods
-        % reachability analysis method using Stars
-        % a star represent a set of images (2D matrix of h x w)
+    
+    methods % reachability analysis using Stars
+
+        % reachability analysis using star set
         function S = reach_star_single_input(obj, input)
             % @inputs: an ImageStar input set
             % @S: an ImageStar with number of channels = obj.NumFilters
@@ -555,30 +555,6 @@ classdef Conv1DLayer < handle
                   
         end
         
-        % reachability analysis using ImageZonos
-        function Z = reach_zono(obj, input)
-            % @input: an ImageZono input set
-            % @Z: an ImageZono with number of channels = obj.NumFilters
-            
-            if ~isa(input, 'ImageZono')
-                error('The input is not an ImageZono object');
-            end
-            
-            if input.numChannels ~= obj.NumChannels
-                error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannels, obj.NumChannels);
-            end
-            
-            % compute output sets
-            c = vl_nnconv1d(input.V(:,:,:,1), obj.Weights, obj.Bias', obj.Stride, obj.PaddingSize, obj.DilationFactor);
-            n = size(input.V(:,:,:,2:input.numPred + 1),4);
-            for i = 1:n
-                V(:,:,1,i) = vl_nnconv1d(input.V(:,:,:,i+1), obj.Weights, 0, obj.Stride, obj.PaddingSize, obj.DilationFactor);         
-            end
-            Y = cat(4, c, V);
-            Z = ImageZono(Y);
-            
-        end
-        
         % hangle multiple inputs
         function images = reach_star_multipleInputs(obj, in_signals, option)
             % @in_images: an array of ImageStars input set
@@ -601,27 +577,6 @@ classdef Conv1DLayer < handle
 
             end
             
-        end
-        
-        function images = reach_zono_multipleInputs(obj, in_images, option)
-            % @in_images: an array of ImageZonos input set
-            % @option: = 'parallel' or 'single' or empty
-
-            n = length(in_images);
-            images(n) = ImageZono; 
-
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    images(i) = obj.reach_zono(in_images(i));
-                end
-            elseif strcmp(option, 'single') || isempty(option)
-                for i=1:n
-                    images(i) = obj.reach_zono(in_images(i));
-                end
-            else
-                error('Unknown computation option');
-            end
-
         end
 
         % reach star with multiple inputs

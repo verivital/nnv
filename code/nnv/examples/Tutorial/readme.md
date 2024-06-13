@@ -18,7 +18,7 @@ Registered participants should have received a link with a MATLAB license to use
 ###### Note: this license is not required if participants already have a valid license for all the toolboxes listed in [installation instructions](/README.md#installation).
 
 Create a copy of NNV into your MathWorks account (personal MATLAB Drive):
-[NNV Online](https://drive.matlab.com/sharing/6861a9c9-f818-45ab-b7cc-380bbfb2be0e)
+[NNV Online](https://drive.mathworks.com/sharing/cd6fe866-b737-46e1-8890-26c30db8d102)
   - Click on `Open in MATLAB Online` -> `Copy Folder`
   - This will prompt you to log into your account (or register if you don’t have one)
 ###### Note: copying NNV online may take anywhere from 15 minutes to a couple of hours.

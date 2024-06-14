@@ -42,17 +42,19 @@ Open [MATLAB Online](https://workshop-matlab.mathworks.com/) (or MATLAB), then g
 #### Neural Networks (NN)
 
 * Robustness verification on the MNIST dataset.
-    * [Robustness verification of a single image](NN/MNIST/verify_fc.m) using a [model with fully-connected and ReLU layers](NN/MNIST/training_fc.m).
-    * [Robustness verification of a single image](NN/MNIST/verify.m) using a [model with Convolutional, Pooling, Batch Normalization, ReLU, and fully-connected layers](NN/MNIST/training.m)
-    * [Certified robustness](NN/MNIST/verify_fc_allTest.m) of a neural network classifier using a [model with fully-connected and ReLU layers](NN/MNIST/training_fc.m).
+    * Robustness verification example using a model with fully-connected and ReLU layers (MLP). [[verification](NN/MNIST/verify_fc.m)][[training](NN/MNIST/training_fc.m)]
+    * Robustness verification example using a model with Convolutional, Pooling, Batch Normalization, ReLU, and fully-connected layers (CNN). [[verification](NN/MNIST/verify.m)][[training](NN/MNIST/training.m)]
+    * Certified robustness of a neural network classifier over the test dataset (1000 samples). [[MLP](NN/MNIST/verify_fc_allTest.m)][[CNN](NN/MNIST/verify_allTest.m)]
 
-* Robustness verification on the GTSRB dataset.
-    * Includes [training](NN/GTSRB/train.m) and [verification](NN/GTSRB/verify_robust_27.m) scripts as well.
-* Comparison of exact (sound and complete) and approximate (sound and incomplete) methods using Star sets [exact vs approx](NN/compareReachability/reach_exact_vs_approx.m)
+* Robustness verification on the GTSRB dataset [[examples](NN/GTSRB)]
+    * Includes training and verification scripts (robust, and not robust examples).
+* Comparison of exact (sound and complete) and approximate (sound and incomplete) methods using Star sets. [[exact vs approx](NN/compareReachability/reach_exact_vs_approx.m)]
+* Robustness analysis of a malware classifier (BODMAS Dataset) [[malware examples](NN/malware)]
+    * Includes input set constructions depending on the type of adversarial attack. The perturbation can be applied over continuous features, discrete, or on all input features. 
 
 #### Neural Network Control Systems (NNCS)
 
-* Reachability analysis of an [inverted pendulum](NNCS/InvertedPendulum/reach_invP.m).
+* Reachability analysis of an inverted pendulum. [[reachability code](NNCS/InvertedPendulum/reach_invP.m)]
 * Safety verification example of an Adaptive Cruise Control (ACC) system.
     * [Training](NNCS/ACC/Training%20and%20testing). This requires installing Simulink.
     * [Safety Verification](NNCS/ACC/Verification/verify.m).
@@ -61,5 +63,5 @@ Open [MATLAB Online](https://workshop-matlab.mathworks.com/) (or MATLAB), then g
 
 In addition, we have also prepared a set of exercises for the participants:
 * Verification of ACAS Xu neural network with ONNX and VNNLIB files: [ONNX & VNNLIB exercise](NN/ACAS%20Xu/exercise_vnnlib_onnx.m)
-* Robustness verification of a neural network: [NN exercise](NN/GTSRB/exercise_verify_robustness.m))
+* Robustness verification of a neural network: [NN exercise](NN/GTSRB/exercise_verify_robustness.m)
 * Safety verification of a linearized plant model of an adaptive cruise control system: [NNCS exercise](NNCS/ACC/Exercise/exercise_reachability_nncs.m)

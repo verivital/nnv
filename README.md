@@ -77,22 +77,21 @@ To get started with NNV, let's take a look at a tutorial containing examples dem
 __NN__
 
 * Robustness verification on the MNIST dataset.
-    * [Robustness verification of whole dataset](code/nnv/examples/Tutorial/NN/MNIST/verify_fc_allTest.m) using a [model with fully-connected and ReLU layers](code/nnv/examples/Tutorial/NN/MNIST/training_fc.m).
-    * [Robustness verification of a single image](code/nnv/examples/Tutorial/NN/MNIST/verify_fc.m) using a [model with fully-connected and ReLU layers](code/nnv/examples/Tutorial/NN/MNIST/training_fc.m).
-    * [Robustness verification of a single image](code/nnv/examples/Tutorial/NN/MNIST/verify.m) using a [model with Convolutional, Pooling, Batch Normalization, ReLU, and fully-connected layers](code/nnv/examples/Tutorial/NN/MNIST/training.m)
+    * Includes model training and several verification examples.
 * Robustness verification on the GTSRB dataset.
-    * Includes [training](code/nnv/examples/Tutorial/NN/GTSRB/train.m) and [verification](code/nnv/examples/Tutorial/NN/GTSRB/verify_robust_27.m) scripts as well.
-* Comparison of exact (sound and complete) and approximate (sound and incomplete) methods using Star sets [exact vs approx](code/nnv/examples/Tutorial/NN/compareReachability/reach_exact_vs_approx.m)
+    * Includes model training and robustness verification.
+* Comparisons of exact (sound and complete) and approximate (sound and incomplete) methods using Star sets
+    * Visualize the size difference on the output sets and the computation times for each method.  
+* Robustness analysis of a malware classifier (BODMAS Dataset).
 
+  
 __NNCS__
   
-* Reachability analysis of an [inverted pendulum](code/nnv/examples/Tutorial/NNCS/InvertedPendulum/reach_invP.m).
+* Reachability analysis of an inverted pendulum.
 * Safety verification example of an Adaptive Cruise Control (ACC) system.
-    * [Training](code/nnv/examples/Tutorial/NNCS/ACC/Training%20and%20testing). This requires installing Simulink.
-    * [Safety Verification](code/nnv/examples/Tutorial/NNCS/ACC/Verification/verify.m).
-* Safety verification of an Automated Emergency Braking System ([AEBS](code/nnv/examples/Tutorial/NNCS/AEBS))
-    * This system contains several neural networks, so a custom control loop is included in the verification script.
+* Safety verification of an Automated Emergency Braking System
 
+And more! Please go to the [tutorial description](code/nnv/examples/Tutorial/readme.md) for more details!
 
 ### Examples
 

@@ -28,6 +28,7 @@ targets = single(test_labels(1:N));
 reachOptions = struct;
 reachOptions.reachMethod = 'relax-star-area';
 reachOptions.relaxFactor = 0.95;
+reachOptions.lp_solver = "gurobi";
 
 
 %% Attack 1

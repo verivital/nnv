@@ -32,10 +32,10 @@ function I = dark_attack(vol, max_pixels, threshold, noise_disturbance)
     % Define input set as VolumeStar
     dif_vol = vol - at_vol;
     noise = -dif_vol;
-    V(:,:,:,:,1) = vol; % center of set
-    V(:,:,:,:,2) = noise; % basis vectors
-    C = [1; -1]; % constraints
-    d = [1; noise_disturbance-1];
+    V(:,:,:,:,1) = vol;            % center of set
+    V(:,:,:,:,2) = noise;          % basis vectors
+    C = [1; -1];                   % constraints
+    d = [1; noise_disturbance-1];  % constraints
     I = VolumeStar(V, C, d, 1-noise_disturbance, 1); % input set
 
 end

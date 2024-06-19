@@ -32,8 +32,38 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
         Aeq = double(Aeq); Beq = double(Beq); ub = double(ub); 
     end
     
+    if strcmp(lp_solver, 'gurobi') % no backup solver, should be better than the others
+        % Create gurobi model
+        model.obj = f; % objective function
+        model.A = [sparse(A); sparse(Aeq)]; % A must be sparse
+        model.sense = [repmat('<',size(A,1),1); repmat('=',size(Aeq,1),1)];
+        model.rhs = full([b(:); Beq(:)]); % rhs must be dense
+        if ~isempty(lb)
+            model.lb = lb;
+        else
+            model.lb = -inf(size(model.A,2),1); % default lb for MATLAB is -inf
+        end
+        if ~isempty(ub)
+            model.ub = ub;
+        end
+        % Define solver parameters
+        params = struct; % for now, leave default options/params
+        params.OutputFlag = 0; % no display
+        result = gurobi(model, params);
+        fval = result.objval; % get fval value from results
+        % get exitflag and match those of linprog for easier parsing
+        if strcmp(result.status,'OPTIMAL')
+            exitflag = "l1"; % converged to a solution
+        elseif strcmp(result.status,'UNBOUNDED')
+            exitflag = "l-5"; % problem is unbounded
+        elseif strcmp(result.status,'ITERATION_LIMIT')
+            exitflag = "l-2"; % maximum number of iterations reached
+        else
+            exitflag = "l-2"; % no feasible point found
+        end
+
     % Solve using linprog (glpk as backup)
-    if strcmp(lp_solver, 'linprog')
+    elseif strcmp(lp_solver, 'linprog')
         options = optimoptions(@linprog, 'Display','none'); 
         options.OptimalityTolerance = 1e-10; % set tolerance
         % first try solving using linprog

@@ -3,10 +3,11 @@
 results = dir('results');
 
 % Variable in the study
-datasets = ["adrenal"; "fracture"; "nodule"; "organ"; "synapse"; "vessel"];
-attackType = ["bright"; "dark"];
-maxpixels = [50;100;500;1000];
-epsilon = [2/255; 4/255; 10/255];
+% datasets = ["adrenal", "fracture", "nodule", "organ", "synapse", "vessel"];
+datasets = ["fracture", "nodule", "organ", "synapse"]; 
+attackType = ["bright", "dark"];
+maxpixels = ["50", "100", "500", "1000"];
+epsilon = ["2", "4", "10"]; % epsilon/255
 
 %% Visualize verification results/trends
 
@@ -23,6 +24,38 @@ epsilon = [2/255; 4/255; 10/255];
 %  - Is it much worse than the accuracy of the model? 
 %  - Do we need more samples?
  
+
+% Time for plots
+for ds = datasets
+    for adv = attackType
+        for ep = epsilon
+            % Initialize vars to plot
+            sat   = [];
+            unsat = [];
+            unk   = [];
+            miss  = [];
+            avgTime = [];
+            % Get data
+            for mp = maxpixels
+                resFile = "verification_" + ds + "_" + adv + "_" + ep + "_" + mp +".mat";
+                res = summarize_results(resFile);
+                sat = [sat, res.sat];
+                unsat = [unsat, res.unsat];
+                unk = [unk, res.unknown];
+                miss = [miss, res.misclassified];
+                avgTime = [avgTime, res.avgTime];
+            end
+            counts = [unsat; sat; unk; miss];
+            leg = {"unsat", "sat", "unknown", "missclass"};
+            % Create figure
+            f = figure;
+            bar(1:4, counts','stacked') % change ticks and label later on
+            grid
+            legend(leg, 'Location', 'best');
+            saveas(f, "plots/verification_" + ds + "_" + adv + "_" + ep+".png");
+        end
+    end
+end
 
 
 %% Helper functions
@@ -41,7 +74,7 @@ function summary = summarize_results(resFile)
     % Unknown (not using exact)
     summary.unknown = sum(results(:,1) == 2);
     % Misclasified (sat) of original image
-    summary.missclassified = sum(results(:,1) == -1);
+    summary.misclassified = sum(results(:,1) == -1);
     % Also possible -2 (error), which may be out of memory (most common here)
     summary.avgTime = sum(results(:,2))/summary.N;
 end

@@ -13,34 +13,21 @@ clear; clc;
 modelDir = './adult_onnx';  % Directory containing ONNX models
 onnxFiles = dir(fullfile(modelDir, '*.onnx'));  % List all .onnx files
 
-load("adult_fairify2_data.mat", 'X', 'y');  % Load data once
-
-% % Display the size of the input and output data
-% disp('Size of X:');
-% disp(size(X)); % This should show [N, 13]
-% 
-% disp('Size of y:');
-% disp(size(y)); % This should show [N, 1] or [N]
-
+load("adult_data.mat", 'X', 'y'); % load Adult data
 
 %% Loop through each model
-for k = 1:length(2)
-    % onnx_model_path = fullfile(onnxFiles(k).folder, onnxFiles(k).name);
-    onnx_model_path = fullfile("adult_my_models2/model_0.onnx");
-    % onnx_model_path = fullfile("adult_onnx/AC-1.onnx");
+for k = 1:length(onnxFiles)
+
+    onnx_model_path = fullfile(onnxFiles(k).folder, onnxFiles(k).name);
 
     % Load the ONNX file as DAGNetwork
     netONNX = importONNXNetwork(onnx_model_path, 'OutputLayerType', 'classification', 'InputDataFormats', {'BC'});
-
-    % analyzeNetwork(netONNX)
 
     % Convert the DAGNetwork to NNV format
     net = matlab2nnv(netONNX);
      
     % Jimmy Rigged Fix: manually edit ouput size
     net.OutputSize = 2;
-
-    % disp(net)
     
     X_test_loaded = permute(X, [2, 1]);
     y_test_loaded = y+1;  % update labels
@@ -57,45 +44,16 @@ for k = 1:length(2)
     % Normalizing X_test_loaded
     X_test_loaded = (X_test_loaded - min_values) ./ (max_values - min_values);
 
-    % % Print normalized values for a few samples
-    % disp('First few normalized inputs in MATLAB:');
-    % disp(X_test_loaded(:, 1:5));
-    % 
-    % % Print model outputs for a few samples
-    % disp('First few model outputs in MATLAB:');
-    % for i = 1:5
-    %     im = X_test_loaded(:, i);
-    %     predictedLabels = net.evaluate(im);
-    %     disp(predictedLabels);
-    % end
-
     % Count total observations
     total_obs = size(X_test_loaded, 2);
     % disp(['There are total ', num2str(total_obs), ' observations']);
-
-    % % 
-    % % Test accuracy --> verify matches with python
-    % % 
-    % total_corr = 0;
-    % for i=1:total_obs
-    %     im = X_test_loaded(:, i);
-    %     predictedLabels = net.evaluate(im);
-    %     [~, Pred] = min(predictedLabels);
-    %     disp(Pred)
-    %     TrueLabel = y_test_loaded(i);
-    %     disp(TrueLabel)
-    %     if Pred == TrueLabel
-    %         total_corr = total_corr + 1;
-    %     end
-    % end
-    % disp(['Test Accuracy: ', num2str(total_corr/total_obs)]);
-
+   
     % Number of observations we want to test
     numObs = 100;
     
     %% Verification
     
-    % to save results (robustness and time)
+    % To save results (robustness and time)
     results = zeros(numObs,2);
     
     % First, we define the reachability options
@@ -105,15 +63,12 @@ for k = 1:length(2)
     
     nR = 50; % ---> just chosen arbitrarily
     
-    % ADJUST epsilon value here
-    % epsilon = [0.01];
+    % ADJUST epsilon values here
     epsilon = [0.0,0.001,0.01];
-    % epsilon = [0.00001];
-    
-    %
+
+   
     % Set up results
-    %
-    nE = 3; %% will need to update later
+    nE = 3; 
     res = zeros(numObs,nE); % robust result
     time = zeros(numObs,nE); % computation time
     met = repmat("relax", [numObs, nE]); % method used to compute result
@@ -133,62 +88,46 @@ for k = 1:length(2)
         verificationTimer.TimerFcn = @(myTimerObj, thisEvent) ...
         assignin('base', 'timeoutOccurred', true);
         start(verificationTimer);  % Start the timer
-
-        ce_count = 0;
-        exact_count = 0;
-        ap_count = 0;
-    
+        
+        % Iterate through observations
         for i=1:numObs
             idx = rand_indices(i);
-            [IS, xRand] = perturbation(X_test_loaded(:, idx), epsilon(e), nR, min_values, max_values);
+            [IS, xRand] = perturbationIF(X_test_loaded(:, idx), epsilon(e), nR, min_values, max_values);
            
             skipTryCatch = false;  % Initialize the flag
             t = tic;  % Start timing the verification for each sample
             %
-            % Try falsification, then approx star, if unknown, try exact-star
+            % Try falsification, then relax star, if unknown, try exact-star
             %
-            % for xR=1:length(nR+3)
-            %     im = xRand(:, xR);
-            %     predictedLabels = net.evaluate(im);
-            %     [~, Pred] = min(predictedLabels);
-            %     if Pred ~= y_test_loaded(idx)
-            %         % disp(string(i)+" Counterexample found. "+string(Pred)+" "+string(y_test_loaded(idx)))
-            %         res(i,e) = 0; % counterexample found
-            %         ce_count = ce_count + 1;
-            %         time(i,e) = toc(t);
-            %         met(i,e) = "counterexample";
-            %         skipTryCatch = true;  % Set the flag to skip try-catch block
-            %         continue;
-            %     end
-            % end
-            % if ~skipTryCatch
-                % try
-                %     temp = net.verify_robustness(IS, reachOptions, y_test_loaded(idx));
-                %     if temp == 1 || temp == 0
-                %         ap_count = ap_count + 1;
-                %     end
-                %     % disp(string(i)+" Approx: "+string(temp))
-                %     if temp ~= 1 && temp ~= 0
-                %         exact_count = exact_count + 1;
-                %         % reachOptions.reachMethod = 'approx-star';
-                %         reachOptions.reachMethod = 'exact-star';
-                %         temp = net.verify_robustness(IS, reachOptions, y_test_loaded(idx));
-                %         % disp(string(i)+" Exact: "+string(temp))
-                %         % met(i,e) = 'approx';
-                %         met(i,e) = 'exact';
-                %     end
-                %     res(i,e) = temp; % robust result
-                % catch ME
-                %     met(i,e) = ME.message;
-                %     temp = -1;
-                % end
-                reachOptions.reachMethod = 'exact-star';
-                temp = net.verify_robustness(IS, reachOptions, y_test_loaded(idx));
-                % disp(string(i)+" Exact: "+string(temp))
-                % met(i,e) = 'approx';
-                met(i,e) = 'exact';
-                res(i,e) = temp; % robust result
-            % end
+            % Falsification
+            for xR=1:length(nR+3)
+                im = xRand(:, xR);
+                predictedLabels = net.evaluate(im);
+                [~, Pred] = min(predictedLabels);
+                if Pred ~= y_test_loaded(idx)
+                    res(i,e) = 0; % counterexample found
+                    time(i,e) = toc(t);
+                    met(i,e) = "counterexample";
+                    skipTryCatch = true;  % Set the flag to skip try-catch block
+                    continue;
+                end
+            end
+            if ~skipTryCatch
+                try
+                    % Relax star
+                    temp = net.verify_robustness(IS, reachOptions, y_test_loaded(idx));
+                    % Exact star
+                    if temp ~= 1 && temp ~= 0
+                        reachOptions.reachMethod = 'exact-star';
+                        temp = net.verify_robustness(IS, reachOptions, y_test_loaded(idx));
+                        met(i,e) = 'exact';
+                    end
+                    res(i,e) = temp; % robust result
+                catch ME
+                    met(i,e) = ME.message;
+                    temp = -1;
+                end
+            end
     
             time(i,e) = toc(t); % store computation time
     
@@ -204,10 +143,6 @@ for k = 1:length(2)
             reachOptions.relaxFactor = 0.5;
         end
 
-        disp("Counterexamples Found: "+string(ce_count))
-        disp("Approx Method Found: "+string(ap_count))
-        disp("Exact Method Found: "+string(exact_count))
-    
         % Summary results, stopping, and deleting the timer should be outside the inner loop
         stop(verificationTimer);
         delete(verificationTimer);
@@ -221,7 +156,7 @@ for k = 1:length(2)
         avgTime = totalTime/N;
         
         % Print results to screen
-        % fprintf('Model: %s\n', onnxFiles(k).name);
+        fprintf('Model: %s\n', onnxFiles(k).name);
         disp("======= ROBUSTNESS RESULTS e: "+string(epsilon(e))+" ==========")
         disp(" ");
         disp("Number of fair samples = "+string(rob)+ ", equivalent to " + string(100*rob/N) + "% of the samples.");
@@ -234,8 +169,8 @@ end
 
 
 %% Helper Function
-% Adjusted for fairness check -> only apply perturbation to desired feature.
-function [IS, xRand] = perturbation(x, epsilon, nR, min_values, max_values)
+% Apply perturbation (individual fairness) to sample
+function [IS, xRand] = perturbationIF(x, epsilon, nR, min_values, max_values)
     % Applies perturbations on selected features of input sample x
     % Return an ImageStar (IS) and random images from initial set
     SampleSize = size(x);
@@ -250,15 +185,6 @@ function [IS, xRand] = perturbation(x, epsilon, nR, min_values, max_values)
     else
         x(sensitive_rows) = 1;
     end
-   
-    % % Apply specific perturbations to sensitive features
-    % for i = 1:length(sensitive_rows)
-    %     if sensitive_rows(i) <= size(x, 1)
-    %         disturbance(sensitive_rows(i), :) = sensitive_epsilons(i);
-    %     else
-    %         error('The input data does not have enough rows.');
-    %     end
-    % end
 
     % Apply epsilon perturbation to non-sensitive numerical features
     for i = 1:length(nonsensitive_rows)
@@ -269,21 +195,14 @@ function [IS, xRand] = perturbation(x, epsilon, nR, min_values, max_values)
         end
     end
 
-    % % Apply general epsilon to all other rows except 8 and 9
-    % for row = 1:size(x, 1)
-    %     if ~ismember(row, sensitive_rows)
-    %         disturbance(row, :) = epsilon;
-    %     end
-    % end
-
     % Calculate disturbed lower and upper bounds considering min and max values
     lb = max(x - disturbance, min_values);
     ub = min(x + disturbance, max_values);
     IS = ImageStar(single(lb), single(ub)); % default: single (assume onnx input models)
 
     % Create random samples from initial set
-    % Adjusted reshaping according to your specific needs
-    lb = reshape(lb, [13,1]);  % Update the reshape parameters as per your actual data dimension
+    % Adjusted reshaping according to specific needs
+    lb = reshape(lb, [13,1]); 
     ub = reshape(ub, [13,1]);
     xB = Box(single(lb), single(ub));
     xRand = xB.sample(nR);

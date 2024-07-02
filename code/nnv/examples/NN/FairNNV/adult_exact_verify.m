@@ -48,7 +48,7 @@ for k = 1:length(onnxFiles)
     % disp(['There are total ', num2str(total_obs), ' observations']);
 
     % Number of observations we want to test
-    numObs = 100;
+    numObs = 1000;
     
     %% Verification
     
@@ -122,8 +122,8 @@ for k = 1:length(onnxFiles)
         avgTime = totalTime/N;
         
         % Print results to screen
-        % fprintf('Model: %s\n', onnxFiles(k).name);
-        disp("======= ROBUSTNESS RESULTS e: "+string(epsilon(e))+" ==========")
+        fprintf('Model: %s\n', onnxFiles(k).name);
+        disp("======= FAIRNESS RESULTS e: "+string(epsilon(e))+" ==========")
         disp(" ");
         disp("Number of fair samples = "+string(rob)+ ", equivalent to " + string(100*rob/N) + "% of the samples.");
         disp("Number of non-fair samples = " +string(not_rob)+ ", equivalent to " + string(100*not_rob/N) + "% of the samples.")

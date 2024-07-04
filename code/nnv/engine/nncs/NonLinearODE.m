@@ -313,6 +313,10 @@ classdef NonLinearODE < handle
             
             I = init_set.getZono;
             U = input_set.getZono;
+            if isempty(U)
+                U = Star(zeros(input_set.dim,1), zeros(input_set.dim,1));
+                U = U.getZono;
+            end
             
             if ~isempty(varargin)
                 if string(varargin{1}) == "poly" || string(varargin{1}) == "lin" || string(varargin{1}) == "lin-adaptive" || string(varargin{1}) == "poly-adaptive"

@@ -93,7 +93,7 @@ classdef ReluLayer < ActivationFunctionLayer
                 dp = in_image.depth;
                 c = in_image.numChannel;
                 % transform to star and compute relu reachability
-                Y = PosLin.reach(in_image.toStar, method, [], relaxFactor); % reachable set computation with ReLU
+                Y = PosLin.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
                 n = length(Y);
                 % transform back to VolumeStar
                 images(n) = VolumeStar;
@@ -105,7 +105,7 @@ classdef ReluLayer < ActivationFunctionLayer
                 w = in_image.width;
                 c = in_image.numChannel;
                 
-                Y = PosLin.reach(in_image.toStar, method, [], relaxFactor); % reachable set computation with ReLU
+                Y = PosLin.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
                 n = length(Y);
                 images(n) = ImageStar;
                 % transform back to ImageStar
@@ -113,7 +113,7 @@ classdef ReluLayer < ActivationFunctionLayer
                     images(i) = Y(i).toImageStar(h,w,c);
                 end
             else % star
-                images = PosLin.reach(in_image, method, [], relaxFactor); % reachable set computation with ReLU
+                images = PosLin.reach(in_image, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
             end
 
         end

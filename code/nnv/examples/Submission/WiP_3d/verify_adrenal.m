@@ -31,139 +31,35 @@ reachOptions.relaxFactor = 0.95;
 reachOptions.lp_solver = "gurobi";
 
 
-%% Attack 1
+%% Verification analysis
+for a=advType
+    for mp=maxpixels
+        for ep=epsilon
+            
+            % 1) Initialize results var
+            results = zeros(N,2);
+            
+            % 2) Create adversarial attack
+            adv_attack = struct;
+            adv_attack.Name = a; % bright or dark
+            if strcmp(a, "bright") 
+                adv_attack.threshold = threshold(1); % perturb pixels below this value
+            else 
+                adv_attack.threshold = threshold(2); % perturb pixels below this value
+            end 
+            adv_attack.max_pixels = mp; % Max number of pixels to modify from input image
+            adv_attack.noise_de = ep/255; % disturbance (noise) on pixels
+            
+            % 3) Begin verification analysis
+            for i=1:N
+                img = squeeze(inputs(:,:,:,:,i));
+                target = targets(i);
+                results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+            end
+            
+            % 4) % save results
+            save("results/verification_adrenal_"+ a +"_" + ep +"_" + mp + ".mat", "results");
 
-% adv_attack = struct;
-%???????
-
-% results = zeros(N,2); % verification result, time
-
-% verify volumes
-% parfor i=1:N
-%     img = squeeze(inputs(:,:,:,:,i));
-%     target = targets(i);
-%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-% end
-
-% save results
-% save("results/verification_adrenal_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 2
-
-adv_attack = struct;
-
-% results = zeros(N,2); % verification result, time
-% 
-% % verify volumes
-% parfor i=1:N
-%     img = squeeze(inputs(:,:,:,:,i));
-%     target = targets(i);
-%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-% end
-% 
-% % save results
-% save("results/verification_adrenal_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 3
-
-% adv_attack = struct;
-% 
-% results = zeros(N,2); % verification result, time
-% 
-% % verify volumes
-% parfor i=1:N
-%     img = squeeze(inputs(:,:,:,:,i));
-%     target = targets(i);
-%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-% end
-% 
-% % save results
-% save("results/verification_adrenal_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 4
-
-% adv_attack = struct;
-%
-% results = zeros(N,2); % verification result, time
-% 
-% % verify volumes
-% parfor i=1:N
-%     img = squeeze(inputs(:,:,:,:,i));
-%     target = targets(i);
-%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-% end
-% 
-% % save results
-% save("results/verification_adrenal_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 5
-
-% adv_attack = struct;
-% 
-% results = zeros(N,2); % verification result, time
-% 
-% % verify volumes
-% parfor i=1:N
-%     img = squeeze(inputs(:,:,:,:,i));
-%     target = targets(i);
-%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-% end
-% 
-% % save results
-% save("results/verification_adrenal_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 6
-
-% adv_attack = struct;
-%
-% results = zeros(N,2); % verification result, time
-% 
-% % verify volumes
-% parfor i=1:N
-%     img = squeeze(inputs(:,:,:,:,i));
-%     target = targets(i);
-%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-% end
-% 
-% % save results
-% save("results/verification_adrenal_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 7
-
-% adv_attack = struct;
-% 
-% results = zeros(N,2); % verification result, time
-% 
-% % verify volumes
-% parfor i=1:N
-%     img = squeeze(inputs(:,:,:,:,i));
-%     target = targets(i);
-%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-% end
-% 
-% % save results
-% save("results/verification_adrenal_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 8
-
-% adv_attack = struct;
-% 
-% results = zeros(N,2); % verification result, time
-% 
-% % verify volumes
-% parfor i=1:N
-%     img = squeeze(inputs(:,:,:,:,i));
-%     target = targets(i);
-%     results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-% end
-% 
-% % save results
-% save("results/verification_adrenal_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
+        end
+    end
+end

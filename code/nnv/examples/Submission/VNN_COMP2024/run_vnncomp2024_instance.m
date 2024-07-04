@@ -91,6 +91,7 @@ cEX_time = toc(t);
 % end
 
 reachOptions = struct;
+reachOptions.lp_solver = "gurobi";
 reachOptions.reachMethod = 'approx-star';
 % reachOptions.reachMethod = 'exact-star';
 % reachOptions.device = 'cpu';

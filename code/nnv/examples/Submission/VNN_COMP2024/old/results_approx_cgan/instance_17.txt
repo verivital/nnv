@@ -1,1 +1,0 @@
-DATA and FILTERS do not have compatible formats.

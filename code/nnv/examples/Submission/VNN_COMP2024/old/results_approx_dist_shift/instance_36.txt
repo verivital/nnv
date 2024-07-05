@@ -1,0 +1,1 @@
+Input matrix must be double or logical.

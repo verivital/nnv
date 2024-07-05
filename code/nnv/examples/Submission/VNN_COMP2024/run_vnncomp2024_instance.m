@@ -91,8 +91,9 @@ cEX_time = toc(t);
 % end
 
 reachOptions = struct;
-reachOptions.lp_solver = "gurobi";
+reachOptions.lp_solver = "linprog"; % glpk is the worst, gurobi works better for some of the larger benchmarks, linprog faster for simple LPs
 reachOptions.reachMethod = 'approx-star';
+reachOptions.device = "gpu";
 % reachOptions.reachMethod = 'exact-star';
 % reachOptions.device = 'cpu';
 % reachOptions.numCores = 24; % logical cores

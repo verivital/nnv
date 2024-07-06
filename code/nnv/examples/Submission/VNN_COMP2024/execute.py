@@ -52,6 +52,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
 
     eng.addpath(os.getcwd())
     eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
+    eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
 
     status = 2 #initialize with an 'Unknown' status
     #toc = time.perf_counter()

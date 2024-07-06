@@ -27,7 +27,7 @@ wget https://www.mathworks.com/mpm/glnxa64/mpm
 
 chmod +x mpm
 
-./mpm install --release=R2024a --products Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format --destination /home/ubuntu/Documents/MATLAB/SupportPackages/R2024a
+#./mpm install --release=R2024a --products Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format --destination /home/ubuntu/Documents/MATLAB/SupportPackages/R2024a
 
 ./mpm install --release=R2024a --products Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format --destination /usr/local/matlab
 

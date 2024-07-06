@@ -56,7 +56,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     status = 2 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
     #print('timestep :',toc)
-    future = eng.run_vnncomp2023_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
+    future = eng.run_vnncomp2024_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
     
     try: 
         [status, total_time] = future.result(timeout=float(timeout))

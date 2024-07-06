@@ -20,7 +20,6 @@ status = 2; % unknown (to start with)
 
 inputSize = net.Layers(1, 1).InputSize;
 
-
 % Load property to verify
 property = load_vnnlib(vnnlib);
 lb = property.lb; % input lower bounds
@@ -92,11 +91,12 @@ cEX_time = toc(t);
 
 reachOptions = struct;
 reachOptions.lp_solver = "linprog"; % glpk is the worst, gurobi works better for some of the larger benchmarks, linprog faster for simple LPs
-reachOptions.reachMethod = 'approx-star';
-reachOptions.device = "gpu";
-% reachOptions.reachMethod = 'exact-star';
+% reachOptions.reachMethod = 'approx-star';
+% reachOptions.device = "gpu";
+reachOptions.reachMethod = 'exact-star';
 % reachOptions.device = 'cpu';
-% reachOptions.numCores = 24; % logical cores
+numCores = feature('numcores');
+reachOptions.numCores = numCores; % physical cores
 
 
 % Check if property was violated earlier

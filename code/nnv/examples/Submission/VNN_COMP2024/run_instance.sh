@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# example run_instance.sh script for VNNCOMP 2024 for nnv (https://github.com/verivital/nnv.git)
-# four arguments, first is "v1", second is a benchmark category identifier string such as "acasxu", third is a path to the .onnx file and fourth is a path to .vnnlib file
-# modified: Samuel Sasaki, June 28th 2023
-
 TOOL_NAME="nnv"
 VERSION_STRING="v1"
 

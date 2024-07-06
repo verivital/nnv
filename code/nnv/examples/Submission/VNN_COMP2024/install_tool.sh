@@ -31,9 +31,9 @@ chmod +x mpm
 
 # ADD STEPS TO INSTALL GUROBI
 
-cd ~/
+#cd ~/
 
-wget https://packages.gurobi.com/11.0/gurobi11.0.2_linux64.tar.gz
+#wget https://packages.gurobi.com/11.0/gurobi11.0.2_linux64.tar.gz
 
-tar xvfz gurobi11.0.2_linux64.tar.gz
+#tar xvfz gurobi11.0.2_linux64.tar.gz
 

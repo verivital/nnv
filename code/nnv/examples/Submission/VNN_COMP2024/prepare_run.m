@@ -23,6 +23,8 @@ disp(" ")
 disp("Support package path");
 disp(matlabshared.supportpkg.getSupportPackageRoot);
 
+% matlabshared.supportpkg.getInstalled
+
 % savepath; 
 % quit;
 

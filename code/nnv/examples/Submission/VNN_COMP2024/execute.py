@@ -44,7 +44,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
 
-    eng = matlab.engine.start_matlab()
+    #eng = matlab.engine.start_matlab()
     eng_name = matlab.engine.find_matlab()[0]
     eng = matlab.engine.connect_matlab(name=eng_name)
 # 

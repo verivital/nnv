@@ -28,14 +28,14 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
     """
     # start matlab engine as a shared engine
     # eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
-    matlab.engine.shareEngine('vnncomp')
-    print('Engine starting...')
+    #matlab.engine.shareEngine('vnncomp', background=True)
+    #print('Engine starting...')
 
     # keep MATLAB engine open until manually killed
     # while True:
         # time.sleep(0.5)
-    #print("We aren't actually doing anything here...")
-    print("This is the last line of the prepare instance")
+    print("We should not be here...")
+    # print("This is the last line of the prepare instance")
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.

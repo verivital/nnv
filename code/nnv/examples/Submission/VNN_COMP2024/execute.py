@@ -34,6 +34,7 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
     # while True:
         # time.sleep(0.5)
     #print("We aren't actually doing anything here...")
+    print("This is the last line of the prepare instance")
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
@@ -43,9 +44,11 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         vnnlib  (str): the path to the .vnnlib file
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
-
+    
+    print("Begin run instance, try to connect to matlab engine")
     #eng = matlab.engine.start_matlab()
     eng_name = matlab.engine.find_matlab()[0]
+    print("Looking for connections")
     eng = matlab.engine.connect_matlab(name=eng_name)
 # 
     print(f'Successfully connected to engine: {eng_name}.')
@@ -56,7 +59,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
 
     status = 2 #initialize with an 'Unknown' status
     #toc = time.perf_counter()
-    #print('timestep :',toc)
+    print("doing matlab.engine.runCode")
     future = eng.run_vnncomp2024_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
     
     try: 

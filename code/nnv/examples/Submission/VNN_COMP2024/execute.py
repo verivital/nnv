@@ -31,8 +31,8 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
     print('Engine starting...')
 
     # keep MATLAB engine open until manually killed
-    while True:
-        time.sleep(0.5)
+    # while True:
+        # time.sleep(0.5)
     #print("We aren't actually doing anything here...")
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:

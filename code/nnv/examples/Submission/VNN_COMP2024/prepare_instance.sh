@@ -35,6 +35,8 @@ killall -q matlab
 # python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 # python -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 
-matlab -r "matlab.engine.shareEngine('vnncomp')"
+matlab -nodisplay -r "matlab.engine.shareEngine('vnncomp')"
+
+echo "MATLAB session started and shared"
 
 exit 0

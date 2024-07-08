@@ -350,7 +350,7 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         % needReshape = ?;
         % We cannot support this one
 
-    elseif contains(category, "collins_yolo")
+    elseif contains(category, "collins")
         % collins_yolo: onnx to matlab
         net = importNetworkFromONNX(onnx);
         nnvnet = "";
@@ -377,13 +377,13 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         nnvnet = matlab2nnv(net);
         % needReshpae = ?
 
-    elseif contains(category, "LinearizeNN")
+    elseif contains(category, "linearizenn")
         % LinerizeNN: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         % needReshape = ?
 
-    elseif contains(category, "safeNLP")
+    elseif contains(category, "safenlp")
         % safeNLP: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
@@ -395,7 +395,7 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         nnvnet = matlab2nnv(net);
         % needReshape = ?
 
-    elseif contains(category, "LSNC")
+    elseif contains(category, "lsnc")
         % lyapunov benchmark: onnx to nnv (barely, some IR and opset version differences)
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = "";

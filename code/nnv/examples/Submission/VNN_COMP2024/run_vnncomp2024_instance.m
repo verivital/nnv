@@ -290,11 +290,12 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
     if contains(category, 'collins_rul')
         net = importNetworkFromONNX(onnx);
         nnvnet = matlab2nnv(net);
-        if contains(onnx, 'full_window_40')
-            needReshape = 2;
-        else
-            needReshape = 1;
-        end
+        % if contains(onnx, 'full_window_40')
+        %     needReshape = 2;
+        % else
+        %     needReshape = 1;
+        % end
+        needReshape = 2;
 
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab:
@@ -507,6 +508,12 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
         % disp([x;yPred']);
         for h=1:length(Hs)
             if Hs(h).contains(double(yPred)) % property violated
+                % check if the counter example needs to be reshaped
+                n = numel(x);
+                if needReshape == 2
+                    % x = reshape(x, [n 1]);
+                    x = permute(x, [2 1 3]);
+                end
                 counterEx = {x; yPred}; % save input/output of countex-example
                 break;
             end

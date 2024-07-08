@@ -15,11 +15,11 @@ extendedTrack = {'ml4acopf'; 'lsnc'; 'yolo'; 'cctsdb_yolo'; 'collins_aerospace';
     'traffic_signs_recognition'; 'vggnet'; 'vit'; 
     }; % we don't really care much about this one
 
-% for i=3:length(benchmarks)
-for i=3 % only do acasxu
+for i=3:length(benchmarks)
+% for i=3 % only do acasxu
 
     name_noyear = split(benchmarks(i).name, "_");
-    name_noyear = name_noyear{1};
+    name_noyear = strjoin(name_noyear(1:end-1), '_');
 
     if contains(name_noyear, regularTrack) % evaluate only regular track
 

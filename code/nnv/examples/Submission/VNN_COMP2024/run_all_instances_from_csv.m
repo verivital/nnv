@@ -1,11 +1,12 @@
 %% Run as many benchmarks as possible from 2024
 
 % vnncomp_path = "C:\Users\diego\Documents\Research\vnncomp2023_benchmarks\benchmarks\";
-vnncomp_path = "/home/manzand/Documents/MATLAB/vnncomp2024_benchmarks/benchmarks/";
+% vnncomp_path = "/home/manzand/Documents/MATLAB/vnncomp2024_benchmarks/benchmarks/";
+vnncomp_path = "/home/dieman95/Documents/MATLAB/vnncomp2024_benchmarks/benchmarks/";
 
 benchmarks = dir(vnncomp_path);
 
-notSupported = {'test'; 'traffic_signs_recognition'; 'cctsdb_yolo'}; % skip for now
+notSupported = {'test'; 'traffic_signs_recognition'; 'cctsdb_yolo', 'linearizenn'}; % skip for now, not even for falsification
 
 regularTrack = {'acasxu'; 'nn4sys'; 'cora'; 'linearizenn'; 'safenlp'; 'dist-shift'; 'cifar100';...
     'tinyimagenet'; 'cgan'; 'metaroom'; 'tllverifybench'; 'collins_rul';
@@ -15,8 +16,8 @@ extendedTrack = {'ml4acopf'; 'lsnc'; 'yolo'; 'cctsdb_yolo'; 'collins_aerospace';
     'traffic_signs_recognition'; 'vggnet'; 'vit'; 
     }; % we don't really care much about this one
 
-for i=3:length(benchmarks)
-% for i=3 % only do acasxu
+% for i=3:length(benchmarks)
+for i=3 % only do acasxu
 
     name_noyear = split(benchmarks(i).name, "_");
     name_noyear = strjoin(name_noyear(1:end-1), '_');

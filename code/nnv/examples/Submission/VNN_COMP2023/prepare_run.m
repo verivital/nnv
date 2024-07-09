@@ -26,7 +26,4 @@ addpath(genpath('/home/ubuntu/toolkit/code/nnv/')); savepath;
 disp("Support package path");
 disp(matlabshared.supportpkg.getSupportPackageRoot);
 
-savepath; 
-% quit;
-
 end

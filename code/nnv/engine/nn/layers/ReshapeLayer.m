@@ -82,21 +82,13 @@ classdef ReshapeLayer < handle
     methods
         
         % evaluate
-        function reshape_xx = evaluate(obj,image)
+        function reshaped = evaluate(obj,image)
             %@image: an multi-channels image
             %@flatten_im: flatten image
             
-            try
-                ipDim = prod(size(image));
-                idx = find(obj.targetDim < 0);
-                obj.targetDim(idx) = ipDim/prod(obj.targetDim(1:end ~= idx));
-            catch 
-                % do nothing
-            end
-            reshape_x = reshape(image, flip(obj.targetDim));
-            for i = 1:size(reshape_x,3)
-                reshape_xx(:,:,i) = reshape_x(:,:,i)';
-            end
+            idx = find(obj.targetDim < 0);
+            obj.targetDim(idx) = 1;
+            reshaped = reshape(image, obj.targetDim);
                 
         end
     end
@@ -106,18 +98,10 @@ classdef ReshapeLayer < handle
         function image = reach_single_input(obj, in_image)
             % @in_image: input imagestar
             % @image: output set
-            
-            % TODO: implement this function, just need to modify the
-            % dimensions of an ImageStar or convert a Star to an ImageStar
-            % Should also support ImageZono and Zono
-            %error("TODO, Working on adding support for this layer.")
-            try
-                ipDim = numel(size(in_image));
-                idx = find(obj.targetDim < 0);
-                obj.targetDim(idx) = ipDim/prod(obj.targetDim(1:end ~= idx));
-            catch 
-                % do nothing
-            end
+
+            idx = find(obj.targetDim < 0);
+            obj.targetDim(idx) = 1;
+
             image = in_image.reshapeImagestar(obj.targetDim);
 
         end

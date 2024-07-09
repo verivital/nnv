@@ -16,7 +16,7 @@ status = 2; % unknown (to start with)
 
 % Load networks
 
-[net, nnvnet, needReshape] = load_vnncomp_network(category, onnx);
+[net, nnvnet, needReshape, reachOptions] = load_vnncomp_network(category, onnx, vnnlib);
 
 inputSize = net.Layers(1, 1).InputSize;
 
@@ -89,9 +89,9 @@ cEX_time = toc(t);
 %     reachOptions = {reachOptions_relax50; reachOptions_approx; reachOptions_exact};
 % end
 
-reachOptions = struct;
-reachOptions.lp_solver = "linprog"; % glpk is the worst, gurobi works better for some of the larger benchmarks, linprog faster for simple LPs
-reachOptions.reachMethod = 'approx-star';
+% reachOptions = struct;
+% reachOptions.lp_solver = "linprog"; % glpk is the worst, gurobi works better for some of the larger benchmarks, linprog faster for simple LPs
+% reachOptions.reachMethod = 'approx-star';
 % reachOptions.device = "gpu";
 % reachOptions.reachMethod = 'exact-star';
 % reachOptions.device = 'cpu';
@@ -250,7 +250,7 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
 
 end
 
-function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
+function [net,nnvnet,needReshape,reachOptions] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2024 benchmark NNs 
 %
 % Regular Track Benchmarks
@@ -286,15 +286,13 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
 %
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
+    reachOptions = struct;
+    reachOptions.reachMethod = 'approx-star'; % default parameters
+    numCores = feature('numcores'); % in case we select exact method
 
     if contains(category, 'collins_rul')
         net = importNetworkFromONNX(onnx);
         nnvnet = matlab2nnv(net);
-        % if contains(onnx, 'full_window_40')
-        %     needReshape = 2;
-        % else
-        %     needReshape = 1;
-        % end
         needReshape = 2;
 
     elseif contains(category, "nn4sys")
@@ -323,8 +321,12 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
 
     elseif contains(category, "cgan")
         % cgan: onnx to nnv
-        net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
-        nnvnet = matlab2nnv(net);
+        if ~contains(onnx, 'transformer')
+            net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
+            nnvnet = matlab2nnv(net);
+        else
+            error("We don't have those");
+        end
 
     elseif contains(category, "vggnet16")
         % vgg16: onnx to matlab
@@ -360,11 +362,16 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         % yolo: onnx to nnv
         net = importNetworkFromONNX(onnx); % padlayer
         nnvnet = matlab2nnv(net);
+        % needReshape = ?
 
     elseif contains(category, "acasxu")
         % acasxu: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
+        if contains(vnnlib, "prop_1.") || contains(vnnlib, "prop_2.")
+            reachOptions.reachMethod = 'exact-star';
+            reachOptions.numCores = numCores;
+        end
 
     elseif contains(category, "cifar100")
         % cifar100: onnx to nnv
@@ -378,11 +385,11 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         nnvnet = matlab2nnv(net);
         % needReshpae = ?
 
-    elseif contains(category, "linearizenn")
-        % LinerizeNN: onnx to nnv
-        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
-        nnvnet = matlab2nnv(net);
-        % needReshape = ?
+    % elseif contains(category, "linearizenn")%  we do not support the current version
+    %     % LinerizeNN: onnx to nnv
+    %     net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+    %     nnvnet = matlab2nnv(net);
+    %     % needReshape = ?
 
     elseif contains(category, "safenlp")
         % safeNLP: onnx to nnv
@@ -402,11 +409,11 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         nnvnet = "";
         % needReshape = ?
 
-    elseif contains(category, "generation")
-        % dynaroars/vnncomp-benchmark-generation
-        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
-        nnvnet = matlab2nnv(net);
-        % needReshape = ?
+    % elseif contains(category, "generation") %  does not look like this will be included
+    %     % dynaroars/vnncomp-benchmark-generation
+    %     net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
+    %     nnvnet = matlab2nnv(net);
+    %     % needReshape = ?
 
     elseif contains(category, "metaroom")
         % metaroom: onnx to matlab

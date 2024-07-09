@@ -34,8 +34,8 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
     # keep MATLAB engine open until manually killed
     # while True:
         # time.sleep(0.5)
-    print("We should not be here...")
-    # print("This is the last line of the prepare instance")
+    # print("We should not be here...")
+    print("This is the last line of the prepare instance")
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
@@ -47,11 +47,11 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """
     
     print("Begin run instance, try to connect to matlab engine")
-    #eng = matlab.engine.start_matlab()
+    eng = matlab.engine.start_matlab()
     # eng_name = matlab.engine.find_matlab()[0]
     print("Looking for connections")
     # eng = matlab.engine.connect_matlab(name=eng_name)
-    eng = matlab.engine.connect_matlab('vnncomp') 
+    # eng = matlab.engine.connect_matlab('vnncomp') 
 
     print("Is it connected?")
     # print(f'Successfully connected to engine: {eng_name}.')

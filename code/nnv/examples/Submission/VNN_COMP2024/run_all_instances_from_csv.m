@@ -39,7 +39,7 @@ for i=13 % only do acasxu
             results_dir = "results_approx_" + benchmarks(i).name;
             mkdir(results_dir);
         
-            for k=1:size(instances, 1)
+            for k=2:size(instances, 1)
                 
                 onnx = benchpath + filesep + instances(k,1);
                 vnnlib = benchpath + filesep + instances(k,2);

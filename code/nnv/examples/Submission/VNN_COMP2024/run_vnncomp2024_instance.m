@@ -72,22 +72,30 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
 
-        while ~isempty(reachOptionsList)
+        if ~nnz(lb-ub) % lb == ub, not a set
+
+            status = 1; % verified, since  we already tested this
             
-            reachOptions = reachOptionsList{1};
+        else
 
-            IS = create_input_set(lb, ub, inputSize, needReshape);
-        
-            % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
-
-            % Verify property
-            status = verify_specification(ySet, prop);
-
-            if status == 1 % verified, then stop
-                break
-            else
-                reachOptionsList = reachOptionsList(2:end);
+            while ~isempty(reachOptionsList)
+                
+                reachOptions = reachOptionsList{1};
+    
+                IS = create_input_set(lb, ub, inputSize, needReshape);
+            
+                % Compute reachability
+                ySet = nnvnet.reach(IS, reachOptions);
+    
+                % Verify property
+                status = verify_specification(ySet, prop);
+    
+                if status == 1 % verified, then stop
+                    break
+                else
+                    reachOptionsList = reachOptionsList(2:end);
+                end
+    
             end
 
         end
@@ -101,36 +109,44 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             lb_spc = lb{spc};
             ub_spc = ub{spc};
 
-            reachOptPar = reachOptionsList;
-            
-            while ~isempty(reachOptPar)
+            if ~nnz(lb_spc-ub_spc) % lb == ub, not a set
 
-                reachOptions = reachOptPar{1};
-            
-                IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
-        
-                % Compute reachability
-                ySet = nnvnet.reach(IS, reachOptions);
-        
-                % Verify property
-                if isempty(ySet.C)
-                    dd = ySet.V; DD = ySet.V;
-                    ySet = Star(dd,DD);
-                end
+                local_status(spc) = 1; % verified, since we already tested this
+                
+            else
+
+                reachOptPar = reachOptionsList;
+                
+                while ~isempty(reachOptPar)
     
-                % Add verification status
-                tempStatus = verify_specification(ySet, prop(spc));
-
-                if tempStatus ~= 2 % verified, then stop (or falsified)
-                    break
-                else
-                    reachOptPar = reachOptPar(2:end);
+                    reachOptions = reachOptPar{1};
+                
+                    IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
+            
+                    % Compute reachability
+                    ySet = nnvnet.reach(IS, reachOptions);
+            
+                    % Verify property
+                    if isempty(ySet.C)
+                        dd = ySet.V; DD = ySet.V;
+                        ySet = Star(dd,DD);
+                    end
+        
+                    % Add verification status
+                    tempStatus = verify_specification(ySet, prop(spc));
+    
+                    if tempStatus ~= 2 % verified, then stop (or falsified)
+                        break
+                    else
+                        reachOptPar = reachOptPar(2:end);
+                    end
+    
                 end
+
+                local_status(spc) = tempStatus;
 
             end
-
-            local_status(spc) = tempStatus;
-
+            
         end
 
         % Check for the global verification result
@@ -150,26 +166,34 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             
             lb_spc = lb{spc};
             ub_spc = ub{spc};
-            
-            while ~isempty(reachOptPar)
 
-                reachOptions = reachOptPar{1};
+            if ~nnz(lb_spc-ub_spc) % lb == ub, not a set
+
+                local_status(spc) = 1; % verified, since we already tested this earlier
+                
+            else
             
-                IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
-        
-                % Compute reachability
-                ySet = nnvnet.reach(IS, reachOptions);
+                while ~isempty(reachOptPar)
     
-                % Add verification status
-                tempStatus = verify_specification(ySet, prop(spc));
-
-                if tempStatus ~= 2 % verified, then stop (or falsified)
-                    break
-                else
-                    reachOptPar = reachOptPar(2:end);
+                    reachOptions = reachOptPar{1};
+                
+                    IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
+            
+                    % Compute reachability
+                    ySet = nnvnet.reach(IS, reachOptions);
+        
+                    % Add verification status
+                    tempStatus = verify_specification(ySet, prop(spc));
+    
+                    if tempStatus ~= 2 % verified, then stop (or falsified)
+                        break
+                    else
+                        reachOptPar = reachOptPar(2:end);
+                    end
+    
+                    local_status(spc) = tempStatus;
+    
                 end
-
-                local_status(spc) = tempStatus;
 
             end
 

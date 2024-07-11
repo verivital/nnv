@@ -50,15 +50,20 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     future = eng.run_vnncomp2024_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
 
     print("future initiated")
+
+    timeout = float(timeout)
+    print('Trying to get the results without specified timeout')
+
+    [status, total_time] = future.result()
     
-    try: 
-        [status, total_time] = future.result(timeout=float(timeout))
-        #print('extra time = ',int(toc-tic))
-    except matlab.engine.TimeoutError:
-        print("timeout")
-        #print('extra time = ',int(toc-tic))
-        total_time = timeout
-        status = 3
+    # try: 
+    #     [status, total_time] = future.result(timeout=float(timeout))
+    #     #print('extra time = ',int(toc-tic))
+    # except matlab.engine.TimeoutError:
+    #     print("timeout")
+    #     #print('extra time = ',int(toc-tic))
+    #     total_time = timeout
+    #     status = 3
         
     future.cancel()
     eng.quit() 

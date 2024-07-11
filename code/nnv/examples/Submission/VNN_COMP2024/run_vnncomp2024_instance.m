@@ -486,6 +486,9 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star'; % default parameters
         reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'exact-star'; % default parameters
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "cora")
         % cora benchmark: onnx 2 nnv

@@ -46,8 +46,8 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     print("Begin run instance, try to connect to matlab engine")
     # eng = matlab.engine.start_matlab()
     print("Looking for connections")
-    eng_name = matlab.engine.find_matlab()[0]
-    print(eng_name)
+    matlab.engine.find_matlab()
+    #print(eng_name)
     # eng = matlab.engine.connect_matlab(name=eng_name)
     eng = matlab.engine.connect_matlab('vnncomp') 
 

@@ -41,7 +41,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     # eng = matlab.engine.connect_matlab()
     # print(eng)
 
-    eng matlab.engine.start_matlab()
+    eng = matlab.engine.start_matlab()
 
     # eng.addpath(os.getcwd())
     # eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))

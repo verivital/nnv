@@ -5,6 +5,8 @@ function [status, tTime] = run_vnncomp2024_instance(category, onnx, vnnlib, outp
 t = tic; % start timer
 status = 2; % unknown (to start with)
 
+disp("We are running...")
+
 % Process:
 %  1) Load components
 %  2) SAT? - Randomly evaluate network to search for counterexample 

@@ -24,15 +24,15 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
         vnnlib (str): the path to the .vnnlib file
     """
     # start matlab engine as a shared engine
-    # eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
+    eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
     #matlab.engine.shareEngine('vnncomp', background=True)
-    #print('Engine starting...')
+    print('Engine starting...')
 
     # keep MATLAB engine open until manually killed
     # while True:
         # time.sleep(0.5)
     # print("We should not be here...")
-    print("This is the last line of the prepare instance")
+    #print("This is the last line of the prepare instance")
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
@@ -46,10 +46,10 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     print("Begin run instance, try to connect to matlab engine")
     # eng = matlab.engine.start_matlab()
     print("Looking for connections")
-    matlab.engine.find_matlab()
+    eng = matlab.engine.connect_matlab()
     #print(eng_name)
     # eng = matlab.engine.connect_matlab(name=eng_name)
-    eng = matlab.engine.connect_matlab('vnncomp') 
+    # eng = matlab.engine.connect_matlab('vnncomp') 
 
     print("Is it connected?")
     # print(f'Successfully connected to engine: {eng_name}.')

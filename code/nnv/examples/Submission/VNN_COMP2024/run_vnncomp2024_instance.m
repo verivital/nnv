@@ -76,13 +76,6 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             
             reachOptions = reachOptionsList{1};
 
-            if strcmp(reachOptions.reachMethod, 'exact-star')
-                p = gcp('nocreate');
-                if isempty(p)
-                    parpool('Threads');
-                end
-            end
-
             IS = create_input_set(lb, ub, inputSize, needReshape);
         
             % Compute reachability

@@ -23,16 +23,9 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
         onnx   (str): the path to the .onnx file
         vnnlib (str): the path to the .vnnlib file
     """
-    # start matlab engine as a shared engine
-    eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
-    #matlab.engine.shareEngine('vnncomp', background=True)
-    print('Engine starting...')
 
-    # keep MATLAB engine open until manually killed
-    # while True:
-        # time.sleep(0.5)
-    # print("We should not be here...")
-    #print("This is the last line of the prepare instance")
+    print("We should not be here...")
+
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
@@ -43,26 +36,14 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
     
-    print("Begin run instance, try to connect to matlab engine")
-    # eng = matlab.engine.start_matlab()
     print("Looking for connections")
-    matlab.engine.find_matlab()
     eng = matlab.engine.connect_matlab()
-    #print(eng_name)
-    # eng = matlab.engine.connect_matlab(name=eng_name)
-    # eng = matlab.engine.connect_matlab('vnncomp') 
-
-    print("Is it connected?")
-    # print(f'Successfully connected to engine: {eng_name}.')
 
     eng.addpath(os.getcwd())
     eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
     # eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
 
-    print("If connected, we added some paths")
     status = 2 #initialize with an 'Unknown' status
-    #toc = time.perf_counter()
-    print("doing matlab.engine.runCode")
     future = eng.run_vnncomp2024_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
     
     try: 

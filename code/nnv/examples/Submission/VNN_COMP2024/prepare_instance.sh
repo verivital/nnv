@@ -21,23 +21,12 @@ echo "Preparing $TOOL_NAME for benchmark instance in category '$CATEGORY' with o
 # kill any zombie processes
 killall -q python3
 # killall -q python
-killall -q matlab
+pkill -f matlab
 
-# WAIT_FOR_CONNECTION_TO_CLOSE='import matlab.engine\nimport time\nwhile matlab.engine.find_matlab(): time.sleep(1)'
-# python3 -c "exec('$WAIT_FOR_CONNECTION_TO_CLOSE')"
-# python -c "exec('$WAIT_FOR_CONNECTION_TO_CLOSE')"
+WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1)'
 
-# start the matlab engine in background and keep the connection open
-# python3 /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2024/execute.py 'prepare_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE &
-# python execute.py 'prepare_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE &
+matlab -batch "p = parpool; p.IdleTimeout = 120; matlab.engine.shareEngine;" &
 
-# WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1) \nprint(eng)'
-# python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
-# python -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
-
-nohup matlab -nosplash -nodisplay -nodesktop -batch "p = parpool; p.IdleTimeout = 120; matlab.engine.shareEngine;" &
-
-WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1) \nprint(eng)'
 python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 
 exit 0

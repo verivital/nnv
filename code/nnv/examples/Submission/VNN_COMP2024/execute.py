@@ -54,7 +54,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     timeout = float(timeout)
     print('Trying to get the results without specified timeout')
 
-    [status, total_time] = future.result()
+    #[status, total_time] = future.result()
     
     # try: 
     #     [status, total_time] = future.result(timeout=float(timeout))
@@ -65,13 +65,13 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     #     total_time = timeout
     #     status = 3
         
-    future.cancel()
-    eng.quit() 
+    #future.cancel()
+    #eng.quit() 
 
-    if status == 3:
-        resultfile = outputlocation
-        with open(resultfile, 'w') as f:
-            f.write('timeout')
+    # if status == 3:
+    #     resultfile = outputlocation
+    #     with open(resultfile, 'w') as f:
+    #         f.write('timeout')
     # All the other results are written from matlab
 
 

@@ -488,6 +488,7 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star'; % default parameters
+        reachOptions.numCores = numCores;
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "cora")

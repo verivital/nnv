@@ -36,10 +36,12 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
     
-    print("Looking for connections")
-    print(matlab.engine.find_matlab())
-    eng = matlab.engine.connect_matlab()
-    print(eng)
+    # print("Looking for connections")
+    # print(matlab.engine.find_matlab())
+    # eng = matlab.engine.connect_matlab()
+    # print(eng)
+
+    eng matlab.engine.start_matlab()
 
     # eng.addpath(os.getcwd())
     # eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
@@ -54,24 +56,26 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     timeout = float(timeout)
     print('Trying to get the results without specified timeout')
 
-    #[status, total_time] = future.result()
-    
-    # try: 
-    #     [status, total_time] = future.result(timeout=float(timeout))
-    #     #print('extra time = ',int(toc-tic))
-    # except matlab.engine.TimeoutError:
-    #     print("timeout")
-    #     #print('extra time = ',int(toc-tic))
-    #     total_time = timeout
-    #     status = 3
-        
-    #future.cancel()
-    #eng.quit() 
+    time.sleep(10) # wait until timeout everytime?
 
-    # if status == 3:
-    #     resultfile = outputlocation
-    #     with open(resultfile, 'w') as f:
-    #         f.write('timeout')
+    # [status, total_time] = future.result()
+    
+    try: 
+        [status, total_time] = future.result(timeout=float(timeout))
+        #print('extra time = ',int(toc-tic))
+    except matlab.engine.TimeoutError:
+        print("timeout")
+        #print('extra time = ',int(toc-tic))
+        total_time = timeout
+        status = 3
+        
+    future.cancel()
+    eng.quit() 
+
+    if status == 3:
+        resultfile = outputlocation
+        with open(resultfile, 'w') as f:
+            f.write('timeout')
     # All the other results are written from matlab
 
 

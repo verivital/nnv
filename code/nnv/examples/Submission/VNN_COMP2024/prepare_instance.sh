@@ -28,15 +28,15 @@ killall -q matlab
 # python -c "exec('$WAIT_FOR_CONNECTION_TO_CLOSE')"
 
 # start the matlab engine in background and keep the connection open
-python3 /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2024/execute.py 'prepare_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE &
+# python3 /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2024/execute.py 'prepare_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE &
 # python execute.py 'prepare_instance' $CATEGORY $ONNX_FILE $VNNLIB_FILE &
 
 # WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1) \nprint(eng)'
 # python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 # python -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 
-# matlab -nodisplay -r "matlab.engine.shareEngine('vnncomp')"
+nohup matlab -nodisplay -r "; p = parpool; p.IdleTimeout = 120; matlab.engine.shareEngine('vnncomp')"
 
-# echo "MATLAB session started and shared"
+echo "MATLAB session started and shared"
 
 exit 0

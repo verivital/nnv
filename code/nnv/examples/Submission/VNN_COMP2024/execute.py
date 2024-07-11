@@ -7,9 +7,6 @@ To perform testing, the following functionality is enabled.
 - Run an instance of reachability analysis given some arguments through the open MATLAB engine.
 
 Arguments can be passed to the call to the script and will be parsed accordingly.
-
-Created by: Samuel Sasaki (VeriVITAL)
-Date: June 28, 2023
 """
 
 
@@ -47,11 +44,12 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """
     
     print("Begin run instance, try to connect to matlab engine")
-    eng = matlab.engine.start_matlab()
-    # eng_name = matlab.engine.find_matlab()[0]
+    # eng = matlab.engine.start_matlab()
     print("Looking for connections")
+    eng_name = matlab.engine.find_matlab()[0]
+    print(eng_name)
     # eng = matlab.engine.connect_matlab(name=eng_name)
-    # eng = matlab.engine.connect_matlab('vnncomp') 
+    eng = matlab.engine.connect_matlab('vnncomp') 
 
     print("Is it connected?")
     # print(f'Successfully connected to engine: {eng_name}.')

@@ -76,6 +76,13 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
             
             reachOptions = reachOptionsList{1};
 
+            if strcmp(reachOptions.reachMethod, 'exact-star')
+                p = gcp('nocreate');
+                if isempty(p)
+                    parpool('Threads');
+                end
+            end
+
             IS = create_input_set(lb, ub, inputSize, needReshape);
         
             % Compute reachability
@@ -251,7 +258,19 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
     end
 
     % Create input set
-    IS = ImageStar(lb, ub); % 
+    IS = ImageStar(lb, ub); 
+
+    % Delete constraints for non-interval dimensions
+    xxx = find((lb-ub)); % do this for now as it is easier, but it can get created using the (ImageStar(V,C,d,lb,ub) way)
+    xxx = reshape(xxx, [], 1);
+    if numel(lb) ~= length(xxx)
+        IS.C = IS.C(:,xxx);
+        IS.pred_lb = IS.pred_lb(xxx);
+        IS.pred_ub = IS.pred_ub(xxx);
+        xxx = xxx + 1;
+        IS.V = IS.V(:,:,:,[1;xxx]);
+        IS.numPred = length(xxx);
+    end
 
 end
 
@@ -426,7 +445,7 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star'; % default parameters
         reachOptionsList{1} = reachOptions;
-        % needReshpae = ?
+        needReshape = 1;
 
     % elseif contains(category, "linearizenn")%  we do not support the current version
     %     % LinerizeNN: onnx to nnv
@@ -572,6 +591,10 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
                 if needReshape == 2
                     % x = reshape(x, [n 1]);
                     x = permute(x, [2 1 3]);
+                elseif needReshape == 1
+                    if ndims(x) == 3 % RGB  image
+                        x = permute(x, [2 1 3]);
+                    end
                 end
                 counterEx = {x; yPred}; % save input/output of countex-example
                 break;

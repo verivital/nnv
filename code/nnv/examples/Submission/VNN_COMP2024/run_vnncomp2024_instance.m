@@ -194,9 +194,9 @@ vT = toc(vT);
 
 tTime = toc(t); % save total computation time
 
-if status == 2 && strcmp(reachOptions.reachMethod, 'exact-star')
-    status = 0;
-end
+% if status == 2 && strcmp(reachOptions.reachMethod, 'exact-star')
+%     status = 0;
+% end
 
 disp("Verification result: " + string(status));
 disp("Counterexample search time: " + string(cEX_time));
@@ -208,18 +208,18 @@ disp( " ");
 if status == 0
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'sat \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
     write_counterexample(outputfile, counterEx)
 elseif status == 1
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unsat \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
 elseif status == 2
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unknown \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
 end
 

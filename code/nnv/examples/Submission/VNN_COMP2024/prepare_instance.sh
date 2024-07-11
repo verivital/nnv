@@ -25,8 +25,10 @@ pkill -f matlab
 
 WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1)'
 
-matlab -batch "p = parpool; p.IdleTimeout = 120; matlab.engine.shareEngine;" &
+matlab -batch "p = parpool; p.IdleTimeout = 12000; matlab.engine.shareEngine;" &
 
 python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
+
+wait(20) # it takes about this long to start the parpool
 
 exit 0

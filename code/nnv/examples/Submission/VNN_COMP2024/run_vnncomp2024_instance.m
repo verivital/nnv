@@ -58,7 +58,7 @@ else
     warning("Working on adding support to other vnnlib properties");
 end
 
-cEX_time = toc(t);
+cEX_time = toc(t)
 
 %% 3) UNSAT?
 
@@ -470,8 +470,13 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptions.reachMethod = 'relax-star-area'; % default parameters
+        reachOptions.relaxFactor = 1;
         reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area'; % default parameters
+        reachOptions.relaxFactor = 0.8;
+        reachOptionsList{2} = reachOptions;
         needReshape = 1;
 
     % elseif contains(category, "linearizenn")%  we do not support the current version

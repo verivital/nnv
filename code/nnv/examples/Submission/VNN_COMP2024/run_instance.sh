@@ -30,4 +30,4 @@ echo $PYTHONPATH
 python3 /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2024/execute.py 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"
 # sudo python3 execute.py 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"
 
-echo ""
+# echo ""

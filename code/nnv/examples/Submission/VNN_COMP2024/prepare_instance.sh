@@ -35,6 +35,9 @@ killall -q matlab
 # python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 # python -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 
-nohup matlab -nosplash -nodisplay -nodesktop -r "; p = parpool; p.IdleTimeout = 120; matlab.engine.shareEngine();" &
+nohup matlab -nosplash -nodisplay -nodesktop -batch "p = parpool; p.IdleTimeout = 120; matlab.engine.shareEngine;" &
+
+WAIT_FOR_CONNECTION_TO_OPEN='import matlab.engine\nimport time\nwhile not matlab.engine.find_matlab(): time.sleep(1) \nprint(eng)'
+python3 -c "exec('$WAIT_FOR_CONNECTION_TO_OPEN')"
 
 exit 0

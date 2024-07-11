@@ -41,7 +41,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     eng = matlab.engine.connect_matlab()
     print(eng)
 
-    eng.addpath(os.getcwd())
+    # eng.addpath(os.getcwd())
     eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
     print("Paths added");
     # eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm

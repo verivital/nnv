@@ -345,6 +345,10 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star'; % default parameters
         reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'exact-star';
+        reachOptions.numCores = numCores;
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "cgan")
         % cgan: onnx to nnv
@@ -428,8 +432,12 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         nnvnet = matlab2nnv(net);
         needReshape = 1;
         reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.5;
         reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "tinyimagenet")
         % tinyimagenet: onnx to nnv
@@ -459,10 +467,13 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         % cora benchmark: onnx 2 nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
-        % needReshape = ?
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.5;
+        reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star'; % default parameters
-        reachOptionsList{1} = reachOptions;
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "lsnc")
         % lyapunov benchmark: onnx to nnv (barely, some IR and opset version differences)

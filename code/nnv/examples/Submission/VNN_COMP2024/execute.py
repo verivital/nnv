@@ -39,7 +39,7 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     print("Looking for connections")
     print(matlab.engine.find_matlab())
     eng = matlab.engine.connect_matlab()
-    print(end)
+    print(eng)
 
     eng.addpath(os.getcwd())
     eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
@@ -48,6 +48,8 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
 
     status = 2 #initialize with an 'Unknown' status
     future = eng.run_vnncomp2024_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
+
+    print("future initiated")
     
     try: 
         [status, total_time] = future.result(timeout=float(timeout))

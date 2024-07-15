@@ -5,6 +5,8 @@ function [status, tTime] = run_vnncomp2024_instance(category, onnx, vnnlib, outp
 t = tic; % start timer
 status = 2; % unknown (to start with)
 
+disp("We are running...")
+
 % Process:
 %  1) Load components
 %  2) SAT? - Randomly evaluate network to search for counterexample 
@@ -16,10 +18,9 @@ status = 2; % unknown (to start with)
 
 % Load networks
 
-[net, nnvnet, needReshape] = load_vnncomp_network(category, onnx);
+[net, nnvnet, needReshape, reachOptionsList] = load_vnncomp_network(category, onnx, vnnlib);
 
 inputSize = net.Layers(1, 1).InputSize;
-
 
 % Load property to verify
 property = load_vnnlib(vnnlib);
@@ -61,42 +62,6 @@ cEX_time = toc(t);
 
 %% 3) UNSAT?
 
-% Define reachability options
-% Let's try to choose this better from the get-go
-
-% Option 1
-% reachOptions_relax100 = struct;
-% reachOptions_relax100.reachMethod = 'relax-star-range';
-% reachOptions_relax100.relaxFactor = 1; 
-% 
-% % Option 2
-% reachOptions_relax50 = struct;
-% reachOptions_relax50.reachMethod = 'relax-star-range';
-% reachOptions_relax50.relaxFactor = 0.5; 
-% 
-% % Option 3
-% reachOptions_exact = struct;
-% reachOptions_exact.reachMethod = 'exact-star';
-% reachOptions_exact.reachOption = 'parallel';
-% reachOptions_exact.numCores = feature('numcores');
-% 
-% % Option 4
-% reachOptions_approx.reachMethod = 'approx-star';
-% 
-% % Choosing reachOptions (based on size, but not sure how to decice really...)
-% if prod(inputSize) > 3000 % [32 32 3]
-%     reachOptions = {reachOptions_relax100; reachOptions_relax50; reachOptions_approx};
-% else
-%     reachOptions = {reachOptions_relax50; reachOptions_approx; reachOptions_exact};
-% end
-
-reachOptions = struct;
-reachOptions.reachMethod = 'approx-star';
-% reachOptions.reachMethod = 'exact-star';
-% reachOptions.device = 'cpu';
-% reachOptions.numCores = 24; % logical cores
-
-
 % Check if property was violated earlier
 if iscell(counterEx)
     status = 0;
@@ -109,37 +74,81 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
 
-        IS = create_input_set(lb, ub, inputSize, needReshape);
-        
-        % Compute reachability
-        ySet = nnvnet.reach(IS, reachOptions);
+        if ~nnz(lb-ub) % lb == ub, not a set
 
-        % Verify property
-        status = verify_specification(ySet, prop);
+            status = 1; % verified, since  we already tested this
+            
+        else
+
+            while ~isempty(reachOptionsList)
+                
+                reachOptions = reachOptionsList{1};
+    
+                IS = create_input_set(lb, ub, inputSize, needReshape);
+            
+                % Compute reachability
+                ySet = nnvnet.reach(IS, reachOptions);
+    
+                % Verify property
+                status = verify_specification(ySet, prop);
+    
+                if status == 1 % verified, then stop
+                    break
+                else
+                    reachOptionsList = reachOptionsList(2:end);
+                end
+    
+            end
+
+        end
 
     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
         
-        local_status = ones(length(lb),1); % track status for each specification in the vnnlib
+        local_status = 2*ones(length(lb),1); % track status for each specification in the vnnlib
         
         parfor spc = 1:length(lb) % We can compute these in parallel for faster computation
 
             lb_spc = lb{spc};
             ub_spc = ub{spc};
+
+            if ~nnz(lb_spc-ub_spc) % lb == ub, not a set
+
+                local_status(spc) = 1; % verified, since we already tested this
+                
+            else
+
+                reachOptPar = reachOptionsList;
+                
+                while ~isempty(reachOptPar)
+    
+                    reachOptions = reachOptPar{1};
+                
+                    IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
             
-            IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
+                    % Compute reachability
+                    ySet = nnvnet.reach(IS, reachOptions);
+            
+                    % Verify property
+                    if isempty(ySet.C)
+                        dd = ySet.V; DD = ySet.V;
+                        ySet = Star(dd,DD);
+                    end
+        
+                    % Add verification status
+                    tempStatus = verify_specification(ySet, prop(spc));
     
-            % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
+                    if tempStatus ~= 2 % verified, then stop (or falsified)
+                        break
+                    else
+                        reachOptPar = reachOptPar(2:end);
+                    end
     
-            % Verify property
-            if isempty(ySet.C)
-                dd = ySet.V; DD = ySet.V;
-                ySet = Star(dd,DD);
+                end
+
+                local_status(spc) = tempStatus;
+
             end
-
-            % Add verification status
-            local_status(spc) = verify_specification(ySet, prop(spc));
-
+            
         end
 
         % Check for the global verification result
@@ -151,20 +160,44 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
 
     elseif isa(lb, "cell") && length(prop) == 1 % one specification, multiple input definitions 
 
-        local_status = ones(length(lb),1); % track status for each specification in the vnnlib
+        local_status = 2*ones(length(lb),1); % track status for each specification in the vnnlib, initialize as unknown
         
         parfor spc = 1:length(lb) % We can compute these in parallel for faster computation
+
+            reachOptPar = reachOptionsList;
             
             lb_spc = lb{spc};
             ub_spc = ub{spc};
-            
-            IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
-    
-            % Compute reachability
-            ySet = nnvnet.reach(IS, reachOptions);
 
-            % Verify property
-            local_status(spc) = verify_specification(ySet, prop);
+            if ~nnz(lb_spc-ub_spc) % lb == ub, not a set
+
+                local_status(spc) = 1; % verified, since we already tested this earlier
+                
+            else
+            
+                while ~isempty(reachOptPar)
+    
+                    reachOptions = reachOptPar{1};
+                
+                    IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
+            
+                    % Compute reachability
+                    ySet = nnvnet.reach(IS, reachOptions);
+        
+                    % Add verification status
+                    tempStatus = verify_specification(ySet, prop(spc));
+    
+                    if tempStatus ~= 2 % verified, then stop (or falsified)
+                        break
+                    else
+                        reachOptPar = reachOptPar(2:end);
+                    end
+    
+                    local_status(spc) = tempStatus;
+    
+                end
+
+            end
 
         end
 
@@ -187,9 +220,9 @@ vT = toc(vT);
 
 tTime = toc(t); % save total computation time
 
-if status == 2 && strcmp(reachOptions.reachMethod, 'exact-star')
-    status = 0;
-end
+% if status == 2 && strcmp(reachOptions.reachMethod, 'exact-star')
+%     status = 0;
+% end
 
 disp("Verification result: " + string(status));
 disp("Counterexample search time: " + string(cEX_time));
@@ -201,18 +234,18 @@ disp( " ");
 if status == 0
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'sat \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
     write_counterexample(outputfile, counterEx)
 elseif status == 1
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unsat \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
 elseif status == 2
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unknown \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
 end
 
@@ -244,11 +277,23 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
     end
 
     % Create input set
-    IS = ImageStar(lb, ub); % 
+    IS = ImageStar(lb, ub); 
+
+    % Delete constraints for non-interval dimensions
+    xxx = find((lb-ub)); % do this for now as it is easier, but it can get created using the (ImageStar(V,C,d,lb,ub) way)
+    xxx = reshape(xxx, [], 1);
+    if numel(lb) ~= length(xxx)
+        IS.C = IS.C(:,xxx);
+        IS.pred_lb = IS.pred_lb(xxx);
+        IS.pred_ub = IS.pred_ub(xxx);
+        xxx = xxx + 1;
+        IS.V = IS.V(:,:,:,[1;xxx]);
+        IS.numPred = length(xxx);
+    end
 
 end
 
-function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
+function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2024 benchmark NNs 
 %
 % Regular Track Benchmarks
@@ -284,15 +329,17 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
 %
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
+    % reachOptions = struct;
+    % reachOptions.reachMethod = 'approx-star'; % default parameters
+    numCores = feature('numcores'); % in case we select exact method
 
     if contains(category, 'collins_rul')
         net = importNetworkFromONNX(onnx);
         nnvnet = matlab2nnv(net);
-        if contains(onnx, 'full_window_40')
-            needReshape = 2;
-        else
-            needReshape = 1;
-        end
+        needReshape = 2;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "nn4sys")
         % nn4sys: onnx to matlab:
@@ -303,11 +350,15 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         else
             error("We don't have those");
         end
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "ml4acopf")
         % ml4acopf: onnx to matlab
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
         nnvnet = "";
+        reachOptionsList = {};
 
     elseif contains(category, "dist_shift")
         % dist_shift: onnx to matlab, , matlab to nnv?
@@ -317,28 +368,60 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         catch
             nnvnet = "";
         end
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'exact-star';
+        reachOptions.numCores = numCores;
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "cgan")
         % cgan: onnx to nnv
-        net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
-        nnvnet = matlab2nnv(net);
+        if ~contains(onnx, 'transformer')
+            net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
+            nnvnet = matlab2nnv(net);
+        else
+            error("We don't have those");
+        end
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.8;
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "vggnet16")
         % vgg16: onnx to matlab
         net = importNetworkFromONNX(onnx); % flattenlayer
         nnvnet = "";
         needReshape = 1;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.9;
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.5;
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "tllverify")
         % tllverify: onnx to nnv
         net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
         nnvnet = matlab2nnv(net);
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.9;
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "vit")
         % vit: onnx to matlab
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
         nnvnet = "";
         needReshape= 1;
+        reachOptionsList = {};
 
     elseif contains(category, "cctsdb_yolo")
         % cctsdb_yolo: onnx to matlab
@@ -348,68 +431,126 @@ function [net,nnvnet,needReshape] = load_vnncomp_network(category, onnx)
         % needReshape = ?;
         % We cannot support this one
 
-    elseif contains(category, "collins_yolo")
+    elseif contains(category, "collins")
         % collins_yolo: onnx to matlab
         net = importNetworkFromONNX(onnx);
         nnvnet = "";
+        reachOptionsList = {};
 
     elseif contains(category, "yolo")
         % yolo: onnx to nnv
         net = importNetworkFromONNX(onnx); % padlayer
         nnvnet = matlab2nnv(net);
+        % needReshape = ?
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "acasxu")
         % acasxu: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
+        if ~contains(vnnlib, "prop_3.") && ~contains(vnnlib, "prop_4.")
+            reachOptions.reachMethod = 'exact-star';
+            reachOptions.numCores = numCores;
+            reachOptionsList{1} = reachOptions;
+        else
+            reachOptions = struct;
+            reachOptions.reachMethod = 'approx-star'; % default parameters
+            reachOptionsList{1} = reachOptions;
+            reachOptions.reachMethod = 'exact-star';
+            reachOptions.numCores = numCores;
+            reachOptionsList{2} = reachOptions;
+        end
 
     elseif contains(category, "cifar100")
         % cifar100: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         needReshape = 1;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 1;
+        reachOptionsList{1} = reachOptions;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.5;
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "tinyimagenet")
         % tinyimagenet: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
-        % needReshpae = ?
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area'; % default parameters
+        reachOptions.relaxFactor = 1;
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area'; % default parameters
+        reachOptions.relaxFactor = 0.8;
+        reachOptionsList{2} = reachOptions;
+        needReshape = 1;
 
-    elseif contains(category, "LinearizeNN")
-        % LinerizeNN: onnx to nnv
-        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
-        nnvnet = matlab2nnv(net);
-        % needReshape = ?
+    % elseif contains(category, "linearizenn")%  we do not support the current version
+    %     % LinerizeNN: onnx to nnv
+    %     net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+    %     nnvnet = matlab2nnv(net);
+    %     % needReshape = ?
 
-    elseif contains(category, "safeNLP")
+    elseif contains(category, "safenlp")
         % safeNLP: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         % needReshape = ?
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'exact-star'; % default parameters
+        reachOptions.numCores = numCores;
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "cora")
         % cora benchmark: onnx 2 nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
-        % needReshape = ?
+        if contains(onnx, '-set')
+            reachOptions = struct;
+            reachOptions.reachMethod = 'relax-star-area';
+            reachOptions.relaxFactor = 0.5;
+            reachOptionsList{1} = reachOptions;
+            reachOptions = struct;
+            reachOptions.reachMethod = 'approx-star'; % default parameters
+            reachOptionsList{2} = reachOptions;
+        else
+            reachOptions = struct;
+            reachOptions.reachMethod = 'relax-star-area';
+            reachOptions.relaxFactor = 0.9;
+            reachOptionsList{1} = reachOptions;
+            reachOptions.reachMethod = 'relax-star-area';
+            reachOptions.relaxFactor = 0.7;
+            reachOptionsList{1} = reachOptions;
+        end
 
-    elseif contains(category, "LSNC")
+    elseif contains(category, "lsnc")
         % lyapunov benchmark: onnx to nnv (barely, some IR and opset version differences)
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = "";
         % needReshape = ?
 
-    elseif contains(category, "generation")
-        % dynaroars/vnncomp-benchmark-generation
-        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
-        nnvnet = matlab2nnv(net);
-        % needReshape = ?
+    % elseif contains(category, "generation") %  does not look like this will be included
+    %     % dynaroars/vnncomp-benchmark-generation
+    %     net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
+    %     nnvnet = matlab2nnv(net);
+    %     % needReshape = ?
 
     elseif contains(category, "metaroom")
         % metaroom: onnx to matlab
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         needReshape = 2;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptionsList{1} = reachOptions;
 
     else % all other benchmarks
         % traffic: onnx to matlab: opset15 issues
@@ -505,6 +646,16 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
         % disp([x;yPred']);
         for h=1:length(Hs)
             if Hs(h).contains(double(yPred)) % property violated
+                % check if the counter example needs to be reshaped
+                n = numel(x);
+                if needReshape == 2
+                    % x = reshape(x, [n 1]);
+                    x = permute(x, [2 1 3]);
+                elseif needReshape == 1
+                    if ndims(x) == 3 % RGB  image
+                        x = permute(x, [2 1 3]);
+                    end
+                end
                 counterEx = {x; yPred}; % save input/output of countex-example
                 break;
             end

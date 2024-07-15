@@ -1,13 +1,10 @@
-function results = verify_instance_3d(net, vol, target, attack, reachOptions, max_value, min_value)
+function results = verify_instance_3d(net, vol, target, attack, reachOptions)
     % verify medmnist with inputs (input images), targets (labels) and attack
     % (struct with adversarial attack info)
     % results =  verify_medmnist(net, matlabNet, inputs, targets, attack, max_value*, min_value*)
     
     % Check what type of attack to consider
-    if strcmp(attack.Name, 'linf')
-        epsilon = attack.epsilon;
-        max_pixels = attack.max_pixels;
-    elseif strcmp(attack.Name, 'dark') || strcmp(attack.Name, 'bright')
+    if strcmp(attack.Name, 'dark') || strcmp(attack.Name, 'bright')
         max_pixels = attack.max_pixels;
         threshold = attack.threshold;
         noise_disturbance = attack.noise_de;
@@ -15,18 +12,8 @@ function results = verify_instance_3d(net, vol, target, attack, reachOptions, ma
         error("Adversarial attack not supported.");
     end
 
-    % check if max_value and min_value are provided
-    if ~exist("max_value", 'var')
-        max_value = inf;
-    end
-    if ~exist("min_value", 'var')
-        min_value = -inf;
-    end
-
     % Choose attack
-    if strcmp(attack.Name,'linf')
-        I = L_inf_attack(vol, epsilon, max_pixels, max_value, min_value);
-    elseif strcmp(attack.Name, 'dark')
+    if strcmp(attack.Name, 'dark')
         I = dark_attack(vol, max_pixels, threshold, noise_disturbance);
     elseif strcmp(attack.Name, 'bright')
         I = bright_attack(vol, max_pixels, threshold, noise_disturbance);
@@ -48,7 +35,7 @@ function results = verify_instance_3d(net, vol, target, attack, reachOptions, ma
         return
     end
 
-    % Check for falsification (TODO)
+    % Check for falsification 
     n_samples = 100; % number of random samples to try for falsification
     xRand = I.sample(n_samples);
     for k = 1:n_samples

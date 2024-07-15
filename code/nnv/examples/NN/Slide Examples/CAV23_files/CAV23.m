@@ -6,7 +6,7 @@ disp("Running examples 1...")
 t = tic;
 
 % Load Options (all networks follow a similar architecture)
-loadOptions.InputDataFormat = "BC";
+
 
 % input files
 onnxFile = "CAV23_files/cartpole.onnx";

@@ -61,6 +61,8 @@ for i=1:N
     lb_clip = max((img-disturbance),lb_min);
     ub_clip = min((img+disturbance), ub_max);
     IS = ImageStar(lb_clip, ub_clip); % this is the input set we will use
+    disp(IS)
+    return
     
     % Let's evaluate the image and the lower and upper bounds to ensure these
     % are correctly classified

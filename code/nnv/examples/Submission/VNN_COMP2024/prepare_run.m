@@ -5,28 +5,27 @@ function prepare_run()
 % remove paths from any prior installation (if any)
 % rmpath(genpath('/home/ubuntu/toolkit/code/nnv/')); savepath;
 
+% install gurobi
+%cd ~/gurobi1102/linux64/matlab;
+%gurobi_setup;
+
 % installing nnv
 cd /home/ubuntu/toolkit/code/nnv/;
 install;
 % save path to NNV
 addpath(genpath('/home/ubuntu/toolkit/code/nnv/')); savepath;
 
-%disp("");
-%disp("Support package path");
-%disp(matlabshared.supportpkg.getSupportPackageRoot);
+disp("MATLAB root");
+disp(matlabroot);
 
-%disp(" ")
-%disp("MATLAB root");
-%disp(matlabroot);
-
-% set support package root to import onnx location
-%matlabshared.supportpkg.setSupportPackageRoot('/usr/local/MATLAB/R2022b'); 
-%addpath(genpath('/usr/local/MATLAB')); 
+disp(" ")
 
 disp("Support package path");
 disp(matlabshared.supportpkg.getSupportPackageRoot);
 
-savepath; 
+% matlabshared.supportpkg.getInstalled
+
+% savepath; 
 % quit;
 
 end

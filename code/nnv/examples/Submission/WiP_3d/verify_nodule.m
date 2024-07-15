@@ -28,172 +28,44 @@ targets = single(test_labels(1:N));
 reachOptions = struct;
 reachOptions.reachMethod = 'relax-star-area';
 reachOptions.relaxFactor = 0.95;
+reachOptions.lp_solver = "gurobi";
 
 
-%% Attack 1
+% Study variables
+advType = ["bright", "dark"];
+maxpixels = [50, 100, 500, 1000]; %out of 28x28x28 pixels
+epsilon = [2, 4, 10]; % ep / 255
+threshold = [100; 150]; % bright ; dark
 
-adv_attack = struct;
-adv_attack.Name = "bright";
-adv_attack.threshold = 100; % perturb pixels below this value
-adv_attack.max_pixels = 50; % Max number of pixels to modify from input image
-adv_attack.noise_de = 1; % disturbance (noise) on pixels
+%% Verification analysis
+for a=advType
+    for mp=maxpixels
+        for ep=epsilon
+            
+            % 1) Initialize results var
+            results = zeros(N,2);
+            
+            % 2) Create adversarial attack
+            adv_attack = struct;
+            adv_attack.Name = a; % bright or dark
+            if strcmp(a, "bright") 
+                adv_attack.threshold = threshold(1); % perturb pixels below this value
+            else 
+                adv_attack.threshold = threshold(2); % perturb pixels below this value
+            end 
+            adv_attack.max_pixels = mp; % Max number of pixels to modify from input image
+            adv_attack.noise_de = ep/255; % disturbance (noise) on pixels
+            
+            % 3) Begin verification analysis
+            for i=1:N
+                img = squeeze(inputs(:,:,:,:,i));
+                target = targets(i);
+                results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+            end
+            
+            % 4) % save results
+            save("results/verification_nodule_"+ a +"_" + ep +"_" + mp + ".mat", "results");
 
-results = zeros(N,2); % verification result, time
-
-% verify volumes
-parfor i=1:N
-    img = squeeze(inputs(:,:,:,:,i));
-    target = targets(i);
-    results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+        end
+    end
 end
-
-% save results
-save("results/verification_nodule_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 2
-
-adv_attack = struct;
-adv_attack.Name = "bright";
-adv_attack.threshold = 100; % perturb pixels below this value
-adv_attack.max_pixels = 100; % Max number of pixels to modify from input image
-adv_attack.noise_de = 1; % disturbance (noise) on pixels
-
-results = zeros(N,2); % verification result, time
-
-% verify volumes
-parfor i=1:N
-    img = squeeze(inputs(:,:,:,:,i));
-    target = targets(i);
-    results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-end
-
-% save results
-save("results/verification_nodule_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 3
-
-adv_attack = struct;
-adv_attack.Name = "dark";
-adv_attack.threshold = 150; % perturb pixels below this value
-adv_attack.max_pixels = 50; % Max number of pixels to modify from input image
-adv_attack.noise_de = 1; % disturbance (noise) on pixels
-
-results = zeros(N,2); % verification result, time
-
-% verify volumes
-parfor i=1:N
-    img = squeeze(inputs(:,:,:,:,i));
-    target = targets(i);
-    results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-end
-
-% save results
-save("results/verification_nodule_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 4
-
-adv_attack = struct;
-adv_attack.Name = "dark";
-adv_attack.threshold = 150; % perturb pixels below this value
-adv_attack.max_pixels = 100; % Max number of pixels to modify from input image
-adv_attack.noise_de = 1; % disturbance (noise) on pixels
-
-results = zeros(N,2); % verification result, time
-
-% verify volumes
-parfor i=1:N
-    img = squeeze(inputs(:,:,:,:,i));
-    target = targets(i);
-    results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-end
-
-% save results
-save("results/verification_nodule_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 5
-
-adv_attack = struct;
-adv_attack.Name = "bright";
-adv_attack.threshold = 100; % perturb pixels below this value
-adv_attack.max_pixels = 50; % Max number of pixels to modify from input image
-adv_attack.noise_de = 2; % disturbance (noise) on pixels
-
-results = zeros(N,2); % verification result, time
-
-% verify volumes
-parfor i=1:N
-    img = squeeze(inputs(:,:,:,:,i));
-    target = targets(i);
-    results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-end
-
-% save results
-save("results/verification_nodule_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 6
-
-adv_attack = struct;
-adv_attack.Name = "bright";
-adv_attack.threshold = 100; % perturb pixels below this value
-adv_attack.max_pixels = 100; % Max number of pixels to modify from input image
-adv_attack.noise_de = 2; % disturbance (noise) on pixels
-
-results = zeros(N,2); % verification result, time
-
-% verify volumes
-parfor i=1:N
-    img = squeeze(inputs(:,:,:,:,i));
-    target = targets(i);
-    results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-end
-
-% save results
-save("results/verification_nodule_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 7
-
-adv_attack = struct;
-adv_attack.Name = "dark";
-adv_attack.threshold = 150; % perturb pixels below this value
-adv_attack.max_pixels = 50; % Max number of pixels to modify from input image
-adv_attack.noise_de = 2; % disturbance (noise) on pixels
-
-results = zeros(N,2); % verification result, time
-
-% verify volumes
-parfor i=1:N
-    img = squeeze(inputs(:,:,:,:,i));
-    target = targets(i);
-    results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-end
-
-% save results
-save("results/verification_nodule_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-
-
-%% Attack 8
-
-adv_attack = struct;
-adv_attack.Name = "dark";
-adv_attack.threshold = 150; % perturb pixels below this value
-adv_attack.max_pixels = 100; % Max number of pixels to modify from input image
-adv_attack.noise_de = 2; % disturbance (noise) on pixels
-
-results = zeros(N,2); % verification result, time
-
-% verify volumes
-parfor i=1:N
-    img = squeeze(inputs(:,:,:,:,i));
-    target = targets(i);
-    results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
-end
-
-% save results
-save("results/verification_nodule_"+adv_attack.Name+"_" +adv_attack.noise_de +"_" +adv_attack.max_pixels + ".mat", "results");
-

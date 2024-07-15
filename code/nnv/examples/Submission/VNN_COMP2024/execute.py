@@ -7,9 +7,6 @@ To perform testing, the following functionality is enabled.
 - Run an instance of reachability analysis given some arguments through the open MATLAB engine.
 
 Arguments can be passed to the call to the script and will be parsed accordingly.
-
-Created by: Samuel Sasaki (VeriVITAL)
-Date: June 28, 2023
 """
 
 
@@ -26,14 +23,9 @@ def prepare_instance(category: str, onnx: str, vnnlib: str) -> None:
         onnx   (str): the path to the .onnx file
         vnnlib (str): the path to the .vnnlib file
     """
-    # start matlab engine as a shared engine
-#     eng = matlab.engine.start_matlab(background=True, option='-r "matlab.engine.shareEngine"')
-#     print('Engine starting...')
 
-    # keep MATLAB engine open until manually killed
-#     while True:
-#         time.sleep(0.5)
-    print("We aren't actually doing anything here...")
+    print("We should not be here...")
+
 
 def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     """Run an instance based on parameters defined in .csv file.
@@ -43,23 +35,41 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         vnnlib  (str): the path to the .vnnlib file
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
+    
+    # print("Looking for connections")
+    # eng_name = matlab.engine.find_matlab()
+    # print(eng_name)
+    # try:
+    #     eng = matlab.engine.connect_matlab(eng_name[0])
+    #     print(eng)
+    # except:
+    #     print("Connect to anything")
+    #     eng = matlab.engine.connect_matlab()
+    #     print(eng)
+
+    # print(eng)
 
     eng = matlab.engine.start_matlab()
-#     eng_name = matlab.engine.find_matlab()[0]
-#     eng = matlab.engine.connect_matlab(name=eng_name)
-# 
-#     print(f'Successfully connected to engine: {eng_name}.')
 
     eng.addpath(os.getcwd())
     eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
+    print("Paths added");
+    # eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
 
     status = 2 #initialize with an 'Unknown' status
-    #toc = time.perf_counter()
-    #print('timestep :',toc)
-    future = eng.run_vnncomp2023_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
+    future = eng.run_vnncomp2024_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
+
+    print("future initiated")
+
+    timeout = float(timeout)
+    print('Trying to get the results without specified timeout')
+
+    # time.sleep(timeout) # wait until timeout everytime?
+
+    # [status, total_time] = future.result()
     
     try: 
-        [status, total_time] = future.result(timeout=float(timeout))
+        [status, total_time] = future.result(timeout)
         #print('extra time = ',int(toc-tic))
     except matlab.engine.TimeoutError:
         print("timeout")

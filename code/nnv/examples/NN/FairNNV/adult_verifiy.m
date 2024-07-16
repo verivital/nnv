@@ -64,7 +64,7 @@ for k = 1:length(onnxFiles)
     nR = 50; % ---> just chosen arbitrarily
     
     % ADJUST epsilon values here
-    epsilon = [0.0,0.001,0.01];
+    epsilon = [0.001,0.01];
 
    
     % Set up results
@@ -90,7 +90,7 @@ for k = 1:length(onnxFiles)
         start(verificationTimer);  % Start the timer
         
         % Iterate through observations
-        for i=1:numObs
+        for i=38
             idx = rand_indices(i);
             [IS, xRand] = perturbationIF(X_test_loaded(:, idx), epsilon(e), nR, min_values, max_values);
            
@@ -109,6 +109,7 @@ for k = 1:length(onnxFiles)
                     time(i,e) = toc(t);
                     met(i,e) = "counterexample";
                     skipTryCatch = true;  % Set the flag to skip try-catch block
+                    disp('Counter example found');
                     continue;
                 end
             end
@@ -198,7 +199,7 @@ function [IS, xRand] = perturbationIF(x, epsilon, nR, min_values, max_values)
     % Calculate disturbed lower and upper bounds considering min and max values
     lb = max(x - disturbance, min_values);
     ub = min(x + disturbance, max_values);
-    IS = ImageStar(single(lb), single(ub)); % default: single (assume onnx input models)
+    IS = Star(single(lb), single(ub)); % default: single (assume onnx input models)
 
     % Create random samples from initial set
     % Adjusted reshaping according to specific needs
@@ -208,7 +209,7 @@ function [IS, xRand] = perturbationIF(x, epsilon, nR, min_values, max_values)
     xRand = xB.sample(nR);
     xRand = reshape(xRand,[13,nR]);
     xRand(:,nR+1) = x; % add original image
-    xRand(:,nR+2) = IS.im_lb; % add lower bound image
-    xRand(:,nR+3) = IS.im_ub; % add upper bound image
+    xRand(:,nR+2) = xB.lb; % add lower bound image
+    xRand(:,nR+3) = xB.ub; % add upper bound image
 end
 

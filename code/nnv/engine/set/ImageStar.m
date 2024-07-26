@@ -847,30 +847,18 @@ classdef ImageStar < handle
             end
             
             if isempty(obj.C) || isempty(obj.d)
-                error('The imagestar is empty');
+                warning('The imagestar is empty');
+                % no ranges, so bounds are the same as image
+                obj.im_lb = obj.V;
+                obj.im_ub = obj.V;
             end
             
             if isempty(obj.im_lb) || isempty(obj.im_ub)
                          
-                image_lb = zeros(obj.height, obj.width, obj.numChannel);
-                image_ub = zeros(obj.height, obj.width, obj.numChannel);
-                reverseStr = '';
-                N = obj.height*obj.width*obj.numChannel;
-                if strcmp(dis_opt, 'display')
-                    fprintf('\nEstimating Range: ');
-                end
-                for i=1:obj.height
-                    for j=1:obj.width
-                        for k=1:obj.numChannel
-                            [image_lb(i, j, k), image_ub(i, j, k)] = obj.estimateRange(i,j,k);
-                            if strcmp(dis_opt, 'display')
-                                msg = sprintf('%d/%d', i*j*k, N);   
-                                fprintf([reverseStr, msg]);
-                                reverseStr = repmat(sprintf('\b'), 1, length(msg));
-                            end
-                        end
-                    end
-                end
+                x1 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_lb, 4, 1);
+                x2 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_ub, 4, 1);
+                image_lb = min(x1,x2);
+                image_ub = max(x1,x2);
 
                 obj.im_lb = image_lb;
                 obj.im_ub = image_ub;
@@ -1523,7 +1511,7 @@ classdef ImageStar < handle
             new_d = [in_IS.d; new_d];
             
         end
-
+    
     end
     
     

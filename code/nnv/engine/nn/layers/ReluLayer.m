@@ -104,13 +104,45 @@ classdef ReluLayer < ActivationFunctionLayer
                 h = in_image.height;
                 w = in_image.width;
                 c = in_image.numChannel;
-                
+                reduceMem = 0;
+                if contains(method, "reduceMem")
+                    method = split(method, '-');
+                    method = strjoin(method(1:end-1),'-');
+                    reduceMem = 1;
+                end
                 Y = PosLin.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
                 n = length(Y);
                 images(n) = ImageStar;
                 % transform back to ImageStar
                 for i=1:n
                     images(i) = Y(i).toImageStar(h,w,c);
+                    if reduceMem
+                        [l,u] = images(i).estimateRanges;
+                        % Get dimensions
+                        h = images(i).height;
+                        w = images(i).width;
+                        c = images(i).numChannel;
+                        % create ImageStar variables
+                        center = cast(0.5*(u+l), 'like', in_image.V);
+                        v = 0.5*(u-l);
+                        idxRegion = find((l-u));
+                        n = length(idxRegion);
+                        V = zeros(h, w, c, n, 'like', center);
+                        bCount = 1;
+                        for i1 = 1:size(v,1)
+                            for i2 = 1:size(v,2)
+                                basisValue = v(i1,i2);
+                                if basisValue
+                                    V(i1,i2,:,bCount) = v(i1,i2);
+                                    bCount = bCount + 1;
+                                end
+                            end
+                        end
+                        C = zeros(1, n, 'like', V);
+                        d = zeros(1, 1, 'like', V);
+                        % Construct ImageStar
+                        images(i) = ImageStar(cat(4,center,V), C, d, -1*ones(n,1), ones(n,1), l, u);
+                    end
                 end
             else % star
                 images = PosLin.reach(in_image, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU

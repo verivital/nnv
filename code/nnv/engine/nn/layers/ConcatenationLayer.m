@@ -107,9 +107,11 @@ classdef ConcatenationLayer < handle
             
             % Get max size of V
             vSize = size(inputs{1}.V);
+            indexMax = 1;
             for i = 2:length(inputs)
-                if numel(size(inputs{i}.V)) > numel(vSize)
-                    vSize = inputs{i}.V;
+                if numel(inputs{i}.V) > prod(vSize)
+                    vSize = size(inputs{i}.V);
+                    indexMax = i;
                 end
             end
             
@@ -125,7 +127,7 @@ classdef ConcatenationLayer < handle
             end
 
             % Create output set
-            outputs = ImageStar(new_V, inputs{1}.C, inputs{1}.d, inputs{1}.pred_lb, inputs{1}.pred_ub);
+            outputs = ImageStar(new_V, inputs{indexMax}.C, inputs{indexMax}.d, inputs{indexMax}.pred_lb, inputs{indexMax}.pred_ub);
         end
         
         % handle multiple inputs

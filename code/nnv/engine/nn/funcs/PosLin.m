@@ -2073,6 +2073,9 @@ classdef PosLin
                 R = PosLin.reach_star_approx2(I, option, dis_opt, lp_solver);
             elseif strcmp(method, 'relax-star-range')
                 R = PosLin.reach_relaxed_star_range(I, relaxFactor, option, dis_opt, lp_solver);
+                if contains(method, 'reduceMem')
+                    R = R.reduceConstraints;
+                end
             elseif strcmp(method, 'relax-star-bound')
                 R = PosLin.reach_relaxed_star_bound(I, relaxFactor, option, dis_opt, lp_solver);
             elseif strcmp(method, 'relax-star-area')

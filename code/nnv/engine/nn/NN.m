@@ -369,7 +369,7 @@ classdef NN < handle
                 nr = length(outputSet);
                 R = Star;
                 for s=1:nr
-                    R = outputSet(s).toStar;
+                    R(s) = outputSet(s).toStar;
                 end
             else
                 R = outputSet;

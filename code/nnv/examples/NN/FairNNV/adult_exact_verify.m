@@ -12,6 +12,7 @@ warning('on', 'verbose')
 clear; clc;
 modelDir = './adult_onnx';  % Directory containing ONNX models
 onnxFiles = dir(fullfile(modelDir, '*.onnx'));  % List all .onnx files
+onnxFiles = onnxFiles(1); % simplify for debugging
 
 load("adult_data.mat", 'X', 'y');  % Load data once
 
@@ -58,12 +59,12 @@ for k = 1:length(onnxFiles)
     % First, we define the reachability options
     reachOptions = struct; % initialize
     reachOptions.reachMethod = 'exact-star';
-    reachOptions.relaxFactor = 0.5;
     
     nR = 50; % ---> just chosen arbitrarily
     
     % ADJUST epsilons value here
-    epsilon = [0.0,0.001,0.01];
+    % epsilon = [0.001,0.01];
+    epsilon = 0.01;
     
     % Set up results
     nE = 3;
@@ -87,19 +88,23 @@ for k = 1:length(onnxFiles)
         start(verificationTimer);  % Start the timer
 
     
-        for i=1:numObs
+        % for i=1:numObs
+        for i=57
             idx = rand_indices(i);
             IS = perturbationIF(X_test_loaded(:, idx), epsilon(e), min_values, max_values);
-           
+
+            unsafeRegion = net.robustness_set(y_test_loaded(idx), 'min');
            
             t = tic;  % Start timing the verification for each sample
             
-            temp = net.verify_robustness(IS, reachOptions, y_test_loaded(idx));
+            temp = net.verify_robustness(IS, reachOptions, unsafeRegion);
             met(i,e) = 'exact';
-            res(i,e) = temp; % robust result
-            % end
-    
+            res(i,e) = temp; % robust result    
             time(i,e) = toc(t); % store computation time
+
+            if ~(temp == 1)
+                counterExs = getCounterRegion(IS,unsafeRegion,net.reachSet{end});
+            end
     
             % Check for timeout flag
             if evalin('base', 'timeoutOccurred')
@@ -164,6 +169,7 @@ function IS = perturbationIF(x, epsilon, min_values, max_values)
     % Calculate disturbed lower and upper bounds considering min and max values
     lb = max(x - disturbance, min_values);
     ub = min(x + disturbance, max_values);
-    IS = ImageStar(single(lb), single(ub)); % default: single (assume onnx input models)
+    IS = Star(single(lb), single(ub)); % default: single (assume onnx input models)
+
 end
 

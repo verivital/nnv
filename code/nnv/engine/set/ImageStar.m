@@ -511,17 +511,19 @@ classdef ImageStar < handle
         end
         
         function image = recurrentMap(obj, h_t_1, inputWeight, recurrentWeight, bias)
-            n = obj.numPred;
-            N = obj.height*obj.width*obj.numChannel;
-            for i=1:n+1
-                I = in_image.V(:,:,:,i);
-                %I = reshape(I,N,1); % flatten input
-                if i==1
-                    V(1, 1,:,i) = double(inputWeight)*I + double(recurrentWeight)*h_t_1 + double(bias);
-                else
-                    V(1, 1,:,i) = double(inputWeight)*I;
-                end
-            end
+            % Whoever implemented this, did not use it as it would return an error
+            % n = obj.numPred;
+            % N = obj.height*obj.width*obj.numChannel;
+            % for i=1:n+1
+            %     I = in_image.V(:,:,:,i);
+            %     %I = reshape(I,N,1); % flatten input
+            %     if i==1
+            %         V(1, 1,:,i) = double(inputWeight)*I + double(recurrentWeight)*h_t_1 + double(bias);
+            %     else
+            %         V(1, 1,:,i) = double(inputWeight)*I;
+            %     end
+            % end
+            error("Not supported yet.");
         end
         
         function image = HadamardProduct(obj, I)

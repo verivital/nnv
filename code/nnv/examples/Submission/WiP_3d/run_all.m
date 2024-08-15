@@ -1,8 +1,8 @@
 %% Shape only data (3d)
 
-% verify_adrenal;
+verify_adrenal;
 
-% verify_vessel;
+verify_vessel;
 
 %% Volume data (general 3D)
 

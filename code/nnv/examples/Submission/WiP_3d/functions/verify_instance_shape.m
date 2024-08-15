@@ -6,7 +6,6 @@ function results = verify_instance_shape(net, vol, target, attack, reachOptions)
     % Check what type of attack to consider
     if strcmp(attack.Name, 'add') || strcmp(attack.Name, 'remove')
         max_pixels = attack.max_pixels;
-        threshold = attack.threshold;
         noise_disturbance = attack.noise_de;
     else
         error("Adversarial attack not supported.");
@@ -14,9 +13,9 @@ function results = verify_instance_shape(net, vol, target, attack, reachOptions)
 
     % Choose attack
     if strcmp(attack.Name, 'add')
-        I = add_voxels(vol, max_pixels, threshold, noise_disturbance);
+        I = add_voxels(vol, max_pixels, noise_disturbance);
     elseif strcmp(attack.Name, 'remove')
-        I = remove_voxels(vol, max_pixels, threshold, noise_disturbance);
+        I = remove_voxels(vol, max_pixels, noise_disturbance);
     end
 
     % Begin analysis

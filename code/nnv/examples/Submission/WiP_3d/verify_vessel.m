@@ -30,10 +30,37 @@ reachOptions.reachMethod = 'relax-star-area';
 reachOptions.relaxFactor = 0.95;
 reachOptions.lp_solver = "gurobi";
 
-%% Attack 1
+% Study variables
+advType = ["add", "remove"];
+maxpixels = [50, 100, 500, 1000]; %out of 28x28x28 pixels
+epsilon = 1; % ep / 255
 
-% adv_attack = struct;
-%???????
 
-% results = zeros(N,2); % verification result, time
+%% Verification analysis
+for a=advType
+    for mp=maxpixels
+        for ep=epsilon
+            
+            % 1) Initialize results var
+            results = zeros(N,2);
+            
+            % 2) Create adversarial attack
+            adv_attack = struct;
+            adv_attack.Name = a; % add or remove
+            adv_attack.max_pixels = mp; % Max number of pixels to modify from input image
+            adv_attack.noise_de = ep/255; % disturbance (noise) on pixels
+            
+            % 3) Begin verification analysis
+            for i=1:N
+                img = squeeze(inputs(:,:,:,:,i));
+                target = targets(i);
+                results(i,:) = verify_instance_shape(net, img, target, adv_attack, reachOptions);
+            end
+            
+            % 4) % save results
+            save("results/verification_vessel_"+ a +"_" + ep +"_" + mp + ".mat", "results");
+
+        end
+    end
+end
 

@@ -5,32 +5,20 @@ function I = remove_voxels(vol, voxels, noise_disturbance)
     % Return a VolumeStar of a brightening attack on a few pixels
 
     % Initialize vars
-    ct = 0; % keep track of pixels modified
+    ct = 0; % keep track of pixels removed
     flag = 0; % determine when to stop modifying pixels
     vol = single(vol);
     at_vol = vol;
 
-    % Like darkening attack
-    for i=1:size(vol,1)
-        for j=1:size(vol,2)
-            for k=1:size(vol,3)
-                if vol(i,j,k) < threshold
-                    at_vol(i,j,k) = 255;
-                    ct = ct + 1;
-                    if ct >= voxels
-                        flag = 1;
-                        break;
-                    end
-                end
-            end
-            if flag == 1
-                break
-            end
-        end
-        if flag == 1
-            break;
-        end
-    end
+    % we can find the edge of the shape
+    shape = edge3(vol); % this should be okay for this data, but let's test it
+
+    % select a random pixel
+    idxs = find(shape) && find(vol);
+    voxels = max(voxels,length(idxs));
+
+    % For now, we can select the first ones
+    at_vol(idxs(1:voxels)) = 0;
 
     % Define input set as VolumeStar
     dif_vol = -vol + at_vol;
@@ -38,7 +26,7 @@ function I = remove_voxels(vol, voxels, noise_disturbance)
     V(:,:,:,:,1) = vol;   % center of set
     V(:,:,:,:,2) = noise; % basis vectors
     C = [1; -1];          % constraints
-    d = [1; -1];          % constraints
+    d = [1; noise_disturbance-1];          % constraints
     I = VolumeStar(V, C, d, 1-noise_disturbance, 1); % input set
 
     

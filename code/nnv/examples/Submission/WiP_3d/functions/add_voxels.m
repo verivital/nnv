@@ -17,7 +17,7 @@ function I = add_voxels(vol, voxels, noise_disturbance)
                 if vol(i,j,k) < threshold
                     at_vol(i,j,k) = 255;
                     ct = ct + 1;
-                    if ct >= max_pixels
+                    if ct >= voxels
                         flag = 1;
                         break;
                     end

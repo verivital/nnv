@@ -7,7 +7,7 @@ results = dir('results');
 datasets = ["fracture", "nodule", "organ", "synapse"]; 
 attackType = ["bright", "dark"];
 maxpixels = ["50", "100", "500", "1000"];
-epsilon = ["2", "4", "10"]; % epsilon/255
+epsilon = ["2", "5", "10", "25"]; % epsilon/255
 
 % Initialize directories
 mkdir('plots');
@@ -46,7 +46,7 @@ for ds = datasets
             
             % Get data
             for mp = maxpixels
-                resFile = "verification_" + ds + "_" + adv + "_" + ep + "_" + mp +".mat";
+                resFile = "results/verification_" + ds + "_" + adv + "_" + ep + "_" + mp +".mat";
                 res = summarize_results(resFile);
                 sat = [sat, res.sat];
                 unsat = [unsat, res.unsat];
@@ -111,7 +111,7 @@ for ds = datasets
             
             % Get data
             for ep = epsilon
-                resFile = "verification_" + ds + "_" + adv + "_" + ep + "_" + mp +".mat";
+                resFile = "results/verification_" + ds + "_" + adv + "_" + ep + "_" + mp +".mat";
                 res = summarize_results(resFile);
                 sat = [sat, res.sat];
                 unsat = [unsat, res.unsat];

@@ -1,8 +1,8 @@
 %% Shape only data (3d)
 
-verify_adrenal;
+% verify_adrenal;
 
-verify_vessel;
+% verify_vessel;
 
 %% Volume data (general 3D)
 
@@ -21,3 +21,7 @@ verify_organ;
 
 disp("... synapse ...")
 verify_synapse;
+
+
+disp("... Creating plots...");
+visualize_results;

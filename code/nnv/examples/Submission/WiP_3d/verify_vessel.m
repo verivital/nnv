@@ -20,7 +20,7 @@ matlabNet = net;
 net = matlab2nnv(net);
 
 % select volumes to verify
-N = 24; % even for numCores
+N = 50; % even for numCores
 inputs = single(test_images(:,:,:,:,1:N));
 targets = single(test_labels(1:N));
 

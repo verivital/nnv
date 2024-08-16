@@ -3,17 +3,16 @@
 results = dir('results');
 
 % Variable in the study
-% datasets = ["adrenal", "fracture", "nodule", "organ", "synapse", "vessel"];
-datasets = ["fracture", "nodule", "organ", "synapse"]; 
+datasets = ["adrenal", "vessel"];
 attackType = ["bright", "dark"];
 maxpixels = ["50", "100", "500", "1000"];
-epsilon = ["2", "5", "10", "25"]; % epsilon/255
+epsilon = ["1"]; % epsilon/255
 
 % Initialize directories
-mkdir('plots');
-for i=datasets
-    mkdir("plots/"+i);
-end
+% mkdir('plots');
+% for i=datasets
+%     mkdir("plots/"+i);
+% end
 
 %% Visualize verification results/trends
 

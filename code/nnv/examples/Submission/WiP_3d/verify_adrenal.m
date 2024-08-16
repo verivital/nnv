@@ -34,6 +34,7 @@ reachOptions.lp_solver = "gurobi";
 % Study variables
 advType = ["add", "remove"];
 maxpixels = [50, 100, 500, 1000]; %out of 28x28x28 pixels
+% maxpixels = 1000;
 epsilon = 1; % ep / 255
 
 

@@ -580,7 +580,7 @@ classdef MaxPooling2DLayer < handle
             if n > 0         
                 for i=1:n
                     m1 = length(images);           
-                    images = obj.stepSplitMultipleInputs(images, pad_image, split_pos(i, :, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, []);
+                    images = obj.stepSplitMultipleInputs(images, pad_image, split_pos(i, :, :), max_index{split_pos(i, 1), split_pos(i, 2), split_pos(i, 3)}, [], lp_solver);
                     m2 = length(images);
                     if strcmp(dis_opt, 'display')
                         fprintf('\nSplit %d images into %d images', m1, m2);

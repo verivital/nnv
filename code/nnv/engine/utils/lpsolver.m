@@ -49,6 +49,8 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
         % Define solver parameters
         params = struct; % for now, leave default options/params
         params.OutputFlag = 0; % no display
+        params.OptimalityTol = 1e-09;
+        params.FeasibilityTol = 1e-09;
         result = gurobi(model, params);
         fval = result.objval; % get fval value from results
         % get exitflag and match those of linprog for easier parsing

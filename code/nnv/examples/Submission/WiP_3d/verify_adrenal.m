@@ -20,7 +20,7 @@ matlabNet = net;
 net = matlab2nnv(net);
 
 % select volumes to verify
-N = 24; % even for numCores
+N = 50;
 inputs = single(test_images(:,:,:,:,1:N));
 targets = single(test_labels(1:N));
 
@@ -29,6 +29,13 @@ reachOptions = struct;
 reachOptions.reachMethod = 'relax-star-area';
 reachOptions.relaxFactor = 0.95;
 reachOptions.lp_solver = "gurobi";
+
+
+% Study variables
+advType = ["add", "remove"];
+maxpixels = [50, 100, 500, 1000]; %out of 28x28x28 pixels
+% maxpixels = 1000;
+epsilon = 1; % ep / 255
 
 
 %% Verification analysis
@@ -41,12 +48,7 @@ for a=advType
             
             % 2) Create adversarial attack
             adv_attack = struct;
-            adv_attack.Name = a; % bright or dark
-            if strcmp(a, "bright") 
-                adv_attack.threshold = threshold(1); % perturb pixels below this value
-            else 
-                adv_attack.threshold = threshold(2); % perturb pixels below this value
-            end 
+            adv_attack.Name = a; % add or remove
             adv_attack.max_pixels = mp; % Max number of pixels to modify from input image
             adv_attack.noise_de = ep/255; % disturbance (noise) on pixels
             
@@ -54,7 +56,7 @@ for a=advType
             for i=1:N
                 img = squeeze(inputs(:,:,:,:,i));
                 target = targets(i);
-                results(i,:) = verify_instance_3d(net, img, target, adv_attack, reachOptions);
+                results(i,:) = verify_instance_shape(net, img, target, adv_attack, reachOptions);
             end
             
             % 4) % save results

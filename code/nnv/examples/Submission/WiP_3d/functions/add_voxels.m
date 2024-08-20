@@ -5,32 +5,18 @@ function I = add_voxels(vol, voxels, noise_disturbance)
     % Return a VolumeStar of a brightening attack on a few pixels
 
     % Initialize vars
-    ct = 0; % keep track of pixels modified
-    flag = 0; % determine when to stop modifying pixels
     vol = single(vol);
     at_vol = vol;
 
-    % Create brightening attack
-    for i=1:size(vol,1)
-        for j=1:size(vol,2)
-            for k=1:size(vol,3)
-                if vol(i,j,k) < threshold
-                    at_vol(i,j,k) = 255;
-                    ct = ct + 1;
-                    if ct >= max_pixels
-                        flag = 1;
-                        break;
-                    end
-                end
-            end
-            if flag == 1
-                break
-            end
-        end
-        if flag == 1
-            break;
-        end
-    end
+    % we can find the edge of the shape
+    shape = edge3(vol,'approxcanny',0.6); % this should be okay for this data, but let's test it
+
+    % select a random pixel
+    idxs = setdiff(find(shape), find(vol));
+    voxels = min(voxels,length(idxs));
+
+    % For now, we can select the first ones
+    at_vol(idxs(1:voxels)) = 255;
 
     % Define input set as VolumeStar
     dif_vol = -vol + at_vol;

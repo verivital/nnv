@@ -20,7 +20,7 @@ matlabNet = net;
 net = matlab2nnv(net);
 
 % select volumes to verify
-N = 24; % even for numCores
+N = 50; % even for numCores
 inputs = single(test_images(:,:,:,:,1:N));
 targets = single(test_labels(1:N));
 
@@ -34,7 +34,7 @@ reachOptions.lp_solver = "gurobi";
 % Study variables
 advType = ["bright", "dark"];
 maxpixels = [50, 100, 500, 1000]; %out of 28x28x28 pixels
-epsilon = [2, 4, 10]; % ep / 255
+epsilon = [2, 5, 10, 25]; % ep / 255
 threshold = [100; 150]; % bright ; dark
 
 %% Verification analysis

@@ -857,10 +857,13 @@ classdef ImageStar < handle
             
             if isempty(obj.im_lb) || isempty(obj.im_ub)
                          
-                x1 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_lb, 4, 1);
-                x2 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_ub, 4, 1);
-                image_lb = min(x1,x2);
-                image_ub = max(x1,x2);
+                gens = obj.V(:,:,:,2:end);
+                pos_gens = gens;
+                pos_gens(gens < 0) = 0;
+                neg_gens = gens;
+                neg_gens(gens > 0) = 0;
+                image_lb = obj.V(:,:,:,1) + tensorprod(pos_gens, obj.pred_lb, 4, 1) + tensorprod(neg_gens, obj.pred_ub, 4, 1);
+                image_ub = obj.V(:,:,:,1) + tensorprod(pos_gens, obj.pred_ub, 4, 1) + tensorprod(neg_gens, obj.pred_lb, 4, 1);
 
                 obj.im_lb = image_lb;
                 obj.im_ub = image_ub;

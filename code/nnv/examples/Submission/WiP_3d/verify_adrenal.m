@@ -11,7 +11,7 @@ disp("Begin verification of adrenal3d");
 load(dataset);
 
 % data to verify (test set)
-test_images = permute(test_images, [2 3 4 5 1]);
+test_images = squeeze(permute(test_images, [2 3 4 5 1]));
 test_labels = test_labels + 1;
 
 % load network
@@ -21,8 +21,22 @@ net = matlab2nnv(net);
 
 % select volumes to verify
 N = 50;
-inputs = single(test_images(:,:,:,:,1:N));
-targets = single(test_labels(1:N));
+idxs = zeros(N,1);
+count = 1;
+
+for i = 1:length(test_labels)
+    y = classify(matlabNet,test_images(:,:,:,i));
+    if single(y) == test_labels(i)
+        idxs(count) = i;
+        count = count + 1;
+    end
+    if count > N
+        break
+    end
+end
+
+inputs = single(test_images(:,:,:,idxs));
+targets = single(test_labels(idxs));
 
 % Reachability parameters
 reachOptions = struct;
@@ -54,7 +68,7 @@ for a=advType
             
             % 3) Begin verification analysis
             for i=1:N
-                img = squeeze(inputs(:,:,:,:,i));
+                img = inputs(:,:,:,i);
                 target = targets(i);
                 results(i,:) = verify_instance_shape(net, img, target, adv_attack, reachOptions);
             end

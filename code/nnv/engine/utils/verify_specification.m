@@ -32,6 +32,9 @@ function result = verify_specification(reachSet, property)
             if ~isa(Set, "Star")
                 Set = Set.toStar;
             end
+            if isa(Set.V, 'gpuArray')
+                Set = Set.changeDevice('cpu');
+            end
             S = Set.intersectHalfSpace(property.G, property.g); % compute intersection with unsafe/not robust region
             if isempty(S)
                 result = 1; % no intersection with unsafe region = safe (unsat)
@@ -57,6 +60,7 @@ function result = verify_specification(reachSet, property)
                     continue; % does nothing, just need an statement, wanted to make this clear
                 else
                     result = 2; %  unknown if approx, sat if exact
+                    return;
                 end
             end
             cp = cp+1;

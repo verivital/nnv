@@ -42,14 +42,11 @@ verify_vessel_gpu;
 disp("... fracture ...");
 verify_fracture_gpu;
 
-
 disp("... nodule ...")
 verify_nodule_gpu;
 
-
 disp("... organ ...")
 verify_organ_gpu;
-
 
 disp("... synapse ...")
 verify_synapse_gpu;

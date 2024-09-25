@@ -284,15 +284,8 @@ classdef FullyConnectedLayer < handle
                            
                 n = in_image.numPred;
                 V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1, 'like', in_image.V);
-                for i=1:n+1
-                    I = in_image.V(:,:,:,i);
-                    I = reshape(I,N,1); % flatten input
-                    if i==1
-                        V(1, 1,:,i) = obj.Weights*I + obj.Bias;
-                    else
-                        V(1, 1,:,i) = obj.Weights*I;
-                    end
-                end
+                V(1, 1, :, :) = obj.Weights*reshape(in_image.V, N, n + 1);
+                V(1, 1, :, 1) = reshape(V(1, 1, :, 1), obj.OutputSize, 1) + obj.Bias;
                 % output set
                 image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
             else % reach Star set

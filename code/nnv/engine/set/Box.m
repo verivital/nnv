@@ -40,7 +40,7 @@ classdef Box
                 % Speeding up implementation
                 gens = diag(vec); % generate matrix
                 if numel(gens) > 1
-                    gens(:,all(gens(gens==0))) = []; % delete colums with no info
+                    gens(:,all(gens==0)) = []; % delete colums with no info
                 end
                 obj.generators = gens;
             catch

@@ -25,6 +25,14 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
         Aeq = gather(Aeq); Beq = gather(Beq); ub = gather(ub); 
     end
 
+    if isempty(A)
+        A = zeros(length(b), 'like', b);
+    end
+
+    if isempty(f)
+        f = zeros(length(b),1, 'like', b);
+    end
+
     dataType = class(f); 
 
     if strcmp(dataType, "single") || isa(A, "single") % ensure variables are all of type double

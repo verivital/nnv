@@ -81,8 +81,7 @@ for k = 1:length(onnxFiles)
     reachOptions.reachMethod = 'exact-star';
     
     % ADJUST epsilons value here
-    % epsilon = [0.0,0.02,0.03,0.05,0.07,0.1];  
-    epsilon = [0.0];  
+    epsilon = [0.0,0.02,0.03,0.05,0.07,0.1];  
     % -1 -> no perturbation to model
     % 0.0 -> counterfactual fairness (flips sensitive attribute)
     % >0.0 -> individual fairness (flips SA w/ perturbation of numerical features)  

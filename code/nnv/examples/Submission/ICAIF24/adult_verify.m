@@ -10,7 +10,6 @@ warning('on', 'verbose')
 clear; clc;
 modelDir = './adult_onnx';  % Directory containing ONNX models
 onnxFiles = dir(fullfile(modelDir, '*.onnx'));  % List all .onnx files
-onnxFiles = onnxFiles(1); % simplify for debugging
 
 load("./data/adult_data.mat", 'X', 'y');  % Load data once
 
@@ -18,9 +17,7 @@ load("./data/adult_data.mat", 'X', 'y');  % Load data once
 results = {};
 
 % List of models to process
-modelList = {'AC-1', 'AC-4', 'AC-5', 'AC-10', 'AC-3','AC-11','AC-12'};
-% modelList = {'AC-11'};
-
+modelList = {'AC-1', 'AC-4', 'AC-3'};
 
 %% Loop through each model
 for k = 1:length(onnxFiles)
@@ -148,9 +145,9 @@ for k = 1:length(onnxFiles)
     
             time(i,e) = toc(t); % store computation time
 
-            if ~(temp == 1)
-                counterExs = getCounterRegion(IS,unsafeRegion,net.reachSet{end});
-            end
+            % if ~(temp == 1)
+            %     counterExs = getCounterRegion(IS,unsafeRegion,net.reachSet{end});
+            % end
     
             % Check for timeout flag
             if evalin('base', 'timeoutOccurred')

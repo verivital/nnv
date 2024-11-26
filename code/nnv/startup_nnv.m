@@ -1,5 +1,8 @@
 fprintf('\nAdding dependencies to Matlab path...\n');
 
+if ~exist("tbxmanager.m","file") % not added to the path
+    addpath("tbxmanager");
+end
 tbxmanager restorepath
 
 fprintf('\nAdding NNV to Matlab path...\n');

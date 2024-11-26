@@ -19,8 +19,22 @@ _Previous_
 * Earliest version: https://doi.org/10.24433/CO.1314285.v1
 
 # Installation:
+
+1. Clone or download the NNV toolbox from (https://github.com/verivital/nnv)
     
-1. Install MATLAB (2022b or newer) with at least the following toolboxes:
+    Note: to operate correctly, nnv depends on other tools (CORA, NNMT, HyST, onnx2nnv), which are included as git submodules. As such, you must clone recursively, e.g., with the following:
+    ```
+    git clone --recursive https://github.com/verivital/nnv.git
+    ```
+
+2. If running in Ubuntu, install MATLAB and proceed to run the provided installation script (then, skip to step 6). 
+
+    ```
+    chmod +x install_ubuntu.sh
+    ./install_ubuntu.sh
+    ``` 
+    
+3. For MacOS and Windows, please install MATLAB (2023a or newer) with at least the following toolboxes:
    * Computer Vision
    * Control Systems
    * Deep Learning
@@ -31,23 +45,17 @@ _Previous_
    * Symbolic Math
    * System Identification
    
-2. Install the following support package
+4. Install the following support package
        [Deep Learning Toolbox Converter for ONNX Model Format](https://www.mathworks.com/matlabcentral/fileexchange/67296-deep-learning-toolbox-converter-for-onnx-model-format)
        
        Note: Support packages can be installed in MATLAB's HOME tab > Add-Ons > Get Add-ons, search for the support package using the Add-on Explorer and click on the Install button.
 
-3. Clone or download the NNV toolbox from (https://github.com/verivital/nnv)
-    
-    Note: to operate correctly, nnv depends on other tools (CORA, NNMT, HyST, onnx2nnv), which are included as git submodules. As such, you must clone recursively, e.g., with the following:
-    ```
-    git clone --recursive https://github.com/verivital/nnv.git
-    ```
 
-4. Open MATLAB, then go to the directory where NNV exists on your machine, then run the `install.m` script located at /nnv/
+5. Open MATLAB, then go to the directory where NNV exists on your machine, then run the `install.m` script located at /nnv/
     
     Note: if you restart Matlab, rerun either install.m or startup_nnv.m, which will add the necessary dependencies to the path; you alternatively can run `savepath` after installation to avoid this step after restarting Matlab, but this may require administrative privileges
 
-5. Optional installation packages
+6. Optional installation packages
 
    a. To run verification for convolutional neural networks (CNNs) on VGG16/VGG19, additional support packages must be installed:
 
@@ -139,6 +147,14 @@ All the code for the publication using NNV, including competitions that NNV has 
 The methods implemented in NNV are based upon or used in the following papers:
 
 * Diego Manzanas Lopez, Sung Woo Choi, Hoang-Dung Tran, Taylor T. Johnson, "NNV 2.0: The Neural Network Verification Tool". In: Enea, C., Lal, A. (eds) Computer Aided Verification. CAV 2023. Lecture Notes in Computer Science, vol 13965. Springer, Cham. [https://doi.org/10.1007/978-3-031-37703-7_19]
+
+* Anne M Tumlin, Diego Manzanas Lopez, Preston Robinette, Yuying Zhao, Tyler Derr, and Taylor T Johnson. "FairNNV: The Neural Network Verification Tool For Certifying Fairness. In Proceedings of the 5th ACM International Conference on AI in Finance (ICAIF '24)". Association for Computing Machinery, New York, NY, USA, 36–44. [https://doi.org/10.1145/3677052.3698677]
+
+* Taylor T. Johnson, Diego Manzanas Lopez and Hoang-Dung. Tran, "Tutorial: Safe, Secure, and Trustworthy Artificial Intelligence (AI) via Formal Verification of Neural Networks and Autonomous Cyber-Physical Systems (CPS) with NNV," 2024 54th Annual IEEE/IFIP International Conference on Dependable Systems and Networks - Supplemental Volume (DSN-S), Brisbane, Australia, 2024, pp. 65-66, [https://doi.org/10.1109/DSN-S60304.2024.00027]
+
+* Preston K. Robinette, Diego Manzanas Lopez, Serena Serbinowska, Kevin Leach, and Taylor T Johnson. "Case Study: Neural Network Malware Detection Verification for Feature and Image Datasets". In Proceedings of the 2024 IEEE/ACM 12th International Conference on Formal Methods in Software Engineering (FormaliSE) (FormaliSE '24). Association for Computing Machinery, New York, NY, USA, 127–137. [https://doi.org/10.1145/3644033.3644372]
+
+* Hoang-Dung Tran, Diego Manzanas Lopez, and Taylor Johnson. "Tutorial: Neural Network and Autonomous Cyber-Physical Systems Formal Verification for Trustworthy AI and Safe Autonomy". In Proceedings of the International Conference on Embedded Software (EMSOFT '23). Association for Computing Machinery, New York, NY, USA, 1–2. [https://doi.org/10.1145/3607890.3608454]
 
 * Neelanjana Pal, Diego Manzanas Lopez, Taylor T Johnson, "Robustness Verification of Deep Neural Networks using Star-Based Reachability Analysis with Variable-Length Time Series Input", to be presented at FMICS 2023. [https://arxiv.org/pdf/2307.13907.pdf]
 

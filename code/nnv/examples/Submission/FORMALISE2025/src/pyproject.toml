@@ -1,0 +1,10 @@
+# https://stackoverflow.com/questions/6323860/sibling-package-imports
+[project]
+name = "vvn"
+version = "0.0.1"
+description = "Verification of video classification neural networks"
+
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core >=3.2,<4"]
+

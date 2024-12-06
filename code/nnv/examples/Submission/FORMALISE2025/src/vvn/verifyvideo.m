@@ -34,16 +34,6 @@ function [res, time, met] = verifyvideo(dsVar, smpLen, verAlg, index, epsIndex)
         dsVarCaps = "ZoomOut";
         dsVarShort = "zoomout";
     end
-    
-    % Handle different paths if using docker vs. local
-    % Relative path when called from docker will be /home/user/vvn/src
-    % currentFolder = pwd
-    % if currentFolder == '/home/user/vvn/src'
-    %     dockerPrepath = "../";
-    % else
-    %     dockerPrepath = '';
-    % end
-
 
     fprintf("Running robustness verification on %s dataset...", dsVarCaps);
 

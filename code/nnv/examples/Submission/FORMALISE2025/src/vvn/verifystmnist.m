@@ -18,14 +18,6 @@ function [res, time, met] = verifystmnist(smpLen, verAlg, index, epsIndex)
 
     fprintf("Running robustness verification on STMNIST %df dataset...", smpLen);
 
-    % Handle different paths if using docker vs. local
-    % Relative path when called from docker will be /home/user/vvn/src
-    % if pwd == '/home/user/vvn/src'
-    %     dockerPrepath = "../";
-    % else
-    %     dockerPrepath = '';
-    % end
-
     % Load data
     data = readNPY(sprintf("data/STMNIST/test/stmnistvideo_%df_test_data_seq.npy", smpLen));
     labels = readNPY(sprintf("data/STMNIST/test/stmnistvideo_%df_test_labels_seq.npy", smpLen));

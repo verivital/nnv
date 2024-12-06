@@ -16,15 +16,6 @@ function [res, time, met] = verifygtsrb(smpLen, verAlg, index, epsIndex)
         return
     end
 
-    % Handle different paths if using docker vs. local
-    % Relative path when called from docker will be /home/user/vvn/src
-    % if pwd == '/home/user/vvn/src'
-    %     dockerPrepath = "../";
-    % else
-    %     dockerPrepath = '';
-    % end
-
-
     fprintf("Running robustness verification on GTSRB %df dataset...", smpLen);
 
     % Load data

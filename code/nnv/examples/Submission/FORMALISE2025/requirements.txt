@@ -1,6 +1,7 @@
 coloredlogs==15.0.1
 contourpy==1.2.1
 cycler==0.12.1
+eagerpy==0.30.0
 flatbuffers==24.3.25
 fonttools==4.53.0
 humanfriendly==10.0
@@ -15,6 +16,10 @@ pillow==10.3.0
 protobuf==5.27.1
 pyparsing==3.1.2
 python-dateutil==2.9.0.post0
+python-dotenv==1.0.1
+requests==2.32.3
+scipy==1.14.1
 six==1.16.0
 sympy==1.12.1
-# -e git+ssh://git@github.com/sammsaski/VVN.git@45f8615ed58a0674ed92c0fcfcb88143f759fffb#egg=vvn&subdirectory=src
+typing_extensions==4.12.2
+urllib3==2.2.3

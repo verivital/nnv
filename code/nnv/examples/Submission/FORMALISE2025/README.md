@@ -64,7 +64,7 @@ pip install -e .
 
 5. With all of these steps done, you are now ready to begin reproducing the artifacts.
 
-# Smoke Test Instructions
+# Smoke Test Instructions (~1min)
 
 Instructions to quickly test the software needed to reproduce the artifacts of the paper. If no issues arise during the smoke test, you can safely proceed to reproducing all artifacts as described in the below sections.
 
@@ -84,7 +84,7 @@ chmod +x run_smoketest.sh && ./run_smoketest.sh
 **********************************************
 ```
 
-# Reproducing a Subset of the Results
+# Reproducing a Subset of the Results (~1-2 hours)
 
 Assuming the average runtime for the experiments remains as shown in the paper, then it will take approximately 9-10 days to reproduce the results. For that reason, this set of instructions is for reproducing a subset of the results. More specifically, we reproduce the first row of Table 2 from the paper, e.g. the verification results for the 4-frame variation of the Zoom In dataset with the relax verification algorithm. The results will be output to the console after the script completes. Additionally, this script will generate the reachable output range plots used in Figure 7.
 

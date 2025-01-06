@@ -60,6 +60,9 @@ for i=1:length(datasets)
             disp(medmnist_path+datasets(i).name)
         end
 
+        disp("|========================================================================|")
+        disp(' ');
+
     end
 
 end

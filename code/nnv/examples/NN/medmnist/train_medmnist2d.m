@@ -22,8 +22,10 @@ function train_medmnist2d(dataset)
     % permute dimensions of images
 
     % train
-    train_images = single(train_images);
+    % train_images = single(train_images);
     train_images = permute(train_images, [2 3 4 1]);
+    train_images = single(train_images);
+    % train_images = gpuArray(train_images);
     train_labels = categorical(train_labels + 1);
 
     % test
@@ -59,6 +61,7 @@ function train_medmnist2d(dataset)
     options = trainingOptions('adam', ...
         'InitialLearnRate',0.001, ...
         'MaxEpochs',30, ...
+        'MiniBatchSize',128, ...
         'Shuffle','every-epoch', ...
         'ValidationData',{val_images, val_labels}, ...
         'ValidationFrequency',100, ...
@@ -80,7 +83,7 @@ function train_medmnist2d(dataset)
     name = name{end};
     name = split(name, '.');
     name = name{1};
-    save("models/model_"+string(name)+".mat", 'net', 'accuracy', 'info');
+    save("modelsTutorial/model_"+string(name)+".mat", 'net', 'accuracy', 'info');
     
     toc(t);
 

@@ -689,7 +689,7 @@ classdef PosLin
             % date: 4/3/2019
             % update: 7/13/2020 : getMax parallel
             % update: 7/15/2020 : add display option
-            %         7/16/2020: add lp_solver option
+            %         7/16/2020 : add lp_solver option
             
             switch nargin
                 case 1
@@ -1018,8 +1018,12 @@ classdef PosLin
                 map8 = map6(map7); % all indexes having lb < 0 & ub > 0
                 lb2 = xmin(map7);  % lower bound of all indexes having lb < 0 & ub > 0
                 ub2 = xmax1(map7); % upper bound of all neurons having lb < 0 & ub > 0
-
-                map9 = [map22; map8];
+                
+                if ~isempty(map8)
+                    map9 = [map22; map8];
+                else
+                    map9 = map22;
+                end
                 lb3 = [lb1; lb2];
                 ub3 = [ub1; ub2];
                 if strcmp(dis_opt, 'display')

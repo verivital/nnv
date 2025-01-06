@@ -1135,9 +1135,9 @@ classdef Star
             b = obj.d;
             Ae = obj.V(:, 2:obj.nVar+1);
             be = s - obj.V(:,1);
-            
-            P = Polyhedron('A', A, 'b', b, 'Ae', Ae, 'be', be, 'lb', obj.predicate_lb, 'ub', obj.predicate_ub);
-            
+
+            P = Polyhedron('A', double(A), 'b', double(b), 'Ae', double(Ae), 'be', double(be),...
+                'lb', double(obj.predicate_lb), 'ub', double(obj.predicate_ub));
             bool = ~P.isEmptySet;
                      
         end

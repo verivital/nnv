@@ -29,7 +29,9 @@ function results = verifyDataset(net, inputs, targets, attack, max_value, min_va
     
     % Define reachability parameters
     reachOptions = struct;
-    reachOptions.reachMethod = 'approx-star';
+    % reachOptions.reachMethod = 'approx-star';
+    reachOptions.reachMethod = 'relax-star-area';
+    reachOptions.relaxFactor = 1;
     
     % Analyze all images
     for i = 1:N
@@ -45,7 +47,7 @@ function results = verifyDataset(net, inputs, targets, attack, max_value, min_va
         target = targets(i);
 
         t = tic; % start timer
-        results(1,i) = verifySample(net,I,img,target, reachOptions);
+        results(1,i) = verifySample(net,I,img,target,reachOptions);
         results(2,i) = toc(t);
 
     end

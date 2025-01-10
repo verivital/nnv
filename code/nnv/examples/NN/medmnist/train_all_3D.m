@@ -1,11 +1,13 @@
 %% Train all possible 3D classification models for medmnist data
 
-medmnist_path = "data/mat_files/"; % path to data
+% medmnist_path = "data/mat_files/"; % path to data
+medmnist_path = "C:\Users\diego\Documents\Research\medmnist\mat_files\";
 
 datasets = dir(medmnist_path+"*.mat");
 
-for i=1:length(datasets)
-    if endsWith(datasets(i).name, "3d.mat")
+% for i=1:length(datasets)
+for i = 15
+    if endsWith(datasets(i).name, "3d.mat") || endsWith(datasets(i).name, "3d_64.mat")
         try
             train_medmnist3d(medmnist_path+datasets(i).name);
         catch ME

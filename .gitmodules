@@ -4,6 +4,3 @@
 [submodule "code/nnv/engine/cora"]
 	path = code/nnv/engine/cora
 	url = https://github.com/verivital/CORA.git
-[submodule "code/nnv/examples/Submission/FORMALISE2025/npy-matlab"]
-	path = code/nnv/examples/Submission/FORMALISE2025/npy-matlab
-	url = https://github.com/kwikteam/npy-matlab.git

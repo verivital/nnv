@@ -1,0 +1,14 @@
+.DS_Store
+
+# don't commit the data
+*data/ZoomIn*
+*data/ZoomOut*
+*data/GTSRB*
+*data/STMNIST*
+
+# matlab stuff
+*.asv
+*tbxmanager*
+
+# python stuff
+*__pycache__*

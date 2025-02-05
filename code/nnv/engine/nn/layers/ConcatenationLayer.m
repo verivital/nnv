@@ -128,6 +128,7 @@ classdef ConcatenationLayer < handle
 
             % Create output set
             outputs = ImageStar(new_V, inputs{indexMax}.C, inputs{indexMax}.d, inputs{indexMax}.pred_lb, inputs{indexMax}.pred_ub);
+            
         end
         
         % handle multiple inputs

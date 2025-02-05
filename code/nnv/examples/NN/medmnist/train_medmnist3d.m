@@ -22,24 +22,53 @@ function train_medmnist3d(dataset)
     % permute dimensions of images
 
     % train
-    train_images = single(train_images);
+    train_images = single(train_images)/255;
     train_images = permute(train_images, [2 3 4 5 1]);
     train_labels = categorical(train_labels + 1);
 
     % test
-    test_images = single(test_images);
+    test_images = single(test_images)/255;
     test_images = permute(test_images, [2 3 4 5 1]);
     test_labels = categorical(test_labels + 1);
 
     % validation
-    val_images = single(val_images);
+    val_images = single(val_images)/255;
     val_images = permute(val_images, [2 3 4 5 1]);
     val_labels = categorical(val_labels + 1);
     
     
     % Create the neural network model
+    if imgSize == [64 64 64]
     layers = [
-        image3dInputLayer(imgSize) % image size = [28 28 28] (Height x Width x Channels)
+        image3dInputLayer(imgSize) % image size = [28 28 28] (Height x Width x Channels) or [64 64 64]
+        
+        convolution3dLayer(8,64,'Padding','same')
+        batchNormalizationLayer
+        reluLayer
+        averagePooling3dLayer(2,'Stride',2)
+
+        convolution3dLayer(4,32,'Padding','same')
+        batchNormalizationLayer
+        reluLayer
+        averagePooling3dLayer(2,'Stride',2)
+
+        convolution3dLayer(3,16,'Padding','same')
+        batchNormalizationLayer
+        reluLayer
+        averagePooling3dLayer(2,'Stride',2)
+
+        flattenLayer
+
+        fullyConnectedLayer(128)
+        reluLayer
+        dropoutLayer(0.5)
+        
+        fullyConnectedLayer(numClasses) % 10 = number of classes
+        softmaxLayer
+        classificationLayer];
+    else
+    layers = [
+        image3dInputLayer(imgSize) % image size = [28 28 28] (Height x Width x Channels) or [64 64 64]
         
         convolution3dLayer(5,28,'Padding','same')
         batchNormalizationLayer
@@ -60,6 +89,7 @@ function train_medmnist3d(dataset)
         fullyConnectedLayer(numClasses) % 10 = number of classes
         softmaxLayer
         classificationLayer];
+    end
     
     % Training options
     options = trainingOptions('adam', ...

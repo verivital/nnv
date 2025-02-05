@@ -47,9 +47,13 @@ reachOptions.device = 'gpu';
 
 
 % Study variables
-advType = ["bright", "dark"];
-maxpixels = [50, 100, 500, 1000]; %out of 28x28x28 pixels
-epsilon = [2, 5, 10, 25]; % ep / 255
+% advType = ["bright", "dark"];
+% maxpixels = [50, 100, 500, 1000]; %out of 28x28x28 pixels
+% epsilon = [2, 5, 10, 25]; % ep / 255
+% threshold = [100; 150]; % bright ; dark
+advType = ["dark"];
+maxpixels = [1000]; %out of 28x28x28 pixels
+epsilon = [25]; % ep / 255
 threshold = [100; 150]; % bright ; dark
 
 %% Verification analysis

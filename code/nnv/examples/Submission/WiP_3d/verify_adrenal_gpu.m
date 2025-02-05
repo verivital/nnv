@@ -42,7 +42,8 @@ targets = single(test_labels(idxs));
 reachOptions = struct;
 reachOptions.reachMethod = 'relax-star-area';
 reachOptions.relaxFactor = 0.95;
-reachOptions.lp_solver = "gurobi";
+% reachOptions.lp_solver = "gurobi";
+reachOptions.lp_solver = "linprog";
 reachOptions.device = 'gpu';
 
 
@@ -68,7 +69,7 @@ for a=advType
             adv_attack.noise_de = ep/255; % disturbance (noise) on pixels
             
             % 3) Begin verification analysis
-            for i=1:N
+            for i=4:N
                 img = inputs(:,:,:,i);
                 target = targets(i);
                 results(i,:) = verify_instance_shape(net, img, target, adv_attack, reachOptions);

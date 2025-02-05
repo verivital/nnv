@@ -1,6 +1,6 @@
 %% Train all possible 2D classification models for medmnist data
 
-medmnist_path = "data/mat_files/"; % path to data
+medmnist_path = "data" + filesep + "mat_files" + filesep; % path to data
 
 datasets = dir(medmnist_path+"*.mat");
 

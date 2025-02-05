@@ -82,22 +82,22 @@ toc(t);
 %% Let's visualize the ranges for every possible output
 
 % Get output reachable set
-R = net.reachSet{end};
-
-% Get (overapproximate) ranges for each output index
-[lb_out, ub_out] = R.getRanges;
-lb_out = squeeze(lb_out);
-ub_out = squeeze(ub_out);
-
-% Get middle point for each output and range sizes
-mid_range = (lb_out + ub_out)/2;
-range_size = ub_out - mid_range;
-
-% Label for x-axis
-x = 1:net.OutputSize;
-
-% Visualize set ranges and evaluation points
-figure;
-errorbar(x, mid_range, range_size, '.');
-hold on;
-scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');
+% R = net.reachSet{end};
+% 
+% % Get (overapproximate) ranges for each output index
+% [lb_out, ub_out] = R.getRanges;
+% lb_out = squeeze(lb_out);
+% ub_out = squeeze(ub_out);
+% 
+% % Get middle point for each output and range sizes
+% mid_range = (lb_out + ub_out)/2;
+% range_size = ub_out - mid_range;
+% 
+% % Label for x-axis
+% x = 1:net.OutputSize;
+% 
+% % Visualize set ranges and evaluation points
+% figure;
+% errorbar(x, mid_range, range_size, '.');
+% hold on;
+% scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');

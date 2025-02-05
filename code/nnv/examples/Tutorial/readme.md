@@ -1,7 +1,8 @@
-# Safe, Secure, and Trustworthy Artificial Intelligence (AI) via Formal Verification of Neural Networks and Autonomous Cyber-Physical Systems (CPS) - NNV Tutorial at DSN 2024
+# Neural Network Verification for Medical Imaging Analysis - NNV Tutorial at SPIE 2025
 
 Previous tutorials at
 
+ - DSN 2024
  - 2023 IEEE IAVVC
  - EMSOFT'23 (Embedded Systems Week 2023)
 
@@ -18,7 +19,7 @@ Registered participants should have received a link with a MATLAB license to use
 ###### Note: this license is not required if participants already have a valid license for all the toolboxes listed in [installation instructions](/README.md#installation).
 
 Create a copy of NNV into your MathWorks account (personal MATLAB Drive):
-[NNV Online](https://drive.mathworks.com/sharing/cd6fe866-b737-46e1-8890-26c30db8d102)
+[NNV Online](https://drive.mathworks.com/sharing/980b6270-7a14-451c-924c-ae07745fa279)
   - Click on `Open in MATLAB Online` -> `Copy Folder`
   - This will prompt you to log into your account (or register if you don’t have one)
 ###### Note: copying NNV online may take anywhere from 15 minutes to a couple of hours.
@@ -38,6 +39,19 @@ Open [MATLAB Online](https://workshop-matlab.mathworks.com/) (or MATLAB), then g
     
 ###### Note: if you restart MATLAB, rerun `startup_nnv.m`, which will add the necessary dependencies to the path; you alternatively can run `savepath` after installation to avoid this step after restarting Matlab, but this may require administrative privileges.
 
+## Medical Imaging Tutorial (SPIE)
+
+* Robustness verification of 2D images
+    * Provide examples for verifying dataset (Certified robust accuracy) and single samples [SPIE/Classification2D](SPIE/Classification2D)
+ 
+* Robustness verification of 3D patient data
+    * Provide examples for verifying dataset (Certified robust accuracy) and single samples [SPIE/Classification3D](SPIE/Classification3D)
+ 
+* Robustness verification of lesion semantic segmentation
+    * Provide examples for verifying single 2D slices from MRI data [SPIE/Segmentation](SPIE/Segmentation)
+
+
+### Additional examples from other domains
 
 #### Neural Networks (NN)
 

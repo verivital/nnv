@@ -1,6 +1,6 @@
-% verify_bias_field;
-% 
-% clc;clear;
+verify_bias_field;
+
+clc;clear;
 
 verify_gamma_correction;
 

@@ -83,11 +83,13 @@ verOut4 = verify_output(OutputSet4);
 outputSlice = [verOut1 verOut2; verOut3 verOut4];
 save("results/gama_output.mat","outputSlice")
 
+figure;
 imshow(outputSlice, [0,2], colormap=hsv(3))
 colorbar('XTickLabel', {'Background', 'Lesion', 'Unknown'}, 'XTick',[0,1,2])
 
 % Verified output
 verifiedSlice = output_vs_mask(outputSlice, mask);
+figure;
 imshow(verifiedSlice, [-2,2], colormap=hsv(5))
 colorbar('XTickLabel', {'False Negative', 'False Positive', 'Background', 'Lesion', 'Unknown'}, 'XTick',[-2,-1,0,1,2])
 

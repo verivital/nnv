@@ -1,4 +1,4 @@
-% Tutorial example for bias field verification
+% Tutorial example for gamma correction verification
 
 % Load one slice from ISBI
 load("data/slice_ISBI_1_1_75.mat");
@@ -9,14 +9,13 @@ onnx = importNetworkFromONNX("models/model64.onnx");
 net = matlab2nnv(onnx);
 windowSize = 64; % from trained model
 
-% Bias Field
-order = 3;
-coeff = 0.01;
-img_bf = BiasField(flair, order, coeff);
+% Gamma Correction (Adjust contrast)
+gamma = 0.95;
+img_ac = AdjustContrast(flair, gamma); % generates all possible patches to analyze
 
 % Crop background before patches (for all data)
 flair = flair(31:158, 31:158);
-img_bf = img_bf(31:158, 31:158);
+img_ac = img_ac(31:158, 31:158);
 mask = mask(31:158, 31:158);
 
 % From here, to verify slice, we need to verify 4 patches
@@ -28,9 +27,7 @@ reachOptions.lp_solver = "gurobi"; % (optional)
 
 % Create bounds of input set
 lb = flair;
-ub = img_bf;
-
-
+ub = img_ac;
 
 % Patch 1: Left-top corner
 InputSet1 = ImageStar(lb(1:64,1:64), ub(1:64,1:64));
@@ -79,12 +76,12 @@ tic;
 OutputSet4 = net.reach(InputSet4, reachOptions);
 toc;
 
-% Verified reachability
+% Verified output
 verOut4 = verify_output(OutputSet4);
 
 % Output reachability
 outputSlice = [verOut1 verOut2; verOut3 verOut4];
-save("results/biasfield_output.mat","outputSlice")
+save("results/gama_output.mat","outputSlice")
 
 imshow(outputSlice, [0,2], colormap=hsv(3))
 colorbar('XTickLabel', {'Background', 'Lesion', 'Unknown'}, 'XTick',[0,1,2])
@@ -95,9 +92,6 @@ imshow(verifiedSlice, [-2,2], colormap=hsv(5))
 colorbar('XTickLabel', {'False Negative', 'False Positive', 'Background', 'Lesion', 'Unknown'}, 'XTick',[-2,-1,0,1,2])
 
 % Verified lesion
-overlay = labeloverlay(flair,verifiedSlice,'transparency',0.3);
-imshow(overlay,[-2 2]);
-
 figure;
 subplot(1,4,1);
 mi_f = min(flair, [], 'all');

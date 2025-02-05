@@ -17,7 +17,7 @@ imshow(overlay,[mi_f, ma_f]);
 order = 3;
 coeff = 0.5;
 
-% img_bf = BiasField(flair, order, coeff);
+img_bf = BiasField(flair, order, coeff);
 
 mi = min(flair, [], 'all');
 ma = max(img_bf,[], 'all');

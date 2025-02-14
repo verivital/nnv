@@ -8,9 +8,9 @@ function verOut = output_vs_mask(img, mask)
         if img(diff_pixels(i)) == 2
             continue
         elseif img(diff_pixels(i)) == 1
-            verOut(diff_pixels(i)) = -1;
+            verOut(diff_pixels(i)) = 3;
         else
-            verOut(diff_pixels(i)) = -2;
+            verOut(diff_pixels(i)) = 4;
         end
     end
 

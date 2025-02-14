@@ -23,7 +23,7 @@ mask = mask(31:158, 31:158);
 % Define verification parameters (reach method)
 reachOptions.reachMethod = "relax-star-area-reduceMem";
 reachOptions.relaxFactor = 1;
-reachOptions.lp_solver = "gurobi"; % (optional)
+% reachOptions.lp_solver = "gurobi"; % (optional)
 
 % Create bounds of input set
 lb = flair;
@@ -40,6 +40,7 @@ toc;
 % Verified output
 verOut1 = verify_output(OutputSet1);
 
+pred1 = onnx.predict(flair(1:64,1:64));
 
 
 % Patch 2: Right-top corner
@@ -53,6 +54,7 @@ toc;
 % Verified output
 verOut2 = verify_output(OutputSet2);
 
+pred2 = onnx.predict(flair(1:64,65:128));
 
 
 % Patch 3: Right-bottom corner
@@ -66,7 +68,7 @@ toc;
 % Verified output
 verOut3 = verify_output(OutputSet3);
 
-
+pred3 = onnx.predict(flair(65:128,65:128));
 
 % Patch 4: Lft-bottom corner
 InputSet4 = ImageStar(lb(65:128,1:64), ub(65:128,1:64));
@@ -79,19 +81,29 @@ toc;
 % Verified output
 verOut4 = verify_output(OutputSet4);
 
+pred4 = onnx.predict(flair(65:128,1:64));
+
 % Output reachability
 outputSlice = [verOut1 verOut2; verOut3 verOut4];
+pred = [pred1 pred2; pred3 pred4];
+pred = pred > 0;
 save("results/gama_output.mat","outputSlice")
 
+custommap = [0.2 0.1 0.5
+    0.1 0.5 0.8
+    0.2 0.7 0.6
+    0.8 0.7 0.3
+    0.9 1 0];
+
 figure;
-imshow(outputSlice, [0,2], colormap=hsv(3))
+imshow(outputSlice, [0,2], colormap=custommap(1:3,:))
 colorbar('XTickLabel', {'Background', 'Lesion', 'Unknown'}, 'XTick',[0,1,2])
 
 % Verified output
 verifiedSlice = output_vs_mask(outputSlice, mask);
 figure;
-imshow(verifiedSlice, [-2,2], colormap=hsv(5))
-colorbar('XTickLabel', {'False Negative', 'False Positive', 'Background', 'Lesion', 'Unknown'}, 'XTick',[-2,-1,0,1,2])
+imshow(verifiedSlice, [0,4], colormap=custommap)
+colorbar('XTickLabel', {'Background', 'Lesion', 'Unknown', 'False Positive', 'False Negative'}, 'XTick',[0,1,2,3,4])
 
 % Verified lesion
 figure;
@@ -113,6 +125,6 @@ imshow(overlay,[mi_f, ma_f]);
 title("Unknown")
 
 subplot(1,4,4);
-overlay = labeloverlay(flair,verifiedSlice==-1,'transparency',0.3);
+overlay = labeloverlay(flair,verifiedSlice==3,'transparency',0.3);
 imshow(overlay,[mi_f, ma_f]);
 title("False positives")

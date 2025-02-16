@@ -219,7 +219,8 @@ classdef BatchNormalizationLayer < handle
                     for i=1:obj.NumChannels
                         x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,:,i) + obj.Epsilon);
                     end
-                    % 2) Batch normalization operation further shifts and scales the activations using Scale and Offset values
+                    % 2) Batch normalization operation further shifts and scales the 
+                    % activations using Scale and Offset values
                     % 2a) Scale values
                     for i=1:obj.NumChannels
                         x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* obj.Scale(:,:,:,i);
@@ -262,7 +263,8 @@ classdef BatchNormalizationLayer < handle
                     for i=1:obj.NumChannels
                         x.V(:,:,i,:) = x.V(:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,i) + obj.Epsilon);
                     end
-                    % 2) Batch normalization operation further shifts and scales the activations using Scale and Offset values
+                    % 2) Batch normalization operation further shifts and scales the 
+                    % activations using Scale and Offset values
                     % 2a) Scale values
                     for i=1:obj.NumChannels
                         x.V(:,:,i,:) = x.V(:,:,i,:) .* obj.Scale(:,:,i);

@@ -1,7 +1,7 @@
 function ver_img = verify_output(imageSet)
 
     % Get data ranges
-    [lb,ub] = imageSet.estimateRanges;
+    [lb,ub] = imageSet.getRanges;
     
     % 1) get correctly classified as 0 (background)
     ver_background = (ub <= 0);

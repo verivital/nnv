@@ -29,8 +29,8 @@ for i=1:length(datasets)
     adv_attack.epsilon = 1; % {epsilon} color values
 
     % select images to verify
-    N = 50;
-    % N = 5;
+    % N = 50;
+    N = 5;
     inputs = test_images(:,:,:,1:N);
     targets = test_labels(1:N);
 

@@ -21,7 +21,7 @@ mask = mask(31:158, 31:158);
 % From here, to verify slice, we need to verify 4 patches
 
 % Define verification parameters (reach method)
-reachOptions.reachMethod = "relax-star-area-reduceMem";
+reachOptions.reachMethod = "relax-star-area";
 reachOptions.relaxFactor = 1;
 % reachOptions.lp_solver = "gurobi"; % (optional)
 
@@ -89,18 +89,30 @@ pred = [pred1 pred2; pred3 pred4];
 pred = pred > 0;
 save("results/gama_output.mat","outputSlice")
 
+
+%%
 custommap = [0.2 0.1 0.5
+    0.8 0.7 0.3
+    0.8 0 0.2
     0.1 0.5 0.8
     0.2 0.7 0.6
-    0.8 0.7 0.3
-    0.9 1 0];
+    ];
 
+% figure;
+% imshow(pred, [0,1], colormap=custommap(1:2,:))
+% colorbar('XTickLabel', {'Background', 'Lesion'}, 'XTick',[0,1])
+
+pred_label = pred_vs_mask(pred,mask);
 figure;
-imshow(outputSlice, [0,2], colormap=custommap(1:3,:))
-colorbar('XTickLabel', {'Background', 'Lesion', 'Unknown'}, 'XTick',[0,1,2])
+imshow(pred_label, [0,4], colormap=custommap([1:2,4:5],:))
+colorbar('XTickLabel', {'Background', 'Lesion', 'False Positive', 'False Negative'}, 'XTick',[0,1,3,4])
+
+% figure;
+% imshow(outputSlice, [0,2], colormap=custommap(1:3,:))
+% colorbar('XTickLabel', {'Background', 'Lesion', 'Unknown'}, 'XTick',[0,1,2])
 
 % Verified output
-verifiedSlice = output_vs_mask(outputSlice, mask);
+verifiedSlice = output_vs_mask(outputSlice, mask, pred);
 figure;
 imshow(verifiedSlice, [0,4], colormap=custommap)
 colorbar('XTickLabel', {'Background', 'Lesion', 'Unknown', 'False Positive', 'False Negative'}, 'XTick',[0,1,2,3,4])
@@ -125,6 +137,7 @@ imshow(overlay,[mi_f, ma_f]);
 title("Unknown")
 
 subplot(1,4,4);
-overlay = labeloverlay(flair,verifiedSlice==3,'transparency',0.3);
+overlay = labeloverlay(flair,verifiedSlice==0,'transparency',0.3);
 imshow(overlay,[mi_f, ma_f]);
-title("False positives")
+title("Verified Background")
+

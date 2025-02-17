@@ -520,12 +520,12 @@ classdef Conv2DLayer < handle
             
             % compute output sets
             if ~isa(input.V, 'gpuArray')
-                % c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-                % V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);   
-                c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-                V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-                c = extractdata(c);
-                V = extractdata(V);
+                c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+                V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);   
+                % c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                % V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                % c = extractdata(c);
+                % V = extractdata(V);
             else
                 c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
                 V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);

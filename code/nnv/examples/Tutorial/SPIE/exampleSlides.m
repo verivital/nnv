@@ -90,10 +90,10 @@ plot(y3(1,:), y3(2,:), 'x', 'Color', 'k');
 rectangle('Position',[-50,10,30,15],'FaceColor',[1 0 0])
 
 % Save figure
-% saveas(fig,'outputSet_colors.jpg');
+saveas(fig,'exactSets.png');
 
 % Figure with convex hull
-figure;
+fig = figure;
 convexHull = Star.get_convex_hull(Re);
 convexHull.plot('color','k');
 hold on;
@@ -110,5 +110,6 @@ end
 rectangle('Position',[-50,10,30,15],'FaceColor',[1 0 0])
 
 
-
+% Save figure
+saveas(fig,'exactSetsConvexHull.png');
 

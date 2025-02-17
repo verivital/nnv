@@ -119,9 +119,3 @@ errorbar(x, mid_range, range_size, '.');
 hold on;
 xlim([0.5 11.5]);
 scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');
-
-
-%% Notes
-% The ranges obtained are an overappoximation (projection) of the 
-% true ranges of the computed star sets
-

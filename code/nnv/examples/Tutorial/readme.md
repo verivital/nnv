@@ -35,7 +35,7 @@ During this tutorial, one will learn how to represent convex sets as Star sets, 
 
 _Setup_
 
-Open [MATLAB Online](https://workshop-matlab.mathworks.com/) (or MATLAB), then go to the directory where NNV exists on your machine (/code/nnv/), then run the `startup_nnv.m` script ([startup_nnv.m](/code/nnv/startup_nnv.m)).
+Open [MATLAB Online](https://www.mathworks.com/licensecenter/classroom/4715800/) (or MATLAB), then go to the directory where NNV exists on your machine (/code/nnv/), then run the `startup_nnv.m` script ([startup_nnv.m](/code/nnv/startup_nnv.m)).
     
 ###### Note: if you restart MATLAB, rerun `startup_nnv.m`, which will add the necessary dependencies to the path; you alternatively can run `savepath` after installation to avoid this step after restarting Matlab, but this may require administrative privileges.
 

@@ -69,13 +69,13 @@ IS = ImageStar(lb_clip, ub_clip); % this is the input set we will use
 
 % Evaluate input image
 Y_outputs = net.evaluate(img); 
-[~, yPred] = max(Y_outputs); % (expected: y = 1)
+[~, yPred] = max(Y_outputs); 
 
 % Evaluate lower and upper bounds
 LB_outputs = net.evaluate(lb_clip);
-[~, LB_Pred] = max(LB_outputs); % (expected: y = 1)
+[~, LB_Pred] = max(LB_outputs); 
 UB_outputs = net.evaluate(ub_clip);
-[~, UB_Pred] = max(UB_outputs); % (expected: y = 1)
+[~, UB_Pred] = max(UB_outputs); 
 
 % Now, we can do the verification process of this image w/ L_inf attack
 
@@ -117,9 +117,4 @@ errorbar(x, mid_range, range_size, '.');
 hold on;
 xlim([0.5 11.5]);
 scatter(x,Y_outputs, 'x', 'MarkerEdgeColor', 'r');
-
-
-%% Notes
-% The ranges obtained are an overappoximation (projection) of the 
-% true ranges of the computed star sets
 

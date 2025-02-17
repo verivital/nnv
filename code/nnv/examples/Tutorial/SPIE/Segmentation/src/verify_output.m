@@ -1,6 +1,6 @@
 function ver_img = verify_output(imageSet)
 
-    % Get data ranges
+    % Get data ranges (output pixels)
     [lb,ub] = imageSet.getRanges;
     
     % 1) get correctly classified as 0 (background)

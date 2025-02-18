@@ -8,15 +8,15 @@ Previous tutorials at
 
 
 ## Getting Started
-We recommend using MATLAB Online (**prior license not required!**) to participate in this tutorial, but one can also use a local installation of MATLAB and NNV to follow along as well.
+We recommend using MATLAB Online (**prior license not required!**) to participate in the interactive portion of this tutorial, but one can also use a local installation of MATLAB and NNV to follow along as well.
 
-It is important that participants complete this section before arriving at the tutorial.
-
-#### MATLAB Online Instructions
-
-Registered participants should have received a link with a MATLAB license to use in this tutorial. If a participant has not received it, please contact the organizers. 
+Licenses available here, you just need to have a Mathworks account and access Matlab online through this link (thanks to Mathworks!): https://www.mathworks.com/licensecenter/classroom/4715800/
 
 ###### Note: this license is not required if participants already have a valid license for all the toolboxes listed in [installation instructions](/README.md#installation).
+
+It is important that participants complete this section before arriving at the tutorial, if you want to participate in the interactive portions. The tutorial begins with a lecture that does not require any involvement.
+
+#### MATLAB Online Instructions
 
 Create a copy of NNV into your MathWorks account (personal MATLAB Drive):
 [NNV Online](https://drive.mathworks.com/sharing/980b6270-7a14-451c-924c-ae07745fa279)

@@ -8,7 +8,7 @@ pyparsing==2.4.7
 python-dateutil==2.8.1
 scipy==1.5.4
 six==1.15.0
-torch==1.7.1
+torch==2.7.0
 typing-extensions==3.7.4.3
 jax==0.2.20
 jaxlib==0.1.71

@@ -17,7 +17,7 @@ protobuf==5.27.1
 pyparsing==3.1.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
-requests==2.32.3
+requests==2.32.4
 scipy==1.14.1
 six==1.16.0
 sympy==1.12.1

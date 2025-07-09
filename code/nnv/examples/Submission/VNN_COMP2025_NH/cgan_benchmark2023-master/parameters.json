@@ -1,0 +1,68 @@
+{
+    "models": [
+        {
+            "name": "cGAN_imgSz32_nCh_1.onnx",
+            "num_instances": 4,
+            "input_epsilons": [0.010, 0.020], 
+            "output_epsilons": [0.015, 0.025],
+            "num_latent_sets": [4, 3],
+            "timeout": 900
+        },
+        {
+            "name": "cGAN_imgSz32_nCh_3.onnx",
+            "num_instances": 4,
+            "input_epsilons": [0.010, 0.015], 
+            "output_epsilons": [0.015, 0.020],
+            "num_latent_sets": [4, 3],
+            "timeout": 900
+        },
+        {
+            "name": "cGAN_imgSz64_nCh_1.onnx",
+            "num_instances": 4,
+            "input_epsilons": [0.005, 0.01], 
+            "output_epsilons": [0.010, 0.015],
+            "num_latent_sets": [3, 2],
+            "timeout": 900
+        },
+        {
+            "name": "cGAN_imgSz64_nCh_3.onnx",
+            "num_instances": 4,
+            "input_epsilons": [0.005, 0.01], 
+            "output_epsilons": [0.010, 0.015],
+            "num_latent_sets": [3, 2],
+            "timeout": 900
+        },
+        {
+            "name": "cGAN_imgSz32_nCh_3_nonlinear_activations.onnx",
+            "num_instances": 1,
+            "input_epsilons": [0.010, 0.015], 
+            "output_epsilons": [0.015, 0.020],
+            "num_latent_sets": [3, 2],
+            "timeout": 1200
+        },
+        {
+            "name": "cGAN_imgSz32_nCh_1_transposedConvPadding_1.onnx",
+            "num_instances": 1,
+            "input_epsilons": [0.010, 0.015], 
+            "output_epsilons": [0.015, 0.020],
+            "num_latent_sets": [3, 2],
+            "timeout": 1200
+        },
+        {
+            "name": "cGAN_imgSz32_nCh_3_upsample.onnx",
+            "num_instances": 1,
+            "input_epsilons": [0.010, 0.015], 
+            "output_epsilons": [0.015, 0.020],
+            "num_latent_sets": [3, 2],
+            "timeout": 1200
+        },
+        {
+            "name": "cGAN_imgSz32_nCh_3_small_transformer.onnx",
+            "num_instances": 2,
+            "input_epsilons": [0.005, 0.01], 
+            "output_epsilons": [0.010, 0.015],
+            "num_latent_sets": [1, 0],
+            "timeout": 1800
+        }
+    ]
+}

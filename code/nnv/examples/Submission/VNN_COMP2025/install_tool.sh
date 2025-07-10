@@ -13,11 +13,11 @@ fi
 
 echo "Installing $TOOL_NAME dependencies"
 
-#ip link show # get mac address (for licensing)
+ip link show # get mac address (for licensing)
 
-#echo $USER # get username (for licensing)
+echo $USER # get username (for licensing)
 
-#mkdir ~/.matlab/R2024b_licenses 
+mkdir ~/.matlab/R2024b_licenses 
 
 # INSTALL MPM TO INSTALL ADDITIONAL MATLAB PACKAGES
 

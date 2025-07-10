@@ -1,20 +1,18 @@
-#cd ~/.matlab/R2024b_licenses
+cd ~/.matlab/R2024b_licenses
 
-# curl --retry 100 --retry-connrefused -L -O 
-# sleep 60
-# ls -al
+curl --retry 100 --retry-connrefused -L -O 
+sleep 60
+ls -al
 
-#unzip  *.zip*
+unzip  *.zip*
 
-#ls -al
+ls -al
 
-# cp -f license.lic /usr/local/matlab/licenses/
+cp -f license.lic /usr/local/matlab/licenses/
 
-# rm *.zip*
+rm *.zip*
 
 rm /usr/local/matlab/licenses/license_info.xml
-
-export MLM_LICENSE_FILE=
 
 cd /usr/local/matlab/extern/engines/python
 python3 -m pip install .

@@ -5,7 +5,7 @@ function [status, tTime] = run_vnncomp_instance(category, onnx, vnnlib, outputfi
 t = tic;
 status = 2; % unknown (to start with)
 
-% disp("We are running...")
+disp("We are running...")
 
 
 
@@ -470,7 +470,7 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         reachOptions.reachMethod = 'exact-star';
         reachOptions.numCores = numCores;
         reachOptionsList{1} = reachOptions;
-        needReshape = 1;
+        % needReshape = 1;
 
     elseif contains(category, "metaroom")
         % metaroom: onnx to matlab

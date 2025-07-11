@@ -283,17 +283,17 @@ classdef NN < handle
                 error('We assume the input ImageStar is a box, and also contains the feature, im_lb. In case your input is not a box but contains im_lb, then your reachset will be more conservative as we assume a box with lower bound im_lb and upper bound im_ub.')
             end
           
-            if isfield(reachOptions, 'train_device')
-                train_device = reachOptions.train_device;
+            if isfield(reachOptions, 'device')
+                run_device = reachOptions.device;
             else
-                train_device = 'gpu';
+                run_device = 'cpu';
             end
-            if isfield(reachOptions, 'train_epochs')
-                train_epochs = reachOptions.train_epochs;
+            if isfield(reachOptions, 'epochs')
+                epochs = reachOptions.epochs;
             else
-                train_epochs = 50;
+                epochs = 50;
             end
-            [N_dir , N , Ns] = CP_specification(coverage, confidence, numel(IS.im_lb) , train_device, 'single');
+            [N_dir , N , Ns] = CP_specification(coverage, confidence, numel(IS.im_lb) , run_device, 'single');
             
             SizeIn = size(IS.im_lb);
             SizeOut = size(evaluate(obj, IS.im_lb));
@@ -307,8 +307,8 @@ classdef NN < handle
             indices = [I(:), J(:)];
 
             
-            if isfield(reachOptions, 'train_mode')
-                train_mode = reachOptions.train_mode;
+            if isfield(reachOptions, 'mode')
+                train_mode = reachOptions.mode;
             else
                 train_mode = 'Linear';
             end
@@ -326,7 +326,7 @@ classdef NN < handle
             end
 
             params = struct;
-            params.epochs = train_epochs;
+            params.epochs = epochs;
             params.trn_batch = floor(N_dir/3);
             params.dims = surrogate_dim;
             params.N_dir = N_dir;

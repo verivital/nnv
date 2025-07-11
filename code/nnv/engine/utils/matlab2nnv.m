@@ -174,8 +174,22 @@ for i=1:n
     % Reshape Layer (custom created after parsing ONNX layers)
     elseif isa(L, 'nnet.cnn.layer.LSTMLayer')
         Li = LstmLayer.parse(L);
+
+    elseif isa(L, 'nnet.cnn.layer.Resize2DLayer')
+        Li = Resize2DLayer.parse(L);
+
+    elseif contains(class(L), 'Reshape_To_ConcatLayer')
+        Li = ReshapeToConcatenationLayer.parse(L);
     
-    % Custom flatten layers (avoid if possible)
+    elseif contains(class(L), 'MatMul_To_AddLayer')
+        Li = MatMulToAddLayer.parse(L);
+
+    elseif contains(class(L), 'MatMul_To_ReduceSumLayer')
+        Li = MatMulToReduceSumLayer.parse(L);
+
+    elseif contains(class(L), 'MatMul_To_SubLayer')
+        Li = MatMulToSubLayer.parse(L);
+
     elseif contains(class(L), ["flatten"; "Flatten"])
         % Check previous layer to see if we can neglect this one in the analysis
         for k=i-1:-1:1
@@ -189,7 +203,7 @@ for i=1:n
                 error('Unsupported Class of Layer');
             end
         end
-        % If we can neglect all previous layers, reinitialize layers and parse them again as placeholder layers 
+        % If we can neglect all previous layers, reinitialize layers and parse them again as placeholder layers
         nnvLayers = cell(n,1);
         % Parse all previous layers again
         for li = 1:i-1
@@ -201,10 +215,10 @@ for i=1:n
         L = Layers(i);
         Li = PlaceholderLayer.parse(L);
 
-    % All other layers are currently not supported in NNV
+        % All other layers are currently not supported in NN
     else
         fprintf('Layer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis \n', i, class(L));
-        error('Unsupported Class of Layer');                     
+        error('Unsupported Class of Layer');
     end
 
     % Add layer name to list
@@ -217,6 +231,45 @@ indxs = 1:n;
 % We compute the reachability and evaluation layer by layer, executing the
 % connections in the order they appear, so need to ensure the order makes sense:
 %  - sometimes some of the skipped connections (like in resnet or unets), they appear at the end so NNV returns the wrong output
+
+
+
+% for i = 1:height(conns)
+%     % Clean Destination (remove /inX suffix)
+%     dest = conns.Destination{i};
+%     splitDest = split(dest, '/in');
+%     conns.Destination{i} = splitDest{1}; % only base layer name
+% 
+%     % Optionally, you can store the port number separately for your own use:
+%     % if length(splitDest) > 1
+%     %     portNumber(i) = str2double(splitDest{2});
+%     % else
+%     %     portNumber(i) = 1;
+%     % end
+% end
+
+% Create new columns with base name and port
+numConns = height(conns);
+baseNames = strings(numConns,1);
+portNums = zeros(numConns,1);
+
+for i = 1:numConns
+    dest = conns.Destination{i};
+    parts = split(dest, '/in');
+    baseNames(i) = parts{1};
+    if numel(parts) > 1
+        portNums(i) = str2double(parts{2});
+    else
+        portNums(i) = 1; % default if no port specified
+    end
+end
+
+% Add to the table without losing the original Destination
+conns.BaseDest = baseNames;
+conns.DestPort = portNums;
+
+
+
 
 if height(conns) == length(nnvLayers) - 1 % fullyconnected layers, no skips
     % Assigning layer names to correspnding index
@@ -234,26 +287,27 @@ net.name2indx = name2idx;
 
 % Get input and output sizes
 outSize = getOutputSize(Mnetwork);
-net.OutputSize = outSize; 
+net.OutputSize = outSize;
 
 end
 
 
 % Helper function for connections
+
 function [nnvLayers, nnvConns, name2number] = process_connections(nnvLayers, conns, names, idxs)
     % Assigning layer names to correspnding index
     name2number = containers.Map(names,idxs);
-
+    
     % Step 1 - initialize a variable to keep track of the number of inputs in NNV
     count_inputs = ones(length(nnvLayers),1); % order is same as nnvLayers (default = 1)
     for k=1:length(nnvLayers)
-        if contains(class(nnvLayers{k}), ["Concatenation", "Addition"])
+        if contains(class(nnvLayers{k}), ["Concatenation", "Addition", "Mul"])
             count_inputs(k) = nnvLayers{k}.NumInputs;
         elseif contains(class(nnvLayers{k}), "Input")
             count_inputs(k) = 0; % this is the initial layer, no prior connections
         end
     end
-
+    
     % Step 2 - ensure these number of inputs are seen before executing
     %       that layer, otherwise, move to the next connection
     final_sources = [];
@@ -261,27 +315,42 @@ function [nnvLayers, nnvConns, name2number] = process_connections(nnvLayers, con
     orig_sources = conns.Source;
     orig_dests = conns.Destination;
     skipped = 1: height(conns);%idxs; %start with assumption that all connections are skipped
-
+    
     % start adding cnnections to the final list
-    while ~isempty(skipped) 
+    
+    while ~isempty(skipped)
         % Get connection idx
+        %%
+        %%
         c = skipped(1);
         skipped(1) = []; % like popping the first connection from the list
         % get connection names
         source_name = orig_sources{c};
         source_layer_name = split(source_name, '/');
-        if length(source_layer_name) > 1 % either a layer with multiple dets or some "properties" like size are getting sent to other layers
+
+
+        if length(source_layer_name) > 1
             sec_name = source_layer_name{2};
-            if ~contains(sec_name, 'out')
+            % skip if this is a known internal property (add exceptions as needed)
+            skipSuffixes = ["BatchSizeVerifier", "someOtherIrrelevantSuffix"];
+            if ~contains(sec_name, 'out') && ismember(sec_name, skipSuffixes)
                 continue;
             end
         end
+        % if length(source_layer_name) > 1 % either a layer with multiple dets or some "properties" like size are getting sent to other layers
+        %     sec_name = source_layer_name{2};
+        %     if ~contains(sec_name, 'out')
+        %         continue;
+        %     end
+        % end
+
+
         source_layer_name = source_layer_name{1};
         dest_name = orig_dests{c};
         % parse dest_name as it could be defined as name/in1 and so on, then add it back at the end
         dest_layer_name = split(dest_name, '/');
         dest_layer_name = dest_layer_name{1};
-
+    
         % check if source has an input counter of 0
         source_idx = name2number(source_layer_name);
         if count_inputs(source_idx) == 0
@@ -295,12 +364,12 @@ function [nnvLayers, nnvConns, name2number] = process_connections(nnvLayers, con
             else
                 skipped = [skipped, c];
             end
-        end        
-        
+        end
+    
     end
-
-    nnvConns = table(final_sources, final_dests, 'VariableNames', {'Source', 'Destination'});    
-
+    
+    nnvConns = table(final_sources, final_dests, 'VariableNames', {'Source', 'Destination'});
+    
 end
 
 

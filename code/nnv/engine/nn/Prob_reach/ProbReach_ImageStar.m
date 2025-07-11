@@ -109,76 +109,86 @@ classdef ProbReach_ImageStar
                 Y(:,:,:,i) = obj.forward(Inp);
             end
             %%%%%%%%%%%%%
-            
-
-            %%%%  dtype = 'single';
-            SizePerElement = 4;
-            NumElement = out_height*out_width*n_class*N_dir;
-            TotalSize = (NumElement * SizePerElement) / 1024^3;
-            
-            if TotalSize > 1.9
-                leng = floor(N_dir * 2 / TotalSize);
-            else
-                leng = N_dir;
-            end
-            
-            ind = 0;
-            if mod(N_dir , leng) == 0
-                last_i = N_dir/leng ;
-            else
-                error('Considering Camvid_dataset, if N_dir is more than 30 it should be devisible by 30.')
-            end
-            for i=1:last_i
-                eval(['Y' num2str(i) ' = Y(:,:,:,ind+1:ind+leng);' ]);
-                ind = ind+leng;
-            end
-            
-            cd(obj.params.files_dir)
-            Text = ' save("Direction_data.mat" ';
-            for i=1:last_i
-                Text = [ Text  ' ,"Y' num2str(i) '" ']; %#ok<*AGROW>
-            end
-            Text = [ Text ');'];
-            eval(Text);
-
-            Text = 'clear Y1'; %%% You always need to have something here even if it is nonsense, otherwise it clears everything
-            for i=1:last_i
-                Text = [ Text  ' Y' num2str(i) '  '];
-            end
-            eval(Text);
-            
-            % mat_file_path = fullfile(obj.params.files_dir, 'Direction_data.mat');
-            mat_file_path = obj.params.files_dir;
-            cd ..
-            command = sprintf([ 'python Direction_trainer.py --mat_file_path "%s" '...
-                      '--num_files %d --N_dir %d --batch_size %d --height %d --width %d '...
-                      '--n_class %d '], ...
-                      mat_file_path,  last_i, N_dir , trn_batch, out_height, out_width, n_class);
-
-            status = system(command);
-
-            cd(obj.params.files_dir)
-            delete('Direction_data.mat')
-
             n1 = numel(Y(:,:,:,1));
-            Y = reshape(Y, [n1 , N]);
+            if n1 < 8000  %%% SVD Algorithm in MATLAB has shown scalability upto this extent.
+
+                Y = reshape(Y, [n1 , N]);
+                [Directions , ~] = eig(Y*Y'/N);
+
+
+            else
+
+
+
+                %%%%  dtype = 'single';
+                SizePerElement = 4;
+                NumElement = out_height*out_width*n_class*N_dir;
+                TotalSize = (NumElement * SizePerElement) / 1024^3;
+
+                if TotalSize > 1.9
+                    leng = floor(N_dir * 1.9 / TotalSize);
+                    r = mod(N_dir , leng);
+                    N_dir = N_dir - r;
+                else
+                    leng = N_dir;
+                end
+
+                ind = 0;
+                last_i = N_dir/leng ;
+
+                for i=1:last_i
+                    eval(['Y' num2str(i) ' = Y(:,:,:,ind+1:ind+leng);' ]);
+                    ind = ind+leng;
+                end
+
+                cd(obj.params.files_dir)
+                Text = ' save("Direction_data.mat" ';
+                for i=1:last_i
+                    Text = [ Text  ' ,"Y' num2str(i) '" ']; %#ok<*AGROW>
+                end
+                Text = [ Text ');'];
+                eval(Text);
+
+                Text = 'clear Y1'; %%% You always need to have something here even if it is nonsense, otherwise it clears everything
+                for i=1:last_i
+                    Text = [ Text  ' Y' num2str(i) '  '];
+                end
+                eval(Text);
+
+                % mat_file_path = fullfile(obj.params.files_dir, 'Direction_data.mat');
+                mat_file_path = obj.params.files_dir;
+                cd ..
+                command = sprintf([ 'python Direction_trainer.py --mat_file_path "%s" '...
+                    '--num_files %d --N_dir %d --batch_size %d --height %d --width %d '...
+                    '--n_class %d '], ...
+                    mat_file_path,  last_i, N_dir , trn_batch, out_height, out_width, n_class);
+
+                status = system(command);
+
+                cd(obj.params.files_dir)
+                delete('Direction_data.mat')
+
+                % load('directions.mat')
+                % pyenv
+                pyenv('Version', obj.params.py_dir)
+                npz = py.numpy.load('directions.npz');
+                Directions_py = py.numpy.array(npz{'Directions'});
+
+                directions_list = cell(Directions_py.tolist());
+                rows = cellfun(@(row) double(cellfun(@double, cell(row))), directions_list, 'UniformOutput', false);
+                Directions = single(vertcat(rows{:}));
+
+
+                clear Directions_py  npz
+                delete('directions.npz')
+
+
+                Y = reshape(Y, [n1 , N]);
+
+
+            end
 
             C = 20* (  0.001*(mean(Y,2))   +  (0.05-0.001) * 0.5*( min(Y , [], 2) + max(Y , [] , 2) ));
-
-            % load('directions.mat')
-            % pyenv
-            pyenv('Version', obj.params.py_dir)
-            npz = py.numpy.load('directions.npz');
-            Directions_py = py.numpy.array(npz{'Directions'});
-
-            directions_list = cell(Directions_py.tolist());
-            rows = cellfun(@(row) double(cellfun(@double, cell(row))), directions_list, 'UniformOutput', false);
-            Directions = single(vertcat(rows{:}));
-
-            
-            clear Directions_py  npz
-            delete('directions.npz')
-
 
             dYV  = Directions' * (Y - C );
             dims = obj.params.dims;

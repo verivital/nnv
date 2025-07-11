@@ -87,7 +87,11 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
                 IS = create_input_set(lb, ub, inputSize, needReshape);
             
                 % Compute reachability
-                ySet = nnvnet.reach(IS, reachOptions);
+                if ~strcmp(reachOptions.reachMethod, "cp-star")
+                    ySet = nnvnet.reach(IS, reachOptions);
+                else
+                    ySet = nnvnet.reachProb_ImageStar(IS, []);
+                end
     
                 % Verify property
                 status = verify_specification(ySet, prop);
@@ -126,7 +130,11 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
                     IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
             
                     % Compute reachability
-                    ySet = nnvnet.reach(IS, reachOptions);
+                    if ~strcmp(reachOptions.reachMethod, "cp-star")
+                        ySet = nnvnet.reach(IS, reachOptions);
+                    else
+                        ySet = nnvnet.reachProb_ImageStar(IS, []);
+                    end
             
                     % Verify property
                     if isempty(ySet.C)
@@ -182,7 +190,11 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
                     IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
             
                     % Compute reachability
-                    ySet = nnvnet.reach(IS, reachOptions);
+                    if ~strcmp(reachOptions.reachMethod, "cp-star")
+                        ySet = nnvnet.reach(IS, reachOptions);
+                    else
+                        ySet = nnvnet.reachProb_ImageStar(IS, []);
+                    end
         
                     % Add verification status
                     tempStatus = verify_specification(ySet, prop(spc));
@@ -236,18 +248,18 @@ disp( " ");
 if status == 0
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'sat \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
     write_counterexample(outputfile, counterEx)
 elseif status == 1
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unsat \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
 elseif status == 2
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unknown \n');
-    fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
+    % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
 end
 
@@ -277,17 +289,19 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
     end
 
     % Create input set
-    
-    equals = (lb==ub);
-
-    if any(equals)
-        d = 10^(-6)*min(ub-lb);
-        lb(equals) = lb(equals) -d;
-        ub(equals) = ub(equals) +d;
-    end
-
-
     IS = ImageStar(lb, ub); 
+
+    % Delete constraints for non-interval dimensions
+    xxx = find((lb-ub)); % do this for now as it is easier, but it can get created using the (ImageStar(V,C,d,lb,ub) way)
+    xxx = reshape(xxx, [], 1);
+    if numel(lb) ~= length(xxx)
+        IS.C = IS.C(:,xxx);
+        IS.pred_lb = IS.pred_lb(xxx);
+        IS.pred_ub = IS.pred_ub(xxx);
+        xxx = xxx + 1;
+        IS.V = IS.V(:,:,:,[1;xxx]);
+        IS.numPred = length(xxx);
+    end
 
 end
 
@@ -295,6 +309,16 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
 % load participating vnncomp 2025 benchmark NNs 
 % Most regular track
 % some extended
+% TODO (support with CP/Prob)
+% - cctsdb_yolo
+% - dist_shift
+% - linearizeNN
+% - lsnc_relu
+% - nn4sys
+% - traffic signs
+% - vggnet
+% - vit
+% - yolo
 
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
@@ -557,27 +581,55 @@ function [net,nnvnet,needReshape,reachOptionsList] = load_vnncomp_network(catego
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "traffic")
-        error("TODO: add support")
+        % error("TODO: add support")
+        net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
+        try
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
+        needReshape = 1; %?
+        reachOptions = struct;
+        reachOptions.reachMethod = 'cp-star';
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "vggnet")
-        error("TODO: add support")
+        % error("TODO: add support")
+        net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
+        try
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
+        needReshape = 1; %?
+        reachOptions = struct;
+        reachOptions.reachMethod = 'cp-star';
+        reachOptionsList{1} = reachOptions;
     
     elseif contains(category, "vit")
         % vit: onnx to matlab
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
-        nnvnet = matlab2nnv(net);
-        needReshape= 1;
+        try
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
+        needReshape= 1; %?
         reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star';
+        reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "yolo")
         % yolo: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS"); % padlayer
-        nnvnet = matlab2nnv(net);
-        needReshape = 2;
+        try
+            nnvnet = matlab2nnv(net);
+        catch
+            nnvnet = "";
+        end
+        needReshape = 2; % ?
         reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptions.reachMethod = 'cp-star'; % default parameters
         reachOptionsList{1} = reachOptions;
 
     else % all other benchmarks

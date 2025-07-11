@@ -1,6 +1,6 @@
 cd ~/.matlab/R2024b_licenses
 
-curl --retry 100 --retry-connrefused -L -O 
+curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/scl/fi/94gyrz1sdpiuvd7e8nc0r/LicenseTL.zip?rlkey=cbbrrkley11nnxd5r9mgrnkg1&st=4bx85clk&dl=0
 sleep 60
 ls -al
 

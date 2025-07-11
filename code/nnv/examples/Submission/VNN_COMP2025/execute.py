@@ -36,33 +36,33 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
     
-    print("Looking for connections")
-    eng_name = matlab.engine.find_matlab()
-    print(eng_name)
-    try:
-        eng = matlab.engine.connect_matlab(eng_name[0])
-        print(eng)
-    except:
-        print("Connect to anything")
-        eng = matlab.engine.connect_matlab()
-        print(eng)
+    # print("Looking for connections")
+    # eng_name = matlab.engine.find_matlab()
+    # print(eng_name)
+    # try:
+    #     eng = matlab.engine.connect_matlab(eng_name[0])
+    #     print(eng)
+    # except:
+    #     print("Connect to anything")
+    #     eng = matlab.engine.connect_matlab()
+    #     print(eng)
 
-    print(eng)
+    # print(eng)
 
-    # eng = matlab.engine.start_matlab()
-    # 
-    # eng.addpath(os.getcwd())
-    # eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
-    # print("Paths added");
+    eng = matlab.engine.start_matlab()
+
+    eng.addpath(os.getcwd())
+    eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
+    print("Paths added");
     ## eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
 
     status = 2 #initialize with an 'Unknown' status
     future = eng.run_vnncomp_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
 
-    print("future initiated")
+    # print("future initiated")
 
     timeout = float(timeout)
-    print('Trying to get the results without specified timeout')
+    # print('Trying to get the results without specified timeout')
 
     # time.sleep(timeout) # wait until timeout everytime?
 

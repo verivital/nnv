@@ -119,7 +119,10 @@ def main(mat_file_path: str, num_files: int, N_dir: int,
     new_shape = (height * width * n_class, N_dir // num_files)
     for i in range(1, num_files + 1):
         key = f'Y{i}'
-        Y[key] = torch.tensor(mat_data[key], dtype=torch.float32).reshape(new_shape)
+        YY = mat_data[key];
+        YY = np.reshape(YY, new_shape, order='F')
+        Y[key] = torch.tensor(YY, dtype=torch.float32)
+        #Y[key] = torch.tensor(mat_data[key], dtype=torch.float32).reshape(new_shape)
 
     del mat_data
     gc.collect()

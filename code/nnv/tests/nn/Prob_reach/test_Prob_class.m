@@ -47,7 +47,7 @@ for i=1:height
 end
 
 output_dim = [height, width, n_class];
-mode = 'Linear';
+mode = 'Linear';%%relu
 model = Net;
 
 

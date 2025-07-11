@@ -1,6 +1,6 @@
 """Launch MATLAB Engines with Python
 
-This module was created for local testing of reachability analysis (https://github.com/verivital/nnv.git) ahead of VNN-COMP 2023.
+This module was created for local testing of reachability analysis (https://github.com/verivital/nnv.git) ahead of VNN-COMP 2025.
 To perform testing, the following functionality is enabled.
 
 - Start a MATLAB engine.
@@ -36,25 +36,25 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
     
-    # print("Looking for connections")
-    # eng_name = matlab.engine.find_matlab()
-    # print(eng_name)
-    # try:
-    #     eng = matlab.engine.connect_matlab(eng_name[0])
-    #     print(eng)
-    # except:
-    #     print("Connect to anything")
-    #     eng = matlab.engine.connect_matlab()
-    #     print(eng)
+    print("Looking for connections")
+    eng_name = matlab.engine.find_matlab()
+    print(eng_name)
+    try:
+        eng = matlab.engine.connect_matlab(eng_name[0])
+        print(eng)
+    except:
+        print("Connect to anything")
+        eng = matlab.engine.connect_matlab()
+        print(eng)
 
-    # print(eng)
+    print(eng)
 
-    eng = matlab.engine.start_matlab()
-
-    eng.addpath(os.getcwd())
-    eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
-    print("Paths added");
-    # eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
+    # eng = matlab.engine.start_matlab()
+    # 
+    # eng.addpath(os.getcwd())
+    # eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
+    # print("Paths added");
+    ## eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
 
     status = 2 #initialize with an 'Unknown' status
     future = eng.run_vnncomp_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)

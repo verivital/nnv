@@ -1,7 +1,5 @@
 function Out_ImS = Prob_reach(Net, In_ImS, reachOptions)
 
-dir0 = which(nnv);
-files_dir = fullfile(dir0, 'code', 'nnv', 'engine', 'nn',  'Prob_reach', 'Temp_files_mid_run');
 pe = pyenv;
 py_dir = pe.Executable;
 
@@ -16,7 +14,7 @@ if isfield(reachOptions, 'confidence')
 else
     confidence = 0.99;
 end
-if isempty(IS.im_lb)
+if isempty(In_ImS.im_lb)
     error('We assume the input ImageStar is a box, and also contains the feature, im_lb. In case your input is not a box but contains im_lb, then your reachset will be more conservative as we assume a box with lower bound im_lb and upper bound im_ub.')
 end
 
@@ -30,10 +28,17 @@ if isfield(reachOptions, 'train_epochs')
 else
     train_epochs = 50;
 end
-[N_dir , N , Ns] = CP_specification(coverage, confidence, numel(IS.im_lb) , train_device, 'single');
 
-SizeIn = size(IS.im_lb);
-SizeOut = size(evaluate(obj, IS.im_lb));
+if isfield(reachOptions, 'train_lr')
+    train_lr = reachOptions.train_lr;
+else
+    train_lr = 0.01;
+end
+
+[N_dir , N , Ns] = CP_specification(coverage, confidence, numel(In_ImS.im_lb) , train_device, 'single');
+
+SizeIn = size(In_ImS.im_lb);
+SizeOut = size(forward(Net, In_ImS.im_lb));
 height = SizeIn(1);
 width = SizeIn(2);
 if length(SizeOut) == 2
@@ -68,12 +73,12 @@ end
 
 params = struct;
 params.epochs = train_epochs;
+params.lr = train_lr;
 params.trn_batch = floor(N_dir/3);
 params.dims = surrogate_dim;
 params.N_dir = N_dir;
 params.Nt = N;
 params.Ns = Ns;
-params.files_dir = files_dir;
 params.threshold_normal = threshold_normal;
 params.guarantee = coverage;
 params.py_dir = py_dir;
@@ -82,4 +87,32 @@ params.py_dir = py_dir;
 obj = ProbReach_ImageStar(Net,In_ImS,indices,SizeOut,train_mode, params);
 Out_ImS = obj.ProbReach();
 
+end
+
+
+
+
+
+function out = forward(model, x)
+    
+    model_source = class(model);
+    
+    switch model_source
+    
+        case 'SeriesNetwork'
+            out = model.predict(x);
+    
+        case 'DAGNetwork'
+            out = model.predict(x);
+    
+        case 'dlnetwork'
+            dlX = dlarray(X, 'SSC'); % 'SSC' = Spatial, Spatial, Channel
+            out = model.predict(dlX);
+    
+        case 'NN'
+            out = model.evaluate(x);
+    
+        otherwise
+            error("Unknown model source: " + model_source + ". We only cover NN, SeriesNetwork, dlnetwork and DAGNetwork.");
+    end
 end

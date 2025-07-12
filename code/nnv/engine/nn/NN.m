@@ -261,10 +261,7 @@ classdef NN < handle
 
         function outputSet = reachProb_ImageStar(obj, IS, reachOptions)
             
-            thisFile = mfilename('fullpath');
-            [dir0, ~, ~] = fileparts(thisFile);
             
-            files_dir = fullfile(dir0, 'Prob_reach', 'Temp_files_mid_run');
             pe = pyenv;
             py_dir = pe.Executable;
 
@@ -293,6 +290,13 @@ classdef NN < handle
             else
                 train_epochs = 50;
             end
+
+            if isfield(reachOptions, 'train_lr')
+                train_lr = reachOptions.train_lr;
+            else
+                train_lr = 0.01;
+            end
+
             [N_dir , N , Ns] = CP_specification(coverage, confidence, numel(IS.im_lb) , train_device, 'single');
             
             SizeIn = size(IS.im_lb);
@@ -327,12 +331,13 @@ classdef NN < handle
 
             params = struct;
             params.epochs = train_epochs;
+            params.lr = train_lr;
             params.trn_batch = floor(N_dir/3);
             params.dims = surrogate_dim;
             params.N_dir = N_dir;
             params.Nt = N;
             params.Ns = Ns;
-            params.files_dir = files_dir;
+            % params.files_dir = files_dir;
             params.threshold_normal = threshold_normal;
             params.guarantee = coverage;
             params.py_dir = py_dir;

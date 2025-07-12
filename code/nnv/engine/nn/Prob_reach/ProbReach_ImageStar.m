@@ -101,7 +101,7 @@ classdef ProbReach_ImageStar
             
             %%%%%%%%%%%%%%
             parfor i=1:N
-                disp(i)
+                % disp(i)
                 Rand = rand(n_channel*N_perturbed,1);
                 Rand_matrix = obj.mat_generator_no_third(Rand);
                 d_at = zeros(height,width,n_channel);
@@ -310,7 +310,7 @@ classdef ProbReach_ImageStar
                 tic
                 %%%%%%%%%%%%%%
                 parfor i=1:len
-                    disp(['part ' num2str(nc) ' number ' num2str(i)])
+                    % disp(['part ' num2str(nc) ' number ' num2str(i)])
                     Rand = rand(n_channel*N_perturbed,1);
                     Rand_matrix = obj.mat_generator_no_third(Rand);
                     d_at = zeros(height,width,n_channel);

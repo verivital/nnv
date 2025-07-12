@@ -16,4 +16,6 @@ im_lb = img - delta_rgb;
 im_ub = img + delta_rgb;
 IS = ImageStar(im_lb , im_ub);
 
-Reachableset = obj.reachProb_ImageStar(IS, []);
+reachOptions.train_epochs = 200;
+reachOptions.train_lr = 0.0001;
+Reachableset = obj.reachProb_ImageStar(IS, reachOptions);

@@ -19,7 +19,7 @@ mat_data = scipy.io.loadmat(mat_file_path)
 x = torch.tensor(mat_data['X'].T, dtype=torch.float32)  # Shape [10000, 5376]
 y = torch.tensor(mat_data['dYV'].T, dtype=torch.float32)  # Shape [10000, 10]
 epochs = int(mat_data['epochs'].flatten()[0])
-
+lr = mat_data['lr'].flatten()[0]
 
 
 
@@ -60,7 +60,7 @@ model = LinearModel(input_dim, output_dim).to(device)
 
 # Define Loss and Optimizer
 criterion = nn.MSELoss(reduction='sum')
-optimizer = optim.Adam(model.parameters(), lr=0.000001)
+optimizer = optim.Adam(model.parameters(), lr=lr)
 
 
 start_time =time.time()

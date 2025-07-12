@@ -8,7 +8,6 @@ parentDir = fileparts(dir0);
 parentDir = fileparts(parentDir);
 nnv_dir = fileparts(parentDir);
 addpath(genpath(nnv_dir))
-files_dir = fullfile(nnv_dir, 'engine', 'nn', 'Prob_reach', 'Temp_files_mid_run');
 pe = pyenv;
 py_dir = pe.Executable;
 load(model_name)
@@ -29,7 +28,8 @@ height = 64;
 width = 84;
 n_channel = 1;
 n_class = 11;
-epochs = 50;
+train_epochs = 200;
+train_lr = 0.0001;
 
 [N_dir , N , Ns] = CP_specification(delta, confidence, height*width*n_class , 'gpu', 'single');
 
@@ -52,14 +52,15 @@ model = Net;
 
 
 params = struct;
-params.epochs = epochs;
+params.epochs = train_epochs;
+params.lr = train_lr;
 params.trn_batch = floor(N_dir/3);
 params.dims = [-1 -1];
 params.N_dir = N_dir;
 
 params.Nt = N;
 params.Ns = Ns;
-params.files_dir = files_dir;
+
 
 params.threshold_normal = 1e-5;
 params.guarantee = delta;

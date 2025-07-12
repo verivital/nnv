@@ -29,6 +29,10 @@ classdef ProbReach_ImageStar
             end
             obj.output_dim = output_dim;
             obj.mode = mode;
+
+            thisFile = mfilename('fullpath');
+            [dir0, ~, ~] = fileparts(thisFile);
+            params.files_dir = fullfile(dir0, 'Temp_files_mid_run');
             obj.params = params;
         end
 
@@ -193,7 +197,8 @@ classdef ProbReach_ImageStar
             dYV  = Directions' * (Y - C );
             dims = obj.params.dims;
             epochs = obj.params.epochs;
-            save("Reduced_dimension.mat", "dYV", "X", "dims", "epochs");
+            lr = obj.params.lr;
+            save("Reduced_dimension.mat", "dYV", "X", "dims", "epochs", "lr");
             
             cd ..
 

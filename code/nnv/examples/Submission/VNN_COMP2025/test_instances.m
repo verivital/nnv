@@ -28,46 +28,140 @@ acas_instances = [...
 for i=1:length(acas_instances)
     onnx = acas_path + acas_instances(i,1);
     vnnlib = acas_path + acas_instances(i,2);
-    run_vnncomp_instance("acasxu",onnx,vnnlib,"acas_results_" + string(i)+".txt");
+    try
+        run_vnncomp_instance("acasxu",onnx,vnnlib,"acas_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+
 end
 
 
-%% nn4sys
+%% cctsdb_yolo
 
-disp("Running nn4sys...")
+disp("Running cctsdb...")
 
-nn4sys_path = vnncomp_path + "nn4sys/";
+cctsdb_path = vnncomp_path + "cctsdb_yolo_2023/";
 
-nn4sys_instances = [... % all other networks are not supported...
-    "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
-    "onnx/lindex_deep.onnx", "vnnlib/lindex_200.vnnlib";...
+cctsdb_instances = [...
+    "onnx/patch-1.onnx" , "vnnlib/spec_onnx_patch-1_idx_00559_0.vnnlib";...
+    "onnx/patch-3.onnx", "vnnlib/spec_onnx_patch-3_idx_00303_0.vnnlib";...
     ];
 
-% Run verification for nn4sys 
-for i=1:length(nn4sys_instances)
-    onnx = nn4sys_path + nn4sys_instances(i,1);
-    vnnlib = nn4sys_path + nn4sys_instances(i,2);
-    run_vnncomp_instance("nn4sys",onnx,vnnlib,"nn4sys_results_" + string(i)+".txt");
+% Run verification for acas 
+for i=1:length(cctsdb_instances)
+    onnx = cctsdb_path + cctsdb_instances(i,1);
+    vnnlib = cctsdb_path + cctsdb_instances(i,2);
+    try
+        run_vnncomp_instance("cctsdb_yolo",onnx,vnnlib,"cctsdb_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
 
-% need to update the support for these vnnlib properties, should be pretty quick
 
-%% dist_shift
+%% cersyve
 
-disp("Running dist_shift...")
+disp("Running cersyve...")
 
-dist_path = vnncomp_path + "dist_shift_2023/";
+cersyve_path = vnncomp_path + "cersyve/";
 
-dist_instances = ["onnx/mnist_concat.onnx" ,"vnnlib/index6731_delta0.13.vnnlib";...
-    "onnx/mnist_concat.onnx" ,"vnnlib/index7_delta0.13.vnnlib";...
-    "onnx/mnist_concat.onnx" ,"vnnlib/index9830_delta0.13.vnnlib";...
-    ]; % something is failing with these ones, let's take a look at that
+cersyve_instances = [...
+    "onnx/unicycle_pretrain_con.onnx" , "vnnlib/prop_unicycle.vnnlib";...
+    "onnx/robot_arm_finetune_inv.onnx", "vnnlib/prop_robot_arm.vnnlib";...
+    ];
 
-% Run verification for dist_shift
-for i=1:length(dist_instances)
-    onnx = dist_path + dist_instances(i,1);
-    vnnlib = dist_path + dist_instances(i,2);
-    run_vnncomp_instance("dist_shift",onnx,vnnlib,"dist_results_" + string(i)+".txt");
+% Run verification for acas 
+for i=1:length(cersyve_instances)
+    onnx = cersyve_path + cersyve_instances(i,1);
+    vnnlib = cersyve_path + cersyve_instances(i,2);
+    try
+        run_vnncomp_instance("cersyve",onnx,vnnlib,"cersyve_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+%% cgan
+
+disp("Running cgan..")
+
+cgan_path = vnncomp_path + "cgan_2023/";
+
+cgan_instances = ["onnx/cGAN_imgSz32_nCh_1.onnx", "vnnlib/cGAN_imgSz32_nCh_1_prop_0_input_eps_0.010_output_eps_0.015.vnnlib";...
+    "onnx/cGAN_imgSz32_nCh_3.onnx", "vnnlib/cGAN_imgSz32_nCh_3_prop_0_input_eps_0.010_output_eps_0.015.vnnlib";...
+    "onnx/cGAN_imgSz32_nCh_3_nonlinear_activations.onnx", "vnnlib/cGAN_imgSz32_nCh_3_nonlinear_activations_prop_0_input_eps_0.015_output_eps_0.020.vnnlib";... 
+    "onnx/cGAN_imgSz32_nCh_1_transposedConvPadding_1.onnx", "vnnlib/cGAN_imgSz32_nCh_1_transposedConvPadding_1_prop_0_input_eps_0.015_output_eps_0.020.vnnlib";...
+    "onnx/cGAN_imgSz32_nCh_3_upsample.onnx", "vnnlib/cGAN_imgSz32_nCh_3_upsample_prop_0_input_eps_0.015_output_eps_0.020.vnnlib";... 
+    "onnx/cGAN_imgSz32_nCh_3_small_transformer.onnx", "vnnlib/cGAN_imgSz32_nCh_3_small_transformer_prop_0_input_eps_0.010_output_eps_0.015.vnnlib";... 
+];
+
+% Run verification for cgan
+for i=1:length(cgan_instances)
+    onnx = cgan_path + cgan_instances(i,1);
+    vnnlib = cgan_path + cgan_instances(i,2);
+    try
+        run_vnncomp_instance("cgan",onnx,vnnlib,"cgan_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+
+%% Cifar100
+
+disp("Running Cifar-100..")
+
+cifar100_path = vnncomp_path + "cifar100_2024/";
+
+% no vnnlib properties provided in this year's repo
+cifar100_instances = ["onnx/CIFAR100_resnet_medium.onnx", "vnnlib/CIFAR100_resnet_medium_prop_idx_9697_sidx_8423_eps_0.0039.vnnlib"; ...
+    "onnx/CIFAR100_resnet_large.onnx", "vnnlib/CIFAR100_resnet_large_prop_idx_2247_sidx_8763_eps_0.0039.vnnlib";...
+    ];
+
+% Run verification for cifar100
+for i=1:length(cifar100_instances)
+    onnx = cifar100_path + cifar100_instances(i,1);
+    vnnlib = cifar100_path + cifar100_instances(i,2);
+    try
+        run_vnncomp_instance("cifar100",onnx,vnnlib,"cifar100_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+%% collins_aerospace
+
+disp("Running collins_rul..")
+
+cab_path = vnncomp_path + "collins_aerospace_benchmark/";
+
+cab_instances = ["onnx/yolov5nano_LRelu_640.onnx", "vnnlib/img_10012_perturbed_bbox_0_delta_0.001.vnnlib"];
+
+% Run verification for collins_rul
+for i=1:height(cab_instances)
+    onnx = cab_path + cab_instances(i,1);
+    vnnlib = cab_path + cab_instances(i,2);
+    try
+        run_vnncomp_instance("collins_aerospace_benchmark",onnx,vnnlib,"collins_aero_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
 
 
@@ -87,30 +181,385 @@ rul_instances = ["onnx/NN_rul_small_window_20.onnx" ,"vnnlib/robustness_2perturb
 for i=1:length(rul_instances)
     onnx = rul_path + rul_instances(i,1);
     vnnlib = rul_path + rul_instances(i,2);
-    run_vnncomp_instance("collins_rul",onnx,vnnlib,"collins_rul_results_" + string(i)+".txt");
+    try
+        run_vnncomp_instance("collins_rul",onnx,vnnlib,"collins_rul_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
 
-%% cgan
 
-disp("Running cgan..")
 
-cgan_path = vnncomp_path + "cgan_2023/";
+%% Cora
 
-cgan_instances = ["onnx/cGAN_imgSz32_nCh_1.onnx", "vnnlib/cGAN_imgSz32_nCh_1_prop_0_input_eps_0.010_output_eps_0.015.vnnlib";...
-    "onnx/cGAN_imgSz32_nCh_3.onnx", "vnnlib/cGAN_imgSz32_nCh_3_prop_0_input_eps_0.015_output_eps_0.020.vnnlib";...
-    "onnx/cGAN_imgSz64_nCh_1.onnx", "vnnlib/cGAN_imgSz64_nCh_1_prop_1_input_eps_0.005_output_eps_0.010.vnnlib";...
-    "onnx/cGAN_imgSz64_nCh_3.onnx", "vnnlib/cGAN_imgSz64_nCh_3_prop_2_input_eps_0.005_output_eps_0.010.vnnlib";...
-    % "onnx/cGAN_imgSz32_nCh_3_nonlinear_activations.onnx", "vnnlib/cGAN_imgSz32_nCh_3_nonlinear_activations_prop_0_input_eps_0.010_output_eps_0.015.vnnlib";... % conv2D error (data and filter have different data types)
-    "onnx/cGAN_imgSz32_nCh_1_transposedConvPadding_1.onnx", "vnnlib/cGAN_imgSz32_nCh_1_transposedConvPadding_1_prop_0_input_eps_0.010_output_eps_0.015.vnnlib";...
-    % "onnx/cGAN_imgSz32_nCh_3_upsample.onnx", "vnnlib/cGAN_imgSz32_nCh_3_upsample_prop_0_input_eps_0.010_output_eps_0.015.vnnlib";... % reshape error reachability
-    % "onnx/cGAN_imgSz32_nCh_3_small_transformer.onnx", "vnnlib/cGAN_imgSz32_nCh_3_small_transformer_prop_0_input_eps_0.005_output_eps_0.010.vnnlib";... % onnx loading error
-];
+disp("Running Cora benchmark..")
 
-% Run verification for cgan
-for i=1:length(cgan_instances)
-    onnx = cgan_path + cgan_instances(i,1);
-    vnnlib = cgan_path + cgan_instances(i,2);
-    run_vnncomp_instance("cgan",onnx,vnnlib,"cgan_results_" + string(i)+".txt");
+cora_path = vnncomp_path + "cora_2024/";
+
+% Some sat, most unsat, fairly fast using exact, can go with that as well
+% Some unknowns... How is this possible with exact analysis?
+
+% We can probably do exact analysis from the beginning on all instances here
+cora_instances = ["onnx/mnist-point.onnx", "vnnlib/mnist-img0.vnnlib";...
+    "onnx/mnist-trades.onnx", "vnnlib/mnist-img1.vnnlib";...
+    "onnx/mnist-set.onnx", "vnnlib/mnist-img20.vnnlib";...
+    "onnx/svhn-point.onnx", "vnnlib/svhn-img84.vnnlib";...
+    "onnx/svhn-set.onnx", "vnnlib/svhn-img273.vnnlib";...
+    "onnx/svhn-trades.onnx", "vnnlib/svhn-img410.vnnlib";...
+    "onnx/cifar10-set.onnx", "vnnlib/cifar10-img347.vnnlib";...
+    "onnx/cifar10-point.onnx", "vnnlib/cifar10-img353.vnnlib";...
+    "onnx/cifar10-trades.onnx", "vnnlib/cifar10-img423.vnnlib"...
+    ];
+
+% Run verification for CORA
+for i=1:length(cora_instances)
+    onnx = cora_path + cora_instances(i,1);
+    vnnlib = cora_path + cora_instances(i,2);
+    try
+        run_vnncomp_instance("cora",onnx,vnnlib,"cora_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+
+%% dist_shift
+
+disp("Running dist_shift...")
+
+dist_path = vnncomp_path + "dist_shift_2023/";
+
+dist_instances = ["onnx/mnist_concat.onnx" ,"vnnlib/index2101_delta0.13.vnnlib";...
+    "onnx/mnist_concat.onnx" ,"vnnlib/index9181_delta0.13.vnnlib";...
+    "onnx/mnist_concat.onnx" ,"vnnlib/index4260_delta0.13.vnnlib";...
+    ];
+
+% Run verification for dist_shift
+for i=1:length(dist_instances)
+    onnx = dist_path + dist_instances(i,1);
+    vnnlib = dist_path + dist_instances(i,2);
+    try
+        run_vnncomp_instance("dist_shift",onnx,vnnlib,"dist_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+%% linearizeNN
+
+disp("Running linearizeNN...")
+
+lin_path = vnncomp_path + "linearizenn_2024/";
+
+lin_instances = ["onnx/AllInOne_10_10.onnx" ,"vnnlib/prop_10_10.vnnlib";...
+    "onnx/AllInOne_30_30.onnx" ,"vnnlib/prop_30_30_0.vnnlib";...
+    "onnx/AllInOne_50_50.onnx" ,"vnnlib/prop_50_50_0.vnnlib";...
+    "onnx/AllInOne_50_120.onnx", "vnnlib/prop_50_120.vnnlib";...
+    "onnx/AllInOne_80_30.onnx", "vnnlib/prop_80_30_3.vnnlib";...
+    "onnx/AllInOne_120_120.onnx", "vnnlib/prop_120_120_0.vnnlib";...
+    ]; 
+
+% Run verification for dist_shift
+for i=1:length(lin_instances)
+    onnx = lin_path + lin_instances(i,1);
+    vnnlib = lin_path + lin_instances(i,2);
+    try
+        run_vnncomp_instance("linearizenn",onnx,vnnlib,"linear_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+
+%% lsnc_relu
+
+disp("Running lsnc_relu...")
+
+lsnc_path = vnncomp_path + "lsnc_relu/";
+
+lsnc_instances = ["onnx/relu_quadrotor2d_state.onnx" ,"vnnlib/quadrotor2d_state_0.vnnlib";...
+    ]; 
+
+% Run verification for dist_shift
+for i=1:height(lsnc_instances)
+    onnx = lsnc_path + lsnc_instances(i,1);
+    vnnlib = lsnc_path + lsnc_instances(i,2);
+    try
+        run_vnncomp_instance("lsnc_relu",onnx,vnnlib,"lsnc_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+%% malbeware
+
+disp("Running malbeware...")
+
+malbeware_path = vnncomp_path + "malbeware/";
+
+malbeware_instances = ["onnx/malware_malimg_family_scaled_linear-25.onnx" ,"vnnlib/malbeware_family-Autorun.K_label-5_eps-2_idx-29.vnnlib";...
+    "onnx/malware_malimg_family_scaled_linear-25.onnx", "vnnlib/malbeware_family-Swizzor.gen!E_label-20_eps-2_idx-103.vnnlib";...
+    "onnx/malware_malimg_family_scaled_4-25.onnx", "vnnlib/malbeware_family-Autorun.K_label-5_eps-1_idx-25.vnnlib";...
+]; 
+
+% Run verification for dist_shift
+for i=1:length(malbeware_instances)
+    onnx = malbeware_path + malbeware_instances(i,1);
+    vnnlib = malbeware_path + malbeware_instances(i,2);
+    try
+        run_vnncomp_instance("malbeware",onnx,vnnlib,"malbeware_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+
+%% metaroom
+
+disp("Running metaroom..")
+
+metaroom_path = vnncomp_path + "metaroom_2023/";
+
+% We can probably do exact analysis from the beginning on all instances here
+metaroom_instances = ["./onnx/6cnn_ry_92_15_no_custom_OP.onnx", "./vnnlib/spec_idx_147_eps_0.00000436.vnnlib";...
+    "./onnx/4cnn_ry_47_7_no_custom_OP.onnx", "./vnnlib/spec_idx_23_eps_0.00000436.vnnlib";...
+    "./onnx/4cnn_tz_94_15_no_custom_OP.onnx", "./vnnlib/spec_idx_90_eps_0.00001000.vnnlib";...
+    ];
+
+% Run verification for metaroom
+for i=1:length(metaroom_instances)
+    onnx = metaroom_path + metaroom_instances(i,1);
+    vnnlib = metaroom_path + metaroom_instances(i,2);
+    try
+        run_vnncomp_instance("metaroom",onnx,vnnlib,"metaroom_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+
+%% ml4acopf
+
+% Skip for now, cannot initialize network
+
+disp("Running ml4acopf...")
+
+% ml4acopf_path = vnncomp_path + "ml4acopf_2024/";
+% 
+% ml4acopf_instances = [...
+%     % "onnx/14_ieee_ml4acopf-linear-residual.onnx" ,"vnnlib/14_ieee_prop9.vnnlib";...
+%     "onnx/118_ieee_ml4acopf.onnx", "vnnlib/118_ieee_prop2.vnnlib";...
+%     "onnx/300_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
+%     "onnx/14_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/14_ieee_prop9.vnnlib";...
+%     "onnx/14_ieee_ml4acopf.onnx","vnnlib/14_ieee_prop3.vnnlib";...
+%     "onnx/118_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/118_ieee_prop6.vnnlib";...
+%     "onnx/300_ieee_ml4acopf.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
+% ]; 
+% 
+% % Run verification for dist_shift
+% for i=1:length(ml4acopf_instances)
+%     onnx = ml4acopf_path + ml4acopf_instances(i,1);
+%     vnnlib = ml4acopf_path + ml4acopf_instances(i,2);
+%     try
+%         run_vnncomp_instance("ml4acopf",onnx,vnnlib,"ml4acopf_results_" + string(i)+".txt");
+%     catch ME
+%         warning("Failed")
+%         disp(onnx+"___"+vnnlib)
+%         warning(ME.message)
+%     end
+% end
+
+
+%% nn4sys
+
+disp("Running nn4sys...")
+
+nn4sys_path = vnncomp_path + "nn4sys/";
+
+nn4sys_instances = [... % all other networks are not supported...
+    "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
+    "onnx/lindex_deep.onnx", "vnnlib/lindex_200.vnnlib";...
+    "onnx/pensieve_big_parallel.onnx", "vnnlib/pensieve_parallel_0.vnnlib";...
+    "onnx/pensieve_small_simple.onnx", "vnnlib/pensieve_simple_1.vnnlib";...
+    "onnx/pensieve_small_parallel.onnx", "vnnlib/pensieve_parallel_4.vnnlib";...
+    "onnx/mscn_128d.onnx", "vnnlib/cardinality_0_1_128.vnnlib";...
+    "onnx/mscn_128d_dual.onnx", "vnnlib/cardinality_1_1_128_dual.vnnlib";...
+    "onnx/mscn_2048d.onnx", "vnnlib/cardinality_0_1_2048.vnnlib";...
+    "onnx/mscn_2048d_dual.onnx", "vnnlib/cardinality_1_1_2048_dual.vnnlib";...
+    ];
+
+% Run verification for nn4sys 
+for i=1:length(nn4sys_instances)
+    onnx = nn4sys_path + nn4sys_instances(i,1);
+    vnnlib = nn4sys_path + nn4sys_instances(i,2);
+    try
+        run_vnncomp_instance("nn4sys",onnx,vnnlib,"nn4sys_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+% need to update the support for these vnnlib properties, should be pretty quick
+
+
+%% relusplitter
+
+disp("Running relusplitter...")
+
+relusplitter_path = vnncomp_path + "relusplitter/";
+
+relusplitter_instances = [... % all other networks are not supported...
+    "onnx/mnist_fc_vnncomp2022_mnist-net_256x4.onnx","vnnlib/mnist_fc_vnncomp2022_prop_7_0.05.vnnlib";...
+    "onnx/mnist_fc_vnncomp2022_mnist-net_256x4_RSPLITTER_mnist_fc_vnncomp2022_prop_7_0.05.onnx", "vnnlib/mnist_fc_vnncomp2022_prop_7_0.05.vnnlib";...
+    "onnx/mnist_fc_vnncomp2022_mnist-net_256x6.onnx", "vnnlib/mnist_fc_vnncomp2022_prop_4_0.03.vnnlib";...
+    "onnx/mnist_fc_vnncomp2022_mnist-net_256x6_RSPLITTER_mnist_fc_vnncomp2022_prop_5_0.05.onnx", "vnnlib/mnist_fc_vnncomp2022_prop_6_0.03.vnnlib";...
+    "onnx/oval21-benchmark_cifar_base_kw.onnx", "vnnlib/oval21-benchmark_cifar_base_kw-img2069-eps0.02718954248366013.vnnlib";...
+    "onnx/oval21-benchmark_cifar_base_kw_RSPLITTER_oval21-benchmark_cifar_base_kw-img5541-eps0.010718954248366015.onnx", "vnnlib/oval21-benchmark_cifar_base_kw-img5541-eps0.010718954248366015.vnnlib";...
+    "onnx/oval21-benchmark_cifar_deep_kw.onnx", "vnnlib/oval21-benchmark_cifar_deep_kw-img221-eps0.025098039215686277.vnnlib";...
+    "onnx/oval21-benchmark_cifar_deep_kw_RSPLITTER_oval21-benchmark_cifar_deep_kw-img6508-eps0.044183006535947714.onnx", "vnnlib/oval21-benchmark_cifar_deep_kw-img6508-eps0.044183006535947714.vnnlib";...
+    "onnx/cifar_biasfield_vnncomp2022_cifar_bias_field_5.onnx", "vnnlib/cifar_biasfield_vnncomp2022_prop_5.vnnlib";...
+    "onnx/cifar_biasfield_vnncomp2022_cifar_bias_field_27_RSPLITTER_cifar_biasfield_vnncomp2022_prop_27.onnx", "vnnlib/cifar_biasfield_vnncomp2022_prop_27.vnnlib";...
+    ];
+
+% Run verification for nn4sys 
+for i=1:length(relusplitter_instances)
+    onnx = relusplitter_path + relusplitter_instances(i,1);
+    vnnlib = relusplitter_path + relusplitter_instances(i,2);
+    try
+        run_vnncomp_instance("relusplitter",onnx,vnnlib,"relusplitter_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+%% safeNLP
+
+disp("Running safeNLP..")
+
+safeNLP_path = vnncomp_path + "safenlp_2024/";
+
+% All are unsat in about a second, we can prob do exact on all as well
+
+% We can probably do exact analysis from the beginning on all instances here
+safeNLP_instances = ["onnx/ruarobot/perturbations_0.onnx", "vnnlib/ruarobot/hyperrectangle_3607.vnnlib";...
+    "onnx/medical/perturbations_0.onnx", "vnnlib/medical/hyperrectangle_369.vnnlib";...
+    ];
+
+% Run verification for safeNLP
+for i=1:length(safeNLP_instances)
+    onnx = safeNLP_path + safeNLP_instances(i,1);
+    vnnlib = safeNLP_path + safeNLP_instances(i,2);
+    try
+        run_vnncomp_instance("safeNLP",onnx,vnnlib,"safeNLP_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+%% sat relu
+
+disp("Running sat_relu..")
+
+satrelu_path = vnncomp_path + "sat_relu/";
+
+% All are unsat in about a second, we can prob do exact on all as well
+
+% We can probably do exact analysis from the beginning on all instances here
+satrelu_instances = ["onnx/sat_v18_c75.onnx", "vnnlib/sat_v18_c75.vnnlib";...
+    "onnx/unsat_v18_c75.onnx", "vnnlib/unsat_v18_c75.vnnlib";...
+    ];
+
+% Run verification for satrelu
+for i=1:length(satrelu_instances)
+    onnx = satrelu_path + satrelu_instances(i,1);
+    vnnlib = satrelu_path + satrelu_instances(i,2);
+    try
+        run_vnncomp_instance("sat_relu",onnx,vnnlib,"satrelu_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+%% soundnessbench
+
+disp("Running doundness benchmark..")
+
+sound_path = vnncomp_path + "soundnessbench/";
+
+% All are unsat in about a second, we can prob do exact on all as well
+
+% We can probably do exact analysis from the beginning on all instances here
+sound_instances = ["onnx/model.onnx", "vnnlib/model_0.vnnlib";...
+    "onnx/model.onnx", "vnnlib/model_29.vnnlib";...
+    ];
+
+% Run verification for satrelu
+for i=1:length(sound_instances)
+    onnx = sound_path + sound_instances(i,1);
+    vnnlib = sound_path + sound_instances(i,2);
+    try
+        run_vnncomp_instance("soundnessbench",onnx,vnnlib,"sound_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
+
+
+%% tinyimagenet
+
+disp("Running tinyimagenet..")
+
+tinyimagenet_path = vnncomp_path + "tinyimagenet_2024/";
+
+% no vnnlib properties provided in this year's repo
+% (Some may be available in 2022 repo)
+tinyimagenet_instances = ["onnx/TinyImageNet_resnet_medium.onnx", "vnnlib/TinyImageNet_resnet_medium_prop_idx_762_sidx_4897_eps_0.0039.vnnlib"; ...
+    ];
+
+% Run verification for tinyimagenet
+for i=1:height(tinyimagenet_instances)
+    onnx = tinyimagenet_path + tinyimagenet_instances(i,1);
+    vnnlib = tinyimagenet_path + tinyimagenet_instances(i,2);
+    try
+        run_vnncomp_instance("tinyimagenet",onnx,vnnlib,"tinyimagenet_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
 
 
@@ -133,122 +582,101 @@ tll_instances = ["onnx/tllBench_n=2_N=M=8_m=1_instance_0_0.onnx","vnnlib/propert
 for i=1:length(tll_instances)
     onnx = tll_path + tll_instances(i,1);
     vnnlib = tll_path + tll_instances(i,2);
-    run_vnncomp2024_instance("tllverifybench",onnx,vnnlib,"tllverify_results_" + string(i)+".txt");
+    try
+        run_vnncomp_instance("tllverifybench",onnx,vnnlib,"tllverify_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
 
-%% metaroom
+%% traffic signs recognition
 
-disp("Running metaroom..")
+disp("Running traffic signs recognition..")
 
-metaroom_path = vnncomp_path + "metaroom_2023/";
+traffic_path = vnncomp_path + "traffic_signs_recognition_2023/";
 
-% We can probably do exact analysis from the beginning on all instances here
-metaroom_instances = ["onnx/6cnn_ry_20_3_no_custom_OP.onnx", "vnnlib/spec_idx_109_eps_0.00000436.vnnlib";...
-    "onnx/4cnn_ry_117_19_no_custom_OP.onnx", "vnnlib/spec_idx_3_eps_0.00000436.vnnlib";...
-    "onnx/6cnn_ry_65_10_no_custom_OP.onnx", "vnnlib/spec_idx_133_eps_0.00000436.vnnlib";...
-    "onnx/6cnn_ry_104_17_no_custom_OP.onnx", "vnnlib/spec_idx_96_eps_0.00000436.vnnlib";...
-    "onnx/6cnn_ry_94_15_no_custom_OP.onnx", "vnnlib/spec_idx_149_eps_0.00000436.vnnlib";...
-    "onnx/4cnn_ry_19_3_no_custom_OP.onnx", "vnnlib/spec_idx_5_eps_0.00000436.vnnlib";...
-    ];
+traffic_instances = ["onnx/3_30_30_QConv_16_3_QConv_32_2_Dense_43_ep_30.onnx", "vnnlib/model_30_idx_7377_eps_1.00000.vnnlib";...
+    "onnx/3_48_48_QConv_32_5_MP_2_BN_QConv_64_5_MP_2_BN_QConv_64_3_BN_Dense_256_BN_Dense_43_ep_30.onnx", "vnnlib/model_48_idx_7377_eps_1.00000.vnnlib";...
+    "onnx/3_64_64_QConv_32_5_MP_2_BN_QConv_64_5_MP_2_BN_QConv_64_3_MP_2_BN_Dense_1024_BN_Dense_43_ep_30.onnx","vnnlib/model_64_idx_7377_eps_1.00000.vnnlib";...
+    ]; 
 
-% Run verification for metaroom
-for i=1:length(metaroom_instances)
-    onnx = metaroom_path + metaroom_instances(i,1);
-    vnnlib = metaroom_path + metaroom_instances(i,2);
-    run_vnncomp_instance("metaroom",onnx,vnnlib,"metaroom_results_" + string(i)+".txt");
+% Run verification for traffic
+for i=1:length(traffic_instances)
+    onnx = traffic_path + traffic_instances(i,1);
+    vnnlib = traffic_path + traffic_instances(i,2);
+    try
+        run_vnncomp_instance("traffic_signs_recognition",onnx,vnnlib,"traffic_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
 
+%% vggnet
 
-%% safeNLP
+disp("Running vggnet16...")
 
-disp("Running safeNLP..")
+vgg_path = vnncomp_path + "vggnet16_2022/";
 
-safeNLP_path = vnncomp_path + "safenlp_2024/";
+vgg_instances = ["onnx/vgg16-7.onnx", "vnnlib/spec0_briard.vnnlib"]; 
 
-% All are unsat in about a second, we can prob do exact on all as well
-
-% We can probably do exact analysis from the beginning on all instances here
-safeNLP_instances = ["onnx/ruarobot.onnx", "vnnlib/ruarobot/prop_8_perturbations.vnnlib";...
-    "onnx/ruarobot.onnx", "vnnlib/ruarobot/prop_1239_perturbations.vnnlib";...
-    "onnx/ruarobot.onnx", "vnnlib/ruarobot/prop_6012_perturbations.vnnlib";...
-    "onnx/medical.onnx", "vnnlib/medical/prop_0_perturbations.vnnlib";...
-    "onnx/medical.onnx", "vnnlib/medical/prop_5_perturbations.vnnlib";...
-    "onnx/medical.onnx", "vnnlib/medical/prop_53_perturbations.vnnlib";...
-    ];
-
-% Run verification for safeNLP
-for i=1:length(safeNLP_instances)
-    onnx = safeNLP_path + safeNLP_instances(i,1);
-    vnnlib = safeNLP_path + safeNLP_instances(i,2);
-    run_vnncomp_instance("safeNLP",onnx,vnnlib,"safeNLP_results_" + string(i)+".txt");
-end
-
-
-%% Cora
-
-disp("Running Cora benchmark..")
-
-cora_path = vnncomp_path + "cora_2024/";
-
-% Some sat, most unsat, fairly fast using exact, can go with that as well
-% Some unknowns... How is this possible with exact analysis?
-
-% We can probably do exact analysis from the beginning on all instances here
-cora_instances = ["nns/mnist-point.onnx", "benchmark-files/mnist-img0.vnnlib";...
-    "nns/mnist-trades.onnx", "benchmark-files/mnist-img1.vnnlib";...
-    "nns/mnist-set.onnx", "benchmark-files/mnist-img20.vnnlib";...
-    "nns/svhn-point.onnx", "benchmark-files/svhn-img140.vnnlib";...
-    "nns/svhn-set.onnx", "benchmark-files/svhn-img323.vnnlib";...
-    "nns/svhn-trades.onnx", "benchmark-files/svhn-img472.vnnlib";...
-    "nns/cifar10-set.onnx", "benchmark-files/cifar10-img347.vnnlib";...
-    "nns/cifar10-point.onnx", "benchmark-files/cifar10-img353.vnnlib";...
-    "nns/cifar10-trades.onnx", "benchmark-files/cifar10-img266.vnnlib"...
-    ];
-
-% Run verification for CORA
-for i=1:length(cora_instances)
-    onnx = cora_path + cora_instances(i,1);
-    vnnlib = cora_path + cora_instances(i,2);
-    run_vnncomp_instance("cora",onnx,vnnlib,"cora_results_" + string(i)+".txt");
+% Run verification for vgg
+for i=1:length(vgg_instances)
+    onnx = vgg_path + vgg_instances(i,1);
+    vnnlib = vgg_path + vgg_instances(i,2);
+    try
+        run_vnncomp_instance("vggnet16",onnx,vnnlib,"vgg_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
 
 
-%% Cifar100
+%% vit
 
-disp("Running Cifar-100..")
+disp("Running vit...")
 
-cifar100_path = vnncomp_path + "cifar100_2024/";
+vit_path = vnncomp_path + "vit_2023/";
 
-% no vnnlib properties provided in this year's repo
-cifar100_instances = ["onnx/CIFAR100_resnet_medium.onnx", ""; ...
-    "onnx/CIFAR100_resnet_large.onnx", "";...
-    ];
+vit_instances = ["onnx/pgd_2_3_16.onnx", "vnnlib/pgd_2_3_16_8835.vnnlib";...
+    "onnx/ibp_3_3_8.onnx", "vnnlib/ibp_3_3_8_4868.vnnlib";...
+    ]; 
 
-% Run verification for cifar100
-for i=1:length(cifar100_instances)
-    onnx = cifar100_path + cifar100_instances(i,1);
-    vnnlib = cifar100_path + cifar100_instances(i,2);
-    run_vnncomp_instance("cifar100",onnx,vnnlib,"cifar100_results_" + string(i)+".txt");
+% Run verification for vit
+for i=1:length(vit_instances)
+    onnx = vit_path + vit_instances(i,1);
+    vnnlib = vit_path + vit_instances(i,2);
+    try
+        run_vnncomp_instance("vit_2023",onnx,vnnlib,"vit_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
 
+%% yolo
 
-%% tinyimagenet
+disp("Running yolo...")
 
-disp("Running tinyimagenet..")
+yolo_path = vnncomp_path + "yolo_2023/";
 
-tinyimagenet_path = vnncomp_path + "tinyimagenet_2024/";
+yolo_instances = ["onnx/TinyYOLO.onnx", "vnnlib/TinyYOLO_prop_000034_eps_1_255.vnnlib"]; 
 
-% no vnnlib properties provided in this year's repo
-% (Some may be available in 2022 repo)
-tinyimagenet_instances = ["onnx/TinyImageNet_resnet_medium.onnx", ""; ...
-    ];
-
-% Run verification for tinyimagenet
-for i=1:length(tinyimagenet_instances)
-    onnx = tinyimagenet_path + tinyimagenet_instances(i,1);
-    vnnlib = tinyimagenet_path + tinyimagenet_instances(i,2);
-    run_vnncomp_instance("tinyimagenet",onnx,vnnlib,"tinyimagenet_results_" + string(i)+".txt");
+% Run verification for yolo
+for i=1:length(yolo_instances)
+    onnx = yolo_path + yolo_instances(i,1);
+    vnnlib = yolo_path + yolo_instances(i,2);
+    try
+        run_vnncomp_instance("yolo_2023",onnx,vnnlib,"yolo_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
 end
-
-%% TODO
-% Add all other benchmarks

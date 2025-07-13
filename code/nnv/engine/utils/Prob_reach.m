@@ -3,6 +3,26 @@ function Out_ImS = Prob_reach(Net, In_ImS, reachOptions)
 pe = pyenv;
 py_dir = pe.Executable;
 
+if isa(In_ImS, 'ImageStar')
+    if isempty(In_ImS.im_lb)
+        [LB, UB] = getRanges(In_ImS);
+    else
+        LB = In_ImS.im_lb;
+        UB = In_ImS.im_ub;
+    end
+
+elseif isa(In_ImS, 'Star')
+    if isempty(In_ImS.state_lb)
+        [LB, UB] = getBox(In_ImS);
+    else
+        LB = In_ImS.state_lb;
+        UB = In_ImS.state_ub;
+    end
+
+else
+    error('The input must be a Star or Image_Star object.');
+end
+
 
 if isfield(reachOptions, 'coverage')
     coverage = reachOptions.coverage;
@@ -14,15 +34,26 @@ if isfield(reachOptions, 'confidence')
 else
     confidence = 0.99;
 end
-if isempty(In_ImS.im_lb)
-    error('We assume the input ImageStar is a box, and also contains the feature, im_lb. In case your input is not a box but contains im_lb, then your reachset will be more conservative as we assume a box with lower bound im_lb and upper bound im_ub.')
-end
+
 
 if isfield(reachOptions, 'train_device')
     train_device = reachOptions.train_device;
 else
     train_device = 'gpu';
 end
+
+if isfield(reachOptions, 'train_mode')
+    train_mode = reachOptions.train_mode;
+else
+    train_mode = 'Linear'; 
+end
+
+if isfield(reachOptions, 'surrogate_dim')
+    surrogate_dim = reachOptions.surrogate_dim;
+else
+    surrogate_dim = [-1, -1];
+end
+
 if isfield(reachOptions, 'train_epochs')
     train_epochs = reachOptions.train_epochs;
 else
@@ -32,18 +63,17 @@ end
 if isfield(reachOptions, 'train_lr')
     train_lr = reachOptions.train_lr;
 else
-    train_lr = 0.01;
+    train_lr = 0.0001; %%% The prefrence for lr is 0.0001 in 'Linear' and 0.01 in 'relu' mode.
 end
+
+
 
 [N_dir , N , Ns] = CP_specification(coverage, confidence, numel(In_ImS.im_lb) , train_device, 'single');
 
-SizeIn = size(In_ImS.im_lb);
-SizeOut = size(forward(Net, In_ImS.im_lb));
+SizeIn = size(LB);
+SizeOut = size(forward(Net, LB));
 height = SizeIn(1);
 width = SizeIn(2);
-if length(SizeOut) == 2
-    SizeOut = [ SizeOut , 1];
-end
 
 
 if isfield(reachOptions, 'indices')
@@ -53,17 +83,6 @@ else
     indices = [I(:), J(:)];
 end
 
-if isfield(reachOptions, 'train_mode')
-    train_mode = reachOptions.train_mode;
-else
-    train_mode = 'Linear';
-end
-
-if isfield(reachOptions, 'surrogate_dim')
-    surrogate_dim = reachOptions.surrogate_dim;
-else
-    surrogate_dim = [-1, -1];
-end
 
 if isfield(reachOptions, 'threshold_normal')
     threshold_normal = reachOptions.threshold_normal;
@@ -84,13 +103,10 @@ params.guarantee = coverage;
 params.py_dir = py_dir;
 
 
-obj = ProbReach_ImageStar(Net,In_ImS,indices,SizeOut,train_mode, params);
+obj = ProbReach_ImageStar(Net,LB, UB,indices, SizeOut, train_mode, params);
 Out_ImS = obj.ProbReach();
 
 end
-
-
-
 
 
 function out = forward(model, x)
@@ -106,7 +122,7 @@ function out = forward(model, x)
             out = model.predict(x);
     
         case 'dlnetwork'
-            dlX = dlarray(X, 'SSC'); % 'SSC' = Spatial, Spatial, Channel
+            dlX = dlarray(x);
             out = model.predict(dlX);
     
         case 'NN'

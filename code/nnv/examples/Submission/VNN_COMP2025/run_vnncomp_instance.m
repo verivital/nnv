@@ -71,7 +71,7 @@ end
 
 vT = tic;
 
-quickRun = false;
+quickRun = true;
 
 if quickRun || reachOptionsList{1}.reachMethod == "cp-star"
     tTime = toc(t);

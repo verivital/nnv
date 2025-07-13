@@ -71,13 +71,13 @@ end
 
 vT = tic;
 
-quickRun = true;
-
-if quickRun || reachOptionsList{1}.reachMethod == "cp-star"
-    tTime = toc(t);
-    disp("Quiting early...")
-    return
-end
+% quickRun = true;
+% 
+% if quickRun || reachOptionsList{1}.reachMethod == "cp-star"
+%     tTime = toc(t);
+%     disp("Quiting early...")
+%     return
+% end
 
 if status == 2 % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
@@ -319,18 +319,10 @@ end
 
 function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2025 benchmark NNs 
-% Most regular track
-% some extended
-% TODO (support with CP/Prob)
-% - cctsdb_yolo
-% - dist_shift
-% - linearizeNN
+% Not yet supported:
 % - lsnc_relu
-% - nn4sys
-% - traffic signs
-% - vggnet
-% - vit
-% - yolo
+% - ml4acopf
+% - traffic_signs_recognition
 
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape

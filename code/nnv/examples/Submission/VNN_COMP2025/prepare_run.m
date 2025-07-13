@@ -23,6 +23,9 @@ disp(" ")
 disp("Support package path");
 disp(matlabshared.supportpkg.getSupportPackageRoot);
 
+disp("Python environment")
+disp(pyenv)
+
 % matlabshared.supportpkg.getInstalled
 
 % savepath; 

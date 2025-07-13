@@ -1,5 +1,5 @@
 function Out_ImS = Prob_reach(Net, In_ImS, reachOptions)
-
+params = struct;
 pe = pyenv;
 py_dir = pe.Executable;
 
@@ -21,6 +21,14 @@ elseif isa(In_ImS, 'Star')
 
 else
     error('The input must be a Star or Image_Star object.');
+end
+
+if isa(Net, 'dlnetwork')
+    if isempty(reachOptions.dlarrayType)
+        error('We require the inpute format for alnetworks, please provide.')
+    else
+        params.dlarrayType = reachOptions.dlarrayType;
+    end
 end
 
 
@@ -90,7 +98,7 @@ else
     threshold_normal = 1e-5;
 end
 
-params = struct;
+
 params.epochs = train_epochs;
 params.lr = train_lr;
 params.trn_batch = floor(N_dir/3);
@@ -101,7 +109,6 @@ params.Ns = Ns;
 params.threshold_normal = threshold_normal;
 params.guarantee = coverage;
 params.py_dir = py_dir;
-
 
 obj = ProbReach_ImageStar(Net,LB, UB,indices, SizeOut, train_mode, params);
 Out_ImS = obj.ProbReach();
@@ -122,7 +129,7 @@ function out = forward(model, x)
             out = model.predict(x);
     
         case 'dlnetwork'
-            dlX = dlarray(x);
+            dlX = dlarray(x, 'CB');
             out = model.predict(dlX);
     
         case 'NN'

@@ -105,6 +105,12 @@ optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 start_time =time.time()
 
+x_batch, y_batch = next(iter(dataloader))
+x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+y_pred = model(x_batch)
+loss = criterion(y_pred, y_batch)
+print(f'Before training, Loss is: {loss.item():.4f}')
+
 for epoch in range(epochs):
     total_loss = 0
     for x_batch, y_batch in dataloader:

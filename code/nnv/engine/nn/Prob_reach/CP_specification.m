@@ -35,6 +35,8 @@ Ns  = findMinimumM_binary(delta, confidence_LB);
 
 Nt = floor(Ns/3);
 
+Nt = min(10000, Nt);
+
 
 if Np > Nt
 

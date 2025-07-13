@@ -67,7 +67,10 @@ start_time =time.time()
 
 for epoch in range(epochs):
     total_loss = 0
+    # uuj = 0
     for x_batch, y_batch in dataloader:
+        # uuj = uuj+1
+        # print(uuj)
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
         optimizer.zero_grad()

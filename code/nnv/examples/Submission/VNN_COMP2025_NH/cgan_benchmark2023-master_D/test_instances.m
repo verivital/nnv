@@ -28,9 +28,9 @@ instances = {
 };
 
 
-for i = 20:21
+for i = 1:21
     
-    if i<20
+    if i<1
         method = 'd';
     else
         method = 'p';
@@ -56,12 +56,15 @@ for i = 20:21
         net = importNetworkFromONNX( instances{i,1}, "InputDataFormats", "BC", "OutputDataFormats", "BC" );
         nnvnet = matlab2nnv(net);
     else
-        netFcn = importONNXFunction(instances{i,1}, "MyNet");
-        nnvnet = netFcn;
+        % netFcn = importONNXFunction(instances{i,1}, "MyNet");
+        % nnvnet = netFcn;
+        net = importNetworkFromONNX( instances{i,1}, "InputDataFormats", "BC", "OutputDataFormats", "BC" );
+        nnvnet = net;
     end
 
     for k = 1:nR
         x = xRand(:, k);
+        x = dlarray(x, 'CB');
         yPred = predict(net, x);
         yPred = extractdata(yPred);
         yPred = reshape(yPred, [], 1);  % Ensure column vector

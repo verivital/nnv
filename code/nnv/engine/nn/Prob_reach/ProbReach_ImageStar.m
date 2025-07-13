@@ -84,7 +84,7 @@ classdef ProbReach_ImageStar
                     out = obj.model.predict(x);
 
                 case 'dlnetwork'
-                    dlX = dlarray(x);
+                    dlX = dlarray(x, obj.params.dlarrayType);
                     out = obj.model.predict(dlX);
 
                 case 'NN'
@@ -132,7 +132,7 @@ classdef ProbReach_ImageStar
 
                 Y = reshape(Y, [n1 , N]);
                 [Directions , ~] = eig(Y*Y'/N);
-
+                cd(obj.params.files_dir)
 
             else
 
@@ -324,7 +324,7 @@ classdef ProbReach_ImageStar
                 tic
                 %%%%%%%%%%%%%%
                 parfor i=1:len
-                    % disp(['part ' num2str(nc) ' number ' num2str(i)])
+                    disp(['part ' num2str(nc) ' number ' num2str(i)])
                     Rand = rand(n_channel*N_perturbed,1);
                     Rand_matrix = obj.mat_generator_no_third(Rand);
                     d_at = zeros(height,width,n_channel);
@@ -391,7 +391,6 @@ classdef ProbReach_ImageStar
             dim2 = out_height*out_width*n_class;
             
             H = Star();
-            H.V = [sparse(dim2,1) speye(dim2)];
             H.C = sparse(1,dim2);
             H.d = 0;
             H.predicate_lb = -Conf;
@@ -426,7 +425,7 @@ classdef ProbReach_ImageStar
             end
 
             if TotalSize < 0.5*ramGB
-
+                H.V = [zeros(dim2,1) eye(dim2)];
                 Out = Sum(Surrogate_reach, H);
 
 
@@ -451,7 +450,7 @@ classdef ProbReach_ImageStar
                 p = input('Do you want to continue? Yes <-- 1 / No <-- 0     ');
                 
                 if p==1
-
+                    H.V = [sparse(dim2,1) speye(dim2)];
                     OS = Star();
                     P_Center = sparse(double(Surrogate_reach.V(:,1)));
                     P_lb = double([Surrogate_reach.predicate_lb ; H.predicate_lb]);

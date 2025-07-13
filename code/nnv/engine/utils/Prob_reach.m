@@ -66,12 +66,18 @@ else
     train_lr = 0.0001; %%% The prefrence for lr is 0.0001 in 'Linear' and 0.01 in 'relu' mode.
 end
 
+if isfield(reachOptions, 'inputFormat')
+    inputFormat = reachOptions.inputFormat;
+else
+    inputFormat = 'default';
+end
+
 
 
 [N_dir , N , Ns] = CP_specification(coverage, confidence, numel(In_ImS.im_lb) , train_device, 'single');
 
 SizeIn = size(LB);
-SizeOut = size(forward(Net, LB));
+SizeOut = size(forward(Net, LB, inputFormat));
 height = SizeIn(1);
 width = SizeIn(2);
 
@@ -109,7 +115,7 @@ Out_ImS = obj.ProbReach();
 end
 
 
-function out = forward(model, x)
+function out = forward(model, x, inputFormat)
     
     model_source = class(model);
     
@@ -122,7 +128,23 @@ function out = forward(model, x)
             out = model.predict(x);
     
         case 'dlnetwork'
-            dlX = dlarray(x);
+            % dlX = dlarray(x,inputFormat);
+            if strcmp(inputFormat, "default")
+                if isa(model.Layers(1, 1), 'nnet.cnn.layer.ImageInputLayer')
+                    dlX = dlarray(x, "SSCB");
+                elseif isa(model.Layers(1, 1), 'nnet.cnn.layer.FeatureInputLayer') || isa(model.Layers(1, 1), 'nnet.onnx.layer.FeatureInputLayer')
+                    dlX = dlarray(x, "CB");
+                else
+                    disp(model.Layers(1,1));
+                    error("Unknown input format");
+                end
+            else
+                if contains(inputFormat, "U")
+                    dlX = dlarray(x, inputFormat+"U");
+                else
+                    dlX = dlarray(x, inputFormat);
+                end
+            end
             out = model.predict(dlX);
     
         case 'NN'

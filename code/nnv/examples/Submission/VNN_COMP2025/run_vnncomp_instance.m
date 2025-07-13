@@ -71,13 +71,13 @@ end
 
 vT = tic;
 
-% quickRun = false;
-% 
-% if quickRun || reachOptionsList{1}.reachMethod == "cp-star"
-%     tTime = toc(t);
-%     disp("Quiting early...")
-%     return
-% end
+quickRun = false;
+
+if quickRun || reachOptionsList{1}.reachMethod == "cp-star"
+    tTime = toc(t);
+    disp("Quiting early...")
+    return
+end
 
 if status == 2 % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
@@ -374,9 +374,9 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star'; % default parameters
         reachOptionsList{1} = reachOptions;
-        reachOptions.reachMethod = 'cp-star';
-        % reachOptions.numCores = numCores;
-        reachOptionsList{2} = reachOptions;
+        % reachOptions.reachMethod = 'cp-star';
+        % % reachOptions.numCores = numCores;
+        % reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "cgan")
         % cgan: onnx to nnv
@@ -481,22 +481,23 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
 
     elseif contains(category, "lsnc_relu")
         % LCNS_ReLU: onnx to matlab:
-        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
-        try 
-            nnvnet = matlab2nnv(net);
-            reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star'; % default parameters
-            reachOptionsList{1} = reachOptions;
-            reachOptions = struct;
-            reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = numCores;
-            reachOptionsList{1} = reachOptions;
-        catch
-            nnvnet = "";
-            reachOptions = struct;
-            reachOptions.reachMethod = 'cp-star';
-            reachOptionsList{1} = reachOptions;
-        end
+        % net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+        % try 
+        %     nnvnet = matlab2nnv(net);
+        %     reachOptions = struct;
+        %     reachOptions.reachMethod = 'approx-star'; % default parameters
+        %     reachOptionsList{1} = reachOptions;
+        %     reachOptions = struct;
+        %     reachOptions.reachMethod = 'exact-star';
+        %     reachOptions.numCores = numCores;
+        %     reachOptionsList{1} = reachOptions;
+        % catch
+        %     nnvnet = "";
+        %     reachOptions = struct;
+        %     reachOptions.reachMethod = 'cp-star';
+        %     reachOptionsList{1} = reachOptions;
+        % end
+        error("IR and opset not yet supported in MATLAB")
 
     elseif contains(category, "malbeware")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS");
@@ -650,16 +651,18 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
 
     elseif contains(category, "traffic")
         % error("TODO: add support")
-        net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
-        try
-            nnvnet = matlab2nnv(net);
-        catch
-            nnvnet = "";
-        end
-        needReshape = 1; %?
-        reachOptions = struct;
-        reachOptions.reachMethod = 'cp-star';
-        reachOptionsList{1} = reachOptions;
+        % net = importNetworkFromONNX(onnx, "InputDataFormats", "BSSC", 'OutputDataFormats',"BC");
+        % try
+        %     nnvnet = matlab2nnv(net);
+        % catch
+        %     nnvnet = "";
+        % end
+        % % needReshape = 1; % 1 is wrong
+        % reachOptions = struct;
+        % % inputFormat = "BSSC";
+        % reachOptions.reachMethod = 'cp-star';
+        % reachOptionsList{1} = reachOptions;
+        error("IR and opset not yet supported in MATLAB")
 
     elseif contains(category, "vggnet")
         % error("TODO: add support")
@@ -682,7 +685,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
         catch
             nnvnet = "";
         end
-        needReshape= 1; %?
+        needReshape= 1; % 1 is correct
         reachOptions = struct;
         reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;

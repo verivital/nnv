@@ -5,7 +5,7 @@ function [status, tTime] = run_vnncomp_instance(category, onnx, vnnlib, outputfi
 t = tic;
 status = 2; % unknown (to start with)
 
-disp("We are running...")
+% disp("We are running...")
 
 
 
@@ -13,7 +13,7 @@ disp("We are running...")
 
 % Load networks
 
-[net, nnvnet, needReshape, reachOptionsList, inputSize] = load_vnncomp_network(category, onnx, vnnlib);
+[net, nnvnet, needReshape, reachOptionsList, inputSize,inputFormat] = load_vnncomp_network(category, onnx, vnnlib);
 
 if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
@@ -40,17 +40,17 @@ nRand = 100; % number of random inputs (this can be changed)
 
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
-    counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg, needReshape);
+    counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg, needReshape, inputFormat);
 elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
     for spc = 1:length(lb) % try parfeval, parfor does not work for early return
-        counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg, needReshape);
+        counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg, needReshape, inputFormat);
         if iscell(counterEx)
             break
         end
     end
 elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
     for arr = 1:length(lb) % try parfeval, parfor does not work for early return
-        counterEx = falsify_single(net, lb{arr}, ub{arr}, inputSize, nRand, prop{1}.Hg, needReshape);
+        counterEx = falsify_single(net, lb{arr}, ub{arr}, inputSize, nRand, prop{1}.Hg, needReshape, inputFormat);
         if iscell(counterEx)
             break
         end
@@ -71,14 +71,15 @@ end
 
 vT = tic;
 
-% quickRun = true;
+% quickRun = false;
 % 
-% if quickRun
+% if quickRun || reachOptionsList{1}.reachMethod == "cp-star"
 %     tTime = toc(t);
+%     disp("Quiting early...")
 %     return
 % end
 
-if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
+if status == 2 % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
@@ -99,7 +100,7 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
                 if ~strcmp(reachOptions.reachMethod, "cp-star")
                     ySet = nnvnet.reach(IS, reachOptions);
                 else
-                    ySet = nnvnet.reachProb_ImageStar(IS, []);
+                    ySet = Prob_reach(net, IS, []);
                 end
     
                 % Verify property
@@ -142,7 +143,7 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
                         ySet = nnvnet.reach(IS, reachOptions);
                     else
-                        ySet = nnvnet.reachProb_ImageStar(IS, []);
+                        ySet = Prob_reach(net, IS, []);
                     end
             
                     % Verify property
@@ -202,7 +203,7 @@ if status == 2 && isa(nnvnet, "NN") % no counterexample found and supported for 
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
                         ySet = nnvnet.reach(IS, reachOptions);
                     else
-                        ySet = nnvnet.reachProb_ImageStar(IS, []);
+                        ySet = Prob_reach(net, IS, []);
                     end
         
                     % Add verification status
@@ -316,7 +317,7 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
 
 end
 
-function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_network(category, onnx, vnnlib)
+function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2025 benchmark NNs 
 % Most regular track
 % some extended
@@ -337,6 +338,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
     % reachOptions.reachMethod = 'approx-star'; % default parameters
     numCores = feature('numcores'); % in case we select exact method
     inputSize = [];
+    inputFormat = "default"; % no need to change for most of them, but needed for some ("UU")
 
     if contains(category, "acasxu")
         % acasxu: onnx to nnv
@@ -359,7 +361,8 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
         net = importNetworkFromONNX(onnx);
         nnvnet = "";
         inputSize = [12296, 1];
-        X = dlarray(rand(12296, 1), 'UU');
+        inputFormat = "UU";
+        X = dlarray(rand(12296, 1), inputFormat);
         net = initialize(net, X);
         reachOptions = struct;
         reachOptions.reachMethod = 'cp-star';
@@ -371,8 +374,8 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star'; % default parameters
         reachOptionsList{1} = reachOptions;
-        reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = numCores;
+        reachOptions.reachMethod = 'cp-star';
+        % reachOptions.numCores = numCores;
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "cgan")
@@ -401,12 +404,8 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
         nnvnet = matlab2nnv(net);
         needReshape = 1;
         reachOptions = struct;
-        reachOptions.reachMethod = 'relax-star-area';
-        reachOptions.relaxFactor = 1;
+        reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
-        reachOptions.reachMethod = 'relax-star-area';
-        reachOptions.relaxFactor = 0.5;
-        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, 'collins_aerospace_benchmark')
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
@@ -508,7 +507,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
         reachOptions.reachMethod = 'exact-star';
         reachOptions.numCores = numCores;
         reachOptionsList{1} = reachOptions;
-        % needReshape = 1;
+        needReshape = 2;
 
     elseif contains(category, "metaroom")
         % metaroom: onnx to matlab
@@ -523,7 +522,8 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
         % ml4acopf: onnx to matlab
         % net = importNetworkFromONNX(onnx, "InputDataFormats","BC");
         % inputSize = [1, 22];
-        % X = dlarray(rand([198 1]), "UU");
+        % inputFormat = "UU";
+        % X = dlarray(rand([198 1]), inputFormat);
         % net = initialize(net, X);
         % nnvnet = "";
         % reachOptions = struct;
@@ -542,13 +542,22 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
             net = importNetworkFromONNX(onnx);
             if contains(onnx, "pensieve") && contains(onnx,"parallel")
                 inputSize = [12,8];
-                X = dlarray(rand(12,8), "UU");
+                inputFormat = "UU";
+                X = dlarray(rand(12,8), inputFormat);
             elseif contains(onnx, "mscn")
-                inputSize = [1,11,14];
-                X = dlarray(rand(1,11,14), "UUU");
+                if contains(onnx, "dual")
+                    inputSize = [1,22,14];
+                    inputFormat = "UUU";
+                    X = dlarray(rand(1,22,14), inputFormat);
+                else
+                    inputSize = [1,11,14];
+                    inputFormat = "UUU";
+                    X = dlarray(rand(1,11,14), inputFormat);
+                end
             else
                 inputSize = [1,6,8];
-                X = dlarray(rand(1,6,8), "UUU");
+                inputFormat = "UUU";
+                X = dlarray(rand(1,6,8), inputFormat);
             end
             net = initialize(net, X);
             nnvnet = "";
@@ -560,7 +569,9 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
 
     elseif contains(category, "relusplitter")
         if contains(onnx, "mnist")
-            net = importNetworkFromONNX(onnx, "InputDataFormats", "BTC");
+            net = importNetworkFromONNX(onnx, "InputDataFormats", "BCT");
+            inputFormat = "BCT";
+            inputSize = [1 784];
         elseif contains(onnx, "oval")
             net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS");
             needReshape = 1;
@@ -575,9 +586,9 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
         reachOptions.reachMethod = 'relax-star-area';
         reachOptions.relaxFactor = 1;
         reachOptionsList{1} = reachOptions;
-        reachOptions.reachMethod = 'relax-star-area';
-        reachOptions.relaxFactor = 0.5;
-        reachOptionsList{2} = reachOptions;
+        % reachOptions.reachMethod = 'relax-star-area';
+        % reachOptions.relaxFactor = 0.5;
+        % reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "safenlp")
         % safeNLP: onnx to nnv
@@ -693,16 +704,19 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize] = load_vnncomp_netw
         error("ONNX model not supported")
     end
 
-    % reachOptions = struct;
-    % reachOptions.reachMethod = 'relax-star-area';
-    % reachOptions.relaxFactor = 1;
-    % reachOptionsList{1} = reachOptions;
+    % if reachOptionsList{1}.reachMethod ~= "cp-star"
+    %     reachOptionsList = {};
+    %     reachOptions = struct;
+    %     reachOptions.reachMethod = 'relax-star-area';
+    %     reachOptions.relaxFactor = 1;
+    %     reachOptionsList{1} = reachOptions;
+    % end
 
 end
 
 % Create an array of random examples from input set and reshape if necessary
 % We use dlnetwork for simulation (MATLAB data structure)
-function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape)
+function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,inputFormat)
     xB = Box(lb, ub); % lb, ub must be vectors
     xRand = xB.sample(nR-2);
     xRand = [lb, ub, xRand];
@@ -720,14 +734,23 @@ function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape)
         xRand = reshape(xRand,[inputSize nR]); % reshape vectors into net input size
     end
     if isa(net, 'dlnetwork') % need to convert to dlarray
-        if isa(net.Layers(1, 1), 'nnet.cnn.layer.ImageInputLayer')
-            xRand = dlarray(xRand, "SSCB");
-        elseif isa(net.Layers(1, 1), 'nnet.cnn.layer.FeatureInputLayer') || isa(net.Layers(1, 1), 'nnet.onnx.layer.FeatureInputLayer')
-            xRand = dlarray(xRand, "CB");
+        if strcmp(inputFormat, "default")
+            if isa(net.Layers(1, 1), 'nnet.cnn.layer.ImageInputLayer')
+                xRand = dlarray(xRand, "SSCB");
+            elseif isa(net.Layers(1, 1), 'nnet.cnn.layer.FeatureInputLayer') || isa(net.Layers(1, 1), 'nnet.onnx.layer.FeatureInputLayer')
+                xRand = dlarray(xRand, "CB");
+            else
+                disp(net.Layers(1,1));
+                error("Unknown input format");
+            end
         else
-            disp(net.Layers(1,1));
-            error("Unknown input format");
+            if contains(inputFormat, "U")
+                xRand = dlarray(xRand, inputFormat+"U");
+            else
+                xRand = dlarray(xRand, inputFormat);
+            end
         end
+        
     end
 end
 
@@ -769,36 +792,38 @@ function write_counterexample(outputfile, counterEx)
 end
 
 % Falsification function (random simulation looking for counterexamples)
-function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape)
+function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape, inputFormat)
     counterEx = nan;
-    xRand = create_random_examples(net, lb, ub, nRand, inputSize, needReshape);
+    xRand = create_random_examples(net, lb, ub, nRand, inputSize, needReshape, inputFormat);
     s = size(xRand);
     n = length(s);
     %  look for counterexamples
     for i=1:s(n)
         x = get_example(xRand, i);
-        yPred = predict(net, x);
-        if isa(x, 'dlarray') % if net is a dlnetwork
-            x = extractdata(x);
-            yPred = extractdata(yPred);
-        end
-        % check if property violated
-        yPred = reshape(yPred, [], 1); % convert to column vector (if needed)
-        % disp([x;yPred']);
-        for h=1:length(Hs)
-            if Hs(h).contains(double(yPred)) % property violated
-                % check if the counter example needs to be reshaped
-                n = numel(x);
-                if needReshape == 2
-                    % x = reshape(x, [n 1]);
-                    x = permute(x, [2 1 3]);
-                elseif needReshape == 1
-                    if ndims(x) == 3 % RGB  image
+        try
+            yPred = predict(net, x);
+            if isa(x, 'dlarray') % if net is a dlnetwork
+                x = extractdata(x);
+                yPred = extractdata(yPred);
+            end
+            % check if property violated
+            yPred = reshape(yPred, [], 1); % convert to column vector (if needed)
+            % disp([x;yPred']);
+            for h=1:length(Hs)
+                if Hs(h).contains(double(yPred)) % property violated
+                    % check if the counter example needs to be reshaped
+                    n = numel(x);
+                    if needReshape == 2
+                        % x = reshape(x, [n 1]);
                         x = permute(x, [2 1 3]);
+                    elseif needReshape == 1
+                        if ndims(x) == 3 % RGB  image
+                            x = permute(x, [2 1 3]);
+                        end
                     end
+                    counterEx = {x; yPred}; % save input/output of countex-example
+                    break;
                 end
-                counterEx = {x; yPred}; % save input/output of countex-example
-                break;
             end
         end
     end

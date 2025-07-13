@@ -39,6 +39,9 @@ for i=1:length(acas_instances)
 end
 
 
+% No errors
+
+
 %% cctsdb_yolo
 
 disp("Running cctsdb...")
@@ -63,6 +66,8 @@ for i=1:length(cctsdb_instances)
     end
 end
 
+% Errors on both? None of them finished...
+% Let's test this again
 
 %% cersyve
 
@@ -87,6 +92,9 @@ for i=1:length(cersyve_instances)
         warning(ME.message)
     end
 end
+
+% Both finished, no errors, but none finished to verify even on submission
+% site
 
 
 %% cgan
@@ -116,7 +124,7 @@ for i=1:length(cgan_instances)
     end
 end
 
-
+% All good apparently, can even verify some as seen on submission site
 
 %% Cifar100
 
@@ -143,9 +151,12 @@ for i=1:length(cifar100_instances)
 end
 
 
+% These will need to run on CP, takes forever to verify otherwise
+
+
 %% collins_aerospace
 
-disp("Running collins_rul..")
+disp("Running collins_aerospace..")
 
 cab_path = vnncomp_path + "collins_aerospace_benchmark/";
 
@@ -163,6 +174,8 @@ for i=1:height(cab_instances)
         warning(ME.message)
     end
 end
+
+% This instance finished (counterexample)
 
 
 %% collins_rul
@@ -190,6 +203,7 @@ for i=1:length(rul_instances)
     end
 end
 
+% All good, see submission 234
 
 
 %% Cora
@@ -197,9 +211,6 @@ end
 disp("Running Cora benchmark..")
 
 cora_path = vnncomp_path + "cora_2024/";
-
-% Some sat, most unsat, fairly fast using exact, can go with that as well
-% Some unknowns... How is this possible with exact analysis?
 
 % We can probably do exact analysis from the beginning on all instances here
 cora_instances = ["onnx/mnist-point.onnx", "vnnlib/mnist-img0.vnnlib";...
@@ -227,6 +238,8 @@ for i=1:length(cora_instances)
 end
 
 
+% All good
+
 
 %% dist_shift
 
@@ -251,6 +264,8 @@ for i=1:length(dist_instances)
         warning(ME.message)
     end
 end
+
+% No errors
 
 
 %% linearizeNN
@@ -280,6 +295,8 @@ for i=1:length(lin_instances)
     end
 end
 
+% Looks like they all run, just need to do the CP method
+
 
 
 %% lsnc_relu
@@ -303,6 +320,9 @@ for i=1:height(lsnc_instances)
         warning(ME.message)
     end
 end
+
+% Looks like they all run, just need to do the CP method
+% Test to make sure we are dealing with properties correctly
 
 
 %% malbeware
@@ -329,6 +349,8 @@ for i=1:length(malbeware_instances)
     end
 end
 
+
+% too many sats, let's check the reshapes (needReshape = 2 should be fine)
 
 
 %% metaroom
@@ -362,7 +384,7 @@ end
 
 % Skip for now, cannot initialize network
 
-disp("Running ml4acopf...")
+% disp("Running ml4acopf...")
 
 % ml4acopf_path = vnncomp_path + "ml4acopf_2024/";
 % 
@@ -397,8 +419,8 @@ disp("Running nn4sys...")
 nn4sys_path = vnncomp_path + "nn4sys/";
 
 nn4sys_instances = [... % all other networks are not supported...
-    "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
-    "onnx/lindex_deep.onnx", "vnnlib/lindex_200.vnnlib";...
+    % "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
+    % "onnx/lindex_deep.onnx", "vnnlib/lindex_200.vnnlib";...
     "onnx/pensieve_big_parallel.onnx", "vnnlib/pensieve_parallel_0.vnnlib";...
     "onnx/pensieve_small_simple.onnx", "vnnlib/pensieve_simple_1.vnnlib";...
     "onnx/pensieve_small_parallel.onnx", "vnnlib/pensieve_parallel_4.vnnlib";...
@@ -421,7 +443,7 @@ for i=1:length(nn4sys_instances)
     end
 end
 
-% need to update the support for these vnnlib properties, should be pretty quick
+% Everything looks okey, we need to test cp now
 
 
 %% relusplitter
@@ -430,7 +452,7 @@ disp("Running relusplitter...")
 
 relusplitter_path = vnncomp_path + "relusplitter/";
 
-relusplitter_instances = [... % all other networks are not supported...
+relusplitter_instances = [... 
     "onnx/mnist_fc_vnncomp2022_mnist-net_256x4.onnx","vnnlib/mnist_fc_vnncomp2022_prop_7_0.05.vnnlib";...
     "onnx/mnist_fc_vnncomp2022_mnist-net_256x4_RSPLITTER_mnist_fc_vnncomp2022_prop_7_0.05.onnx", "vnnlib/mnist_fc_vnncomp2022_prop_7_0.05.vnnlib";...
     "onnx/mnist_fc_vnncomp2022_mnist-net_256x6.onnx", "vnnlib/mnist_fc_vnncomp2022_prop_4_0.03.vnnlib";...
@@ -443,7 +465,7 @@ relusplitter_instances = [... % all other networks are not supported...
     "onnx/cifar_biasfield_vnncomp2022_cifar_bias_field_27_RSPLITTER_cifar_biasfield_vnncomp2022_prop_27.onnx", "vnnlib/cifar_biasfield_vnncomp2022_prop_27.vnnlib";...
     ];
 
-% Run verification for nn4sys 
+% Run verification for relusplitter
 for i=1:length(relusplitter_instances)
     onnx = relusplitter_path + relusplitter_instances(i,1);
     vnnlib = relusplitter_path + relusplitter_instances(i,2);
@@ -456,14 +478,15 @@ for i=1:length(relusplitter_instances)
     end
 end
 
+% oval seem fine
+% bias field super slow, let's use cp for that
+
 
 %% safeNLP
 
 disp("Running safeNLP..")
 
 safeNLP_path = vnncomp_path + "safenlp_2024/";
-
-% All are unsat in about a second, we can prob do exact on all as well
 
 % We can probably do exact analysis from the beginning on all instances here
 safeNLP_instances = ["onnx/ruarobot/perturbations_0.onnx", "vnnlib/ruarobot/hyperrectangle_3607.vnnlib";...
@@ -475,7 +498,7 @@ for i=1:length(safeNLP_instances)
     onnx = safeNLP_path + safeNLP_instances(i,1);
     vnnlib = safeNLP_path + safeNLP_instances(i,2);
     try
-        run_vnncomp_instance("safeNLP",onnx,vnnlib,"safeNLP_results_" + string(i)+".txt");
+        run_vnncomp_instance("safenlp",onnx,vnnlib,"safeNLP_results_" + string(i)+".txt");
     catch ME
         warning("Failed")
         disp(onnx+"___"+vnnlib)
@@ -483,14 +506,16 @@ for i=1:length(safeNLP_instances)
     end
 end
 
+% very short timeouts, barely any time to compute anything
+% current approach is okay
+% let's try cp to see if any better
+
 
 %% sat relu
 
 disp("Running sat_relu..")
 
 satrelu_path = vnncomp_path + "sat_relu/";
-
-% All are unsat in about a second, we can prob do exact on all as well
 
 % We can probably do exact analysis from the beginning on all instances here
 satrelu_instances = ["onnx/sat_v18_c75.onnx", "vnnlib/sat_v18_c75.vnnlib";...
@@ -510,14 +535,15 @@ for i=1:length(satrelu_instances)
     end
 end
 
+% very fast computation with relax, but not many verified
+% Let's test on submission site
+
 
 %% soundnessbench
 
-disp("Running doundness benchmark..")
+disp("Running soundness benchmark..")
 
 sound_path = vnncomp_path + "soundnessbench/";
-
-% All are unsat in about a second, we can prob do exact on all as well
 
 % We can probably do exact analysis from the beginning on all instances here
 sound_instances = ["onnx/model.onnx", "vnnlib/model_0.vnnlib";...
@@ -536,6 +562,9 @@ for i=1:length(sound_instances)
         warning(ME.message)
     end
 end
+
+% This one runs out of memory even with the relax star method for all
+% instances (weird...)
 
 
 %% tinyimagenet
@@ -561,6 +590,8 @@ for i=1:height(tinyimagenet_instances)
         warning(ME.message)
     end
 end
+
+% out of memory
 
 
 %% tllverify
@@ -591,6 +622,8 @@ for i=1:length(tll_instances)
     end
 end
 
+% all unknown or sat
+
 %% traffic signs recognition
 
 disp("Running traffic signs recognition..")
@@ -615,6 +648,11 @@ for i=1:length(traffic_instances)
     end
 end
 
+% Fine, let's test how fast we can do CP on submission site
+% We got this warning tho: 
+% Warning: Data format "BCSS" you specified for input 1 does not match the format "BSSC" derived by the software. The data format derived
+% by the software will be used. 
+
 %% vggnet
 
 disp("Running vggnet16...")
@@ -624,7 +662,7 @@ vgg_path = vnncomp_path + "vggnet16_2022/";
 vgg_instances = ["onnx/vgg16-7.onnx", "vnnlib/spec0_briard.vnnlib"]; 
 
 % Run verification for vgg
-for i=1:length(vgg_instances)
+for i=1:height(vgg_instances)
     onnx = vgg_path + vgg_instances(i,1);
     vnnlib = vgg_path + vgg_instances(i,2);
     try
@@ -669,7 +707,7 @@ yolo_path = vnncomp_path + "yolo_2023/";
 yolo_instances = ["onnx/TinyYOLO.onnx", "vnnlib/TinyYOLO_prop_000034_eps_1_255.vnnlib"]; 
 
 % Run verification for yolo
-for i=1:length(yolo_instances)
+for i=1:height(yolo_instances)
     onnx = yolo_path + yolo_instances(i,1);
     vnnlib = yolo_path + yolo_instances(i,2);
     try

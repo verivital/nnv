@@ -260,11 +260,31 @@ classdef NN < handle
 
 
         function outputSet = reachProb_ImageStar(obj, IS, reachOptions)
-            
-            
+
+
             pe = pyenv;
             py_dir = pe.Executable;
 
+
+            if isa(IS, 'ImageStar')
+                if isempty(IS.im_lb)
+                    [LB, UB] = getRanges(IS);
+                else
+                    LB = IS.im_lb;
+                    UB = IS.im_ub;
+                end
+
+            elseif isa(IS, 'Star')
+                if isempty(IS.state_lb)
+                    [LB, UB] = getBox(IS);
+                else
+                    LB = IS.state_lb;
+                    UB = IS.state_ub;
+                end
+
+            else
+                error('The input must be a Star or Image_Star object.');
+            end
 
             if isfield(reachOptions, 'coverage')
                 coverage = reachOptions.coverage;
@@ -276,19 +296,16 @@ classdef NN < handle
             else
                 confidence = 0.99;
             end
-            if isempty(IS.im_lb) 
-                error('We assume the input ImageStar is a box, and also contains the feature, im_lb. In case your input is not a box but contains im_lb, then your reachset will be more conservative as we assume a box with lower bound im_lb and upper bound im_ub.')
-            end
           
             if isfield(reachOptions, 'device')
-                run_device = reachOptions.device;
+                train_device = reachOptions.device;
             else
-                run_device = 'cpu';
+                train_device = 'gpu';
             end
             if isfield(reachOptions, 'epochs')
-                epochs = reachOptions.epochs;
+                train_epochs = reachOptions.epochs;
             else
-                epochs = 50;
+                train_epochs = 50;
             end
 
             if isfield(reachOptions, 'train_lr')
@@ -299,19 +316,21 @@ classdef NN < handle
 
             [N_dir , N , Ns] = CP_specification(coverage, confidence, numel(IS.im_lb) , train_device, 'single');
 
-            
-            SizeIn = size(IS.im_lb);
-            SizeOut = size(evaluate(obj, IS.im_lb));
+
+            SizeIn = size(LB);
+            SizeOut = size(evaluate(obj, LB));
             height = SizeIn(1);
             width = SizeIn(2);
-            if length(SizeOut) == 2
-                SizeOut = [ SizeOut , 1];
-            end
-
-            [J,I] = ndgrid(1:width,1:height);
-            indices = [I(:), J(:)];
 
             
+            if isfield(reachOptions, 'indices')
+                indices = reachOptions.indices;
+            else
+                [J,I] = ndgrid(1:width,1:height);
+                indices = [I(:), J(:)];
+            end
+
+
             if isfield(reachOptions, 'mode')
                 train_mode = reachOptions.mode;
             else
@@ -343,7 +362,7 @@ classdef NN < handle
             params.guarantee = coverage;
             params.py_dir = py_dir;
 
-            The_class = ProbReach_ImageStar(obj, IS, indices, SizeOut, train_mode, params);
+            The_class = ProbReach_ImageStar(obj, LB, UB, indices, SizeOut, train_mode, params);
 
             outputSet = The_class.ProbReach();
             

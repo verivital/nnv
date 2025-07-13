@@ -67,9 +67,8 @@ params.guarantee = delta;
 params.py_dir = py_dir;
 
 
-IS = ImageStar(im_lb , im_ub);
 
-obj = ProbReach_ImageStar(model,IS,indices,output_dim,mode, params);
+obj = ProbReach_ImageStar(model,im_ub, im_lb, indices,output_dim,mode, params);
 Reachableset = obj.ProbReach();
 
 end

@@ -39,6 +39,7 @@ x = torch.tensor(mat_data['X'].T, dtype=torch.float32)  # Shape [10000, 5376]
 y = torch.tensor(mat_data['dYV'].T, dtype=torch.float32)  # Shape [10000, 10]
 dims = mat_data['dims'].flatten().astype(int).tolist()
 epochs = int(mat_data['epochs'].flatten()[0])
+lr     = mat_data['lr'].flatten()[0]
 
 # Estimate λ before training
 lam = max( 10.0 , 5*estimate_lipschitz(x, y) )

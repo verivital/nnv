@@ -13,21 +13,35 @@ classdef ProbReach_ImageStar
     end
 
     methods
-        function obj = ProbReach_ImageStar(model,IS,indices,output_dim,mode,params)
+        function obj = ProbReach_ImageStar(model,LB, UB,indices,SizeOut,mode,params)
             obj.model = model;
-            if isempty(IS.im_lb) 
-                error('We assume the input ImageStar is a box, and also contains the feature, im_lb. In case your input is not a box but contains im_lb, then your reachset will be more conservative as we assume a box with lower bound im_lb and upper bound im_ub.')
-            end
-            obj.LB = IS.im_lb;
-            obj.de = IS.im_ub-IS.im_lb;
+            obj.LB = LB;
+            obj.de = UB-LB;
             obj.indices = indices;
-            SizeIn = size(IS.im_lb);
-            if length(SizeIn) == 2 %% n_channel = 1
+
+            SizeIn = size(LB);            
+            lenIn = length(SizeIn);
+            if lenIn == 1 
+                obj.original_dim = [SizeIn , 1, 1];
+            elseif lenIn == 2 
                 obj.original_dim = [SizeIn , 1];
-            else
+            elseif lenIn == 3
                 obj.original_dim = SizeIn;
+            else
+                obj.original_dim = SizeIn(1:3);
             end
-            obj.output_dim = output_dim;
+
+            lenOut = length(SizeOut);
+            if lenOut == 1 
+                obj.output_dim = [SizeOut , 1, 1];
+            elseif lenOut == 2 
+                obj.output_dim = [SizeOut , 1];
+            elseif lenOut == 3
+                obj.output_dim = SizeOut;
+            else
+                obj.output_dim = SizeOut(1:3);
+            end
+
             obj.mode = mode;
 
             thisFile = mfilename('fullpath');
@@ -70,7 +84,7 @@ classdef ProbReach_ImageStar
                     out = obj.model.predict(x);
 
                 case 'dlnetwork'
-                    dlX = dlarray(X, 'SSC'); % 'SSC' = Spatial, Spatial, Channel
+                    dlX = dlarray(x);
                     out = obj.model.predict(dlX);
 
                 case 'NN'
@@ -101,7 +115,7 @@ classdef ProbReach_ImageStar
             
             %%%%%%%%%%%%%%
             parfor i=1:N
-                % disp(i)
+                disp(i)
                 Rand = rand(n_channel*N_perturbed,1);
                 Rand_matrix = obj.mat_generator_no_third(Rand);
                 d_at = zeros(height,width,n_channel);

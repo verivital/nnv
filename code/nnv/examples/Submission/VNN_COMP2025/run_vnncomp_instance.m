@@ -408,9 +408,14 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
     elseif contains(category, 'collins_aerospace_benchmark')
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
-        needReshape = 2;
-        reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptions.train_epochs = 100;
+        reachOptions.train_lr = 0.001;
+        reachOptions.coverage = 0.999;
+        reachOptions.confidence = 0.999;
+        reachOptions.train_mode = 'Linear';
+        reachOptions.surrogate_dim = [];
+        reachOptions.threshold_normal = 1e-5;
+        reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
 
     elseif contains(category, 'collins_rul')
@@ -631,7 +636,14 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star';
+        reachOptions.train_epochs = 100;
+        reachOptions.train_lr = 0.001;
+        reachOptions.coverage = 0.999;
+        reachOptions.confidence = 0.999;
+        reachOptions.train_mode = 'Linear';
+        reachOptions.surrogate_dim = [-1,-1];
+        reachOptions.threshold_normal = 1e-5;
+        reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "tinyimagenet")
@@ -639,13 +651,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         reachOptions = struct;
-        % reachOptions.reachMethod = 'relax-star-area'; % default parameters
-        % reachOptions.relaxFactor = 1;
-        % reachOptionsList{1} = reachOptions;
-        % reachOptions = struct;
-        % reachOptions.reachMethod = 'relax-star-area'; % default parameters
-        % reachOptions.relaxFactor = 0.8;
-        % reachOptionsList{2} = reachOptions;
+        reachOptions.train_epochs = 100;
+        reachOptions.train_lr = 0.001;
+        reachOptions.coverage = 0.999;
+        reachOptions.confidence = 0.999;
+        reachOptions.train_mode = 'Linear';
+        reachOptions.surrogate_dim = [-1,-1];
+        reachOptions.threshold_normal = 1e-5;
         reachOptions.reachMethod = "cp-star";
         reachOptionsList{1} = reachOptions;
         needReshape = 1;
@@ -702,6 +714,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         end
         needReshape= 1; % 1 is correct
         reachOptions = struct;
+        reachOptions.train_epochs = 100;
+        reachOptions.train_lr = 0.001;
+        reachOptions.coverage = 0.999;
+        reachOptions.confidence = 0.999;
+        reachOptions.train_mode = 'Linear';
+        reachOptions.surrogate_dim = [-1,-1];
+        reachOptions.threshold_normal = 1e-5;
         reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
 
@@ -715,6 +734,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         end
         needReshape = 2; % ?
         reachOptions = struct;
+        reachOptions.train_epochs = 100;
+        reachOptions.train_lr = 0.001;
+        reachOptions.coverage = 0.999;
+        reachOptions.confidence = 0.999;
+        reachOptions.train_mode = 'Linear';
+        reachOptions.surrogate_dim = [-1,-1];
+        reachOptions.threshold_normal = 1e-5;
         reachOptions.reachMethod = 'cp-star'; % default parameters
         reachOptionsList{1} = reachOptions;
 

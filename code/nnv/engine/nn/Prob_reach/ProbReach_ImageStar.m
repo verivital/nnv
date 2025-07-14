@@ -88,7 +88,7 @@ classdef ProbReach_ImageStar
                     if strcmp(inputFormat, "default")
                         if isa(obj.model.Layers(1, 1), 'nnet.cnn.layer.ImageInputLayer')
                             dlX = dlarray(x, "SSCB");
-                        elseif isa(obj.model.Layers(1, 1), 'nnet.cnn.layer.FeatureInputLayer') || isa(model.Layers(1, 1), 'nnet.onnx.layer.FeatureInputLayer')
+                        elseif isa(obj.model.Layers(1, 1), 'nnet.cnn.layer.FeatureInputLayer') || isa(obj.model.Layers(1, 1), 'nnet.onnx.layer.FeatureInputLayer')
                             dlX = dlarray(x, "CB");
                         else
                             disp(obj.model.Layers(1,1));
@@ -140,7 +140,7 @@ classdef ProbReach_ImageStar
                     d_at(:,:,c) = obj.de(:,:,c) .* Rand_matrix(:,:,c) ;
                 end
                 Inp = single(obj.LB + d_at);
-                X(:,i) = Rand;
+                X(:,i) = single(Rand);
                 Y(:,:,:,i) = obj.forward(Inp,inputFormat);
             end
             %%%%%%%%%%%%%
@@ -176,8 +176,8 @@ classdef ProbReach_ImageStar
                     ind = ind+leng;
                 end
 
-                cd(obj.params.files_dir)
-                Text = ' save("Direction_data.mat" ';
+                % cd(obj.params.files_dir)
+                Text = sprintf([' save("%s/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/Direction_data.mat" '],nnvroot);
                 for i=1:last_i
                     Text = [ Text  ' ,"Y' num2str(i) '" ']; %#ok<*AGROW>
                 end
@@ -192,7 +192,7 @@ classdef ProbReach_ImageStar
 
                 % mat_file_path = fullfile(obj.params.files_dir, 'Direction_data.mat');
                 mat_file_path = obj.params.files_dir;
-                cd ..
+                % cd ..
                 command = sprintf([ 'python3  "%s"/code/nnv/engine/nn/Prob_reach/Direction_trainer.py --mat_file_path "%s" '...
                     '--num_files %d --N_dir %d --batch_size %d --height %d --width %d '...
                     '--n_class %d '], ...
@@ -200,7 +200,7 @@ classdef ProbReach_ImageStar
 
                 status = system(command);
 
-                cd(obj.params.files_dir)
+                % cd(obj.params.files_dir)
                 delete_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "Direction_data.mat";
                 delete(delete_path)
 
@@ -234,18 +234,20 @@ classdef ProbReach_ImageStar
             save_path =  nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "Reduced_dimension.mat";
             save(save_path, "dYV", "X", "dims", "epochs", "lr");
             
-            cd ..
+            % cd ..
 
             if strcmp(obj.mode, 'relu')
-                command = sprintf('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_ReLU.py',nnvroot);
+                command = sprintf('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_ReLU.py --mat_file_path "%s"',...
+                    nnvroot,mat_file_path);
                 system(command);
             elseif strcmp(obj.mode, 'Linear')
-                command = sprintf('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_Linear.py',nnvroot);
+                command = sprintf('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_Linear.py --mat_file_path "%s"',...
+                    nnvroot, mat_file_path);
                 system(command);
             end
 
 
-            cd(obj.params.files_dir)
+            % cd(obj.params.files_dir)
             delete('Reduced_dimension.mat')
 
             if strcmp(obj.mode, 'relu')
@@ -415,7 +417,7 @@ classdef ProbReach_ImageStar
             dim2 = out_height*out_width*n_class;
             
             H = Star();
-            H.V = [sparse(dim2,1) speye(dim2)];
+            % H.V = [sparse(dim2,1) speye(dim2)];
             H.C = sparse(1,dim2);
             H.d = 0;
             H.predicate_lb = -Conf;
@@ -432,7 +434,7 @@ classdef ProbReach_ImageStar
             Surrogate_reach = affineMap(Principal_reach , needs.Directions , needs.C);
             % Out = MinkowskiSum(Surrogate_reach , H);
 
-            NumElement = numel(Surrogate_reach.V) + numel(H.V);
+            NumElement = numel(Surrogate_reach.V) + dim2^2;
             SizePerElement = 8; % double
             TotalSize = (NumElement * SizePerElement) / 1024^3;
 
@@ -450,7 +452,7 @@ classdef ProbReach_ImageStar
             end
 
             if TotalSize < 0.5*ramGB
-
+                H.V = [zeros(dim2,1) eye(dim2)];
                 Out = Sum(Surrogate_reach, H);
 
 
@@ -458,15 +460,15 @@ classdef ProbReach_ImageStar
                 OS.numChannel = n_class;
                 OS.height = out_height;
                 OS.width = out_width;
-                OS.V = reshape(Out.V , [out_height, out_width, n_class, Out.nVar+1]);
-                OS.C = Out.C;
-                OS.d = Out.d;
+                OS.V = reshape(double(Out.V) , [out_height, out_width, n_class, Out.nVar+1]);
+                OS.C = double(Out.C);
+                OS.d = double(Out.d);
                 OS.numPred = Out.nVar;
-                OS.pred_lb = Out.predicate_lb;
-                OS.pred_ub = Out.predicate_ub;
+                OS.pred_lb = double(Out.predicate_lb);
+                OS.pred_ub = double(Out.predicate_ub);
                 if ~isempty(Out.state_lb)
-                    OS.im_lb = reshape(Out.state_lb , [out_height, out_width, n_class]);
-                    OS.im_ub = reshape(Out.state_ub , [out_height, out_width, n_class]);
+                    OS.im_lb = reshape(double(Out.state_lb) , [out_height, out_width, n_class]);
+                    OS.im_ub = reshape(double(Out.state_ub) , [out_height, out_width, n_class]);
                 end
             else
                 disp(' The Image Star is large for your memory and should be presented in sparse format.')
@@ -476,7 +478,7 @@ classdef ProbReach_ImageStar
                 p = 1;
                 
                 if p==1
-
+                    H.V = [sparse(dim2,1) speye(dim2)];
                     OS = Star();
                     P_Center = sparse(double(Surrogate_reach.V(:,1)));
                     P_lb = double([Surrogate_reach.predicate_lb ; H.predicate_lb]);

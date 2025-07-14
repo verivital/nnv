@@ -1,5 +1,19 @@
 function [Np , Nt , Ns]  = CP_specification(delta, confidence_LB, dv , train_mode, type)
 
+
+if ispc
+    % Windows systems
+    [~, sys] = memory;
+    ramGB = sys.PhysicalMemory.Total / 1024^3;
+elseif isunix
+    % Linux/macOS systems: use Java
+    runtime = java.lang.Runtime.getRuntime();
+    ramBytes = runtime.totalMemory();
+    ramGB = ramBytes / 1024^3;
+else
+    error('Unsupported operating system');
+end
+
 if strcmp(train_mode, 'gpu')
 
 
@@ -12,14 +26,9 @@ elseif strcmp(train_mode, 'cpu')
 
     if ispc
         % Windows systems
-        [~, sys] = memory;
-        ramGB = sys.PhysicalMemory.Total / 1024^3;
         Np = computeNumVectors(ramGB, dv, type);
     elseif isunix
         % Linux/macOS systems: use Java
-        runtime = java.lang.Runtime.getRuntime();
-        ramBytes = runtime.totalMemory();
-        ramGB = ramBytes / 1024^3;
         Np = computeNumVectors(ramGB, dv, type);
     else
         error('Unsupported operating system');
@@ -33,7 +42,7 @@ end
 
 Ns  = findMinimumM_binary(delta, confidence_LB);
 
-Nt = floor(Ns/3);
+Nt = min( [10000, floor( 0.75 * ramGB*(1024^3) / (dv * 8) ), floor(Ns/3)] );
 
 
 if Np > Nt

@@ -453,12 +453,10 @@ classdef ProbReach_ImageStar
                     OS.im_ub = reshape(double(Out.state_ub) , [out_height, out_width, n_class]);
                 end
             else
-                disp(' The Image Star is large for your memory and should be presented in sparse format.')
-                disp('Unfortunately matlab does not support sparse representation for (N>2)D arrays.')
-                disp('Thus we provide the vectorized format of ImageStar() that is a Star() via sparse 2D arrays. ')
-                p = input('Do you want to continue? Yes <-- 1 / No <-- 0     ');
+                warning(' The Image Star is large for your memory and should be presented in sparse format. Unfortunately matlab does not support sparse representation for (N>2)D arrays. Thus we provide the vectorized format of ImageStar() that is a Star() via sparse 2D arrays. ')
+                % p = input('Do you want to continue? Yes <-- 1 / No <-- 0     ');
                 
-                if p==1
+                % if p==1
                     H.V = [sparse(dim2,1) speye(dim2)];
                     OS = Star();
                     P_Center = sparse(double(Surrogate_reach.V(:,1)));
@@ -475,9 +473,9 @@ classdef ProbReach_ImageStar
                     OS.dim = H.dim;
 
 
-                else
-                    error('The Output ImageStar is too large and can not be presented as ImageStar().')
-                end
+                % else
+                %     error('The Output ImageStar is too large and can not be presented as ImageStar().')
+                % end
                 
             end
             

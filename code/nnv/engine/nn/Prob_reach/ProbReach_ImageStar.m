@@ -115,7 +115,7 @@ classdef ProbReach_ImageStar
             
             %%%%%%%%%%%%%%
             parfor i=1:N
-                disp(i)
+                % disp(i)
                 Rand = rand(n_channel*N_perturbed,1);
                 Rand_matrix = obj.mat_generator_no_third(Rand);
                 d_at = zeros(height,width,n_channel);
@@ -217,9 +217,11 @@ classdef ProbReach_ImageStar
             cd ..
 
             if strcmp(obj.mode, 'relu')
-                system('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_ReLU.py')
+                command = sprintf('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_ReLU.py',nnvroot);
+                system(command);
             elseif strcmp(obj.mode, 'Linear')
-                system('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_Linear.py')
+                command = sprintf('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_Linear.py',nnvroot);
+                system(command);
             end
 
 

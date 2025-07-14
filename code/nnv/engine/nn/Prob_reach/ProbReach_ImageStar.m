@@ -176,10 +176,10 @@ classdef ProbReach_ImageStar
                 % mat_file_path = fullfile(obj.params.files_dir, 'Direction_data.mat');
                 mat_file_path = obj.params.files_dir;
                 cd ..
-                command = sprintf([ 'python Direction_trainer.py --mat_file_path "%s" '...
+                command = sprintf([ 'python3  "%s"/code/nnv/engine/nn/Prob_reach/Direction_trainer.py --mat_file_path "%s" '...
                     '--num_files %d --N_dir %d --batch_size %d --height %d --width %d '...
                     '--n_class %d '], ...
-                    mat_file_path,  last_i, N_dir , trn_batch, out_height, out_width, n_class);
+                    nnvroot, mat_file_path,  last_i, N_dir , trn_batch, out_height, out_width, n_class);
 
                 status = system(command);
 
@@ -217,9 +217,9 @@ classdef ProbReach_ImageStar
             cd ..
 
             if strcmp(obj.mode, 'relu')
-                system('python Trainer_ReLU.py')
+                system('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_ReLU.py')
             elseif strcmp(obj.mode, 'Linear')
-                system('python Trainer_Linear.py')
+                system('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_Linear.py')
             end
 
 

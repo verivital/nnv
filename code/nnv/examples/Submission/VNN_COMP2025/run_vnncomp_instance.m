@@ -13,7 +13,7 @@ status = 2; % unknown (to start with)
 
 % Load networks
 
-[net, nnvnet, needReshape, reachOptionsList, inputSize,inputFormat] = load_vnncomp_network(category, onnx, vnnlib);
+[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat] = load_vnncomp_network(category, onnx, vnnlib);
 
 if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
@@ -71,7 +71,7 @@ end
 
 vT = tic;
 
-quickRun = true;
+quickRun = false;
 % 
 % if quickRun 
 %     tTime = toc(t);
@@ -100,7 +100,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                 if ~strcmp(reachOptions.reachMethod, "cp-star")
                     ySet = nnvnet.reach(IS, reachOptions);
                 else
-                    ySet = Prob_reach(net, IS, []);
+                    ySet = Prob_reach(net, IS, reachOptions);
                 end
     
                 % Verify property
@@ -143,7 +143,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
                         ySet = nnvnet.reach(IS, reachOptions);
                     else
-                        ySet = Prob_reach(net, IS, []);
+                        ySet = Prob_reach(net, IS, reachOptions);
                     end
             
                     % Verify property
@@ -203,7 +203,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
                         ySet = nnvnet.reach(IS, reachOptions);
                     else
-                        ySet = Prob_reach(net, IS, []);
+                        ySet = Prob_reach(net, IS, reachOptions);
                     end
         
                     % Add verification status
@@ -320,6 +320,7 @@ end
 function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2025 benchmark NNs 
 % Not yet supported:
+% - cctsdb (some errrors when forward propagating)
 % - lsnc_relu
 % - ml4acopf
 % - traffic_signs_recognition
@@ -350,15 +351,17 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
         end
 
     elseif contains(category, "cctsdb_yolo")
-        net = importNetworkFromONNX(onnx);
-        nnvnet = "";
-        inputSize = [12296, 1];
-        inputFormat = "UU";
-        X = dlarray(rand(12296, 1), inputFormat);
-        net = initialize(net, X);
-        reachOptions = struct;
-        reachOptions.reachMethod = 'cp-star';
-        reachOptionsList{1} = reachOptions;
+        % net = importNetworkFromONNX(onnx);
+        % nnvnet = "";
+        % inputSize = [12296, 1];
+        % inputFormat = "UU";
+        % X = dlarray(rand(12296, 1), inputFormat);
+        % net = initialize(net, X);
+        % reachOptions = struct;
+        % reachOptions.reachMethod = 'cp-star';
+        % reachOptions.inputFormat = inputFormat;
+        % reachOptionsList{1} = reachOptions;
+        error("Working on supporting this one");
 
     elseif contains(category, "cersyve")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
@@ -520,6 +523,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
         % net = initialize(net, X);
         % nnvnet = "";
         % reachOptions = struct;
+        % reachOptions.inputFormat = inputFormat;
         % reachOptions.reachMethod = 'cp-star';
         % reachOptionsList{1} = reachOptions;
         error("Not supported");
@@ -562,6 +566,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
             net = initialize(net, X);
             nnvnet = "";
             reachOptions = struct;
+            reachOptions.inputFormat = inputFormat;
             reachOptions.reachMethod = 'cp-star'; % default parameters
             reachOptionsList{1} = reachOptions;
         end
@@ -586,6 +591,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
         reachOptions = struct;
         reachOptions.reachMethod = 'relax-star-area';
         reachOptions.relaxFactor = 1;
+        reachOptions.inputFormat = inputFormat;
         reachOptionsList{1} = reachOptions;
         % reachOptions.reachMethod = 'relax-star-area';
         % reachOptions.relaxFactor = 0.5;
@@ -660,6 +666,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
         % % needReshape = 1; % 1 is wrong
         % reachOptions = struct;
         % % inputFormat = "BSSC";
+        % reachOptions.inputFormat = inputFormat;
         % reachOptions.reachMethod = 'cp-star';
         % reachOptionsList{1} = reachOptions;
         error("IR and opset not yet supported in MATLAB")

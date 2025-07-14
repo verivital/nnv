@@ -66,8 +66,10 @@ for i=1:length(cctsdb_instances)
     end
 end
 
-% Errors on both? None of them finished...
-% Let's test this again
+% There are errors in some of the forward prediction (gather to multlayer)
+% There seems to be some assertion that fails sometimes when randomly
+% executing
+% Let's test this again in the future
 
 %% cersyve
 

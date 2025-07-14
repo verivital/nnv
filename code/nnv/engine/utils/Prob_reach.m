@@ -107,6 +107,7 @@ params.Ns = Ns;
 params.threshold_normal = threshold_normal;
 params.guarantee = coverage;
 params.py_dir = py_dir;
+params.inputFormat = inputFormat;
 
 
 obj = ProbReach_ImageStar(Net,LB, UB,indices, SizeOut, train_mode, params);

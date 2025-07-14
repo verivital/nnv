@@ -71,25 +71,41 @@ classdef ProbReach_ImageStar
 
         end
 
-        function out = forward(obj, x)
-
+        function out = forward(obj, x, inputFormat)
+    
             model_source = class(obj.model);
-
+            
             switch model_source
-
+            
                 case 'SeriesNetwork'
                     out = obj.model.predict(x);
-
+            
                 case 'DAGNetwork'
                     out = obj.model.predict(x);
-
+            
                 case 'dlnetwork'
-                    dlX = dlarray(x);
+                    % dlX = dlarray(x,inputFormat);
+                    if strcmp(inputFormat, "default")
+                        if isa(obj.model.Layers(1, 1), 'nnet.cnn.layer.ImageInputLayer')
+                            dlX = dlarray(x, "SSCB");
+                        elseif isa(obj.model.Layers(1, 1), 'nnet.cnn.layer.FeatureInputLayer') || isa(model.Layers(1, 1), 'nnet.onnx.layer.FeatureInputLayer')
+                            dlX = dlarray(x, "CB");
+                        else
+                            disp(obj.model.Layers(1,1));
+                            error("Unknown input format");
+                        end
+                    else
+                        if contains(inputFormat, "U")
+                            dlX = dlarray(x, inputFormat+"U");
+                        else
+                            dlX = dlarray(x, inputFormat);
+                        end
+                    end
                     out = obj.model.predict(dlX);
-
+            
                 case 'NN'
                     out = obj.model.evaluate(x);
-
+            
                 otherwise
                     error("Unknown model source: " + model_source + ". We only cover NN, SeriesNetwork, dlnetwork and DAGNetwork.");
             end
@@ -106,6 +122,7 @@ classdef ProbReach_ImageStar
             N = obj.params.Nt;
             N_dir = obj.params.N_dir;
             trn_batch = obj.params.trn_batch;
+            inputFormat = obj.params.inputFormat;
 
             N_perturbed = size(obj.indices , 1);
 
@@ -124,7 +141,7 @@ classdef ProbReach_ImageStar
                 end
                 Inp = single(obj.LB + d_at);
                 X(:,i) = Rand;
-                Y(:,:,:,i) = obj.forward(Inp);
+                Y(:,:,:,i) = obj.forward(Inp,inputFormat);
             end
             %%%%%%%%%%%%%
             n1 = numel(Y(:,:,:,1));
@@ -340,7 +357,7 @@ classdef ProbReach_ImageStar
                     end
                     Inp = obj.LB + d_at;
                     X_test_nc(:,i) = Rand;
-                    Y_test_nc(:,:,:,i) = obj.forward(Inp);
+                    Y_test_nc(:,:,:,i) = obj.forward(Inp,inputFormat);
                 end
                 %%%%%%%%%%%%%
 
@@ -455,7 +472,8 @@ classdef ProbReach_ImageStar
                 disp(' The Image Star is large for your memory and should be presented in sparse format.')
                 disp('Unfortunately matlab does not support sparse representation for (N>2)D arrays.')
                 disp('Thus we provide the vectorized format of ImageStar() that is a Star() via sparse 2D arrays. ')
-                p = input('Do you want to continue? Yes <-- 1 / No <-- 0     ');
+                % p = input('Do you want to continue? Yes <-- 1 / No <-- 0     ');
+                p = 1;
                 
                 if p==1
 

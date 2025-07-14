@@ -13,7 +13,7 @@ status = 2; % unknown (to start with)
 
 % Load networks
 
-[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat] = load_vnncomp_network(category, onnx, vnnlib);
+[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand] = load_vnncomp_network(category, onnx, vnnlib);
 
 if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
@@ -32,7 +32,7 @@ prop = property.prop; % output spec to verify
 
 %% 2) SAT?
 
-nRand = 100; % number of random inputs (this can be changed)
+% nRand = 100; % number of random inputs (this can be changed)
 % We got some penalties last year, why?
 % Wrong vnnlib parsing? Wrong counterrexample writing? Do we need to reshape it?
 % Let's test last years properties and make sure those errors/bugs are
@@ -317,13 +317,13 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
 
 end
 
-function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_vnncomp_network(category, onnx, vnnlib)
+function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2025 benchmark NNs 
 % Not yet supported:
 % - cctsdb (some errrors when forward propagating)
 % - lsnc_relu
 % - ml4acopf
-% - traffic_signs_recognition
+% - traffic_signs_recognition (last year all instances were sat, maybe we are not wrong?)
 
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
@@ -332,6 +332,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
     numCores = feature('numcores'); % in case we select exact method
     inputSize = [];
     inputFormat = "default"; % no need to change for most of them, but needed for some ("UU")
+    nRand = 100; % default from previous competitions
 
     if contains(category, "acasxu")
         % acasxu: onnx to nnv
@@ -341,6 +342,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
             reachOptions.reachMethod = 'exact-star';
             reachOptions.numCores = numCores;
             reachOptionsList{1} = reachOptions;
+            nRand = 500;
         else
             reachOptions = struct;
             reachOptions.reachMethod = 'approx-star'; % default parameters
@@ -349,6 +351,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
             reachOptions.numCores = numCores;
             reachOptionsList{2} = reachOptions;
         end
+        
 
     elseif contains(category, "cctsdb_yolo")
         % net = importNetworkFromONNX(onnx);
@@ -438,6 +441,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
             reachOptions.relaxFactor = 0.7;
             reachOptionsList{1} = reachOptions;
         end
+        nRand = 500;
 
     elseif contains(category, "dist_shift")
         % dist_shift: onnx to matlab, , matlab to nnv?
@@ -609,6 +613,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
         reachOptions.reachMethod = 'exact-star'; % default parameters
         reachOptions.numCores = numCores;
         reachOptionsList{2} = reachOptions;
+        nRand = 500;
 
     elseif contains(category, "sat_relu")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
@@ -634,14 +639,17 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         reachOptions = struct;
-        reachOptions.reachMethod = 'relax-star-area'; % default parameters
-        reachOptions.relaxFactor = 1;
+        % reachOptions.reachMethod = 'relax-star-area'; % default parameters
+        % reachOptions.relaxFactor = 1;
+        % reachOptionsList{1} = reachOptions;
+        % reachOptions = struct;
+        % reachOptions.reachMethod = 'relax-star-area'; % default parameters
+        % reachOptions.relaxFactor = 0.8;
+        % reachOptionsList{2} = reachOptions;
+        reachOptions.reachMethod = "cp-star";
         reachOptionsList{1} = reachOptions;
-        reachOptions = struct;
-        reachOptions.reachMethod = 'relax-star-area'; % default parameters
-        reachOptions.relaxFactor = 0.8;
-        reachOptionsList{2} = reachOptions;
         needReshape = 1;
+        nRand = 500;
 
     elseif contains(category, "tllverify")
         % tllverify: onnx to nnv

@@ -1,5 +1,9 @@
 function Out_ImS = Prob_reach(Net, In_ImS, reachOptions)
 params = struct;
+
+dir = pwd;
+params.currentDir = dir;
+
 pe = pyenv;
 py_dir = pe.Executable;
 
@@ -129,7 +133,14 @@ function out = forward(model, x)
             out = model.predict(x);
     
         case 'dlnetwork'
-            dlX = dlarray(x, 'CB');
+            xsize = length(size(x));
+            if xsize <= 2
+                dlX = dlarray(x, 'CB');
+            elseif xsize == 3
+                dlX = dlarray(x, 'SSCB');
+            else
+                error('unsupported InputSize. (We accept CB and SSCB)')
+            end
             out = model.predict(dlX);
     
         case 'NN'

@@ -15,8 +15,30 @@ mat_file_path = r"Temp_files_mid_run/Reduced_dimension.mat"
 # Load MATLAB data
 mat_data = scipy.io.loadmat(mat_file_path)
 
-# Extract and transpose data for PyTorch
+
+
+# data_keys = [k for k in mat_data.keys() if not k.startswith('__')]
+# num_files = len(data_keys) - 4
+# # Extract and transpose data for PyTorch
+# 
+# 
+# Z = {}
+# for i in range(1, num_files + 1):
+#     key = f'Z{i}'
+#     ZZ = mat_data[key];
+#     Z[key] = torch.tensor(ZZ, dtype=torch.float32)
+# 
+# del mat_data
+# gc.collect()
+# 
+# x = torch.cat([Z[f'Z{i}'] for i in range(1, num_files + 1)], dim=1)
+# x = x.T;
+
+
 x = torch.tensor(mat_data['X'].T, dtype=torch.float32)  # Shape [10000, 5376]
+
+
+
 y = torch.tensor(mat_data['dYV'].T, dtype=torch.float32)  # Shape [10000, 10]
 epochs = int(mat_data['epochs'].flatten()[0])
 lr = mat_data['lr'].flatten()[0]

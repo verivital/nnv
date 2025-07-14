@@ -123,7 +123,7 @@ classdef ProbReach_ImageStar
                     d_at(:,:,c) = obj.de(:,:,c) .* Rand_matrix(:,:,c) ;
                 end
                 Inp = single(obj.LB + d_at);
-                X(:,i) = Rand;
+                X(:,i) = single(Rand);
                 Y(:,:,:,i) = obj.forward(Inp);
             end
             %%%%%%%%%%%%%
@@ -212,6 +212,14 @@ classdef ProbReach_ImageStar
             dims = obj.params.dims;
             epochs = obj.params.epochs;
             lr = obj.params.lr;
+
+            % Text = ' save("Reduced_dimension.mat", "dYV" ';
+            % for i=1:last_i
+            %     Text = [ Text  ' ,"X' num2str(i) '" ']; %#ok<*AGROW>
+            % end
+            % Text = [ Text ' , "dims", "epochs", "lr");'];
+            % eval(Text);
+
             save("Reduced_dimension.mat", "dYV", "X", "dims", "epochs", "lr");
             
             cd ..
@@ -323,14 +331,15 @@ classdef ProbReach_ImageStar
 
                 tic
                 %%%%%%%%%%%%%%
-                parfor i=1:len
-                    disp(['part ' num2str(nc) ' number ' num2str(i)])
+               parfor i=1:len
+                    disp(['Part ' num2str(nc) ' Part ' num2str(i) '.'])
                     Rand = rand(n_channel*N_perturbed,1);
                     Rand_matrix = obj.mat_generator_no_third(Rand);
                     d_at = zeros(height,width,n_channel);
                     for c=1:n_channel
                         d_at(:,:,c) = obj.de(:,:,c) .* Rand_matrix(:,:,c) ;
                     end
+                    % Inp = single(obj.LB + d_at);
                     Inp = obj.LB + d_at;
                     X_test_nc(:,i) = Rand;
                     Y_test_nc(:,:,:,i) = obj.forward(Inp);
@@ -407,7 +416,7 @@ classdef ProbReach_ImageStar
             Surrogate_reach = affineMap(Principal_reach , needs.Directions , needs.C);
             % Out = MinkowskiSum(Surrogate_reach , H);
 
-            NumElement = numel(Surrogate_reach.V) + numel(H.V);
+            NumElement = numel(Surrogate_reach.V) + dim2^2;
             SizePerElement = 8; % double
             TotalSize = (NumElement * SizePerElement) / 1024^3;
 
@@ -433,15 +442,15 @@ classdef ProbReach_ImageStar
                 OS.numChannel = n_class;
                 OS.height = out_height;
                 OS.width = out_width;
-                OS.V = reshape(Out.V , [out_height, out_width, n_class, Out.nVar+1]);
-                OS.C = Out.C;
-                OS.d = Out.d;
+                OS.V = reshape(double(Out.V) , [out_height, out_width, n_class, Out.nVar+1]);
+                OS.C = double(Out.C);
+                OS.d = double(Out.d);
                 OS.numPred = Out.nVar;
-                OS.pred_lb = Out.predicate_lb;
-                OS.pred_ub = Out.predicate_ub;
+                OS.pred_lb = double(Out.predicate_lb);
+                OS.pred_ub = double(Out.predicate_ub);
                 if ~isempty(Out.state_lb)
-                    OS.im_lb = reshape(Out.state_lb , [out_height, out_width, n_class]);
-                    OS.im_ub = reshape(Out.state_ub , [out_height, out_width, n_class]);
+                    OS.im_lb = reshape(double(Out.state_lb) , [out_height, out_width, n_class]);
+                    OS.im_ub = reshape(double(Out.state_ub) , [out_height, out_width, n_class]);
                 end
             else
                 disp(' The Image Star is large for your memory and should be presented in sparse format.')
@@ -469,8 +478,11 @@ classdef ProbReach_ImageStar
                 else
                     error('The Output ImageStar is too large and can not be presented as ImageStar().')
                 end
+                
             end
-
+            
+        dir = obj.params.currentDir;
+        cd(dir)
 
      end
     end

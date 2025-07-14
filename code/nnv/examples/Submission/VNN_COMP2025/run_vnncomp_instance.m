@@ -71,15 +71,15 @@ end
 
 vT = tic;
 
-% quickRun = true;
+quickRun = true;
 % 
-% if quickRun || reachOptionsList{1}.reachMethod == "cp-star"
+% if quickRun 
 %     tTime = toc(t);
 %     disp("Quiting early...")
 %     return
 % end
 
-if status == 2 % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
+if status == 2 && ~quickRun % no counterexample found and supported for reachability (otherwise, skip step 3 and write results)
 
 % Choose how to verify based on vnnlib file
     if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
@@ -363,12 +363,12 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
     elseif contains(category, "cersyve")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
         nnvnet = matlab2nnv(net);
-        reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star'; % default parameters
+        % reachOptions = struct;
+        % reachOptions.reachMethod = 'approx-star'; % default parameters
+        % reachOptionsList{1} = reachOptions;
+        reachOptions.reachMethod = 'cp-star';
+        % reachOptions.numCores = numCores;
         reachOptionsList{1} = reachOptions;
-        % reachOptions.reachMethod = 'cp-star';
-        % % reachOptions.numCores = numCores;
-        % reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "cgan")
         % cgan: onnx to nnv

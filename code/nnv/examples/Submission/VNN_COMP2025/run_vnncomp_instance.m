@@ -533,20 +533,27 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
             reachOptionsList{1} = reachOptions;
         else
             net = importNetworkFromONNX(onnx);
-            if contains(onnx, "pensieve") && contains(onnx,"parallel")
+            if contains(onnx, "pensieve_big_parallel")
                 inputSize = [12,8];
                 inputFormat = "UU";
                 X = dlarray(rand(12,8), inputFormat);
+            elseif contains(onnx, "pensieve_small_parallel")
+                inputSize = [12,8];
+                inputFormat = "UU";
+                X = dlarray(rand(12,8), inputFormat);
+                needReshape = 1;
             elseif contains(onnx, "mscn")
-                if contains(onnx, "dual")
-                    inputSize = [1,22,14];
-                    inputFormat = "UUU";
-                    X = dlarray(rand(1,22,14), inputFormat);
-                else
-                    inputSize = [1,11,14];
-                    inputFormat = "UUU";
-                    X = dlarray(rand(1,11,14), inputFormat);
-                end
+                % if contains(onnx, "dual")
+                %     inputSize = [1,22,14];
+                %     inputFormat = "UUU";
+                %     X = dlarray(rand(1,22,14), inputFormat);
+                % else
+                %     needReshape = 2;
+                %     inputSize = [1,11,14];
+                %     inputFormat = "UUU";
+                %     X = dlarray(rand(1,11,14), inputFormat);
+                % end
+                error("These are not supported yet.")
             else
                 inputSize = [1,6,8];
                 inputFormat = "UUU";
@@ -558,6 +565,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat] = load_
             reachOptions.reachMethod = 'cp-star'; % default parameters
             reachOptionsList{1} = reachOptions;
         end
+        % Somehow, some of these networks have discrepancies  (all sat (invalid))
         
 
     elseif contains(category, "relusplitter")

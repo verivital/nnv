@@ -184,12 +184,14 @@ classdef ProbReach_ImageStar
                 status = system(command);
 
                 cd(obj.params.files_dir)
-                delete('Direction_data.mat')
+                delete_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "Direction_data.mat";
+                delete(delete_path)
 
                 % load('directions.mat')
                 % pyenv
                 pyenv('Version', obj.params.py_dir)
-                npz = py.numpy.load('directions.npz');
+                load_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "directions.npz";
+                npz = py.numpy.load(load_path);
                 Directions_py = py.numpy.array(npz{'Directions'});
 
                 directions_list = cell(Directions_py.tolist());
@@ -198,7 +200,7 @@ classdef ProbReach_ImageStar
 
 
                 clear Directions_py  npz
-                delete('directions.npz')
+                delete(load_path);
 
 
                 Y = reshape(Y, [n1 , N]);
@@ -212,7 +214,8 @@ classdef ProbReach_ImageStar
             dims = obj.params.dims;
             epochs = obj.params.epochs;
             lr = obj.params.lr;
-            save("Reduced_dimension.mat", "dYV", "X", "dims", "epochs", "lr");
+            save_path =  nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "Reduced_dimension.mat";
+            save(save_path, "dYV", "X", "dims", "epochs", "lr");
             
             cd ..
 
@@ -229,7 +232,8 @@ classdef ProbReach_ImageStar
             delete('Reduced_dimension.mat')
 
             if strcmp(obj.mode, 'relu')
-                load("trained_relu_weights_2h_norm.mat")
+                load_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "trained_relu_weights_2h_norm.mat";
+                load(load_path);
 
                 Layers = cell(1,3);
                 W = double(W1);
@@ -249,10 +253,11 @@ classdef ProbReach_ImageStar
 
                 small_net = NN(Layers);
 
-                delete('trained_relu_weights_2h_norm.mat')
+                delete(load_path);
                 %%%%%%%%%%%%%%%%%%%%%%%%
             elseif strcmp(obj.mode, 'Linear')
-                load("trained_Linear_weights_norm.mat")
+                load_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "trained_Linear_weights_norm.mat";
+                load(load_path);
                                 
                 W = double(W);
                 b = double(b)';
@@ -261,7 +266,7 @@ classdef ProbReach_ImageStar
 
                 small_net = NN(Layers);
 
-                delete('trained_Linear_weights_norm.mat')
+                delete(load_path);
                 %%%%%%%%%%%%%%%%%%%%%%%%
             end
 

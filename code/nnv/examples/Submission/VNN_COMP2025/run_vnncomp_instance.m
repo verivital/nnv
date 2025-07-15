@@ -391,7 +391,16 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
             net = importNetworkFromONNX(onnx,"InputDataFormats","BC");
             nnvnet = "";
             reachOptions = struct;
-            reachOptions.reachMethod = 'cp-star';
+            reachOptions.train_epochs = 100;
+            reachOptions.train_lr = 0.001;
+            reachOptions.dims = [-1 -1];
+            reachOptions.coverage = 0.999;
+            reachOptions.confidence = 0.999;
+            reachOptions.train_mode = 'Linear';
+            reachOptions.surrogate_dim = [10, 10];
+            reachOptions.threshold_normal = 1e-5;
+            reachOptions.dlarrayType = 'CB';
+            reachOptions.reachMethod = "cp-star";
             reachOptionsList{1} = reachOptions;
         end
         
@@ -488,19 +497,19 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         % net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         % try 
         %     nnvnet = matlab2nnv(net);
-        %     reachOptions = struct;
-        %     reachOptions.reachMethod = 'approx-star'; % default parameters
-        %     reachOptionsList{1} = reachOptions;
-        %     reachOptions = struct;
-        %     reachOptions.reachMethod = 'exact-star';
-        %     reachOptions.numCores = numCores;
-        %     reachOptionsList{1} = reachOptions;
         % catch
         %     nnvnet = "";
-        %     reachOptions = struct;
-        %     reachOptions.reachMethod = 'cp-star';
-        %     reachOptionsList{1} = reachOptions;
         % end
+        %     reachOptions = struct;
+        %     reachOptions.train_epochs = 100;
+        %     reachOptions.train_lr = 0.001;
+        %     reachOptions.coverage = 0.999;
+        %     reachOptions.confidence = 0.999;
+        %     reachOptions.train_mode = 'Linear';
+        %     reachOptions.surrogate_dim = [];
+        %     reachOptions.threshold_normal = 1e-5;
+        %     reachOptions.reachMethod = "cp-star";
+        %     reachOptionsList{1} = reachOptions;
         error("IR and opset not yet supported in MATLAB")
 
     elseif contains(category, "malbeware")
@@ -532,8 +541,14 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         % net = initialize(net, X);
         % nnvnet = "";
         % reachOptions = struct;
-        % reachOptions.inputFormat = inputFormat;
-        % reachOptions.reachMethod = 'cp-star';
+        % reachOptions.train_epochs = 500;
+        % reachOptions.train_lr = 0.0001;
+        % reachOptions.coverage = 0.999;
+        % reachOptions.confidence = 0.999;
+        % reachOptions.train_mode = 'Linear';
+        % reachOptions.surrogate_dim = [-1,-1];
+        % reachOptions.threshold_normal = 1e-5;
+        % reachOptions.reachMethod = "cp-star";
         % reachOptionsList{1} = reachOptions;
         error("Not supported");
 
@@ -636,7 +651,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         reachOptions = struct;
-        reachOptions.train_epochs = 100;
+        reachOptions.train_epochs = 500;
         reachOptions.train_lr = 0.001;
         reachOptions.coverage = 0.999;
         reachOptions.confidence = 0.999;
@@ -651,8 +666,8 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         reachOptions = struct;
-        reachOptions.train_epochs = 100;
-        reachOptions.train_lr = 0.001;
+        reachOptions.train_epochs = 150;
+        reachOptions.train_lr = 0.0001;
         reachOptions.coverage = 0.999;
         reachOptions.confidence = 0.999;
         reachOptions.train_mode = 'Linear';
@@ -701,6 +716,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         end
         needReshape = 1; %?
         reachOptions = struct;
+        reachOptions.train_epochs = 150;
+        reachOptions.train_lr = 0.0001;
+        reachOptions.coverage = 0.999;
+        reachOptions.confidence = 0.999;
+        reachOptions.train_mode = 'Linear';
+        reachOptions.surrogate_dim = [-1,-1];
+        reachOptions.threshold_normal = 1e-5;
         reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
     
@@ -734,8 +756,8 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         end
         needReshape = 2; % ?
         reachOptions = struct;
-        reachOptions.train_epochs = 100;
-        reachOptions.train_lr = 0.001;
+        reachOptions.train_epochs = 200;
+        reachOptions.train_lr = 0.0001;
         reachOptions.coverage = 0.999;
         reachOptions.confidence = 0.999;
         reachOptions.train_mode = 'Linear';

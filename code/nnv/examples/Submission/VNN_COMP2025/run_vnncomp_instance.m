@@ -323,6 +323,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
 % - cctsdb (some errrors when forward propagating)
 % - lsnc_relu
 % - traffic_signs_recognition (last year all instances were sat, maybe we are not wrong?)
+% - collins aerospace (unsure of what is wrong, but we get invalid SAT instances)
 
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
@@ -425,7 +426,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptions.threshold_normal = 1e-5;
         reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
-        needReshape = 2;
+        needReshape = 1; % 2 and 0 return invalid sat instances
 
     elseif contains(category, 'collins_rul')
         net = importNetworkFromONNX(onnx);
@@ -535,10 +536,6 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
     elseif contains(category, "ml4acopf")
         % ml4acopf: onnx to matlab
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
-        % inputSize = [1, 22];
-        % inputFormat = "UU";
-        % X = dlarray(rand([198 1]), inputFormat);
-        % net = initialize(net, X);
         nnvnet = "";
         reachOptions = struct;
         reachOptions.train_epochs = 500;
@@ -550,6 +547,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptions.threshold_normal = 1e-5;
         reachOptions.reachMethod = "cp-star";
         reachOptionsList{1} = reachOptions;
+        % inputFormat = "BC";
         % error("Not supported");
 
     elseif contains(category, "nn4sys")

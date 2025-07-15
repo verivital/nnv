@@ -322,7 +322,6 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
 % Not yet supported:
 % - cctsdb (some errrors when forward propagating)
 % - lsnc_relu
-% - ml4acopf
 % - traffic_signs_recognition (last year all instances were sat, maybe we are not wrong?)
 
 
@@ -426,6 +425,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptions.threshold_normal = 1e-5;
         reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
+        needReshape = 2;
 
     elseif contains(category, 'collins_rul')
         net = importNetworkFromONNX(onnx);
@@ -534,23 +534,23 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
 
     elseif contains(category, "ml4acopf")
         % ml4acopf: onnx to matlab
-        % net = importNetworkFromONNX(onnx, "InputDataFormats","BC");
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         % inputSize = [1, 22];
         % inputFormat = "UU";
         % X = dlarray(rand([198 1]), inputFormat);
         % net = initialize(net, X);
-        % nnvnet = "";
-        % reachOptions = struct;
-        % reachOptions.train_epochs = 500;
-        % reachOptions.train_lr = 0.0001;
-        % reachOptions.coverage = 0.999;
-        % reachOptions.confidence = 0.999;
-        % reachOptions.train_mode = 'Linear';
-        % reachOptions.surrogate_dim = [-1,-1];
-        % reachOptions.threshold_normal = 1e-5;
-        % reachOptions.reachMethod = "cp-star";
-        % reachOptionsList{1} = reachOptions;
-        error("Not supported");
+        nnvnet = "";
+        reachOptions = struct;
+        reachOptions.train_epochs = 500;
+        reachOptions.train_lr = 0.0001;
+        reachOptions.coverage = 0.999;
+        reachOptions.confidence = 0.999;
+        reachOptions.train_mode = 'Linear';
+        reachOptions.surrogate_dim = [-1,-1];
+        reachOptions.threshold_normal = 1e-5;
+        reachOptions.reachMethod = "cp-star";
+        reachOptionsList{1} = reachOptions;
+        % error("Not supported");
 
     elseif contains(category, "nn4sys")
         if contains(onnx, "lindex")
@@ -893,7 +893,6 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
             end
         end
     end
-    
 end
 
 % Get random example from input set

@@ -395,32 +395,32 @@ end
 
 % Skip for now, cannot initialize network
 
-% disp("Running ml4acopf...")
+disp("Running ml4acopf...")
 
-% ml4acopf_path = vnncomp_path + "ml4acopf_2024/";
+ml4acopf_path = vnncomp_path + "ml4acopf_2024/";
 % 
-% ml4acopf_instances = [...
-%     % "onnx/14_ieee_ml4acopf-linear-residual.onnx" ,"vnnlib/14_ieee_prop9.vnnlib";...
-%     "onnx/118_ieee_ml4acopf.onnx", "vnnlib/118_ieee_prop2.vnnlib";...
-%     "onnx/300_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
-%     "onnx/14_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/14_ieee_prop9.vnnlib";...
-%     "onnx/14_ieee_ml4acopf.onnx","vnnlib/14_ieee_prop3.vnnlib";...
-%     "onnx/118_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/118_ieee_prop6.vnnlib";...
-%     "onnx/300_ieee_ml4acopf.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
-% ]; 
-% 
-% % Run verification for dist_shift
-% for i=1:length(ml4acopf_instances)
-%     onnx = ml4acopf_path + ml4acopf_instances(i,1);
-%     vnnlib = ml4acopf_path + ml4acopf_instances(i,2);
-%     try
-%         run_vnncomp_instance("ml4acopf",onnx,vnnlib,"ml4acopf_results_" + string(i)+".txt");
-%     catch ME
-%         warning("Failed")
-%         disp(onnx+"___"+vnnlib)
-%         warning(ME.message)
-%     end
-% end
+ml4acopf_instances = [...
+    "onnx/14_ieee_ml4acopf-linear-residual.onnx" ,"vnnlib/14_ieee_prop9.vnnlib";...
+    "onnx/118_ieee_ml4acopf.onnx", "vnnlib/118_ieee_prop2.vnnlib";...
+    "onnx/300_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
+    "onnx/14_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/14_ieee_prop9.vnnlib";...
+    "onnx/14_ieee_ml4acopf.onnx","vnnlib/14_ieee_prop3.vnnlib";...
+    "onnx/118_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/118_ieee_prop6.vnnlib";...
+    "onnx/300_ieee_ml4acopf.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
+]; 
+
+% Run verification for dist_shift
+for i=1:length(ml4acopf_instances)
+    onnx = ml4acopf_path + ml4acopf_instances(i,1);
+    vnnlib = ml4acopf_path + ml4acopf_instances(i,2);
+    try
+        run_vnncomp_instance("ml4acopf",onnx,vnnlib,"ml4acopf_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
 
 
 %% nn4sys

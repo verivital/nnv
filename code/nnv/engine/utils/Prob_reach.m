@@ -39,7 +39,7 @@ end
 if isfield(reachOptions, 'train_device')
     train_device = reachOptions.train_device;
 else
-    train_device = 'gpu';
+    train_device = 'cpu';
 end
 
 if isfield(reachOptions, 'train_mode')

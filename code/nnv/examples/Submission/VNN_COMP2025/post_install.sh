@@ -34,3 +34,10 @@ pip install torch
 pip install numpy 
 pip install scipy
 
+# For next year, let's fix gpu drivers to ensure no potential errors there...
+# Enable GPU persistence mode (prevents driver unloading)
+sudo nvidia-smi -pm 1
+
+# Lock the kernenl verison and GPU drivers.
+sudo apt-mark hold linux-image-generic linux-headers-generic nvidia-driver-535
+sudo systemctl disable unattended-upgrades

@@ -1,5 +1,20 @@
 function [Np , Nt , Ns]  = CP_specification(delta, confidence_LB, dv , train_mode, type)
 
+
+if ispc
+    % Windows systems
+    [~, sys] = memory;
+    ramGB = sys.PhysicalMemory.Total / 1024^3;
+elseif isunix
+    % Linux/macOS systems: use Java
+    os = java.lang.management.ManagementFactory.getOperatingSystemMXBean();
+    method = os.getClass().getMethod('getTotalPhysicalMemorySize', []);
+    totalRamBytes = method.invoke(os, []);
+    ramGB = double(totalRamBytes) / (1024^3);
+else
+    error('Unsupported operating system');
+end
+
 if strcmp(train_mode, 'gpu')
 
 
@@ -12,14 +27,9 @@ elseif strcmp(train_mode, 'cpu')
 
     if ispc
         % Windows systems
-        [~, sys] = memory;
-        ramGB = sys.PhysicalMemory.Total / 1024^3;
         Np = computeNumVectors(ramGB, dv, type);
     elseif isunix
         % Linux/macOS systems: use Java
-        runtime = java.lang.Runtime.getRuntime();
-        ramBytes = runtime.totalMemory();
-        ramGB = ramBytes / 1024^3;
         Np = computeNumVectors(ramGB, dv, type);
     else
         error('Unsupported operating system');
@@ -33,7 +43,16 @@ end
 
 Ns  = findMinimumM_binary(delta, confidence_LB);
 
-Nt = floor(Ns/3);
+Yolo_found = 8112;
+
+Ntdv = min( [8000*Yolo_found,  Yolo_found*floor( 0.75 * ramGB*(1024^3) / (dv*8)  ),  Yolo_found*max(floor(Ns/10), 300)] );
+
+Nt = floor(Ntdv/dv);
+
+Nt = min(Nt , floor(Ns/10));
+
+Npdv = max(100*Yolo_found, Yolo_found*min(Np , floor(Nt/3)));
+Np = min(Np , floor(Npdv / dv));
 
 
 if Np > Nt

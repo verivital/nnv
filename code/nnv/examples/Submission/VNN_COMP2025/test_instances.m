@@ -66,8 +66,10 @@ for i=1:length(cctsdb_instances)
     end
 end
 
-% Errors on both? None of them finished...
-% Let's test this again
+% There are errors in some of the forward prediction (gather to multlayer)
+% There seems to be some assertion that fails sometimes when randomly
+% executing
+% Let's test this again in the future
 
 %% cersyve
 
@@ -77,7 +79,17 @@ cersyve_path = vnncomp_path + "cersyve/";
 
 cersyve_instances = [...
     "onnx/unicycle_pretrain_con.onnx" , "vnnlib/prop_unicycle.vnnlib";...
-    "onnx/robot_arm_finetune_inv.onnx", "vnnlib/prop_robot_arm.vnnlib";...
+    "onnx/unicycle_pretrain_inv.onnx", "vnnlib/prop_unicycle.vnnlib";...
+    "onnx/unicycle_finetune_con.onnx",	"vnnlib/prop_unicycle.vnnlib";...
+    "onnx/unicycle_finetune_inv.onnx",	"vnnlib/prop_unicycle.vnnlib";...
+    "onnx/robot_arm_pretrain_con.onnx",	"vnnlib/prop_robot_arm.vnnlib";...
+    "onnx/robot_arm_pretrain_inv.onnx", "vnnlib/prop_robot_arm.vnnlib";...
+    "onnx/robot_arm_finetune_con.onnx",	"vnnlib/prop_robot_arm.vnnlib";...
+    "onnx/robot_arm_finetune_inv.onnx",	"vnnlib/prop_robot_arm.vnnlib";...
+    "onnx/pendulum_pretrain_con.onnx",	"vnnlib/prop_pendulum.vnnlib";...
+    "onnx/pendulum_pretrain_inv.onnx",	"vnnlib/prop_pendulum.vnnlib";...
+    "onnx/pendulum_finetune_con.onnx",	"vnnlib/prop_pendulum.vnnlib";...
+    "onnx/pendulum_finetune_inv.onnx",	"vnnlib/prop_pendulum.vnnlib";...
     ];
 
 % Run verification for acas 
@@ -301,28 +313,27 @@ end
 
 %% lsnc_relu
 
-disp("Running lsnc_relu...")
-
-lsnc_path = vnncomp_path + "lsnc_relu/";
-
-lsnc_instances = ["onnx/relu_quadrotor2d_state.onnx" ,"vnnlib/quadrotor2d_state_0.vnnlib";...
-    ]; 
-
-% Run verification for dist_shift
-for i=1:height(lsnc_instances)
-    onnx = lsnc_path + lsnc_instances(i,1);
-    vnnlib = lsnc_path + lsnc_instances(i,2);
-    try
-        run_vnncomp_instance("lsnc_relu",onnx,vnnlib,"lsnc_results_" + string(i)+".txt");
-    catch ME
-        warning("Failed")
-        disp(onnx+"___"+vnnlib)
-        warning(ME.message)
-    end
-end
+% disp("Running lsnc_relu...")
+% 
+% lsnc_path = vnncomp_path + "lsnc_relu/";
+% 
+% lsnc_instances = ["onnx/relu_quadrotor2d_state.onnx" ,"vnnlib/quadrotor2d_state_0.vnnlib";...
+%     ]; 
+% 
+% % Run verification for dist_shift
+% for i=1:height(lsnc_instances)
+%     onnx = lsnc_path + lsnc_instances(i,1);
+%     vnnlib = lsnc_path + lsnc_instances(i,2);
+%     try
+%         run_vnncomp_instance("lsnc_relu",onnx,vnnlib,"lsnc_results_" + string(i)+".txt");
+%     catch ME
+%         warning("Failed")
+%         disp(onnx+"___"+vnnlib)
+%         warning(ME.message)
+%     end
+% end
 
 % Looks like they all run, just need to do the CP method
-% Test to make sure we are dealing with properties correctly
 
 
 %% malbeware
@@ -384,32 +395,32 @@ end
 
 % Skip for now, cannot initialize network
 
-% disp("Running ml4acopf...")
+disp("Running ml4acopf...")
 
-% ml4acopf_path = vnncomp_path + "ml4acopf_2024/";
+ml4acopf_path = vnncomp_path + "ml4acopf_2024/";
 % 
-% ml4acopf_instances = [...
-%     % "onnx/14_ieee_ml4acopf-linear-residual.onnx" ,"vnnlib/14_ieee_prop9.vnnlib";...
-%     "onnx/118_ieee_ml4acopf.onnx", "vnnlib/118_ieee_prop2.vnnlib";...
-%     "onnx/300_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
-%     "onnx/14_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/14_ieee_prop9.vnnlib";...
-%     "onnx/14_ieee_ml4acopf.onnx","vnnlib/14_ieee_prop3.vnnlib";...
-%     "onnx/118_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/118_ieee_prop6.vnnlib";...
-%     "onnx/300_ieee_ml4acopf.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
-% ]; 
-% 
-% % Run verification for dist_shift
-% for i=1:length(ml4acopf_instances)
-%     onnx = ml4acopf_path + ml4acopf_instances(i,1);
-%     vnnlib = ml4acopf_path + ml4acopf_instances(i,2);
-%     try
-%         run_vnncomp_instance("ml4acopf",onnx,vnnlib,"ml4acopf_results_" + string(i)+".txt");
-%     catch ME
-%         warning("Failed")
-%         disp(onnx+"___"+vnnlib)
-%         warning(ME.message)
-%     end
-% end
+ml4acopf_instances = [...
+    "onnx/14_ieee_ml4acopf-linear-residual.onnx" ,"vnnlib/14_ieee_prop9.vnnlib";...
+    "onnx/118_ieee_ml4acopf.onnx", "vnnlib/118_ieee_prop2.vnnlib";...
+    "onnx/300_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
+    "onnx/14_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/14_ieee_prop9.vnnlib";...
+    "onnx/14_ieee_ml4acopf.onnx","vnnlib/14_ieee_prop3.vnnlib";...
+    "onnx/118_ieee_ml4acopf-linear-nonresidual.onnx", "vnnlib/118_ieee_prop6.vnnlib";...
+    "onnx/300_ieee_ml4acopf.onnx", "vnnlib/300_ieee_prop3.vnnlib";...
+]; 
+
+% Run verification for dist_shift
+for i=1:length(ml4acopf_instances)
+    onnx = ml4acopf_path + ml4acopf_instances(i,1);
+    vnnlib = ml4acopf_path + ml4acopf_instances(i,2);
+    try
+        run_vnncomp_instance("ml4acopf",onnx,vnnlib,"ml4acopf_results_" + string(i)+".txt");
+    catch ME
+        warning("Failed")
+        disp(onnx+"___"+vnnlib)
+        warning(ME.message)
+    end
+end
 
 
 %% nn4sys
@@ -419,15 +430,15 @@ disp("Running nn4sys...")
 nn4sys_path = vnncomp_path + "nn4sys/";
 
 nn4sys_instances = [... % all other networks are not supported...
-    % "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
-    % "onnx/lindex_deep.onnx", "vnnlib/lindex_200.vnnlib";...
+    "onnx/lindex.onnx","vnnlib/lindex_1.vnnlib";...
+    "onnx/lindex_deep.onnx", "vnnlib/lindex_200.vnnlib";...
     "onnx/pensieve_big_parallel.onnx", "vnnlib/pensieve_parallel_0.vnnlib";...
     "onnx/pensieve_small_simple.onnx", "vnnlib/pensieve_simple_1.vnnlib";...
     "onnx/pensieve_small_parallel.onnx", "vnnlib/pensieve_parallel_4.vnnlib";...
-    "onnx/mscn_128d.onnx", "vnnlib/cardinality_0_1_128.vnnlib";...
-    "onnx/mscn_128d_dual.onnx", "vnnlib/cardinality_1_1_128_dual.vnnlib";...
-    "onnx/mscn_2048d.onnx", "vnnlib/cardinality_0_1_2048.vnnlib";...
-    "onnx/mscn_2048d_dual.onnx", "vnnlib/cardinality_1_1_2048_dual.vnnlib";...
+    % "onnx/mscn_128d.onnx", "vnnlib/cardinality_0_1_128.vnnlib";...
+    % "onnx/mscn_128d_dual.onnx", "vnnlib/cardinality_1_1_128_dual.vnnlib";...
+    % "onnx/mscn_2048d.onnx", "vnnlib/cardinality_0_1_2048.vnnlib";...
+    % "onnx/mscn_2048d_dual.onnx", "vnnlib/cardinality_1_1_2048_dual.vnnlib";...
     ];
 
 % Run verification for nn4sys 
@@ -626,32 +637,28 @@ end
 
 %% traffic signs recognition
 
-disp("Running traffic signs recognition..")
+% disp("Running traffic signs recognition..")
+% 
+% traffic_path = vnncomp_path + "traffic_signs_recognition_2023/";
+% 
+% traffic_instances = ["onnx/3_30_30_QConv_16_3_QConv_32_2_Dense_43_ep_30.onnx", "vnnlib/model_30_idx_7377_eps_1.00000.vnnlib";...
+%     "onnx/3_48_48_QConv_32_5_MP_2_BN_QConv_64_5_MP_2_BN_QConv_64_3_BN_Dense_256_BN_Dense_43_ep_30.onnx", "vnnlib/model_48_idx_7377_eps_1.00000.vnnlib";...
+%     "onnx/3_64_64_QConv_32_5_MP_2_BN_QConv_64_5_MP_2_BN_QConv_64_3_MP_2_BN_Dense_1024_BN_Dense_43_ep_30.onnx","vnnlib/model_64_idx_7377_eps_1.00000.vnnlib";...
+%     ]; 
+% 
+% % Run verification for traffic
+% for i=1:length(traffic_instances)
+%     onnx = traffic_path + traffic_instances(i,1);
+%     vnnlib = traffic_path + traffic_instances(i,2);
+%     try
+%         run_vnncomp_instance("traffic_signs_recognition",onnx,vnnlib,"traffic_results_" + string(i)+".txt");
+%     catch ME
+%         warning("Failed")
+%         disp(onnx+"___"+vnnlib)
+%         warning(ME.message)
+%     end
+% end
 
-traffic_path = vnncomp_path + "traffic_signs_recognition_2023/";
-
-traffic_instances = ["onnx/3_30_30_QConv_16_3_QConv_32_2_Dense_43_ep_30.onnx", "vnnlib/model_30_idx_7377_eps_1.00000.vnnlib";...
-    "onnx/3_48_48_QConv_32_5_MP_2_BN_QConv_64_5_MP_2_BN_QConv_64_3_BN_Dense_256_BN_Dense_43_ep_30.onnx", "vnnlib/model_48_idx_7377_eps_1.00000.vnnlib";...
-    "onnx/3_64_64_QConv_32_5_MP_2_BN_QConv_64_5_MP_2_BN_QConv_64_3_MP_2_BN_Dense_1024_BN_Dense_43_ep_30.onnx","vnnlib/model_64_idx_7377_eps_1.00000.vnnlib";...
-    ]; 
-
-% Run verification for traffic
-for i=1:length(traffic_instances)
-    onnx = traffic_path + traffic_instances(i,1);
-    vnnlib = traffic_path + traffic_instances(i,2);
-    try
-        run_vnncomp_instance("traffic_signs_recognition",onnx,vnnlib,"traffic_results_" + string(i)+".txt");
-    catch ME
-        warning("Failed")
-        disp(onnx+"___"+vnnlib)
-        warning(ME.message)
-    end
-end
-
-% Fine, let's test how fast we can do CP on submission site
-% We got this warning tho: 
-% Warning: Data format "BCSS" you specified for input 1 does not match the format "BSSC" derived by the software. The data format derived
-% by the software will be used. 
 
 %% vggnet
 

@@ -71,25 +71,41 @@ classdef ProbReach_ImageStar
 
         end
 
-        function out = forward(obj, x)
-
+        function out = forward(obj, x, inputFormat)
+    
             model_source = class(obj.model);
-
+            
             switch model_source
-
+            
                 case 'SeriesNetwork'
                     out = obj.model.predict(x);
-
+            
                 case 'DAGNetwork'
                     out = obj.model.predict(x);
-
+            
                 case 'dlnetwork'
-                    dlX = dlarray(x);
+                    % dlX = dlarray(x,inputFormat);
+                    if strcmp(inputFormat, "default")
+                        if isa(obj.model.Layers(1, 1), 'nnet.cnn.layer.ImageInputLayer')
+                            dlX = dlarray(x, "SSCB");
+                        elseif isa(obj.model.Layers(1, 1), 'nnet.cnn.layer.FeatureInputLayer') || isa(obj.model.Layers(1, 1), 'nnet.onnx.layer.FeatureInputLayer')
+                            dlX = dlarray(x, "CB");
+                        else
+                            disp(obj.model.Layers(1,1));
+                            error("Unknown input format");
+                        end
+                    else
+                        if contains(inputFormat, "U")
+                            dlX = dlarray(x, inputFormat+"U");
+                        else
+                            dlX = dlarray(x, inputFormat);
+                        end
+                    end
                     out = obj.model.predict(dlX);
-
+            
                 case 'NN'
                     out = obj.model.evaluate(x);
-
+            
                 otherwise
                     error("Unknown model source: " + model_source + ". We only cover NN, SeriesNetwork, dlnetwork and DAGNetwork.");
             end
@@ -106,6 +122,9 @@ classdef ProbReach_ImageStar
             N = obj.params.Nt;
             N_dir = obj.params.N_dir;
             trn_batch = obj.params.trn_batch;
+            inputFormat = obj.params.inputFormat;
+            % mat_file_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/";
+            mat_file_path = obj.params.files_dir;
 
             N_perturbed = size(obj.indices , 1);
 
@@ -115,7 +134,7 @@ classdef ProbReach_ImageStar
             
             %%%%%%%%%%%%%%
             parfor i=1:N
-                disp(i)
+                % disp(i)
                 Rand = rand(n_channel*N_perturbed,1);
                 Rand_matrix = obj.mat_generator_no_third(Rand);
                 d_at = zeros(height,width,n_channel);
@@ -123,8 +142,8 @@ classdef ProbReach_ImageStar
                     d_at(:,:,c) = obj.de(:,:,c) .* Rand_matrix(:,:,c) ;
                 end
                 Inp = single(obj.LB + d_at);
-                X(:,i) = Rand;
-                Y(:,:,:,i) = obj.forward(Inp);
+                X(:,i) = single(Rand);
+                Y(:,:,:,i) = obj.forward(Inp,inputFormat);
             end
             %%%%%%%%%%%%%
             n1 = numel(Y(:,:,:,1));
@@ -135,8 +154,6 @@ classdef ProbReach_ImageStar
 
 
             else
-
-
 
                 %%%%  dtype = 'single';
                 SizePerElement = 4;
@@ -159,8 +176,8 @@ classdef ProbReach_ImageStar
                     ind = ind+leng;
                 end
 
-                cd(obj.params.files_dir)
-                Text = ' save("Direction_data.mat" ';
+                % cd(obj.params.files_dir)
+                Text = sprintf([' save("%s/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/Direction_data.mat" '],nnvroot);
                 for i=1:last_i
                     Text = [ Text  ' ,"Y' num2str(i) '" ']; %#ok<*AGROW>
                 end
@@ -174,22 +191,24 @@ classdef ProbReach_ImageStar
                 eval(Text);
 
                 % mat_file_path = fullfile(obj.params.files_dir, 'Direction_data.mat');
-                mat_file_path = obj.params.files_dir;
-                cd ..
-                command = sprintf([ 'python Direction_trainer.py --mat_file_path "%s" '...
+                % mat_file_path = obj.params.files_dir;
+                % cd ..
+                command = sprintf([ 'python3  "%s"/code/nnv/engine/nn/Prob_reach/Direction_trainer.py --mat_file_path "%s" '...
                     '--num_files %d --N_dir %d --batch_size %d --height %d --width %d '...
                     '--n_class %d '], ...
-                    mat_file_path,  last_i, N_dir , trn_batch, out_height, out_width, n_class);
+                    nnvroot, mat_file_path,  last_i, N_dir , trn_batch, out_height, out_width, n_class);
 
                 status = system(command);
 
-                cd(obj.params.files_dir)
-                delete('Direction_data.mat')
+                % cd(obj.params.files_dir)
+                delete_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "Direction_data.mat";
+                delete(delete_path)
 
                 % load('directions.mat')
                 % pyenv
                 pyenv('Version', obj.params.py_dir)
-                npz = py.numpy.load('directions.npz');
+                load_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "directions.npz";
+                npz = py.numpy.load(load_path);
                 Directions_py = py.numpy.array(npz{'Directions'});
 
                 directions_list = cell(Directions_py.tolist());
@@ -198,11 +217,9 @@ classdef ProbReach_ImageStar
 
 
                 clear Directions_py  npz
-                delete('directions.npz')
-
+                delete(load_path);
 
                 Y = reshape(Y, [n1 , N]);
-
 
             end
 
@@ -212,22 +229,26 @@ classdef ProbReach_ImageStar
             dims = obj.params.dims;
             epochs = obj.params.epochs;
             lr = obj.params.lr;
-            save("Reduced_dimension.mat", "dYV", "X", "dims", "epochs", "lr");
+            save_path =  nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "Reduced_dimension.mat";
+            save(save_path, "dYV", "X", "dims", "epochs", "lr");
             
-            cd ..
-
             if strcmp(obj.mode, 'relu')
-                system('python Trainer_ReLU.py')
+                command = sprintf('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_ReLU.py --mat_file_path "%s"',...
+                    nnvroot, mat_file_path);
+                system(command);
             elseif strcmp(obj.mode, 'Linear')
-                system('python Trainer_Linear.py')
+                command = sprintf('python3  "%s"/code/nnv/engine/nn/Prob_reach/Trainer_Linear.py --mat_file_path "%s"',...
+                    nnvroot, mat_file_path);
+                system(command);
             end
 
 
-            cd(obj.params.files_dir)
-            delete('Reduced_dimension.mat')
+            % cd(obj.params.files_dir)
+            delete(nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/"+"Reduced_dimension.mat")
 
             if strcmp(obj.mode, 'relu')
-                load("trained_relu_weights_2h_norm.mat")
+                load_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "trained_relu_weights_2h_norm.mat";
+                load(load_path);
 
                 Layers = cell(1,3);
                 W = double(W1);
@@ -247,10 +268,11 @@ classdef ProbReach_ImageStar
 
                 small_net = NN(Layers);
 
-                delete('trained_relu_weights_2h_norm.mat')
+                delete(load_path);
                 %%%%%%%%%%%%%%%%%%%%%%%%
             elseif strcmp(obj.mode, 'Linear')
-                load("trained_Linear_weights_norm.mat")
+                load_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "trained_Linear_weights_norm.mat";
+                load(load_path);
                                 
                 W = double(W);
                 b = double(b)';
@@ -259,23 +281,19 @@ classdef ProbReach_ImageStar
 
                 small_net = NN(Layers);
 
-                delete('trained_Linear_weights_norm.mat')
+                delete(load_path);
                 %%%%%%%%%%%%%%%%%%%%%%%%
             end
-
-
 
             dim2 = out_height*out_width*n_class;
 
             res_trn = abs( Y - ( Directions * evaluate(small_net , X)  + C ) );
-
 
             threshold_normal = obj.params.threshold_normal;
             res_max = max( res_trn ,[] ,2 );
             indexha = find(res_max < threshold_normal);
             res_max(indexha,1) = threshold_normal;
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
             clear X  Y  res_trn
 
@@ -308,8 +326,6 @@ classdef ProbReach_ImageStar
                 res_test_time = zeros(1,Num_chuncks+1);
             end
 
-
-
             Rs = zeros(1, Ns);
             ind = 0;
 
@@ -333,13 +349,11 @@ classdef ProbReach_ImageStar
                     end
                     Inp = obj.LB + d_at;
                     X_test_nc(:,i) = Rand;
-                    Y_test_nc(:,:,:,i) = obj.forward(Inp);
+                    Y_test_nc(:,:,:,i) = obj.forward(Inp,inputFormat);
                 end
                 %%%%%%%%%%%%%
 
                 test_data_run(nc) = toc;
-
-
 
                 Y_test = reshape(Y_test_nc, [dim2 , len] );
 
@@ -356,15 +370,9 @@ classdef ProbReach_ImageStar
 
             end
 
-
-
             Rs_sorted = sort(Rs);
             R_star = Rs_sorted(:,Ns-1);
             Conf = R_star*res_max;
-
-
-
-
 
             needs = struct;
             needs.Conf = Conf;
@@ -373,9 +381,6 @@ classdef ProbReach_ImageStar
             needs.C = C;
 
         end
-
-
-    
 
         function OS = ProbReach(obj)
 
@@ -391,7 +396,7 @@ classdef ProbReach_ImageStar
             dim2 = out_height*out_width*n_class;
             
             H = Star();
-            H.V = [sparse(dim2,1) speye(dim2)];
+            % H.V = [sparse(dim2,1) speye(dim2)];
             H.C = sparse(1,dim2);
             H.d = 0;
             H.predicate_lb = -Conf;
@@ -408,7 +413,7 @@ classdef ProbReach_ImageStar
             Surrogate_reach = affineMap(Principal_reach , needs.Directions , needs.C);
             % Out = MinkowskiSum(Surrogate_reach , H);
 
-            NumElement = numel(Surrogate_reach.V) + numel(H.V);
+            NumElement = numel(Surrogate_reach.V) + dim2^2;
             SizePerElement = 8; % double
             TotalSize = (NumElement * SizePerElement) / 1024^3;
 
@@ -426,53 +431,46 @@ classdef ProbReach_ImageStar
             end
 
             if TotalSize < 0.5*ramGB
-
+                H.V = [zeros(dim2,1) eye(dim2)];
                 Out = Sum(Surrogate_reach, H);
-
 
                 OS = ImageStar();
                 OS.numChannel = n_class;
                 OS.height = out_height;
                 OS.width = out_width;
-                OS.V = reshape(Out.V , [out_height, out_width, n_class, Out.nVar+1]);
-                OS.C = Out.C;
-                OS.d = Out.d;
+                OS.V = reshape(double(Out.V) , [out_height, out_width, n_class, Out.nVar+1]);
+                OS.C = double(Out.C);
+                OS.d = double(Out.d);
                 OS.numPred = Out.nVar;
-                OS.pred_lb = Out.predicate_lb;
-                OS.pred_ub = Out.predicate_ub;
+                OS.pred_lb = double(Out.predicate_lb);
+                OS.pred_ub = double(Out.predicate_ub);
                 if ~isempty(Out.state_lb)
-                    OS.im_lb = reshape(Out.state_lb , [out_height, out_width, n_class]);
-                    OS.im_ub = reshape(Out.state_ub , [out_height, out_width, n_class]);
+                    OS.im_lb = reshape(double(Out.state_lb) , [out_height, out_width, n_class]);
+                    OS.im_ub = reshape(double(Out.state_ub) , [out_height, out_width, n_class]);
                 end
             else
-                disp(' The Image Star is large for your memory and should be presented in sparse format.')
-                disp('Unfortunately matlab does not support sparse representation for (N>2)D arrays.')
-                disp('Thus we provide the vectorized format of ImageStar() that is a Star() via sparse 2D arrays. ')
-                p = input('Do you want to continue? Yes <-- 1 / No <-- 0     ');
+                warning(' The Image Star is large for your memory and should be presented in sparse format. Unfortunately matlab does not support sparse representation for (N>2)D arrays. Thus we provide the vectorized format of ImageStar() that is a Star() via sparse 2D arrays. ')
+                % p = 1;
                 
-                if p==1
+                H.V = [sparse(dim2,1) speye(dim2)];
+                OS = Star();
+                P_Center = sparse(double(Surrogate_reach.V(:,1)));
+                P_lb = double([Surrogate_reach.predicate_lb ; H.predicate_lb]);
+                P_ub = double([Surrogate_reach.predicate_ub ; H.predicate_ub]);
 
-                    OS = Star();
-                    P_Center = sparse(double(Surrogate_reach.V(:,1)));
-                    P_lb = double([Surrogate_reach.predicate_lb ; H.predicate_lb]);
-                    P_ub = double([Surrogate_reach.predicate_ub ; H.predicate_ub]);
+                P_V = [double(Surrogate_reach.V(:,2:end))   double(H.V(:,2:end))];
+                OS.V = [P_Center, P_V];
+                OS.C = blkdiag(sparse(Surrogate_reach.C) , sparse(H.C));
+                OS.d = [Surrogate_reach.d; H.d];
+                OS.predicate_lb = P_lb;
+                OS.predicate_ub = P_ub;
+                OS.nVar = Surrogate_reach.nVar + H.nVar;
+                OS.dim = H.dim;
 
-                    P_V = [double(Surrogate_reach.V(:,2:end))   double(H.V(:,2:end))];
-                    OS.V = [P_Center, P_V];
-                    OS.C = blkdiag(sparse(Surrogate_reach.C) , sparse(H.C));
-                    OS.d = [Surrogate_reach.d; H.d];
-                    OS.predicate_lb = P_lb;
-                    OS.predicate_ub = P_ub;
-                    OS.nVar = Surrogate_reach.nVar + H.nVar;
-                    OS.dim = H.dim;
-
-
-                else
-                    error('The Output ImageStar is too large and can not be presented as ImageStar().')
-                end
             end
 
+        end
 
-     end
     end
+
 end

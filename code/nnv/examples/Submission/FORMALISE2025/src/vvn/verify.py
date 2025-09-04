@@ -226,6 +226,153 @@ def run_stmnist(config, indices) -> None:
     # close matlab after experiment finishes
     eng.quit()
 
+def verify_kthactions(sample_len, ver_algorithm, eng, index, eps_index, timeout) -> Tuple[int, float | str, str]:
+    # check that MATLAB engine was started correctly and is accessible
+    if not eng:
+        raise Exception('MATLAB Engine was not correctly started and shared. Please make sure to run `prepare_engine`.')
+
+    # call to MATLAB script to run verification
+    future = eng.verifykthactions(sample_len, ver_algorithm, index, eps_index, nargout=3, background=True, stdout=io.StringIO())
+
+    try:
+        [res, t, met] = future.result(timeout=float(timeout))
+
+    except matlab.engine.TimeoutError:
+        print('timeout')
+        res = 3
+        t = 'timeout'
+        met = 'timeout'
+
+    future.cancel()
+
+    return res, t, met
+
+def run_kthactions(config, indices) -> None:
+    # Unpack configuration settings;
+    epsilon = config.epsilon
+    timeout = config.timeout
+    
+    ds_type = config.ds_type
+    sample_len = config.sample_len
+    ver_algorithm = config.ver_algorithm
+
+    print(f'Running verification with config: verification algorithm={ver_algorithm}, dataset type={ds_type}, video length={sample_len}') 
+
+    # make sure directory structure + results files are created and correct
+    results_dir = os.path.join(os.getcwd(), 'results', 'KTHActions')
+
+    if not os.path.isdir(results_dir):
+        os.mkdir(results_dir)
+
+    # make results dir for videos of specific sample length
+    os.mkdir(os.path.join(results_dir, str(sample_len)))
+
+    # make sure matlab is started
+    eng = prepare_engine(NNV_PATH, NPY_MATLAB_PATH)
+
+    # start verification
+    for sample_num, index in enumerate(indices):
+        print(f'Iteration {sample_num + 1}')
+
+        if_timeout = False
+
+        # select epsilon
+        for eps_index in range(1, len(epsilon) + 1):
+            output_file = os.path.join(results_dir, str(sample_len), f'eps={eps_index}_255.csv')
+
+            # skip if timeout was met at any point in the previous iterations
+            if if_timeout:
+                res, t, met = 3, "timeout", "timeout"
+                write_results(output_file, sample_num, res, t, met)
+                continue
+
+            # verify the sample with a specific epsilon value
+            res, t, met = verify_kthactions(sample_len, ver_algorithm, eng, index, eps_index, timeout)
+
+            if res == 3:
+                if_timeout = True
+
+            # write the results
+            write_results(output_file, sample_num, res, t, met)
+
+    # close matlab after experiment finishes
+    eng.quit()
+
+def verify_ucf11(sample_len, ver_algorithm, eng, index, eps_index, timeout) -> Tuple[int, float | str, str]:
+    # check that MATLAB engine was started correctly and is accessible
+    if not eng:
+        raise Exception('MATLAB Engine was not correctly started and shared. Please make sure to run `prepare_engine`.')
+
+    # call to MATLAB script to run verification
+    # future = eng.verifyucf11(sample_len, ver_algorithm, index, eps_index, nargout=3, background=True, stdout=io.StringIO())
+    buf = io.StringIO()
+    future = eng.verifyucf11(sample_len, ver_algorithm, index, eps_index, nargout=3, background=True, stdout=buf, stderr=buf)
+    print(buf.getvalue())
+
+    try:
+        [res, t, met] = future.result(timeout=float(timeout))
+
+    except matlab.engine.TimeoutError:
+        print('timeout')
+        res = 3
+        t = 'timeout'
+        met = 'timeout'
+
+    future.cancel()
+
+    return res, t, met
+
+def run_ucf11(config, indices) -> None:
+    # Unpack configuration settings;
+    epsilon = config.epsilon
+    timeout = config.timeout
+    
+    ds_type = config.ds_type
+    sample_len = config.sample_len
+    ver_algorithm = config.ver_algorithm
+
+    print(f'Running verification with config: verification algorithm={ver_algorithm}, dataset type={ds_type}, video length={sample_len}') 
+
+    # make sure directory structure + results files are created and correct
+    results_dir = os.path.join(os.getcwd(), 'results', 'UCF11')
+
+    if not os.path.isdir(results_dir):
+        os.mkdir(results_dir)
+
+    # make results dir for videos of specific sample length
+    os.mkdir(os.path.join(results_dir, str(sample_len)))
+
+    # make sure matlab is started
+    eng = prepare_engine(NNV_PATH, NPY_MATLAB_PATH)
+
+    # start verification
+    for sample_num, index in enumerate(indices):
+        print(f'Iteration {sample_num + 1}')
+
+        if_timeout = False
+
+        # select epsilon
+        for eps_index in range(1, len(epsilon) + 1):
+            output_file = os.path.join(results_dir, str(sample_len), f'eps={eps_index}_255.csv')
+
+            # skip if timeout was met at any point in the previous iterations
+            if if_timeout:
+                res, t, met = 3, "timeout", "timeout"
+                write_results(output_file, sample_num, res, t, met)
+                continue
+
+            # verify the sample with a specific epsilon value
+            res, t, met = verify_ucf11(sample_len, ver_algorithm, eng, index, eps_index, timeout)
+
+            if res == 3:
+                if_timeout = True
+
+            # write the results
+            write_results(output_file, sample_num, res, t, met)
+
+    # close matlab after experiment finishes
+    eng.quit()
+
 def write_results(output_file, sample_num, res, t, met):
     with open(output_file, 'a', newline='') as f:
         writer = csv.writer(f)

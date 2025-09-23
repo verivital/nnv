@@ -196,6 +196,45 @@ The methods implemented in NNV are based upon or used in the following papers:
 
 * Specification-Guided Safety Verification for Feedforward Neural Networks, Weiming Xiang, Hoang-Dung Tran, Taylor T. Johnson [https://arxiv.org/abs/1812.06161]
 
+#### Cite
+
+```
+@inproceedings{nnv2_cav2023,
+author = {Lopez, Diego Manzanas and Choi, Sung Woo and Tran, Hoang-Dung and Johnson, Taylor T.},
+title = {NNV 2.0: The Neural Network Verification Tool},
+year = {2023},
+isbn = {978-3-031-37702-0},
+publisher = {Springer-Verlag},
+address = {Berlin, Heidelberg},
+url = {https://doi.org/10.1007/978-3-031-37703-7_19},
+doi = {10.1007/978-3-031-37703-7_19},
+abstract = {This manuscript presents the updated version of the Neural Network Verification (NNV) tool. NNV is a formal verification software tool for deep learning models and cyber-physical systems with neural network components. NNV was first introduced as a verification framework for feedforward and convolutional neural networks, as well as for neural network control systems. Since then, numerous works have made significant improvements in the verification of new deep learning models, as well as tackling some of the scalability issues that may arise when verifying complex models. In this new version of NNV, we introduce verification support for multiple deep learning models, including neural ordinary differential equations, semantic segmentation networks and recurrent neural networks, as well as a collection of reachability methods that aim to reduce the computation cost of reachability analysis of complex neural networks. We have also added direct support for standard input verification formats in the community such as VNNLIB (verification properties), and ONNX (neural networks) formats. We present a collection of experiments in which NNV verifies safety and robustness properties of feedforward, convolutional, semantic segmentation and recurrent neural networks, as well as neural ordinary differential equations and neural network control systems. Furthermore, we demonstrate the capabilities of NNV against a commercially available product in a collection of benchmarks from control systems, semantic segmentation, image classification, and time-series data.},
+booktitle = {Computer Aided Verification: 35th International Conference, CAV 2023, Paris, France, July 17–22, 2023, Proceedings, Part II},
+pages = {397–412},
+numpages = {16},
+keywords = {neural networks, cyber-physical systems, verification, tool},
+location = {Paris, France}
+}
+```
+
+```
+@inproceedings{nnv_cav2020,
+author = {Tran, Hoang-Dung and Yang, Xiaodong and Manzanas Lopez, Diego and Musau, Patrick and Nguyen, Luan Viet and Xiang, Weiming and Bak, Stanley and Johnson, Taylor T.},
+title = {NNV: The Neural Network Verification Tool for Deep Neural Networks and Learning-Enabled Cyber-Physical Systems},
+year = {2020},
+isbn = {978-3-030-53287-1},
+publisher = {Springer-Verlag},
+address = {Berlin, Heidelberg},
+url = {https://doi.org/10.1007/978-3-030-53288-8_1},
+doi = {10.1007/978-3-030-53288-8_1},
+abstract = {This paper presents the Neural Network Verification (NNV) software tool, a set-based verification framework for deep neural networks (DNNs) and learning-enabled cyber-physical systems (CPS). The crux of NNV is a collection of reachability algorithms that make use of a variety of set representations, such as polyhedra, star sets, zonotopes, and abstract-domain representations. NNV supports both exact (sound and complete) and over-approximate (sound) reachability algorithms for verifying safety and robustness properties of feed-forward neural networks (FFNNs) with various activation functions. For learning-enabled CPS, such as closed-loop control systems incorporating neural networks, NNV provides exact and over-approximate reachability analysis schemes for linear plant models and FFNN controllers with piecewise-linear activation functions, such as ReLUs. For similar neural network control systems (NNCS) that instead have nonlinear plant models, NNV supports over-approximate analysis by combining the star set analysis used for FFNN controllers with zonotope-based analysis for nonlinear plant dynamics building on CORA. We evaluate NNV using two real-world case studies: the first is safety verification of ACAS Xu networks, and the second deals with the safety verification of a deep learning-based adaptive cruise control system.},
+booktitle = {Computer Aided Verification: 32nd International Conference, CAV 2020, Los Angeles, CA, USA, July 21–24, 2020, Proceedings, Part I},
+pages = {3–17},
+numpages = {15},
+keywords = {Autonomy, Verification, Cyber-physical systems, Machine learning, Neural networks},
+location = {Los Angeles, CA, USA}
+}
+```
 
 ### Acknowledgements
 

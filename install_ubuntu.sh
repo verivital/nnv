@@ -38,7 +38,7 @@ echo "Upgrading pip..."
 pip install --upgrade pip
 
 # Install required packages from a requirements.txt file (optional)
-echo "Installing packages from requirements.txt..."
+echo "Installing packages from requirement.txt..."
 pip install -r requirements.txt
 
 

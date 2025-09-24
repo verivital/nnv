@@ -2,6 +2,7 @@
 code/nnv/UUV/
 code/nnv/tbxmanager/
 code/nnv/tests/io/models/*.caffemodel
+.venv
 
 
 data/vgg16_cache.mat

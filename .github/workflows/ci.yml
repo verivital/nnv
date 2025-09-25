@@ -28,6 +28,17 @@ jobs:
       # Sets up MATLAB on the GitHub Actions runner
       - name: Setup MATLAB
         uses: matlab-actions/setup-matlab@v1
+      # Sets up python for CP
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Seup CP requirements
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirement.txt
       # Runs a set of commands using the runners shell
       - name: Run all tests
         uses: matlab-actions/run-command@v1

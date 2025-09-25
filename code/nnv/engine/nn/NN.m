@@ -229,6 +229,8 @@ classdef NN < handle
                 end
                 if isfield(reachOptions, 'dis_opt')
                     obj.dis_opt = reachOptions.dis_opt; % use for debuging
+                else
+                    obj.dis_opt = [];
                 end
                 if isfield(reachOptions, 'lp_solver')
                     obj.lp_solver = reachOptions.lp_solver;

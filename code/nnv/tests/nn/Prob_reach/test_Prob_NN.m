@@ -19,4 +19,5 @@ IS = ImageStar(im_lb , im_ub);
 reachOptions.train_epochs = 200;
 reachOptions.train_lr = 0.0001;
 reachOptions.train_device = "cpu";
+reachOptions.train_mode = "cpu";
 Reachableset = obj.reachProb_ImageStar(IS, reachOptions);

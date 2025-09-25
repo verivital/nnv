@@ -363,6 +363,7 @@ classdef NN < handle
             params.threshold_normal = threshold_normal;
             params.guarantee = coverage;
             params.py_dir = py_dir;
+            params.inputFormat = 'default';
 
             The_class = ProbReach_ImageStar(obj, LB, UB, indices, SizeOut, train_mode, params);
 

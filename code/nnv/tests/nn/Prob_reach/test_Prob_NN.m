@@ -1,6 +1,3 @@
-clear
-clc
-
 model_name = 'm2nist_dilated_72iou_24layer.mat';
 load(model_name)
 layers = net.Layers;
@@ -18,6 +15,6 @@ IS = ImageStar(im_lb , im_ub);
 
 reachOptions.train_epochs = 200;
 reachOptions.train_lr = 0.0001;
-reachOptions.train_device = "cpu";
+reachOptions.device = "cpu";
 reachOptions.train_mode = "cpu";
 Reachableset = obj.reachProb_ImageStar(IS, reachOptions);

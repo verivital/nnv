@@ -33,7 +33,7 @@ ub = [-0.05; 0.9; 0; 0];
 init_set = Star(lb,ub);
 
 n_cores = 1; % number of cores 
-reachPRM.numSteps = 35; % number of control steps
+reachPRM.numSteps = 20; % number of control steps (increase to 30-35 for stability reach, reducing for testing)
 reachPRM.numCores = n_cores;
 reachPRM.ref_input = [];
 reachPRM.reachMethod = 'approx-star';

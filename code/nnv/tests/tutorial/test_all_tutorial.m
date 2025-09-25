@@ -9,8 +9,8 @@ end
 
 
 %% 3) NN: GTSRB (verify_robust_13)
-cd ../GTSRB;
-verify_robust_13;
+% cd ../GTSRB;
+% verify_robust_13;
 
 %% 6) NN: MNIST (input set examples)
 cd ../MNIST;

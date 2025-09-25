@@ -4,7 +4,7 @@
 MATLAB_RELEASE=2024b # latest
 EXISTING_MATLAB_LOCATION=$(dirname $(dirname $(readlink -f $(which matlab))))
 # (assume no products are installed yet)
-ADDITIONAL_PRODUCTS="Computer_Vision_Toolbox Control_System_Toolbox Deep_Learning_Toolbox Image_Processing_Toolbox Optimization_Toolbox Parallel_Computing_Toolbox Statistics_and_Machine_Learning_Toolbox Symbolic_Math_Toolbox System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format Deep_Learning_Toolbox_Converter_for_TensorFlow_Models"
+ADDITIONAL_PRODUCTS="Computer_Vision_Toolbox Control_System_Toolbox Deep_Learning_Toolbox Image_Processing_Toolbox Optimization_Toolbox Parallel_Computing_Toolbox Statistics_and_Machine_Learning_Toolbox Symbolic_Math_Toolbox System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format"
 CURR_DIR=$(pwd)
 
 	

@@ -32,12 +32,9 @@ sign_ub = Sign.get_sign_ub('nonnegative_zero_to_pos_one');
 assert(sign_ub == 1, 'get_sign_ub for nonnegative_zero_to_pos_one should be 1');
 
 %% Test 5: Sign stepReach with constant positive value
-V = [1; 1];
-C = [];
-d = [];
 lb = [1];
 ub = [1];
-I = Star(V, C, d, lb, ub);
+I = Star(lb, ub);
 
 index = 1;
 mode = 'polar_zero_to_pos_one';
@@ -48,12 +45,9 @@ assert(isa(S, 'Star'), 'stepReach should return Star');
 assert(S.V(index, 1) == 1, 'stepReach with constant +1 should set output to 1');
 
 %% Test 6: Sign stepReach with constant negative value  
-V = [-1; -1];
-C = [];
-d = [];
 lb = [-1];
 ub = [-1];
-I = Star(V, C, d, lb, ub);
+I = Star(lb, ub);
 
 index = 1;
 mode = 'polar_zero_to_pos_one';

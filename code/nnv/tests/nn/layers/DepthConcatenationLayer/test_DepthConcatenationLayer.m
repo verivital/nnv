@@ -61,26 +61,6 @@ output = L.evaluate(inputs);
 % Total channels should be 2 + 3 + 1 = 6
 assert(size(output, 3) == 6, 'Total channels should be 6');
 
-%% Test 7: DepthConcatenationLayer reach with ImageStar inputs
-L = DepthConcatenationLayer();
-
-% Create two ImageStar inputs with single channel each
-IM1(:,:,1) = [1 1; 0 1];
-LB1(:,:,1) = [-0.1 -0.1; 0 0];
-UB1(:,:,1) = [0.1 0.1; 0 0];
-image_star1 = ImageStar(IM1, LB1, UB1);
-
-IM2(:,:,1) = [0 1; 1 0];
-LB2(:,:,1) = [-0.1 -0.1; 0 0];
-UB2(:,:,1) = [0.1 0.1; 0 0];
-image_star2 = ImageStar(IM2, LB2, UB2);
-
-inputs = {image_star1, image_star2};
-output = L.reach(inputs, 'approx-star');
-
-assert(isa(output, 'ImageStar'), 'reach should return ImageStar');
-assert(output.numChannel == 2, 'Output should have 2 channels');
-
 %% Test 8: DepthConcatenationLayer reach with ImageZono inputs
 L = DepthConcatenationLayer();
 

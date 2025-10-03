@@ -19,13 +19,10 @@ assert(all(abs(y - expected) < 1e-6), 'LeakyReLU evaluate with gamma=0.2 failed'
 
 %% Test 3: LeakyReLU reach exact star with crossing zero
 % Create a star set that crosses zero
-V = [0 1 1; 1 0 1; 1 1 0];  % base vectors
-C = [1; -1];  % constraints
-d = [1; 1];   % constraint bounds
 lb = [-1; -1];
 ub = [1; 1];
 
-I = Star(V, C, d, lb, ub);
+I = Star(lb, ub);
 gamma = 0.01;
 
 S = LeakyReLU.reach(I, gamma, 'exact-star');
@@ -35,11 +32,7 @@ assert(~isempty(S), 'LeakyReLU reach exact-star should return result');
 % Create input star
 lb = [-1; -1];
 ub = [1; 1];
-B = Box(lb, ub);
-I_zono = B.toZono;
-A = [0.5 1; 1.5 -2];
-I_zono = I_zono.affineMap(A, []);
-I_star = I_zono.toStar;
+I_star = Star(lb,ub);
 
 gamma = 0.1;
 S = LeakyReLU.reach(I_star, gamma, 'approx-star');
@@ -56,12 +49,9 @@ Z = LeakyReLU.reach(I_zono, gamma, 'approx-zono');
 assert(isa(Z, 'Zono'), 'LeakyReLU reach approx-zono should return Zono');
 
 %% Test 6: LeakyReLU stepReach with positive range
-V = [1; 2];
-C = [];
-d = [];
-lb = [0.5];
-ub = [2.5];
-I = Star(V, C, d, lb, ub);
+lb = [0.5;1];
+ub = [2.5;2];
+I = Star(lb, ub);
 
 gamma = 0.01;
 index = 1;
@@ -72,12 +62,9 @@ assert(isa(S, 'Star'), 'stepReach should return Star');
 assert(isequal(S.V, I.V), 'stepReach with positive range should not change V');
 
 %% Test 7: LeakyReLU stepReach with negative range
-V = [0 1; 0 1];
-C = [1; -1];
-d = [0; 0];
-lb = [-1];
-ub = [-0.1];
-I = Star(V, C, d, lb, ub);
+lb = [-1;-10];
+ub = [-0.1; -8];
+I = Star(lb, ub);
 
 gamma = 0.1;
 index = 1;

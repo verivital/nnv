@@ -6,7 +6,7 @@ L = SigmoidLayer();
 assert(strcmp(L.Name, 'act_func_layer'));
 
 %% Test 2: SigmoidLayer constructor - with name
-L = SigmoidLayer({'sigmoid1'});
+L = SigmoidLayer('sigmoid1');
 assert(strcmp(L.Name, 'sigmoid1'));
 
 %% Test 3: SigmoidLayer evaluate - simple input

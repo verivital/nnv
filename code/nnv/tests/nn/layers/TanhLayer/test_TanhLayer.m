@@ -6,7 +6,7 @@ L = TanhLayer();
 assert(strcmp(L.Name, 'act_func_layer'));
 
 %% Test 2: TanhLayer constructor - with name
-L = TanhLayer({'tanh1'});
+L = TanhLayer('tanh1');
 assert(strcmp(L.Name, 'tanh1'));
 
 %% Test 3: TanhLayer evaluate - simple input

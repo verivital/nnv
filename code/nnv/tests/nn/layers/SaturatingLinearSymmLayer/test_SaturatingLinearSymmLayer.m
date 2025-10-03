@@ -7,13 +7,13 @@ L = SaturatingLinearSymmLayer();
 assert(strcmp(L.Name, 'act_func_layer'));
 
 %% Test 2: SaturatingLinearSymmLayer constructor - with name
-L = SaturatingLinearSymmLayer({'satlins1'});
+L = SaturatingLinearSymmLayer('satlins1');
 assert(strcmp(L.Name, 'satlins1'));
 
 %% Test 3: SaturatingLinearSymmLayer evaluate - simple input
 L = SaturatingLinearSymmLayer();
 
-% Test with simple matrix
+% Test with a simple matrix
 input = [-2 -1 -0.5 0 0.5; 1 1.5 2 3 4];
 output = L.evaluate(input);
 

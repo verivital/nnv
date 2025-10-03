@@ -229,6 +229,8 @@ classdef NN < handle
                 end
                 if isfield(reachOptions, 'dis_opt')
                     obj.dis_opt = reachOptions.dis_opt; % use for debuging
+                else
+                    obj.dis_opt = [];
                 end
                 if isfield(reachOptions, 'lp_solver')
                     obj.lp_solver = reachOptions.lp_solver;
@@ -361,6 +363,7 @@ classdef NN < handle
             params.threshold_normal = threshold_normal;
             params.guarantee = coverage;
             params.py_dir = py_dir;
+            params.inputFormat = 'default';
 
             The_class = ProbReach_ImageStar(obj, LB, UB, indices, SizeOut, train_mode, params);
 

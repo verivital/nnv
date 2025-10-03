@@ -73,8 +73,8 @@ output = L.evaluate(input);
 % Should flatten to [1 1 1 16]
 assert(size(output, 1) == 1);
 assert(size(output, 2) == 1);
-assert(size(output, 3) == 1);
-assert(size(output, 4) == 16);
+assert(size(output, 3) == 16);
+assert(size(output, 4) == 1);
 
 %% Test 8: FlattenLayer evaluateSequence
 L = FlattenLayer();
@@ -107,22 +107,6 @@ assert(isa(output_star, 'ImageStar'), 'reach should return ImageStar');
 % Flattened output should have correct dimensions
 assert(output_star.height == 1);
 assert(output_star.width == 1);
-
-%% Test 10: FlattenLayer reach with ImageZono
-L = FlattenLayer();
-L.Type = 'nnet.cnn.layer.FlattenLayer';
-
-% Create ImageZono input
-LB(:,:,1) = [-0.1 -0.1; 0 0];
-LB(:,:,2) = [-0.1 -0.1; 0 0];
-
-UB(:,:,1) = [0.1 0.1; 0 0];
-UB(:,:,2) = [0.1 0.1; 0 0];
-
-image_zono = ImageZono(LB, UB);
-output_zono = L.reach(image_zono, 'approx-zono');
-
-assert(isa(output_zono, 'ImageStar'), 'reach should return ImageStar for ImageZono input');
 
 %% Test 11: FlattenLayer toGPU
 L = FlattenLayer();

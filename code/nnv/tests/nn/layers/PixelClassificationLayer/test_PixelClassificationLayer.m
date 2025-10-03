@@ -25,7 +25,7 @@ L = PixelClassificationLayer('pixelclass3', classes, outputSize);
 
 % Get classes for specific indices
 idxs = [1 2];
-result_classes = L.getClasses(idxs);
+[result_id, result_classes] = L.getClasses(idxs);
 assert(isa(result_classes, 'categorical'), 'Should return categorical array');
 
 %% Test 4: PixelClassificationLayer classify - simple
@@ -37,7 +37,7 @@ L = PixelClassificationLayer('pixelclass4', classes, outputSize);
 seg_map(:,:,1) = [0.8 0.2; 0.3 0.7];  % background scores
 seg_map(:,:,2) = [0.2 0.8; 0.7 0.3];  % foreground scores
 
-[seg_result, class_names] = L.classify(seg_map);
+[seg_result, class_names] = L.evaluate(seg_map);
 
 % Check dimensions
 assert(size(seg_result, 1) == 2, 'Height should be 2');
@@ -55,7 +55,7 @@ LB = -0.1 * ones(4, 4, 2);
 UB = 0.1 * ones(4, 4, 2);
 
 image_star = ImageStar(IM, LB, UB);
-[seg_result, class_names] = L.evaluateSegmentation(image_star);
+seg_result = L.reach(image_star,'approx-star');
 
 % Should classify based on maximum scores
 assert(~isempty(seg_result), 'Should return segmentation result');
@@ -75,7 +75,7 @@ image_star = ImageStar(IM, LB, UB);
 output = L.reach(image_star, 'approx-star');
 
 % Pixel classification layer should pass through unchanged
-assert(isa(output, 'ImageStar'), 'reach should return ImageStar');
+assert(isa(output, 'Star'), 'reach should return ImageStar');
 
 %% Test 7: PixelClassificationLayer toGPU
 classes = categorical({'class1', 'class2'});

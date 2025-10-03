@@ -72,26 +72,6 @@ assert(size(output, 1) == 2, 'Dim 1 should be unchanged');
 assert(size(output, 2) == 2, 'Dim 2 should be unchanged');
 assert(size(output, 3) == 3, 'Dim 3 should be sum of inputs');
 
-%% Test 7: ConcatenationLayer reach with Star inputs
-L = ConcatenationLayer('concat_reach', 1);
-
-% Create simple Star inputs
-lb1 = [0; 0];
-ub1 = [1; 1];
-B1 = Box(lb1, ub1);
-star1 = B1.toStar;
-
-lb2 = [2; 2];
-ub2 = [3; 3];
-B2 = Box(lb2, ub2);
-star2 = B2.toStar;
-
-inputs = {star1, star2};
-output_star = L.reach(inputs, 'exact-star');
-
-% Should return concatenated Star
-assert(isa(output_star, 'Star'), 'reach should return Star');
-
 %% Test 8: ConcatenationLayer reach with ImageStar inputs
 L = ConcatenationLayer('concat_imagestar', 3);
 

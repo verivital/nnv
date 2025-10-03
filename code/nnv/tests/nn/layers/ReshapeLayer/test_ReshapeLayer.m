@@ -43,7 +43,7 @@ output = L.evaluate(input);
 assert(all(size(output) == [2 2 2]), 'ReshapeLayer 3D evaluate failed');
 
 %% Test 6: ReshapeLayer evaluate - with -1 in targetDim
-targetDim = [-1, 4];
+targetDim = [[], 4];
 L = ReshapeLayer('reshape_auto', targetDim);
 
 % Create input

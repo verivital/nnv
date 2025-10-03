@@ -53,7 +53,7 @@ ub = [1; 1];
 B = Box(lb, ub);
 I_star = B.toStar;
 
-output = L.reach(I_star, 'exact-star');
+output = L.reachSequence(I_star, 'exact-star');
 % Should return input unchanged for no normalization
 assert(isa(output, 'Star'), 'reach should return Star');
 

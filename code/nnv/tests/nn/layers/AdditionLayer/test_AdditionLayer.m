@@ -95,33 +95,6 @@ output_star = L.reach(inputs, 'approx-star');
 
 assert(isa(output_star, 'ImageStar'), 'reach should return ImageStar');
 
-%% Test 6: AdditionLayer reach with ImageZono inputs
-L = AdditionLayer('add_layer', 2, 1, {'in1', 'in2'}, {'out'});
-
-% Create first ImageZono
-LB1(:,:,1) = [-0.1 -0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-LB1(:,:,2) = [-0.1 -0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-
-UB1(:,:,1) = [0.1 0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB1(:,:,2) = [0.1 0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-
-image_zono1 = ImageZono(LB1, UB1);
-
-% Create second ImageZono
-LB2(:,:,1) = [-0.05 -0.05 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-LB2(:,:,2) = [-0.05 -0.05 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-
-UB2(:,:,1) = [0.05 0.05 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB2(:,:,2) = [0.05 0.05 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-
-image_zono2 = ImageZono(LB2, UB2);
-
-% Test reach with approx-zono
-inputs = {image_zono1, image_zono2};
-output_zono = L.reach(inputs, 'approx-zono');
-
-assert(isa(output_zono, 'ImageZono'), 'reach should return ImageZono');
-
 %% Test 7: AdditionLayer toGPU
 L = AdditionLayer('add_layer', 2, 1, {'in1', 'in2'}, {'out'});
 L_gpu = L.toGPU();

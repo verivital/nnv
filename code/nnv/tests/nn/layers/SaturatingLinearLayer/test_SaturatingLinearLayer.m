@@ -7,7 +7,7 @@ L = SaturatingLinearLayer();
 assert(strcmp(L.Name, 'act_func_layer'));
 
 %% Test 2: SaturatingLinearLayer constructor - with name
-L = SaturatingLinearLayer({'satlin1'});
+L = SaturatingLinearLayer('satlin1');
 assert(strcmp(L.Name, 'satlin1'));
 
 %% Test 3: SaturatingLinearLayer evaluate - simple input

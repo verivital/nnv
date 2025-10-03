@@ -6,13 +6,13 @@ L = HardSigmoidLayer();
 assert(strcmp(L.Name, 'act_func_layer'));
 
 %% Test 2: HardSigmoidLayer constructor - with name
-L = HardSigmoidLayer({'hardsig1'});
+L = HardSigmoidLayer('hardsig1');
 assert(strcmp(L.Name, 'hardsig1'));
 
 %% Test 3: HardSigmoidLayer evaluate - simple input
 L = HardSigmoidLayer();
 
-% Test with simple matrix
+% Test with a simple matrix
 % HardSigmoid: f(x) = max(0, min(1, 0.2*x + 0.5))
 input = [-3 -2 -1 0 1; 2 3 4 5 6];
 output = L.evaluate(input);

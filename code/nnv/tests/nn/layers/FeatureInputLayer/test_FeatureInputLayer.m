@@ -71,13 +71,12 @@ assert(isa(output, 'Star'), 'reach should return Star');
 
 %% Test 9: FeatureInputLayer reach with Star - zerocenter normalization
 L = FeatureInputLayer([2 1], 'zerocenter');
-L.Mean = [0.5; 0.5];
+L.Mean = [0.5];
 
 % Create Star input
 lb = [0; 0];
 ub = [1; 1];
-B = Box(lb, ub);
-I_star = B.toStar;
+I_star = Star(lb, ub);
 
 output = L.reach(I_star, 'exact-star');
 assert(isa(output, 'Star'), 'reach should return Star');

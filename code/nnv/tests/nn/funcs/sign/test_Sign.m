@@ -76,19 +76,19 @@ assert(S.V(index, 1) == 1, 'stepReach with positive range should set output to 1
 %% Test 8: Sign reach with Star - exact method
 lb = [-1; -1];
 ub = [1; 1];
-B = Box(lb, ub);
-I_star = B.toStar;
+% B = Box(lb, ub);
+I_star = Star(lb,ub);
 
-mode = 'polar_zero_to_pos_one';
-S = Sign.reach(I_star, mode, 'exact-star');
+% mode = 'polar_zero_to_pos_one';
+S = Sign.reach(I_star, 'exact-star');
 assert(~isempty(S), 'Sign reach exact-star should return result');
 
 %% Test 9: Sign reach with Star - approx method
 lb = [-1; -1];
 ub = [1; 1];
-B = Box(lb, ub);
-I_star = B.toStar;
+%B = Box(lb, ub);
+I_star = Star(lb,ub);
 
-mode = 'polar_zero_to_pos_one';
-S = Sign.reach(I_star, mode, 'approx-star');
+%mode = 'polar_zero_to_pos_one';
+S = Sign.reach(I_star, 'approx-star');
 assert(~isempty(S), 'Sign reach approx-star should return result');

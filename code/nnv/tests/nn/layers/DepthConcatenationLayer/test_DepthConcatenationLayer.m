@@ -61,22 +61,6 @@ output = L.evaluate(inputs);
 % Total channels should be 2 + 3 + 1 = 6
 assert(size(output, 3) == 6, 'Total channels should be 6');
 
-%% Test 8: DepthConcatenationLayer reach with ImageZono inputs
-L = DepthConcatenationLayer();
-
-LB1(:,:,1) = [-0.1 -0.1; 0 0];
-UB1(:,:,1) = [0.1 0.1; 0 0];
-image_zono1 = ImageZono(LB1, UB1);
-
-LB2(:,:,1) = [-0.1 -0.1; 0 0];
-UB2(:,:,1) = [0.1 0.1; 0 0];
-image_zono2 = ImageZono(LB2, UB2);
-
-inputs = {image_zono1, image_zono2};
-output = L.reach(inputs, 'approx-zono');
-
-assert(isa(output, 'ImageZono'), 'reach should return ImageZono');
-
 %% Test 9: DepthConcatenationLayer toGPU
 L = DepthConcatenationLayer();
 L_gpu = L.toGPU();

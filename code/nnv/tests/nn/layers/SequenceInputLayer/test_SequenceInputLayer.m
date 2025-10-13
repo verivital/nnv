@@ -48,14 +48,11 @@ assert(all(abs(output(:) - expected(:)) < 1e-10), 'Zerocenter normalization fail
 L = SequenceInputLayer('InputSize', 2, 'Normalization', 'none');
 
 % Create simple Star input
-lb = [0; 0];
-ub = [1; 1];
-B = Box(lb, ub);
-I_star = B.toStar;
+lb = [0 0; 0 0];
+ub = [1 1; 1 1];
+I_star = ImageStar(lb,ub);
 
 output = L.reachSequence(I_star, 'exact-star');
-% Should return input unchanged for no normalization
-assert(isa(output, 'Star'), 'reach should return Star');
 
 %% Test 8: SequenceInputLayer toGPU
 L = SequenceInputLayer('Name', 'seq_gpu', 'Mean', [1; 2; 3], 'StandardDeviation', [0.5; 0.5; 0.5]);

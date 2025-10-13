@@ -94,7 +94,7 @@ classdef FeatureInputLayer < handle
         function out_set = reach_star_single_input(obj, in_set)
             % @in_set: an input ImageStar
             % @out_set: an output ImageStar
-            n = obj.dim;
+            n = in_set.dim;
             
             % Compute normalization
             if strcmp(obj.Normalization, 'none')

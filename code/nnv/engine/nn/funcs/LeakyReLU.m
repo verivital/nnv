@@ -1846,7 +1846,7 @@ classdef LeakyReLU
             elseif strcmp(method, 'exact-polyhedron') % exact analysis using polyhedron
                 R = LeakyReLU.reach_polyhedron_exact(I, gamma, option, dis_opt);
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
-                R = LeakyReLU.reach_star_approx(I, gamma, option, dis_opt, lp_solver);
+                R = LeakyReLU.reach_star_approx(I, gamma, dis_opt, lp_solver);
             elseif strcmp(method, 'relax-star-dis')
                 R = LeakyReLU.reach_relaxed_star_dis(I, gamma, relaxFactor, option, dis_opt, lp_solver);
             elseif strcmp(method, 'relax-star-lb-ub')

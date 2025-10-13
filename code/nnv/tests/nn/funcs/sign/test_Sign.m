@@ -89,6 +89,6 @@ ub = [1; 1];
 %B = Box(lb, ub);
 I_star = Star(lb,ub);
 
-%mode = 'polar_zero_to_pos_one';
+mode = 'polar_zero_to_pos_one';
 S = Sign.reach(I_star, 'approx-star', 'single', 0, [], 'linprog', mode);
 assert(~isempty(S), 'Sign reach approx-star should return result');

@@ -79,8 +79,8 @@ ub = [1; 1];
 % B = Box(lb, ub);
 I_star = Star(lb,ub);
 
-% mode = 'polar_zero_to_pos_one';
-S = Sign.reach(I_star, 'exact-star');
+mode = 'polar_zero_to_pos_one';
+S = Sign.reach(I_star, 'exact-star', 'single', 0, [], 'linprog', mode);
 assert(~isempty(S), 'Sign reach exact-star should return result');
 
 %% Test 9: Sign reach with Star - approx method
@@ -90,5 +90,5 @@ ub = [1; 1];
 I_star = Star(lb,ub);
 
 %mode = 'polar_zero_to_pos_one';
-S = Sign.reach(I_star, 'approx-star');
+S = Sign.reach(I_star, 'approx-star', 'single', 0, [], 'linprog', mode);
 assert(~isempty(S), 'Sign reach approx-star should return result');

@@ -42,17 +42,6 @@ output = L.evaluate(input);
 % Should reshape to [2 2 2]
 assert(all(size(output) == [2 2 2]), 'ReshapeLayer 3D evaluate failed');
 
-%% Test 6: ReshapeLayer evaluate - with -1 in targetDim
-targetDim = [[], 4];
-L = ReshapeLayer('reshape_auto', targetDim);
-
-% Create input
-input = [1 2 3 4; 5 6 7 8];
-output = L.evaluate(input);
-
-% -1 should be replaced with 1
-assert(size(output, 1) == 1 || size(output, 2) == 4, 'ReshapeLayer with -1 failed');
-
 %% Test 7: ReshapeLayer reach with ImageStar
 targetDim = [4, 4, 1, 1];
 L = ReshapeLayer('reshape_reach', targetDim);

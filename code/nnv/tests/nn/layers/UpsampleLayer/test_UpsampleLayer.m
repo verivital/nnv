@@ -29,8 +29,8 @@ input = [1 2; 3 4];
 output = L.evaluate(input);
 
 % Output should be 2x larger in first two dimensions
-assert(size(output, 1) == 4, 'Height should be scaled');
-assert(size(output, 2) == 4, 'Width should be scaled');
+assert(size(output, 1) == 4);
+assert(size(output, 2) == 4);
 
 %% Test 5: UpsampleLayer evaluate - 3D image upsampling
 scaleDim = [2 2 1 1];
@@ -43,9 +43,9 @@ IM(:,:,2) = [5 6; 7 8];
 output = L.evaluate(IM);
 
 % Check dimensions
-assert(size(output, 1) == 4, 'Height should be doubled');
-assert(size(output, 2) == 4, 'Width should be doubled');
-assert(size(output, 3) == 2, 'Channels should be unchanged');
+assert(size(output, 1) == 4);
+assert(size(output, 2) == 4);
+assert(size(output, 3) == 2);
 
 %% Test 6: UpsampleLayer evaluate - non-uniform scaling
 scaleDim = [2 3 1 1];
@@ -56,7 +56,7 @@ input = ones(2, 2);
 output = L.evaluate(input);
 
 % Check scaled dimensions
-assert(size(output, 1) == 4 || size(output, 2) == 6, 'Should scale non-uniformly');
+assert(size(output, 1) == 4 || size(output, 2) == 6);
 
 %% Test 7: UpsampleLayer reach with ImageStar
 scaleDim = [2 2 1 1];

@@ -92,7 +92,7 @@ ub = [1; 1];
 B = Box(lb, ub);
 I_star = B.toStar;
 
-S = L.reach_star_single_input(I_star, 'approx-star');
+S = L.reach_star_single_input(I_star, 'approx-star', 0, [], 'linprog');
 assert(~isempty(S), 'TanhLayer reach with Star should return result');
 
 %% Test 9: TanhLayer toGPU

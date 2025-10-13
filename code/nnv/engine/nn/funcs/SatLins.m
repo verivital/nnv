@@ -847,7 +847,7 @@ classdef SatLins
                 R = SatLins.reach_star_approx(I);
 
             elseif contains(method, 'relax-star')
-                warning('Relax method not supported for SatLins, using approx-star)
+                warning('Relax method not supported for SatLins, using approx-star')
 
                 R = SatLins.reach_star_approx(I);
                 

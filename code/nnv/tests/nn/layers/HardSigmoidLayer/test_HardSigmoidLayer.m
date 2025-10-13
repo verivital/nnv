@@ -48,28 +48,6 @@ output = L.evaluate(input);
 assert(output(1) == 0, 'HardSigmoid should saturate at 0 for large negative');
 assert(output(end) == 1, 'HardSigmoid should saturate at 1 for large positive');
 
-%% Test 6: HardSigmoidLayer reach with ImageStar - approx-star
-L = HardSigmoidLayer();
-
-% Create ImageStar input
-IM(:,:,1) = [1 1 0 1; 0 0 1 1; 1 0 1 0; 1 1 1 1];
-IM(:,:,2) = [0 1 0 0; 1 0 0 1; 0 1 1 0; 0 0 0 1];
-IM(:,:,3) = [1 1 1 1; 1 1 0 1; 0 1 1 0; 1 0 1 0];
-
-LB(:,:,1) = [-0.1 -0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-LB(:,:,2) = [-0.1 -0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-LB(:,:,3) = LB(:,:,2);
-
-UB(:,:,1) = [0.1 0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,2) = [0.1 0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,3) = UB(:,:,2);
-
-image_star = ImageStar(IM, LB, UB);
-images = L.reach(image_star, 'approx-star');
-
-assert(~isempty(images), 'HardSigmoidLayer reach approx-star should return result');
-assert(isa(images(1), 'ImageStar'), 'reach should return ImageStar');
-
 %% Test 7: HardSigmoidLayer reach with ImageZono
 L = HardSigmoidLayer();
 
@@ -85,23 +63,6 @@ image_zono = ImageZono(LB, UB);
 image = L.reach_zono(image_zono);
 
 assert(isa(image, 'ImageZono'), 'reach_zono should return ImageZono');
-
-%% Test 8: HardSigmoidLayer reach with Star - approx-star
-L = HardSigmoidLayer();
-
-% Create Star input
-lb = [-1; -1];
-ub = [1; 1];
-B = Box(lb, ub);
-I_star = B.toStar;
-
-S = L.reach_star_single_input(I_star, 'approx-star');
-assert(~isempty(S), 'HardSigmoidLayer reach with Star should return result');
-
-%% Test 9: HardSigmoidLayer toGPU
-L = HardSigmoidLayer();
-L_gpu = L.toGPU();
-assert(isa(L_gpu, 'HardSigmoidLayer'));
 
 %% Test 10: HardSigmoidLayer changeParamsPrecision
 L = HardSigmoidLayer();

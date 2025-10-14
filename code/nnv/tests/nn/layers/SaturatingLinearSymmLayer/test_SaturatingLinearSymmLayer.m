@@ -67,21 +67,13 @@ assert(output(end) == 1, 'Large positive should saturate at 1');
 %% Test 7: SaturatingLinearSymmLayer reach with ImageStar - approx-star
 L = SaturatingLinearSymmLayer();
 
-% Create ImageStar input (scaled to fit in range)
-IM(:,:,1) = 0.3 * [1 1 0 1; 0 0 1 1; 1 0 1 0; 1 1 1 1];
-IM(:,:,2) = 0.3 * [0 1 0 0; 1 0 0 1; 0 1 1 0; 0 0 0 1];
-IM(:,:,3) = 0.3 * [1 1 1 1; 1 1 0 1; 0 1 1 0; 1 0 1 0];
+% Create Star input 
+lb = [0;0];
+ub = [1;1];
 
-LB(:,:,1) = [-0.1 -0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-LB(:,:,2) = [-0.1 -0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-LB(:,:,3) = LB(:,:,2);
+I_star = Star(lb,ub);
 
-UB(:,:,1) = [0.1 0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,2) = [0.1 0.1 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,3) = UB(:,:,2);
-
-image_star = ImageStar(IM, LB, UB);
-images = L.reach(image_star, 'approx-star');
+images = L.reach(I_star, 'approx-star');
 
 assert(~isempty(images), 'SaturatingLinearSymmLayer reach approx-star should return result');
 assert(isa(images(1), 'ImageStar') || isa(images(1), 'Star'), 'reach should return ImageStar or Star');

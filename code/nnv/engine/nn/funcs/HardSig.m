@@ -21,7 +21,7 @@ classdef HardSig
                if x(i) > 2.5
                    y(i) = 1;
                end
-               if x >= -2.5 && x <= 2.5
+               if x(i) >= -2.5 && x(i) <= 2.5
                    y(i) = 0.2 * x(i) + 0.5;
                end
             end

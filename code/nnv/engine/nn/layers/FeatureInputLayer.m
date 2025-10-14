@@ -94,12 +94,13 @@ classdef FeatureInputLayer < handle
         function out_set = reach_star_single_input(obj, in_set)
             % @in_set: an input ImageStar
             % @out_set: an output ImageStar
+            n = in_set.dim;
             
             % Compute normalization
             if strcmp(obj.Normalization, 'none')
                 out_set = in_set;
             elseif strcmp(obj.Normalization, 'zerocenter')
-                out_set = in_set.affineMap([], -obj.Mean);
+                out_set = in_set.affineMap(eye(n), -obj.Mean);
             else
                 error('The normalization method is not supported yet.')
             end

@@ -90,6 +90,15 @@ classdef BatchNormalizationLayer < handle
             obj.TrainedVariance = gpuArray(obj.TrainedVariance);
         end
 
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            obj.Offset = gather(obj.Offset);
+            obj.Scale = gather(obj.Scale);
+            obj.Epsilon = gather(obj.Epsilon);
+            obj.TrainedMean = gather(obj.TrainedMean);
+            obj.TrainedVariance = gather(obj.TrainedVariance);
+        end
+
         % Change params precision
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")
@@ -219,8 +228,7 @@ classdef BatchNormalizationLayer < handle
                     for i=1:obj.NumChannels
                         x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,:,i) + obj.Epsilon);
                     end
-                    % 2) Batch normalization operation further shifts and scales the 
-                    % activations using Scale and Offset values
+                    % 2) Batch normalization operation further shifts and scales the activations using Scale and Offset values
                     % 2a) Scale values
                     for i=1:obj.NumChannels
                         x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* obj.Scale(:,:,:,i);
@@ -233,6 +241,7 @@ classdef BatchNormalizationLayer < handle
                 end
             
             elseif isa(image, 'ImageStar')
+                new_NumChannels = in_image.numChannel;
                 % Get parameters to the right shape
                 if(length(size(obj.TrainedMean)) == 2) && size(image.V, 1) == 1 && size(image.V, 2) == 1 && length(size(image.V)) == 4
                     obj.TrainedMean = reshape(obj.TrainedMean, [1 1 size(obj.TrainedMean, 1)]);
@@ -256,6 +265,10 @@ classdef BatchNormalizationLayer < handle
                 if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
                     % 1) Normalized all elements of x (for each channel independently)
                     % 1a) substract mean from elements of x per channel
+                    if exist("new_NumChannels", "var")
+                        old_NumChannels = obj.NumChannels;
+                        obj.NumChannels = new_NumChannels;
+                    end
                     for i=1:obj.NumChannels
                         x.V(:,:,i,1) = x.V(:,:,i,1) - obj.TrainedMean(:,:,i);
                     end
@@ -263,8 +276,7 @@ classdef BatchNormalizationLayer < handle
                     for i=1:obj.NumChannels
                         x.V(:,:,i,:) = x.V(:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,i) + obj.Epsilon);
                     end
-                    % 2) Batch normalization operation further shifts and scales the 
-                    % activations using Scale and Offset values
+                    % 2) Batch normalization operation further shifts and scales the activations using Scale and Offset values
                     % 2a) Scale values
                     for i=1:obj.NumChannels
                         x.V(:,:,i,:) = x.V(:,:,i,:) .* obj.Scale(:,:,i);
@@ -274,6 +286,9 @@ classdef BatchNormalizationLayer < handle
                         x.V(:,:,i,1) = x.V(:,:,i,1) + obj.Offset(:,:,i);
                     end
                     image = x;
+                    if exist("new_NumChannels", "var")
+                        obj.NumChannels = old_NumChannels;
+                    end
                 end
                 
             elseif isa(image, 'Star')

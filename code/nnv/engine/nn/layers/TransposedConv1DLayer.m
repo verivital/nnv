@@ -381,6 +381,12 @@ classdef TransposedConv1DLayer < handle
     
     methods % helper method
 
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            obj.Weights = gather(obj.Weights);
+            obj.Bias = gather(obj.Bias);
+        end
+
         % change params to gpuArrays
         function obj = toGPU(obj)
             obj.Weights = gpuArray(obj.Weights);

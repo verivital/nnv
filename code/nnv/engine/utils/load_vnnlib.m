@@ -120,9 +120,6 @@ function property = load_vnnlib(propertyFile)
                     last_ast = property.prop{n2};
                     if length(last_ast) > 1 % means previous ast was an "or"
                         property.prop{n2+1} = ast;
-                    elseif contains(propertyFile, "quadrotor2d_state") % quick fix for lsnc_relu
-                        last_ast.Hg = [last_ast.Hg; ast.Hg];
-                        property.prop{n2} = last_ast;
                     else
                         last_ast.Hg.G = [last_ast.Hg.G; ast.Hg.G];
                         last_ast.Hg.g = [last_ast.Hg.g; ast.Hg.g];

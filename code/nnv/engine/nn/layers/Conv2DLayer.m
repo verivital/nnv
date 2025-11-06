@@ -31,6 +31,22 @@ classdef Conv2DLayer < handle
         InputNames = {'in'};
         NumOutputs = 1;
         OutputNames = {'out'};
+
+        weightPerturb = [];    % perturb specified weights of only this 
+            % convolutional layer in the specified range
+            % (coupling/interaction with existing predicate variables in
+            % the input set not implemented yet). The first element of
+            % each row is the index of the weight to be perturbed in linear
+            % format, so use sub2ind() on multi-dimensional indices before
+            % specifying it here. The next two elements are the lower and
+            % upper bounds of the perturbation. Bias perturbation not 
+            % implemented yet.
+        
+        mem_thresh = 0.1;    % for the split_and_combine decision; split
+            % and combine only if the size of the resulting set is less
+            % than this fraction of the free memory
+        
+        max_parallel_workers = 64;
     end
     
     
@@ -425,11 +441,44 @@ classdef Conv2DLayer < handle
             end
             
         end
+        
+        % specify a weight perturbation to be added to the 
+        % obj.weightPerturb specification matrix
+        function add_pert(obj, pert_indices, lb, ub)
+            % @pert_indices: indices of the weight to be perturbed
+            % @lb: lower bound of the perturbation
+            % @ub: upper bound of the perturbation
+            
+            NN.add_pert_call_this_function_from_layer(obj, pert_indices, lb, ub);
+        end
+        
+        % specify a perturbation to be applied to the whole layer
+        function perturb_whole_layer(obj, lb, ub)
+            % @lb: lower bound of the perturbation
+            % @ub: upper bound of the perturbation
+            
+            NN.perturb_whole_layer_call_this_function_from_layer(obj, lb, ub);
+        end
+        
+        % specify a symmetric perturbation to be applied to the whole layer
+        % as a fraction of the range of the weights in the layer
+        function perturb_whole_layer_given_fraction_of_weights_range(obj, frac)
+            % @frac: fraction of the weights' range to be applied as
+            % perturbation to the whole layer
+            
+            NN.pert_whole_layer_given_fraction_of_weights_range_call_fromLayer(obj, frac);
+        end
 
         % change params to gpuArrays
         function obj = toGPU(obj)
             obj.Weights = gpuArray(obj.Weights);
             obj.Bias = gpuArray(obj.Bias);
+        end
+
+        % change params to gpuArrays
+        function obj = toCPU(obj)
+            obj.Weights = gather(obj.Weights);
+            obj.Bias = gather(obj.Bias);
         end
 
         % Change params precision
@@ -458,7 +507,47 @@ classdef Conv2DLayer < handle
             % y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
             y = dlconv(dlarray(input, "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
             y = extractdata(y);
+ 
+            % disp(['Stride: ' num2str(obj.Stride) '; Dilation Factor: ' num2str(obj.DilationFactor) '; Padding: ' num2str(obj.PaddingSize)])
             
+            % new_input = padzeros(input, obj.PaddingSize);
+            % 
+            % z = vl_nnconv(new_input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Dilate', obj.DilationFactor);
+            % 
+            % F = obj.Weights;
+            % z = zeros(size(z));
+            % zm = size(z, 1);
+            % zn = size(z, 2);
+            % parfor c = 1:size(F,4)
+            %     for m = 1:zm
+            %         for n = 1:zn
+            %             % for o = 1:size(F, 1)
+            %             %     for p = 1:size(F, 2)
+            %             %         q = m-o+1;
+            %             %         r = n-p+1;
+            %             %         if q > 0 & r > 0 %& q <= size(new_input, 1) & r <= size(new_input, 2)
+            %             %             % disp([string(o) string(p) string(q) string(r)])
+            %             %             % z(m,n,1)
+            %             %             % F(o,p,1,1)
+            %             %             % new_input(q,r,1)
+            %             %             z(m,n,c) = z(m,n,c) + F(o,p,1,c)*new_input(q,r,1);
+            %             %         end
+            %             %     end
+            %             % end
+            %             for o = 1:size(F,3)
+            %                 z(m,n,c) = z(m,n,c) + sum(F(:,:,o,c).*new_input(m:m+size(F,1)-1,n:n+size(F,2)-1,o), 'all');
+            %             end
+            %         end
+            %     end
+            % end
+            % z = z + obj.Bias;
+            % 
+            % if abs(z-y) < max(abs(z), [], 'all')/1000000
+            % else
+            %     error('Wrong Convolution!')
+            % end
+            % y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+           
         end
 
         function y1 = evaluateSequence(obj, input)
@@ -518,22 +607,344 @@ classdef Conv2DLayer < handle
                 error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannels);
             end
             
+            too_big_for_gpu = 0;
+            if isa(input.V, 'gpuArray')
+                c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                mem_V_B = whos('c').bytes*size(input.V, 4);
+                [~, gpu_free_mem_B] = NN.get_nvidia_gpu_used_memory_frac;
+                if mem_V_B > 0.4*gpu_free_mem_B
+                    too_big_for_gpu = 1;
+                    input.changeDevice('cpu');
+                    obj.toCPU;
+                end
+            end
+            
             % compute output sets
-            % if ~isa(input.V, 'gpuArray')
-                % c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-                % V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);   
-                % c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-                % V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-                % c = extractdata(c);
-                % V = extractdata(V);
-            % else
-            c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-            V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-            c = extractdata(c);
-            V = extractdata(V);
-            % end
-            Y = cat(4, c, V);
-            S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+            if ~isa(input.V, 'gpuArray')
+                c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+                V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);   
+            else
+                c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                c = extractdata(c);
+                V = extractdata(V);
+            end
+            V = cat(4, c, V);
+            
+            C = input.C;
+            d = input.d;
+            pred_lb = input.pred_lb;
+            pred_ub = input.pred_ub;
+            
+            if ~isempty(obj.weightPerturb)
+                
+                % make sure that the weight perturbation matrix adheres
+                % to the 3 column format described above
+                sz = size(obj.weightPerturb);
+                if length(sz) > 2 || sz(2) > 3
+                    error("Weight perturbation specification matrix must have only 3 elements in each row: [linear index of perturbed weight, lower bound of perturbation, upper bound of perturbation]")
+                end
+                
+                num_pert = size(obj.weightPerturb, 1);
+                gen_size_info = whos('c');
+                sz_without_split = (num_pert + 2)*gen_size_info.bytes;
+                split_and_combine = numel(obj.Weights) > numel(V(:,:,:,1)); % compare relative set sizes without and with splitting
+                if sz_without_split < obj.mem_thresh*NN.get_free_mem_B
+                    split_and_combine = 0;
+                    % if obj.mem_thresh < 1
+                    %     warning("Avoiding split because set size without split is sufficiently small.")
+                    % end
+                end
+                dim_wise_lb = zeros(size(V(:, :, :, 1)), 'like', V);
+                dim_wise_ub = dim_wise_lb;
+                
+                if split_and_combine
+                    % split and add perturbations to begin with, instead of
+                    % splitting afterwards
+
+                    % for the new generators, one for each output neuron
+                    row_size = size(V, 1);
+                    col_size = size(V, 2);
+                    num_channels = size(V, 3);
+                else
+                    V_ext = nan(size(V, 1), size(V, 2), size(V, 3), num_pert, underlyingType(V));
+                    lb_ext = nan(num_pert, 1, underlyingType(pred_lb));
+                    ub_ext = lb_ext;
+                    C_ext = zeros(size(C, 1), num_pert, underlyingType(C));
+                end
+                
+                poolobj = gcp('nocreate');
+                if isa(V, 'gpuArray') && ~isempty(poolobj) && num_pert > 10
+                    numWorkers = poolobj.NumWorkers;
+                    if numWorkers > obj.max_parallel_workers
+                        delete(gcp('nocreate'));
+                        parpool('Processes', obj.max_parallel_workers);
+                    end
+                end
+                
+                line_length = 0;
+                parfor pert_no = 1:num_pert
+                % for pert_no = 1:num_pert
+                    ind = obj.weightPerturb(pert_no, 1);
+                    pert_lb  = obj.weightPerturb(pert_no, 2);
+                    pert_ub  = obj.weightPerturb(pert_no, 3);
+                    W_perturb = zeros(size(obj.Weights), 'like', V);
+                    W_perturb(ind) = 1;
+                    if ~isa(input.V, 'gpuArray')
+                        gen = vl_nnconv(input.V(:,:,:,1), W_perturb, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+                    else
+                        gen = dlconv(dlarray(input.V(:,:,:,1), "SSC"), W_perturb, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                    end
+
+                    if split_and_combine
+                        gen_pos = gen;
+                        gen_pos(gen < 0) = 0;
+                        dim_wise_lb = dim_wise_lb + gen_pos*pert_lb;
+                        dim_wise_ub = dim_wise_ub + gen_pos*pert_ub;
+                        
+                        gen_neg = gen;
+                        gen_neg(gen > 0) = 0;
+                        dim_wise_lb = dim_wise_lb + gen_neg*pert_ub;
+                        dim_wise_ub = dim_wise_ub + gen_neg*pert_lb;
+                    else
+                        % V(:,:,:, size(V, 4) + 1) = gen;
+                        % C = [C zeros(size(C, 1), 1)];
+                        % pred_lb = [pred_lb; lb];
+                        % pred_ub = [pred_ub; ub];
+
+                        V_ext(:,:,:,pert_no) = gen;
+                        lb_ext(pert_no) = pert_lb;
+                        ub_ext(pert_no) = pert_ub;
+                    end
+                    
+                    if mod(pert_no, 100000) == 0
+                        % fprintf(repmat('\b',1,line_length))
+                        % line_length = fprintf("Processed perturbation no. %d out of %d", pert_no, num_pert);
+                        disp(['Processed perturbation no. ' num2str(pert_no) ' out of ' num2str(num_pert)]);
+                    end
+                end
+                
+                if split_and_combine
+                    is_non_zero_entry = dim_wise_ub - dim_wise_lb > 0;
+                    num_gens = sum(is_non_zero_entry, 'all');
+                    if isa(num_gens, 'dlarray')
+                        num_gens = extractdata(num_gens);
+                    end
+                    try
+                        V_ext = zeros(size(V, 1), size(V, 2), size(V, 3), num_gens, 'like', V);
+                    catch ME
+                        if strcmp(ME.identifier, 'parallel:gpu:array:pmaxsize')
+                            V_ext = zeros(size(V, 1), size(V, 2), size(V, 3), num_gens, underlyingType(V));
+                            too_big_for_gpu = 1;
+                        else
+                            rethrow(ME)
+                        end
+                    end
+                    lb_ext = nan(num_gens, 1);
+                    ub_ext = lb_ext;
+                    C_ext = zeros(size(C, 1), num_gens);
+                    gen_no = 1;
+                    for m = 1:row_size
+                        for n = 1:col_size
+                            for ch = 1:num_channels
+                                if is_non_zero_entry(m,n,ch)
+                                    V_ext(m,n,ch,gen_no) = 1;
+                                    lb_ext(gen_no) = dim_wise_lb(m,n,ch);
+                                    ub_ext(gen_no) = dim_wise_ub(m,n,ch);
+                                    gen_no = gen_no + 1;
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                try
+                    V = cat(4, V, V_ext);
+                catch ME
+                    if strcmp(ME.identifier, 'parallel:gpu:array:pmaxsize')
+                        V = gather(V);
+                        V = cat(4, V, V_ext);
+                        too_big_for_gpu = 1;
+                    else
+                        rethrow(ME)
+                    end
+                end
+                C = [C C_ext];
+                pred_lb = [pred_lb; lb_ext];
+                pred_ub = [pred_ub; ub_ext];
+                
+                
+                
+                
+                
+                % old code before accommodating splits in the original
+                % convolution code:
+                % % make sure that the weight perturbation matrix adheres
+                % % to the 3 column format described above
+                % sz = size(obj.weightPerturb);
+                % if length(sz) > 2 || sz(2) > 3
+                %     error("Weight perturbation specification matrix must have only 3 elements in each row: [linear index of perturbed weight, lower bound of perturbation, upper bound of perturbation]")
+                % end
+                % 
+                % num_pert = size(obj.weightPerturb, 1);
+                % V_ext = nan(size(V, 1), size(V, 2), size(V, 3), num_pert, underlyingType(V));
+                % lb_ext = nan(num_pert, 1, underlyingType(pred_lb));
+                % ub_ext = lb_ext;
+                % C_ext = zeros(size(C, 1), num_pert, underlyingType(C));
+                % for pert_no = 1:num_pert
+                %     ind = obj.weightPerturb(pert_no, 1);
+                %     lb  = obj.weightPerturb(pert_no, 2);
+                %     ub  = obj.weightPerturb(pert_no, 3);
+                %     W_perturb = zeros(size(obj.Weights), 'like', V);
+                %     W_perturb(ind) = 1;
+                %     if ~isa(input.V, 'gpuArray')
+                %         gen = vl_nnconv(input.V(:,:,:,1), W_perturb, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+                %     else
+                %         gen = dlconv(dlarray(input.V(:,:,:,1), "SSC"), W_perturb, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                %     end
+                % 
+                %     % V(:,:,:, size(V, 4) + 1) = gen;
+                %     % C = [C zeros(size(C, 1), 1)];
+                %     % pred_lb = [pred_lb; lb];
+                %     % pred_ub = [pred_ub; ub];
+                % 
+                %     V_ext(:,:,:,pert_no) = gen;
+                %     lb_ext(pert_no) = lb;
+                %     ub_ext(pert_no) = ub;
+                % 
+                %     % disp(['Processed perturbation no. ' num2str(pert_no) ' out of ' num2str(num_pert)])
+                % end
+                % 
+                % V = cat(4, V, V_ext);
+                % C = [C C_ext];
+                % pred_lb = [pred_lb; lb_ext];
+                % pred_ub = [pred_ub; ub_ext];
+                
+                
+                
+                
+                
+                % split_and_recombine = 1;    % NOTE: may cause the
+                % % intersection based robustness check to become FALSE! 
+                % % Use ONLY while checking robustness through overlap.
+                % 
+                % % Splitting generators and recombining them if the number
+                % % of unconstrained generators is greater than the number of
+                % % dimensions
+                % if split_and_recombine
+                %     unconstrained_pred_vars = all(C == 0, 1);  % a row vector
+                %         % with the same width as C, containing a 1 at the
+                %         % location of each zero column in C.
+                %     % if sum(unconstrained_pred_vars) > numel(V(:,:,:,1))
+                %         zero_thresh = 1e-5;
+                % 
+                %         % get the maximum norm among all 2x2 matrices in all
+                %         % generators
+                %         num_gens = size(V, 4);
+                %         num_dims_in_gen = size(V, 3);
+                %         norms_list = zeros(num_gens, num_dims_in_gen);
+                %         parfor gen_no = 2:num_gens   % the first "generator" is actually c, the center point.
+                %             for dim_no = 1:num_dims_in_gen
+                %                 norms_list(gen_no, dim_no) = norm(V(:, :, dim_no, gen_no));
+                %             end
+                %         end
+                %         pred_mags = pred_ub - pred_lb;
+                %         norms_list = norms_list.*[0; pred_mags];
+                %         max_norm = max(norms_list, [], "all");
+                %         gens_and_dims_to_process = ((norms_list/max_norm) > zero_thresh).*([0 unconstrained_pred_vars]');
+                %             % multiply with pred_mag ?
+                %             % only process the unconstrained generators
+                % 
+                %         % for the new generators, one for each output neuron
+                %         dim_wise_lb = zeros(size(V(:, :, :, 1)));
+                %         dim_wise_ub = dim_wise_lb;
+                %         row_size = size(V, 1);
+                %         col_size = size(V, 2);
+                % 
+                %         for gen_no = 2:num_gens
+                %             pred_lb_ub = [pred_lb(gen_no - 1); pred_ub(gen_no - 1)];
+                %             pred_mag = pred_lb_ub(2) - pred_lb_ub(1);
+                %             for dim_no = 1:num_dims_in_gen
+                %                 if gens_and_dims_to_process(gen_no, dim_no)
+                %                     for m = 1:row_size
+                %                         for n = 1:col_size
+                %                             gen_element = V(m, n, dim_no, gen_no);
+                %                             if pred_mag*abs(gen_element)/max_norm > zero_thresh
+                %                                 new_lb_ub = gen_element*pred_lb_ub;
+                %                                 if gen_element < 0
+                %                                     new_lb_ub = [new_lb_ub(2); new_lb_ub(1)];
+                %                                 end
+                %                                 dim_wise_lb(m, n, dim_no) = dim_wise_lb(m, n, dim_no) + new_lb_ub(1);
+                %                                 dim_wise_ub(m, n, dim_no) = dim_wise_ub(m, n, dim_no) + new_lb_ub(2);
+                %                             end
+                %                         end
+                %                     end
+                %                 end
+                %             end
+                %         end
+                % 
+                %         % remove the processed generators from the set
+                %         constrained_pred_vars_indices = find(~unconstrained_pred_vars);
+                %         V = V(:, :, :, [1 constrained_pred_vars_indices]);
+                %         C = C(:, constrained_pred_vars_indices);
+                %         pred_lb = pred_lb(constrained_pred_vars_indices);
+                %         pred_ub = pred_ub(constrained_pred_vars_indices);
+                % 
+                %         % add the generators corresponding to the accumulated
+                %         % lb and ub into the set
+                %         for dim_no = 1:num_dims_in_gen
+                %             for m = 1:row_size
+                %                 for n = 1:col_size
+                %                     a = dim_wise_lb(m, n, dim_no);
+                %                     b = dim_wise_ub(m, n, dim_no);
+                %                     if (b - a)/max_norm > zero_thresh
+                %                         t = zeros(size(dim_wise_lb));
+                %                         t(m, n, dim_no) = 1;
+                %                         V(:, :, :, size(V, 4) + 1) = t;
+                %                         C = [C zeros(size(C, 1), 1)];
+                %                         pred_lb = [pred_lb; a];
+                %                         pred_ub = [pred_ub; b];
+                %                     end
+                %                 end
+                %             end
+                %         end
+                %     % end
+                % end
+                
+                
+                
+                % % (works) trying a basic split of the generator to test if the
+                % % generator can be split in this fashion
+                % V(:, :, :, 3) = V(:, :, :, 3)/2;
+                % V(:, :, :, size(V, 4) + 1) = V(:, :, :, 3);
+                % C = [C 0];
+                % pred_lb = [pred_lb; pred_lb(2)];
+                % pred_ub = [pred_ub; pred_ub(2)];
+                
+                
+                
+                % % separate just one element from a generator
+                % V(:, :, :, size(V,4) + 1) = zeros(size(V(:, :, :, 3)));
+                % V(2,2,1, size(V,4)) = V(2,2,1,3);
+                % V(2,2,1,3) = 0;
+                % C = [C 0];
+                % pred_lb = [pred_lb; pred_lb(2)];
+                % pred_ub = [pred_ub; pred_ub(2)];
+                
+                
+                
+                % multi-layer convolutional layer perturbations not handled
+                % yet; may cause issues
+                
+                
+                
+            end
+            
+            S = ImageStar(V, C, d, pred_lb, pred_ub);
+            if too_big_for_gpu
+                S.changeDevice('cpu');
+                S.too_big_for_gpu = too_big_for_gpu;
+            end
                   
         end
         
@@ -985,3 +1396,46 @@ classdef Conv2DLayer < handle
     
 end
 
+%% private functions
+
+function padded_input = padzeros(input, padding)
+    t = padding(1); % top
+    b = padding(2); % bottom
+    l = padding(3); % left
+    r = padding(4); % right
+
+    sz = size(input);
+    if length(sz) == 2 | length(sz) == 3
+    else
+        error('Wrong number of dimensions of input!')
+    end
+    sz(1) = sz(1) + t + b;
+    sz(2) = sz(2) + l + r;
+    padded_input = zeros(sz);
+    if isa(input, 'single')
+        padded_input = single(padded_input);
+    end
+    
+    if length(sz) == 2
+        sz(3) = 1;
+    end
+    for c = 1:sz(3) % channel no.
+        padded_input(t+1 : sz(1)-b, l+1 : sz(2) - r, c) = input(:,:,c);
+    end
+    
+    % p = padding;
+    % isz = size(input);
+    % r = zeros(p(1), isz(2));
+    % top    = zeros(p(1), isz(2));
+    % bottom = zeros(p(2), isz(2));
+    % left   = zeros(isz(1) + p(1) + p(2), p(3));
+    % right  = zeros(isz(1) + p(1) + p(2), p(4));
+    % if length(isz) < 3
+    %     padded_input = [top; input; bottom];
+    %     padded_input = [repmat(c, 1, p(3)) padded_input repmat(c, 1, p(4))];
+    % else
+    %     for k = 1:isz(3)
+    % 
+    %     end
+    % end
+end

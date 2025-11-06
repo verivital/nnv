@@ -613,7 +613,7 @@ classdef PosLin
              
                 end
             end
-
+            
         end
         
         
@@ -634,14 +634,10 @@ classdef PosLin
             N = I.dim; 
             m = length(index); % number of neurons involved (number of new predicate variables introduced)
             
-            % construct new basis array
-            V1 = I.V; % originial basis array
-            V1(index, :) = 0;
             V2 = zeros(N, m); % basis array for new predicates
             for i=1:m
                 V2(index(i), i) = 1;
             end
-            new_V = [V1 V2]; % new basis for over-approximate star set
             
             % construct new constraints on new predicate variables
             
@@ -673,6 +669,15 @@ classdef PosLin
             new_pred_lb = [I.predicate_lb; zeros(m,1)];
             new_pred_ub = [I.predicate_ub; ub];
             
+            % construct new basis array
+            % V1 = I.V; % originial basis array
+            % V1(index, :) = 0;
+            % new_V = [V1 V2]; % new basis for over-approximate star set
+            I.V(index, :) = 0;
+            new_V = [I.V V2]; % new basis for over-approximate star set
+            
+            I.V = nan;  % to ensure that it is not used afterwards
+            
             S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
             
         end
@@ -689,7 +694,7 @@ classdef PosLin
             % date: 4/3/2019
             % update: 7/13/2020 : getMax parallel
             % update: 7/15/2020 : add display option
-            %         7/16/2020 : add lp_solver option
+            %         7/16/2020: add lp_solver option
             
             switch nargin
                 case 1
@@ -724,9 +729,16 @@ classdef PosLin
                 S = [];
             else
                 [lb, ub] = I.estimateRanges;
+                % input_is_in_gpu = isa(I.V, 'gpuArray');
                 if isempty(lb) || isempty(ub)
                     S = [];
                 else
+                    % if input_is_in_gpu
+                    %     lb = gather(lb);
+                    %     ub = gather(ub);
+                    %     I.changeDevice('cpu');
+                    % end
+                    
                     % find all indexes having ub <= 0, then reset the
                     % values of the elements corresponding to these indexes to 0
                     if strcmp(dis_opt, 'display')
@@ -755,11 +767,12 @@ classdef PosLin
                     if strcmp(dis_opt, 'display')
                         fprintf('\n%d neurons (in %d neurons) with ub <= 0 are found by optimizing ranges', length(map3), length(map2));
                     end
-                    n = length(map3);
-                    map4 = zeros(n,1);
-                    for i=1:n
-                        map4(i) = map2(map3(i));
-                    end
+                    % n = length(map3);
+                    % map4 = zeros(n,1);
+                    % for i=1:n
+                    %     map4(i) = map2(map3(i));
+                    % end
+                    map4 = map2(map3);
                     map11 = [map1; map4];
                     In = I.resetRow(map11); % reset to zero at the element having ub <= 0
                     if strcmp(dis_opt, 'display')
@@ -785,6 +798,11 @@ classdef PosLin
                         fprintf('\n%d/%d neurons have lb < 0 & ub > 0', length(map8), length(ub));
                         fprintf('\nConstruct new star set, %d new predicate variables are introduced', length(map8));
                     end
+                
+                    % if input_is_in_gpu
+                    %     I.changeDevice('gpu');
+                    % end
+                    
                     S = PosLin.multipleStepReachStarApprox_at_one(In, map8, lb1, ub1); % one-shot approximation
                     S.Z = new_Z;
                 end
@@ -1018,12 +1036,8 @@ classdef PosLin
                 map8 = map6(map7); % all indexes having lb < 0 & ub > 0
                 lb2 = xmin(map7);  % lower bound of all indexes having lb < 0 & ub > 0
                 ub2 = xmax1(map7); % upper bound of all neurons having lb < 0 & ub > 0
-                
-                if ~isempty(map8)
-                    map9 = [map22; map8];
-                else
-                    map9 = map22;
-                end
+
+                map9 = [map22; map8];
                 lb3 = [lb1; lb2];
                 ub3 = [ub1; ub2];
                 if strcmp(dis_opt, 'display')

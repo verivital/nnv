@@ -53,6 +53,14 @@ classdef FeatureInputLayer < handle
             obj.StandardDeviation = gpuArray(obj.StandardDeviation);
         end
 
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            obj.Mean = gather(obj.Mean);
+            obj.Max = gather(obj.Max);
+            obj.Min = gather(obj.Min);
+            obj.StandardDeviation = gather(obj.StandardDeviation);
+        end
+
         % Change params precision
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")
@@ -94,13 +102,12 @@ classdef FeatureInputLayer < handle
         function out_set = reach_star_single_input(obj, in_set)
             % @in_set: an input ImageStar
             % @out_set: an output ImageStar
-            n = in_set.dim;
             
             % Compute normalization
             if strcmp(obj.Normalization, 'none')
                 out_set = in_set;
             elseif strcmp(obj.Normalization, 'zerocenter')
-                out_set = in_set.affineMap(eye(n), -obj.Mean);
+                out_set = in_set.affineMap([], -obj.Mean);
             else
                 error('The normalization method is not supported yet.')
             end

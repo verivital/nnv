@@ -247,6 +247,12 @@ classdef ElementwiseAffineLayer < handle
             obj.Offset = gpuArray(obj.Offset);
         end
 
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            obj.Scale = gather(obj.Scale);
+            obj.Offset = gather(obj.Offset);
+        end
+
         % Change params precision
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")

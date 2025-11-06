@@ -206,6 +206,12 @@ classdef SequenceInputLayer < handle
 
     methods % helper method
 
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            obj.Mean = gather(obj.Mean);
+            obj.StandardDeviation = gather(obj.StandardDeviation);
+        end
+
         % change params to gpuArrays
         function obj = toGPU(obj)
             obj.Mean = gpuArray(obj.Mean);
@@ -216,9 +222,13 @@ classdef SequenceInputLayer < handle
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")
                 obj.Mean = double(obj.Mean);
+                obj.Max = double(obj.Max);
+                obj.Min = double(obj.Min);
                 obj.StandardDeviation = double(obj.StandardDeviation);
             elseif strcmp(precision, "single")
                 obj.Mean = single(obj.Mean);
+                obj.Max = single(obj.Max);
+                obj.Min = single(obj.Min);
                 obj.StandardDeviation = single(obj.StandardDeviation);
             else
                 error("Parameter numerical precision must be 'single' or 'double'");
@@ -247,7 +257,7 @@ classdef SequenceInputLayer < handle
                 error('Mean or AverageImage property does not exist in the Input Image Layer');
             end
             
-            % fprintf('\nParsing a Matlab sequence input layer is done successfully');
+            fprintf('\nParsing a Matlab sequence input layer is done successfully');
             
         end
         

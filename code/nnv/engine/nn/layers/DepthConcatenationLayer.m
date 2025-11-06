@@ -94,12 +94,42 @@ classdef DepthConcatenationLayer < handle
         end
  
         % reach
-        function outputs = reach_single_input(~, inputs)
+        function outputs = reach_single_input(~, inputs, option)
             % @inputs: input imagestar from each connected layer
             % @outputs: output set
+            % have tried to modify it to support multiple inputs in case of
+            % exact mode, but untested for that case.
             outputs = inputs{1};
             for k = 2 : length(inputs)
-                outputs = outputs.concatenation(inputs{k});
+                inputs_k = inputs{k};
+                M = length(outputs);
+                N = length(inputs_k);
+                new_outputs = ImageStar;
+                new_outputs(M,N) = ImageStar;
+                if strcmp(option, 'parallel')
+                    parfor m = 1:M
+                        for n = 1:N
+                            new_outputs(m,n) = outputs(m).concatenation(inputs_k(n));
+                        end
+                    end
+                elseif strcmp(option, 'single') || isempty(option)
+                    for m = 1:M
+                        for n = 1:N
+                            new_outputs(m,n) = outputs(m).concatenation(inputs_k(n));
+                        end
+                    end
+                end
+                outputs = ImageStar;
+                for m = 1:M*N
+                    outputs(m) = new_outputs(m);
+                    zero_rows_in_C = all(outputs(m).C.' == 0);
+                    if sum(zero_rows_in_C) == size(outputs(m).C, 1)
+                        zero_rows_in_C(1) = 0;  % if all rows are zero, 
+                            % keep one row
+                    end
+                    outputs(m).C = outputs(m).C(~zero_rows_in_C, :);
+                    outputs(m).d = outputs(m).d(~zero_rows_in_C);
+                end
             end
 
         end
@@ -197,7 +227,7 @@ classdef DepthConcatenationLayer < handle
             
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || strcmp(method, 'approx-zono') || contains(method, "relax-star")
 %                 IS = obj.reach_multipleInputs(in_images, option);
-                IS = obj.reach_single_input(in_images);
+                IS = obj.reach_single_input(in_images, option);
             else
                 error('Unknown reachability method');
             end
@@ -209,6 +239,11 @@ classdef DepthConcatenationLayer < handle
     methods % helper functions
         % change params to gpuArrays
         function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
+
+        % change params to gpuArrays
+        function obj = toCPU(obj)
             % nothing to change in here (no params)
         end
 

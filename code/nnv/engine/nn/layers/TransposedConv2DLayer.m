@@ -255,13 +255,13 @@ classdef TransposedConv2DLayer < handle
             end
             
             % compute output sets
-            % if isa(input.V, 'gpuArray')
-            c = extractdata(dltranspconv(dlarray(input.V(:,:,:,1)), obj.Weights, obj.Bias, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
-            V = extractdata(dltranspconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), obj.Weights, 0, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
-            % else
-                % c = vl_nnconvt(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-                % V = vl_nnconvt(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
-            % end
+            if isa(input.V, 'gpuArray')
+                c = extractdata(dltranspconv(dlarray(input.V(:,:,:,1)), obj.Weights, obj.Bias, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
+                V = extractdata(dltranspconv(dlarray(input.V(:,:,:,2:input.numPred + 1)), obj.Weights, 0, "Stride", obj.Stride, "Cropping", obj.CroppingSize,"DataFormat",'SSCU'));
+            else
+                c = vl_nnconvt(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+                V = vl_nnconvt(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Upsample', obj.Stride, 'Crop', obj.CroppingSize);
+            end
             Y = cat(4, c, V);
             S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
                   
@@ -387,6 +387,12 @@ classdef TransposedConv2DLayer < handle
     end
 
     methods % helper method
+
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            obj.Weights = gather(obj.Weights);
+            obj.Bias = gather(obj.Bias);
+        end
 
         % change params to gpuArrays
         function obj = toGPU(obj)

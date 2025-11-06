@@ -110,7 +110,8 @@ classdef ReluLayer < ActivationFunctionLayer
                     method = strjoin(method(1:end-1),'-');
                     reduceMem = 1;
                 end
-                Y = PosLin.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
+                % Y = PosLin.reach(in_image.toStar, method, [], relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU
+                Y = PosLin.reach(in_image.toStar, method, 'parallel', relaxFactor, dis_opt, lp_solver); % reachable set computation with ReLU; parallelizing it, may cause issues
                 n = length(Y);
                 images(n) = ImageStar;
                 % transform back to ImageStar

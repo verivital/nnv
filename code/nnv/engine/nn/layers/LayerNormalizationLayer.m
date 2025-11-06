@@ -77,6 +77,13 @@ classdef LayerNormalizationLayer < handle
             obj.Epsilon = gpuArray(obj.Epsilon);
         end
 
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            obj.Offset = gather(obj.Offset);
+            obj.Scale = gather(obj.Scale);
+            obj.Epsilon = gather(obj.Epsilon);
+        end
+
         % Change params precision
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")

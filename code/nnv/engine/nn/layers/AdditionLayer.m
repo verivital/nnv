@@ -94,6 +94,7 @@ classdef AdditionLayer < handle
             % @in_image: input imagestar
             % @image: output set
             
+            [sum(inputs{1}.V ~= 0, 'all'), sum(inputs{2}.V ~= 0, 'all')]
             outputs = inputs{1};
             for k = 2 : length(inputs)
                 outputs = outputs.MinkowskiSum(inputs{k});
@@ -192,6 +193,11 @@ classdef AdditionLayer < handle
 
         % change params to gpuArrays
         function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
+
+        % change params to cpuArrays
+        function obj = toCPU(obj)
             % nothing to change in here (no params)
         end
 

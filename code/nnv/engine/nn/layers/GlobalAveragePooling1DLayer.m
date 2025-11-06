@@ -74,6 +74,11 @@ classdef GlobalAveragePooling1DLayer < handle
             % nothing to change in here (no params)
         end
 
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            % nothing to change in here (no params)
+        end
+
         % Change params precision
         function obj = changeParamsPrecision(obj, ~)
 

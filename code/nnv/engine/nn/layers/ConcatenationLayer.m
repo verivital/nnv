@@ -128,7 +128,6 @@ classdef ConcatenationLayer < handle
 
             % Create output set
             outputs = ImageStar(new_V, inputs{indexMax}.C, inputs{indexMax}.d, inputs{indexMax}.pred_lb, inputs{indexMax}.pred_ub);
-            
         end
         
         % handle multiple inputs
@@ -223,6 +222,11 @@ classdef ConcatenationLayer < handle
 
         % change params to gpuArrays
         function obj = toGPU(obj)
+            % nothing to change in here (no params)
+        end
+
+        % change params to cpuArrays
+        function obj = toCPU(obj)
             % nothing to change in here (no params)
         end
 

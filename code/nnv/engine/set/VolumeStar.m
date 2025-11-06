@@ -554,16 +554,16 @@ classdef VolumeStar < handle
                 S.V = gather(S.V);
                 S.C = gather(S.C);
                 S.d = gather(S.d);
-                S.pred_lb = gather(S.pred_lb); 
-                S.pred_ub = gather(S.pred_ub);
+                S.predicate_lb = gather(S.predicate_lb); 
+                S.predicate_ub = gather(S.predicate_ub);
                 S.vol_lb = gather(S.vol_lb); 
                 S.vol_ub = gather(S.vol_ub);
             elseif strcmp(deviceTarget, 'gpu')
                 S.V = gpuArray(S.V);
                 S.C = gpuArray(S.C);
                 S.d = gpuArray(S.d);
-                S.pred_lb = gpuArray(S.pred_lb); 
-                S.pred_ub = gpuArray(S.pred_ub);
+                S.predicate_lb = gpuArray(S.predicate_lb); 
+                S.predicate_ub = gpuArray(S.predicate_ub);
                 S.vol_lb = gpuArray(S.vol_lb); 
                 S.vol_ub = gpuArray(S.vol_ub);
             else

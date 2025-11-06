@@ -87,6 +87,12 @@ classdef ImageStar < handle
         pred_ub = []; % upper bound vector of the predicate
         im_lb = []; % lower bound image of the ImageStar
         im_ub = []; % upper bound image of the ImageStar
+        too_big_for_gpu = 0;    % a flag to store whether a set is too
+            % large to fit in GPU memory
+        zero_tol = 1e-6; % for use in getRanges; to compute bounds using
+            % lpsolver only if generators' elements are more significant
+            % than zero_tol relative to the max singular value of the 
+            % generators' matrix (V).
         
         MaxIdxs = cell(1,1); % used for unmaxpooling operation in Segmentation network 
         InputSizes = cell(1,1); % used for unmaxpooling operation in Segmentation network 
@@ -698,7 +704,17 @@ classdef ImageStar < handle
                 S.im_lb = gather(S.im_lb); 
                 S.im_ub = gather(S.im_ub);
             elseif strcmp(deviceTarget, 'gpu')
-                S.V = gpuArray(S.V);
+                try
+                    S.V = gpuArray(S.V);
+                catch ME
+                    if strcmp(ME.identifier, 'parallel:gpu:array:pmaxsize')
+                        warning('ImageStar too big for GPU; keeping it in CPU memory.')
+                        obj.too_big_for_gpu = 1;
+                        return;
+                    else
+                        rethrow(ME)
+                    end
+                end
                 S.C = gpuArray(S.C);
                 S.d = gpuArray(S.d);
                 S.pred_lb = gpuArray(S.pred_lb); 
@@ -760,20 +776,36 @@ classdef ImageStar < handle
             if chan_ind < 1 || chan_ind > obj.numChannel
                 error('Invalid channel index');
             end
-            % min
-            f = obj.V(vert_ind, horiz_ind, chan_ind, 2:obj.numPred + 1);
-            [fval, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
-            if ismember(exitflag, ["l1","g5"])
-               xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+            
+            f1 = reshape(obj.V(vert_ind, horiz_ind, chan_ind, :), 1, []);
+            f = f1(2:end);
+            
+            % check if the generators affecting this neuron are
+            % unconstrained
+            unconstrained_pred_vars = all(abs(obj.C) == 0, 1);
+            is_gen_vec_non_zero = f ~= 0;
+            if all((unconstrained_pred_vars & is_gen_vec_non_zero) == is_gen_vec_non_zero)
+                fpos = f;
+                fpos(f < 0) = 0;
+                fneg = f;
+                fneg(f > 0) = 0;
+                xmin = f1(1) + fpos*obj.pred_lb + fneg*obj.pred_ub;
+                xmax = f1(1) + fpos*obj.pred_ub + fneg*obj.pred_lb;
             else
-                error("Cannot find an optimal solution, exitflag = " + string(exitflag));
-            end
-            % max
-            [fval, exitflag] = lpsolver(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
-            if ismember(exitflag, ["l1","g5"])
-                xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-            else
-                error("Cannot find an optimal solution, exitflag = " + string(exitflag));
+                % min
+                [fval, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
+                if ismember(exitflag, ["l1","g5"])
+                    xmin = f1(1) + fval;
+                else
+                    error("Cannot find an optimal solution, exitflag = " + string(exitflag));
+                end
+                % max
+                [fval, exitflag] = lpsolver(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
+                if ismember(exitflag, ["l1","g5"])
+                    xmax = f1(1) - fval;
+                else
+                    error("Cannot find an optimal solution, exitflag = " + string(exitflag));
+                end
             end
                 
             obj.im_lb(vert_ind, horiz_ind, chan_ind) = xmin;
@@ -781,48 +813,76 @@ classdef ImageStar < handle
                    
         end
         
-        % estimate range quickly using only predicate bound information
-        function [xmin, xmax] = estimageRange(obj, h, w, c)
+        % estimate ranges quickly using only predicate bound information
+        function [image_lb, image_ub] = estimateRanges_old(varargin)
             % @h: height index
             % @w: width index
             % @c: channel index
-            % @xmin: min of x[h, w, c]
-            % @xmax: max of x[h, w, c]
+            % @image_lb: lower bound image
+            % @image_ub: upper bound image
             
             % author: Dung Tran
             % date: 7/22/2019
+            % update: 7/24/2020: add display option
+            
+            switch nargin
+                case 1
+                    obj = varargin{1};
+                    dis_opt = [];
+                case 2
+                    obj = varargin{1};
+                    dis_opt = varargin{2};
+                otherwise
+                    error('\nInvalid number of input arguments, should be 0 or 1');
+            end
             
             if isempty(obj.C) || isempty(obj.d)
-                error('The imagestar is empty');
+                warning('The imagestar is empty');
+                % no ranges, so bounds are the same as image
+                obj.im_lb = obj.V;
+                obj.im_ub = obj.V;
             end
             
-            if h < 1 || h > obj.height
-                error('Invalid veritical index');
-            end
-            
-            if w < 1 || w > obj.width
-                error('Invalid horizonal index');
-            end
-            
-            if c < 1 || c > obj.numChannel
-                error('Invalid channel index');
-            end
-            
-            f = obj.V(h, w, c, 1:obj.numPred + 1);
-            xmin = f(1);
-            xmax = f(1);
-            
-            for i=2:obj.numPred+1
-                if f(i) >= 0
-                    xmin = xmin + f(i) * obj.pred_lb(i-1);
-                    xmax = xmax + f(i) * obj.pred_ub(i-1);
-                else
-                    xmin = xmin + f(i) * obj.pred_ub(i-1);
-                    xmax = xmax + f(i) * obj.pred_lb(i-1);
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+
+                image_lb = zeros(obj.height, obj.width, obj.numChannel);
+                image_ub = zeros(obj.height, obj.width, obj.numChannel);
+                reverseStr = '';
+                N = obj.height*obj.width*obj.numChannel;
+                if strcmp(dis_opt, 'display')
+                    fprintf('\nEstimating Range: ');
+                end
+                for i=1:obj.height
+                    for j=1:obj.width
+                        for k=1:obj.numChannel
+                            [image_lb(i, j, k), image_ub(i, j, k)] = obj.estimateRange(i,j,k);
+                            if strcmp(dis_opt, 'display')
+                                msg = sprintf('%d/%d', i*j*k, N);   
+                                fprintf([reverseStr, msg]);
+                                reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                            end
+                        end
+                    end
                 end
                 
+                % The following four lines are from NNV's updates, but
+                % they don't seem to provide the correct worst-case bound
+                % estimates.
+                % x1 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_lb, 4, 1);
+                % x2 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_ub, 4, 1);
+                % image_lb = min(x1,x2);
+                % image_ub = max(x1,x2);
+
+                obj.im_lb = image_lb;
+                obj.im_ub = image_ub;
+                
+            else
+                
+                image_lb = obj.im_lb;
+                image_ub = obj.im_ub;
+                
             end
-            
+         
         end
         
         % estimate ranges quickly using only predicate bound information
@@ -856,12 +916,11 @@ classdef ImageStar < handle
             end
             
             if isempty(obj.im_lb) || isempty(obj.im_ub)
-                         
-                gens = obj.V(:,:,:,2:end);
-                pos_gens = gens;
-                pos_gens(gens < 0) = 0;
-                neg_gens = gens;
-                neg_gens(gens > 0) = 0;
+                
+                pos_gens = obj.V(:,:,:,2:end);
+                pos_gens(pos_gens < 0) = 0;
+                neg_gens = obj.V(:,:,:,2:end);
+                neg_gens(neg_gens > 0) = 0;
                 image_lb = obj.V(:,:,:,1) + tensorprod(pos_gens, obj.pred_lb, 4, 1) + tensorprod(neg_gens, obj.pred_ub, 4, 1);
                 image_ub = obj.V(:,:,:,1) + tensorprod(pos_gens, obj.pred_ub, 4, 1) + tensorprod(neg_gens, obj.pred_lb, 4, 1);
 
@@ -877,6 +936,151 @@ classdef ImageStar < handle
          
         end
         
+        % estimate ranges quickly using only predicate bound information
+        function [image_lb, image_ub] = estimateRanges_maybe_wrong(varargin)
+            % @h: height index
+            % @w: width index
+            % @c: channel index
+            % @image_lb: lower bound image
+            % @image_ub: upper bound image
+            
+            % author: Dung Tran
+            % date: 7/22/2019
+            % update: 7/24/2020: add display option
+            
+            switch nargin
+                case 1
+                    obj = varargin{1};
+                    dis_opt = [];
+                case 2
+                    obj = varargin{1};
+                    dis_opt = varargin{2};
+                otherwise
+                    error('\nInvalid number of input arguments, should be 0 or 1');
+            end
+            
+            if isempty(obj.C) || isempty(obj.d)
+                warning('The imagestar is empty');
+                % no ranges, so bounds are the same as image
+                obj.im_lb = obj.V;
+                obj.im_ub = obj.V;
+            end
+            
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+                
+                % The following four lines are from NNV's updates, but
+                % they don't seem to provide the correct worst-case bound
+                % estimates.
+                x1 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_lb, 4, 1);
+                x2 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_ub, 4, 1);
+                image_lb = min(x1,x2);
+                image_ub = max(x1,x2);
+                
+                obj.im_lb = image_lb;
+                obj.im_ub = image_ub;
+                
+            else
+                
+                image_lb = obj.im_lb;
+                image_ub = obj.im_ub;
+                
+            end
+         
+        end
+        
+        % % get lower bound and upper bound images of an imagestar
+        % function [image_lb, image_ub] = getRanges(varargin)
+        %     % @image_lb: lower bound image
+        %     % @image_ub: upper bound image
+        % 
+        %     % author: Dung Tran
+        %     % date: 6/20/2019
+        %     % update: 7/15/2020: add lp_solver option
+        % 
+        %     switch nargin
+        %         case 1
+        %             obj = varargin{1};
+        %             % lp_solver = 'linprog';
+        %             lp_solver = 'gurobi';
+        %             option = 'single';
+        %         case 2
+        %             obj = varargin{1};
+        %             lp_solver = varargin{2};
+        %             option = 'single';
+        %         case 3
+        %             obj = varargin{1};
+        %             lp_solver = varargin{2};
+        %             option = varargin{3};
+        %         otherwise
+        %             error('Invalid number of input arguments');
+        %     end
+        % 
+        %     if isempty(option) || strcmp(option, 'single')
+        % 
+        %         image_lb = zeros(obj.height, obj.width, obj.numChannel);
+        %         image_ub = zeros(obj.height, obj.width, obj.numChannel);
+        % 
+        %         % reverseStr = '';
+        %         % N = obj.height*obj.width*obj.numChannel;
+        %         % fprintf('Optimizing ranges: ')
+        %         for i=1:obj.height
+        %             for j=1:obj.width
+        %                 for k=1:obj.numChannel
+        %                     % msg = sprintf('%d/%d', i*j*k, N);
+        %                     [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k, lp_solver);                       
+        %                     % fprintf([reverseStr, msg]);
+        %                     % reverseStr = repmat(sprintf('\b'), 1, length(msg));
+        %                 end
+        %             end
+        %         end
+        %     elseif strcmp(option, 'parallel')
+        %         [image_lb, image_ub] = obj.estimateRanges;
+        % 
+        %         % zero_thresh_V = norm(obj.toStar.V)*obj.zero_tol;
+        %         zero_thresh_V = max(abs(obj.V), [], 'all')*obj.zero_tol;
+        %         % zero_thresh_C = norm([obj.C obj.d])*obj.zero_tol;
+        %         zero_thresh_C = max(abs([obj.C obj.d]), [], 'all')*obj.zero_tol;
+        %         unconstrained_pred_vars = all(abs(obj.C) <= zero_thresh_C, 1);  % a
+        %             % row vector with the same width as C, containing a 1 at
+        %             % the location of each (almost) zero column in C.
+        % 
+        %         % reverseStr = '';
+        %         % N = obj.height*obj.width*obj.numChannel;
+        %         % fprintf('Optimizing ranges: ')
+        %         for i=1:obj.height
+        %             for j=1:obj.width
+        %                 if any(abs(obj.V(i,j,:,2:end)) >= zero_thresh_V, 'all')
+        %                     parfor k=1:obj.numChannel
+        %                     % for k=1:obj.numChannel
+        %                         gen_vec_of_neuron = reshape(obj.V(i,j,k,2:end), 1, []);
+        %                         is_gen_vec_non_zero = abs(gen_vec_of_neuron) >= zero_thresh_V;
+        %                         if all((unconstrained_pred_vars & is_gen_vec_non_zero) == is_gen_vec_non_zero)
+        %                             % disp("skipping lp_solver for element at indices (" + i + ", " + j + ", " + k + ")")
+        %                             continue;   % all generators affecting this
+        %                                 % neuron are associated with unconstrained
+        %                                 % predicate variables (may be a rare case,
+        %                                 % but not hard to check for. Seems worth it
+        %                                 % if it helps save the time of even one LP.
+        %                         else
+        %                             % disp("NOT skipping lp_solver for element at indices (" + i + ", " + j + ", " + k + ")")
+        %                             [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k, lp_solver);  
+        %                         end
+        %                     end
+        %                 else
+        %                     % disp("skipping lp_solver for height and width (" + i + ", " + j + ")")
+        %                 end
+        %                 % disp("width " + j + " of " + obj.width + " done.");
+        %             end
+        %         end
+        %     else
+        %         error("Unrecognized option " + option)
+        %     end
+        % 
+        %     obj.im_lb = image_lb;
+        %     obj.im_ub = image_ub;
+        % 
+        % end
+        
         % get lower bound and upper bound images of an imagestar
         function [image_lb, image_ub] = getRanges(varargin)
             % @image_lb: lower bound image
@@ -889,30 +1093,29 @@ classdef ImageStar < handle
             switch nargin
                 case 1
                     obj = varargin{1};
-                    lp_solver = 'linprog';
+                    % lp_solver = 'linprog';
+                    lp_solver = 'gurobi';
+                    option = 'single';
                 case 2
                     obj = varargin{1};
                     lp_solver = varargin{2};
+                    option = 'single';
+                case 3
+                    obj = varargin{1};
+                    lp_solver = varargin{2};
+                    option = varargin{3};
                 otherwise
                     error('Invalid number of input arguments');
             end
             
-            image_lb = zeros(obj.height, obj.width, obj.numChannel);
-            image_ub = zeros(obj.height, obj.width, obj.numChannel);
+            h = obj.height;
+            w = obj.width;
+            nc = obj.numChannel;
+            N = h*w*nc;
             
-%             reverseStr = '';
-%             N = obj.height*obj.width*obj.numChannel;
-%             fprintf('Optimizing ranges: ')
-            for i=1:obj.height
-                for j=1:obj.width
-                    for k=1:obj.numChannel
-%                         msg = sprintf('%d/%d', i*j*k, N);
-                        [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k, lp_solver);                       
-%                         fprintf([reverseStr, msg]);
-%                         reverseStr = repmat(sprintf('\b'), 1, length(msg));
-                    end
-                end
-            end
+            R = obj.toStar;
+            image_lb = reshape(R.getMins(1:N, option, [], lp_solver), [h w nc]);
+            image_ub = reshape(R.getMaxs(1:N, option, [], lp_solver), [h w nc]);
             
             obj.im_lb = image_lb;
             obj.im_ub = image_ub;
@@ -1105,8 +1308,9 @@ classdef ImageStar < handle
                     
         end
             
-        % get local max index( find the maximum point of a local image)
-        function max_id = get_localMax_index(varargin)
+        % get local max index( find the maximum point of a local image).
+        % use getRanges before calling this function!
+        function [max_id, updated_points, updated_lb, updated_ub] = get_localMax_index(varargin)
             % @startpoint: startpoint of the local(partial) image
             %               startpoint = [x1 y1];
             % @PoolSize: = [height width] the height and width of max pooling layer
@@ -1173,10 +1377,12 @@ classdef ImageStar < handle
                 new_points1 = zeros(m, 2);
                 for i=1:m
                     p = points(candidates(i), :);
-                    new_points = [p channel_id];
+                    new_points(i, :) = [p, channel_id];
                     new_points1(i, :) = p;
                 end
-                obj.updateRanges(new_points, lp_solver);
+                obj.updateRanges(new_points, lp_solver);  % commented 
+                    % this assuming that getRanges has been called before
+                    % calling get_localMax_index
                                 
                 lb = zeros(1, m);
                 ub = zeros(1, m);
@@ -1211,12 +1417,15 @@ classdef ImageStar < handle
                     
                 end
                 
+                updated_points = new_points;
+                updated_lb = nan;
+                updated_ub = nan;
+                
             end
             
             n = size(max_id, 1);
             channels = channel_id*ones(n,1);
             max_id = [max_id channels];
-
         
         end
         
@@ -1382,6 +1591,51 @@ classdef ImageStar < handle
     
     methods(Static) % helper function
         
+        % get ranges of a state at specific position; to be called from
+        % within getRanges2 only!
+        function [xmin, xmax] = getRange2(V_vector, C, d, pred_lb, pred_ub, lp_solver)
+            % @vert_ind: vectical index
+            % @horiz_ind: horizontal index
+            % @chan_ind : channel index
+            % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
+            % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
+            
+            % author: Dung Tran
+            % date: 6/18/2019
+            % update: 7/15/2020: add lp_solver option
+
+            arguments
+                V_vector 
+                C 
+                d 
+                pred_lb 
+                pred_ub 
+                lp_solver = 'gurobi';
+            end
+            
+            if isempty(C) || isempty(d)
+                error('The imagestar is empty');
+            end
+
+            % min
+            % f = obj.V(vert_ind, horiz_ind, chan_ind, 2:obj.numPred + 1);
+            f = V_vector(2:end);
+            [fval, exitflag] = lpsolver(f, C, d, [], [], pred_lb, pred_ub, lp_solver);
+            if ismember(exitflag, ["l1","g5"])
+                xmin = fval + V_vector(1);
+            else
+                error("Cannot find an optimal solution, exitflag = " + string(exitflag));
+            end
+            % max
+            [fval, exitflag] = lpsolver(-f, C, d, [], [], pred_lb, pred_ub, lp_solver);
+            if ismember(exitflag, ["l1","g5"])
+                xmax = -fval + V_vector(1);
+            else
+                error("Cannot find an optimal solution, exitflag = " + string(exitflag));
+            end
+                   
+        end
+        
         % check if a pixel value is the maximum value compared with others
         function [new_C, new_d] = isMax(varargin)
             % @maxMap: the current maxMap ImageStar
@@ -1515,6 +1769,16 @@ classdef ImageStar < handle
             new_C = [in_IS.C; new_C];
             new_d = [in_IS.d; new_d];
             
+        end
+        
+        function sets = change_device_multiple_sets(sets, device)
+            for k = 1:length(sets)
+                if isa(sets(k), 'cell')
+                    sets{k} = ImageStar.change_device_multiple_sets(sets{k}, device);
+                else
+                    sets(k) = sets(k).changeDevice(device);
+                end
+            end
         end
     
     end

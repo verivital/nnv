@@ -174,22 +174,8 @@ for i=1:n
     % Reshape Layer (custom created after parsing ONNX layers)
     elseif isa(L, 'nnet.cnn.layer.LSTMLayer')
         Li = LstmLayer.parse(L);
-
-    elseif isa(L, 'nnet.cnn.layer.Resize2DLayer')
-        Li = Resize2DLayer.parse(L);
-
-    elseif contains(class(L), 'Reshape_To_ConcatLayer')
-        Li = ReshapeToConcatenationLayer.parse(L);
     
-    elseif contains(class(L), 'MatMul_To_AddLayer')
-        Li = MatMulToAddLayer.parse(L);
-
-    elseif contains(class(L), 'MatMul_To_ReduceSumLayer')
-        Li = MatMulToReduceSumLayer.parse(L);
-
-    elseif contains(class(L), 'MatMul_To_SubLayer')
-        Li = MatMulToSubLayer.parse(L);
-
+    % Custom flatten layers (avoid if possible)
     elseif contains(class(L), ["flatten"; "Flatten"])
         % Check previous layer to see if we can neglect this one in the analysis
         for k=i-1:-1:1
@@ -203,7 +189,7 @@ for i=1:n
                 error('Unsupported Class of Layer');
             end
         end
-        % If we can neglect all previous layers, reinitialize layers and parse them again as placeholder layers
+        % If we can neglect all previous layers, reinitialize layers and parse them again as placeholder layers 
         nnvLayers = cell(n,1);
         % Parse all previous layers again
         for li = 1:i-1
@@ -215,10 +201,10 @@ for i=1:n
         L = Layers(i);
         Li = PlaceholderLayer.parse(L);
 
-        % All other layers are currently not supported in NN
+    % All other layers are currently not supported in NNV
     else
         fprintf('Layer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis \n', i, class(L));
-        error('Unsupported Class of Layer');
+        error('Unsupported Class of Layer');                     
     end
 
     % Add layer name to list
@@ -231,9 +217,6 @@ indxs = 1:n;
 % We compute the reachability and evaluation layer by layer, executing the
 % connections in the order they appear, so need to ensure the order makes sense:
 %  - sometimes some of the skipped connections (like in resnet or unets), they appear at the end so NNV returns the wrong output
-
-% Revert back to previous working code. Navid's changes were getting stuck
-% on the while loop...
 
 if height(conns) == length(nnvLayers) - 1 % fullyconnected layers, no skips
     % Assigning layer names to correspnding index
@@ -252,6 +235,11 @@ net.name2indx = name2idx;
 % Get input and output sizes
 outSize = getOutputSize(Mnetwork);
 net.OutputSize = outSize; 
+
+net.matlabnet = Mnetwork;
+if ntype== "SeriesNetwork"
+    net.matlabnet = dag2dlnetwork(net.matlabnet);
+end
 
 end
 
@@ -340,7 +328,7 @@ end
 
 % Get output size of the network
 function outSize = getOutputSize(network)
-    outSize = 0; % default
+outSize = 0; % default
     if isa(network, "SeriesNetwork")
         outputLayer = network.Layers(end);
         if isa(outputLayer, "nnet.cnn.layer.ClassificationOutputLayer")

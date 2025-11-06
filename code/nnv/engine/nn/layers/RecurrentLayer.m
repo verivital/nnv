@@ -560,6 +560,15 @@ classdef RecurrentLayer
     
     methods % helper method
 
+        % change params to cpuArrays
+        function obj = toCPU(obj)
+            obj.Wh = gather(obj.Wh);
+            obj.Wi = gather(obj.Wi);
+            obj.Wo = gather(obj.Wo);
+            obj.bh = gather(obj.bh);
+            obj.bo = gather(obj.bo);
+        end
+
         % change params to gpuArrays
         function obj = toGPU(obj)
             obj.Wh = gpuArray(obj.Wh);

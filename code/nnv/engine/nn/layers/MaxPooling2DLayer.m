@@ -560,7 +560,6 @@ classdef MaxPooling2DLayer < handle
             
             % compute max_index and split_index when applying maxpooling operation
             maxidx = cell(h, w, pad_image.numChannel);
-            % parfor k=1:pad_image.numChannel
             for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
@@ -594,19 +593,6 @@ classdef MaxPooling2DLayer < handle
                 end
             end
             
-            % len = length(images);
-            % set_no = 1;
-            % while set_no <= length(images)
-            %     if images(set_no).isEmptySet
-            %         images(set_no) = [];
-            %     else
-            %         set_no = set_no + 1;
-            %     end
-            % end
-            % if length(images) < len
-            %     fprintf("\nFiltered %d empty sets out of %d. ", len - length(images), len)
-            % end
-                                          
         end
         
         % step split of an image star,  a single in_image can be splitted into 
@@ -931,161 +917,7 @@ classdef MaxPooling2DLayer < handle
 
         end
                 
-        % reach star approx
-        function image = reach_star_approx_old(varargin)
-            % @in_image: input imageStar set
-            % @channel_id: channel index
-            % @image: output imagestar, an over-approximation of the exact
-            % output set
-            
-            % author: Dung Tran
-            % date: 6/24/2019
-            % update: 7/15/2020: add display option
-            %         7/16/2020: add lp_solver option
-            
-            switch nargin
-                case 2
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    dis_opt = [];
-                    lp_solver = 'linprog';
-                case 3
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    dis_opt = varargin{3};
-                    lp_solver = 'linprog';
-                case 4
-                    obj = varargin{1};
-                    in_image = varargin{2};
-                    dis_opt = varargin{3};
-                    lp_solver = varargin{4};
-                otherwise
-                    error('Invalid number of input arguments, should be 1, 2, or 3');       
-            end
-            
-            error("Executing the old MaxPooling2DLayer reach function!")
-            
-            if ~isa(in_image, 'ImageStar')
-                error('Input image is not an imagestar');
-            end
-            
-            [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1));
-            startPoints = obj.get_startPoints(in_image.V(:,:,1,1));
-            max_index = cell(h, w, in_image.numChannel);
-            sizes_max_index = nan(h, w, in_image.numChannel);
-            
-            % padding in_image star
-            pad_image = obj.get_zero_padding_imageStar(in_image);
-                        
-            % compute max_index when applying maxpooling operation (new number of predicate)
-            np = pad_image.numPred;
-            l = 0;
-            % new_V = zeros(h, w, pad_image.numChannel, np + 1);
-            % pad_image.getRanges('gurobi', 'parallel');
-            for k=1:pad_image.numChannel
-            % parfor k=1:pad_image.numChannel
-                for i=1:h
-                    for j=1:w
-                        max_index{i, j, k} = pad_image.get_localMax_index(startPoints{i,j}, obj.PoolSize, k, lp_solver);
-                        max_id = max_index{i,j,k};
-                        sizes_max_index(i,j,k) = size(max_id, 1);
-                        if size(max_id, 1) > 1
-                            np = np + 1;
-                            l  = l + 1;
-                        else
-                            % new_V(i, j, k, :) = pad_image.V(max_id(1), max_id(2), k, :);
-                        end   
-                    end
-                end
-            end
-            
-            % construct an over-approximate imagestar reachable set
-            if strcmp(dis_opt, 'display')
-                fprintf('\n%d new variables are introduced\n', l);
-            end
-            
-            is_size_one = (sizes_max_index == 1);
-            is_size_greater_than_one = ~is_size_one; % because the size of 
-                % max_index is never non-positive
-            indices_size_one = find(is_size_one);
-            [x,y,z] = ind2sub([h w pad_image.numChannel], indices_size_one);
-            
-            % update new basis matrix
-            new_V(:,:,pad_image.numChannel,np+1) = cast(zeros(h,w), 'like', in_image.V);
-            new_pred_index = 0;
-            for k=1:pad_image.numChannel
-                for i=1:h
-                    for j=1:w
-                        max_id = max_index{i,j,k};
-                        if size(max_id, 1) == 1                            
-                            for p=1:pad_image.numPred + 1
-                                new_V(i,j,k, p) = pad_image.V(max_id(1),max_id(2),k, p);
-                            end
-                        else
-                            % adding new predicate variable
-                            new_V(i,j,k,1) = 0;
-                            new_pred_index = new_pred_index + 1;
-                            new_V(i,j,k,pad_image.numPred+1+new_pred_index) = 1;                            
-                        end                       
-                    end
-                end
-            end
-            
-            %update constraint matrix C and constraint vector d
-            N = obj.PoolSize(1) * obj.PoolSize(2);            
-            new_C = cast(zeros(new_pred_index*(N + 1), np), 'like', in_image.V);
-            new_d = cast(zeros(new_pred_index*(N + 1), 1), 'like', in_image.V);
-            new_pred_lb = cast(zeros(new_pred_index, 1), 'like', in_image.V); % update lower bound and upper bound of new predicate variables
-            new_pred_ub = cast(zeros(new_pred_index, 1), 'like', in_image.V);
-            new_pred_index = 0;
-            for k=1:pad_image.numChannel
-                for i=1:h
-                    for j=1:w
-                        max_id = max_index{i,j,k};
-                        if size(max_id,1) > 1
-                            % construct new set of constraints here
-                            new_pred_index = new_pred_index + 1;                           
-                            startpoint = startPoints{i,j};
-                            points = pad_image.get_localPoints(startpoint, obj.PoolSize);
-                            C1 = cast(zeros(1, np), 'like', in_image.V);
-                            C1(pad_image.numPred + new_pred_index) = 1;
-                            [lb, ub] = pad_image.get_localBound(startpoint, obj.PoolSize, k, lp_solver);
-                            new_pred_lb(new_pred_index) = lb;
-                            new_pred_ub(new_pred_index) = ub;
-                            d1 = ub;                           
-                            C2 = cast(zeros(N, np),'like', in_image.V);
-                            d2 = cast(zeros(N, 1), 'like', in_image.V);
-                            for g=1:N
-                                point = points(g,:);
-                                % add new predicate constraint: xi - y <= 0
-                                C2(g, 1:pad_image.numPred) = pad_image.V(point(1), point(2),k, 2:pad_image.numPred+1);
-                                C2(g, pad_image.numPred + new_pred_index) = -1;
-                                d2(g) = -pad_image.V(point(1),point(2),k,1);                                
-                            end
-                            
-                            C = [C1; C2];
-                            d = [d1; d2];
-                            
-                            new_C((new_pred_index-1)*(N+1) + 1:new_pred_index*(N+1), :) = C;
-                            new_d((new_pred_index-1)*(N+1) + 1:new_pred_index*(N+1)) = d;
-                        end
-                    end
-                end
-            end
-            
-            n = size(pad_image.C, 1);
-            C = [pad_image.C cast(zeros(n, new_pred_index), 'like', in_image.V)];
-            new_C = [C; new_C];
-            new_d = [pad_image.d; new_d];
-            new_pred_lb = [pad_image.pred_lb; new_pred_lb];
-            new_pred_ub = [pad_image.pred_ub; new_pred_ub];
-            
-            image = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
-            image.addInputSize(obj.Name, [pad_image.height pad_image.width]);
-            image.addMaxIdx(obj.Name, max_index);  
-
-        end
-        
+       
         % reach approx-star with multiple inputs
         function IS = reach_star_approx_multipleInputs(varargin)
             % @in_images: an array of imagestar input sets

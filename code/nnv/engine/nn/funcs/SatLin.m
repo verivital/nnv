@@ -999,6 +999,13 @@ classdef SatLin
             % update: 11/20/2020
             
             switch nargin
+                case 6
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = varargin{3};
+                    relaxFactor = varargin{4};
+                    dis_opt = varargin{5};
+                    lp_solver = varargin{6};
                 
                 case 5
                     I = varargin{1};

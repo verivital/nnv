@@ -257,7 +257,7 @@ classdef SequenceInputLayer < handle
                 error('Mean or AverageImage property does not exist in the Input Image Layer');
             end
             
-            fprintf('\nParsing a Matlab sequence input layer is done successfully');
+            % fprintf('\nParsing a Matlab sequence input layer is done successfully');
             
         end
         

@@ -19,6 +19,14 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts,
         opts = 'normal';
     end
 
+    if isempty(A)
+        A = zeros(length(b), 'like', b);
+    end
+
+    if isempty(f)
+        f = zeros(length(b),1, 'like', b);
+    end
+    
     dataType = class(f);
 
     if strcmp(dataType, "gpuArray") || isa(A, "gpuArray") % ensure it is not a gpuArray

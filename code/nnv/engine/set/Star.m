@@ -1072,7 +1072,7 @@ classdef Star
             xmin1 = pos_mat*[0; obj.predicate_lb];
             xmax1 = pos_mat*[0; obj.predicate_ub];
             
-            clear pos_mat
+            clear pos_mat	% to save memory before copying obj.V for neg_mat
             
             neg_mat = obj.V;
             neg_mat(neg_mat > 0) = 0;
@@ -1185,7 +1185,8 @@ classdef Star
             Ae = obj.V(:, 2:obj.nVar+1);
             be = s - obj.V(:,1);
             
-            P = Polyhedron('A', A, 'b', b, 'Ae', Ae, 'be', be, 'lb', obj.predicate_lb, 'ub', obj.predicate_ub);
+            P = Polyhedron('A', double(A), 'b', double(b), 'Ae', double(Ae), 'be', double(be),...
+                'lb', double(obj.predicate_lb), 'ub', double(obj.predicate_ub));
             
             bool = ~P.isEmptySet;
                      

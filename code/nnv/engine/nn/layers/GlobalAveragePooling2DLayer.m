@@ -38,8 +38,14 @@ classdef GlobalAveragePooling2DLayer < handle
                     numOutputs = 1;
                     inputNames = {'in1'};
                     outputNames = {'out'};
+                case 0
+                    name = 'global_average_pooling_2d';
+                    numInputs = 1;
+                    numOutputs = 1;
+                    inputNames = {'in1'};
+                    outputNames = {'out'};
                 otherwise
-                    error('Invalid number of input arguments, should be 1 or 5');        
+                    error('Invalid number of input arguments, should be 0, 1 or 5');        
             end
             
             if ~ischar(name)

@@ -94,7 +94,6 @@ classdef AdditionLayer < handle
             % @in_image: input imagestar
             % @image: output set
             
-            [sum(inputs{1}.V ~= 0, 'all'), sum(inputs{2}.V ~= 0, 'all')]
             outputs = inputs{1};
             for k = 2 : length(inputs)
                 outputs = outputs.MinkowskiSum(inputs{k});

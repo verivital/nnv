@@ -118,23 +118,6 @@ function result = verify_specification(reachSet, property, reachOptions)
                 %     fprintf("Free memory before launching cp no. %d: %.2g GB", cp, NN.get_free_mem_B/2^30)
                 % end
                 
-                % if isfield(reachOptions, "free_mem_frac_for_LPs")
-                %     maxNumParWorkers = parcluster('local').NumWorkers;
-                %     if max_calls ~= maxNumParWorkers
-                %         pause_second = 0;
-                %         while NN.get_free_mem_frac < reachOptions.free_mem_frac_for_LPs || NN.get_idle_cpu < 0.1
-                %             if mod(pause_second, 60) == 0
-                %                 fprintf("\nPausing due to free memory fraction being %.2g which is less than the specified threshold %.2g, or due to CPU usage being too high", NN.get_free_mem_frac, reachOptions.free_mem_frac_for_LPs);
-                %             end
-                %             pause(1);
-                %             pause_second = pause_second + 1;
-                %         end
-                %         if pause_second > 0
-                %             disp(' ')
-                %         end
-                %     end
-                % end
-                
                 [C_addition, d_addition] = Star.addition_to_C_d_by_intersection_with_halfspace(R(k), property(cp).G, property(cp).g);
                 
                 new_code = 1;

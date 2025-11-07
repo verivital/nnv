@@ -228,7 +228,8 @@ classdef BatchNormalizationLayer < handle
                     for i=1:obj.NumChannels
                         x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,:,i) + obj.Epsilon);
                     end
-                    % 2) Batch normalization operation further shifts and scales the activations using Scale and Offset values
+                    % 2) Batch normalization operation further shifts and scales the
+                    % activations using Scale and Offset values
                     % 2a) Scale values
                     for i=1:obj.NumChannels
                         x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* obj.Scale(:,:,:,i);
@@ -241,7 +242,7 @@ classdef BatchNormalizationLayer < handle
                 end
             
             elseif isa(image, 'ImageStar')
-                new_NumChannels = in_image.numChannel;
+                new_NumChannels = in_image.numChannel;	% there were issues with normalization using 1 channel (as set at the end of the next if block)
                 % Get parameters to the right shape
                 if(length(size(obj.TrainedMean)) == 2) && size(image.V, 1) == 1 && size(image.V, 2) == 1 && length(size(image.V)) == 4
                     obj.TrainedMean = reshape(obj.TrainedMean, [1 1 size(obj.TrainedMean, 1)]);

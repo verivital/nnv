@@ -809,38 +809,38 @@ classdef ImageStar < handle
                    
         end
 
-        % quickly estimate range
-        function [xmin, xmax] = estimateRange(obj, vert_ind, horiz_ind, chan_ind)
-            % @vert_ind: vectical index
-            % @horiz_ind: horizontal index
-            % @chan_ind : channel index
-            % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
-            % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
-            
+        % estimate range quickly using only predicate bound information
+        function [xmin, xmax] = estimageRange(obj, h, w, c)
+            % @h: height index
+            % @w: width index
+            % @c: channel index
+            % @xmin: min of x[h, w, c]
+            % @xmax: max of x[h, w, c]
+
             % author: Dung Tran
-            % date: 7/19/2019
-                                  
+            % date: 7/22/2019
+
             if isempty(obj.C) || isempty(obj.d)
                 error('The imagestar is empty');
             end
-            
-            if vert_ind < 1 || vert_ind > obj.height
+
+            if h < 1 || h > obj.height
                 error('Invalid veritical index');
             end
-            
-            if horiz_ind < 1 || horiz_ind > obj.width
+
+            if w < 1 || w > obj.width
                 error('Invalid horizonal index');
             end
-            
-            if chan_ind < 1 || chan_ind > obj.numChannel
+
+            if c < 1 || c > obj.numChannel
                 error('Invalid channel index');
             end
-            
-            f = obj.V(vert_ind, horiz_ind, chan_ind, 1:obj.numPred + 1);
+
+            f = obj.V(h, w, c, 1:obj.numPred + 1);
             xmin = f(1);
             xmax = f(1);
-            
-            for i=2:obj.numPred + 1
+
+            for i=2:obj.numPred+1
                 if f(i) >= 0
                     xmin = xmin + f(i) * obj.pred_lb(i-1);
                     xmax = xmax + f(i) * obj.pred_ub(i-1);
@@ -848,10 +848,11 @@ classdef ImageStar < handle
                     xmin = xmin + f(i) * obj.pred_ub(i-1);
                     xmax = xmax + f(i) * obj.pred_lb(i-1);
                 end
+
             end
-            
-        end
-        
+
+        end        
+
         % estimate ranges quickly using only predicate bound information
         function [image_lb, image_ub] = estimateRanges(varargin)
             % @h: height index
@@ -1159,10 +1160,8 @@ classdef ImageStar < handle
                     new_points(i, :) = [p, channel_id];
                     new_points1(i, :) = p;
                 end
-                obj.updateRanges(new_points, lp_solver);  % commented 
-                    % this assuming that getRanges has been called before
-                    % calling get_localMax_index
-                                
+                obj.updateRanges(new_points, lp_solver);                                
+                
                 lb = zeros(1, m);
                 ub = zeros(1, m);
 
@@ -1369,51 +1368,6 @@ classdef ImageStar < handle
     
     
     methods(Static) % helper function
-        
-        % get ranges of a state at specific position; to be called from
-        % within getRanges2 only!
-        function [xmin, xmax] = getRange2(V_vector, C, d, pred_lb, pred_ub, lp_solver)
-            % @vert_ind: vectical index
-            % @horiz_ind: horizontal index
-            % @chan_ind : channel index
-            % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
-            % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
-            
-            % author: Dung Tran
-            % date: 6/18/2019
-            % update: 7/15/2020: add lp_solver option
-
-            arguments
-                V_vector 
-                C 
-                d 
-                pred_lb 
-                pred_ub 
-                lp_solver = 'gurobi';
-            end
-            
-            if isempty(C) || isempty(d)
-                error('The imagestar is empty');
-            end
-
-            % min
-            % f = obj.V(vert_ind, horiz_ind, chan_ind, 2:obj.numPred + 1);
-            f = V_vector(2:end);
-            [fval, exitflag] = lpsolver(f, C, d, [], [], pred_lb, pred_ub, lp_solver);
-            if ismember(exitflag, ["l1","g5"])
-                xmin = fval + V_vector(1);
-            else
-                error("Cannot find an optimal solution, exitflag = " + string(exitflag));
-            end
-            % max
-            [fval, exitflag] = lpsolver(-f, C, d, [], [], pred_lb, pred_ub, lp_solver);
-            if ismember(exitflag, ["l1","g5"])
-                xmax = -fval + V_vector(1);
-            else
-                error("Cannot find an optimal solution, exitflag = " + string(exitflag));
-            end
-                   
-        end
         
         % check if a pixel value is the maximum value compared with others
         function [new_C, new_d] = isMax(varargin)

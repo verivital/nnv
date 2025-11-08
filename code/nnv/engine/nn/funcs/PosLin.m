@@ -733,12 +733,6 @@ classdef PosLin
                 if isempty(lb) || isempty(ub)
                     S = [];
                 else
-                    % if input_is_in_gpu
-                    %     lb = gather(lb);
-                    %     ub = gather(ub);
-                    %     I.changeDevice('cpu');
-                    % end
-                    
                     % find all indexes having ub <= 0, then reset the
                     % values of the elements corresponding to these indexes to 0
                     if strcmp(dis_opt, 'display')
@@ -799,10 +793,6 @@ classdef PosLin
                         fprintf('\nConstruct new star set, %d new predicate variables are introduced', length(map8));
                     end
                 
-                    % if input_is_in_gpu
-                    %     I.changeDevice('gpu');
-                    % end
-                    
                     S = PosLin.multipleStepReachStarApprox_at_one(In, map8, lb1, ub1); % one-shot approximation
                     S.Z = new_Z;
                 end

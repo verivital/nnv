@@ -266,6 +266,8 @@ classdef NN < handle
                 end
                 if isfield(reachOptions, 'dis_opt')
                     obj.dis_opt = reachOptions.dis_opt; % use for debuging
+                else
+                    obj.dis_opt = [];
                 end
                 if isfield(reachOptions, 'lp_solver')
                     obj.lp_solver = reachOptions.lp_solver;
@@ -276,8 +278,6 @@ classdef NN < handle
             if  obj.numCores > 1
                 obj.start_pool;
                 obj.reachOption = 'parallel';
-            % else
-            %     delete(gcp("nocreate"));
             end
 
             % Debugging option
@@ -302,7 +302,118 @@ classdef NN < handle
             end
 
         end
+        
+        function outputSet = reachProb_ImageStar(obj, IS, reachOptions)
+
+
+            pe = pyenv;
+            py_dir = pe.Executable;
+
+
+            if isa(IS, 'ImageStar')
+                if isempty(IS.im_lb)
+                    [LB, UB] = getRanges(IS);
+                else
+                    LB = IS.im_lb;
+                    UB = IS.im_ub;
+                end
+
+            elseif isa(IS, 'Star')
+                if isempty(IS.state_lb)
+                    [LB, UB] = getBox(IS);
+                else
+                    LB = IS.state_lb;
+                    UB = IS.state_ub;
+                end
+
+            else
+                error('The input must be a Star or Image_Star object.');
+            end
+
+            if isfield(reachOptions, 'coverage')
+                coverage = reachOptions.coverage;
+            else
+                coverage = 0.99;
+            end
+            if isfield(reachOptions, 'confidence')
+                confidence = reachOptions.confidence;
+            else
+                confidence = 0.99;
+            end
+
+            if isfield(reachOptions, 'device')
+                train_device = reachOptions.device;
+            else
+                train_device = 'gpu';
+            end
+            if isfield(reachOptions, 'epochs')
+                train_epochs = reachOptions.epochs;
+            else
+                train_epochs = 50;
+            end
+
+            if isfield(reachOptions, 'train_lr')
+                train_lr = reachOptions.train_lr;
+            else
+                train_lr = 0.01;
+            end
+
+            [N_dir , N , Ns] = CP_specification(coverage, confidence, numel(IS.im_lb) , train_device, 'single');
+
+
+            SizeIn = size(LB);
+            SizeOut = size(evaluate(obj, LB));
+            height = SizeIn(1);
+            width = SizeIn(2);
+
+
+            if isfield(reachOptions, 'indices')
+                indices = reachOptions.indices;
+            else
+                [J,I] = ndgrid(1:width,1:height);
+                indices = [I(:), J(:)];
+            end
+
+
+            if isfield(reachOptions, 'mode')
+                train_mode = reachOptions.mode;
+            else
+                train_mode = 'Linear';
+            end
+
+            if isfield(reachOptions, 'surrogate_dim')
+                surrogate_dim = reachOptions.surrogate_dim;
+            else
+                surrogate_dim = [-1, -1];
+            end
+
+            if isfield(reachOptions, 'threshold_normal')
+                threshold_normal = reachOptions.threshold_normal;
+            else
+                threshold_normal = 1e-5;
+            end
+
+            params = struct;
+            params.epochs = train_epochs;
+            params.lr = train_lr;
+            params.trn_batch = floor(N_dir/3);
+            params.dims = surrogate_dim;
+            params.N_dir = N_dir;
+            params.Nt = N;
+            params.Ns = Ns;
+            % params.files_dir = files_dir;
+            params.threshold_normal = threshold_normal;
+            params.guarantee = coverage;
+            params.py_dir = py_dir;
+            params.inputFormat = 'default';
+
+            The_class = ProbReach_ImageStar(obj, LB, UB, indices, SizeOut, train_mode, params);
+
+            outputSet = The_class.ProbReach();
+
+        end
     
+        
         function outputSet = reachSequence(obj, inputSet, reachOptions)
             % inputSet: input set (type -> Star, ImageStar, Zono or ImageZono)   
             % reachOptions: reachability options for NN (type -> struct)
@@ -1459,10 +1570,6 @@ classdef NN < handle
             obj.adjust_numCores("start", reachOptions);
             too_big_for_gpu = 0;
             
-            if isfield(reachOptions, 'delete_old_sets_simple_net')
-                error("Option name changed to delete_old_sets")
-            end
-
             % Begin reachability computation
             for i=1:height(obj.Connections)
 
@@ -1477,7 +1584,7 @@ classdef NN < handle
                 % 2) Get input to layer
                 if i > 1
                     inSet = obj.input_sets{source_indx}; % get inputs to layer unless it's the first layer
-                    if isfield(reachOptions, 'delete_old_sets') && reachOptions.delete_old_sets
+                    if isfield(reachOptions, 'delete_old_sets') && reachOptions.delete_old_sets	  % delete reachable sets of preceding layers to save memory when processing huge star sets
                        obj.input_sets{source_indx} = {};   % deleting set may cause issues
                     end
                 end
@@ -1499,9 +1606,6 @@ classdef NN < handle
                         fprintf('Performing analysis for Layer %d (%s) with %d input set(s)... ', i-1, source, length(inSet));
                         if isscalar(inSet)
                             fprintf("\n\t Dimensions: %d. ", inSet(1).numPred);
-                            % if length(inSet) > 1
-                            %     fprintf(", %d", inSet(2).numPred);
-                            % end
                             fprintf("Number of constraints: %d. ", size(inSet(1).C, 1));
                             fprintf("Product: %d. ", numel(inSet(1).C));
                             poolobj = gcp('nocreate'); % If no pool, do not create new one.
@@ -1560,11 +1664,6 @@ classdef NN < handle
                         outSet = obj.Layers{source_indx}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                     end
                     
-                    % debug
-                    if isfield(reachOptions, "debug") && any(strcmp(obj.Layers{source_indx}.Name, ["relu_conv10"]))
-                        dummyVar = 1;
-                    end
-                    
                     obj.reachTime(source_indx) = toc(t);
                     if strcmp(obj.dis_opt, 'display')
                         fprintf(' Done in %g s.', obj.reachTime(source_indx));
@@ -1608,7 +1707,6 @@ classdef NN < handle
                     else
                        obj.reachSet{source_indx} = ["Fake reachable set, to save memory."];
                     end
-                    % obj.reachSet{source_indx} = outSet;
                 end
                 
                 % 4) save inputs to destination layer
@@ -1686,12 +1784,6 @@ classdef NN < handle
                 obj.free_swap_B_before_verify_specification = NN.get_free_swap_B;
             end
         end
-        
-        % Ensure precision for layer parameters and inputs is consistent
-        % function validate_precision(obj, inSet)
-        % 
-        % 
-        % end
         
         % return the indices of layers of the specified types
         function layers = get_layer_indices(obj, layer_types)
@@ -1958,6 +2050,7 @@ classdef NN < handle
             
         end
         
+        % for comparison with another approach in ModelStar experiments. Can be removed.
         function [lb, ub] = compute_bounds_weng_2020_fc_layers_only(obj, args)
             % call this function after performing reachability analysis
             % using star sets.
@@ -2084,6 +2177,7 @@ classdef NN < handle
             ub = u{end};
         end
         
+        % for comparison with another approach in ModelStar experiments. Can be removed.
         function image_verified = formal_robust_verify_fc_layers_only(obj, args)
             
             arguments
@@ -2241,7 +2335,8 @@ classdef NN < handle
             n = [sz_C(2), sz_C(1)];
             mem_B = max(1, polyvaln(obj.poly_get_mem_using_numel_C, n));
         end
-
+        
+        % for ModelStar experiments. Can be removed.
         function net = acas_combine_affine_layer_with_fc(obj, args)
             
             arguments

@@ -333,337 +333,104 @@ classdef FullyConnectedLayer < handle
                     pert_copies(:, end - 1) = 0;
                     obj.weightPerturb = [obj.weightPerturb; pert_copies];
                     
-                    % Apply weight perturbations as described above.
-                    
-                    constraint_augmentation = 0;
-                    if constraint_augmentation
-                        % % % Combine weight perturbations that
-                        % % % result in perturbation in same single dimension of
-                        % % % output into a single perturbation.
-                        % % 
-                        % % % make a framework to hold these.
-                        % % dim_wise_pred_lb_ub = zeros(size(obj.Weights, 1), 2);
-                        % %     % if both bounds are zero, no predicate along that
-                        % %     % dimension.
-                        % % 
-                        % % % break only those existing vs whose alphas have no
-                        % % % constraints on them, and accumulate these in
-                        % % % framework.
-                        % % preds_to_remove = [];
-                        % % for pred_no = 1:size(V,4) - 1
-                        % %     if C(:, pred_no) == 0
-                        % %         for dim = 1:size(V,3)
-                        % %             if V(1, 1, dim, pred_no + 1) > 0
-                        % %                 dim_wise_pred_lb_ub(dim, :) = dim_wise_pred_lb_ub(dim, :) + V(1, 1, dim, pred_no + 1)*[pred_lb(pred_no) pred_ub(pred_no)];
-                        % %             elseif V(1, 1, dim, pred_no + 1) < 0
-                        % %                 dim_wise_pred_lb_ub(dim, :) = dim_wise_pred_lb_ub(dim, :) + V(1, 1, dim, pred_no + 1)*[pred_ub(pred_no) pred_lb(pred_no)];
-                        % %             end
-                        % %         end
-                        % %         preds_to_remove = [preds_to_remove, pred_no];
-                        % %     else
-                        % %         % error('Constraints encountered! not an error')
-                        % %     end
-                        % % end
-                        % % 
-                        % % % remove the vs that have been added to framework,
-                        % % % from V, thus completing transfer from ImageStar to
-                        % % % framework
-                        % % V(:, :, :, preds_to_remove + 1) = [];
-                        % % C(:, preds_to_remove) = [];
-                        % % pred_lb(preds_to_remove) = [];
-                        % % pred_ub(preds_to_remove) = [];
-                        % 
-                        % new_C = C;
-                        % new_d = d;
-                        % 
-                        % % accumulate the new vs in framework
-                        % in_vector = reshape(in_image.V(:, :, :, 1), N, 1);
-                        % for k = 1:size(obj.weightPerturb, 1)
-                        %     row = obj.weightPerturb(k, 1);
-                        %     col = obj.weightPerturb(k, 2);
-                        %     lb  = obj.weightPerturb(k, 3);
-                        %     ub  = obj.weightPerturb(k, 4);
-                        %     weights_col_size = size(obj.Weights, 2);
-                        % 
-                        %     if col <= weights_col_size
-                        % 
-                        %         % for first term, without predicate products
-                        %         mul_factor = in_vector(col);
-                        %             % value of element of input vector being
-                        %             % multiplied by the weight
-                        % 
-                        %         % multiplication with existing predicates
-                        %         for pred_no = 1:size(in_image.V, 4) - 1
-                        %             v = reshape(in_image.V(:, :, :, pred_no + 1), N, 1);
-                        % 
-                        %             % if v(col) ~= 0  % can be uncommented when
-                        %             %         % simply adding to framework,
-                        %             %         % because this method doesn't care
-                        %             %         % about constraints
-                        % 
-                        %                 % get limits of product of predicates
-                        %                 lb1 = lb;
-                        %                 ub1 = ub;
-                        %                 lb2 = in_image.pred_lb(pred_no);
-                        %                 ub2 = in_image.pred_ub(pred_no);
-                        % 
-                        %                 b_prods = [lb1*lb2 lb1*ub2 ub1*lb2 ub1*ub2];
-                        %                 pred_prod_lb = min(b_prods);
-                        %                 pred_prod_ub = max(b_prods);
-                        % 
-                        %                 % for the time being, ignore the new
-                        %                 % constraints on the products; just
-                        %                 % accumulate the products of
-                        %                 % predicates in the "framework".
-                        % 
-                        %                 % if in_image.C(:, pred_no) == 0
-                        %                     % % integrate v's element into
-                        %                     % % limits and accumulate into 
-                        %                     % % framework.
-                        %                     % if v(col) > 0
-                        %                     %     dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + v(col)*[pred_prod_lb pred_prod_ub];
-                        %                     % else  % v(col) <= 0
-                        %                     %     dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + v(col)*[pred_prod_ub pred_prod_lb];
-                        %                     % end
-                        %                 % else
-                        %                     % Put it in V instead of the
-                        %                     % framework
-                        %                     v_new = zeros(size(V, 3), 1);
-                        %                     % v_new(row) = 1;
-                        %                     v_new(row) = v(col);
-                        %                     V(:, :, :, size(V, 4) + 1) = v_new;
-                        %                     new_C(:, size(new_C, 2) + 1) = zeros(size(new_C, 1), 1);
-                        %                     % if v(col) > 0
-                        %                     %     pred_lb = [pred_lb; v(col)*pred_prod_lb];
-                        %                     %     pred_ub = [pred_ub; v(col)*pred_prod_ub];
-                        %                     % 
-                        %                     % % % using the elseif and else instead
-                        %                     % % % of this else may increase
-                        %                     % % % conservativeness
-                        %                     % % else
-                        %                     % %     pred_lb = [pred_lb; v(col)*pred_prod_ub];
-                        %                     % %     pred_ub = [pred_ub; v(col)*pred_prod_lb];
-                        %                     % 
-                        %                     % elseif v(col) < 0
-                        %                     %     pred_lb = [pred_lb; v(col)*pred_prod_ub];
-                        %                     %     pred_ub = [pred_ub; v(col)*pred_prod_lb];
-                        %                     % else
-                        %                         pred_lb = [pred_lb; pred_prod_lb];
-                        %                         pred_ub = [pred_ub; pred_prod_ub];
-                        %                     % end
-                        %                 % end
-                        %             % end
-                        %         end
-                        %     else
-                        %         % perturbation is in bias vector, which is
-                        %         % simple addition, so the multiplicative
-                        %         % factor is 1
-                        %         mul_factor = 1;
-                        %     end
-                        % 
-                        %     % % for first term, without predicate products
-                        %     % if mul_factor > 0
-                        %     %     dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + mul_factor*[lb ub];
-                        %     % elseif mul_factor < 0
-                        %     %     dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + mul_factor*[ub lb];
-                        %     % end
-                        % 
-                        %     % Putting it directly in V instead of framework
-                        %     % if mul_factor ~= 0
-                        %         v_new = zeros(size(V, 3), 1, 1);
-                        %         % v_new(row) = 1;
-                        %         v_new(row) = mul_factor;
-                        %         V(:, :, :, size(V, 4) + 1) = v_new;
-                        %         new_C(:, size(new_C, 2) + 1) = zeros(size(new_C, 1), 1);
-                        %         % if mul_factor > 0
-                        %         %     pred_lb = [pred_lb; mul_factor*lb];
-                        %         %     pred_ub = [pred_ub; mul_factor*ub];
-                        %         % 
-                        %         % % % using the elseif and else instead of this
-                        %         % % % else may increase conservativeness
-                        %         % % else
-                        %         % %     pred_lb = [pred_lb; mul_factor*ub];
-                        %         % %     pred_ub = [pred_ub; mul_factor*lb];
-                        %         % 
-                        %         % elseif mul_factor < 0
-                        %         %     pred_lb = [pred_lb; mul_factor*ub];
-                        %         %     pred_ub = [pred_ub; mul_factor*lb];
-                        %         % else
-                        %             pred_lb = [pred_lb; lb];
-                        %             pred_ub = [pred_ub; ub];
-                        %         % end
-                        %     % end
-                        % 
-                        %     % add constraints
-                        %     Cm = size(C, 1);    % original number of constraints
-                        %     Cn = size(C, 2);    % original number of constrained predicates
-                        %     if (Cm > 0) & (Cn > 0)
-                        %         if lb < 0
-                        %             new_C = [new_C; zeros(size(C)), repmat(zeros(size(C) + [0 1]), 1, k - 1), -C, d];
-                        %         else
-                        %             new_C = [new_C; zeros(size(C)), repmat(zeros(size(C) + [0 1]), 1, k - 1), C, -d];
-                        %         end
-                        %         new_d = [new_d; zeros(length(in_image.d), 1)];
-                        %     end
-                        % 
-                        % end
+                    % Combine weight perturbations that result in 
+                    % perturbation in same neuron into a single
+                    % perturbation.
 
-                    else    % no constraint augmentation
-                        % Combine weight perturbations that result in 
-                        % perturbation in same neuron into a single
-                        % perturbation.
+                    % make a framework to hold these.
+                    dim_wise_pred_lb_ub = zeros(size(obj.Weights, 1), 2);
+                        % if both bounds are zero, no predicate along that
+                        % dimension.
 
-                        % make a framework to hold these.
-                        dim_wise_pred_lb_ub = zeros(size(obj.Weights, 1), 2);
-                            % if both bounds are zero, no predicate along that
-                            % dimension.
-
-                        % break only those existing generators whose 
-                        % predicate variables have no constraints on them,
-                        % and accumulate these in framework.
-                        preds_to_remove = [];
-                        for pred_no = 1:size(V,4) - 1
-                            if C(:, pred_no) == 0
-                                for dim = 1:size(V,3)
-                                    if V(1, 1, dim, pred_no + 1) > 0
-                                        dim_wise_pred_lb_ub(dim, :) = dim_wise_pred_lb_ub(dim, :) + V(1, 1, dim, pred_no + 1)*[pred_lb(pred_no) pred_ub(pred_no)];
-                                    elseif V(1, 1, dim, pred_no + 1) < 0
-                                        dim_wise_pred_lb_ub(dim, :) = dim_wise_pred_lb_ub(dim, :) + V(1, 1, dim, pred_no + 1)*[pred_ub(pred_no) pred_lb(pred_no)];
-                                    end
+                    % break only those existing generators whose 
+                    % predicate variables have no constraints on them,
+                    % and accumulate these in framework.
+                    preds_to_remove = [];
+                    for pred_no = 1:size(V,4) - 1
+                        if C(:, pred_no) == 0
+                            for dim = 1:size(V,3)
+                                if V(1, 1, dim, pred_no + 1) > 0
+                                    dim_wise_pred_lb_ub(dim, :) = dim_wise_pred_lb_ub(dim, :) + V(1, 1, dim, pred_no + 1)*[pred_lb(pred_no) pred_ub(pred_no)];
+                                elseif V(1, 1, dim, pred_no + 1) < 0
+                                    dim_wise_pred_lb_ub(dim, :) = dim_wise_pred_lb_ub(dim, :) + V(1, 1, dim, pred_no + 1)*[pred_ub(pred_no) pred_lb(pred_no)];
                                 end
-                                preds_to_remove = [preds_to_remove, pred_no];
-                            else
-                                % error('Constraints encountered! not an error')
                             end
+                            preds_to_remove = [preds_to_remove, pred_no];
+                        else
+                            % error('Constraints encountered! not an error')
                         end
+                    end
 
-                        % remove the vs that have been added to framework,
-                        % from V, thus completing transfer from ImageStar to
-                        % framework
-                        V(:, :, :, preds_to_remove + 1) = [];
-                        C(:, preds_to_remove) = [];
-                        pred_lb(preds_to_remove) = [];
-                        pred_ub(preds_to_remove) = [];
-                        
-                        new_C = C;
-                        new_d = d;
+                    % remove the vs that have been added to framework,
+                    % from V, thus completing transfer from ImageStar to
+                    % framework
+                    V(:, :, :, preds_to_remove + 1) = [];
+                    C(:, preds_to_remove) = [];
+                    pred_lb(preds_to_remove) = [];
+                    pred_ub(preds_to_remove) = [];
+                    
+                    new_C = C;
+                    new_d = d;
     
-                        % accumulate the new vs in framework
-                        in_vector = reshape(in_image.V(:, :, :, 1), N, 1);
-                        for k = 1:size(obj.weightPerturb, 1)
-                            weights_sz = size(obj.Weights);
-                            ind = obj.weightPerturb(k, 1);
-                            [row, col] = ind2sub(weights_sz, ind);
-                            lb  = obj.weightPerturb(k, 2);
-                            ub  = obj.weightPerturb(k, 3);
+                    % accumulate the new vs in framework
+                    in_vector = reshape(in_image.V(:, :, :, 1), N, 1);
+                    for k = 1:size(obj.weightPerturb, 1)
+                        weights_sz = size(obj.Weights);
+                        ind = obj.weightPerturb(k, 1);
+                        [row, col] = ind2sub(weights_sz, ind);
+                        lb  = obj.weightPerturb(k, 2);
+                        ub  = obj.weightPerturb(k, 3);
     
-                            if col <= weights_sz(2)
+                        if col <= weights_sz(2)
+                            
+                            % for first term, without predicate products
+                            mul_factor = in_vector(col);
+                                % value of element of input vector being
+                                % multiplied by the weight
+                            
+                            % multiplication with existing predicates
+                            for pred_no = 1:size(in_image.V, 4) - 1
+                                v = reshape(in_image.V(:, :, :, pred_no + 1), N, 1);
                                 
-                                % for first term, without predicate products
-                                mul_factor = in_vector(col);
-                                    % value of element of input vector being
-                                    % multiplied by the weight
-                                
-                                % multiplication with existing predicates
-                                for pred_no = 1:size(in_image.V, 4) - 1
-                                    v = reshape(in_image.V(:, :, :, pred_no + 1), N, 1);
-                                    
-                                    if v(col) ~= 0
+                                if v(col) ~= 0
         
-                                        % get limits of product of predicates
-                                        lb1 = lb;
-                                        ub1 = ub;
-                                        lb2 = in_image.pred_lb(pred_no);
-                                        ub2 = in_image.pred_ub(pred_no);
-                                        
-                                        b_prods = [lb1*lb2 lb1*ub2 ub1*lb2 ub1*ub2];
-                                        pred_prod_lb = min(b_prods);
-                                        pred_prod_ub = max(b_prods);
-                                        
-                                        % ignore the new
-                                        % constraints on the products; just
-                                        % accumulate the products of
-                                        % predicates in the "framework".
+                                    % get limits of product of predicates
+                                    lb1 = lb;
+                                    ub1 = ub;
+                                    lb2 = in_image.pred_lb(pred_no);
+                                    ub2 = in_image.pred_ub(pred_no);
+                                    
+                                    b_prods = [lb1*lb2 lb1*ub2 ub1*lb2 ub1*ub2];
+                                    pred_prod_lb = min(b_prods);
+                                    pred_prod_ub = max(b_prods);
+                                    
+                                    % ignore the new
+                                    % constraints on the products; just
+                                    % accumulate the products of
+                                    % predicates in the "framework".
     
-                                        % if in_image.C(:, pred_no) == 0
-                                            % integrate v's element into
-                                            % limits and accumulate into 
-                                            % framework.
-                                            if v(col) > 0
-                                                dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + v(col)*[pred_prod_lb pred_prod_ub];
-                                            else  % v(col) <= 0
-                                                dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + v(col)*[pred_prod_ub pred_prod_lb];
-                                            end
-                                        % else
-                                            % % let's try putting it directly
-                                            % % in V instead, just in case.
-                                            % v_new = zeros(size(V, 3), 1);
-                                            % % v_new(row) = 1;
-                                            % v_new(row) = v(col);
-                                            % V(:, :, :, size(V, 4) + 1) = v_new;
-                                            % new_C(:, size(new_C, 2) + 1) = zeros(size(new_C, 1), 1);
-                                            % % if v(col) > 0
-                                            % %     pred_lb = [pred_lb; v(col)*pred_prod_lb];
-                                            % %     pred_ub = [pred_ub; v(col)*pred_prod_ub];
-                                            % % 
-                                            % % % % using the elseif and else instead
-                                            % % % % of this else may increase
-                                            % % % % conservativeness
-                                            % % % else
-                                            % % %     pred_lb = [pred_lb; v(col)*pred_prod_ub];
-                                            % % %     pred_ub = [pred_ub; v(col)*pred_prod_lb];
-                                            % % 
-                                            % % elseif v(col) < 0
-                                            % %     pred_lb = [pred_lb; v(col)*pred_prod_ub];
-                                            % %     pred_ub = [pred_ub; v(col)*pred_prod_lb];
-                                            % % else
-                                            %     pred_lb = [pred_lb; pred_prod_lb];
-                                            %     pred_ub = [pred_ub; pred_prod_ub];
-                                            % % end
-                                        % end
+                                    % integrate v's element into
+                                    % limits and accumulate into 
+                                    % framework.
+                                    if v(col) > 0
+                                        dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + v(col)*[pred_prod_lb pred_prod_ub];
+                                    else  % v(col) <= 0
+                                        dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + v(col)*[pred_prod_ub pred_prod_lb];
                                     end
                                 end
-                            else
-                                % perturbation is in bias vector, which is
-                                % simple addition, so the multiplicative
-                                % factor is 1
-                                mul_factor = 1;
                             end
+                        else
+                            % perturbation is in bias vector, which is
+                            % simple addition, so the multiplicative
+                            % factor is 1
+                            mul_factor = 1;
+                        end
     
-                            % for first term, without predicate products
-                            if mul_factor > 0
-                                dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + mul_factor*[lb ub];
-                            elseif mul_factor < 0
-                                dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + mul_factor*[ub lb];
-                            end
-                            
-                            % % let's try putting it directly in
-                            % % V instead, just in case.
-                            % % if mul_factor ~= 0
-                            %     v_new = zeros(size(V, 3), 1, 1);
-                            %     % v_new(row) = 1;
-                            %     v_new(row) = mul_factor;
-                            %     V(:, :, :, size(V, 4) + 1) = v_new;
-                            %     new_C(:, size(new_C, 2) + 1) = zeros(size(new_C, 1), 1);
-                            %     % if mul_factor > 0
-                            %     %     pred_lb = [pred_lb; mul_factor*lb];
-                            %     %     pred_ub = [pred_ub; mul_factor*ub];
-                            %     % 
-                            %     % % % using the elseif and else instead of this
-                            %     % % % else may increase conservativeness
-                            %     % % else
-                            %     % %     pred_lb = [pred_lb; mul_factor*ub];
-                            %     % %     pred_ub = [pred_ub; mul_factor*lb];
-                            %     % 
-                            %     % elseif mul_factor < 0
-                            %     %     pred_lb = [pred_lb; mul_factor*ub];
-                            %     %     pred_ub = [pred_ub; mul_factor*lb];
-                            %     % else
-                            %         pred_lb = [pred_lb; lb];
-                            %         pred_ub = [pred_ub; ub];
-                            %     % end
-                            % % end
-    
+                        % for first term, without predicate products
+                        if mul_factor > 0
+                            dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + mul_factor*[lb ub];
+                        elseif mul_factor < 0
+                            dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + mul_factor*[ub lb];
                         end
                     end
 

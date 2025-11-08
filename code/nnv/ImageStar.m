@@ -89,6 +89,10 @@ classdef ImageStar < handle
         im_ub = []; % upper bound image of the ImageStar
         too_big_for_gpu = 0;    % a flag to store whether a set is too
             % large to fit in GPU memory
+        zero_tol = 1e-6; % for use in getRanges; to compute bounds using
+            % lpsolver only if generators' elements are more significant
+            % than zero_tol relative to the max singular value of the 
+            % generators' matrix (V).
         
         MaxIdxs = cell(1,1); % used for unmaxpooling operation in Segmentation network 
         InputSizes = cell(1,1); % used for unmaxpooling operation in Segmentation network 
@@ -809,6 +813,121 @@ classdef ImageStar < handle
                    
         end
         
+        % quickly estimate range
+        function [xmin, xmax] = estimateRange(obj, vert_ind, horiz_ind, chan_ind)
+            % @vert_ind: vectical index
+            % @horiz_ind: horizontal index
+            % @chan_ind : channel index
+            % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
+            % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
+            
+            % author: Dung Tran
+            % date: 7/19/2019
+                                  
+            if isempty(obj.C) || isempty(obj.d)
+                error('The imagestar is empty');
+            end
+            
+            if vert_ind < 1 || vert_ind > obj.height
+                error('Invalid veritical index');
+            end
+            
+            if horiz_ind < 1 || horiz_ind > obj.width
+                error('Invalid horizonal index');
+            end
+            
+            if chan_ind < 1 || chan_ind > obj.numChannel
+                error('Invalid channel index');
+            end
+            
+            f = obj.V(vert_ind, horiz_ind, chan_ind, 1:obj.numPred + 1);
+            xmin = f(1);
+            xmax = f(1);
+            
+            for i=2:obj.numPred + 1
+                if f(i) >= 0
+                    xmin = xmin + f(i) * obj.pred_lb(i-1);
+                    xmax = xmax + f(i) * obj.pred_ub(i-1);
+                else
+                    xmin = xmin + f(i) * obj.pred_ub(i-1);
+                    xmax = xmax + f(i) * obj.pred_lb(i-1);
+                end
+            end
+            
+        end
+        
+        % estimate ranges quickly using only predicate bound information
+        function [image_lb, image_ub] = estimateRanges_old(varargin)
+            % @h: height index
+            % @w: width index
+            % @c: channel index
+            % @image_lb: lower bound image
+            % @image_ub: upper bound image
+            
+            % author: Dung Tran
+            % date: 7/22/2019
+            % update: 7/24/2020: add display option
+            
+            switch nargin
+                case 1
+                    obj = varargin{1};
+                    dis_opt = [];
+                case 2
+                    obj = varargin{1};
+                    dis_opt = varargin{2};
+                otherwise
+                    error('\nInvalid number of input arguments, should be 0 or 1');
+            end
+            
+            if isempty(obj.C) || isempty(obj.d)
+                warning('The imagestar is empty');
+                % no ranges, so bounds are the same as image
+                obj.im_lb = obj.V;
+                obj.im_ub = obj.V;
+            end
+            
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+
+                image_lb = zeros(obj.height, obj.width, obj.numChannel);
+                image_ub = zeros(obj.height, obj.width, obj.numChannel);
+                reverseStr = '';
+                N = obj.height*obj.width*obj.numChannel;
+                if strcmp(dis_opt, 'display')
+                    fprintf('\nEstimating Range: ');
+                end
+                for i=1:obj.height
+                    for j=1:obj.width
+                        for k=1:obj.numChannel
+                            [image_lb(i, j, k), image_ub(i, j, k)] = obj.estimateRange(i,j,k);
+                            if strcmp(dis_opt, 'display')
+                                msg = sprintf('%d/%d', i*j*k, N);   
+                                fprintf([reverseStr, msg]);
+                                reverseStr = repmat(sprintf('\b'), 1, length(msg));
+                            end
+                        end
+                    end
+                end
+                
+                % The following four lines are from NNV's updates, but
+                % they don't seem to provide the correct worst-case bound
+                % estimates.
+                % x1 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_lb, 4, 1);
+                % x2 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_ub, 4, 1);
+                % image_lb = min(x1,x2);
+                % image_ub = max(x1,x2);
+
+                obj.im_lb = image_lb;
+                obj.im_ub = image_ub;
+                
+            else
+                
+                image_lb = obj.im_lb;
+                image_ub = obj.im_ub;
+                
+            end
+         
+        end
+        
         % estimate ranges quickly using only predicate bound information
         function [image_lb, image_ub] = estimateRanges(varargin)
             % @h: height index
@@ -860,6 +979,151 @@ classdef ImageStar < handle
          
         end
         
+        % estimate ranges quickly using only predicate bound information
+        function [image_lb, image_ub] = estimateRanges_maybe_wrong(varargin)
+            % @h: height index
+            % @w: width index
+            % @c: channel index
+            % @image_lb: lower bound image
+            % @image_ub: upper bound image
+            
+            % author: Dung Tran
+            % date: 7/22/2019
+            % update: 7/24/2020: add display option
+            
+            switch nargin
+                case 1
+                    obj = varargin{1};
+                    dis_opt = [];
+                case 2
+                    obj = varargin{1};
+                    dis_opt = varargin{2};
+                otherwise
+                    error('\nInvalid number of input arguments, should be 0 or 1');
+            end
+            
+            if isempty(obj.C) || isempty(obj.d)
+                warning('The imagestar is empty');
+                % no ranges, so bounds are the same as image
+                obj.im_lb = obj.V;
+                obj.im_ub = obj.V;
+            end
+            
+            if isempty(obj.im_lb) || isempty(obj.im_ub)
+                
+                % The following four lines are from NNV's updates, but
+                % they don't seem to provide the correct worst-case bound
+                % estimates.
+                x1 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_lb, 4, 1);
+                x2 = obj.V(:,:,:,1) + tensorprod(obj.V(:,:,:,2:end), obj.pred_ub, 4, 1);
+                image_lb = min(x1,x2);
+                image_ub = max(x1,x2);
+                
+                obj.im_lb = image_lb;
+                obj.im_ub = image_ub;
+                
+            else
+                
+                image_lb = obj.im_lb;
+                image_ub = obj.im_ub;
+                
+            end
+         
+        end
+        
+        % % get lower bound and upper bound images of an imagestar
+        % function [image_lb, image_ub] = getRanges(varargin)
+        %     % @image_lb: lower bound image
+        %     % @image_ub: upper bound image
+        % 
+        %     % author: Dung Tran
+        %     % date: 6/20/2019
+        %     % update: 7/15/2020: add lp_solver option
+        % 
+        %     switch nargin
+        %         case 1
+        %             obj = varargin{1};
+        %             % lp_solver = 'linprog';
+        %             lp_solver = 'gurobi';
+        %             option = 'single';
+        %         case 2
+        %             obj = varargin{1};
+        %             lp_solver = varargin{2};
+        %             option = 'single';
+        %         case 3
+        %             obj = varargin{1};
+        %             lp_solver = varargin{2};
+        %             option = varargin{3};
+        %         otherwise
+        %             error('Invalid number of input arguments');
+        %     end
+        % 
+        %     if isempty(option) || strcmp(option, 'single')
+        % 
+        %         image_lb = zeros(obj.height, obj.width, obj.numChannel);
+        %         image_ub = zeros(obj.height, obj.width, obj.numChannel);
+        % 
+        %         % reverseStr = '';
+        %         % N = obj.height*obj.width*obj.numChannel;
+        %         % fprintf('Optimizing ranges: ')
+        %         for i=1:obj.height
+        %             for j=1:obj.width
+        %                 for k=1:obj.numChannel
+        %                     % msg = sprintf('%d/%d', i*j*k, N);
+        %                     [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k, lp_solver);                       
+        %                     % fprintf([reverseStr, msg]);
+        %                     % reverseStr = repmat(sprintf('\b'), 1, length(msg));
+        %                 end
+        %             end
+        %         end
+        %     elseif strcmp(option, 'parallel')
+        %         [image_lb, image_ub] = obj.estimateRanges;
+        % 
+        %         % zero_thresh_V = norm(obj.toStar.V)*obj.zero_tol;
+        %         zero_thresh_V = max(abs(obj.V), [], 'all')*obj.zero_tol;
+        %         % zero_thresh_C = norm([obj.C obj.d])*obj.zero_tol;
+        %         zero_thresh_C = max(abs([obj.C obj.d]), [], 'all')*obj.zero_tol;
+        %         unconstrained_pred_vars = all(abs(obj.C) <= zero_thresh_C, 1);  % a
+        %             % row vector with the same width as C, containing a 1 at
+        %             % the location of each (almost) zero column in C.
+        % 
+        %         % reverseStr = '';
+        %         % N = obj.height*obj.width*obj.numChannel;
+        %         % fprintf('Optimizing ranges: ')
+        %         for i=1:obj.height
+        %             for j=1:obj.width
+        %                 if any(abs(obj.V(i,j,:,2:end)) >= zero_thresh_V, 'all')
+        %                     parfor k=1:obj.numChannel
+        %                     % for k=1:obj.numChannel
+        %                         gen_vec_of_neuron = reshape(obj.V(i,j,k,2:end), 1, []);
+        %                         is_gen_vec_non_zero = abs(gen_vec_of_neuron) >= zero_thresh_V;
+        %                         if all((unconstrained_pred_vars & is_gen_vec_non_zero) == is_gen_vec_non_zero)
+        %                             % disp("skipping lp_solver for element at indices (" + i + ", " + j + ", " + k + ")")
+        %                             continue;   % all generators affecting this
+        %                                 % neuron are associated with unconstrained
+        %                                 % predicate variables (may be a rare case,
+        %                                 % but not hard to check for. Seems worth it
+        %                                 % if it helps save the time of even one LP.
+        %                         else
+        %                             % disp("NOT skipping lp_solver for element at indices (" + i + ", " + j + ", " + k + ")")
+        %                             [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k, lp_solver);  
+        %                         end
+        %                     end
+        %                 else
+        %                     % disp("skipping lp_solver for height and width (" + i + ", " + j + ")")
+        %                 end
+        %                 % disp("width " + j + " of " + obj.width + " done.");
+        %             end
+        %         end
+        %     else
+        %         error("Unrecognized option " + option)
+        %     end
+        % 
+        %     obj.im_lb = image_lb;
+        %     obj.im_ub = image_ub;
+        % 
+        % end
+        
         % get lower bound and upper bound images of an imagestar
         function [image_lb, image_ub] = getRanges(varargin)
             % @image_lb: lower bound image
@@ -899,49 +1163,6 @@ classdef ImageStar < handle
             obj.im_lb = image_lb;
             obj.im_ub = image_ub;
                    
-        end
-        
-        % quickly estimate range
-        function [xmin, xmax] = estimateRange(obj, vert_ind, horiz_ind, chan_ind)
-            % @vert_ind: vectical index
-            % @horiz_ind: horizontal index
-            % @chan_ind : channel index
-            % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
-            % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
-            
-            % author: Dung Tran
-            % date: 7/19/2019
-                                  
-            if isempty(obj.C) || isempty(obj.d)
-                error('The imagestar is empty');
-            end
-            
-            if vert_ind < 1 || vert_ind > obj.height
-                error('Invalid veritical index');
-            end
-            
-            if horiz_ind < 1 || horiz_ind > obj.width
-                error('Invalid horizonal index');
-            end
-            
-            if chan_ind < 1 || chan_ind > obj.numChannel
-                error('Invalid channel index');
-            end
-            
-            f = obj.V(vert_ind, horiz_ind, chan_ind, 1:obj.numPred + 1);
-            xmin = f(1);
-            xmax = f(1);
-            
-            for i=2:obj.numPred + 1
-                if f(i) >= 0
-                    xmin = xmin + f(i) * obj.pred_lb(i-1);
-                    xmax = xmax + f(i) * obj.pred_ub(i-1);
-                else
-                    xmin = xmin + f(i) * obj.pred_ub(i-1);
-                    xmax = xmax + f(i) * obj.pred_lb(i-1);
-                end
-            end
-            
         end
         
         % estimate the number of attacked pixels

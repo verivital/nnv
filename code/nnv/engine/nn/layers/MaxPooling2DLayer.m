@@ -803,7 +803,6 @@ classdef MaxPooling2DLayer < handle
             [h, w] = obj.get_size_maxMap(in_image.V(:,:,1,1));
             startPoints = obj.get_startPoints(in_image.V(:,:,1,1));
             max_index = cell(h, w, in_image.numChannel);
-            sizes_max_index = nan(h, w, in_image.numChannel);
             
             % padding in_image star
             pad_image = obj.get_zero_padding_imageStar(in_image);
@@ -811,20 +810,14 @@ classdef MaxPooling2DLayer < handle
             % compute max_index when applying maxpooling operation (new number of predicate)
             np = pad_image.numPred;
             l = 0;
-            % new_V = zeros(h, w, pad_image.numChannel, np + 1);
-            % pad_image.getRanges('gurobi', 'parallel');
             for k=1:pad_image.numChannel
-            % parfor k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
                         max_index{i, j, k} = pad_image.get_localMax_index(startPoints{i,j}, obj.PoolSize, k, lp_solver);
                         max_id = max_index{i,j,k};
-                        sizes_max_index(i,j,k) = size(max_id, 1);
                         if size(max_id, 1) > 1
                             np = np + 1;
                             l  = l + 1;
-                        else
-                            % new_V(i, j, k, :) = pad_image.V(max_id(1), max_id(2), k, :);
                         end   
                     end
                 end
@@ -834,12 +827,6 @@ classdef MaxPooling2DLayer < handle
             if strcmp(dis_opt, 'display')
                 fprintf('\n%d new variables are introduced\n', l);
             end
-            
-            is_size_one = (sizes_max_index == 1);
-            is_size_greater_than_one = ~is_size_one; % because the size of 
-                % max_index is never non-positive
-            indices_size_one = find(is_size_one);
-            [x,y,z] = ind2sub([h w pad_image.numChannel], indices_size_one);
             
             % update new basis matrix
             new_V(:,:,pad_image.numChannel,np+1) = cast(zeros(h,w), 'like', in_image.V);

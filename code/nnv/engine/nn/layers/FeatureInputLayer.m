@@ -108,7 +108,7 @@ classdef FeatureInputLayer < handle
             if strcmp(obj.Normalization, 'none')
                 out_set = in_set;
             elseif strcmp(obj.Normalization, 'zerocenter')
-                out_set = in_set.affineMap(eey(n), -obj.Mean);
+                out_set = in_set.affineMap(eye(n), -obj.Mean);
             else
                 error('The normalization method is not supported yet.')
             end

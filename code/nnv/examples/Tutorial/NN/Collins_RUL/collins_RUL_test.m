@@ -54,11 +54,7 @@ net.Layers{perturbed_layer_index}.perturb_whole_layer_given_fraction_of_weights_
 t = tic;
 result = net.verify_vnnlib(vnnlib_path, reachOptions, needReshape);
 time = toc(t);
-if result == 2
-    result = 0;
-end
-
-if result
+if result == 1
     disp("Property satisfied")
 else
     disp("Property NOT satisfied")

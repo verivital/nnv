@@ -95,7 +95,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts,
 
     % Solve using linprog (glpk as backup)
     elseif strcmp(lp_solver, 'linprog')
-        if ~any(strcmp(varargin{1}, ["valid"]))
+        if ~isempty(varargin) && (~any(strcmp(varargin{1}, "valid"))) % Usama: I wanted to avoid usign linprog completely but allowing because of usage in tests
             error("Should not need linprog; did gurobi cause a problem, or was it not used at all? Maybe adjust gurobi's feasibility tolerance...")
         end
         options = optimoptions(@linprog, 'Display','none'); 

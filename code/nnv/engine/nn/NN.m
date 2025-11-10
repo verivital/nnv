@@ -131,45 +131,20 @@ classdef NN < handle
         end
         
         % Evaluation of a NN (test it, fix for neuralode with multiple outputs)
-        function y = evaluate(obj, x, matlabnet)
-            
-            arguments
-                obj 
-                x 
-                matlabnet = []
-            end
-            
-            if isempty(matlabnet)
-                matlabnet = obj.matlabnet;
-            end
-            
-            % NNV's evaluate function is problematic, so using matlab's
-            % predict function with Output option.
-            
-            output_layer_name = obj.Layers{end}.Name;
-            for l = length(obj.Layers):-1:1
-                if ~any(strcmp(class(obj.Layers{l}), ["PlaceholderLayer", "FlattenLayer"]))   % may cause issues?
-                    output_layer_name = obj.Layers{l}.Name;
-                    break;
-                end
-            end
-            
-            y = predict(matlabnet, x, Outputs = output_layer_name);
-            
-            % % Evaluate NN given an input sample
-            % % y = NN.evaluate(x)
-            % % @x: input vector x
-            % % @y: output vector y
-            % 
-            % % Two options to exectute evaluation
-            % % 1) Connections are defined
-            % if ~isempty(obj.Connections)
-            %      y = obj.evaluate_withConns(x);
-            % % 2) No connections defined, execute each layer consecutively
-            % else
-            %     y = obj.evaluate_noConns(x);
-            % end
+        function y = evaluate(obj, x)
+            % Evaluate NN given an input sample
+            % y = NN.evaluate(x)
+            % @x: input vector x
+            % @y: output vector y
 
+            % Two options to exectute evaluation
+            % 1) Connections are defined
+            if ~isempty(obj.Connections)
+                 y = obj.evaluate_withConns(x);
+            % 2) No connections defined, execute each layer consecutively
+            else
+                y = obj.evaluate_noConns(x);
+            end
         end
 
         function y = evaluateSequence(obj, x)
@@ -1567,7 +1542,9 @@ classdef NN < handle
             end
             
             high_gpu_mem_in_last_layer = 0;
-            obj.adjust_numCores("start", reachOptions);
+            if isfield(reachOptions, 'layer_specific_numCores')
+                obj.adjust_numCores("start", reachOptions);
+            end
             too_big_for_gpu = 0;
             
             % Begin reachability computation
@@ -1598,7 +1575,9 @@ classdef NN < handle
                         if isa(inSet1, 'cell')
                             inSet1 = inSet1{1};
                         end
-                        obj.adjust_numCores(class(obj.Layers{source_indx}), reachOptions, size(inSet1.C), size(inSet1.V), underlyingType(inSet1.V));
+                        if isfield(reachOptions, 'layer_specific_numCores')
+                            obj.adjust_numCores(class(obj.Layers{source_indx}), reachOptions, size(inSet1.C), size(inSet1.V), underlyingType(inSet1.V));
+                        end
                     end
                     
                     if strcmp(obj.dis_opt, 'display')
@@ -1774,14 +1753,16 @@ classdef NN < handle
                 obj.reachSet{end} = outSet;
             end
             
-            [free_mem_B, mem_margin_B, mem_per_LP_B] = obj.adjust_numCores("end", reachOptions, size(outSet(1).C) + [1 0]);
-            if isfield(reachOptions, 'dis_opt') && strcmp(reachOptions.dis_opt, 'display')
-                fprintf("\n\n%s \t ", datetime('now'));
-                fprintf("Free memory: %.4g GB, ", free_mem_B/2^30)
-                fprintf("Margin: %.4g GB, ", mem_margin_B/2^30)
-                fprintf("Memory per LP: %.4g GB\n", mem_per_LP_B/2^30)
-                obj.free_mem_B_before_verify_specification = free_mem_B;
-                obj.free_swap_B_before_verify_specification = NN.get_free_swap_B;
+            if isfield(reachOptions, 'layer_specific_numCores')
+                [free_mem_B, mem_margin_B, mem_per_LP_B] = obj.adjust_numCores("end", reachOptions, size(outSet(1).C) + [1 0]);
+                if isfield(reachOptions, 'dis_opt') && strcmp(reachOptions.dis_opt, 'display')
+                    fprintf("\n\n%s \t ", datetime('now'));
+                    fprintf("Free memory: %.4g GB, ", free_mem_B/2^30)
+                    fprintf("Margin: %.4g GB, ", mem_margin_B/2^30)
+                    fprintf("Memory per LP: %.4g GB\n", mem_per_LP_B/2^30)
+                    obj.free_mem_B_before_verify_specification = free_mem_B;
+                    obj.free_swap_B_before_verify_specification = NN.get_free_swap_B;
+                end
             end
         end
         

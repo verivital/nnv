@@ -945,6 +945,49 @@ classdef ImageStar < handle
                    
         end
         
+        % quickly estimate range
+        function [xmin, xmax] = estimateRange(obj, vert_ind, horiz_ind, chan_ind)
+            % @vert_ind: vectical index
+            % @horiz_ind: horizontal index
+            % @chan_ind : channel index
+            % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
+            % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
+
+            % author: Dung Tran
+            % date: 7/19/2019
+
+            if isempty(obj.C) || isempty(obj.d)
+                error('The imagestar is empty');
+            end
+
+            if vert_ind < 1 || vert_ind > obj.height
+                error('Invalid veritical index');
+            end
+
+            if horiz_ind < 1 || horiz_ind > obj.width
+                error('Invalid horizonal index');
+            end
+
+            if chan_ind < 1 || chan_ind > obj.numChannel
+                error('Invalid channel index');
+            end
+
+            f = obj.V(vert_ind, horiz_ind, chan_ind, 1:obj.numPred + 1);
+            xmin = f(1);
+            xmax = f(1);
+
+            for i=2:obj.numPred + 1
+                if f(i) >= 0
+                    xmin = xmin + f(i) * obj.pred_lb(i-1);
+                    xmax = xmax + f(i) * obj.pred_ub(i-1);
+                else
+                    xmin = xmin + f(i) * obj.pred_ub(i-1);
+                    xmax = xmax + f(i) * obj.pred_lb(i-1);
+                end
+            end
+
+        end
+        
         % estimate the number of attacked pixels
         function n_att = getNumAttackedPixels(obj)
             % @n_att: number of attacked pixels in an imagestar

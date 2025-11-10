@@ -190,7 +190,6 @@ for i=1:n
     elseif contains(class(L), 'MatMul_To_SubLayer')
         Li = MatMulToSubLayer.parse(L);
     
-    % Custom flatten layers (avoid if possible)
     elseif contains(class(L), ["flatten"; "Flatten"])
         % Check previous layer to see if we can neglect this one in the analysis
         for k=i-1:-1:1
@@ -216,7 +215,7 @@ for i=1:n
         L = Layers(i);
         Li = PlaceholderLayer.parse(L);
 
-    % All other layers are currently not supported in NN
+        % All other layers are currently not supported in NN
     else
         fprintf('Layer %d is a %s which have not supported yet in nnv, please consider removing this layer for the analysis \n', i, class(L));
         error('Unsupported Class of Layer');

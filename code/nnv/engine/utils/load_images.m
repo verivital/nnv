@@ -1,4 +1,5 @@
 function [images, labels, db_image_nos] = load_images(args)
+% for loading MNIST and ImageNet images for ModelStar experiments (JAIR draft). Can be removed.
     
     arguments
         args.database   

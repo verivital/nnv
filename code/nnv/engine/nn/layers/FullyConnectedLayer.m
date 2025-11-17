@@ -465,6 +465,9 @@ classdef FullyConnectedLayer < handle
                 % output set
                 image = ImageStar(V, C, d, pred_lb, pred_ub);
             else % reach Star set
+                if ~isempty(obj.weightPerturb)
+                    error("Weight Perturbation in FC Layer supported only for ImageStar inputs.")
+                end
                 image = in_image.affineMap(obj.Weights, obj.Bias);
             end
             

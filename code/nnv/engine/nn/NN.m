@@ -1797,8 +1797,6 @@ classdef NN < handle
                     % obtained using NNV
                 args.samples_per_pert = 10      % samples per perturbation
                 args.display = 1                % whether to display results
-                args.matlabnet = obj.matlabnet  % the matlab network from
-                    % which this NNV NN object was created
                 args.netbs = []                 % bytestream based copy of 
                     % the NNV NN object
                 % args.numWorkers_for_par_sampl = 5
@@ -1806,10 +1804,6 @@ classdef NN < handle
             end
             
             samples_per_pert = args.samples_per_pert;    % no. of samples per weight
-            matlabnet = args.matlabnet;
-            if isempty(matlabnet)
-                matlabnet = obj.matlabnet;
-            end
             
             % gather the weight perturbations from the various layers of
             % the neural network
@@ -1821,6 +1815,8 @@ classdef NN < handle
                     if sz(2) > 0
                         weightPerturbSpecs = [weightPerturbSpecs; l*ones(sz(1),1) weightPerturbSpecsThisLayer];
                     end
+                elseif isprop(obj.Layers{l}, 'weightPerturb')
+                    error("Layer " + obj.Layers{l}.Name + " not supported for sampling yet.")
                 end
             end
             
@@ -1850,8 +1846,7 @@ classdef NN < handle
                 multDeltasWeightPerturb = mod(ceil(m./powersNSamplesPerPert) - 1, samples_per_pert);  % multiples of deltas of weight perturbations
                 weightPerturb = multDeltasWeightPerturb.*deltasWeightPerturb + weightLB;   % weight perturbations
                 
-                tmp_net = matlabnet.saveobj;
-                tmp_layer_graph = tmp_net.LayerGraph.saveobj;
+                tmp_net = getArrayFromByteStream(args.netbs);
                 
                 for k = 1 : numPerts
                     l = weightPerturbSpecs(k, 1);
@@ -1859,19 +1854,17 @@ classdef NN < handle
                     if isa(obj.Layers{l}, 'FullyConnectedLayer') || isa(obj.Layers{l}, 'Conv2DLayer')
                         n = numel(obj.Layers{l}.Weights);
                         if ind <= n     % perturb weights matrix
-                            tmp_layer_graph.Layers(l).Weights(ind) = tmp_layer_graph.Layers(l).Weights(ind) + weightPerturb(k);
+                            tmp_net.Layers{l}.Weights(ind) = tmp_net.Layers{l}.Weights(ind) + weightPerturb(k);
                         else            % perturb bias matrix
                             ind = ind - n;
-                            tmp_layer_graph.Layers(l).Bias(ind) = tmp_layer_graph.Layers(l).Bias(ind) + weightPerturb(k);
+                            tmp_net.Layers{l}.Bias(ind) = tmp_net.Layers{l}.Bias(ind) + weightPerturb(k);
                         end
                     else
                         error(['Layer ' class(obj.Layers{l}) ' not supported in sampling!'])
                     end
                 end
                 
-                tmp_net.LayerGraph = tmp_net.LayerGraph.loadobj(tmp_layer_graph);
-                matlabnet_this_comb = matlabnet.loadobj(tmp_net);
-                netOut = obj.evaluate(args.input, matlabnet_this_comb);
+                netOut = tmp_net.evaluate(args.input);
                 netOut = netOut(:);
                 [~, predThisComb] = max(netOut);
                 if predThisComb ~= target

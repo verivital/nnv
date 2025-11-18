@@ -19,6 +19,12 @@ function result = verify_specification(reachSet, property, reachOptions)
         property 
         reachOptions = []
     end
+    
+    if ~isempty(reachOptions) && isfield(reachOptions, 'free_mem_frac_for_LPs_in_verify_specification')
+        free_mem_frac_setting = reachOptions.free_mem_frac_for_LPs_in_verify_specification;
+    else
+        free_mem_frac_setting = 0.2;
+    end
 
     R = reachSet;
     nr = length(R);    % number of output sets (for approx should be 1)
@@ -102,8 +108,8 @@ function result = verify_specification(reachSet, property, reachOptions)
                 results = nan(np, 1);
                 futures = [];
                 for cp = 1:np
-                    while ~isempty(futures) && NN.get_free_mem_frac < free_mem_frac_setting_hack
-                        % disp("Pausing for 0.1 s because free memory " + NN.get_free_mem_B/2^30 + " is less than the desirable " + NN.get_total_mem_B*free_mem_frac_setting_hack/2^30)
+                    while ~isempty(futures) && NN.get_free_mem_frac < free_mem_frac_setting
+                        % disp("Pausing for 0.1 s because free memory " + NN.get_free_mem_B/2^30 + " is less than the desirable " + NN.get_total_mem_B*free_mem_frac_setting/2^30)
                         pause(0.1);
                     end
                     % fetch some output(s)

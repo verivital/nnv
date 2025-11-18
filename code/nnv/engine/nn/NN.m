@@ -269,12 +269,6 @@ classdef NN < handle
             else 
                 outputSet = obj.reach_withConns(inputSet, '', reachOptions = reachOptions);
             end
-            
-            if isfield(reachOptions, "free_mem_frac_for_LPs")
-                NN.set_free_mem_frac_for_LPs(reachOptions.free_mem_frac_for_LPs)
-            else
-                NN.set_free_mem_frac_for_LPs(0.2)
-            end
 
         end
         
@@ -510,7 +504,7 @@ classdef NN < handle
             else
                 Y = obj.reach(X, reachOptions); % Seems to be working
             end
-            result = verify_specification(Y, property.prop); 
+            result = verify_specification(Y, property.prop, reachOptions); 
 
             % Modify in case of unknown and exact
             if result == 2
@@ -2676,30 +2670,6 @@ classdef NN < handle
             total_mem_B = str2double(total_mem_MB(1:MiB_loc - 1))*2^20;
             free_mem_B = total_mem_B - used_mem_B;
             frac_used = used_mem_B/total_mem_B;
-        end
-        
-        function set_free_mem_frac_for_LPs(frac)
-            % Define the file name and the new text for the second line
-            filename = [nnvroot(), filesep, 'code', filesep, 'nnv', filesep, 'engine', filesep, 'utils', filesep, 'free_mem_frac_setting_hack.m'];
-            
-            % Read the file into a cell array
-            fileID = fopen(filename, 'r');
-            fileContent = textscan(fileID, '%s', 'Delimiter', '\n');
-            fclose(fileID);
-            
-            % Replace the second line
-            line_no = 3;
-            t = fileContent{1}{line_no};
-            test_str = 'frac = 0.';
-            if ~strcmp(t(1:length(test_str)), test_str)
-                error("Wrong line at line no. " + line_no + " of file " + filename)
-            end
-            fileContent{1}{line_no} = "frac = " + frac + ";";
-            
-            % Write the modified content back to the file
-            fileID = fopen(filename, 'w');
-            fprintf(fileID, '%s\n', fileContent{1}{:});
-            fclose(fileID);
         end
         
     end

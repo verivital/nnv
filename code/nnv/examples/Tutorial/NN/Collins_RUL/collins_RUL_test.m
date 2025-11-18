@@ -25,7 +25,7 @@ netbs = getByteStreamFromArray(net);    % bytestream to copy this network
 reachOptions.reachMethod = 'approx-star';
 reachOptions.device = 'cpu';
 reachOptions.delete_old_sets = 1;
-reachOptions.free_mem_frac_for_LPs = 0.1;
+reachOptions.free_mem_frac_for_LPs_in_verify_specification = 0.1;
 % reachOptions.dis_opt = 'display';
 % reachOptions.disp_intersection_result = 1;
 

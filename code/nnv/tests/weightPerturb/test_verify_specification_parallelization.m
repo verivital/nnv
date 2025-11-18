@@ -19,7 +19,7 @@ reachOptions = struct; % initialize
 reachOptions.reachMethod = 'approx-star'; % using approximate method
 reachOptions.numCores = 1;
 reachOptions.device = 'cpu';
-reachOptions.free_mem_frac_for_LPs = 0.1;
+reachOptions.free_mem_frac_for_LPs_in_verify_specification = 0.1;
 
 reachOptions_parallel = reachOptions;
 reachOptions_parallel.layer_specific_numCores = dictionary( ...

@@ -688,9 +688,9 @@ classdef Conv2DLayer < handle
                             ub_ext(pert_no) = pert_ub;
                         end
                         
-                        if mod(pert_no, 100000) == 0
-                            disp(['Processed perturbation no. ' num2str(pert_no) ' out of ' num2str(num_pert)]);
-                        end
+                        %if mod(pert_no, 100000) == 0
+                        %    disp(['Processed perturbation no. ' num2str(pert_no) ' out of ' num2str(num_pert)]);
+                        %end
                     end
                 else	% same code as the "then" block of this if-then-else statment, but this time, in a parfor loop instead of for loop
                     parfor pert_no = 1:num_pert

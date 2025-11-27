@@ -463,13 +463,6 @@ classdef LstmLayer < handle
 
     methods % helper method
 
-        % change params to cpuArrays
-        function obj = toCPU(obj)
-            obj.bias = gather(obj.bias);
-            obj.inputWeights = gather(obj.inputWeights);
-            obj.recurrentWeights = gather(obj.recurrentWeights);
-        end
-
         % change params to gpuArrays
         function obj = toGPU(obj)
             obj.bias = gpuArray(obj.bias);

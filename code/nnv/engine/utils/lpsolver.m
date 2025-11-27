@@ -95,7 +95,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts,
 
     % Solve using linprog (glpk as backup)
     elseif strcmp(lp_solver, 'linprog')
-        if ~isempty(varargin) && (~any(strcmp(varargin{1}, "valid"))) % Usama: I wanted to avoid usign linprog completely but allowing because of usage in tests
+        if ~isempty(varargin) && (~any(strcmp(varargin{1}, "valid"))) % Usama: I wanted to avoid usign linprog completely but allowing because of usage in tests; linprog can cause wrong verification results due to accuracy issues as compared to gurobi. I am aware of how accurate glpk performs.
             error("Should not need linprog; did gurobi cause a problem, or was it not used at all? Maybe adjust gurobi's feasibility tolerance...")
         end
         options = optimoptions(@linprog, 'Display','none'); 
@@ -119,7 +119,6 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts,
 
     % solve using glpk (linprog as backup)
     elseif strcmp(lp_solver, 'glpk')
-        error("Should not need to use glpk. Did gurobi and linprog both fail?")
         [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
         if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
             options = optimoptions(@linprog, 'Display','none'); 

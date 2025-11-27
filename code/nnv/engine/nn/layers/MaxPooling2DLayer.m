@@ -244,11 +244,6 @@ classdef MaxPooling2DLayer < handle
             end
         end
 
-        % change params to cpuArrays
-        function obj = toCPU(obj)
-            % nothing to change in here (no params)
-        end
-
         % change params to gpuArrays
         function obj = toGPU(obj)
             % nothing to change in here (no params)

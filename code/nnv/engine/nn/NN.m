@@ -1239,15 +1239,6 @@ classdef NN < handle
             end
         end
 
-        % Change paramters to cpu
-        function obj = params2cpu(obj)
-            % change the parameters layer by layer
-            for i = 1:length(obj.Layers)
-                cpuLayer = obj.Layers{i}.toCPU;
-                obj.Layers{i} = cpuLayer;
-            end
-        end
-
         % Change paramters to gpu
         function obj = params2gpu(obj)
             % change the parameters layer by layer

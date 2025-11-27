@@ -272,12 +272,6 @@ classdef LayerS
             obj.b = gpuArray(obj.b);
         end
 
-        % change params to cpuArrays
-        function obj = toCPU(obj)
-            obj.W = gather(obj.W);
-            obj.b = gather(obj.b);
-        end
-
         % Change params precision
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")

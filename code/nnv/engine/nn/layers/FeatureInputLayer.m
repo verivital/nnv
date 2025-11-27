@@ -53,14 +53,6 @@ classdef FeatureInputLayer < handle
             obj.StandardDeviation = gpuArray(obj.StandardDeviation);
         end
 
-        % change params to cpuArrays
-        function obj = toCPU(obj)
-            obj.Mean = gather(obj.Mean);
-            obj.Max = gather(obj.Max);
-            obj.Min = gather(obj.Min);
-            obj.StandardDeviation = gather(obj.StandardDeviation);
-        end
-
         % Change params precision
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")

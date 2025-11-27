@@ -297,12 +297,6 @@ classdef Conv1DLayer < handle
             obj.Bias = gpuArray(obj.Bias);
         end
 
-        % change params to cpuArrays
-        function obj = toCPU(obj)
-            obj.Weights = gather(obj.Weights);
-            obj.Bias = gather(obj.Bias);
-        end
-
         % Change params precision
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")

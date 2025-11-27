@@ -206,12 +206,6 @@ classdef SequenceInputLayer < handle
 
     methods % helper method
 
-        % change params to cpuArrays
-        function obj = toCPU(obj)
-            obj.Mean = gather(obj.Mean);
-            obj.StandardDeviation = gather(obj.StandardDeviation);
-        end
-
         % change params to gpuArrays
         function obj = toGPU(obj)
             obj.Mean = gpuArray(obj.Mean);

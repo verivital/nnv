@@ -155,11 +155,6 @@ classdef SignLayer < handle
 
     methods % helper method
 
-        % change params to cpuArrays
-        function obj = toCPU(obj)
-            % nothing to do here
-        end
-
         % change params to gpuArrays
         function obj = toGPU(obj)
             % nothing to do here

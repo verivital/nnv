@@ -729,7 +729,6 @@ classdef PosLin
                 S = [];
             else
                 [lb, ub] = I.estimateRanges;
-                % input_is_in_gpu = isa(I.V, 'gpuArray');
                 if isempty(lb) || isempty(ub)
                     S = [];
                 else

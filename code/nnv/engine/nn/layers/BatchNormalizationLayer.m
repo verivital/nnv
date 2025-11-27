@@ -90,15 +90,6 @@ classdef BatchNormalizationLayer < handle
             obj.TrainedVariance = gpuArray(obj.TrainedVariance);
         end
 
-        % change params to cpuArrays
-        function obj = toCPU(obj)
-            obj.Offset = gather(obj.Offset);
-            obj.Scale = gather(obj.Scale);
-            obj.Epsilon = gather(obj.Epsilon);
-            obj.TrainedMean = gather(obj.TrainedMean);
-            obj.TrainedVariance = gather(obj.TrainedVariance);
-        end
-
         % Change params precision
         function obj = changeParamsPrecision(obj, precision)
             if strcmp(precision, "double")
@@ -228,7 +219,7 @@ classdef BatchNormalizationLayer < handle
                     for i=1:obj.NumChannels
                         x.V(:,:,:,i,:) = x.V(:,:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,:,i) + obj.Epsilon);
                     end
-                    % 2) Batch normalization operation further shifts and scales the
+                    % 2) Batch normalization operation further shifts and scales the 
                     % activations using Scale and Offset values
                     % 2a) Scale values
                     for i=1:obj.NumChannels
@@ -277,7 +268,8 @@ classdef BatchNormalizationLayer < handle
                     for i=1:obj.NumChannels
                         x.V(:,:,i,:) = x.V(:,:,i,:) .* 1/sqrt(obj.TrainedVariance(:,:,i) + obj.Epsilon);
                     end
-                    % 2) Batch normalization operation further shifts and scales the activations using Scale and Offset values
+                    % 2) Batch normalization operation further shifts and scales the
+                    % activations using Scale and Offset values
                     % 2a) Scale values
                     for i=1:obj.NumChannels
                         x.V(:,:,i,:) = x.V(:,:,i,:) .* obj.Scale(:,:,i);

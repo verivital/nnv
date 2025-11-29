@@ -5,7 +5,7 @@
 clear
 
 % Load network
-folder = [nnvroot(), filesep, 'code', filesep, 'nnv', filesep, 'examples', filesep, 'Tutorial', filesep, 'NN', filesep, 'my_MNIST_v12_comparison_with_others_bigger_architecture', filesep];
+folder = [nnvroot(), filesep, 'code', filesep, 'nnv', filesep, 'examples', filesep, 'Tutorial', filesep, 'NN', filesep, 'MNIST', filesep, 'weightPerturb', filesep];
 mnist_model = load([folder 'mnist_model_fc.mat']);
 classes = string(1:10);
 matlabnet = mnist_model.net;
@@ -20,8 +20,8 @@ netbs = getByteStreamFromArray(net);    % bytestream to copy this network
     n = 20, ...
     matlabnet = matlabnet);
 
-target = single(labels{2}); % label = 0 (index 1 for our network)
-img = single(images{2}); % change precision
+target = single(labels{10}); % label = 4 (index 5 for our network)
+img = single(images{10}); % change precision
 correct_output = net.evaluate(img);
 
 % % Visualize image;
@@ -42,9 +42,9 @@ reachOptions.reachMethod = 'approx-star'; % using approximate method
 reachOptions.numCores = 1;
 reachOptions.device = 'cpu';
 reachOptions.free_mem_frac_for_LPs = 0.1;
-reachOptions.layer_specific_numCores = dictionary( ...
-    ["start", "ReluLayer", "MaxPooling2DLayer", "end"], ...
-    [  64   ,     64     ,         64         ,  64  ]);
+% reachOptions.layer_specific_numCores = dictionary( ...
+%     ["start", "ReluLayer", "MaxPooling2DLayer", "end"], ...
+%     [  64   ,     64     ,         64         ,  64  ]);
 % parpool(parcluster('local').NumWorkers);
 
 % Verification
@@ -185,7 +185,8 @@ lg = legend({'Output Reachable Set Ranges', 'Unperturbed Output'}, 'Orientation'
 lg.Layout.Tile = 'North';
 % lg.Box = 'off';
 
-f.Position = [398 116 512 413];
+fig = gcf;
+fig.Position = [398 116 512 413];
 
 %% function for "Towards..."
 function [lb, ub] = compute_bounds(net, pert_vec, N, K)

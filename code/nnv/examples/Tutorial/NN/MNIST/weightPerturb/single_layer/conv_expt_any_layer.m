@@ -4,11 +4,11 @@ else
     clear
 end
 
-expt_path = 'results/MNIST_MLP';
+% expt_path = 'results/MNIST_MLP';
 % expt_path = 'results/test_file';
 
 % n_layers_to_run_for_from_yaml_file = nan;
-n_layers_to_run_for_from_yaml_file = 3;
+% n_layers_to_run_for_from_yaml_file = 3;
 
 delete(gcp('nocreate'));
 dbstop if error

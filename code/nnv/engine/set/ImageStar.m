@@ -916,8 +916,7 @@ classdef ImageStar < handle
             switch nargin
                 case 1
                     obj = varargin{1};
-                    % lp_solver = 'linprog';
-                    lp_solver = 'gurobi';
+                    lp_solver = 'linprog';
                     option = 'single';
                 case 2
                     obj = varargin{1};

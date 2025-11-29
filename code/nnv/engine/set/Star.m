@@ -1200,8 +1200,7 @@ classdef Star
             % update: 7/15/2020 The isEmptySet method in Polyhedron object has bug
             
             f = zeros(1, obj.nVar, 'like', obj.V); % objective function
-            % [~, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, 'linprog', 'emptySet');
-            [~, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, 'gurobi', 'emptySet');
+            [~, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.predicate_lb, obj.predicate_ub, 'linprog', 'emptySet');
             if ismember(exitflag,["l1", "g2", "g5"])
                 bool = 0;
             elseif ismember(exitflag, ["l-2", "l-5", "g3", "g4", "g110"])
@@ -2167,8 +2166,7 @@ classdef Star
                 cp_no = nan
             end
             
-            % [~, exitflag] = lpsolver(f, C, d, [], [], predicate_lb, predicate_ub, 'linprog', 'emptySet');
-            [~, exitflag] = lpsolver(f, C, d, [], [], predicate_lb, predicate_ub, 'gurobi', 'emptySet');
+            [~, exitflag] = lpsolver(f, C, d, [], [], predicate_lb, predicate_ub, 'linprog', 'emptySet');
             if ismember(exitflag,["l1", "g2", "g5"])
                 bool = 0;
             elseif ismember(exitflag, ["l-2", "l-5", "g3", "g4", "g110"])

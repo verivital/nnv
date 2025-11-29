@@ -9,8 +9,8 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts,
     % want to use and call yalmip from this function
 
     if ~exist('lp_solver', 'var') || ~isempty(Aeq) || ~isempty(Beq)
-        lp_solver = 'gurobi';
-        % lp_solver = 'linprog';  % default solver, sometimes fails with mpt, so glpk as backup
+        lp_solver = 'linprog';  % default solver, sometimes fails with mpt, so glpk as backup
+        % lp_solver = 'gurobi';
     end
 
     if ~exist('opts', 'var')
@@ -41,7 +41,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts,
         Aeq = double(Aeq); Beq = double(Beq); ub = double(ub); 
     end
     
-    if strcmp(lp_solver, 'gurobi') % no backup solver, should be better than the others
+    if strcmp(lp_solver, 'gurobi')
         % Create gurobi model
         model.obj = f; % objective function
         model.A = [sparse(A); sparse(Aeq)]; % A must be sparse
@@ -95,9 +95,6 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts,
 
     % Solve using linprog (glpk as backup)
     elseif strcmp(lp_solver, 'linprog')
-        if ~isempty(varargin) && (~any(strcmp(varargin{1}, "valid"))) % Usama: I wanted to avoid usign linprog completely but allowing because of usage in tests; linprog can cause wrong verification results due to accuracy issues as compared to gurobi. I am aware of how accurate glpk performs.
-            error("Should not need linprog; did gurobi cause a problem, or was it not used at all? Maybe adjust gurobi's feasibility tolerance...")
-        end
         options = optimoptions(@linprog, 'Display','none'); 
         options.OptimalityTolerance = 1e-10; % set tolerance
         % first try solving using linprog

@@ -39,8 +39,7 @@ classdef NN < handle
         input_vals = {}; % input values to each layer (cell array of cells of layer input values)
         input_sets = {}; % input set values for each layer (cell array of cells of layer input sets)
         dis_opt = []; % display option = 'display' or []
-        % lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set user can choose 'glpk' or 'linprog' as an LP solver
-        lp_solver = 'gurobi';
+        lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set user can choose 'glpk' or 'linprog' as an LP solver; gurobi can also be selected if gurobi is installed and a valid license is set up
         matlabnet = []; % the matlab network this NN was created from
         sampling_workers = 5;
         large_set_threshold_sec = 50;   % if a set takes longer than this

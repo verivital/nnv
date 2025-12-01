@@ -65,7 +65,7 @@ jobs:
 
             % Run tests with regression detection
             try
-                [test_results, regression_results] = run_tests_with_regression('compare', true, 'verbose', true);
+                [test_results, regression_results] = run_tests_with_regression("compare", true, "verbose", true);
 
                 % Check for failures
                 if ~isempty(test_results)

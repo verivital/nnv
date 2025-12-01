@@ -12,7 +12,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
         lp_solver = 'linprog'; % default solver, sometimes fails with mpt, so glpk as backup
     end
 
-    if ~exist('optimoptions', 'file') || ~any(strcmp({ver.Name}, 'Optimization Toolbox')) || ~license('test','Optimization_Toolbox')
+    if ~exist('optimoptions', 'file') || ~any(strcmp({ver().Name}, 'Optimization Toolbox')) || ~license('test','Optimization_Toolbox')
         lp_solver = 'glpk'; % no optimoptions, so no linprog
     end
 

@@ -465,20 +465,24 @@ classdef NN < handle
                 end
             end
             
-            first_layer = obj.Layers(1, 1);
-            inputSize = first_layer{1}.InputSize;
-            
-            % Format bounds into correct dimensions
-            % (using code from run_vnncomp2024_instance.m)
-            if needReshape == 1
-                lb = permute(lb, [2 1 3]);
-                ub = permute(ub, [2 1 3]);
-            elseif needReshape == 2
-                newSize = [inputSize(2) inputSize(1) inputSize(3:end)];
-                lb = reshape(lb, newSize);
-                lb = permute(lb, [2 1 3 4]);
-                ub = reshape(ub, newSize);
-                ub = permute(ub, [2 1 3 4]);
+            if needReshape > 0.1
+                % Format bounds into correct dimensions
+                % (using code from run_vnncomp2024_instance.m)
+                
+                first_layer = obj.Layers(1, 1);
+                inputSize = first_layer{1}.InputSize;
+                if needReshape == 1
+                    lb = permute(lb, [2 1 3]);
+                    ub = permute(ub, [2 1 3]);
+                elseif needReshape == 2
+                    newSize = [inputSize(2) inputSize(1) inputSize(3:end)];
+                    lb = reshape(lb, newSize);
+                    lb = permute(lb, [2 1 3 4]);
+                    ub = reshape(ub, newSize);
+                    ub = permute(ub, [2 1 3 4]);
+                else
+                    error("Unsupported value for needReshape")
+                end
             end
             
             % Create reachability parameters and options

@@ -118,10 +118,18 @@ assert(numel(output) == 24, 'Flatten should preserve element count');
 rng(42);
 
 % Simple case: mean=0, var=1, scale=1, offset=0 should be identity
-L10 = BatchNormalizationLayer('bn_reg', 0, 1, 0, 1, 1);
+% BatchNormalizationLayer requires name-value pairs
+num_features = 5;
+L10 = BatchNormalizationLayer('Name', 'bn_reg', ...
+    'NumChannels', num_features, ...
+    'TrainedMean', zeros(num_features, 1), ...
+    'TrainedVariance', ones(num_features, 1), ...
+    'Scale', ones(num_features, 1), ...
+    'Offset', zeros(num_features, 1), ...
+    'Epsilon', 0);
 
 input = [1 2 3 4 5];
-expected = input;  % Identity
+expected = input;  % Identity (since mean=0, var=1, scale=1, offset=0)
 
 output = L10.evaluate(input');
 assert(max(abs(output' - expected)) < 1e-5, 'BatchNorm identity regression failed');

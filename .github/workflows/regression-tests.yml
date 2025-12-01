@@ -40,7 +40,6 @@ jobs:
             Computer_Vision_Toolbox
             Control_System_Toolbox
             Deep_Learning_Toolbox
-            Image_Processing_Toolbox
             Optimization_Toolbox
             Parallel_Computing_Toolbox
             Statistics_and_Machine_Learning_Toolbox
@@ -50,6 +49,7 @@ jobs:
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
             Deep_Learning_Toolbox_Converter_for_TensorFlow_models
             Deep_Learning_Toolbox_Verification_Library
+#            Image_Processing_Toolbox
 
       - name: Setup Python for CP
         uses: actions/setup-python@v5

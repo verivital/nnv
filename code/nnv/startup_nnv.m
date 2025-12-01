@@ -21,6 +21,111 @@ if is_codeocean()
     cd('/code/')
 end
 
+% display toolboxes to user
+fprintf('\nNOTE: The following toolboxes are detected.');
+ver()
+
+%% Dependency Checking
+% Check for required and optional toolboxes to help users debug issues
+% rather than encountering cryptic errors when dependencies are missing
+
+fprintf('\n--- NNV Dependency Check ---\n');
+
+% Get installed toolbox names once
+installed_toolboxes = {ver().Name};
+
+% Critical dependencies - will likely cause significant errors if missing
+% Format: {display_name, check_function}
+% We use function existence as the primary check (most reliable)
+critical_deps = {
+    'Optimization Toolbox',                     'optimoptions'
+    'Deep Learning Toolbox',                    'trainNetwork'
+    'Image Processing Toolbox',                 'imresize'
+    'Statistics and Machine Learning Toolbox',  'fitlm'
+    'Parallel Computing Toolbox',               'parpool'
+    'Computer Vision Toolbox',                  'detectSURFFeatures'
+};
+
+% Important but less critical - some features may not work
+important_deps = {
+    'Control System Toolbox',                   'ss'
+    'Symbolic Math Toolbox',                    'sym'
+    'System Identification Toolbox',            'iddata'
+};
+
+% Optional support packages - good to have for specific model imports
+% These are support packages, not toolboxes, so we check function existence only
+optional_deps = {
+    'Deep Learning Toolbox Converter for ONNX Model Format',       'importONNXNetwork'
+    'Deep Learning Toolbox Converter for PyTorch Models',          'importNetworkFromPyTorch'
+    'Deep Learning Toolbox Converter for TensorFlow Models',       'importTensorFlowNetwork'
+};
+
+% Helper function to check toolbox/package availability
+check_dependency = @(display_name, check_func) ...
+    any(strcmp(installed_toolboxes, display_name)) || ...
+    (exist(check_func, 'file') > 0);
+
+% Check critical dependencies
+missing_critical = {};
+for i = 1:size(critical_deps, 1)
+    if ~check_dependency(critical_deps{i,1}, critical_deps{i,2})
+        missing_critical{end+1} = critical_deps{i,1};
+    end
+end
+
+if ~isempty(missing_critical)
+    fprintf('\n');
+    warning('NNV:MissingCriticalDependency', ...
+        ['CRITICAL: The following toolboxes are missing and NNV may not function correctly:\n' ...
+         '  - %s\n' ...
+         'Please install these toolboxes for full functionality.'], ...
+        strjoin(missing_critical, '\n  - '));
+end
+
+% Check important dependencies
+missing_important = {};
+for i = 1:size(important_deps, 1)
+    if ~check_dependency(important_deps{i,1}, important_deps{i,2})
+        missing_important{end+1} = important_deps{i,1};
+    end
+end
+
+if ~isempty(missing_important)
+    fprintf('\n');
+    warning('NNV:MissingImportantDependency', ...
+        ['IMPORTANT: The following toolboxes are not installed:\n' ...
+         '  - %s\n' ...
+         'Some NNV features may be limited.'], ...
+        strjoin(missing_important, '\n  - '));
+end
+
+% Check optional dependencies (info only, no warning)
+missing_optional = {};
+for i = 1:size(optional_deps, 1)
+    if ~check_dependency(optional_deps{i,1}, optional_deps{i,2})
+        missing_optional{end+1} = optional_deps{i,1};
+    end
+end
+
+if ~isempty(missing_optional)
+    fprintf('\nINFO: Optional support packages not installed (needed for specific model imports):\n');
+    for i = 1:length(missing_optional)
+        fprintf('  - %s\n', missing_optional{i});
+    end
+end
+
+% Summary
+n_critical = size(critical_deps, 1) - length(missing_critical);
+n_important = size(important_deps, 1) - length(missing_important);
+n_optional = size(optional_deps, 1) - length(missing_optional);
+
+fprintf('\nDependency Summary: %d/%d critical, %d/%d important, %d/%d optional\n', ...
+    n_critical, size(critical_deps, 1), ...
+    n_important, size(important_deps, 1), ...
+    n_optional, size(optional_deps, 1));
+fprintf('--- End Dependency Check ---\n\n');
+
 % import data structures from Hyst
 javaaddpath(['engine', filesep, 'hyst', filesep, 'lib', filesep, 'Hyst.jar']);
 import de.uni_freiburg.informatik.swt.spaceexboogieprinter.*;

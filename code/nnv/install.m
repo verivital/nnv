@@ -32,6 +32,9 @@ fprintf('\nInstalling NNV is done, it is ready to use.');
 fprintf('\nPlease go to examples or test folders to run case studies and test examples.');
 fprintf('\nTHANK YOU FOR TRYING NNV. PLEASE EMAIL trhoangdung@gmail.com FOR ANY CONCERNS OR SUGESSTIONS\n\n');
 
+% show toolboxes
+ver()
+
 function adjust_glpk()
     try
 	filename = 'tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m';

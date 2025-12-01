@@ -33,6 +33,8 @@ jobs:
       # Sets up MATLAB on the GitHub Actions runner
       - name: Setup MATLAB
         uses: matlab-actions/setup-matlab@v2
+        with:
+          release: R2024b
       # Sets up python for CP
       - name: Setup python
         uses: actions/setup-python@v5

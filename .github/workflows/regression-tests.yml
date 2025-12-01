@@ -42,6 +42,7 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r requirement.txt
+        continue-on-error: true
 
       - name: Run regression tests
         uses: matlab-actions/run-command@v1

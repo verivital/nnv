@@ -74,7 +74,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
 
     % Solve using linprog (glpk as backup)
     elseif strcmp(lp_solver, 'linprog')
-        options = optimoptions(@linprog, 'Display','none'); 
+        options = optimoptions('linprog', 'Display','none'); 
         options.OptimalityTolerance = 1e-10; % set tolerance
         % first try solving using linprog
         [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);
@@ -97,7 +97,7 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
     elseif strcmp(lp_solver, 'glpk')
         [~, fval, exitflag, ~] = glpk(f, A, b, lb, ub);
         if ~ismember(exitflag, [2, 5, 3, 4, 110]) % feasible (2), optimal (5), not feasible (3, 4, 110)
-            options = optimoptions(@linprog, 'Display','none'); 
+            options = optimoptions('linprog', 'Display','none'); 
             options.OptimalityTolerance = 1e-10; % set tolerance
             % first try solving using linprog
             [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);

@@ -180,7 +180,7 @@ for i=1:n
 
     elseif contains(class(L), 'Reshape_To_ConcatLayer')
         Li = ReshapeToConcatenationLayer.parse(L);
-    
+
     elseif contains(class(L), 'MatMul_To_AddLayer')
         Li = MatMulToAddLayer.parse(L);
 
@@ -189,7 +189,7 @@ for i=1:n
 
     elseif contains(class(L), 'MatMul_To_SubLayer')
         Li = MatMulToSubLayer.parse(L);
-
+    
     elseif contains(class(L), ["flatten"; "Flatten"])
         % Check previous layer to see if we can neglect this one in the analysis
         for k=i-1:-1:1
@@ -252,6 +252,11 @@ net.name2indx = name2idx;
 % Get input and output sizes
 outSize = getOutputSize(Mnetwork);
 net.OutputSize = outSize; 
+
+net.matlabnet = Mnetwork;
+if ntype== "SeriesNetwork"
+    net.matlabnet = dag2dlnetwork(net.matlabnet);
+end
 
 end
 

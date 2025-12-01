@@ -587,7 +587,7 @@ classdef MaxPooling2DLayer < handle
                     end
                 end
             end
-                                          
+            
         end
         
         % step split of an image star,  a single in_image can be splitted into 
@@ -808,9 +808,9 @@ classdef MaxPooling2DLayer < handle
             for k=1:pad_image.numChannel
                 for i=1:h
                     for j=1:w
-                        max_index{i, j, k}  = pad_image.get_localMax_index(startPoints{i,j},obj.PoolSize, k, lp_solver);
+                        max_index{i, j, k} = pad_image.get_localMax_index(startPoints{i,j}, obj.PoolSize, k, lp_solver);
                         max_id = max_index{i,j,k};
-                        if size(max_id,1) > 1
+                        if size(max_id, 1) > 1
                             np = np + 1;
                             l  = l + 1;
                         end   
@@ -821,7 +821,8 @@ classdef MaxPooling2DLayer < handle
             % construct an over-approximate imagestar reachable set
             if strcmp(dis_opt, 'display')
                 fprintf('\n%d new variables are introduced\n', l);
-            end                   
+            end
+            
             % update new basis matrix
             new_V(:,:,pad_image.numChannel,np+1) = cast(zeros(h,w), 'like', in_image.V);
             new_pred_index = 0;
@@ -897,7 +898,8 @@ classdef MaxPooling2DLayer < handle
             image.addMaxIdx(obj.Name, max_index);  
 
         end
-        
+                
+       
         % reach approx-star with multiple inputs
         function IS = reach_star_approx_multipleInputs(varargin)
             % @in_images: an array of imagestar input sets

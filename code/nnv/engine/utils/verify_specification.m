@@ -1,4 +1,4 @@
-function result = verify_specification(reachSet, property)
+function result = verify_specification(reachSet, property, reachOptions)
 % verify a based on the interection between the reach set and halfspaces defining the property
 %   (assumed to be the un_robust_region or unsafe region to prove)
 % 
@@ -13,7 +13,18 @@ function result = verify_specification(reachSet, property)
 %   - result: 0 ->  property failed
 %             1 ->  property satisfied
 %             2 ->  unknown
-
+    
+    arguments
+        reachSet 
+        property 
+        reachOptions = []
+    end
+    
+    if ~isempty(reachOptions) && isfield(reachOptions, 'free_mem_frac_for_LPs_in_verify_specification')
+        free_mem_frac_setting = reachOptions.free_mem_frac_for_LPs_in_verify_specification;
+    else
+        free_mem_frac_setting = 0.2;
+    end
 
     R = reachSet;
     nr = length(R);    % number of output sets (for approx should be 1)
@@ -32,10 +43,7 @@ function result = verify_specification(reachSet, property)
             if ~isa(Set, "Star")
                 Set = Set.toStar;
             end
-            if isa(Set.V, 'gpuArray')
-                Set = Set.changeDevice('cpu');
-            end
-            S = Set.intersectHalfSpace(double(property.G), double(property.g)); % compute intersection with unsafe/not robust region
+            S = Set.intersectHalfSpace(property.G, property.g); % compute intersection with unsafe/not robust region
             if isempty(S)
                 result = 1; % no intersection with unsafe region = safe (unsat)
             else 
@@ -44,28 +52,131 @@ function result = verify_specification(reachSet, property)
             end
         end
     else
-        cp = 1; % current halfspace we are looking at
-        result = 1; % start assuming property is unsat (no intersection)
-        while cp <= np % multiple halfspaces, which means OR assertion
+        R2 = Star;
+        for k = 1:nr
+            if ~isa(R(k), "Star")
+                R2(k) = R(k).toStar;
+            else
+                R2(k) = R(k);
+            end
+            if isa(R2(k).V, 'gpuArray')
+                R2(k) = R2(k).changeDevice('cpu');
+            end
+        end
+        R = R2;
+        
+        for k = 1:nr
+        end
+        
+        poolobj = gcp('nocreate');
+        if isempty(poolobj)    % don't parallelize
+
+            cp = 1; % current halfspace we are looking at
+            result = 1; % start assuming property is unsat (no intersection)
+            while cp <= np % multiple halfspaces, which means OR assertion
+                for k = 1:nr % check every reach set vs OR property
+                    Set = R(k);
+                    S = Set.intersectHalfSpace(double(property(cp).G), double(property(cp).g));
+                    if isempty(S)
+                        continue; % does nothing, just need an statement, wanted to make this clear
+                    else
+                        result = 2; %  unknown if approx, sat if exact
+                        return;
+                    end
+                end
+                cp = cp+1;
+            end
+
+        else    % parallelize
+
+            disp_stuff = ~isempty(reachOptions) && isfield(reachOptions, 'dis_opt') && strcmp(reachOptions.dis_opt, 'display');
+            
+            result = 1;
+            if disp_stuff
+                fprintf("\n\n");
+            end
             for k = 1:nr % check every reach set vs OR property
-                Set = R(k);
-                if ~isa(Set, "Star")
-                    Set = Set.toStar;
+                f = zeros(1, R(k).nVar, 'like', R(k).V); % objective function
+                pred_lb = R(k).predicate_lb;
+                pred_ub = R(k).predicate_ub;
+                C_const = parallel.pool.Constant(R(k).C);
+                d_const = parallel.pool.Constant(R(k).d);
+                pred_lb_const = parallel.pool.Constant(pred_lb);
+                pred_ub_const = parallel.pool.Constant(pred_ub);
+                f_const = parallel.pool.Constant(f);
+                
+                results = nan(np, 1);
+                futures = [];
+                for cp = 1:np
+                    while ~isempty(futures) && NN.get_free_mem_frac < free_mem_frac_setting
+                        % disp("Pausing for 0.1 s because free memory " + NN.get_free_mem_B/2^30 + " is less than the desirable " + NN.get_total_mem_B*free_mem_frac_setting/2^30)
+                        pause(0.1);
+                    end
+                    % fetch some output(s)
+                    finished_futures_indices = find(arrayfun(@(f) strcmp(f.State, "finished"), futures));
+                    if ~isempty(finished_futures_indices)
+                        [temp_results, finished_cp_nos] = fetchOutputs(futures(finished_futures_indices));
+                        futures(finished_futures_indices) = [];
+                        results(finished_cp_nos) = temp_results;
+                        
+                        if isfield(reachOptions, 'dis_opt') && strcmp(reachOptions.dis_opt, 'display')
+                            fprintf("%s \t ", datetime('now'));
+                            disp("Index: " + finished_cp_nos + ";    Result: " + temp_results);
+                        end
+                        
+                        if ~all(temp_results)
+                            result = 0;
+                            cancel(futures);
+                            break;
+                        end
+                    end
+                    
+                    % if disp_stuff
+                    %     fprintf("Free memory before launching cp no. %d: %.2g GB", cp, NN.get_free_mem_B/2^30)
+                    % end
+                    
+                    [C_addition, d_addition] = Star.addition_to_C_d_by_intersection_with_halfspace(R(k), property(cp).G, property(cp).g);
+                    
+                    future = parfeval(@isEmptySet_Static_local, 2, f_const, C_const, d_const, pred_lb_const, pred_ub_const, cp, C_addition, d_addition);
+                    
+                    if isempty(futures)
+                        futures = future;
+                    else
+                        futures(end + 1) = future;
+                    end
                 end
-                if isa(Set.V, 'gpuArray')
-                    Set = Set.changeDevice('cpu');
+                
+                if result
+                    for m = 1:length(futures)
+                        [completedIdx, temp_result, finished_cp_no] = fetchNext(futures);
+                        results(finished_cp_no) = temp_result;
+                        if isfield(reachOptions, 'dis_opt') && strcmp(reachOptions.dis_opt, 'display')
+                            fprintf("%s \t ", datetime('now'));
+                            fprintf("printing after parfeval launches finished; Index: %d \t Result: %d\n", finished_cp_no, temp_result);
+                        end
+                        if ~temp_result
+                            result = 0;
+                            cancel(futures);
+                            break;
+                        end
+                    end
                 end
-                S = Set.intersectHalfSpace(double(property(cp).G), double(property(cp).g));
-                if isempty(S)
-                    continue; % does nothing, just need an statement, wanted to make this clear
-                else
-                    result = 2; %  unknown if approx, sat if exact
-                    return;
+                
+                if ~result
+                    break;
                 end
             end
-            cp = cp+1;
+            
+            if ~result
+                result = 2;
+            end
         end
     end
 
 end % close function
+
+
+function [bool, cp_no] = isEmptySet_Static_local(f_const, C_const, d_const, predicate_lb_const, predicate_ub_const, cp_no, C_addition, d_addition)
+    [bool, cp_no] = Star.isEmptySet_Static(f_const.Value, [C_const.Value; C_addition], [d_const.Value; d_addition], predicate_lb_const.Value, predicate_ub_const.Value, cp_no);
+end
 

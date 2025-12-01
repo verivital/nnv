@@ -1006,7 +1006,7 @@ classdef SatLin
                     relaxFactor = varargin{4};
                     dis_opt = varargin{5};
                     lp_solver = varargin{6};
-                    
+                
                 case 5
                     I = varargin{1};
                     method = varargin{2};

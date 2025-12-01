@@ -87,6 +87,8 @@ classdef ImageStar < handle
         pred_ub = []; % upper bound vector of the predicate
         im_lb = []; % lower bound image of the ImageStar
         im_ub = []; % upper bound image of the ImageStar
+        too_big_for_gpu = 0;    % a flag to store whether a set is too
+            % large to fit in GPU memory
         
         MaxIdxs = cell(1,1); % used for unmaxpooling operation in Segmentation network 
         InputSizes = cell(1,1); % used for unmaxpooling operation in Segmentation network 
@@ -698,7 +700,17 @@ classdef ImageStar < handle
                 S.im_lb = gather(S.im_lb); 
                 S.im_ub = gather(S.im_ub);
             elseif strcmp(deviceTarget, 'gpu')
-                S.V = gpuArray(S.V);
+                try
+                    S.V = gpuArray(S.V);
+                catch ME
+                    if strcmp(ME.identifier, 'parallel:gpu:array:pmaxsize')
+                        warning('ImageStar too big for GPU; keeping it in CPU memory.')
+                        obj.too_big_for_gpu = 1;
+                        return;
+                    else
+                        rethrow(ME)
+                    end
+                end
                 S.C = gpuArray(S.C);
                 S.d = gpuArray(S.d);
                 S.pred_lb = gpuArray(S.pred_lb); 
@@ -760,27 +772,43 @@ classdef ImageStar < handle
             if chan_ind < 1 || chan_ind > obj.numChannel
                 error('Invalid channel index');
             end
-            % min
-            f = obj.V(vert_ind, horiz_ind, chan_ind, 2:obj.numPred + 1);
-            [fval, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
-            if ismember(exitflag, ["l1","g5"])
-               xmin = fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
+            
+            f1 = reshape(obj.V(vert_ind, horiz_ind, chan_ind, :), 1, []);
+            f = f1(2:end);
+            
+            % check if the generators affecting this neuron are
+            % unconstrained
+            unconstrained_pred_vars = all(abs(obj.C) == 0, 1);
+            is_gen_vec_non_zero = f ~= 0;
+            if all((unconstrained_pred_vars & is_gen_vec_non_zero) == is_gen_vec_non_zero)
+                fpos = f;
+                fpos(f < 0) = 0;
+                fneg = f;
+                fneg(f > 0) = 0;
+                xmin = f1(1) + fpos*obj.pred_lb + fneg*obj.pred_ub;
+                xmax = f1(1) + fpos*obj.pred_ub + fneg*obj.pred_lb;
             else
-                error("Cannot find an optimal solution, exitflag = " + string(exitflag));
-            end
-            % max
-            [fval, exitflag] = lpsolver(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
-            if ismember(exitflag, ["l1","g5"])
-                xmax = -fval + obj.V(vert_ind, horiz_ind, chan_ind, 1);
-            else
-                error("Cannot find an optimal solution, exitflag = " + string(exitflag));
+                % min
+                [fval, exitflag] = lpsolver(f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
+                if ismember(exitflag, ["l1","g5"])
+                    xmin = f1(1) + fval;
+                else
+                    error("Cannot find an optimal solution, exitflag = " + string(exitflag));
+                end
+                % max
+                [fval, exitflag] = lpsolver(-f, obj.C, obj.d, [], [], obj.pred_lb, obj.pred_ub, lp_solver);
+                if ismember(exitflag, ["l1","g5"])
+                    xmax = f1(1) - fval;
+                else
+                    error("Cannot find an optimal solution, exitflag = " + string(exitflag));
+                end
             end
                 
             obj.im_lb(vert_ind, horiz_ind, chan_ind) = xmin;
             obj.im_ub(vert_ind, horiz_ind, chan_ind) = xmax;
                    
         end
-        
+
         % estimate range quickly using only predicate bound information
         function [xmin, xmax] = estimageRange(obj, h, w, c)
             % @h: height index
@@ -788,30 +816,30 @@ classdef ImageStar < handle
             % @c: channel index
             % @xmin: min of x[h, w, c]
             % @xmax: max of x[h, w, c]
-            
+
             % author: Dung Tran
             % date: 7/22/2019
-            
+
             if isempty(obj.C) || isempty(obj.d)
                 error('The imagestar is empty');
             end
-            
+
             if h < 1 || h > obj.height
                 error('Invalid veritical index');
             end
-            
+
             if w < 1 || w > obj.width
                 error('Invalid horizonal index');
             end
-            
+
             if c < 1 || c > obj.numChannel
                 error('Invalid channel index');
             end
-            
+
             f = obj.V(h, w, c, 1:obj.numPred + 1);
             xmin = f(1);
             xmax = f(1);
-            
+
             for i=2:obj.numPred+1
                 if f(i) >= 0
                     xmin = xmin + f(i) * obj.pred_lb(i-1);
@@ -820,11 +848,11 @@ classdef ImageStar < handle
                     xmin = xmin + f(i) * obj.pred_ub(i-1);
                     xmax = xmax + f(i) * obj.pred_lb(i-1);
                 end
-                
+
             end
-            
-        end
-        
+
+        end        
+
         % estimate ranges quickly using only predicate bound information
         function [image_lb, image_ub] = estimateRanges(varargin)
             % @h: height index
@@ -856,12 +884,11 @@ classdef ImageStar < handle
             end
             
             if isempty(obj.im_lb) || isempty(obj.im_ub)
-                         
-                gens = obj.V(:,:,:,2:end);
-                pos_gens = gens;
-                pos_gens(gens < 0) = 0;
-                neg_gens = gens;
-                neg_gens(gens > 0) = 0;
+                
+                pos_gens = obj.V(:,:,:,2:end);
+                pos_gens(pos_gens < 0) = 0;
+                neg_gens = obj.V(:,:,:,2:end);
+                neg_gens(neg_gens > 0) = 0;
                 image_lb = obj.V(:,:,:,1) + tensorprod(pos_gens, obj.pred_lb, 4, 1) + tensorprod(neg_gens, obj.pred_ub, 4, 1);
                 image_ub = obj.V(:,:,:,1) + tensorprod(pos_gens, obj.pred_ub, 4, 1) + tensorprod(neg_gens, obj.pred_lb, 4, 1);
 
@@ -890,29 +917,27 @@ classdef ImageStar < handle
                 case 1
                     obj = varargin{1};
                     lp_solver = 'linprog';
+                    option = 'single';
                 case 2
                     obj = varargin{1};
                     lp_solver = varargin{2};
+                    option = 'single';
+                case 3
+                    obj = varargin{1};
+                    lp_solver = varargin{2};
+                    option = varargin{3};
                 otherwise
                     error('Invalid number of input arguments');
             end
             
-            image_lb = zeros(obj.height, obj.width, obj.numChannel);
-            image_ub = zeros(obj.height, obj.width, obj.numChannel);
+            h = obj.height;
+            w = obj.width;
+            nc = obj.numChannel;
+            N = h*w*nc;
             
-%             reverseStr = '';
-%             N = obj.height*obj.width*obj.numChannel;
-%             fprintf('Optimizing ranges: ')
-            for i=1:obj.height
-                for j=1:obj.width
-                    for k=1:obj.numChannel
-%                         msg = sprintf('%d/%d', i*j*k, N);
-                        [image_lb(i, j, k), image_ub(i, j, k)] = obj.getRange(i,j,k, lp_solver);                       
-%                         fprintf([reverseStr, msg]);
-%                         reverseStr = repmat(sprintf('\b'), 1, length(msg));
-                    end
-                end
-            end
+            R = obj.toStar;
+            image_lb = reshape(R.getMins(1:N, option, [], lp_solver), [h w nc]);
+            image_ub = reshape(R.getMaxs(1:N, option, [], lp_solver), [h w nc]);
             
             obj.im_lb = image_lb;
             obj.im_ub = image_ub;
@@ -926,30 +951,30 @@ classdef ImageStar < handle
             % @chan_ind : channel index
             % @xmin: min of x(vert_ind,horiz_ind, channel_ind)
             % @xmax: max of x(vert_ind,horiz_ind, channel_ind)
-            
+
             % author: Dung Tran
             % date: 7/19/2019
-                                  
+
             if isempty(obj.C) || isempty(obj.d)
                 error('The imagestar is empty');
             end
-            
+
             if vert_ind < 1 || vert_ind > obj.height
                 error('Invalid veritical index');
             end
-            
+
             if horiz_ind < 1 || horiz_ind > obj.width
                 error('Invalid horizonal index');
             end
-            
+
             if chan_ind < 1 || chan_ind > obj.numChannel
                 error('Invalid channel index');
             end
-            
+
             f = obj.V(vert_ind, horiz_ind, chan_ind, 1:obj.numPred + 1);
             xmin = f(1);
             xmax = f(1);
-            
+
             for i=2:obj.numPred + 1
                 if f(i) >= 0
                     xmin = xmin + f(i) * obj.pred_lb(i-1);
@@ -959,7 +984,7 @@ classdef ImageStar < handle
                     xmax = xmax + f(i) * obj.pred_lb(i-1);
                 end
             end
-            
+
         end
         
         % estimate the number of attacked pixels
@@ -1105,8 +1130,9 @@ classdef ImageStar < handle
                     
         end
             
-        % get local max index( find the maximum point of a local image)
-        function max_id = get_localMax_index(varargin)
+        % get local max index( find the maximum point of a local image).
+        % use getRanges before calling this function!
+        function [max_id, updated_points, updated_lb, updated_ub] = get_localMax_index(varargin)
             % @startpoint: startpoint of the local(partial) image
             %               startpoint = [x1 y1];
             % @PoolSize: = [height width] the height and width of max pooling layer
@@ -1173,11 +1199,11 @@ classdef ImageStar < handle
                 new_points1 = zeros(m, 2);
                 for i=1:m
                     p = points(candidates(i), :);
-                    new_points = [p channel_id];
+                    new_points(i, :) = [p, channel_id];
                     new_points1(i, :) = p;
                 end
-                obj.updateRanges(new_points, lp_solver);
-                                
+                obj.updateRanges(new_points, lp_solver);                                
+                
                 lb = zeros(1, m);
                 ub = zeros(1, m);
 
@@ -1211,12 +1237,15 @@ classdef ImageStar < handle
                     
                 end
                 
+                updated_points = new_points;
+                updated_lb = nan;
+                updated_ub = nan;
+                
             end
             
             n = size(max_id, 1);
             channels = channel_id*ones(n,1);
             max_id = [max_id channels];
-
         
         end
         
@@ -1515,6 +1544,16 @@ classdef ImageStar < handle
             new_C = [in_IS.C; new_C];
             new_d = [in_IS.d; new_d];
             
+        end
+        
+        function sets = change_device_multiple_sets(sets, device)
+            for k = 1:length(sets)
+                if isa(sets(k), 'cell')
+                    sets{k} = ImageStar.change_device_multiple_sets(sets{k}, device);
+                else
+                    sets(k) = sets(k).changeDevice(device);
+                end
+            end
         end
     
     end

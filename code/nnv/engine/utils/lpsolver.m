@@ -1,4 +1,4 @@
-function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
+function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts, varargin)
     % common function for al linear programming problems
     % for now we will set linprog with default options to solve every task,
     % seems to be faster than glpk or yalmip, and if it fails, we try glpk
@@ -9,20 +9,14 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
     % want to use and call yalmip from this function
 
     if ~exist('lp_solver', 'var') || ~isempty(Aeq) || ~isempty(Beq)
-        lp_solver = 'linprog'; % default solver, sometimes fails with mpt, so glpk as backup
+        lp_solver = 'linprog';  % default solver, sometimes fails with mpt, so glpk as backup
+        % lp_solver = 'gurobi';
     end
 
     if ~exist('opts', 'var')
         opts = 'normal';
     elseif ~strcmp(opts, 'emptySet')
         opts = 'normal';
-    end
-
-    dataType = class(f);
-
-    if strcmp(dataType, "gpuArray") || isa(A, "gpuArray") % ensure it is not a gpuArray
-        f = gather(f); A = gather(A); b = gather(b); lb = gather(lb);
-        Aeq = gather(Aeq); Beq = gather(Beq); ub = gather(ub); 
     end
 
     if isempty(A)
@@ -32,15 +26,22 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
     if isempty(f)
         f = zeros(length(b),1, 'like', b);
     end
+    
+    dataType = class(f);
+
+    if strcmp(dataType, "gpuArray") || isa(A, "gpuArray") % ensure it is not a gpuArray
+        f = gather(f); A = gather(A); b = gather(b); lb = gather(lb);
+        Aeq = gather(Aeq); Beq = gather(Beq); ub = gather(ub); 
+    end
 
     dataType = class(f); 
 
-    if strcmp(dataType, "single") || isa(A, "single") % ensure variables are all of type double
+    if strcmp(dataType, "single") || isa(A, "single") || isa(b, "single") % ensure variables are all of type double
         f = double(f); A = double(A); b = double(b); lb = double(lb);
         Aeq = double(Aeq); Beq = double(Beq); ub = double(ub); 
     end
     
-    if strcmp(lp_solver, 'gurobi') % no backup solver, should be better than the others
+    if strcmp(lp_solver, 'gurobi')
         % Create gurobi model
         model.obj = f; % objective function
         model.A = [sparse(A); sparse(Aeq)]; % A must be sparse
@@ -57,19 +58,39 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
         % Define solver parameters
         params = struct; % for now, leave default options/params
         params.OutputFlag = 0; % no display
-        % params.OptimalityTol = 1e-09;
-        % params.FeasibilityTol = 1e-09;
-        result = gurobi(model, params);
-        fval = result.objval; % get fval value from results
+        params.OptimalityTol = 1e-09;
+        params.FeasibilityTol = 1e-09;
+        params.BarConvTol = 1e-20;
+        try
+            result = gurobi(model, params);
+        catch ME
+            if strcmp(ME.identifier, 'gurobi:BadInput') && strcmp(ME.message, 'model.rhs must be a dense double vector')
+                [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, "linprog", opts, "valid");
+                return;
+            else
+                rethrow(ME);
+            end
+        end
+        if isfield(result, 'objval')
+                fval = result.objval;
+        else
+                fval = +Inf; % value for infeasiblity; may cause issues
+        end
         % get exitflag and match those of linprog for easier parsing
         if strcmp(result.status,'OPTIMAL')
             exitflag = "l1"; % converged to a solution
         elseif strcmp(result.status,'UNBOUNDED')
             exitflag = "l-5"; % problem is unbounded
         elseif strcmp(result.status,'ITERATION_LIMIT')
-            exitflag = "l-2"; % maximum number of iterations reached
-        else
+            % exitflag = "l-2"; % maximum number of iterations reached
+            [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, "linprog", opts, "valid");
+        elseif strcmp(result.status,'INFEASIBLE')
             exitflag = "l-2"; % no feasible point found
+            % if strcmp(opts, 'emptySet')
+            %     [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, "linprog", opts, "valid");
+            % end
+        else
+            [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, "linprog", opts, "valid");
         end
 
     % Solve using linprog (glpk as backup)
@@ -111,7 +132,8 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
 
     else % Try using yalmip with defined solver, much slower in our tests
         ops = sdpsettings('solver',lp_solver, 'verbose', 0);
-        x = sdpvar(length(stars(rs).predicate_lb),1);
+        % x = sdpvar(length(stars(rs).predicate_lb),1);
+        x = sdpvar(length(lb),1);
         if isempty(Aeq) && isempty(Beq)
             if isempty(lb) && isempty(ub)
                 constraints = A*x <= b;

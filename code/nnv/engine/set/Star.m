@@ -518,6 +518,52 @@ classdef Star
             
         end
         
+        % intersection with a half space: H(x) := Hx <= g
+        function result = is_intersection_with_halfspace_empty(obj, H, g)
+            % @H: HalfSpace matrix
+            % @g: HalfSpace vector
+            % @S : new star set with more constraints
+            
+            % author: Dung Tran
+            % date: 10/27/2018
+            
+            [nH, mH] = size(H);
+            [ng, mg] = size(g);
+            
+            if mg ~= 1
+                error('Halfspace vector should have one column');
+            end
+            if nH ~= ng
+                error('Inconsistent dimension between Halfspace matrix and halfspace vector');
+            end
+            if mH ~= obj.dim
+                error('Inconsistent dimension between halfspace and star set');
+            end
+            
+            m = size(obj.V, 2);
+            C1 = H*obj.V(:, 2:m);
+            d1 = g - H*obj.V(:,1);
+            
+            new_C = vertcat(obj.C, C1);
+            new_d = vertcat(obj.d, d1);
+            
+            old_C = obj.C;
+            old_d = obj.d;
+            
+            obj.C = new_C;
+            obj.d = new_d;
+            
+            if obj.isEmptySet
+                result = 1;
+            else
+                result = 0;
+            end
+            
+            obj.C = old_C;
+            obj.d = old_d;
+            
+        end
+        
     end
 
 
@@ -704,7 +750,7 @@ classdef Star
                 if ismember(exitflag, ["l1","g5"])  
                     xmin = fval + obj.V(index, 1);
                 else
-                    error('Cannot find an optimal solution, exitflag = ' + exitflag);
+                    error('Cannot find an optimal solution, exitflag = ' + exitflag + ' using solver ' + lp_solver);
                 end
             end
             
@@ -767,18 +813,23 @@ classdef Star
                 d1 = obj.d;
                 pred_lb = obj.predicate_lb;
                 pred_ub = obj.predicate_ub;
-                parfor i=1:n                    
-                    if all(f(i,:)==0)
-                        xmin(i) = V1(i,1);
+                unconstrained_pred_vars = all(abs(obj.C) == 0, 1);  % a
+                % ticBytes(gcp)
+                parfor i=1:n
+                    is_gen_vec_non_zero = f(i,:) ~= 0;
+                    if all((unconstrained_pred_vars & is_gen_vec_non_zero) == is_gen_vec_non_zero)
+                        [xmin(i), ~] = estimateRangeStatic(f(i,:), V1(i,1), pred_lb, pred_ub);
+                        % disp("Skipped lpsolver for an unconstrained neuron.")
                     else
                         [fval, exitflag] = lpsolver(f(i, :), C1, d1, [], [], pred_lb, pred_ub, lp_solver);
                         if ismember(exitflag, ["l1","g5"])
                             xmin(i) = fval + V1(i, 1);
                         else
                             error('Cannot find an optimal solution, exitflag = %d', exitflag);
-                        end                                   
+                        end                          
                     end
                 end
+                % tocBytes(gcp);
             else
                 error('Unknown parallel option');
             end
@@ -881,9 +932,12 @@ classdef Star
                 d1 = obj.d;
                 pred_lb = obj.predicate_lb;
                 pred_ub = obj.predicate_ub;
+                unconstrained_pred_vars = all(abs(obj.C) == 0, 1);
                 parfor i=1:n
-                    if all(f(i,:)==0)
-                        xmax(i) = V1(i,1);
+                    is_gen_vec_non_zero = f(i,:) ~= 0;
+                    if all((unconstrained_pred_vars & is_gen_vec_non_zero) == is_gen_vec_non_zero)
+                        [~, xmax(i)] = estimateRangeStatic(f(i,:), V1(i,1), pred_lb, pred_ub);
+                        % disp("Skipped lpsolver for an unconstrained neuron.")
                     else
                         [fval, exitflag] = lpsolver(-f(i, :), C1, d1, [], [], pred_lb, pred_ub, lp_solver); 
                         if ismember(exitflag, ["l1","g5"])
@@ -933,20 +987,13 @@ classdef Star
             
             if ~isempty(obj.predicate_lb) && ~isempty(obj.predicate_ub)
 
-                f = obj.V(index, 1:obj.nVar+1);
-                xmin = f(1);
-                xmax = f(1);
-
-                for i=2:obj.nVar+1
-                    if f(i) >= 0
-                        xmin = xmin + f(i) * obj.predicate_lb(i-1);
-                        xmax = xmax + f(i) * obj.predicate_ub(i-1);
-                    else
-                        xmin = xmin + f(i) * obj.predicate_ub(i-1);
-                        xmax = xmax + f(i) * obj.predicate_lb(i-1);
-                    end
-
-                end
+                f = obj.V(index, 2:obj.nVar+1);
+                fpos = f;
+                fpos(f < 0) = 0;
+                fneg = f;
+                fneg(f > 0) = 0;
+                xmin = obj.V(index, 1) + fpos*obj.predicate_lb + fneg*obj.predicate_ub;
+                xmax = obj.V(index, 1) + fpos*obj.predicate_ub + fneg*obj.predicate_lb;
 
             else
                warning('The ranges of predicate variables are unknown to estimate the ranges of the states, we solve LP optimization to get the exact range');
@@ -1011,12 +1058,7 @@ classdef Star
             
             % author: Dung Tran
             % date: 3/27/2020
-                                   
-            pos_mat = obj.V; 
-            neg_mat = obj.V;
-            pos_mat(pos_mat < 0) = 0; 
-            neg_mat(neg_mat > 0) = 0;
-
+            
             % ensure predicate bounds are not empty (if empty, set to 1 and -1)
             if isempty(obj.predicate_lb)
                 obj.predicate_lb = -1*ones(obj.nVar,1); 
@@ -1025,8 +1067,15 @@ classdef Star
                 obj.predicate_ub = ones(obj.nVar,1);
             end
             
+            pos_mat = obj.V; 
+            pos_mat(pos_mat < 0) = 0; 
             xmin1 = pos_mat*[0; obj.predicate_lb];
             xmax1 = pos_mat*[0; obj.predicate_ub];
+            
+            clear pos_mat	% to save memory before copying obj.V for neg_mat
+            
+            neg_mat = obj.V;
+            neg_mat(neg_mat > 0) = 0;
             xmin2 = neg_mat*[0; obj.predicate_ub];
             xmax2 = neg_mat*[0; obj.predicate_lb];
             
@@ -1135,9 +1184,10 @@ classdef Star
             b = obj.d;
             Ae = obj.V(:, 2:obj.nVar+1);
             be = s - obj.V(:,1);
-
+            
             P = Polyhedron('A', double(A), 'b', double(b), 'Ae', double(Ae), 'be', double(be),...
                 'lb', double(obj.predicate_lb), 'ub', double(obj.predicate_ub));
+            
             bool = ~P.isEmptySet;
                      
         end
@@ -2020,6 +2070,66 @@ classdef Star
 
         end
         
+        % intersection with a half space: H(x) := Hx <= g
+        function [new_C, new_d] = new_C_d_intersection_with_halfspace(Set, H, g)
+            % @H: HalfSpace matrix
+            % @g: HalfSpace vector
+            % @S : new star set with more constraints
+            
+            % author: Dung Tran
+            % date: 10/27/2018
+            
+            [nH, mH] = size(H);
+            [ng, mg] = size(g);
+            
+            if mg ~= 1
+                error('Halfspace vector should have one column');
+            end
+            if nH ~= ng
+                error('Inconsistent dimension between Halfspace matrix and halfspace vector');
+            end
+            
+            if mH ~= Set.dim
+                error('Inconsistent dimension between halfspace and star set');
+            end
+            
+            m = size(Set.V, 2);
+            C1 = H*Set.V(:, 2:m);
+            d1 = g - H*Set.V(:,1);
+            
+            new_C = vertcat(Set.C, C1);
+            new_d = vertcat(Set.d, d1);
+            
+        end
+        
+        % intersection with a half space: H(x) := Hx <= g
+        function [C_addition, d_addition] = addition_to_C_d_by_intersection_with_halfspace(Set, H, g)
+            % @H: HalfSpace matrix
+            % @g: HalfSpace vector
+            % @S : new star set with more constraints
+            
+            % author: Dung Tran
+            % date: 10/27/2018
+            
+            [nH, mH] = size(H);
+            [ng, mg] = size(g);
+            
+            if mg ~= 1
+                error('Halfspace vector should have one column');
+            end
+            if nH ~= ng
+                error('Inconsistent dimension between Halfspace matrix and halfspace vector');
+            end
+            
+            if mH ~= Set.dim
+                error('Inconsistent dimension between halfspace and star set');
+            end
+            
+            m = size(Set.V, 2);
+            C_addition = H*Set.V(:, 2:m);
+            d_addition = g - H*Set.V(:,1);
+        end
+        
     end
 
 
@@ -2040,7 +2150,48 @@ classdef Star
             S = Star(P);  
             
         end
+        
+        function [bool, cp_no] = isEmptySet_Static(f, C, d, predicate_lb, predicate_ub, cp_no)
+            % author: Dung Tran
+            % date: 
+            % update: 6/16/2020
+            % update: 7/15/2020 The isEmptySet method in Polyhedron object has bug
+            
+            arguments
+                f 
+                C 
+                d 
+                predicate_lb 
+                predicate_ub 
+                cp_no = nan
+            end
+            
+            [~, exitflag] = lpsolver(f, C, d, [], [], predicate_lb, predicate_ub, 'linprog', 'emptySet');
+            if ismember(exitflag,["l1", "g2", "g5"])
+                bool = 0;
+            elseif ismember(exitflag, ["l-2", "l-5", "g3", "g4", "g110"])
+                bool = 1;
+            else
+                error('Error, exitflag = %d', exitflag);
+            end
+            
+        end
            
     end
     
+end
+
+% static version
+function [lb, ub] = estimateRangeStatic(gens, center, pred_lb, pred_ub)
+    % equivalent to estimateRange
+    gens_pos = gens;
+    gens_pos(gens_pos < 0) = 0;
+    gens_neg = gens;
+    gens_neg(gens_neg > 0) = 0;
+    lb = center + gens_pos*pred_lb + gens_neg*pred_ub;
+    ub = center + gens_pos*pred_ub + gens_neg*pred_lb;
+end
+
+function [fval, exitflag, i] = lpsolver_static_with_i(f, C, d, A, b, lb, ub, lp_solver, i); 
+    [fval, exitflag] = lpsolver(f, C, d, A, b, lb, ub, lp_solver); 
 end

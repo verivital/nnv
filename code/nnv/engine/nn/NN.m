@@ -441,21 +441,53 @@ classdef NN < handle
     methods % secondary methods (verification, safety, robustness...)
         
         % Verify a VNN-LIB specification
-        function result = verify_vnnlib(obj, propertyFile, reachOptions)
+        function [result, X] = verify_vnnlib(obj, propertyFile, reachOptions, needReshape)
+            
+            arguments
+                obj 
+                propertyFile 
+                reachOptions 
+                needReshape = 0;
+            end
             
             % Load specification to verify
             property = load_vnnlib(propertyFile);
             lb = property.lb;
             ub = property.ub;
-
+            
+            if isfield(reachOptions, 'single_average_input') && reachOptions.single_average_input
+                if ~isa(lb, 'cell')
+                    lb = (lb + ub)/2;
+                    ub = lb;
+                else
+                    lb = (lb{1} + ub{1})/2;
+                    ub = lb;
+                end
+            end
+            
+            first_layer = obj.Layers(1, 1);
+            inputSize = first_layer{1}.InputSize;
+            
+            % Format bounds into correct dimensions
+            % (using code from run_vnncomp2024_instance.m)
+            if needReshape == 1
+                lb = permute(lb, [2 1 3]);
+                ub = permute(ub, [2 1 3]);
+            elseif needReshape == 2
+                newSize = [inputSize(2) inputSize(1) inputSize(3:end)];
+                lb = reshape(lb, newSize);
+                lb = permute(lb, [2 1 3 4]);
+                ub = reshape(ub, newSize);
+                ub = permute(ub, [2 1 3 4]);
+            end
+            
             % Create reachability parameters and options
             if contains(reachOptions.reachMethod, "zono")
                 X = ImageZono(lb, ub);
             else
-                X = ImageStar(lb,ub);
+                X = ImageStar(lb, ub);
             end
-
-            % Compute reachability
+            
             Y = obj.reach(X, reachOptions); % Seems to be working
             result = verify_specification(Y, property.prop); 
 

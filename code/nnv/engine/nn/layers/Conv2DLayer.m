@@ -31,6 +31,22 @@ classdef Conv2DLayer < handle
         InputNames = {'in'};
         NumOutputs = 1;
         OutputNames = {'out'};
+
+        weightPerturb = [];    % perturb specified weights of only this 
+            % convolutional layer in the specified range
+            % (coupling/interaction with existing predicate variables in
+            % the input set not implemented yet). The first element of
+            % each row is the index of the weight to be perturbed in linear
+            % format, so use sub2ind() on multi-dimensional indices before
+            % specifying it here. The next two elements are the lower and
+            % upper bounds of the perturbation. Bias perturbation not 
+            % implemented yet.
+        
+        mem_thresh = 0.1;    % for the split_and_combine decision; split
+            % and combine only if the size of the resulting set is less
+            % than this fraction of the free memory
+        
+        max_parallel_workers = 64;
     end
     
     
@@ -425,11 +441,44 @@ classdef Conv2DLayer < handle
             end
             
         end
+        
+        % specify a weight perturbation to be added to the 
+        % obj.weightPerturb specification matrix
+        function add_pert(obj, pert_indices, lb, ub)
+            % @pert_indices: indices of the weight to be perturbed
+            % @lb: lower bound of the perturbation
+            % @ub: upper bound of the perturbation
+            
+            WPutils.add_pert_call_this_function_from_layer(obj, pert_indices, lb, ub);
+        end
+        
+        % specify a perturbation to be applied to the whole layer
+        function perturb_whole_layer(obj, lb, ub)
+            % @lb: lower bound of the perturbation
+            % @ub: upper bound of the perturbation
+            
+            WPutils.perturb_whole_layer_call_this_function_from_layer(obj, lb, ub);
+        end
+        
+        % specify a symmetric perturbation to be applied to the whole layer
+        % as a fraction of the range of the weights in the layer
+        function perturb_whole_layer_given_fraction_of_weights_range(obj, frac)
+            % @frac: fraction of the weights' range to be applied as
+            % perturbation to the whole layer
+            
+            WPutils.pert_whole_layer_given_fraction_of_weights_range_call_fromLayer(obj, frac);
+        end
 
         % change params to gpuArrays
         function obj = toGPU(obj)
             obj.Weights = gpuArray(obj.Weights);
             obj.Bias = gpuArray(obj.Bias);
+        end
+
+        % change params to gpuArrays
+        function obj = toCPU(obj)
+            obj.Weights = gather(obj.Weights);
+            obj.Bias = gather(obj.Bias);
         end
 
         % Change params precision
@@ -458,7 +507,6 @@ classdef Conv2DLayer < handle
             % y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
             y = dlconv(dlarray(input, "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
             y = extractdata(y);
-            
         end
 
         function y1 = evaluateSequence(obj, input)
@@ -518,22 +566,223 @@ classdef Conv2DLayer < handle
                 error("Input set contains %d channels while the convolutional layers has %d channels", input.numChannel, obj.NumChannels);
             end
             
+            too_big_for_gpu = 0;
+            if isa(input.V, 'gpuArray')
+                c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                mem_V_B = whos('c').bytes*size(input.V, 4);
+                [~, gpu_free_mem_B] = WPutils.get_nvidia_gpu_used_memory_frac;
+                if mem_V_B > 0.4*gpu_free_mem_B
+                    too_big_for_gpu = 1;
+                    input.changeDevice('cpu');
+                    obj.toCPU;
+                end
+            end
+            
             % compute output sets
             % if ~isa(input.V, 'gpuArray')
                 % c = vl_nnconv(input.V(:,:,:,1), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
                 % V = vl_nnconv(input.V(:,:,:,2:input.numPred + 1), obj.Weights, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);   
-                % c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-                % V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
-                % c = extractdata(c);
-                % V = extractdata(V);
             % else
             c = dlconv(dlarray(input.V(:,:,:,1), "SSC"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
             V = dlconv(dlarray(input.V(:,:,:,2:input.numPred + 1), "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
             c = extractdata(c);
             V = extractdata(V);
             % end
-            Y = cat(4, c, V);
-            S = ImageStar(Y, input.C, input.d, input.pred_lb, input.pred_ub);
+            V = cat(4, c, V);
+            
+            C = input.C;
+            d = input.d;
+            pred_lb = input.pred_lb;
+            pred_ub = input.pred_ub;
+            
+            if ~isempty(obj.weightPerturb)
+                
+                % multi-layer convolutional layer perturbations not yet
+                % supported, so check if the input set already contains
+                % perturbations, and throw an error if it does
+                % (checking this here by making sure that any generators
+                % corresponding to predicate variables are zero)
+                % (multi-layer support is not too difficult to add, however; just more time-consuming)
+                if ~isempty(pred_lb)
+                    test_max_val = max(abs(c), [], 'all');
+                    if max(abs(V(:,:,:,2:end)), [], 'all') > 1e-6*test_max_val
+                        error("Conv2D Layer does not yet support processing of input sets with existing perturbations")
+                    end
+                end
+                
+                % make sure that the weight perturbation matrix adheres
+                % to the 3 column format described above
+                sz = size(obj.weightPerturb);
+                if length(sz) > 2 || sz(2) > 3
+                    error("Weight perturbation specification matrix must have only 3 elements in each row: [linear index of perturbed weight, lower bound of perturbation, upper bound of perturbation]")
+                end
+                
+                num_pert = size(obj.weightPerturb, 1);
+                gen_size_info = whos('c');
+                sz_without_split = (num_pert + 2)*gen_size_info.bytes;
+                split_and_combine = numel(obj.Weights) > numel(V(:,:,:,1)); % compare relative set sizes without and with splitting
+                if sz_without_split < obj.mem_thresh*WPutils.get_free_mem_B
+                    split_and_combine = 0;
+                    % if obj.mem_thresh < 1
+                    %     warning("Avoiding split because set size without split is sufficiently small.")
+                    % end
+                end
+                dim_wise_lb = zeros(size(V(:, :, :, 1)), 'like', V);
+                dim_wise_ub = dim_wise_lb;
+                
+                if split_and_combine
+                    % split and add perturbations to begin with, instead of
+                    % splitting afterwards
+
+                    % for the new generators, one for each output neuron
+                    row_size = size(V, 1);
+                    col_size = size(V, 2);
+                    num_channels = size(V, 3);
+                else
+                    V_ext = nan(size(V, 1), size(V, 2), size(V, 3), num_pert, underlyingType(V));
+                    lb_ext = nan(num_pert, 1, underlyingType(pred_lb));
+                    ub_ext = lb_ext;
+                    C_ext = zeros(size(C, 1), num_pert, underlyingType(C));
+                end
+                
+                poolobj = gcp('nocreate');
+                if isa(V, 'gpuArray') && ~isempty(poolobj) && num_pert > 10
+                    if isempty(poolobj)
+                        numWorkers = 1;
+                    else
+                        numWorkers = poolobj.NumWorkers;
+                    end
+                    if numWorkers > obj.max_parallel_workers
+                        delete(gcp('nocreate'));
+                        parpool('Processes', obj.max_parallel_workers);
+                    end
+                end
+                
+                line_length = 0;
+                if isempty(poolobj)
+                    for pert_no = 1:num_pert
+                        ind = obj.weightPerturb(pert_no, 1);
+                        pert_lb  = obj.weightPerturb(pert_no, 2);
+                        pert_ub  = obj.weightPerturb(pert_no, 3);
+                        W_perturb = zeros(size(obj.Weights), 'like', V);
+                        W_perturb(ind) = 1;
+                        if ~isa(input.V, 'gpuArray')
+                            gen = vl_nnconv(input.V(:,:,:,1), W_perturb, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+                        else
+                            gen = dlconv(dlarray(input.V(:,:,:,1), "SSC"), W_perturb, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                        end
+
+                        if split_and_combine
+                            gen_pos = gen;
+                            gen_pos(gen < 0) = 0;
+                            dim_wise_lb = dim_wise_lb + gen_pos*pert_lb;
+                            dim_wise_ub = dim_wise_ub + gen_pos*pert_ub;
+                            
+                            gen_neg = gen;
+                            gen_neg(gen > 0) = 0;
+                            dim_wise_lb = dim_wise_lb + gen_neg*pert_ub;
+                            dim_wise_ub = dim_wise_ub + gen_neg*pert_lb;
+                        else
+                            V_ext(:,:,:,pert_no) = gen;
+                            lb_ext(pert_no) = pert_lb;
+                            ub_ext(pert_no) = pert_ub;
+                        end
+                        
+                        %if mod(pert_no, 100000) == 0
+                        %    disp(['Processed perturbation no. ' num2str(pert_no) ' out of ' num2str(num_pert)]);
+                        %end
+                    end
+                else	% same code as the "then" block of this if-then-else statment, but this time, in a parfor loop instead of for loop
+                    parfor pert_no = 1:num_pert
+                        ind = obj.weightPerturb(pert_no, 1);
+                        pert_lb  = obj.weightPerturb(pert_no, 2);
+                        pert_ub  = obj.weightPerturb(pert_no, 3);
+                        W_perturb = zeros(size(obj.Weights), 'like', V);
+                        W_perturb(ind) = 1;
+                        if ~isa(input.V, 'gpuArray')
+                            gen = vl_nnconv(input.V(:,:,:,1), W_perturb, [], 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
+                        else
+                            gen = dlconv(dlarray(input.V(:,:,:,1), "SSC"), W_perturb, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+                        end
+
+                        if split_and_combine
+                            gen_pos = gen;
+                            gen_pos(gen < 0) = 0;
+                            dim_wise_lb = dim_wise_lb + gen_pos*pert_lb;
+                            dim_wise_ub = dim_wise_ub + gen_pos*pert_ub;
+                            
+                            gen_neg = gen;
+                            gen_neg(gen > 0) = 0;
+                            dim_wise_lb = dim_wise_lb + gen_neg*pert_ub;
+                            dim_wise_ub = dim_wise_ub + gen_neg*pert_lb;
+                        else
+                            V_ext(:,:,:,pert_no) = gen;
+                            lb_ext(pert_no) = pert_lb;
+                            ub_ext(pert_no) = pert_ub;
+                        end
+                        
+                        if mod(pert_no, 100000) == 0
+                            disp(['Processed perturbation no. ' num2str(pert_no) ' out of ' num2str(num_pert)]);
+                        end
+                    end
+
+                end
+                
+                if split_and_combine
+                    is_non_zero_entry = dim_wise_ub - dim_wise_lb > 0;
+                    num_gens = sum(is_non_zero_entry, 'all');
+                    if isa(num_gens, 'dlarray')
+                        num_gens = extractdata(num_gens);
+                    end
+                    try
+                        V_ext = zeros(size(V, 1), size(V, 2), size(V, 3), num_gens, 'like', V);
+                    catch ME
+                        if strcmp(ME.identifier, 'parallel:gpu:array:pmaxsize')
+                            V_ext = zeros(size(V, 1), size(V, 2), size(V, 3), num_gens, underlyingType(V));
+                            too_big_for_gpu = 1;
+                        else
+                            rethrow(ME)
+                        end
+                    end
+                    lb_ext = nan(num_gens, 1);
+                    ub_ext = lb_ext;
+                    C_ext = zeros(size(C, 1), num_gens);
+                    gen_no = 1;
+                    for m = 1:row_size
+                        for n = 1:col_size
+                            for ch = 1:num_channels
+                                if is_non_zero_entry(m,n,ch)
+                                    V_ext(m,n,ch,gen_no) = 1;
+                                    lb_ext(gen_no) = dim_wise_lb(m,n,ch);
+                                    ub_ext(gen_no) = dim_wise_ub(m,n,ch);
+                                    gen_no = gen_no + 1;
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                try
+                    V = cat(4, V, V_ext);
+                catch ME
+                    if strcmp(ME.identifier, 'parallel:gpu:array:pmaxsize')
+                        V = gather(V);
+                        V = cat(4, V, V_ext);
+                        too_big_for_gpu = 1;
+                    else
+                        rethrow(ME)
+                    end
+                end
+                C = [C C_ext];
+                pred_lb = [pred_lb; lb_ext];
+                pred_ub = [pred_ub; ub_ext];
+            end
+            
+            S = ImageStar(V, C, d, pred_lb, pred_ub);
+            if too_big_for_gpu
+                S.changeDevice('cpu');
+                % S.too_big_for_gpu = too_big_for_gpu;
+            end
                   
         end
         
@@ -980,8 +1229,9 @@ classdef Conv2DLayer < handle
             w = floor((n(2) - (m(2) - 1) * dilation(2) - 1) / stride(2) + 1);  % width of feature map
             
         end
-
+        
     end
     
 end
+
 

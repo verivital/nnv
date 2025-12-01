@@ -1,5 +1,7 @@
 # NNV Quick Start Guide
 
+*Part of NNV 3.0 - see [README_NNV3_CONTRIBUTIONS.md](../../../../README_NNV3_CONTRIBUTIONS.md) for new features*
+
 Welcome to NNV! This folder contains simple examples to get you started quickly.
 
 ## Prerequisites

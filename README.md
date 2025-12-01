@@ -76,7 +76,49 @@ _Previous_
 
 Open MATLAB, then go to the `/code/nnv/` folder and execute the `uninstall.m` script.
 
-# Getting started with NNV 
+---
+
+# What's New in NNV 3.0
+
+NNV 3.0 introduces major new verification capabilities:
+
+- **VolumeStar**: Verification of video and 3D volumetric data (medical images)
+- **FairNNV**: Formal verification of neural network fairness
+- **Probabilistic Verification**: Scalable conformal prediction-based analysis
+- **Weight Perturbation Analysis**: Verification under quantization/hardware errors
+- **Time-Dependent Networks**: Variable-length time series verification
+- **Malware Detection**: New cybersecurity verification domain
+
+See [README_NNV3_CONTRIBUTIONS.md](README_NNV3_CONTRIBUTIONS.md) for full details on NNV 3.0 features.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [README_NNV3_CONTRIBUTIONS.md](README_NNV3_CONTRIBUTIONS.md) | NNV 3.0 new features and contributions |
+| [README_TEST.md](README_TEST.md) | Testing documentation and coverage |
+| [code/nnv/examples/README.md](code/nnv/examples/README.md) | Examples navigation guide |
+| [code/nnv/examples/QuickStart/](code/nnv/examples/QuickStart/) | Getting started examples |
+| [code/nnv/examples/Tutorial/](code/nnv/examples/Tutorial/) | Step-by-step tutorials |
+
+---
+
+# Getting started with NNV
+
+### Quick Start
+
+**New to NNV?** Start with the [QuickStart examples](code/nnv/examples/QuickStart/) for installation verification and your first neural network verification.
+
+```matlab
+cd examples/QuickStart
+test_installation      % Verify your setup
+simple_verification    % Your first verification
+```
+
+**Troubleshooting?** Run the diagnostic tool:
+```matlab
+check_nnv_setup()
+```
 
 ### [Tutorial](code/nnv/examples/Tutorial)
 

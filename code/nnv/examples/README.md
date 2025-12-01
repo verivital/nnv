@@ -1,10 +1,12 @@
 # NNV Examples
 
+*Part of NNV 3.0 - see [README_NNV3_CONTRIBUTIONS.md](../../../README_NNV3_CONTRIBUTIONS.md) for new features*
+
 This directory contains examples demonstrating NNV's neural network verification capabilities.
 
 ## Getting Started
 
-**New to NNV?** Start with the `Tutorial/` folder for step-by-step examples with explanations.
+**New to NNV?** Start with the [QuickStart/](QuickStart/) folder for installation verification, then explore `Tutorial/` for step-by-step examples with explanations.
 
 ## Directory Guide
 

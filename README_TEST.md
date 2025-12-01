@@ -1,6 +1,6 @@
 # NNV Test Suite Documentation
 
-*Last Updated: November 29, 2025*
+*Last Updated: December 1, 2025*
 
 ---
 
@@ -15,7 +15,7 @@ addpath(fullfile(pwd, 'tests', 'test_utils'));
 [test_results, regression_results] = run_tests_with_regression('tests', 'compare', true, 'verbose', true);
 ```
 
-This single command runs **743 tests** including:
+This single command runs **833 tests** (full suite) or **470 tests** (quick mode) including:
 - All soundness tests (layers, sets, solvers)
 - All regression tests (NNCS, NN, verification)
 - All figure-saving tests (99 figures)
@@ -27,10 +27,35 @@ This single command runs **743 tests** including:
 
 | Metric | Count | Status |
 |--------|-------|--------|
-| Total Tests | 743 | All Passing |
+| Full Suite Tests | 833 | All Passing |
+| Quick Mode Tests | 470 | All Passing |
 | Figures Saved | 99 | 100% Coverage |
 | Baselines | 46 | All Matched |
 | Regressions | 0 | None Detected |
+
+---
+
+## Code Coverage
+
+NNV 3.0 includes code coverage tracking via the `track_coverage.m` utility.
+
+| Directory | Coverage |
+|-----------|----------|
+| Overall | **48.6%** |
+| engine/nn/ | 86.2% |
+| engine/set/ | 88.9% |
+| engine/utils/ | 23.1% |
+| engine/nncs/ | 18.2% |
+| engine/hyst/ | 0.0% |
+
+See [TEST_COVERAGE.md](TEST_COVERAGE.md) for the full coverage report.
+
+### Running Coverage Analysis
+
+```matlab
+addpath(fullfile(pwd, 'tests', 'test_utils'));
+coverage = track_coverage('tests', 'quick_mode', true);
+```
 
 ---
 

@@ -86,23 +86,45 @@ fprintf('For issues or suggestions, visit: github.com/verivital/nnv/issues\n\n')
 ver()
 
 function adjust_glpk()
+    % Platform-specific path handling for glpkmex
     try
-	filename = 'tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk.m';
+        arch = computer('arch');  % 'glnxa64', 'win64', 'maci64', or 'maca64'
+
+        % Construct platform-specific path
+        glpk_base = fullfile('tbxmanager', 'toolboxes', 'glpkmex', '1.0', arch);
+        glpk_folder = sprintf('glpkmex_1_0_%s', arch);
+        filename = fullfile(glpk_base, glpk_folder, 'glpk.m');
+
+        % Check if file exists for this platform
+        if ~isfile(filename)
+            fprintf('Note: glpkmex not found for platform %s (may not be needed)\n', arch);
+            return;
+        end
+
         fid = fopen(filename);
-        cac = textscan( fid, '%s', 'Delimiter','\n','whitespace', '');
+        if fid == -1
+            return;  % Could not open file
+        end
+        cac = textscan(fid, '%s', 'Delimiter', '\n', 'whitespace', '');
         fclose(fid);
-        filename2 = 'tbxmanager/toolboxes/glpkmex/1.0/glnxa64/glpkmex_1_0_glnxa64/glpk2.m';
+
+        filename2 = fullfile(glpk_base, glpk_folder, 'glpk2.m');
         fid = fopen(filename2, 'w');
+        if fid == -1
+            return;  % Could not create temp file
+        end
+
         change_here = 372;
-        for jj = 1 : change_here-1
-        fprintf(fid, '%s\n', cac{1}{jj});
+        for jj = 1 : min(change_here-1, length(cac{1}))
+            fprintf(fid, '%s\n', cac{1}{jj});
         end
         fprintf(fid, '%s\n', '%clear glpkcc;');
-        for jj = change_here+1: length(cac{1})
-        fprintf(fid, '%s\n', cac{1}{jj});
+        for jj = change_here+1 : length(cac{1})
+            fprintf(fid, '%s\n', cac{1}{jj});
         end
         fclose(fid);
-        movefile(filename2,filename,'f')
+        movefile(filename2, filename, 'f');
     catch
+        % Silently ignore errors - glpk adjustment is optional
     end
 end

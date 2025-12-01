@@ -15,8 +15,12 @@ on:
       update_baselines:
         description: 'Update baselines after tests'
         required: false
-        default: 'false'
+        default: false
         type: boolean
+      run_cp:
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   regression-test:
@@ -29,7 +33,7 @@ jobs:
           submodules: 'true'
 
       - name: Setup MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
 
       - name: Setup Python for CP
         uses: actions/setup-python@v5
@@ -37,6 +41,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python requirements
+        if: github.event.inputs.run_cp == 'true'
         run: |
           python3 -m venv .venv
           source .venv/bin/activate
@@ -45,7 +50,7 @@ jobs:
         continue-on-error: true
 
       - name: Run regression tests
-        uses: matlab-actions/run-command@v1
+        uses: matlab-actions/run-command@v2
         env:
           NNV_TEST_COMPARE_BASELINES: '1'
           NNV_TEST_FAIL_ON_REGRESSION: '1'

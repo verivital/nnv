@@ -563,7 +563,7 @@ classdef WPutils
             % perturbation to the whole layer
             
             p = frac*range(layer.Weights, 'all');
-            NN.perturb_whole_layer_call_this_function_from_layer(layer, -p, p);
+            WPutils.perturb_whole_layer_call_this_function_from_layer(layer, -p, p);
         end
         
         function mem = get_free_mem_B()
@@ -582,7 +582,7 @@ classdef WPutils
         end
         
         function frac = get_free_mem_frac()
-            frac = NN.get_free_mem_B/NN.get_total_mem_B;
+            frac = WPutils.get_free_mem_B/WPutils.get_total_mem_B;
         end
         
         function mem = get_free_swap_B()

@@ -456,7 +456,7 @@ classdef Conv2DLayer < handle
             % @y: high-dimensional array (output volume), depth of output = number of filters
             
             % y = vl_nnconv(input, obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Pad', obj.PaddingSize, 'Dilate', obj.DilationFactor);
-            y = dlconv(dlarray(input, "SSCB"), obj.Weights, 0, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
+            y = dlconv(dlarray(input, "SSCB"), obj.Weights, obj.Bias, 'Stride', obj.Stride, 'Padding', obj.PaddingSize, 'DilationFactor', obj.DilationFactor);
             y = extractdata(y);
             
         end

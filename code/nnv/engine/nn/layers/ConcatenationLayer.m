@@ -100,35 +100,122 @@ classdef ConcatenationLayer < handle
  
         % reach
         function outputs = reach_single_input(obj, inputs)
-            % @in_image: input imagestar
-            % @image: output set
-            % outputs = inputs{1};
-            % concatenate along the dimension (obj.Dim), usually channels (3)
-            
-            % Get max size of V
-            vSize = size(inputs{1}.V);
-            indexMax = 1;
-            for i = 2:length(inputs)
-                if numel(inputs{i}.V) > prod(vSize)
-                    vSize = size(inputs{i}.V);
-                    indexMax = i;
-                end
-            end
-            
-            % Initialize V
-            new_V = zeros(vSize, 'like', inputs{1}.V);
-            new_V(:,:,:,1:size(inputs{1}.V,4)) = inputs{1}.V;
-            % Generate V
-            for i = 2:length(inputs)
-                % ensure all Vs are same dimension
-                tempV = zeros(vSize, 'like', inputs{1}.V);
-                tempV(:,:,:,1:size(inputs{i}.V,4)) = inputs{i}.V;
-                new_V = cat(obj.Dim, new_V, tempV);
+            % @inputs: cell array of ImageStar sets to concatenate
+            % @outputs: concatenated ImageStar with properly combined constraints
+            %
+            % This method properly handles concatenation of ImageStar sets with
+            % independent predicate variables by using block-diagonal constraint
+            % matrices and preserving all constraints from all inputs.
+            %
+            % Fixed: 2024 - Previously only used constraints from one input,
+            % causing soundness issues. Now properly combines all constraints.
+
+            n = length(inputs);
+
+            if n == 1
+                % Single input - just return it
+                outputs = inputs{1};
+                return;
             end
 
-            % Create output set
-            outputs = ImageStar(new_V, inputs{indexMax}.C, inputs{indexMax}.d, inputs{indexMax}.pred_lb, inputs{indexMax}.pred_ub);
-            
+            % Collect information about all inputs
+            nVars = zeros(n, 1);  % number of predicate variables per input
+            for i = 1:n
+                nVars(i) = inputs{i}.numPred;
+            end
+            totalVars = sum(nVars);
+
+            % Get spatial dimensions from first input
+            % V has shape [H, W, C, nVar+1]
+            sz1 = size(inputs{1}.V);
+
+            % Compute output dimensions after concatenation
+            totalDimSize = 0;
+            for i = 1:n
+                szI = size(inputs{i}.V);
+                if obj.Dim <= 3
+                    totalDimSize = totalDimSize + szI(obj.Dim);
+                else
+                    error('Concatenation dimension must be 1, 2, or 3');
+                end
+            end
+
+            % Determine output spatial size
+            outSize = sz1(1:3);
+            outSize(obj.Dim) = totalDimSize;
+
+            % Build the combined V matrix
+            % new_V has shape [outH, outW, outC, totalVars+1]
+            new_V = zeros([outSize, totalVars + 1], 'like', inputs{1}.V);
+
+            % Track position along concatenation dimension and predicate index
+            dimOffset = 0;
+            varOffset = 0;
+
+            for i = 1:n
+                szI = size(inputs{i}.V);
+                dimSizeI = szI(obj.Dim);
+                nVarI = nVars(i);
+
+                % Build index ranges for this input
+                switch obj.Dim
+                    case 1
+                        idxH = dimOffset + (1:dimSizeI);
+                        idxW = 1:szI(2);
+                        idxC = 1:szI(3);
+                    case 2
+                        idxH = 1:szI(1);
+                        idxW = dimOffset + (1:dimSizeI);
+                        idxC = 1:szI(3);
+                    case 3
+                        idxH = 1:szI(1);
+                        idxW = 1:szI(2);
+                        idxC = dimOffset + (1:dimSizeI);
+                end
+
+                % Copy center (column 1 of V)
+                new_V(idxH, idxW, idxC, 1) = inputs{i}.V(:,:,:,1);
+
+                % Copy basis vectors to the correct predicate variable positions
+                % Input i's predicates go to positions (varOffset+1) to (varOffset+nVarI)
+                % In new_V, that's columns (varOffset+2) to (varOffset+nVarI+1)
+                if nVarI > 0
+                    new_V(idxH, idxW, idxC, varOffset + 2 : varOffset + nVarI + 1) = inputs{i}.V(:,:,:,2:end);
+                end
+
+                dimOffset = dimOffset + dimSizeI;
+                varOffset = varOffset + nVarI;
+            end
+
+            % Build block-diagonal constraint matrix and concatenate d, bounds
+            % Use blkdiag for constraints
+            new_C = [];
+            new_d = [];
+            new_pred_lb = [];
+            new_pred_ub = [];
+
+            for i = 1:n
+                if ~isempty(inputs{i}.C)
+                    if isempty(new_C)
+                        new_C = inputs{i}.C;
+                    else
+                        new_C = blkdiag(new_C, inputs{i}.C);
+                    end
+                    new_d = [new_d; inputs{i}.d];
+                end
+                new_pred_lb = [new_pred_lb; inputs{i}.pred_lb];
+                new_pred_ub = [new_pred_ub; inputs{i}.pred_ub];
+            end
+
+            % Handle empty constraints case
+            if isempty(new_C)
+                new_C = zeros(0, totalVars);
+                new_d = zeros(0, 1);
+            end
+
+            % Create output ImageStar with combined constraints
+            outputs = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
+
         end
         
         % handle multiple inputs

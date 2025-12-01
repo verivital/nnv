@@ -84,15 +84,33 @@ classdef ImageInputLayer < handle
         function y = evaluate(obj, x)
             % @x: input image
             % @y: output image with normalization
-            
+
             if strcmp(obj.Normalization, 'none')
                 y = x;
             elseif strcmp(obj.Normalization, 'zerocenter')
                 y = x - obj.Mean; % zerocenter nomalization
+            elseif strcmp(obj.Normalization, 'zscore')
+                y = (x - obj.Mean) ./ obj.StandardDeviation;
+            elseif strcmp(obj.Normalization, 'rescale-zero-one')
+                % Rescale to [0, 1] range
+                if ~isempty(obj.Min) && ~isempty(obj.Max)
+                    y = (x - obj.Min) ./ (obj.Max - obj.Min);
+                else
+                    % Default: assume input range is [0, 255] for images
+                    y = x / 255;
+                end
+            elseif strcmp(obj.Normalization, 'rescale-symmetric')
+                % Rescale to [-1, 1] range
+                if ~isempty(obj.Min) && ~isempty(obj.Max)
+                    y = 2 * (x - obj.Min) ./ (obj.Max - obj.Min) - 1;
+                else
+                    % Default: assume input range is [0, 255] for images
+                    y = 2 * x / 255 - 1;
+                end
             else
                 error('The normalization method is not supported yet.')
             end
-                               
+
         end
          
     end
@@ -121,6 +139,27 @@ classdef ImageInputLayer < handle
                 layer_std = obj.StandardDeviation;
                 for nc = 1:image.numChannel
                     image.V(:,:,nc,:) = image.V(:,:,nc,:)/layer_std(nc);
+                end
+            elseif strcmp(obj.Normalization, 'rescale-zero-one')
+                % Rescale to [0, 1] range: y = (x - min) / (max - min)
+                if ~isempty(obj.Min) && ~isempty(obj.Max)
+                    image = in_image.affineMap([], -obj.Min);
+                    scale = 1.0 / (obj.Max - obj.Min);
+                    image.V = image.V * scale;
+                else
+                    % Default: assume input range is [0, 255]
+                    image = in_image.affineMap(1/255, []);
+                end
+            elseif strcmp(obj.Normalization, 'rescale-symmetric')
+                % Rescale to [-1, 1] range: y = 2*(x-min)/(max-min) - 1
+                if ~isempty(obj.Min) && ~isempty(obj.Max)
+                    image = in_image.affineMap([], -obj.Min);
+                    scale = 2.0 / (obj.Max - obj.Min);
+                    image.V = image.V * scale;
+                    image = image.affineMap([], -1);
+                else
+                    % Default: assume input range is [0, 255]
+                    image = in_image.affineMap(2/255, -1);
                 end
             else
                 error('The normalization method is not supported yet.')

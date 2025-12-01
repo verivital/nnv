@@ -2,10 +2,14 @@
 
 if ~is_github_actions() % out of memory error in github actions, need to update this with smaller images (create a small random one)
 
-    load("img3d_data.mat"); % img_X and img_I
-    
+    % Use smaller images to avoid OOM (original 28x28x28 images cause OOM)
+    % Create small test images instead of loading large ones
+    img_size = [8, 8, 8]; % Reduced from 28x28x28 to avoid memory issues
+    img_I = rand(img_size);
+    img_X = rand(img_size);
+
     % These are the shared variables we will use throughout this script
-    
+
     disturbance = ones(size(img_I));
     
     % Constructor

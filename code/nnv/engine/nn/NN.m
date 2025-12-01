@@ -796,13 +796,17 @@ classdef NN < handle
 
             % Transform to Star to generate samples (could also implement sample methods there in the future, it may be faster)
             if isa(I, "ImageZono")
+                I_star = cell(1, length(I));
                 for i=1:length(I)
-                    I(i) = I(i).toImageStar;
+                    I_star{i} = I(i).toImageStar;
                 end
+                I = I_star{1}; % Use first element for sampling
             elseif isa(I, "Zono")
+                I_star = cell(1, length(I));
                 for i=1:length(I)
-                    I(i) = I(i).toStar;
+                    I_star{i} = I(i).toStar;
                 end
+                I = I_star{1}; % Use first element for sampling
             end
             
             % Begin falsification atempts
@@ -1275,7 +1279,8 @@ classdef NN < handle
                 dest_name = dest{1};
                 dest_indx = obj.name2indx(dest_name); % indx in Layers array
                 % check if there source has multiple inputs (concat layer, unpooling ...)
-                if length(dest) > 2
+                % Note: dest like "layer/in1" splits to ["layer", "in1"] with length 2
+                if length(dest) > 1
                     % unpooling option
                     if isa(obj.Layers{dest_indx}, 'MaxUnpooling2DLayer')
                         destP = dest{2};

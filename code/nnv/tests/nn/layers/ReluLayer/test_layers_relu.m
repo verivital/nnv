@@ -1,144 +1,111 @@
-%to run this as a test, use results_layers_relu=runtests('test_layers_relu')
-%requirements: file must start or end with test
-%each test starts with two percent signs followed by the name
-%shared vairables must appear before first test
-%variables made by a test are not available to other tests.
-
-
-%shared variables
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_ReluLayer_constructor.m
-
-
-%% test 1: fully connected layer
-% construct FullyConnectedLayer objects
-L = ReluLayer();
-L1 = ReluLayer('relu1');
-
-
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_ReluLayer_evaluate.m
-
-
-%% test 2: relu evaluate
-
-% construct a FullyConnectedLayer object
-rl = ReluLayer();
-% image input set
-IM(:,:,1) = [-1 1 0 -1; 0 0 1 -1; 1 0 -1 0; 1 -1 -1 1]; % center image channel 1
-IM(:,:,2) = [0 1 0 0; 1 0 0 -1; 0 1 -1 0; 0 1 0 -1]; % center image channel 2
-IM(:,:,3) = [1 -1 1 1; 1 -1 0 1; 0 1 -1 0; 1 0 -1 0]; % center image channel 3
-
-output = rl.evaluate(IM);
-
-
-IM_out(:,:,1) = [0 1 0 0; 0 0 1 0; 1 0 0 0; 1 0 0 1]; % center image channel 1
-IM_out(:,:,2) = [0 1 0 0; 1 0 0 0; 0 1 0 0; 0 1 0 0]; % center image channel 2
-IM_out(:,:,3) = [1 0 1 1; 1 0 0 1; 0 1 0 0; 1 0 0 0]; % center image channel 3
-
-assert(isequal(output, IM_out));
-
-
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_ReluLayer_reach_star_approx.m
-
-
-%% test 3: relu reach star approx
-
-
-% construct a FullyConnectedLayer object
-L = ReluLayer();
-% image input set
-IM(:,:,1) = [1 1 0 1; 0 0 1 1; 1 0 1 0; 1 1 1 1]; % center image channel 1
-IM(:,:,2) = [0 1 0 0; 1 0 0 1; 0 1 1 0; 0 0 0 1]; % center image channel 2
-IM(:,:,3) = [1 1 1 1; 1 1 0 1; 0 1 1 0; 1 0 1 0]; % center image channel 3
-
-LB(:,:,1) = [-0.1 -0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; % attack on pixel (1,1) and (1,2)
-LB(:,:,2) = [-0.1 -0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; 
-LB(:,:,3) = LB(:,:,2);
-
-UB(:,:,1) = [0.1 0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,2) = [0.1 0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,3) = UB(:,:,2);
-
-image = ImageStar(IM, LB, UB);
-tic;
-%images = L.reach(in_image, 'approx-star');
-images = L.reach(image, 'approx-star');%above line replaced....maybe it was a typo?
-toc;
-
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_ReluLayer_reach_star_exact.m
-
-
-%% test 4: relu reach star exact
-
-
-
-% construct a FullyConnectedLayer object
-L = ReluLayer();
-V(:, :, 1, 1) = [-1 1; 0 2]; % channel 1 input matrix
-basis = zeros(2,2);
-basis(1, 1) = 1;
-basis(2, 1) = 1;
-V(:, :, 1, 2) = basis;
-
-C = [1; -1];
-d = [2; 2];
-pred_lb = -2;
-pred_ub = 2;
-
-in_image = ImageStar(V, C, d, pred_lb, pred_ub);
-
-images = L.reach(in_image, 'exact-star');
-
-
-
-
-
-
-
-%___________________________________________________________________________________________________
-%tests below originally taken from test_ReluLayer_reach_zono.m
-
-
-%% test 5: relu reach zono
-
-
-
-% construct a FullyConnectedLayer object
-L = ReluLayer();
-LB(:,:,1) = [-0.1 -0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; % attack on pixel (1,1) and (1,2)
-LB(:,:,2) = [-0.1 -0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0]; 
-LB(:,:,3) = LB(:,:,2);
-
-UB(:,:,1) = [0 0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,2) = [0.1 0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
-UB(:,:,3) = UB(:,:,2);
-
-image = ImageZono(LB, UB);
-
-%image1 = L.reach_zono(image, 'single');
-image1 = L.reach_zono(image);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function test_layers_relu()
+    % TEST_LAYERS_RELU - Test ReluLayer operations
+    %
+    % Tests that:
+    %   1. ReluLayer constructor works correctly
+    %   2. ReluLayer evaluate produces correct output
+    %   3. ReluLayer reach (approx-star) works correctly
+    %   4. ReluLayer reach (exact-star) works correctly
+    %   5. ReluLayer reach (zono) works correctly
+
+    %% Test 1: ReluLayer constructor
+    L = ReluLayer();
+    L1 = ReluLayer('relu1');
+
+    % ASSERTION 1: Constructors work
+    assert(~isempty(L), 'ReluLayer default constructor should work');
+    assert(~isempty(L1), 'ReluLayer named constructor should work');
+
+    %% Test 2: ReluLayer evaluate
+    rl = ReluLayer();
+    % Image input set
+    IM(:,:,1) = [-1 1 0 -1; 0 0 1 -1; 1 0 -1 0; 1 -1 -1 1];
+    IM(:,:,2) = [0 1 0 0; 1 0 0 -1; 0 1 -1 0; 0 1 0 -1];
+    IM(:,:,3) = [1 -1 1 1; 1 -1 0 1; 0 1 -1 0; 1 0 -1 0];
+
+    output = rl.evaluate(IM);
+
+    IM_out(:,:,1) = [0 1 0 0; 0 0 1 0; 1 0 0 0; 1 0 0 1];
+    IM_out(:,:,2) = [0 1 0 0; 1 0 0 0; 0 1 0 0; 0 1 0 0];
+    IM_out(:,:,3) = [1 0 1 1; 1 0 0 1; 0 1 0 0; 1 0 0 0];
+
+    % ASSERTION 2: Evaluate produces correct output
+    assert(isequal(output, IM_out), 'ReluLayer evaluate should produce correct output');
+
+    %% Test 3: ReluLayer reach star approx
+    L = ReluLayer();
+    IM(:,:,1) = [1 1 0 1; 0 0 1 1; 1 0 1 0; 1 1 1 1];
+    IM(:,:,2) = [0 1 0 0; 1 0 0 1; 0 1 1 0; 0 0 0 1];
+    IM(:,:,3) = [1 1 1 1; 1 1 0 1; 0 1 1 0; 1 0 1 0];
+
+    LB(:,:,1) = [-0.1 -0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
+    LB(:,:,2) = [-0.1 -0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
+    LB(:,:,3) = LB(:,:,2);
+
+    UB(:,:,1) = [0.1 0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
+    UB(:,:,2) = [0.1 0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
+    UB(:,:,3) = UB(:,:,2);
+
+    image = ImageStar(IM, LB, UB);
+
+    tic;
+    images_approx = L.reach(image, 'approx-star');
+    t_approx = toc;
+
+    % ASSERTION 3: Approx reach produces valid output
+    assert(~isempty(images_approx), 'ReluLayer approx-star reach should produce non-empty result');
+
+    %% Test 4: ReluLayer reach star exact
+    L = ReluLayer();
+    V(:, :, 1, 1) = [-1 1; 0 2];
+    basis = zeros(2, 2);
+    basis(1, 1) = 1;
+    basis(2, 1) = 1;
+    V(:, :, 1, 2) = basis;
+
+    C = [1; -1];
+    d = [2; 2];
+    pred_lb = -2;
+    pred_ub = 2;
+
+    in_image = ImageStar(V, C, d, pred_lb, pred_ub);
+
+    images_exact = L.reach(in_image, 'exact-star');
+
+    % ASSERTION 4: Exact reach produces valid output
+    assert(~isempty(images_exact), 'ReluLayer exact-star reach should produce non-empty result');
+
+    %% Test 5: ReluLayer reach zono
+    L = ReluLayer();
+    LB(:,:,1) = [-0.1 -0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
+    LB(:,:,2) = [-0.1 -0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
+    LB(:,:,3) = LB(:,:,2);
+
+    UB(:,:,1) = [0 0.2 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
+    UB(:,:,2) = [0.1 0.15 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0];
+    UB(:,:,3) = UB(:,:,2);
+
+    image_zono = ImageZono(LB, UB);
+
+    image_out = L.reach_zono(image_zono);
+
+    % ASSERTION 5: Zono reach produces valid output
+    assert(~isempty(image_out), 'ReluLayer zono reach should produce non-empty result');
+
+    % Save regression data
+    data = struct();
+    data.t_approx = t_approx;
+    data.IM = IM;
+    data.IM_out = output;
+    if iscell(images_approx)
+        data.num_approx_images = length(images_approx);
+    else
+        data.num_approx_images = 1;
+    end
+    if iscell(images_exact)
+        data.num_exact_images = length(images_exact);
+    else
+        data.num_exact_images = 1;
+    end
+    save_test_data(data, 'test_layers_relu', 'results', 'subdir', 'nn');
+end

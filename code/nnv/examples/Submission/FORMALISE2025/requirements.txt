@@ -3,7 +3,7 @@ contourpy==1.2.1
 cycler==0.12.1
 eagerpy==0.30.0
 flatbuffers==24.3.25
-fonttools==4.53.0
+fonttools==4.61.0
 humanfriendly==10.0
 kiwisolver==1.4.5
 matlabengine==24.1.2

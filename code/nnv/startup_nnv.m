@@ -1,5 +1,14 @@
 fprintf('\nAdding dependencies to Matlab path...\n');
 
+%% MATLAB Version Check
+% NNV requires MATLAB R2023a (9.14) or newer
+min_version = 'R2023a';
+if verLessThan('matlab', '9.14')
+    warning('NNV:MATLABVersion', ...
+        'NNV requires MATLAB %s or newer. Current version: %s. Some features may not work.', ...
+        min_version, version);
+end
+
 if ~exist("tbxmanager.m","file") % not added to the path
     addpath("tbxmanager");
 end
@@ -22,7 +31,7 @@ if is_codeocean()
 end
 
 % display toolboxes to user
-fprintf('\nNOTE: The following toolboxes are detected.');
+fprintf('\nNOTE: The following toolboxes are detected.\n');
 ver()
 
 %% Dependency Checking
@@ -168,5 +177,16 @@ import com.verivital.hyst.util.*;
 import de.uni_freiburg.informatik.swt.spaceexxmlprinter.*;
 import de.uni_freiburg.informatik.swt.spaxeexxmlreader.*;
 import de.uni_freiburg.informatik.swt.sxhybridautomaton.*;
-    
+
+%% Ready Confirmation
+fprintf('\n');
+fprintf('========================================\n');
+fprintf('  %s Ready!\n', NNVVERSION());
+fprintf('========================================\n');
+fprintf('Get started: help Star, help NN\n');
+fprintf('Tutorials:   examples/Tutorial/\n');
+fprintf('Examples:    examples/\n');
+fprintf('Support:     github.com/verivital/nnv/issues\n');
+fprintf('\n');
+
 %cd(mydir);

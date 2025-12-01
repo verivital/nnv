@@ -1,5 +1,5 @@
 fprintf('\nINSTALLING NNV....');
-fprintf('\nIntalling tbxmanager (requires Matlab R2009a or later) ...');
+fprintf('\nInstalling tbxmanager (requires MATLAB R2023a or later) ...');
 tbxmanager_folder = 'tbxmanager';
 
 root_folder = pwd();
@@ -19,7 +19,7 @@ fprintf('\nInstalling tbxmanager toolbox is done!');
 
 cd(root_folder);
 
-fprintf('\nIntalling mpt toolbox and other dependencies...\n');
+fprintf('\nInstalling mpt toolbox and other dependencies...\n');
 tbxmanager install mpt mptdoc;
 tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi;
 % tbxmanager install yalmip; % todo: error due to license, need to force acceptance
@@ -28,9 +28,59 @@ adjust_glpk;
 
 startup_nnv; % adding dependencies and nnv to the path
 
-fprintf('\nInstalling NNV is done, it is ready to use.');
+%% Post-Install Verification
+fprintf('\n--- Verifying Installation ---\n');
+install_ok = true;
+
+% Test 1: Check Star class exists
+if exist('Star', 'class') == 8
+    fprintf('[OK] Star class available\n');
+else
+    fprintf('[FAIL] Star class not found\n');
+    install_ok = false;
+end
+
+% Test 2: Create a simple Star set
+try
+    S = Star([0;0], [1;1]);
+    fprintf('[OK] Star set creation works\n');
+catch
+    fprintf('[FAIL] Star set creation failed\n');
+    install_ok = false;
+end
+
+% Test 3: Check NN class exists
+if exist('NN', 'class') == 8
+    fprintf('[OK] NN class available\n');
+else
+    fprintf('[FAIL] NN class not found\n');
+    install_ok = false;
+end
+
+% Test 4: Check a layer works
+try
+    W = eye(2);
+    b = [0; 0];
+    layer = FullyConnectedLayer(W, b);
+    out = layer.evaluate([1; 2]);
+    fprintf('[OK] FullyConnectedLayer works\n');
+catch
+    fprintf('[FAIL] FullyConnectedLayer failed\n');
+    install_ok = false;
+end
+
+fprintf('--- End Verification ---\n\n');
+
+if install_ok
+    fprintf('Installation SUCCESSFUL!\n');
+else
+    fprintf('Installation completed with WARNINGS - some features may not work.\n');
+    fprintf('Run check_nnv_setup() for detailed diagnostics.\n');
+end
+
 fprintf('\nPlease go to examples or test folders to run case studies and test examples.');
-fprintf('\nTHANK YOU FOR TRYING NNV. PLEASE EMAIL trhoangdung@gmail.com FOR ANY CONCERNS OR SUGESSTIONS\n\n');
+fprintf('\nTHANK YOU FOR TRYING NNV!\n');
+fprintf('For issues or suggestions, visit: github.com/verivital/nnv/issues\n\n');
 
 % show toolboxes
 ver()

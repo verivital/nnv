@@ -1,0 +1,101 @@
+title: 
+network: MNIST_MLP
+n_images: 100.0
+position: [128.0, 79.0, 1038.0, 439.0]
+layers:
+- name: fc_6
+  n_weights: 2560.0
+  n_neurons: 10.0
+  fracs:
+  - frac: 0.005
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.01
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.015
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.02
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+- name: fc_5
+  n_weights: 65536.0
+  n_neurons: 256.0
+  fracs:
+  - frac: 0.001
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.002
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.003
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.004
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+- name: fc_4
+  n_weights: 65536.0
+  n_neurons: 256.0
+  fracs:
+  - frac: 0.001
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.002
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.003
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.004
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+- name: fc_3
+  n_weights: 131072.0
+  n_neurons: 256.0
+  fracs:
+  - frac: 5.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.001
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.0015
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.002
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+- name: fc_2
+  n_weights: 524288.0
+  n_neurons: 512.0
+  fracs:
+  - frac: 4.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 6.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 8.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.001
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+- name: fc_1
+  n_weights: 802816.0
+  n_neurons: 1024.0
+  fracs:
+  - frac: 2.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 3.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 4.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 5.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]

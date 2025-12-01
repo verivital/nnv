@@ -40,6 +40,7 @@ classdef NN < handle
         input_sets = {}; % input set values for each layer (cell array of cells of layer input sets)
         dis_opt = []; % display option = 'display' or []
         lp_solver = 'linprog'; % choose linprog as default LP solver for constructing reachable set user can choose 'glpk' or 'linprog' as an LP solver
+        matlabnet = []; % the matlab network this NN was created from
         
         % To facilitate graph computation flow
         name2indx = []; % Match name to index in nnvLayers list
@@ -1465,6 +1466,18 @@ classdef NN < handle
                     outSet = obj.Layers{end}.reach(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 end
                 obj.reachSet{end} = outSet;
+            end
+        end
+        
+        % return the indices of layers of the specified types
+        function layers = get_layer_indices(obj, layer_types)
+            layers = [];
+            for l = 1:length(obj.Layers)
+                for n = 1:length(layer_types)
+                    if isa(obj.Layers{l}, layer_types(n))
+                        layers = [layers l];
+                    end
+                end
             end
         end
         

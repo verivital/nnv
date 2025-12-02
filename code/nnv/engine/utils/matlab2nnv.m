@@ -257,6 +257,11 @@ net.name2indx = name2idx;
 outSize = getOutputSize(Mnetwork);
 net.OutputSize = outSize; 
 
+net.matlabnet = Mnetwork;
+if ntype== "SeriesNetwork"
+    net.matlabnet = dag2dlnetwork(net.matlabnet);
+end
+
 end
 
 

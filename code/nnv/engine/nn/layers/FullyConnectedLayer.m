@@ -20,6 +20,17 @@ classdef FullyConnectedLayer < handle
         OutputSize = 0; % number of output
         Weights = []; % weight matrix
         Bias  = []; % bias vector     
+        weightPerturb = [];   % perturb specified weights of this fully
+            % connected layer in the specified range. The first element of
+            % each row is the index of the weight to be perturbed in linear
+            % format, so use sub2ind() on multi-dimensional indices before
+            % specifying it here. The next two elements are the lower and
+            % upper bounds of the perturbation.
+            % If the index exceeds the number of elements in the weights
+            % matrix, the perturbation is considered to be in the bias,
+            % and the index of the perturbation in the bias is obtained by
+            % subtracting the number of elements in the weights matrix
+            % from the supplied index.
     end
     
     
@@ -286,9 +297,172 @@ classdef FullyConnectedLayer < handle
                 V(1, 1, :, in_image.numPred + 1) = zeros(obj.OutputSize, 1, 'like', in_image.V);
                 V(1, 1, :, :) = obj.Weights*reshape(in_image.V, N, n + 1);
                 V(1, 1, :, 1) = reshape(V(1, 1, :, 1), obj.OutputSize, 1) + obj.Bias;
+                C = in_image.C;
+                d = in_image.d;
+                pred_lb = in_image.pred_lb;
+                pred_ub = in_image.pred_ub;
+                
+                if ~isempty(obj.weightPerturb)
+
+                    % make sure that the weight perturbation matrix adheres
+                    % to the 3 column format described above
+                    sz = size(obj.weightPerturb);
+                    if length(sz) > 2 || sz(2) > 3
+                        error("Weight perturbation specification matrix must have only 3 elements in each row: [linear index of perturbed weight, lower bound of perturbation, upper bound of perturbation]")
+                    end
+                    
+                    % split perturbation ranges that have positive as
+                    % well as negative parts into only positive or only
+                    % negative parts
+                    
+                    % if signs of upper and lower bounds are different
+                    pert_with_pos_and_neg_range = (obj.weightPerturb(:, end - 1) < 0) & (obj.weightPerturb(:, end) > 0);
+
+                    % copy these perturbations' entries, then set ub to 0
+                    % in original entries and lb to 0 in copies
+                    % (may use this non-positiveness or non-negativeness
+                    % of a given predicate in determining constraints on
+                    % products of predicates)
+                    pert_copies = obj.weightPerturb(pert_with_pos_and_neg_range, :);
+                    obj.weightPerturb(pert_with_pos_and_neg_range, end) = 0;
+                    pert_copies(:, end - 1) = 0;
+                    obj.weightPerturb = [obj.weightPerturb; pert_copies];
+                    
+                    % Combine weight perturbations that result in 
+                    % perturbation in same neuron into a single
+                    % perturbation.
+
+                    % make a framework to hold these.
+                    dim_wise_pred_lb_ub = zeros(size(obj.Weights, 1), 2);
+                        % if both bounds are zero, no predicate along that
+                        % dimension.
+
+                    % break only those existing generators whose 
+                    % predicate variables have no constraints on them,
+                    % and accumulate these in framework.
+                    preds_to_remove = [];
+                    for pred_no = 1:size(V,4) - 1
+                        if C(:, pred_no) == 0
+                            for dim = 1:size(V,3)
+                                if V(1, 1, dim, pred_no + 1) > 0
+                                    dim_wise_pred_lb_ub(dim, :) = dim_wise_pred_lb_ub(dim, :) + V(1, 1, dim, pred_no + 1)*[pred_lb(pred_no) pred_ub(pred_no)];
+                                elseif V(1, 1, dim, pred_no + 1) < 0
+                                    dim_wise_pred_lb_ub(dim, :) = dim_wise_pred_lb_ub(dim, :) + V(1, 1, dim, pred_no + 1)*[pred_ub(pred_no) pred_lb(pred_no)];
+                                end
+                            end
+                            preds_to_remove = [preds_to_remove, pred_no];
+                        else
+                            % error('Constraints encountered! not an error')
+                        end
+                    end
+
+                    % remove the vs that have been added to framework,
+                    % from V, thus completing transfer from ImageStar to
+                    % framework
+                    V(:, :, :, preds_to_remove + 1) = [];
+                    C(:, preds_to_remove) = [];
+                    pred_lb(preds_to_remove) = [];
+                    pred_ub(preds_to_remove) = [];
+                    
+                    new_C = C;
+                    new_d = d;
+    
+                    % accumulate the new vs in framework
+                    in_vector = reshape(in_image.V(:, :, :, 1), N, 1);
+                    for k = 1:size(obj.weightPerturb, 1)
+                        weights_sz = size(obj.Weights);
+                        ind = obj.weightPerturb(k, 1);
+                        [row, col] = ind2sub(weights_sz, ind);
+                        lb  = obj.weightPerturb(k, 2);
+                        ub  = obj.weightPerturb(k, 3);
+    
+                        if col <= weights_sz(2)
+                            
+                            % for first term, without predicate products
+                            mul_factor = in_vector(col);
+                                % value of element of input vector being
+                                % multiplied by the weight
+                            
+                            % multiplication with existing predicates
+                            for pred_no = 1:size(in_image.V, 4) - 1
+                                v = reshape(in_image.V(:, :, :, pred_no + 1), N, 1);
+                                
+                                if v(col) ~= 0
+        
+                                    % get limits of product of predicates
+                                    lb1 = lb;
+                                    ub1 = ub;
+                                    lb2 = in_image.pred_lb(pred_no);
+                                    ub2 = in_image.pred_ub(pred_no);
+                                    
+                                    b_prods = [lb1*lb2 lb1*ub2 ub1*lb2 ub1*ub2];
+                                    pred_prod_lb = min(b_prods);
+                                    pred_prod_ub = max(b_prods);
+                                    
+                                    % ignore the new
+                                    % constraints on the products; just
+                                    % accumulate the products of
+                                    % predicates in the "framework".
+    
+                                    % integrate v's element into
+                                    % limits and accumulate into 
+                                    % framework.
+                                    if v(col) > 0
+                                        dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + v(col)*[pred_prod_lb pred_prod_ub];
+                                    else  % v(col) <= 0
+                                        dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + v(col)*[pred_prod_ub pred_prod_lb];
+                                    end
+                                end
+                            end
+                        else
+                            % perturbation is in bias vector, which is
+                            % simple addition, so the multiplicative
+                            % factor is 1
+                            mul_factor = 1;
+                        end
+    
+                        % for first term, without predicate products
+                        if mul_factor > 0
+                            dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + mul_factor*[lb ub];
+                        elseif mul_factor < 0
+                            dim_wise_pred_lb_ub(row, :) = dim_wise_pred_lb_ub(row, :) + mul_factor*[ub lb];
+                        end
+                    end
+
+                    C = new_C;
+                    d = new_d;
+
+                    % transfer from framework to imagestar
+                    V_cols = eye(size(dim_wise_pred_lb_ub, 1));
+                    dims_to_skip = find((dim_wise_pred_lb_ub(:, 1) == 0) & (dim_wise_pred_lb_ub(:, 2) == 0));
+                    V_cols(:, dims_to_skip) = [];
+                    V(1, 1, :, size(V, 4) + (1:size(V_cols, 2))) = V_cols;
+
+                    dim_wise_pred_lb_ub(dims_to_skip, :) = [];
+                    C = [C zeros(size(C, 1), size(dim_wise_pred_lb_ub, 1))];
+                    if isempty(pred_lb) && isempty(pred_ub)
+                        dim_wise_pred_lb_ub = cast(dim_wise_pred_lb_ub, 'like', pred_lb);
+                        pred_lb = [];
+                        pred_ub = [];
+                    end
+                    pred_lb = [pred_lb; dim_wise_pred_lb_ub(:, 1)];
+                    pred_ub = [pred_ub; dim_wise_pred_lb_ub(:, 2)];
+
+                end
+                
+                if isempty(C)
+                    V(1, 1, :, size(V, 4) + 1) = zeros(size(V, 3), 1);
+                    C = 0;
+                    pred_lb = 0;
+                    pred_ub = 0;
+                end
+
                 % output set
-                image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+                image = ImageStar(V, C, d, pred_lb, pred_ub);
             else % reach Star set
+                if ~isempty(obj.weightPerturb)
+                    error("Weight Perturbation in FC Layer supported only for ImageStar inputs.")
+                end
                 image = in_image.affineMap(obj.Weights, obj.Bias);
             end
             
@@ -408,6 +582,33 @@ classdef FullyConnectedLayer < handle
             
             image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
             
+        end
+        
+        % specify a weight perturbation to be added to the 
+        % obj.weightPerturb specification matrix
+        function add_pert(obj, pert_indices, lb, ub)
+            % @pert_indices: indices of the weight to be perturbed
+            % @lb: lower bound of the perturbation
+            % @ub: upper bound of the perturbation
+            
+            WPutils.add_pert_call_this_function_from_layer(obj, pert_indices, lb, ub);
+        end
+        
+        % specify a perturbation to be applied to the whole layer
+        function perturb_whole_layer(obj, lb, ub)
+            % @lb: lower bound of the perturbation
+            % @ub: upper bound of the perturbation
+            
+            WPutils.perturb_whole_layer_call_this_function_from_layer(obj, lb, ub);
+        end
+        
+        % specify a symmetric perturbation to be applied to the whole layer
+        % as a fraction of the range of the weights in the layer
+        function perturb_whole_layer_given_fraction_of_weights_range(obj, frac)
+            % @frac: fraction of the weights' range to be applied as
+            % perturbation to the whole layer
+            
+            WPutils.pert_whole_layer_given_fraction_of_weights_range_call_fromLayer(obj, frac);
         end
     
     end

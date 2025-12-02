@@ -172,6 +172,30 @@ function check_nnv_setup()
     end
     fprintf('\n');
 
+    %% Python/CP Environment (Optional)
+    fprintf('--- Python/CP Environment (Optional) ---\n');
+    try
+        python_path = cp_env();
+        if isfile(python_path)
+            fprintf('[OK] Python virtual environment found\n');
+            fprintf('     Path: %s\n', python_path);
+            % Try to get Python version
+            [status, result] = system(sprintf('"%s" --version', python_path));
+            if status == 0
+                fprintf('     %s\n', strtrim(result));
+            end
+        else
+            fprintf('[--] Python venv not configured\n');
+            fprintf('     CP verification requires Python setup.\n');
+            fprintf('     See PYTHON_SETUP.md for instructions.\n');
+        end
+    catch
+        fprintf('[--] Python venv not configured\n');
+        fprintf('     CP verification requires Python setup.\n');
+        fprintf('     See PYTHON_SETUP.md for instructions.\n');
+    end
+    fprintf('\n');
+
     %% Summary
     fprintf('============================================\n');
     if all_passed

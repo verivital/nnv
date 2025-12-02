@@ -71,7 +71,19 @@ _Previous_
 
     * TensorFlow and Keras: [Deep Learning Toolbox Converter for TensorFlow Models](https://www.mathworks.com/matlabcentral/fileexchange/64649-deep-learning-toolbox-converter-for-tensorflow-models)
     * PyTorch: [Deep Learning Toolbox Converter for PyTorch Models](https://www.mathworks.com/matlabcentral/fileexchange/111925-deep-learning-toolbox-converter-for-pytorch-models)
-        
+
+    d) To use Conformal Prediction (CP) verification, set up a Python virtual environment:
+
+    ```bash
+    # From the NNV root directory:
+    python -m venv .venv
+    # Windows: .venv\Scripts\activate
+    # macOS/Linux: source .venv/bin/activate
+    pip install -r requirement.txt
+    ```
+
+    See [PYTHON_SETUP.md](PYTHON_SETUP.md) for detailed instructions.
+
 ## Uninstallation:
 
 Open MATLAB, then go to the `/code/nnv/` folder and execute the `uninstall.m` script.

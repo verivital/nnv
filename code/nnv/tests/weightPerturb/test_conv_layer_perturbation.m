@@ -24,13 +24,8 @@ reachOptions.reachMethod = 'approx-star'; % using approximate method
 reachOptions.numCores = 1;
 % reachOptions.device = 'gpu';
 reachOptions.device = 'cpu';
-% reachOptions.delete_old_sets = 1;
-reachOptions.free_mem_frac_for_LPs_in_verify_specification = 0.1;
-% reachOptions.dis_opt = 'display';
-% reachOptions.disp_intersection_result = 1;
-% reachOptions.debug = 1;
 
-[images, labels] = load_images(database = "mnist", ...
+[images, labels] = load_images_MNIST(database = "mnist", ...
     n = 10, ...
     matlabnet = matlabnet);
 img = images{1};

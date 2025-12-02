@@ -532,7 +532,7 @@ classdef WPutils
             
             sz = size(layer.Weights);
             if length(pert_indices) ~= length(sz)
-                error(['Must specify location of perturbation in layer ' layer.Name ' as indices of its weights matrix which has size ' sz])
+                error(['Must specify location of perturbation in layer ' layer.Name ' as indices of its weights matrix which has size ' mat2str(sz)])
             end
             
             pert_indices = num2cell(pert_indices);

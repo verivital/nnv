@@ -1,0 +1,133 @@
+# Regression Tests Workflow
+# This workflow runs the NNV test suite with baseline comparison to detect regressions
+# It runs separately from the main CI workflow to provide detailed regression analysis
+
+name: Regression Tests
+
+on:
+  # Run on pull requests to master
+  pull_request:
+    branches: [ "master" ]
+
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: 'Update baselines after tests'
+        required: false
+        default: false
+        type: boolean
+      run_cp:
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  regression-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - name: Setup MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: R2024b
+          products: >
+            Computer_Vision_Toolbox
+            Control_System_Toolbox
+            Deep_Learning_Toolbox
+            Image_Processing_Toolbox
+            Optimization_Toolbox
+            Parallel_Computing_Toolbox
+            Statistics_and_Machine_Learning_Toolbox
+            Symbolic_Math_Toolbox
+            System_Identification_Toolbox
+            Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
+            Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+            Deep_Learning_Toolbox_Converter_for_TensorFlow_models
+            Deep_Learning_Toolbox_Verification_Library
+
+      - name: Setup Python for CP
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python requirements
+        if: github.event.inputs.run_cp == 'true'
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirement.txt
+        continue-on-error: true
+
+      - name: Run regression tests
+        uses: matlab-actions/run-command@v2
+        env:
+          NNV_TEST_COMPARE_BASELINES: '1'
+          NNV_TEST_FAIL_ON_REGRESSION: '1'
+        with:
+          command: |
+            disp('=== NNV Regression Test Suite ===');
+            cd("code/nnv");
+            install;
+
+            % Add test utilities to path
+            addpath(fullfile(pwd, 'tests', 'test_utils'));
+
+            % Run tests with regression detection
+            try
+                [test_results, regression_results] = run_tests_with_regression("compare", true, "verbose", true);
+
+                % Check for failures
+                if ~isempty(test_results)
+                    n_failed = sum([test_results.Failed]);
+                    if n_failed > 0
+                        error('Test failures detected: %d tests failed', n_failed);
+                    end
+                end
+
+                % Check for regressions
+                if isfield(regression_results, 'regressions') && ~isempty(regression_results.regressions)
+                    error('Regressions detected: %d baseline mismatches', length(regression_results.regressions));
+                end
+
+                disp('All tests passed, no regressions detected.');
+            catch ME
+                disp(['Error: ' ME.message]);
+                rethrow(ME);
+            end
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            results/tests/data/
+            results/tests/figures/
+          retention-days: 30
+
+      - name: Update baselines (manual trigger only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.update_baselines == 'true'
+        uses: matlab-actions/run-command@v1
+        with:
+          command: |
+            cd("code/nnv");
+            install;
+            addpath(fullfile(pwd, 'tests', 'test_utils'));
+            manage_baselines('save');
+            disp('Baselines updated successfully.');
+
+      - name: Commit updated baselines
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.update_baselines == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add results/tests/baselines/
+          git diff --staged --quiet || git commit -m "Update test baselines [skip ci]"
+          git push

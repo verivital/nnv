@@ -1,150 +1,129 @@
-% System model
-% x1 = lead_car position
-% x2 = lead_car velocity
-% x3 = lead_car internal state
+function test_DLinearNNCS_reach_exact()
+    % TEST_DLINEARNNCS_REACH_EXACT - Test DLinearNNCS exact reachability
+    %
+    % Adaptive Cruise Control example with discrete linear plant and NN controller.
+    %
+    % Tests that:
+    %   1. Reachability analysis completes successfully
+    %   2. Verification against safety property works
+    %   3. Reach sets are computed for all time steps
 
-% x4 = ego_car position
-% x5 = ego_car velocity
-% x6 = ego_car internal state
+    % System model - Adaptive Cruise Control
+    % x1-x3: lead car (position, velocity, internal state)
+    % x4-x6: ego car (position, velocity, internal state)
+    % x7: auxiliary variable for linearization
 
-% lead_car dynamics
-%dx(1,1)=x(2);
-%dx(2,1) = x(3);
-%dx(3,1) = -2 * x(3) + 2 * a_lead - mu*x(2)^2;
+    A = [0 1 0 0 0 0 0; 0 0 1 0 0 0 0; 0 0 0 0 0 0 1; 0 0 0 0 1 0 0; 0 0 0 0 0 1 0; 0 0 0 0 0 -2 0; 0 0 -2 0 0 0 0];
+    B = [0; 0; 0; 0; 0; 2; 0];
+    C = [1 0 0 -1 0 0 0; 0 1 0 0 -1 0 0; 0 0 0 0 1 0 0];
+    D = [0; 0; 0];
 
-% ego car dynamics
-%dx(4,1)= x(5); 
-%dx(5,1) = x(6);
-%dx(6,1) = -2 * x(6) + 2 * a_ego - mu*x(5)^2;
+    plant = LinearODE(A, B, C, D);
+    plantd = plant.c2d(0.1);
 
+    % Load controller
+    load('../controller_3_20.mat', 'weights', 'bias');
 
-% let x7 = -2*x(3) + 2 * a_lead -> x7(0) = -2*x(3)(0) + 2*alead
-% -> dx7 = -2dx3
+    n = length(weights);
+    Layers = cell(1, n);
+    for i=1:n - 1
+        Layers{i} = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
+    end
+    Layers{n} = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
+    Controller = NN(Layers);
+    Controller.InputSize = 5;
+    Controller.OutputSize = 1;
 
+    % Create NNCS
+    ncs = DLinearNNCS(Controller, plantd);
 
-A = [0 1 0 0 0 0 0; 0 0 1 0 0 0 0; 0 0 0 0 0 0 1; 0 0 0 0 1 0 0; 0 0 0 0 0 1 0; 0 0 0 0 0 -2 0; 0 0 -2 0 0 0 0];
-B = [0; 0; 0; 0; 0; 2; 0];
-C = [1 0 0 -1 0 0 0; 0 1 0 0 -1 0 0; 0 0 0 0 1 0 0];  % feedback relative distance, relative velocity, longitudinal velocity
-D = [0; 0; 0]; 
+    % ASSERTION 1: NNCS is valid
+    assert(~isempty(ncs), 'DLinearNNCS should be created successfully');
 
-plant = LinearODE(A, B, C, D); % continuous plant model
+    % Initial state set
+    lb = [90; 32; 0; 10; 30; 0; -4];
+    ub = [100; 35; 0; 11; 30.2; 0; -4];
+    init_set = Star(lb, ub);
 
-plantd = plant.c2d(0.1); % discrete plant model
+    ref_input = [30; 1.4];
 
-% the neural network provides a_ego control input to the plant
-% a_lead = -2 
+    % Reachability Analysis
+    reachPRM.init_set = init_set;
+    reachPRM.ref_input = ref_input;
+    reachPRM.numSteps = 10;
+    reachPRM.reachMethod = 'exact-star';
+    reachPRM.numCores = 1;
 
+    [R, reachTime] = ncs.reach(reachPRM);
 
-% Controller
-load('../controller_3_20.mat');
+    % ASSERTION 2: Reachability produces valid output
+    assert(~isempty(R), 'Reachability should produce non-empty result');
+    assert(reachTime > 0, 'Reach time should be positive');
 
-n = length(weights);
-Layers = {};
-for i=1:n - 1
-    L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
-    Layers{i} = L;
+    % Verification - safety property: distance > safe distance
+    alpha = 1;
+    unsafe_mat = [1 0 0 -1 alpha*1.4 0 0];
+    unsafe_vec = alpha*10;
+    unsafeRegion = HalfSpace(unsafe_mat, unsafe_vec);
+
+    [safe, counterExamples, verifyTime] = ncs.verify(reachPRM, unsafeRegion);
+
+    % ASSERTION 3: Verification returns valid result
+    % safe can be: numeric (0/1/-1/2), string ('SAFE'/'UNSAFE'), or array
+    assert(~isempty(safe), 'Verification should return a result');
+    assert(verifyTime >= 0, 'Verify time should be non-negative');
+
+    % Create visualizations
+    fig1 = figure;
+    ncs.plotPlantReachSets('blue', 1);
+    hold on;
+    ncs.plotPlantReachSets('red', 4);
+    title('Position: Lead car (blue) vs Ego car (red)');
+    xlabel('Time Step');
+    ylabel('Position');
+
+    save_test_figure(fig1, 'test_DLinearNNCS_reach_exact', 'position', 1, 'subdir', 'nncs/DLinearNNCS');
+
+    fig2 = figure;
+    ncs.plotPlantReachSets('blue', 2);
+    hold on;
+    ncs.plotPlantReachSets('red', 5);
+    title('Velocity: Lead car (blue) vs Ego car (red)');
+    xlabel('Time Step');
+    ylabel('Velocity');
+
+    save_test_figure(fig2, 'test_DLinearNNCS_reach_exact', 'velocity', 2, 'subdir', 'nncs/DLinearNNCS');
+
+    fig3 = figure;
+    ncs.plotControllerReachSets('green', 1);
+    title('Controller Reach Sets');
+    xlabel('Time Step');
+    ylabel('Control Input');
+
+    save_test_figure(fig3, 'test_DLinearNNCS_reach_exact', 'control', 3, 'subdir', 'nncs/DLinearNNCS');
+
+    fig4 = figure;
+    map_mat = [1 0 0 -1 0 0 0];
+    map_vec = [];
+    ncs.plotOutputReachSets('blue', map_mat, map_vec);
+    hold on;
+    map_mat = [0 0 0 0 1.4 0 0];
+    map_vec = [10];
+    ncs.plotOutputReachSets('red', map_mat, map_vec);
+    title('Actual Distance (blue) vs Safe Distance (red)');
+    xlabel('Time Step');
+    ylabel('Distance');
+    legend('Actual', 'Safe');
+
+    save_test_figure(fig4, 'test_DLinearNNCS_reach_exact', 'distance', 4, 'subdir', 'nncs/DLinearNNCS');
+
+    % Save regression data
+    data = struct();
+    data.lb = lb;
+    data.ub = ub;
+    data.numSteps = reachPRM.numSteps;
+    data.reachTime = reachTime;
+    data.safe = safe;
+    data.verifyTime = verifyTime;
+    save_test_data(data, 'test_DLinearNNCS_reach_exact', 'results', 'subdir', 'nncs');
 end
-Layers{n} = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
-Controller = NN(Layers); % feedforward neural network controller
-Controller.InputSize = 5;
-Controller.OutputSize = 1;
-
-
-% NNCS 
-
-ncs = DLinearNNCS(Controller, plantd); % a discrete linear neural network control system
-
-
-% Initial Set of states and reference inputs
-
-% reference input for neural network controller
-% t_gap = 1.4; v_set = 30;
-
-ref_input = [30; 1.4];
-
-% initial condition of the plant
-
-% initial position of lead car x_lead
-x_lead = [90 100];
-% initial condition of v_lead
-v_lead = [32 35];
-% initial condition of x_internal_lead
-internal_acc_lead = [0 0];
-% initial condition of x_ego
-x_ego = [10 11]; 
-% initial condition of v_ego
-v_ego = [30 30.2];
-% initial condition of x_internal_ego
-internal_acc_ego = [0 0];
-% initial condition for new introduced variable 
-x7_0 = [-4 -4]; % x7 = -2*x(3) + 2 * a_lead -> x7(0) = -2*x(3)(0) + 2*alead = -2*0 + 2*-2 = -4
-
-
-x1 = x_lead;
-lb = [x1(1); v_lead(1); internal_acc_lead(1); x_ego(1); v_ego(1); internal_acc_ego(1); x7_0(1)];
-ub = [x1(2); v_lead(2); internal_acc_lead(2); x_ego(2); v_ego(2); internal_acc_ego(2); x7_0(2)];
-init_set = Star(lb, ub);
-
-
-% Reachability Analysis
-
-
-reachPRM.init_set = init_set;
-reachPRM.ref_input = ref_input;
-reachPRM.numSteps = 10;
-reachPRM.reachMethod = 'exact-star';
-reachPRM.numCores = 1;
-[R, reachTime] = ncs.reach(reachPRM);
-
-
-
-% Verification
-
-% safety property: actual distance > alpha * safe distance <=> d = x1 - x4  > alpha * d_safe = alpha * (1.4 * v_ego + 10)
-
-% usafe region: x1 - x4 <= alpha * (1.4 * v_ego + 10)
-alpha = 1;
-unsafe_mat = [1 0 0 -1 alpha*1.4 0 0];
-unsafe_vec = alpha*10; 
-unsafeRegion = HalfSpace(unsafe_mat, unsafe_vec);
-
-[safe, counterExamples, verifyTime] = ncs.verify(reachPRM, unsafeRegion);
-
-% Plot reach sets
-
-figure;
-ncs.plotPlantReachSets('blue', 1); % plot position of lead car
-hold on;
-ncs.plotPlantReachSets('red',4); % plot position of ego car
-title('Position reach sets of lead car (blue) and ego car (red)');
-
-figure;
-ncs.plotPlantReachSets('blue', 2); % plot velocity of lead car
-hold on; 
-ncs.plotPlantReachSets('red', 5); % plot velocity of ego car
-title('Velocity reach sets of lead car (blue) and ego car (red)');
-
-figure; 
-ncs.plotControllerReachSets('green', 1); % plot control sets
-title('Controller reach sets');
-
-% Plot output reach sets: actual distance vs. safe distance
-
-% plot reachable set of the distance between two cars d = x1 - x4
-figure; 
-map_mat = [1 0 0 -1 0 0 0];
-map_vec = [];
-ncs.plotOutputReachSets('blue', map_mat, map_vec);
-
-hold on;
-
-% plot safe distance between two cars: d_safe = D_default + t_gap * v_ego;
-% D_default = 10; t_gap = 1.4 
-% d_safe = 10 + 1.4 * x5; 
-
-map_mat = [0 0 0 0 1.4 0 0];
-map_vec = [10];
-
-ncs.plotOutputReachSets('red', map_mat, map_vec);
-title('Actual Distance versus. Safe Distance');
-

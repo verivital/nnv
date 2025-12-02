@@ -98,6 +98,10 @@ for i=1:n
     elseif isa(L, 'nnet.cnn.layer.LayerNormalizationLayer')
         Li = LayerNormalizationLayer.parse(L);
 
+    % Self-Attention Layer (Transformer attention)
+    elseif isa(L, 'nnet.cnn.layer.SelfAttentionLayer')
+        Li = MultiHeadAttentionLayer.parse(L);
+
     % Max Pooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.MaxPooling2DLayer')
         Li = MaxPooling2DLayer.parse(L);

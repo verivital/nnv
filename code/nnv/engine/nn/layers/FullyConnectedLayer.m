@@ -29,7 +29,7 @@ classdef FullyConnectedLayer < handle
             % If the index exceeds the number of elements in the weights
             % matrix, the perturbation is considered to be in the bias,
             % and the index of the perturbation in the bias is obtained by
-            % substracting the number of elements in the weights matrix
+            % subtracting the number of elements in the weights matrix
             % from the supplied index.
     end
     

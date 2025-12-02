@@ -658,7 +658,6 @@ classdef Conv2DLayer < handle
                     end
                 end
                 
-                line_length = 0;
                 if isempty(poolobj)
                     for pert_no = 1:num_pert
                         ind = obj.weightPerturb(pert_no, 1);

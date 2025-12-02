@@ -647,12 +647,7 @@ classdef Conv2DLayer < handle
                 
                 poolobj = gcp('nocreate');
                 if isa(V, 'gpuArray') && ~isempty(poolobj) && num_pert > 10
-                    if isempty(poolobj)
-                        numWorkers = 1;
-                    else
-                        numWorkers = poolobj.NumWorkers;
-                    end
-                    if numWorkers > obj.max_parallel_workers
+                    if poolobj.NumWorkers > obj.max_parallel_workers
                         delete(gcp('nocreate'));
                         parpool('Processes', obj.max_parallel_workers);
                     end

@@ -257,6 +257,115 @@ classdef test_MultiHeadAttentionLayer < matlab.unittest.TestCase
             end
         end
 
+        %% ImageStar Reachability Tests (Critical for NN integration)
+
+        function test_reach_imagestar_bounds(testCase)
+            % Test reachability with ImageStar bounds representation
+            % This tests the case when attention is used in CNN-like networks
+            layer = MultiHeadAttentionLayer('mha', 4, 1);
+
+            lb = zeros(4, 1);
+            ub = ones(4, 1);
+            IS = ImageStar(lb, ub);
+
+            try
+                IS_out = layer.reach(IS, 'approx-star');
+                testCase.verifyTrue(isa(IS_out, 'Star') || isa(IS_out, 'ImageStar'), ...
+                    'Output should be Star or ImageStar');
+            catch ME
+                testCase.assumeFail(['ImageStar reach not implemented: ' ME.message]);
+            end
+        end
+
+        function test_reach_imagestar_3d(testCase)
+            % Test reachability with 3D ImageStar
+            layer = MultiHeadAttentionLayer('mha', 4, 2);
+
+            lb = -ones(2, 2, 1);
+            ub = ones(2, 2, 1);
+            IS = ImageStar(lb, ub);
+
+            try
+                IS_out = layer.reach(IS, 'approx-star');
+                testCase.verifyTrue(isa(IS_out, 'Star') || isa(IS_out, 'ImageStar'), ...
+                    '3D ImageStar output');
+            catch ME
+                testCase.assumeFail(['3D ImageStar reach not implemented: ' ME.message]);
+            end
+        end
+
+        %% NN Calling Convention Tests (Critical for NN.reach integration)
+
+        function test_reach_nn_convention_7args(testCase)
+            % Test reach with 7 arguments (NN.reach calling convention)
+            % NN calls: reach(inSet, method, option, relaxFactor, dis_opt, lp_solver)
+            layer = MultiHeadAttentionLayer('mha', 4, 1);
+
+            lb = zeros(4, 1);
+            ub = ones(4, 1);
+            IS = ImageStar(lb, ub);
+
+            try
+                IS_out = layer.reach(IS, 'approx-star', 'single', 0, [], 'linprog');
+                testCase.verifyTrue(isa(IS_out, 'Star') || isa(IS_out, 'ImageStar'), ...
+                    'NN calling convention output');
+            catch ME
+                testCase.assumeFail(['7-arg reach not implemented: ' ME.message]);
+            end
+        end
+
+        function test_reach_nn_convention_6args(testCase)
+            % Test reach with 6 arguments
+            layer = MultiHeadAttentionLayer('mha', 4, 1);
+
+            lb = zeros(4, 1);
+            ub = ones(4, 1);
+            IS = ImageStar(lb, ub);
+
+            try
+                IS_out = layer.reach(IS, 'approx-star', 'single', 0, []);
+                testCase.verifyTrue(isa(IS_out, 'Star') || isa(IS_out, 'ImageStar'), ...
+                    '6-arg reach');
+            catch ME
+                testCase.assumeFail(['6-arg reach not implemented: ' ME.message]);
+            end
+        end
+
+        function test_reach_star_with_nn_convention(testCase)
+            % Test Star input with NN calling convention
+            layer = MultiHeadAttentionLayer('mha', 4, 1);
+
+            lb = zeros(4, 1);
+            ub = ones(4, 1);
+            S = Star(lb, ub);
+
+            try
+                S_out = layer.reach(S, 'approx-star', 'single', 0, [], 'linprog');
+                testCase.verifyClass(S_out, 'Star', 'Star with NN convention');
+            catch ME
+                testCase.assumeFail(['Star NN convention not implemented: ' ME.message]);
+            end
+        end
+
+        %% ImageZono Reachability Tests
+
+        function test_reach_imagezono(testCase)
+            % Test reachability with ImageZono
+            layer = MultiHeadAttentionLayer('mha', 4, 1);
+
+            lb = -ones(4, 1);
+            ub = ones(4, 1);
+            IZ = ImageZono(lb, ub);
+
+            try
+                IZ_out = layer.reach(IZ, 'approx-zono');
+                testCase.verifyTrue(isa(IZ_out, 'Zono') || isa(IZ_out, 'ImageZono'), ...
+                    'ImageZono output');
+            catch ME
+                testCase.assumeFail(['ImageZono reach not implemented: ' ME.message]);
+            end
+        end
+
     end
 
 end

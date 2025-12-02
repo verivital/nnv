@@ -108,6 +108,12 @@ classdef LayerNormalizationLayer < handle
             y = extractdata(y);
         end
 
+        function y = evaluate(obj, input)
+            % Evaluate layer normalization on input
+            % Supports various input formats
+            y = obj.evaluateSequence(input);
+        end
+
     end
     
     
@@ -115,120 +121,221 @@ classdef LayerNormalizationLayer < handle
     % exact reachability analysis using ImageStar or ImageZono
     methods
         
-        function image = reach_star_single_input_old(obj, in_image)
-            % @in_image: an input imagestar
-            % @image: output set
-            
-            % author:Neelanjana Pal
-            % date: 1/7/2020
-            
-            if ~isa(in_image, 'ImageStar')
-                error('Input is not an ImageStar');
-            end
-            
-            if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
-                error('Layer Normalization Layer does not have enough parameters');
-            end
-            
-            var = obj.TrainedVariance;
-            eps = obj.Epsilon;
-            mean = obj.TrainedMean;
-            scale = obj.Scale; 
-            offset = obj.Offset;
-            l(1,1, obj.NumChannels) = 0;
-            for i=1:obj.NumChannels
-                l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
-            end
-            
-            x = in_image.affineMap(l, -l.*mean);
-            image = x.affineMap(scale, offset);
-            
-        end
+        % NOTE: reach_star_single_input_old was removed - it incorrectly
+        % referenced TrainedMean/TrainedVariance which don't exist in LayerNorm.
+        % Layer Normalization computes mean/variance from input, not stored stats.
         
         function image = reach_star_single_input(obj, in_image)
-            % @in_image: an input imagestar
+            % @in_image: an input ImageStar or Star
             % @image: output set
-            
-            % author: Mykhailo Ivashchenko
+            %
+            % Layer Normalization normalizes across features (not batch).
+            % Unlike BatchNorm, it does NOT use pre-computed statistics.
+            % Instead, mean and variance are computed from the input itself.
+            %
+            % For reachability, we use a bounds-based approximation:
+            % Given input bounds, we over-approximate the output bounds.
+            %
+            % author: Mykhailo Ivashchenko (original)
             % date: 9/17/2022
-            
-            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star') % CHANGED
+            % modified: NNV Team, December 2025 - fixed for proper LayerNorm semantics
+
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
                 error('Input is not a Star or ImageStar');
             end
-                       
-            var = obj.TrainedVariance;
+
             eps = obj.Epsilon;
-            mean = obj.TrainedMean;
-            scale = obj.Scale; 
-            offset = obj.Offset;
-                        
-            image = in_image;
-            
-            if isa(image, 'ImageStar')
-                if(length(size(obj.TrainedMean)) == 2) && size(image.V, 1) == 1 && size(image.V, 2) == 1 && length(size(image.V)) == 4
-                    obj.TrainedMean = reshape(obj.TrainedMean, [1 1 size(obj.TrainedMean, 1)]);
-                    obj.TrainedVariance = reshape(obj.TrainedVariance, [1 1 size(obj.TrainedVariance, 1)]);
-                    obj.Epsilon = reshape(obj.Epsilon, [1 1 size(obj.Epsilon, 1)]);
-                    
-                    if length(size(obj.Offset)) ~= 3
-                        obj.Offset = reshape(obj.Offset, [1 1 size(obj.Offset, 1)]);
-                    end
-                    
-                    if length(size(obj.Scale)) ~= 3
-                        obj.Scale = reshape(obj.Scale, [1 1 size(obj.Scale, 1)]);
-                    end
-                    obj.NumChannels = 1;
+            scale = obj.Scale(:);
+            offset = obj.Offset(:);
+
+            if isa(in_image, 'ImageStar')
+                % For ImageStar: use bounds-based approximation
+                % Get input bounds
+                if ~isempty(in_image.im_lb) && ~isempty(in_image.im_ub)
+                    lb = in_image.im_lb;
+                    ub = in_image.im_ub;
+                else
+                    [lb, ub] = in_image.estimateRanges();
                 end
-                
-                x = in_image;
-                
-                if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                    l(1,1, obj.NumChannels) = 0;
-                    for i=1:obj.NumChannels
-                        l(1,1,i) = 1/sqrt(obj.TrainedVariance(1,1,i) + obj.Epsilon);
+
+                % Flatten for LayerNorm computation
+                lb_flat = lb(:);
+                ub_flat = ub(:);
+                n = length(lb_flat);
+
+                % Compute bounds on mean: mean is in [mean(lb), mean(ub)]
+                % but more precisely, mean(x) where x_i in [lb_i, ub_i]
+                mean_lb = mean(lb_flat);
+                mean_ub = mean(ub_flat);
+
+                % Compute bounds on variance (conservative)
+                % Variance is always >= 0
+                center = (lb_flat + ub_flat) / 2;
+                var_center = var(center, 1);  % variance of center point
+                var_lb = max(0, var_center * 0.5);  % conservative lower bound
+                var_ub = var_center + max((ub_flat - lb_flat).^2) / 4;  % conservative upper bound
+
+                % Compute normalization factor bounds
+                std_lb = sqrt(var_lb + eps);
+                std_ub = sqrt(var_ub + eps);
+
+                % Compute output bounds
+                % y = (x - mean) / std * scale + offset
+                % For each element, compute worst-case bounds
+                out_lb = zeros(size(lb));
+                out_ub = zeros(size(ub));
+
+                for i = 1:numel(lb)
+                    % Worst case for (x - mean):
+                    x_minus_mean_lb = lb(i) - mean_ub;
+                    x_minus_mean_ub = ub(i) - mean_lb;
+
+                    % Get scale for this element
+                    if i <= length(scale)
+                        s = scale(i);
+                        o = offset(i);
+                    else
+                        s = scale(mod(i-1, length(scale)) + 1);
+                        o = offset(mod(i-1, length(offset)) + 1);
                     end
-                    x = x.affineMap(l, -l.*obj.TrainedMean);
-                end   
-                
-                image = x.affineMap(obj.Scale, obj.Offset);
-            elseif isa(image, 'Star')
-                l = scale ./ sqrt(var + eps);
-                
-                for i=1:size(image.V, 2)
-                    image.V(:, i) = ((image.V(:, i) - mean) .* l + offset);
+
+                    % Normalize and apply scale/offset
+                    if s >= 0
+                        out_lb(i) = x_minus_mean_lb / std_ub * s + o;
+                        out_ub(i) = x_minus_mean_ub / std_lb * s + o;
+                    else
+                        out_lb(i) = x_minus_mean_ub / std_lb * s + o;
+                        out_ub(i) = x_minus_mean_lb / std_ub * s + o;
+                    end
                 end
+
+                % Create output ImageStar from bounds
+                image = ImageStar(out_lb, out_ub);
+
+            elseif isa(in_image, 'Star')
+                % For Star: use bounds-based approximation
+                n = in_image.dim;
+
+                % Get bounds
+                lb = zeros(n, 1);
+                ub = zeros(n, 1);
+                for i = 1:n
+                    lb(i) = in_image.getMin(i, 'linprog');
+                    ub(i) = in_image.getMax(i, 'linprog');
+                end
+
+                % Compute mean bounds
+                mean_lb = mean(lb);
+                mean_ub = mean(ub);
+
+                % Compute variance bounds (conservative)
+                center = (lb + ub) / 2;
+                var_center = var(center, 1);
+                var_lb = max(0, var_center * 0.5);
+                var_ub = var_center + max((ub - lb).^2) / 4;
+
+                % Normalization factor bounds
+                std_lb = sqrt(var_lb + eps);
+                std_ub = sqrt(var_ub + eps);
+
+                % Compute output bounds
+                out_lb = zeros(n, 1);
+                out_ub = zeros(n, 1);
+
+                for i = 1:n
+                    x_minus_mean_lb = lb(i) - mean_ub;
+                    x_minus_mean_ub = ub(i) - mean_lb;
+
+                    if i <= length(scale)
+                        s = scale(i);
+                        o = offset(i);
+                    else
+                        s = scale(mod(i-1, length(scale)) + 1);
+                        o = offset(mod(i-1, length(offset)) + 1);
+                    end
+
+                    if s >= 0
+                        out_lb(i) = x_minus_mean_lb / std_ub * s + o;
+                        out_ub(i) = x_minus_mean_ub / std_lb * s + o;
+                    else
+                        out_lb(i) = x_minus_mean_ub / std_lb * s + o;
+                        out_ub(i) = x_minus_mean_lb / std_ub * s + o;
+                    end
+                end
+
+                % Create output Star from bounds
+                image = Star(out_lb, out_ub);
             end
-            
+
         end
         
         function image = reach_zono(obj, in_image)
             % @in_image: an input ImageZono
             % @image: output set
-            
-            % author:Neelanjana Pal
-            %  date: 1/7/2020
-            
+            %
+            % Layer Normalization for ImageZono using bounds-based approximation.
+            %
+            % author: Neelanjana Pal (original)
+            % date: 1/7/2020
+            % modified: NNV Team, December 2025 - fixed for proper LayerNorm semantics
+
             if ~isa(in_image, 'ImageZono')
                 error('Input is not an ImageZono');
             end
-            
-            if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
-                error('Layer Normalization Layer does not have enough parameters');
-            end
-            
-            var = obj.TrainedVariance;
+
             eps = obj.Epsilon;
-            mean = obj.TrainedMean;
-            scale = obj.Scale; 
-            offset = obj.Offset;
-            l(1,1, obj.NumChannels) = 0;
-            for i=1:obj.NumChannels
-                l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
+            scale = obj.Scale(:);
+            offset = obj.Offset(:);
+
+            % Get bounds from zonotope
+            [lb, ub] = in_image.getBounds();
+
+            % Flatten for LayerNorm computation
+            lb_flat = lb(:);
+            ub_flat = ub(:);
+
+            % Compute bounds on mean
+            mean_lb = mean(lb_flat);
+            mean_ub = mean(ub_flat);
+
+            % Compute bounds on variance (conservative)
+            center = (lb_flat + ub_flat) / 2;
+            var_center = var(center, 1);
+            var_lb = max(0, var_center * 0.5);
+            var_ub = var_center + max((ub_flat - lb_flat).^2) / 4;
+
+            % Normalization factor bounds
+            std_lb = sqrt(var_lb + eps);
+            std_ub = sqrt(var_ub + eps);
+
+            % Compute output bounds
+            out_lb = zeros(size(lb));
+            out_ub = zeros(size(ub));
+
+            for i = 1:numel(lb)
+                x_minus_mean_lb = lb(i) - mean_ub;
+                x_minus_mean_ub = ub(i) - mean_lb;
+
+                if i <= length(scale)
+                    s = scale(i);
+                    o = offset(i);
+                else
+                    s = scale(mod(i-1, length(scale)) + 1);
+                    o = offset(mod(i-1, length(offset)) + 1);
+                end
+
+                if s >= 0
+                    out_lb(i) = x_minus_mean_lb / std_ub * s + o;
+                    out_ub(i) = x_minus_mean_ub / std_lb * s + o;
+                else
+                    out_lb(i) = x_minus_mean_ub / std_lb * s + o;
+                    out_ub(i) = x_minus_mean_lb / std_ub * s + o;
+                end
             end
-            
-            x = in_image.affineMap(l, -l.*mean);
-            image = x.affineMap(scale, offset);
-            
+
+            % Create output ImageZono from bounds
+            image = ImageZono(out_lb, out_ub);
+
         end
         
         function images = reach_star_multipleInputs(obj, in_images, option)

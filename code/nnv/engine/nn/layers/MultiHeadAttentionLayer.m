@@ -178,29 +178,41 @@ classdef MultiHeadAttentionLayer < handle
             %   S = layer.reach(input_set)           % Self-attention
             %   S = layer.reach(Q_set, K_set, V_set) % Cross-attention
             %   S = layer.reach(..., method)
-            %   S = layer.reach(..., method, option, relaxFactor, dis_opt, lp_solver)
+            %   S = layer.reach(input_set, method, option, relaxFactor, dis_opt, lp_solver)
+            %
+            % NN.reach() calls with 6 args: (inSet, method, option, relaxFactor, dis_opt, lp_solver)
 
             obj = varargin{1};
 
             switch nargin
                 case 2
-                    % Self-attention
+                    % Self-attention with default method
                     Q_set = varargin{2};
                     K_set = Q_set;
                     V_set = Q_set;
                     method = 'approx-star';
                     lp_solver = 'linprog';
                 case 3
+                    % Self-attention with method specified
                     Q_set = varargin{2};
                     K_set = Q_set;
                     V_set = Q_set;
                     method = varargin{3};
                     lp_solver = 'linprog';
                 case 4
+                    % Could be cross-attention (Q,K,V) or self-attention with options
                     Q_set = varargin{2};
-                    K_set = varargin{3};
-                    V_set = varargin{4};
-                    method = 'approx-star';
+                    if isa(varargin{3}, 'Star') || isa(varargin{3}, 'ImageStar')
+                        % Cross-attention
+                        K_set = varargin{3};
+                        V_set = varargin{4};
+                        method = 'approx-star';
+                    else
+                        % Self-attention with method and option
+                        K_set = Q_set;
+                        V_set = Q_set;
+                        method = varargin{3};
+                    end
                     lp_solver = 'linprog';
                 case 5
                     Q_set = varargin{2};
@@ -208,6 +220,29 @@ classdef MultiHeadAttentionLayer < handle
                     V_set = varargin{4};
                     method = varargin{5};
                     lp_solver = 'linprog';
+                case 6
+                    % NN.reach() calling convention without lp_solver: (inSet, method, option, relaxFactor, dis_opt)
+                    Q_set = varargin{2};
+                    K_set = Q_set;
+                    V_set = Q_set;
+                    method = varargin{3};
+                    % option = varargin{4};  % not used
+                    % relaxFactor = varargin{5};  % not used
+                    % dis_opt = varargin{6};  % not used
+                    lp_solver = 'linprog';
+                case 7
+                    % NN.reach() calling convention: (inSet, method, option, relaxFactor, dis_opt, lp_solver)
+                    Q_set = varargin{2};
+                    K_set = Q_set;
+                    V_set = Q_set;
+                    method = varargin{3};
+                    % option = varargin{4};  % not used
+                    % relaxFactor = varargin{5};  % not used
+                    % dis_opt = varargin{6};  % not used
+                    lp_solver = varargin{7};
+                    if isempty(lp_solver)
+                        lp_solver = 'linprog';
+                    end
                 case 9
                     Q_set = varargin{2};
                     K_set = varargin{3};
@@ -215,7 +250,7 @@ classdef MultiHeadAttentionLayer < handle
                     method = varargin{5};
                     lp_solver = varargin{9};
                 otherwise
-                    error('Invalid number of arguments');
+                    error('Invalid number of arguments: %d', nargin);
             end
 
             % Dispatch based on method
@@ -235,51 +270,104 @@ classdef MultiHeadAttentionLayer < handle
             % 1. Get bounds on projected Q, K, V
             % 2. Compute attention bounds for each head
             % 3. Compute output bounds
+            %
+            % Supports both Star and ImageStar inputs.
 
             if nargin < 5
                 lp_solver = 'linprog';
             end
 
-            % Get bounds on inputs
-            n = Q_set.dim;
-            Q_lb = zeros(n, 1);
-            Q_ub = zeros(n, 1);
-            K_lb = zeros(n, 1);
-            K_ub = zeros(n, 1);
-            V_lb = zeros(n, 1);
-            V_ub = zeros(n, 1);
+            % Handle ImageStar input by extracting bounds
+            if isa(Q_set, 'ImageStar')
+                % Get bounds from ImageStar
+                if ~isempty(Q_set.im_lb) && ~isempty(Q_set.im_ub)
+                    Q_lb = Q_set.im_lb(:);
+                    Q_ub = Q_set.im_ub(:);
+                else
+                    [lb_img, ub_img] = Q_set.estimateRanges();
+                    Q_lb = lb_img(:);
+                    Q_ub = ub_img(:);
+                end
+                K_lb = Q_lb;  % Self-attention
+                K_ub = Q_ub;
+                V_lb = Q_lb;
+                V_ub = Q_ub;
+                n = length(Q_lb);
+                is_imagestar_input = true;
+                input_size = size(Q_set.im_lb);
+            elseif isa(Q_set, 'Star')
+                % Get bounds on inputs from Star
+                n = Q_set.dim;
+                Q_lb = zeros(n, 1);
+                Q_ub = zeros(n, 1);
+                K_lb = zeros(n, 1);
+                K_ub = zeros(n, 1);
+                V_lb = zeros(n, 1);
+                V_ub = zeros(n, 1);
 
-            for i = 1:n
-                Q_lb(i) = Q_set.getMin(i, lp_solver);
-                Q_ub(i) = Q_set.getMax(i, lp_solver);
-                K_lb(i) = K_set.getMin(i, lp_solver);
-                K_ub(i) = K_set.getMax(i, lp_solver);
-                V_lb(i) = V_set.getMin(i, lp_solver);
-                V_ub(i) = V_set.getMax(i, lp_solver);
+                for i = 1:n
+                    Q_lb(i) = Q_set.getMin(i, lp_solver);
+                    Q_ub(i) = Q_set.getMax(i, lp_solver);
+                    K_lb(i) = K_set.getMin(i, lp_solver);
+                    K_ub(i) = K_set.getMax(i, lp_solver);
+                    V_lb(i) = V_set.getMin(i, lp_solver);
+                    V_ub(i) = V_set.getMax(i, lp_solver);
+                end
+                is_imagestar_input = false;
+            else
+                error('Input must be Star or ImageStar');
             end
 
             % Compute output bounds through multi-head attention
             [out_lb, out_ub] = obj.compute_mha_bounds(Q_lb, Q_ub, K_lb, K_ub, V_lb, V_ub);
 
-            % Create output Star from bounds
-            S = Star(out_lb, out_ub);
+            % Create output in same format as input
+            if is_imagestar_input
+                % Return ImageStar with same spatial structure
+                out_lb_img = reshape(out_lb, input_size);
+                out_ub_img = reshape(out_ub, input_size);
+                S = ImageStar(out_lb_img, out_ub_img);
+            else
+                % Return Star from bounds
+                S = Star(out_lb, out_ub);
+            end
         end
 
         function Z = reach_zono_approx(obj, Q_set, K_set, V_set)
             % Over-approximate reachability using Zonotopes
+            % Supports both Zono and ImageZono inputs
 
-            % Get bounds from zonotopes
-            [Q_lb, Q_ub] = Q_set.getBounds();
-            [K_lb, K_ub] = K_set.getBounds();
-            [V_lb, V_ub] = V_set.getBounds();
+            % Get bounds from zonotopes (ImageZono uses getRanges, Zono uses getBounds)
+            if isa(Q_set, 'ImageZono')
+                [Q_lb, Q_ub] = Q_set.getRanges();
+                Q_lb = Q_lb(:);
+                Q_ub = Q_ub(:);
+                K_lb = Q_lb;  % Self-attention
+                K_ub = Q_ub;
+                V_lb = Q_lb;
+                V_ub = Q_ub;
+                is_imagezono = true;
+                input_size = size(Q_set.V(:,:,:,1));
+            else
+                [Q_lb, Q_ub] = Q_set.getBounds();
+                [K_lb, K_ub] = K_set.getBounds();
+                [V_lb, V_ub] = V_set.getBounds();
+                is_imagezono = false;
+            end
 
             % Compute output bounds
             [out_lb, out_ub] = obj.compute_mha_bounds(Q_lb, Q_ub, K_lb, K_ub, V_lb, V_ub);
 
-            % Create output Zonotope from bounds
-            center = (out_lb + out_ub) / 2;
-            generators = diag((out_ub - out_lb) / 2);
-            Z = Zono(center, generators);
+            % Create output from bounds
+            if is_imagezono
+                out_lb_img = reshape(out_lb, input_size);
+                out_ub_img = reshape(out_ub, input_size);
+                Z = ImageZono(out_lb_img, out_ub_img);
+            else
+                center = (out_lb + out_ub) / 2;
+                generators = diag((out_ub - out_lb) / 2);
+                Z = Zono(center, generators);
+            end
         end
 
         function [out_lb, out_ub] = compute_mha_bounds(obj, Q_lb, Q_ub, K_lb, K_ub, V_lb, V_ub)
@@ -287,8 +375,12 @@ classdef MultiHeadAttentionLayer < handle
             %
             % Uses interval arithmetic through:
             % 1. Linear projections
-            % 2. Per-head attention
+            % 2. Per-head attention (or mean pooling if Q/K weights near-zero)
             % 3. Output projection
+            %
+            % Special case: When Q and K projection weights are near-zero,
+            % attention becomes uniform (mean pooling). This happens when
+            % the network learns to bypass the attention mechanism.
 
             n = length(Q_lb);
 
@@ -302,10 +394,59 @@ classdef MultiHeadAttentionLayer < handle
                 obj.HeadDim = n / obj.NumHeads;
             end
 
+            % Check for near-zero Q/K weights (uniform attention case)
+            % When Q*K^T ≈ 0 for all positions, softmax gives uniform 1/n weights
+            q_weight_mag = max(abs(obj.W_Q(:)));
+            k_weight_mag = max(abs(obj.W_K(:)));
+            uniform_attention_threshold = 1e-6;
+
+            if q_weight_mag < uniform_attention_threshold && k_weight_mag < uniform_attention_threshold
+                % Uniform attention: output = V * W_O (each position gets V directly)
+                % Since attention is uniform, each output position is the weighted
+                % sum of all V positions with equal weights.
+                % For self-attention on a single token representation (flattened),
+                % this simplifies to: output = V_proj * W_O
+
+                % Project V through V weights
+                [V_proj_lb, V_proj_ub] = obj.interval_matmul(V_lb, V_ub, obj.W_V);
+
+                % Add V bias if present
+                if ~isempty(obj.b_V)
+                    V_proj_lb = V_proj_lb + obj.b_V;
+                    V_proj_ub = V_proj_ub + obj.b_V;
+                end
+
+                % Output projection (V_proj * W_O)
+                [out_lb, out_ub] = obj.interval_matmul(V_proj_lb, V_proj_ub, obj.W_O);
+
+                % Add output bias if present
+                if ~isempty(obj.b_O)
+                    out_lb = out_lb + obj.b_O;
+                    out_ub = out_ub + obj.b_O;
+                end
+
+                return;
+            end
+
+            % Standard attention computation
             % Project inputs through linear layers (interval arithmetic)
             [Q_proj_lb, Q_proj_ub] = obj.interval_matmul(Q_lb, Q_ub, obj.W_Q);
             [K_proj_lb, K_proj_ub] = obj.interval_matmul(K_lb, K_ub, obj.W_K);
             [V_proj_lb, V_proj_ub] = obj.interval_matmul(V_lb, V_ub, obj.W_V);
+
+            % Add biases if present
+            if ~isempty(obj.b_Q)
+                Q_proj_lb = Q_proj_lb + obj.b_Q;
+                Q_proj_ub = Q_proj_ub + obj.b_Q;
+            end
+            if ~isempty(obj.b_K)
+                K_proj_lb = K_proj_lb + obj.b_K;
+                K_proj_ub = K_proj_ub + obj.b_K;
+            end
+            if ~isempty(obj.b_V)
+                V_proj_lb = V_proj_lb + obj.b_V;
+                V_proj_ub = V_proj_ub + obj.b_V;
+            end
 
             % Compute attention bounds for each head
             head_lb = zeros(n, 1);
@@ -332,6 +473,12 @@ classdef MultiHeadAttentionLayer < handle
 
             % Output projection
             [out_lb, out_ub] = obj.interval_matmul(head_lb, head_ub, obj.W_O);
+
+            % Add output bias if present
+            if ~isempty(obj.b_O)
+                out_lb = out_lb + obj.b_O;
+                out_ub = out_ub + obj.b_O;
+            end
         end
 
         function [y_lb, y_ub] = interval_matmul(~, x_lb, x_ub, W)

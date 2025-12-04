@@ -1,7 +1,7 @@
 %% Load things
 % Load data
-data = readNPY("data/STMNIST/test/stmnistvideo_64f_test_data_seq.npy");
-labels = readNPY("data/STMNIST/test/stmnistvideo_64f_test_labels_seq.npy");
+data = readNPY("data/STMNIST/stmnistvideo_64f_test_data_seq.npy");
+labels = readNPY("data/STMNIST/stmnistvideo_64f_test_labels_seq.npy");
 
 % Preprocessing
 % from [B D C H W] to [B D H W C]
@@ -29,7 +29,7 @@ reachOptions.relaxFactor = 0.5;
 
 %% Make predictions on test set to check that we are verifying correct
 outputLabels = zeros(length(datacopy));
-index = 719; % 311 for a really long example
+index = 3; % 311 for a really long example
 
 s = datacopy(index,:,:,:,:);
 s = squeeze(s);
@@ -102,7 +102,7 @@ range_size = ub_out - mid_range;
 x = [0 1 2 3 4 5 6 7 8 9];
 
 % Visualize set ranges and evaluation points
-figure;
+f = figure;
 errorbar(x, mid_range, range_size, '.', 'Color', 'r', 'LineWidth', 2);
 hold on;
 xlim([-0.5, 9.5]);
@@ -111,7 +111,7 @@ title('Reachable Outputs');
 xlabel('Label');
 ylabel('Reachable Output Range on the Input Set');
 % Save the figure
-saveas(figure, "figs/reach_stmnist_plot.png");
+saveas(f, "/tmp/reach_stmnist_plot.png");
 
 %% NON-ROBUST SAMPLE
 eps = 3/255;
@@ -178,7 +178,7 @@ range_size = ub_out - mid_range;
 x = [0 1 2 3 4 5 6 7 8 9];
 
 % Visualize set ranges and evaluation points
-figure;
+f = figure;
 errorbar(x, mid_range, range_size, '.', 'Color', 'r', 'LineWidth', 2);
 hold on;
 xlim([-0.5, 9.5]);
@@ -187,7 +187,7 @@ title('Reachable Outputs');
 xlabel('Label');
 ylabel('Reachable Output Range on the Input Set');
 % Save the figure
-saveas(figure, "figs/reach_bad_stmnist_plot.png");
+saveas(f, "/tmp/reach_bad_stmnist_plot.png");
 
 
 %% Helper Functions

@@ -16,6 +16,9 @@ from vvn.config import Config
 import vvn.gtsrbprep as vgp
 import vvn.stmnistprep as vsp
 
+# for SoSym (on docker)
+RESULTS_DIR = '/tmp'
+
 # load environment variables 
 load_dotenv()
 
@@ -68,11 +71,12 @@ def run(config, indices) -> None:
     ds_type = config.ds_type
     sample_len = config.sample_len
     ver_algorithm = config.ver_algorithm
+    output_dir = config.output_dir
 
     print(f'Running verification with config: verification algorithm={ver_algorithm}, dataset type={ds_type}, video length={sample_len}') 
 
     # make sure directory structure + results files are created and correct
-    vp.prepare_filetree(config)
+    # vp.prepare_filetree(config)
 
     # make sure matlab is started
     eng = prepare_engine(NNV_PATH, NPY_MATLAB_PATH)
@@ -83,7 +87,9 @@ def run(config, indices) -> None:
 
         # select epsilon
         for eps_index in range(1, len(epsilon) + 1):
-            output_file = vp.build_output_filepath(config=config, filename=f'eps={eps_index}_255')
+            # output_file = vp.build_output_filepath(config=config, filename=f'eps={eps_index}_255')
+            output_file_ds_type = 'ZoomIn' if ds_type == 'zoom_in' else 'ZoomOut'
+            output_file = os.path.join(output_dir, output_file_ds_type, str(sample_len), f'eps={eps_index}_255.csv')
 
             # verify the sample with a specific epsilon value
             res, t, met = verify(ds_type, sample_len, ver_algorithm, eng, index, eps_index, timeout)
@@ -123,11 +129,12 @@ def run_gtsrb(config, indices) -> None:
     ds_type = config.ds_type
     sample_len = config.sample_len
     ver_algorithm = config.ver_algorithm
+    output_dir = config.output_dir
 
     print(f'Running verification with config: verification algorithm={ver_algorithm}, dataset type={ds_type}, video length={sample_len}') 
 
     # make sure directory structure + results files are created and correct
-    vgp.prepare_filetree(config)
+    # vgp.prepare_filetree(config)
 
     # make sure matlab is started
     eng = prepare_engine(NNV_PATH, NPY_MATLAB_PATH)
@@ -140,7 +147,8 @@ def run_gtsrb(config, indices) -> None:
 
         # select epsilon
         for eps_index in range(1, len(epsilon) + 1):
-            output_file = vgp.build_output_filepath(config=config, filename=f'eps={eps_index}_255')
+            # output_file = vgp.build_output_filepath(config=config, filename=f'eps={eps_index}_255')
+            output_file = os.path.join(output_dir, str(sample_len), f'eps={eps_index}_255.csv')
 
             # skip if timeout was met at any point in the previous iterations
             if if_timeout:
@@ -189,11 +197,12 @@ def run_stmnist(config, indices) -> None:
     ds_type = config.ds_type
     sample_len = config.sample_len
     ver_algorithm = config.ver_algorithm
+    output_dir = config.output_dir
 
     print(f'Running verification with config: verification algorithm={ver_algorithm}, dataset type={ds_type}, video length={sample_len}') 
 
     # make sure directory structure + results files are created and correct
-    vsp.prepare_filetree(config)
+    # vsp.prepare_filetree(config)
 
     # make sure matlab is started
     eng = prepare_engine(NNV_PATH, NPY_MATLAB_PATH)
@@ -206,7 +215,8 @@ def run_stmnist(config, indices) -> None:
 
         # select epsilon
         for eps_index in range(1, len(epsilon) + 1):
-            output_file = vsp.build_output_filepath(config=config, filename=f'eps={eps_index}_255')
+            # output_file = vsp.build_output_filepath(config=config, filename=f'eps={eps_index}_255')
+            output_file = os.path.join(output_dir, str(sample_len), f'eps={eps_index}_255.csv')
 
             # skip if timeout was met at any point in the previous iterations
             if if_timeout:
@@ -259,13 +269,14 @@ def run_kthactions(config, indices) -> None:
     print(f'Running verification with config: verification algorithm={ver_algorithm}, dataset type={ds_type}, video length={sample_len}') 
 
     # make sure directory structure + results files are created and correct
-    results_dir = os.path.join(os.getcwd(), 'results', 'KTHActions')
+    results_dir = os.path.join(RESULTS_DIR, 'KTHActions')
 
     if not os.path.isdir(results_dir):
         os.mkdir(results_dir)
 
     # make results dir for videos of specific sample length
-    os.mkdir(os.path.join(results_dir, str(sample_len)))
+    if not os.path.isdir(os.path.join(results_dir, str(sample_len))):
+        os.mkdir(os.path.join(results_dir, str(sample_len)))
 
     # make sure matlab is started
     eng = prepare_engine(NNV_PATH, NPY_MATLAB_PATH)
@@ -298,7 +309,7 @@ def run_kthactions(config, indices) -> None:
     # close matlab after experiment finishes
     eng.quit()
 
-def verify_ucf11(sample_len, ver_algorithm, eng, index, eps_index, timeout) -> Tuple[int, float | str, str]:
+def verify_ucf11(sample_len, ver_algorithm, eng, index, eps_index, timeout, out_channels) -> Tuple[int, float | str, str]:
     # check that MATLAB engine was started correctly and is accessible
     if not eng:
         raise Exception('MATLAB Engine was not correctly started and shared. Please make sure to run `prepare_engine`.')
@@ -306,7 +317,7 @@ def verify_ucf11(sample_len, ver_algorithm, eng, index, eps_index, timeout) -> T
     # call to MATLAB script to run verification
     # future = eng.verifyucf11(sample_len, ver_algorithm, index, eps_index, nargout=3, background=True, stdout=io.StringIO())
     buf = io.StringIO()
-    future = eng.verifyucf11(sample_len, ver_algorithm, index, eps_index, nargout=3, background=True, stdout=buf, stderr=buf)
+    future = eng.verifyucf11(sample_len, ver_algorithm, index, eps_index, out_channels, nargout=3, background=True, stdout=buf, stderr=buf)
     print(buf.getvalue())
 
     try:
@@ -322,7 +333,7 @@ def verify_ucf11(sample_len, ver_algorithm, eng, index, eps_index, timeout) -> T
 
     return res, t, met
 
-def run_ucf11(config, indices) -> None:
+def run_ucf11(config, indices, out_channels) -> None:
     # Unpack configuration settings;
     epsilon = config.epsilon
     timeout = config.timeout
@@ -334,13 +345,18 @@ def run_ucf11(config, indices) -> None:
     print(f'Running verification with config: verification algorithm={ver_algorithm}, dataset type={ds_type}, video length={sample_len}') 
 
     # make sure directory structure + results files are created and correct
-    results_dir = os.path.join(os.getcwd(), 'results', 'UCF11')
+    results_dir = os.path.join(RESULTS_DIR, 'UCF11')
 
     if not os.path.isdir(results_dir):
         os.mkdir(results_dir)
 
-    # make results dir for videos of specific sample length
-    os.mkdir(os.path.join(results_dir, str(sample_len)))
+    # make results dir for videos of specific sample length if it doesn't exist
+    if not os.path.isdir(os.path.join(results_dir, str(sample_len))):
+        os.mkdir(os.path.join(results_dir, str(sample_len)))
+
+    # make results dir for videos with models of specific # of out channels if it doesn't exist
+    if not os.path.isdir(os.path.join(results_dir, str(sample_len), f'{out_channels}outchannels')):
+        os.mkdir(os.path.join(results_dir, str(sample_len), f'{out_channels}outchannels'))
 
     # make sure matlab is started
     eng = prepare_engine(NNV_PATH, NPY_MATLAB_PATH)
@@ -353,7 +369,7 @@ def run_ucf11(config, indices) -> None:
 
         # select epsilon
         for eps_index in range(1, len(epsilon) + 1):
-            output_file = os.path.join(results_dir, str(sample_len), f'eps={eps_index}_255.csv')
+            output_file = os.path.join(results_dir, str(sample_len), f'{out_channels}outchannels', f'eps={eps_index}_255.csv')
 
             # skip if timeout was met at any point in the previous iterations
             if if_timeout:
@@ -362,7 +378,7 @@ def run_ucf11(config, indices) -> None:
                 continue
 
             # verify the sample with a specific epsilon value
-            res, t, met = verify_ucf11(sample_len, ver_algorithm, eng, index, eps_index, timeout)
+            res, t, met = verify_ucf11(sample_len, ver_algorithm, eng, index, eps_index, timeout, out_channels)
 
             if res == 3:
                 if_timeout = True

@@ -5,9 +5,7 @@ import vvn.verify as vvn
 from vvn.config import Config
 
 if __name__=="__main__":
-    # get the results dir
-    root = os.path.dirname(os.getcwd())
-    output_dir = os.path.join(root, 'FORMALISE2025', 'results')
+    output_dir = "/tmp"
 
     # define the starting configurations
     config = Config(
@@ -20,8 +18,7 @@ if __name__=="__main__":
         output_dir=output_dir
     )
 
-    # samples = list(range(1, 101))
-    samples = [1]
+    samples = list(range(1, 26))
     vvn.run_kthactions(config=config, indices=samples)
 
     config.sample_len = 16

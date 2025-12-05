@@ -1,6 +1,6 @@
-# (Artifact) Robustness Verification of Video Classification Neural Networks (FORMALISE2025 & SoSym)
+# (Artifact) Robustness Verification of Video Classification Neural Networks (FormaliSE'25) + Verifying Video Classification Neural Networks for Action Recognition (SoSym)
 
-This artifact is used to reproduce the results in _Robustness Verification of Video Classification Neural Networks_ (FORMALISE2025) and its journal extension (SoSym).
+This artifact is used to reproduce the results in _Robustness Verification of Video Classification Neural Networks_ (FormaliSE'25) and its journal extension _Verifying Video Classification Neural Networks for Action Recognition_ (SoSym).
 
 Included in the artifact are the NNV tool, datasets, and scripts used to produce all of the results. The paper introduces a novel abstract set representation (VideoStars) for handling layer types common to video classification neural network architectures (3D convolutional, 3D pooling, etc.). The implementation is done within the NNV tool, which is included in this artifact.
 
@@ -273,9 +273,13 @@ FORMALISE2025/
 
 ## Hardware Used for Original Results
 
-All results from the paper were captured using:
+All results from the FormaliSE'25 paper were captured using:
 - Apple M1 Max 10-core CPU @ 3.20GHz
 - 64GB RAM
+
+All results from the SoSym extension were captured using:
+- Intel Xeon Gold 6238R Processor @ 2.20GHz
+- 512GB RAM
 
 ## Troubleshooting
 

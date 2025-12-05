@@ -1,197 +1,298 @@
-# (Artifact) Robustness Verification of Video Classification Neural Networks
+# (Artifact) Robustness Verification of Video Classification Neural Networks (FORMALISE2025 & SoSym)
 
-This artifact is used to reproduce the results in _Robustness Verification of Video Classification Neural Networks_.
+This artifact is used to reproduce the results in _Robustness Verification of Video Classification Neural Networks_ (FORMALISE2025) and its journal extension (SoSym).
 
-Included in the artifact are the NNV tool, datasets, and scripts used to produce all of the results in the aforementioned paper. The paper introduces a novel abstract set representation for handling layer types common to video classification neural network architectures (3D convolutional, 3D pooling, etc.). The implementation of this abstract set representation is done within the NNV tool, which results in its inclusion in the artifact. Specifically, there exists a subdirectory (`nnv/code/nnv/examples/Submission/FORMALISE2025`) of the artifact which contains the scripts necessary to using the NNV tool for verification and producing the results in the paper.
+Included in the artifact are the NNV tool, datasets, and scripts used to produce all of the results. The paper introduces a novel abstract set representation (VideoStars) for handling layer types common to video classification neural network architectures (3D convolutional, 3D pooling, etc.). The implementation is done within the NNV tool, which is included in this artifact.
 
-All results from _Robustness Verification of Video Classification Neural Networks_ were captured using an `Apple M1 Max 10-core CPU@3.20GHz×10` with 64GB of RAM.
+## Requirements
 
-# Requirements
+- **Docker** with the NNV Docker image built from the provided Dockerfile
+- **MATLAB R2024b** (included in the Docker image)
+- **Python 3.11** with dependencies from `requirements.txt`
 
-The following resources are required to run this artifact:
+## Quick Start (Docker)
 
-- MATLAB 2024a with the NNV tool and `npy-matlab` packages installed and added to the path as well as the following toolboxes installed:
-  - Computer Vision
-  - Control Systems
-  - Deep Learning
-  - Image Processing
-  - Optimization
-  - Parallel Computing
-  - Statistics and Machine Learning
-  - Symbolic Math
-  - System Identification
-  - [Deep Learning Toolbox Converter for ONNX Model Format](https://www.mathworks.com/matlabcentral/fileexchange/67296-deep-learning-toolbox-converter-for-onnx-model-format)
-- A conda environment with Python v3.11. Install rquirements from `requirements.txt`. Make sure to install the source files.
-- The datasets which are available for download here: https://doi.org/10.5281/zenodo.14721214
+### 1. Build the NNV Docker Image
 
-# Installation
+From the root of the NNV repository:
 
-This section describes all of the necessary steps for installing tools, dependencies, etc. needed to reproduce the artifact. For the remainder of these instructions when the `FORMALISE2025` directory is referred to we are really referring to the directory at the following path: `nnv/code/nnv/examples/Submission/FORMALISE2025`.
+```bash
+cd /path/to/nnv
+docker build -t nnv .
+```
 
-1. Clone the NNV repository (or download artifact for reviewers accessing this way) and ensure all dependencies have been added to the MATLAB path.
+### 2. Start the Docker Container
 
-   ```
-   # Clone NNV
-   git clone --recursive https://github.com/verivital/nnv.git
-   ```
+```bash
+docker run -it --name SoSym --mount type=bind,source="$(pwd)",target=/nnv -w /nnv nnv bash
+```
 
-   Next, we provide instructions for installing both pieces of software as needed for using the artifact. Note that it will be necessary to perform installations with administrator privileges for both pieces of software so that it is possible to `savepath` in MATLAB after completing their respective installation instructions.
+### 3. Set Up the Conda Environment (Inside Container)
 
-2. Install the NNV tool
+```bash
+# Install Miniconda
+wget -P /home/matlab/ https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash /home/matlab/Miniconda3-latest-Linux-x86_64.sh
+# Restart terminal or source ~/.bashrc
 
-   To setup the NNV tool, there are a number of toolboxes that we need to first install. Assuming you have already installed MATLAB R2024a, then you can use the `nnv/install_ubuntu.sh` if you are on an Ubuntu machine to speedup this process. Otherwise, you will need to ensure that the toolboxes mentioned under [Requirements](#requirements) are included in your MATLAB installation.
+# Add MATLAB to path
+echo 'export MATLABROOT="/opt/matlab/R2024b"' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH="$MATLABROOT/bin/glnxa64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' >> ~/.bashrc
+source ~/.bashrc
 
-   Additionally, you must install the following support package [Deep Learning Toolbox Converter for ONNX Model Format](https://www.mathworks.com/matlabcentral/fileexchange/67296-deep-learning-toolbox-converter-for-onnx-model-format).
+# Create conda environment
+conda create --name SoSym python=3.11
+conda activate SoSym
 
-   > Note: Support packages can be installed in MATLAB's HOME tab > Add-Ons > Get Add-ons, search for the support package using the Add-on Explorer and click on the Install button.
+# Install dependencies
+pip install -r /nnv/code/nnv/examples/Submission/FORMALISE2025/requirements.txt
 
-   After completing the initial steps, the next step is to run the `nnv/code/nnv/install.m` script in MATLAB. If using a computer with an Apple silicon CPU, then it may be necessary to remove the following line from NNV's `install.m` script:
+# Install source package
+cd /nnv/code/nnv/examples/Submission/FORMALISE2025/src
+pip install -e .
+```
 
-   ```matlab
-   tbxmanager install lcp hysdel cddmex clpmex glpkmex fourier sedumi;
-   ```
+### 4. Add NNV to MATLAB Path
 
-   Either comment it out or remove it.
+```bash
+cd /nnv
+matlab -batch "addpath(pwd); addpath(genpath(pwd)); savepath"
+```
 
-   > Note: if you restart Matlab, rerun either `install.m` or `startup_nnv.m`, which will add the necessary dependencies to the path; you alternatively can run savepath after installation to avoid this step after restarting Matlab, but this may require administrative privileges
+### 5. Apply Box.m Modification
 
-   All of these instructions are additionally included under heading `# Installation:` on [NNV's README](https://github.com/verivital/nnv/blob/master/README.md). Note, if using a computer with an Apple silicon CPU, then it may be necessary to remove the following line from NNV's `install.m` script:
+Copy the modified `Box.m` file to replace the original in NNV:
 
-3. Install the `npy-matlab` package
+```bash
+cp /nnv/code/nnv/examples/Submission/FORMALISE2025/src/Box.m /nnv/code/nnv/engine/set/Box.m
+```
 
-   For `npy-matlab`, add and save the path to MATLAB with the following commands from the MATLAB interface:
+This modification removes the try-catch optimization for generator construction, using only the loop-based approach for better memory efficiency with large video inputs.
 
-   ```matlab
-   >> addpath('/path/to/npy-matlab/npy-matlab')
-   >> savepath
-   ```
+## Data Preparation
 
-   For reference, the `npy-matlab` package is included in this artifact inside the `FORMALISE2025` directory.
+### Redistributable Datasets (Zoom In, Zoom Out, GTSRB)
 
-   Instructions are also available on [`npy-matlab`'s README](https://github.com/kwikteam/npy-matlab/blob/master/README.md).
+These datasets are available for download from: https://doi.org/10.5281/zenodo.14721214
 
-4. Download the `data.tar.gz` file which contains all variations of datasets needed for reproducing results in the desired file structure from the following link: https://doi.org/10.5281/zenodo.14721214.
+Download `data.tar.gz` and extract to the `FORMALISE2025` directory:
 
-   After downloading the file, move it to the `FORMALISE2025` directory and unpack it there (`tar -xzf data.tar.gz` if possible, but can also extract files using whatever file explorer is available on machine) so that the file tree now looks like
+```bash
+cd /nnv/code/nnv/examples/Submission/FORMALISE2025
+tar -xzf data.tar.gz
+```
 
-   ```pseudo
-   FORMALISE2025
-   ├── data
-   │   ├── ZoomIn
-   │   ├── ZoomOut
-   │   ├── GTSRB
-   │   └── STMNIST
-   │   └── data.tar.gz
-   ...
-   ```
+### Non-Redistributable Datasets
 
-   after which the `data.tar.gz` file can be deleted. Please make sure the organization of the folder is the same as shown above.
+The following datasets require running data preparation notebooks:
 
-5. Create a conda environment with `Python v3.11` and install the requirements from `requirements.txt`.
+#### ST-MNIST
 
-   For producing the results, the Anaconda distribution was used so its installation instructions are provided here; users can also follow general installation instructions [here](https://docs.conda.io/projects/conda/en/latest/user-guide/install/). When installing Anaconda in macOS, a `.pkg` file will be provided. Double-click the `.pkg` file and follow the prompts to install Anaconda. For Linux, a `.sh` script will be provided. Executing the command `bash anaconda-latest-Linux-x86_64.sh` and following the prompts will install Anaconda.
+1. Download the original ST-MNIST dataset
+2. Run `src/data_prep/STMNIST/STMNISTDataGeneration.ipynb`
 
-   To activate conda in your terminal environment, you will have to restart it. Then, you can test that the installation was successful with
+Output files should be saved to:
+```
+data/STMNIST/stmnistvideo_{16,32,64}f_test_data_seq.npy
+data/STMNIST/stmnistvideo_{16,32,64}f_test_labels_seq.npy
+```
 
-   ```bash
-   conda list
-   ```
+#### UCF11
 
-   We can then create a `Python v3.11` environment with command
+1. Download the UCF11 dataset (will be downloaded automatically by notebook)
+2. Run notebooks in order:
+   - `src/data_prep/UCF11/preprocess_UCF11.ipynb`
+   - `src/data_prep/UCF11/create_grayscale_UCF11.ipynb`
+   - `src/data_prep/UCF11/postprocess_UCF11.ipynb`
 
-   ```bash
-   conda create --name <env_name> python=3.11
-   ```
+Output files should be saved to:
+```
+data/UCF11/ucf11_grayscale_{8,16,32}f_verification_data.npy
+data/UCF11/ucf11_grayscale_{8,16,32}f_verification_labels.npy
+```
 
-   Then, activate the environment with and check its Python version
+#### KTH Actions
 
-   ```bash
-   conda activate <env_name>
-   python --version
-   ```
+1. Download the KTH Actions dataset (will be downloaded automatically by notebook)
+2. Run notebooks in order:
+   - `src/data_prep/KTHActions/preprocess_KTHActions.ipynb`
+   - `src/data_prep/KTHActions/create_grayscale_KTHActions.ipynb`
+   - `src/data_prep/KTHActions/postprocess_KTHActions.ipynb`
 
-   After the environment is activated, install the Python dependencies from `requirements.txt` along with the source files by running the following commands from the `FORMALISE2025` directory in your terminal
+Output files should be saved to:
+```
+data/KTHActions/kthactions_grayscale_{8,16,32}f_verification_data.npy
+data/KTHActions/kthactions_grayscale_{8,16,32}f_verification_labels.npy
+```
 
-   ```bash
-   cd /path/to/nnv/code/examples/Submission/FORMALISE2025
+## Running Experiments
 
-   # install requirements
-   pip install -r requirements.txt
+Navigate to the FORMALISE2025 directory and activate the conda environment:
 
-   # before installing source files, make sure to navigate to the src directory e.g.
-   cd src/ # from FORMALISE2025 directory
-   pip install -e .
-   ```
+```bash
+cd /nnv/code/nnv/examples/Submission/FORMALISE2025
+conda activate SoSym
+```
 
-   Now all Python dependencies have been installed.
+### Smoke Test (~1 min)
 
-6. Modify the `.env` file to add the path to your NNV and npy-matlab directories (the repositories that were cloned earlier). For the `npy-matlab` repository, you'll want to reference the subfolder in the directory also called `npy-matlab`, e.g. `/some/path/to/npy-matlab/npy-matlab`.
-
-7. With all of these steps done, you are now ready to begin reproducing the artifacts.
-
-# Smoke Test Instructions (~1min)
-
-Instructions to quickly test the software needed to reproduce the artifacts of the paper. If no issues arise during the smoke test, you can safely proceed to reproducing all artifacts as described in the below sections.
-
-1. Open a terminal and navigate to the `FORMALISE2025` directory.
-2. Make sure the conda environment with the installed dependencies is activated.
-3. Run the following command to enable the smoke test script to be executed and then run it:
+Quick test to verify the setup works:
 
 ```bash
 chmod +x run_smoketest.sh && ./run_smoketest.sh
 ```
 
-4. The smoke test will verify a single sample. If the smoke test is successful, then the following message will be output.
+### Subset of Results (~1-2 hours)
 
-```
-**********************************************
-              Smoke test complete.
-**********************************************
-```
-
-# Reproducing a Subset of the Results (~1-2 hours)
-
-Assuming the average runtime for the experiments remains as shown in the paper, then it will take approximately 9-10 days to reproduce the results. For that reason, this set of instructions is for reproducing a subset of the results. More specifically, we reproduce the first row of Table 2 from the paper, e.g. the verification results for the 4-frame variation of the Zoom In dataset with the relax verification algorithm. The results will be output to the console after the script completes. Additionally, this script will generate the reachable output range plots used in Figure 7.
-
-1. Open a terminal and navigate to the `FORMALISE2025` directory.
-2. Make sure the conda environment with the installed dependencies is activated.
-3. Run the following command to begin reproducing a subset of the artifacts:
+Run a subset of experiments for validation:
 
 ```bash
 chmod +x run_subset_vvn.sh && ./run_subset_vvn.sh
 ```
 
-# Reproducing a Subset of the Results pt. 2
+### Single Sample Test
 
-There is additionally a script to reproduce a single sample from all variations of the datasets. To run this subset, please perform the following:
-
-1. Open a terminal and navigate to the `FORMALISE25` directory.
-2. Make sure the conda environment with the installed dependencies is activated.
-3. Run the following command to begin reproducing a subset of the artifacts:
+Run one sample from each dataset/algorithm combination:
 
 ```bash
 chmod +x run_single_sample_vvn.sh && ./run_single_sample_vvn.sh
 ```
 
-# Reproducing the Full Results
+### Full Results (~9-10 days)
 
-This set of instructions describes how to reproduce the full results.
-
-1. Open a terminal and navigate to the `FORMALISE2025` directory.
-2. Make sure the conda environment with the installed dependencies is activated.
-3. Run the following command to begin reproducing the artifacts:
+Run all experiments:
 
 ```bash
 chmod +x run_vvn.sh && ./run_vvn.sh
 ```
 
-# Results
+### Running Individual Datasets
 
-| Artifact | Filepath                                                                  | Description                                                                                                                                                     |
-| -------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Table 2  | `results/table2.txt`                                                      | A table of results (PSRV and average runtime) for all experiments.                                                                                              |
-| Fig. 7   | `results/reach_stmnist_plot.png` and `results/reach_bad_stmnist_plot.png` | Plots of the reachable output ranges on a sample of STMNIST with different epsilon values (one robust, the other non-robust).                                   |
-| Fig. 8   | `results/runtime_comp.png`                                                | A visualization of how average runtime changes for the Zoom In, Zoom Out, and GTSRB datasets as the number of frames and magnitude of the perturbation changes. |
+You can also run experiments for specific datasets:
 
-<!-- ### requirements.txt -->
-<!-- Numpy could not be upgraded from 1.26.4 to 2.0.0 because of some incompatability with onnxruntime. -->
+```bash
+# MNIST Video (Zoom In/Out) - relax and approx algorithms
+python src/run.py --algorithm both  # or --algorithm relax, --algorithm approx
+
+# GTSRB - relax and approx algorithms
+python src/run_gtsrb.py --algorithm both
+
+# ST-MNIST - relax and approx algorithms
+python src/run_stmnist.py --algorithm both
+
+# KTH Actions - relax only
+python src/run_kthactions.py
+
+# UCF11 - relax only
+python src/run_ucf11.py
+```
+
+## Experiment Coverage
+
+### Tables 3 & 4: Relax and Approx Algorithms
+
+| Dataset | Frames | Samples | Algorithms |
+|---------|--------|---------|------------|
+| Zoom In | 4, 8, 16 | 100 | relax, approx |
+| Zoom Out | 4, 8, 16 | 100 | relax, approx |
+| GTSRB | 4, 8, 16 | 215 | relax, approx |
+| ST-MNIST | 16, 32, 64 | 100 | relax, approx |
+| KTH Actions | 8, 16, 32 | 25 | relax only |
+
+### Table 5: UCF11 (Relax Only)
+
+| Frames | Output Channels | Samples |
+|--------|-----------------|---------|
+| 8 | 8, 16, 32, 64 | 25 |
+| 16 | 8, 16, 32 | 25 |
+| 32 | 8, 16 | 25 |
+
+## Results
+
+Results are saved to `/tmp/results/` inside the container. The directory structure is:
+
+```
+/tmp/results/
+├── MNIST/
+│   └── <ds_type>/<algorithm>/<frames>/  # e.g., zoom_in/relax/4/
+├── GTSRB/
+│   └── gtsrb/<algorithm>/<frames>/
+├── STMNIST/
+│   └── stmnist/<algorithm>/<frames>/
+├── KTHActions/
+│   └── kthactions/relax/<frames>/
+└── UCF11/
+    └── ucf11/relax/<frames>/
+```
+
+To copy results to your local machine:
+
+```bash
+# From inside the container
+cp -r /tmp/results /nnv/code/nnv/examples/Submission/FORMALISE2025/results
+
+# Or from outside the container
+docker cp SoSym:/tmp/results ./results
+```
+
+| Artifact | Description |
+|----------|-------------|
+| Table 2/3/4 | PSRV and average runtime for all experiments |
+| Table 5 | UCF11 results with varying model sizes |
+| Fig. 7 | Reachable output range plots for ST-MNIST |
+| Fig. 8 | Average runtime comparison across datasets |
+
+## File Structure
+
+```
+FORMALISE2025/
+├── .env                    # Docker container paths
+├── README.md               # This file
+├── requirements.txt        # Python dependencies
+├── run_vvn.sh              # Run all experiments
+├── run_subset_vvn.sh       # Run subset of experiments
+├── run_single_sample_vvn.sh # Run single sample per config
+├── run_smoketest.sh        # Quick smoke test
+├── data/                   # Dataset files (see Data Preparation)
+├── models/                 # Pre-trained ONNX models
+├── npy-matlab/             # MATLAB numpy interface
+└── src/
+    ├── Box.m               # Modified Box.m for NNV
+    ├── run.py              # MNIST Video experiments
+    ├── run_gtsrb.py        # GTSRB experiments
+    ├── run_stmnist.py      # ST-MNIST experiments
+    ├── run_ucf11.py        # UCF11 experiments
+    ├── run_kthactions.py   # KTH Actions experiments
+    ├── vvn/                # Verification library
+    ├── analysis/           # Result analysis scripts
+    └── data_prep/          # Data preparation notebooks
+        ├── KTHActions/     # KTH Actions preprocessing
+        ├── UCF11/          # UCF11 preprocessing
+        └── STMNIST/        # ST-MNIST preprocessing
+```
+
+## Hardware Used for Original Results
+
+All results from the paper were captured using:
+- Apple M1 Max 10-core CPU @ 3.20GHz
+- 64GB RAM
+
+## Troubleshooting
+
+### MATLAB Engine Issues
+
+If you encounter MATLAB engine connection errors:
+
+```bash
+# Ensure MATLAB paths are set
+export MATLABROOT="/opt/matlab/R2024b"
+export LD_LIBRARY_PATH="$MATLABROOT/bin/glnxa64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+```
+
+### Memory Issues
+
+For large video inputs, the modified `Box.m` uses a loop-based generator construction that is more memory efficient. Make sure you've applied the Box.m modification as described in the setup.
+
+### Permission Issues
+
+Results are saved to `/tmp/` to avoid permission issues on mounted volumes. Remember to copy results out before destroying the container.

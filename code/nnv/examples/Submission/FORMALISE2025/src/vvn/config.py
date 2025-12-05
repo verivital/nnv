@@ -12,7 +12,7 @@ class Config:
     output_dir: str # /path/to/vvn/results 
 
     # Verification settings
-    ds_type: Literal['zoom_in', 'zoom_out', 'gtsrb', 'stmnist'] 
+    ds_type: Literal['zoom_in', 'zoom_out', 'gtsrb', 'stmnist', 'ucf11', 'kthactions']
     sample_len: Literal[4, 8, 16, 32, 64] # length of videos in number of frames
     ver_algorithm: Literal['relax', 'approx'] # types of verification algorithms to use
 

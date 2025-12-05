@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 
@@ -7,136 +8,95 @@ from analysis.make_table2 import summarize
 from vvn.config import Config
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Run MNIST Video verification experiments')
+    parser.add_argument('--algorithm', type=str, choices=['relax', 'approx', 'both'], default='both',
+                        help='Verification algorithm to use (default: both)')
+    parser.add_argument('--subset', action='store_true',
+                        help='Run only a subset of experiments (first row of Table 2)')
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    # get the results dir
-    # root = os.path.dirname(os.getcwd()) # Submission folder
-    # output_dir = os.path.join(root, 'FORMALISE2025' ,'results')
-    # output_dir = "/tmp/MNIST"
-    output_dir = "/tmp/approx_results/MNIST"
+    args = parse_args()
 
-    if not os.path.isdir("/tmp/approx_results/MNIST"):
-        os.mkdir("/tmp/approx_results/MNIST")
+    # Results directory - the prep modules handle subdirectory creation
+    # Structure: output_dir/ds_type/ver_algorithm/sample_len/
+    output_dir = "/tmp/results/MNIST"
+    os.makedirs(output_dir, exist_ok=True)
 
-    # make sure to make these are not already created
-    
-    # split between the datasets
-    os.mkdir(os.path.join(output_dir, "ZoomIn"))
-    os.mkdir(os.path.join(output_dir, "ZoomOut"))
-    
-    # split between number of frames
-    os.mkdir(os.path.join(output_dir, "ZoomIn", "4"))
-    os.mkdir(os.path.join(output_dir, "ZoomIn", "8"))
-    os.mkdir(os.path.join(output_dir, "ZoomIn", "16"))
-
-    os.mkdir(os.path.join(output_dir, "ZoomOut", "4"))
-    os.mkdir(os.path.join(output_dir, "ZoomOut", "8"))
-    os.mkdir(os.path.join(output_dir, "ZoomOut", "16"))
-
-    # define the starting configuration 
-    config = Config(
-        class_size=10,
-        epsilon=[1/255, 2/255, 3/255],
-        ds_type='zoom_in',
-        sample_len=4,
-        ver_algorithm='approx',
-        timeout=1800,
-        output_dir=output_dir
-    )
-
-    # get the samples you wish to verify  
+    # get the samples you wish to verify
     zoom_in_samples = list(range(1, 101))
     zoom_out_samples = list(range(1, 101))
 
-    # =====================================
-    # ============ RELAX ==================
-    # =====================================
+    # Determine which algorithms to run
+    algorithms = []
+    if args.algorithm in ['relax', 'both']:
+        algorithms.append('relax')
+    if args.algorithm in ['approx', 'both']:
+        algorithms.append('approx')
 
-    # run experiment #1 : dataset = zoom in, video length = 4
-    vvn.run(config=config, indices=zoom_in_samples)
+    for algorithm in algorithms:
+        print(f"\n{'='*50}")
+        print(f"Running {algorithm.upper()} algorithm experiments")
+        print(f"{'='*50}\n")
 
-    if "--subset" in sys.argv:
-        # summarize the results
-        tv, rt = summarize(vp.build_output_filepath(config=config, parent_only=True))
-        rt = [round(rt[i], 2) for i in range(len(rt))]
+        # define the starting configuration
+        config = Config(
+            class_size=10,
+            epsilon=[1/255, 2/255, 3/255],
+            ds_type='zoom_in',
+            sample_len=4,
+            ver_algorithm=algorithm,
+            timeout=1800,
+            output_dir=output_dir
+        )
 
-        label = "Zoom In, relax     1/255       2/255       3/255       "
-        tv_row = f"{'PSRV':>{14}}" + f"{' ':<{5}}" + f"{tv[0]:<{12}}" + f"{tv[1]:<{12}}" + f"{tv[2]:<{12}}"
-        rt_row = f"{'Avg. Time (s)':>{14}}" + f"{' ':<{5}}" + f"{rt[0]:<{12}}" + f"{rt[1]:<{12}}" + f"{rt[2]:<{12}}"
+        # run experiment #1 : dataset = zoom in, video length = 4
+        vvn.run(config=config, indices=zoom_in_samples)
 
-        length_toplines = max(len(tv_row), len(rt_row), len(label))
+        if args.subset:
+            # summarize the results
+            tv, rt = summarize(vp.build_output_filepath(config=config, parent_only=True))
+            rt = [round(rt[i], 2) for i in range(len(rt))]
 
-        # print results
-        print('\n')
-        print("="*length_toplines)
-        print(label)
-        print("-"*length_toplines)
-        print(tv_row)
-        print(rt_row)
-        print("="*length_toplines)
-        print('\n')
+            label = f"Zoom In, {algorithm}     1/255       2/255       3/255       "
+            tv_row = f"{'PSRV':>{14}}" + f"{' ':<{5}}" + f"{tv[0]:<{12}}" + f"{tv[1]:<{12}}" + f"{tv[2]:<{12}}"
+            rt_row = f"{'Avg. Time (s)':>{14}}" + f"{' ':<{5}}" + f"{rt[0]:<{12}}" + f"{rt[1]:<{12}}" + f"{rt[2]:<{12}}"
 
-        # ensure the program stops there
-        sys.exit()
+            length_toplines = max(len(tv_row), len(rt_row), len(label))
 
-    # run experiment #2 : dataset = zoom out, video length = 4
-    config.ds_type = 'zoom_out'
-    vvn.run(config=config, indices=zoom_out_samples)
+            # print results
+            print('\n')
+            print("="*length_toplines)
+            print(label)
+            print("-"*length_toplines)
+            print(tv_row)
+            print(rt_row)
+            print("="*length_toplines)
+            print('\n')
 
-    # run experiment #3 : dataset = zoom in , video length = 8
-    config.ds_type = 'zoom_in'
-    config.sample_len = 8
-    vvn.run(config=config, indices=zoom_in_samples)
+            # move on to next algorithm if running both
+            continue
 
-    # run experiment #4 : dataset = zoom out, video length = 8
-    config.ds_type = 'zoom_out'
-    vvn.run(config=config, indices=zoom_out_samples)
+        # run experiment #2 : dataset = zoom out, video length = 4
+        config.ds_type = 'zoom_out'
+        vvn.run(config=config, indices=zoom_out_samples)
 
-    # run experiment #5 : dataset = zoom in, video length = 16
-    config.ds_type = 'zoom_in'
-    config.sample_len = 16
-    vvn.run(config=config, indices=zoom_in_samples)
+        # run experiment #3 : dataset = zoom in , video length = 8
+        config.ds_type = 'zoom_in'
+        config.sample_len = 8
+        vvn.run(config=config, indices=zoom_in_samples)
 
-    # run experiment #6 : dataset = zoom out, video length = 16
-    config.ds_type = 'zoom_out'
-    vvn.run(config=config, indices=zoom_out_samples)
+        # run experiment #4 : dataset = zoom out, video length = 8
+        config.ds_type = 'zoom_out'
+        vvn.run(config=config, indices=zoom_out_samples)
 
+        # run experiment #5 : dataset = zoom in, video length = 16
+        config.ds_type = 'zoom_in'
+        config.sample_len = 16
+        vvn.run(config=config, indices=zoom_in_samples)
 
-    # =====================================
-    # ============ APPROX =================
-    # =====================================
-
-    # config = Config(
-    #     class_size=10,
-    #     epsilon=[1/255, 2/255, 3/255],
-    #     ds_type='zoom_in',
-    #     sample_len=4,
-    #     ver_algorithm='approx',
-    #     timeout=1800,
-    #     output_dir=output_dir
-    # )
-
-    # # run experiment #1 : dataset = zoom in, video length = 4
-    # vvn.run(config=config, indices=zoom_in_samples)
-
-    # # run experiment #2 : dataset = zoom out, video length = 4
-    # config.ds_type = 'zoom_out'
-    # vvn.run(config=config, indices=zoom_out_samples)
-
-    # # run experiment #3 : dataset = zoom in , video length = 8
-    # config.ds_type = 'zoom_in'
-    # config.sample_len = 8
-    # vvn.run(config=config, indices=zoom_in_samples)
-
-    # # run experiment #4 : dataset = zoom out, video length = 8
-    # config.ds_type = 'zoom_out'
-    # vvn.run(config=config, indices=zoom_out_samples)
-
-    # # run experiment #5 : dataset = zoom in, video length = 16
-    # config.ds_type = 'zoom_in'
-    # config.sample_len = 16
-    # vvn.run(config=config, indices=zoom_in_samples)
-
-    # # run experiment #6 : dataset = zoom out, video length = 16
-    # config.ds_type = 'zoom_out'
-    # vvn.run(config=config, indices=zoom_out_samples)
-
+        # run experiment #6 : dataset = zoom out, video length = 16
+        config.ds_type = 'zoom_out'
+        vvn.run(config=config, indices=zoom_out_samples)

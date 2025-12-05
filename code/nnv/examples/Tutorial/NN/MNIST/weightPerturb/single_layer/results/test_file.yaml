@@ -1,0 +1,43 @@
+title: Entire Weights Tensor of Single Layer Perturbed
+network: Very_Small_MNIST
+n_images: 10.0
+layers:
+- name: fc
+  n_weights: 31360.0
+  n_neurons: 10.0
+  fracs:
+  - frac: 1.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.001
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.01
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+- name: conv_2
+  n_weights: 1152.0
+  n_neurons: 3136.0
+  fracs:
+  - frac: 1.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.001
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.01
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+- name: conv_1
+  n_weights: 72.0
+  n_neurons: 6272.0
+  fracs:
+  - frac: 1.0E-4
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.001
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]
+  - frac: 0.01
+    percents: [.NaN, .NaN, .NaN]
+    times: [.NaN, .NaN, .NaN]

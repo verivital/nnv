@@ -12,6 +12,11 @@ on:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      run_cp:
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   # This workflow contains a single job called "build"
@@ -27,9 +32,39 @@ jobs:
           submodules: 'true'
       # Sets up MATLAB on the GitHub Actions runner
       - name: Setup MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: R2024b
+          products: >
+            Computer_Vision_Toolbox
+            Control_System_Toolbox
+            Deep_Learning_Toolbox
+            Image_Processing_Toolbox
+            Optimization_Toolbox
+            Parallel_Computing_Toolbox
+            Statistics_and_Machine_Learning_Toolbox
+            Symbolic_Math_Toolbox
+            System_Identification_Toolbox
+            Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
+            Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+            Deep_Learning_Toolbox_Converter_for_TensorFlow_models
+            Deep_Learning_Toolbox_Verification_Library
+
+      # Sets up python for CP
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Setup CP requirements
+        if: github.event.inputs.run_cp == 'true'
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirement.txt
+        continue-on-error: true
       # Runs a set of commands using the runners shell
       - name: Run all tests
-        uses: matlab-actions/run-command@v1
+        uses: matlab-actions/run-command@v2
         with:
           command: disp('Running NNV custom testing procedure!'); diary github_actions.txt; disp('creating file for testing'); diary off; cd("code/nnv"); install; results = runtests('tests', 'IncludeSubfolders', true); assertSuccess(results);

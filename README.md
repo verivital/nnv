@@ -71,12 +71,66 @@ _Previous_
 
     * TensorFlow and Keras: [Deep Learning Toolbox Converter for TensorFlow Models](https://www.mathworks.com/matlabcentral/fileexchange/64649-deep-learning-toolbox-converter-for-tensorflow-models)
     * PyTorch: [Deep Learning Toolbox Converter for PyTorch Models](https://www.mathworks.com/matlabcentral/fileexchange/111925-deep-learning-toolbox-converter-for-pytorch-models)
-        
+
+    d) To use Conformal Prediction (CP) verification, set up a Python virtual environment:
+
+    ```bash
+    # From the NNV root directory:
+    python -m venv .venv
+    # Windows: .venv\Scripts\activate
+    # macOS/Linux: source .venv/bin/activate
+    pip install -r requirement.txt
+    ```
+
+    See [PYTHON_SETUP.md](PYTHON_SETUP.md) for detailed instructions.
+
 ## Uninstallation:
 
 Open MATLAB, then go to the `/code/nnv/` folder and execute the `uninstall.m` script.
 
-# Getting started with NNV 
+---
+
+# What's New in NNV 3.0
+
+NNV 3.0 introduces major new verification capabilities:
+
+- **VolumeStar**: Verification of video and 3D volumetric data (medical images)
+- **FairNNV**: Formal verification of neural network fairness
+- **Probabilistic Verification**: Scalable conformal prediction-based analysis
+- **Weight Perturbation Analysis**: Verification under quantization/hardware errors
+- **Time-Dependent Networks**: Variable-length time series verification
+- **Malware Detection**: New cybersecurity verification domain
+
+See [README_NNV3_CONTRIBUTIONS.md](README_NNV3_CONTRIBUTIONS.md) for full details on NNV 3.0 features.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [README_NNV3_CONTRIBUTIONS.md](README_NNV3_CONTRIBUTIONS.md) | NNV 3.0 new features and contributions |
+| [README_TEST.md](README_TEST.md) | Testing documentation and coverage |
+| [code/nnv/examples/README.md](code/nnv/examples/README.md) | Examples navigation guide |
+| [code/nnv/examples/QuickStart/](code/nnv/examples/QuickStart/) | Getting started examples |
+| [code/nnv/examples/Tutorial/](code/nnv/examples/Tutorial/) | Step-by-step tutorials |
+
+---
+
+# Getting started with NNV
+
+### Quick Start
+
+**New to NNV?** Start with the [QuickStart examples](code/nnv/examples/QuickStart/) for installation verification and your first neural network verification.
+
+```matlab
+cd examples/QuickStart
+test_installation      % Verify your setup
+simple_verification    % Your first verification
+```
+
+**Troubleshooting?** Run the diagnostic tool:
+```matlab
+check_nnv_setup()
+```
 
 ### [Tutorial](code/nnv/examples/Tutorial)
 
@@ -150,6 +204,16 @@ The methods implemented in NNV are based upon or used in the following papers:
 
 * Anne M Tumlin, Diego Manzanas Lopez, Preston Robinette, Yuying Zhao, Tyler Derr, and Taylor T Johnson. "FairNNV: The Neural Network Verification Tool For Certifying Fairness. In Proceedings of the 5th ACM International Conference on AI in Finance (ICAIF '24)". Association for Computing Machinery, New York, NY, USA, 36–44. [https://doi.org/10.1145/3677052.3698677]
 
+* Navid Hashemi, Samuel Sasaki, Ipek Oguz, Meiyi Ma, Taylor T. Johnson, "Scaling Data-Driven Probabilistic Robustness Analysis for Semantic Segmentation Neural Networks", 38th Conference on Neural Information Processing Systems (NeurIPS), 2025.
+
+* Samuel Sasaki, Diego Manzanas Lopez, Preston K. Robinette, Taylor T. Johnson, "Robustness Verification of Video Classification Neural Networks", IEEE/ACM 13th International Conference on Formal Methods in Software Engineering (FormaliSE), 2025. [https://doi.org/10.1109/FormaliSE66629.2025.00009]
+
+* Lucas C. Cordeiro, Matthew L. Daggitt, Julien Girard-Satabin, Omri Isac, Taylor T. Johnson, Guy Katz, Ekaterina Komendantskaya, Augustin Lemesle, Edoardo Manino, Artjoms Sinkarovs, Haoze Wu, "Neural Network Verification is a Programming Language Challenge", 34th European Symposium on Programming (ESOP), 2025. [https://doi.org/10.1007/978-3-031-91118-7_9]
+
+* Muhammad Usama Zubair, Taylor T. Johnson, Kanad Basu, Waseem Abbas, "Verification of Neural Network Robustness Against Weight Perturbations Using Star Sets", IEEE Conference on Artificial Intelligence (CAI), 2025. [https://doi.org/10.1109/CAI64502.2025.00117]
+
+* Diego Manzanas Lopez, Samuel Sasaki, Taylor T. Johnson, "NNV: A Star Set Reachability Approach (Competition Contribution)", 7th Workshop on Formal Methods for ML-Enabled Autonomous Systems (SAIV), 2025. [https://doi.org/10.1007/978-3-031-99991-8_15]
+
 * Taylor T. Johnson, Diego Manzanas Lopez and Hoang-Dung. Tran, "Tutorial: Safe, Secure, and Trustworthy Artificial Intelligence (AI) via Formal Verification of Neural Networks and Autonomous Cyber-Physical Systems (CPS) with NNV," 2024 54th Annual IEEE/IFIP International Conference on Dependable Systems and Networks - Supplemental Volume (DSN-S), Brisbane, Australia, 2024, pp. 65-66, [https://doi.org/10.1109/DSN-S60304.2024.00027]
 
 * Preston K. Robinette, Diego Manzanas Lopez, Serena Serbinowska, Kevin Leach, and Taylor T Johnson. "Case Study: Neural Network Malware Detection Verification for Feature and Image Datasets". In Proceedings of the 2024 IEEE/ACM 12th International Conference on Formal Methods in Software Engineering (FormaliSE) (FormaliSE '24). Association for Computing Machinery, New York, NY, USA, 127–137. [https://doi.org/10.1145/3644033.3644372]
@@ -196,6 +260,69 @@ The methods implemented in NNV are based upon or used in the following papers:
 
 * Specification-Guided Safety Verification for Feedforward Neural Networks, Weiming Xiang, Hoang-Dung Tran, Taylor T. Johnson [https://arxiv.org/abs/1812.06161]
 
+#### VNN-COMP Competition Reports
+
+* Christopher Brix, Stanley Bak, Taylor T. Johnson, Haoze Wu, "The Fifth International Verification of Neural Networks Competition (VNN-COMP 2024): Summary and Results", arXiv:2412.19985, 2024. [https://doi.org/10.48550/arXiv.2412.19985]
+
+* Christopher Brix, Stanley Bak, Changliu Liu, Taylor T. Johnson, "The Fourth International Verification of Neural Networks Competition (VNN-COMP 2023): Summary and Results", arXiv:2312.16760, 2023. [https://arxiv.org/abs/2312.16760]
+
+* Mark Niklas Müller, Christopher Brix, Stanley Bak, Changliu Liu, Taylor T. Johnson, "The Third International Verification of Neural Networks Competition (VNN-COMP 2022): Summary and Results", arXiv:2212.10376, 2022. [https://doi.org/10.48550/arXiv.2212.10376]
+
+* Stanley Bak, Changliu Liu, Taylor T. Johnson, "The Second International Verification of Neural Networks Competition (VNN-COMP 2021): Summary and Results", arXiv:2109.00498, 2021. [https://arxiv.org/abs/2109.00498]
+
+* Christopher Brix, Mark Niklas Müller, Stanley Bak, Taylor T. Johnson, Changliu Liu, "First Three Years of the International Verification of Neural Networks Competition (VNN-COMP)", Int J Softw Tools Technol Transfer 25, 329-339, 2023. [https://doi.org/10.1007/s10009-023-00703-4]
+
+#### ARCH-COMP AINNCS Category Reports
+
+* Diego Manzanas Lopez, Matthias Althoff, Luis Benet, Marcelo Forets, Taylor T. Johnson, et al., "ARCH-COMP24 Category Report: Artificial Intelligence and Neural Network Control Systems (AINNCS) for Continuous and Hybrid Systems Plants", ARCH 2024. [https://easychair.org/publications/paper/WsgX]
+
+* Diego Manzanas Lopez, et al., "ARCH-COMP23 Category Report: Artificial Intelligence and Neural Network Control Systems (AINNCS) for Continuous and Hybrid Systems Plants", ARCH 2023. [https://easychair.org/publications/paper/Vfq4b]
+
+* Diego Manzanas Lopez, et al., "ARCH-COMP22 Category Report: Artificial Intelligence and Neural Network Control Systems (AINNCS) for Continuous and Hybrid Systems Plants", ARCH 2022. [https://easychair.org/publications/paper/C1J8]
+
+* Diego Manzanas Lopez, et al., "ARCH-COMP21 Category Report: Artificial Intelligence and Neural Network Control Systems (AINNCS) for Continuous and Hybrid Systems Plants", ARCH 2021. [https://easychair.org/publications/paper/Jq4h]
+
+* Diego Manzanas Lopez, et al., "ARCH-COMP20 Category Report: Artificial Intelligence and Neural Network Control Systems (AINNCS) for Continuous and Hybrid Systems Plants", ARCH 2020. [https://easychair.org/publications/paper/Jvwg]
+
+#### Cite
+
+```
+@inproceedings{nnv2_cav2023,
+author = {Lopez, Diego Manzanas and Choi, Sung Woo and Tran, Hoang-Dung and Johnson, Taylor T.},
+title = {NNV 2.0: The Neural Network Verification Tool},
+year = {2023},
+isbn = {978-3-031-37702-0},
+publisher = {Springer-Verlag},
+address = {Berlin, Heidelberg},
+url = {https://doi.org/10.1007/978-3-031-37703-7_19},
+doi = {10.1007/978-3-031-37703-7_19},
+abstract = {This manuscript presents the updated version of the Neural Network Verification (NNV) tool. NNV is a formal verification software tool for deep learning models and cyber-physical systems with neural network components. NNV was first introduced as a verification framework for feedforward and convolutional neural networks, as well as for neural network control systems. Since then, numerous works have made significant improvements in the verification of new deep learning models, as well as tackling some of the scalability issues that may arise when verifying complex models. In this new version of NNV, we introduce verification support for multiple deep learning models, including neural ordinary differential equations, semantic segmentation networks and recurrent neural networks, as well as a collection of reachability methods that aim to reduce the computation cost of reachability analysis of complex neural networks. We have also added direct support for standard input verification formats in the community such as VNNLIB (verification properties), and ONNX (neural networks) formats. We present a collection of experiments in which NNV verifies safety and robustness properties of feedforward, convolutional, semantic segmentation and recurrent neural networks, as well as neural ordinary differential equations and neural network control systems. Furthermore, we demonstrate the capabilities of NNV against a commercially available product in a collection of benchmarks from control systems, semantic segmentation, image classification, and time-series data.},
+booktitle = {Computer Aided Verification: 35th International Conference, CAV 2023, Paris, France, July 17–22, 2023, Proceedings, Part II},
+pages = {397–412},
+numpages = {16},
+keywords = {neural networks, cyber-physical systems, verification, tool},
+location = {Paris, France}
+}
+```
+
+```
+@inproceedings{nnv_cav2020,
+author = {Tran, Hoang-Dung and Yang, Xiaodong and Manzanas Lopez, Diego and Musau, Patrick and Nguyen, Luan Viet and Xiang, Weiming and Bak, Stanley and Johnson, Taylor T.},
+title = {NNV: The Neural Network Verification Tool for Deep Neural Networks and Learning-Enabled Cyber-Physical Systems},
+year = {2020},
+isbn = {978-3-030-53287-1},
+publisher = {Springer-Verlag},
+address = {Berlin, Heidelberg},
+url = {https://doi.org/10.1007/978-3-030-53288-8_1},
+doi = {10.1007/978-3-030-53288-8_1},
+abstract = {This paper presents the Neural Network Verification (NNV) software tool, a set-based verification framework for deep neural networks (DNNs) and learning-enabled cyber-physical systems (CPS). The crux of NNV is a collection of reachability algorithms that make use of a variety of set representations, such as polyhedra, star sets, zonotopes, and abstract-domain representations. NNV supports both exact (sound and complete) and over-approximate (sound) reachability algorithms for verifying safety and robustness properties of feed-forward neural networks (FFNNs) with various activation functions. For learning-enabled CPS, such as closed-loop control systems incorporating neural networks, NNV provides exact and over-approximate reachability analysis schemes for linear plant models and FFNN controllers with piecewise-linear activation functions, such as ReLUs. For similar neural network control systems (NNCS) that instead have nonlinear plant models, NNV supports over-approximate analysis by combining the star set analysis used for FFNN controllers with zonotope-based analysis for nonlinear plant dynamics building on CORA. We evaluate NNV using two real-world case studies: the first is safety verification of ACAS Xu networks, and the second deals with the safety verification of a deep learning-based adaptive cruise control system.},
+booktitle = {Computer Aided Verification: 32nd International Conference, CAV 2020, Los Angeles, CA, USA, July 21–24, 2020, Proceedings, Part I},
+pages = {3–17},
+numpages = {15},
+keywords = {Autonomy, Verification, Cyber-physical systems, Machine learning, Neural networks},
+location = {Los Angeles, CA, USA}
+}
+```
 
 ### Acknowledgements
 

@@ -804,6 +804,21 @@ classdef SatLins
             % date: 16/3/2019
             
             switch nargin
+
+                case 6
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = varargin{3};
+
+                case 5
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = varargin{3};
+
+                case 4
+                    I = varargin{1};
+                    method = varargin{2};
+                    option = varargin{3};
                 
                 case 3
                     I = varargin{1};
@@ -829,6 +844,11 @@ classdef SatLins
                 
             elseif strcmp(method, 'approx-star')  % over-approximate analysis using star
                 
+                R = SatLins.reach_star_approx(I);
+
+            elseif contains(method, 'relax-star')
+                warning('Relax method not supported for SatLins, using approx-star')
+
                 R = SatLins.reach_star_approx(I);
                 
             elseif strcmp(method, 'approx-zono')  % over-approximate analysis using zonotope

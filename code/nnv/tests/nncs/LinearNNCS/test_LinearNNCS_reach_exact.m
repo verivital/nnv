@@ -1,121 +1,89 @@
-% System model
-% x1 = lead_car position
-% x2 = lead_car velocity
-% x3 = lead_car internal state
+function test_LinearNNCS_reach_exact()
+    % TEST_LINEARNNCS_REACH_EXACT - Test LinearNNCS exact reachability
+    %
+    % Adaptive Cruise Control example with continuous linear plant.
+    %
+    % Tests that:
+    %   1. Exact reachability analysis completes successfully
+    %   2. Output reach sets are computed
 
-% x4 = ego_car position
-% x5 = ego_car velocity
-% x6 = ego_car internal state
+    % System model
+    A = [0 1 0 0 0 0 0; 0 0 1 0 0 0 0; 0 0 0 0 0 0 1; 0 0 0 0 1 0 0; 0 0 0 0 0 1 0; 0 0 0 0 0 -2 0; 0 0 -2 0 0 0 0];
+    B = [0; 0; 0; 0; 0; 2; 0];
+    C = [1 0 0 -1 0 0 0; 0 1 0 0 -1 0 0; 0 0 0 0 1 0 0];
+    D = [0; 0; 0];
 
-% lead_car dynamics
-%dx(1,1)=x(2);
-%dx(2,1) = x(3);
-%dx(3,1) = -2 * x(3) + 2 * a_lead - mu*x(2)^2;
+    plant = LinearODE(A, B, C, D);
 
-% ego car dynamics
-%dx(4,1)= x(5); 
-%dx(5,1) = x(6);
-%dx(6,1) = -2 * x(6) + 2 * a_ego - mu*x(5)^2;
+    % Load controller
+    load('controller_3_20.mat', 'weights', 'bias');
 
+    n = length(weights);
+    Layers = cell(1, n);
+    for i=1:n - 1
+        Layers{i} = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
+    end
+    Layers{n} = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
+    Controller = NN(Layers);
+    Controller.InputSize = 5;
+    Controller.OutputSize = 1;
 
-% let x7 = -2*x(3) + 2 * a_lead -> x7(0) = -2*x(3)(0) + 2*alead
-% -> dx7 = -2dx3
+    % Create NNCS
+    ncs = LinearNNCS(Controller, plant);
 
+    % ASSERTION 1: NNCS is valid
+    assert(~isempty(ncs), 'LinearNNCS should be created successfully');
 
-A = [0 1 0 0 0 0 0; 0 0 1 0 0 0 0; 0 0 0 0 0 0 1; 0 0 0 0 1 0 0; 0 0 0 0 0 1 0; 0 0 0 0 0 -2 0; 0 0 -2 0 0 0 0];
-B = [0; 0; 0; 0; 0; 2; 0];
-C = [1 0 0 -1 0 0 0; 0 1 0 0 -1 0 0; 0 0 0 0 1 0 0];  % feedback relative distance, relative velocity, longitudinal velocity
-D = [0; 0; 0]; 
+    % Initial state set
+    lb = [90; 32; 0; 10; 30; 0; -4];
+    ub = [100; 35; 0; 11; 30.2; 0; -4];
 
-plant = LinearODE(A, B, C, D); % continuous plant model
+    ref_input = [30; 1.4];
 
-% the neural network provides a_ego control input to the plant
-% a_lead = -2 
+    % Reachability Analysis
+    reachPRM.init_set = Star(lb, ub);
+    reachPRM.ref_input = ref_input;
+    reachPRM.numSteps = 4;
+    reachPRM.reachMethod = 'exact-star';
+    reachPRM.numCores = 1;
 
+    [R, reachTime] = ncs.reach(reachPRM);
 
-% Controller
-load controller_3_20.mat;
+    % ASSERTION 2: Reachability produces valid output
+    assert(~isempty(R), 'Reachability should produce non-empty result');
+    assert(reachTime > 0, 'Reach time should be positive');
 
-n = length(weights);
-Layers = {};
-for i=1:n - 1
-    L = LayerS(weights{1, i}, bias{i, 1}, 'poslin');
-    Layers{i} = L;
+    % Create visualizations
+    fig1 = figure;
+    map_mat = [1 0 0 -1 0 0 0];
+    map_vec = [];
+    ncs.plotOutputReachSets('blue', map_mat, map_vec);
+    hold on;
+    map_mat = [0 0 0 0 1.4 0 0];
+    map_vec = [10];
+    ncs.plotOutputReachSets('red', map_mat, map_vec);
+    title('Exact: Actual Distance (blue) vs Safe Distance (red)');
+    xlabel('Time Step');
+    ylabel('Distance');
+
+    save_test_figure(fig1, 'test_LinearNNCS_reach_exact', 'distance', 1, 'subdir', 'nncs/LinearNNCS');
+
+    fig2 = figure;
+    map_mat = [1 0 0 -1 0 0 0; 0 0 0 0 1 0 0];
+    map_vec = [];
+    ncs.plotOutputReachSets('blue', map_mat, map_vec);
+    title('Exact: Distance vs Ego Car Speed');
+    xlabel('Distance');
+    ylabel('Speed');
+
+    save_test_figure(fig2, 'test_LinearNNCS_reach_exact', 'dist_speed', 2, 'subdir', 'nncs/LinearNNCS');
+
+    % Save regression data
+    data = struct();
+    data.lb = lb;
+    data.ub = ub;
+    data.numSteps = reachPRM.numSteps;
+    data.reachMethod = reachPRM.reachMethod;
+    data.reachTime = reachTime;
+    save_test_data(data, 'test_LinearNNCS_reach_exact', 'results', 'subdir', 'nncs');
 end
-Layers{n} = LayerS(weights{1, n}, bias{n, 1}, 'purelin');
-Controller = NN(Layers); % feedforward neural network controller
-Controller.InputSize = 5;
-Controller.OutputSize = 1;
-
-% NNCS 
-
-ncs = LinearNNCS(Controller, plant); % a discrete linear neural network control system
-
-% Initial Set of states and reference inputs
-
-% reference input for neural network controller
-% t_gap = 1.4; v_set = 30;
-
-ref_input = [30; 1.4];
-
-% initial condition of the plant
-
-% initial position of lead car x_lead
-x_lead = [90 100];
-% initial condition of v_lead
-v_lead = [32 35];
-% initial condition of x_internal_lead
-internal_acc_lead = [0 0];
-% initial condition of x_ego
-x_ego = [10 11]; 
-% initial condition of v_ego
-v_ego = [30 30.2];
-% initial condition of x_internal_ego
-internal_acc_ego = [0 0];
-% initial condition for new introduced variable 
-x7_0 = [-4 -4]; % x7 = -2*x(3) + 2 * a_lead -> x7(0) = -2*x(3)(0) + 2*alead = -2*0 + 2*-2 = -4
-
-
-x1 = x_lead;
-lb = [x1(1); v_lead(1); internal_acc_lead(1); x_ego(1); v_ego(1); internal_acc_ego(1); x7_0(1)];
-ub = [x1(2); v_lead(2); internal_acc_lead(2); x_ego(2); v_ego(2); internal_acc_ego(2); x7_0(2)];
-init_set = Star(lb, ub);
-
-
-% Reachability Analysis
-
-reachPRM.init_set = Star(lb, ub);
-reachPRM.ref_input = [30; 1.4];
-reachPRM.numSteps = 4;
-reachPRM.reachMethod = 'exact-star';
-% reachPRM.numCores = 4;
-reachPRM.numCores = 1; % limited cores for testing
-
-[R, reachTime] = ncs.reach(reachPRM);
-
-% Plot output reach sets: actual distance vs. safe distance
-
-% plot reachable set of the distance between two cars d = x1 - x4
-figure; 
-map_mat = [1 0 0 -1 0 0 0];
-map_vec = [];
-ncs.plotOutputReachSets('blue', map_mat, map_vec);
-
-hold on;
-
-% plot safe distance between two cars: d_safe = D_default + t_gap * v_ego;
-% D_default = 10; t_gap = 1.4 
-% d_safe = 10 + 1.4 * x5; 
-
-map_mat = [0 0 0 0 1.4 0 0];
-map_vec = [10];
-
-ncs.plotOutputReachSets('red', map_mat, map_vec);
-title('Actual Distance versus. Safe Distance');
-
-% plot 2d output sets
-figure; 
-map_mat = [1 0 0 -1 0 0 0; 0 0 0 0 1 0 0];
-map_vec = [];
-ncs.plotOutputReachSets('blue', map_mat, map_vec);
-title('Actual Distance versus. Ego car speed');

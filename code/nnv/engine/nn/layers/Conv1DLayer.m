@@ -318,24 +318,39 @@ classdef Conv1DLayer < handle
         
         % evaluate
         function y = evaluateSequence(obj, input)
-            % @input: 2-dimensional array, for example, input(:, :)
-            % @y: high-dimensional array (output volume), depth of output = number of filters
+            % @input: 2D or 3D array representing 1D sequence data
+            %   2D: [SequenceLength, NumChannels]
+            %   3D: [SequenceLength, 1, NumChannels] - common for ImageStar
+            % @y: output array, depth = number of filters
 
-            n = length(size(input));
-            if n==2
-                try % not sure how whis work so we'll try both ways and one should do it
-                    x = dlarray(input');
-                    y = dlconv(x, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","SC");
-                    y = extractdata(y)';
-                catch
-                    x = dlarray(input);
-                    y = dlconv(x, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","SC");
-                    y = extractdata(y);
-                end
-            elseif n==3
-                input = dlarray(input);
-                y = dlconv(input, obj.Weights, obj.Bias,"Stride",obj.Stride,"DilationFactor",obj.DilationFactor,"Padding",obj.PaddingSize,"DataFormat","TSC");
+            inputSize = size(input);
+            n = length(inputSize);
+
+            % Handle 3D input with singleton middle dimension [L, 1, C]
+            % Squeeze to 2D [L, C] for proper 1D convolution
+            if n == 3 && inputSize(2) == 1
+                input = squeeze(input);  % [L, 1, C] -> [L, C]
+                inputSize = size(input);
+                n = 2;
+            end
+
+            if n == 2
+                % Input is [SequenceLength, NumChannels]
+                % DataFormat "SC": S=spatial/sequence, C=channels
+                x = dlarray(input);
+                y = dlconv(x, obj.Weights, obj.Bias, "Stride", obj.Stride, ...
+                    "DilationFactor", obj.DilationFactor, "Padding", obj.PaddingSize, ...
+                    "DataFormat", "SC");
                 y = extractdata(y);
+            elseif n == 3
+                % True 3D input [T, S, C] - use TSC format
+                x = dlarray(input);
+                y = dlconv(x, obj.Weights, obj.Bias, "Stride", obj.Stride, ...
+                    "DilationFactor", obj.DilationFactor, "Padding", obj.PaddingSize, ...
+                    "DataFormat", "TSC");
+                y = extractdata(y);
+            else
+                error('Conv1DLayer:InvalidInput', 'Input must be 2D or 3D array');
             end
 
         end

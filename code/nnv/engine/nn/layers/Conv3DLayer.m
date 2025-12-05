@@ -15,7 +15,7 @@ classdef Conv3DLayer < handle
         Stride = [1 1 1]; % step size for traversing input
         DilationFactor = [1 1 1]; % factor for dilated convolution
         PaddingMode = 'manual';
-        PaddingSize = [0 0 0 0]; % size of padding [t b l r] for nonnegative integers
+        PaddingSize = [0 0 0; 0 0 0]; % size of padding [2x3] for 3D: [top bottom; left right; front back]
         
         % Learnable Parmeters/ Used for reachability analysis
         Weights = [];
@@ -165,11 +165,11 @@ classdef Conv3DLayer < handle
                     obj.Stride = stride_mat;
                     
                     d = size(dilation_mat);
-                    if d(2) ~= 2 || d(1) ~= 1
+                    if d(2) ~= 3 || d(1) ~= 1
                         error('Invalid dilation matrix');
-                    end                
+                    end
                     obj.DilationFactor = dilation_mat;
-                    
+
                 case 5
                     
                     filter_weights = varargin{1};
@@ -223,11 +223,11 @@ classdef Conv3DLayer < handle
                     obj.Stride = stride_mat;
                     
                     d = size(dilation_mat);
-                    if d(2) ~= 2 || d(1) ~= 1
+                    if d(2) ~= 3 || d(1) ~= 1
                         error('Invalid dilation matrix');
-                    end                
-                    obj.DilationFactor = dilation_mat;                 
-                    
+                    end
+                    obj.DilationFactor = dilation_mat;
+
                 case 2
                     
                     filter_weights = varargin{1};

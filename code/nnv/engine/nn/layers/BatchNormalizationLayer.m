@@ -114,14 +114,41 @@ classdef BatchNormalizationLayer < handle
     
     methods % evaluation functions
         
-        % Evaluate input 
+        % Evaluate input
         function y = evaluate(obj, input)
-            % @input: input image
-            % @y: output image with normalization
-            
+            % @input: input image or feature vector
+            % @y: output with normalization
+
             % author: Mykhailo Ivashchenko
             % date: 9/17/2022
-            
+            % update: 11/30/2025 - added support for 1D vector inputs (after flatten)
+
+            % Handle 1D vector input (e.g., after FlattenLayer)
+            if isvector(input)
+                % Reshape parameters to vectors if needed
+                mean_vec = obj.TrainedMean(:);
+                var_vec = obj.TrainedVariance(:);
+                scale_vec = obj.Scale(:);
+                offset_vec = obj.Offset(:);
+
+                % Handle scalar epsilon
+                if isscalar(obj.Epsilon)
+                    eps_val = obj.Epsilon;
+                else
+                    eps_val = obj.Epsilon(:);
+                end
+
+                % Apply batch normalization element-wise
+                y = (input(:) - mean_vec) ./ sqrt(var_vec + eps_val);
+                y = scale_vec .* y + offset_vec;
+
+                % Preserve original shape
+                if isrow(input)
+                    y = y';
+                end
+                return;
+            end
+
             if(length(size(input)) == 2) && size(obj.TrainedMean, 1) == 1 && size(obj.TrainedMean, 2) == 1 && length(size(obj.TrainedMean)) == 3
                 obj.TrainedMean = reshape(obj.TrainedMean, [size(obj.TrainedMean, 3) 1]);
                 obj.TrainedVariance = reshape(obj.TrainedVariance, [size(obj.TrainedVariance, 3) 1]);
@@ -130,7 +157,7 @@ classdef BatchNormalizationLayer < handle
                 obj.Scale = reshape(obj.Scale, [size(obj.Scale, 3) 1]);
                 obj.NumChannels = 1;
             end
-            
+
             % input -> 3d image / volume
             if length(size(input)) == 4 || (length(size(input)) == 3 && obj.NumChannels == 1)
                 if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)

@@ -20,3 +20,5 @@ code/nnv/tests/attacks/shuttle_images/**
 **/shuttle_images/**
 **/tbxmanager/
 **/tbxmanager/**
+
+.DS_Store

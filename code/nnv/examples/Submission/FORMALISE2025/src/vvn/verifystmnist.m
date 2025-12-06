@@ -19,8 +19,8 @@ function [res, time, met] = verifystmnist(smpLen, verAlg, index, epsIndex)
     fprintf("Running robustness verification on STMNIST %df dataset...", smpLen);
 
     % Load data
-    data = readNPY(sprintf("data/STMNIST/test/stmnistvideo_%df_test_data_seq.npy", smpLen));
-    labels = readNPY(sprintf("data/STMNIST/test/stmnistvideo_%df_test_labels_seq.npy", smpLen));
+    data = readNPY(sprintf("data/STMNIST/stmnistvideo_%df_test_data_seq.npy", smpLen));
+    labels = readNPY(sprintf("data/STMNIST/stmnistvideo_%df_test_labels_seq.npy", smpLen));
 
     % Preprocessing
     reshaped_data = permute(data, [1, 3, 4, 5, 2]); % to match BCSSS

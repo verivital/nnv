@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# this script just outlines the instructions needed after starting the nnv container
+# DO NOT RUN this file.
+
+# prerequisites:
+# before running these commands, make sure you have built the nnv docker image based on the Dockerfile in this repo
+# also, cd /path/to/nnv and run the following to start the container
+# 
+# docker run -it --name SoSym --mount type=bind,source="$(pwd)",target=/nnv -w /nnv nnv bash
+#                       ^container name                                ^mount loc   ^name of image to use 
+
+# 1. install conda
+wget -P /home/matlab/ https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh 
+bash /home/matlab/Miniconda3-latest-Linux-x86_64.sh
+
+# 2. add MATLAB path so that we can install matlabengine dependency
+echo 'export MATLABROOT="/opt/matlab/R2024b"' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH="$MATLABROOT/bin/glnxa64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' >> ~/.bashrc
+
+# 3. create the conda environment
+conda create --name SoSym python=3.11
+
+# 4. install dependencies
+pip install -r /nnv/code/nnv/examples/Submission/FORMALISE2025/requirements.txt
+# MAKE SURE TO CD TO /path/to/FORMALISE2025/src and pip install the source code
+
+# 5. add nnv to MATLAB path
+cd /nnv
+matlab -batch "addpath(pwd); addpath(genpath(pwd)); which matlab2nnv; savepath"

@@ -114,6 +114,10 @@ for i=1:n
     elseif isa(L, 'nnet.cnn.layer.AveragePooling3DLayer')
         Li = AveragePooling3DLayer.parse(L);
    
+    % Global Average Pooling 3D Layer
+    elseif isa(L, 'nnet.cnn.layer.GlobalAveragePooling3DLayer')
+        Li = GlobalAveragePooling3DLayer.parse(L);
+
     % Global Average Pooling 2D Layer
     elseif isa(L, 'nnet.cnn.layer.GlobalAveragePooling2DLayer')
         Li = GlobalAveragePooling2DLayer.parse(L);

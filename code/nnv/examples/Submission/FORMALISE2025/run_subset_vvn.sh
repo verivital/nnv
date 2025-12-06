@@ -1,9 +1,22 @@
 #!/bin/bash
+# Reproduce a subset of results (first row of each table)
+# Useful for quick validation that everything works
 
-# Reproduce the first row of table 2.
+echo "=============================================="
+echo "Running subset of experiments for validation"
+echo "=============================================="
 
-# TABLE II (GET ALL VERIFICATION RESULTS)
-python src/run.py --subset # MNIST Video
+# MNIST Video - first experiment only (Zoom In, 4 frames)
+echo ""
+echo "Running MNIST Video subset (--subset flag)..."
+python src/run.py --subset
 
-# FIGURE 7 (REACHABLE OUTPUT PLOTS)
+# Generate reachable output plots (Figure 7)
+echo ""
+echo "Generating reachable output plots..."
 python src/generate_output_plots.py
+
+echo ""
+echo "=============================================="
+echo "Subset experiments complete."
+echo "=============================================="

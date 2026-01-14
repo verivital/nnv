@@ -64,62 +64,99 @@ fprintf('\nGraph structure: %d nodes, %d edges\n', numNodes, numEdges);
 %% Create GNN wrapper (with edge weights for proper aggregation)
 gnn = GNN({L1, L2, L3}, [], adj_list, E, edge_weights);
 
-%% Define input perturbation (1% of feature range)
-epsilon = 0.01;
-range_per_col = max(X) - min(X);
-scaled_eps = range_per_col .* epsilon;
-eps_matrix = repmat(scaled_eps, numNodes, 1);
-
-lb = X - eps_matrix;
-ub = X + eps_matrix;
-
-%% Create GraphStar and compute reachability
-GS_in = GraphStar(X, lb, ub);
-
-fprintf('\n=== Computing Reachability ===\n');
-reachOpts = struct('reachMethod', 'approx-star', 'dis_opt', 'display');
-t_start = tic;
-GS_out = gnn.reach(GS_in, reachOpts);
-total_time = toc(t_start);
-
-fprintf('\nCompleted in %.4f seconds\n', total_time);
-
-%% Analyze output bounds
-[lb_out, ub_out] = GS_out.getRanges();
-bound_widths = ub_out - lb_out;
-
-fprintf('\nOutput bounds - Mean: %.6f, Max: %.6f\n', mean(bound_widths(:)), max(bound_widths(:)));
-
-%% Sample validation
-num_samples = 10;
-samples_in_bounds = 0;
-for s = 1:num_samples
-    alpha = rand(GS_in.numPred, 1) .* (GS_in.pred_ub - GS_in.pred_lb) + GS_in.pred_lb;
-    X_sample = GS_in.V(:, :, 1);
-    for k = 1:GS_in.numPred
-        X_sample = X_sample + alpha(k) * GS_in.V(:, :, k+1);
-    end
-    Y_sample = gnn.evaluate(X_sample);
-    tol = 1e-6;
-    if all(Y_sample(:) >= lb_out(:) - tol) && all(Y_sample(:) <= ub_out(:) + tol)
-        samples_in_bounds = samples_in_bounds + 1;
-    end
-end
-fprintf('Samples within bounds: %d/%d\n', samples_in_bounds, num_samples);
-
-%% Verify voltage magnitude specification
+%% Voltage specification bounds
 v_min = 0.95;  % Per-unit lower bound
 v_max = 1.05;  % Per-unit upper bound
 
 % Add parent folder to path for verify_voltage_spec
 addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-results = verify_voltage_spec(GS_out, model, v_min, v_max);
 
-fprintf('\n=== Voltage Specification Verification ===\n');
-fprintf('Specification: %.2f <= V <= %.2f p.u.\n', v_min, v_max);
-fprintf('  Verified safe: %d nodes\n', sum(results == 1));
-fprintf('  Violated: %d nodes\n', sum(results == 0));
-fprintf('  Unknown: %d nodes\n', sum(results == 2));
-fprintf('  N/A (non-voltage bus): %d nodes\n', sum(results == -1));
+%% Perturbation configuration (matching GNNV prototype)
+% Which features to perturb:
+%   [] = all features (default)
+%   [1, 2] = only power injections (Pg-Pd, Qg-Qd) - matches GNNV config
+%   [3, 4] = only voltage and bus type
+perturb_features = [1, 2];  % Match GNNV: perturb only power injections
 
-fprintf('\n=== Complete ===\n');
+%% Test multiple epsilon values
+epsilon_values = [0.001, 0.005, 0.01];
+range_per_col = max(X) - min(X);
+
+fprintf('\n========== EPSILON SWEEP TEST ==========\n');
+fprintf('Testing epsilon values: %s\n', mat2str(epsilon_values));
+if isempty(perturb_features)
+    fprintf('Perturbing ALL features\n');
+else
+    fprintf('Perturbing ONLY features: %s\n', mat2str(perturb_features));
+end
+
+for eps_idx = 1:length(epsilon_values)
+    epsilon = epsilon_values(eps_idx);
+    fprintf('\n\n======================================\n');
+    fprintf('=== EPSILON = %.4f (%.2f%% perturbation) ===\n', epsilon, epsilon*100);
+    fprintf('======================================\n');
+
+    %% Define input perturbation (selective features)
+    eps_matrix = zeros(numNodes, size(X, 2));  % Start with no perturbation
+    if isempty(perturb_features)
+        % Perturb all features
+        scaled_eps = range_per_col .* epsilon;
+        eps_matrix = repmat(scaled_eps, numNodes, 1);
+    else
+        % Perturb only selected features
+        for f = perturb_features
+            if f <= size(X, 2)
+                scaled_eps_f = range_per_col(f) * epsilon;
+                eps_matrix(:, f) = scaled_eps_f;
+            end
+        end
+    end
+
+    %% Create GraphStar and compute reachability
+    % GraphStar(NF, LB, UB) expects perturbation bounds relative to NF
+    % So we pass -eps_matrix and +eps_matrix (not absolute bounds)
+    GS_in = GraphStar(X, -eps_matrix, eps_matrix);
+
+    fprintf('\n=== Computing Reachability ===\n');
+    reachOpts = struct('reachMethod', 'approx-star', 'dis_opt', 'display');
+    t_start = tic;
+    GS_out = gnn.reach(GS_in, reachOpts);
+    total_time = toc(t_start);
+
+    fprintf('\nCompleted in %.4f seconds\n', total_time);
+
+    %% Analyze output bounds
+    [lb_out, ub_out] = GS_out.getRanges();
+    bound_widths = ub_out - lb_out;
+
+    fprintf('\nOutput bounds - Mean: %.6f, Max: %.6f\n', mean(bound_widths(:)), max(bound_widths(:)));
+
+    %% Sample validation
+    num_samples = 10;
+    samples_in_bounds = 0;
+    for s = 1:num_samples
+        alpha = rand(GS_in.numPred, 1) .* (GS_in.pred_ub - GS_in.pred_lb) + GS_in.pred_lb;
+        X_sample = GS_in.V(:, :, 1);
+        for k = 1:GS_in.numPred
+            X_sample = X_sample + alpha(k) * GS_in.V(:, :, k+1);
+        end
+        Y_sample = gnn.evaluate(X_sample);
+        tol = 1e-6;
+        if all(Y_sample(:) >= lb_out(:) - tol) && all(Y_sample(:) <= ub_out(:) + tol)
+            samples_in_bounds = samples_in_bounds + 1;
+        end
+    end
+    fprintf('Samples within bounds: %d/%d\n', samples_in_bounds, num_samples);
+
+    %% Verify voltage magnitude specification
+    results = verify_voltage_spec(GS_out, model, v_min, v_max);
+
+    fprintf('\n=== Voltage Specification Verification ===\n');
+    fprintf('Specification: %.2f <= V <= %.2f p.u.\n', v_min, v_max);
+    fprintf('  Verified safe: %d nodes\n', sum(results == 1));
+    fprintf('  Violated: %d nodes\n', sum(results == 0));
+    fprintf('  Unknown: %d nodes\n', sum(results == 2));
+    fprintf('  N/A (non-voltage bus): %d nodes\n', sum(results == -1));
+end
+
+fprintf('\n\n=== EPSILON SWEEP COMPLETE ===\n');

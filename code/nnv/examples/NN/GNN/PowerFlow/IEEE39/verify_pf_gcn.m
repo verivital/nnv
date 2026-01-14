@@ -57,17 +57,31 @@ X = double(model.X_test_g{1});
 
 fprintf('Input: %d nodes x %d features\n', size(X, 1), size(X, 2));
 
-%% Define input perturbation (1% of feature range)
+%% Perturbation configuration (matching GNNV prototype)
+% Which features to perturb:
+%   [] = all features (default)
+%   [1, 2] = only power injections (Pg-Pd, Qg-Qd) - matches GNNV config
+perturb_features = [1, 2];  % Match GNNV: perturb only power injections
 epsilon = 0.01;
 range_per_col = max(X) - min(X);
-scaled_eps = range_per_col .* epsilon;
-eps_matrix = repmat(scaled_eps, numNodes, 1);
 
-lb = X - eps_matrix;
-ub = X + eps_matrix;
+% Define input perturbation (selective features)
+eps_matrix = zeros(numNodes, size(X, 2));
+if isempty(perturb_features)
+    scaled_eps = range_per_col .* epsilon;
+    eps_matrix = repmat(scaled_eps, numNodes, 1);
+else
+    for f = perturb_features
+        if f <= size(X, 2)
+            eps_matrix(:, f) = range_per_col(f) * epsilon;
+        end
+    end
+end
 
 %% Create GraphStar and compute reachability
-GS_in = GraphStar(X, lb, ub);
+% GraphStar(NF, LB, UB) expects perturbation bounds relative to NF
+% So we pass -eps_matrix and +eps_matrix (not absolute bounds)
+GS_in = GraphStar(X, -eps_matrix, eps_matrix);
 
 fprintf('\n=== Computing Reachability ===\n');
 reachOpts = struct('reachMethod', 'approx-star', 'dis_opt', 'display');

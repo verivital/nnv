@@ -494,6 +494,15 @@ classdef GINELayer < handle
             src_nodes = adj_list(:, 1);
             dst_nodes = adj_list(:, 2);
 
+            % (1) Transform node features first if dimensions change (GNNV architecture)
+            used_W = false;
+            if obj.InputSize ~= obj.OutputSize
+                V_H = obj.map_features_star(in_gs.V, obj.Weights);  % [N x F_out x K]
+                used_W = true;
+            else
+                V_H = in_gs.V;  % [N x F_out x K]
+            end
+
             % Extract edge Star properties
             if isa(E_star, 'ImageStar')
                 % ImageStar has V with shape [m x E_in x 1 x K] or similar
@@ -514,18 +523,18 @@ classdef GINELayer < handle
                 E_pred_ub = E_star.predicate_ub;
             end
 
-            % (1) Gather source node features to edges
-            % V_node_edge: [m x F_in x K_node]
-            V_node_edge = obj.gather_src_features_star(in_gs.V, src_nodes);
+            % (2) Gather source node features to edges (now in F_out space)
+            % V_node_edge: [m x F_out x K_node]
+            V_node_edge = obj.gather_src_features_star(V_H, src_nodes);
 
-            % (2) Transform edge features through edge weights
-            % E_trans_V: [m x F_in x K_edge]
+            % (3) Transform edge features through edge weights to F_out
+            % E_trans_V: [m x F_out x K_edge]
             E_trans_V = obj.map_features_star(E_V, obj.EdgeWeights);
             if ~isempty(obj.EdgeBias)
                 E_trans_V(:, :, 1) = E_trans_V(:, :, 1) + obj.EdgeBias';
             end
 
-            % (3) Combine node and edge features via Minkowski sum
+            % (4) Combine node and edge features via Minkowski sum
             % Need to pad both to same number of generators
             [V_node_padded, C_node_padded, d_node, pred_lb_node, pred_ub_node, ...
              V_edge_padded, C_edge_padded, d_edge, pred_lb_edge, pred_ub_edge] = ...
@@ -537,7 +546,8 @@ classdef GINELayer < handle
             K_edge = size(V_edge_padded, 3);
 
             % Combined V: center is sum of centers, generators are concatenated
-            V_combined = zeros(numEdges, obj.InputSize, K_node + K_edge - 1, 'like', V_node_padded);
+            % Now both are in F_out space
+            V_combined = zeros(numEdges, obj.OutputSize, K_node + K_edge - 1, 'like', V_node_padded);
             V_combined(:, :, 1) = V_node_padded(:, :, 1) + V_edge_padded(:, :, 1);  % centers
             V_combined(:, :, 2:K_node) = V_node_padded(:, :, 2:end);  % node generators
             V_combined(:, :, K_node+1:end) = V_edge_padded(:, :, 2:end);  % edge generators
@@ -548,28 +558,55 @@ classdef GINELayer < handle
             pred_lb_combined = [pred_lb_node; pred_lb_edge];
             pred_ub_combined = [pred_ub_node; pred_ub_edge];
 
-            % (4) Apply ReLU per edge using approx-star bounds
-            [V_edge_relu, C_new, d_new, pred_lb_new, pred_ub_new] = ...
-                obj.apply_relu_approx_star(V_combined, C_combined, d_combined, pred_lb_combined, pred_ub_combined);
+            % (5) Apply ReLU using NNV's standard ReluLayer (sound implementation)
+            % Convert V [m x F x K] to Star V [m*F x K]
+            [m_edges, F_out, K_orig] = size(V_combined);
+            V_flat = reshape(permute(V_combined, [2, 1, 3]), [m_edges * F_out, K_orig]);
 
-            % (5) Aggregate edge messages back to nodes
-            V_agg = obj.aggregate_edges_to_nodes_star(V_edge_relu, dst_nodes, numNodes);
+            % Create Star for combined edge features
+            edge_star = Star(V_flat, C_combined, d_combined, pred_lb_combined, pred_ub_combined);
 
-            % (6) Combine with self-loop: (1+ε)*X + aggregated
-            % Need to expand in_gs.V to match V_agg's generator count
-            K_agg = size(V_agg, 3);
-            K_in = size(in_gs.V, 3);
-            if K_agg > K_in
-                V_in_expanded = zeros(numNodes, obj.InputSize, K_agg, 'like', in_gs.V);
-                V_in_expanded(:, :, 1:K_in) = in_gs.V;
-            else
-                V_in_expanded = in_gs.V;
+            % Apply ReLU using standard NNV ReluLayer
+            L = ReluLayer();
+            edge_star_out = L.reach(edge_star, 'approx-star');
+
+            % Handle cell array output (approx-star can return cell)
+            if iscell(edge_star_out)
+                edge_star_out = edge_star_out{1};
             end
 
-            V_combined_final = (1 + obj.Epsilon) * V_in_expanded + V_agg;
+            % Reshape back to [m x F x K']
+            K_new = edge_star_out.nVar + 1;
+            V_flat_out = edge_star_out.V;
+            V_edge_relu = permute(reshape(V_flat_out, [F_out, m_edges, K_new]), [2, 1, 3]);
 
-            % (7) Apply node transformation
-            V_out = obj.map_features_star(V_combined_final, obj.Weights);
+            % Get updated constraints
+            C_new = edge_star_out.C;
+            d_new = edge_star_out.d;
+            pred_lb_new = edge_star_out.predicate_lb;
+            pred_ub_new = edge_star_out.predicate_ub;
+
+            % (6) Aggregate edge messages back to nodes
+            V_agg = obj.aggregate_edges_to_nodes_star(V_edge_relu, dst_nodes, numNodes);
+
+            % (7) Residual connection: V_H + aggregated
+            % Need to expand V_H to match V_agg's generator count
+            K_agg = size(V_agg, 3);
+            K_H = size(V_H, 3);
+            if K_agg > K_H
+                V_H_expanded = zeros(numNodes, obj.OutputSize, K_agg, 'like', V_H);
+                V_H_expanded(:, :, 1:K_H) = V_H;
+                V_combined_final = V_H_expanded + V_agg;
+            else
+                V_combined_final = V_H + V_agg;
+            end
+
+            % (8) Apply W at end if not used earlier (GNNV architecture)
+            if ~used_W
+                V_out = obj.map_features_star(V_combined_final, obj.Weights);
+            else
+                V_out = V_combined_final;
+            end
 
             % Add bias to center only
             if ~isempty(obj.Bias)

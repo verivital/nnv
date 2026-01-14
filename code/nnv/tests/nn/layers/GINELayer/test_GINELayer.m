@@ -3,8 +3,8 @@
 %% 1) Constructor test - 5 arguments (name, W_node, b_node, W_edge, b_edge)
 W_node = rand(4, 8);     % 4 input -> 8 output features
 b_node = rand(8, 1);
-W_edge = rand(3, 4);     % 3 edge features -> 4 (node input dim)
-b_edge = rand(4, 1);
+W_edge = rand(3, 8);     % 3 edge features -> 8 (must match node output dim)
+b_edge = rand(8, 1);
 L = GINELayer('test_gine', W_node, b_node, W_edge, b_edge);
 
 assert(L.InputSize == 4, 'InputSize should be 4');
@@ -48,20 +48,31 @@ assert(size(Y, 1) == numNodes, 'Output should have same number of nodes');
 assert(size(Y, 2) == 8, 'Output should have 8 features');
 
 %% 6) Verify evaluate computation manually
-% Compute expected output step by step
-E_trans = E * W_edge + b_edge';
+% Compute expected output step by step (GNNV architecture)
+% Since F_in=4 != F_out=8, nodes are transformed first
+H = X * W_node;  % [N x F_out]
 src_nodes = adj_list(:, 1);
-X_src = X(src_nodes, :);
-edge_msg = max(0, X_src + E_trans);  % ReLU
-
-agg = zeros(numNodes, 4);
 dst_nodes = adj_list(:, 2);
+
+% Gather transformed source features
+H_src = H(src_nodes, :);  % [m x F_out]
+
+% Transform edge features and add
+E_trans = E * W_edge + b_edge';  % [m x F_out]
+edge_sum = H_src + E_trans;
+
+% ReLU
+edge_msg = max(0, edge_sum);
+
+% Aggregate
+agg = zeros(numNodes, 8);
 for e = 1:numEdges
     agg(dst_nodes(e), :) = agg(dst_nodes(e), :) + edge_msg(e, :);
 end
 
-combined = (1 + L.Epsilon) * X + agg;
-expected_Y = combined * W_node + b_node';
+% Residual connection and bias
+combined = H + agg;
+expected_Y = combined + b_node';
 
 assert(max(abs(Y - expected_Y), [], 'all') < 1e-10, 'Evaluate should match manual computation');
 
@@ -91,14 +102,10 @@ GS_out2 = L.reach(GS_in, E, adj_list);
 assert(isa(GS_out2, 'GraphStar'), 'Output should be GraphStar with default method');
 
 %% 10) Test with different epsilon value
+% Epsilon is used in edge perturbation reachability (not in GNNV-compatible evaluate)
 L_eps = GINELayer('eps_layer', W_node, b_node, W_edge, b_edge, 0.5);
-Y_eps = L_eps.evaluate(X, E, adj_list);
 
-% With epsilon=0.5, self-loop contribution is 1.5*X instead of 1.0*X
-combined_eps = 1.5 * X + agg;
-expected_Y_eps = combined_eps * W_node + b_node';
-
-assert(max(abs(Y_eps - expected_Y_eps), [], 'all') < 1e-10, 'Epsilon scaling should work');
+assert(L_eps.Epsilon == 0.5, 'Epsilon should be set correctly');
 
 %% 11) Test precision change
 L_single = GINELayer('single_test', W_node, b_node, W_edge, b_edge);

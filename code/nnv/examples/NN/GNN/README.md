@@ -41,13 +41,16 @@ GNN/
 - Incorporates edge features in message passing
 - Layer operation: Y = W_node * ((1+ε)*X + Σ_j ReLU(h_j + φ_edge(e_ij)))
 
+
 ## IEEE Bus Systems
 
-| System | Nodes | Description |
-|--------|-------|-------------|
-| IEEE 24 | 24 | IEEE Reliability Test System |
-| IEEE 39 | 39 | New England Test System |
-| IEEE 118 | 118 | IEEE 118-bus Test System |
+The power system datasets used in this work are drawn from the **PowerGraph** benchmark suite [Varbella et al., 2024], which provides standardized graph-based representations of electrical power networks for graph machine learning and verification tasks.
+
+| System    | Nodes | Description                         |
+|-----------|-------|-------------------------------------|
+| IEEE 24   | 24    | IEEE Reliability Test System        |
+| IEEE 39   | 39    | New England Test System             |
+| IEEE 118  | 118   | IEEE 118-bus Test System            |
 
 ## Running Examples
 
@@ -133,3 +136,4 @@ Specification: 0.95 <= V <= 1.05 p.u.
 
 - Kipf & Welling, "Semi-Supervised Classification with Graph Convolutional Networks", ICLR 2017
 - Hu et al., "Strategies for Pre-training Graph Neural Networks", ICLR 2020
+- Varbella et al., "PowerGraph: A Power Grid Benchmark Dataset for Graph Neural Networks", NIPS 2024

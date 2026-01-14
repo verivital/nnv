@@ -115,17 +115,35 @@ classdef GNN < handle
         end
 
 
-        function Y = evaluate(obj, X)
+        function Y = evaluate(obj, X, E_sample)
             % Evaluate GNN given input node features
             %
             % Syntax:
             %   Y = gnn.evaluate(X)
+            %   Y = gnn.evaluate(X, E_sample)  % For edge perturbation sampling
             %
             % Inputs:
-            %   X - Node features (N x F_in)
+            %   X        - Node features (N x F_in)
+            %   E_sample - (Optional) Edge features (m x E_in) for sampling
+            %              If not provided, uses stored obj.E
             %
             % Outputs:
             %   Y - Output features (N x F_out)
+
+            % Use provided edge features or stored ones
+            if nargin < 3 || isempty(E_sample)
+                E_eval = obj.E;
+                % If E is a Star/ImageStar/GraphStar (edge perturbation mode),
+                % extract the center for evaluation
+                if isa(E_eval, 'GraphStar')
+                    E_eval = E_eval.V(:, :, 1);  % Center of GraphStar
+                elseif isa(E_eval, 'Star') || isa(E_eval, 'ImageStar')
+                    E_eval = E_eval.V(:, 1);  % Center of Star
+                    E_eval = reshape(E_eval, size(obj.adj_list, 1), []);
+                end
+            else
+                E_eval = E_sample;
+            end
 
             Y = X;
             for i = 1:obj.numLayers
@@ -134,7 +152,7 @@ classdef GNN < handle
                 if isa(layer, 'GCNLayer')
                     Y = layer.evaluate(Y, obj.A_norm);
                 elseif isa(layer, 'GINELayer')
-                    Y = layer.evaluate(Y, obj.E, obj.adj_list, obj.edge_weights);
+                    Y = layer.evaluate(Y, E_eval, obj.adj_list, obj.edge_weights);
                 else
                     % Standard layer (ReLU, etc.)
                     Y = layer.evaluate(Y);

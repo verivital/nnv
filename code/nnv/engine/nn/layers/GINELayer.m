@@ -340,9 +340,9 @@ classdef GINELayer < handle
             end
 
             % Type detection for perturbation mode
-            if isa(E, 'Star') || isa(E, 'ImageStar')
-                % Edge perturbation mode - E is a Star
-                gs_out = obj.reach_with_edge_perturbation(in_gs, E, adj_list);
+            if isa(E, 'Star') || isa(E, 'ImageStar') || isa(E, 'GraphStar')
+                % Edge perturbation mode - E is a Star/ImageStar/GraphStar
+                gs_out = obj.reach_with_edge_perturbation(in_gs, E, adj_list, edge_weights);
             else
                 % Node-only mode - E is constant matrix
                 gs_out = obj.reach_node_only(in_gs, E, adj_list, edge_weights);
@@ -470,11 +470,12 @@ classdef GINELayer < handle
         end
 
         % edge perturbation reachability
-        function gs_out = reach_with_edge_perturbation(obj, in_gs, E_star, adj_list)
+        function gs_out = reach_with_edge_perturbation(obj, in_gs, E_star, adj_list, edge_weights)
             % Edge perturbation reachability (both node and edge features perturbed)
             % @in_gs: Input GraphStar set for node features
-            % @E_star: Edge features as Star or ImageStar (m x E_in)
+            % @E_star: Edge features as Star, ImageStar, or GraphStar (m x E_in)
             % @adj_list: Edge list (m x 2)
+            % @edge_weights: Edge weights for aggregation (m x 1) - optional
             % @gs_out: Output GraphStar set
 
             % author: Anne Tumlin
@@ -490,6 +491,12 @@ classdef GINELayer < handle
 
             numNodes = in_gs.numNodes;
             numEdges = size(adj_list, 1);
+
+            % Default edge weights to 1 if not provided
+            if nargin < 5 || isempty(edge_weights)
+                edge_weights = ones(numEdges, 1);
+            end
+            edge_weights = edge_weights(:);
 
             src_nodes = adj_list(:, 1);
             dst_nodes = adj_list(:, 2);
@@ -510,6 +517,13 @@ classdef GINELayer < handle
                 if ndims(E_V) == 2
                     E_V = reshape(E_V, [size(E_V, 1), size(E_V, 2), 1]);
                 end
+                E_C = E_star.C;
+                E_d = E_star.d;
+                E_pred_lb = E_star.pred_lb;
+                E_pred_ub = E_star.pred_ub;
+            elseif isa(E_star, 'GraphStar')
+                % GraphStar has V with shape [m x E_in x K] - same as node GraphStar
+                E_V = E_star.V;  % [m x E_in x K]
                 E_C = E_star.C;
                 E_d = E_star.d;
                 E_pred_lb = E_star.pred_lb;
@@ -586,8 +600,8 @@ classdef GINELayer < handle
             pred_lb_new = edge_star_out.predicate_lb;
             pred_ub_new = edge_star_out.predicate_ub;
 
-            % (6) Aggregate edge messages back to nodes
-            V_agg = obj.aggregate_edges_to_nodes_star(V_edge_relu, dst_nodes, numNodes);
+            % (6) Aggregate edge messages back to nodes (weighted)
+            V_agg = obj.aggregate_edges_to_nodes_weighted_star(V_edge_relu, dst_nodes, numNodes, edge_weights);
 
             % (7) Residual connection: V_H + aggregated
             % Need to expand V_H to match V_agg's generator count
@@ -870,17 +884,42 @@ classdef GINELayer < handle
                 ub2 = ones(K2 - 1, 1);
             end
 
-            % Output unchanged
-            V1_out = V1;
-            V2_out = V2;
-            C1_out = C1;
-            C2_out = C2;
-            d1_out = d1;
-            d2_out = d2;
-            lb1_out = lb1;
-            ub1_out = ub1;
-            lb2_out = lb2;
-            ub2_out = ub2;
+            % Actually pad to same K
+            K_max = max(K1, K2);
+
+            if K1 < K_max
+                % Pad V1 with zeros
+                V1_out = zeros(size(V1, 1), size(V1, 2), K_max, 'like', V1);
+                V1_out(:, :, 1:K1) = V1;
+                % Pad constraints with zeros for new predicates (they're unconstrained)
+                C1_out = [C1, zeros(size(C1, 1), K_max - K1)];
+                d1_out = d1;
+                lb1_out = [lb1; zeros(K_max - K1, 1)];  % new preds bounded [0,0]
+                ub1_out = [ub1; zeros(K_max - K1, 1)];
+            else
+                V1_out = V1;
+                C1_out = C1;
+                d1_out = d1;
+                lb1_out = lb1;
+                ub1_out = ub1;
+            end
+
+            if K2 < K_max
+                % Pad V2 with zeros
+                V2_out = zeros(size(V2, 1), size(V2, 2), K_max, 'like', V2);
+                V2_out(:, :, 1:K2) = V2;
+                % Pad constraints with zeros for new predicates
+                C2_out = [C2, zeros(size(C2, 1), K_max - K2)];
+                d2_out = d2;
+                lb2_out = [lb2; zeros(K_max - K2, 1)];
+                ub2_out = [ub2; zeros(K_max - K2, 1)];
+            else
+                V2_out = V2;
+                C2_out = C2;
+                d2_out = d2;
+                lb2_out = lb2;
+                ub2_out = ub2;
+            end
 
         end
 

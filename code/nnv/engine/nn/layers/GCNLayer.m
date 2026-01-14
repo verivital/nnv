@@ -10,10 +10,15 @@ classdef GCNLayer < handle
     %
     %   Note: ReLU activation is applied by a separate ReluLayer
     %
-    %   Reference: Kipf & Welling, "Semi-Supervised Classification with
-    %              Graph Convolutional Networks", ICLR 2017
+    % Main references:
+    % 1) Kipf & Welling, "Semi-Supervised Classification with Graph
+    %    Convolutional Networks", ICLR 2017
+    %    https://arxiv.org/abs/1609.02907
+    % 2) NNV verification tool documentation
+    %    https://github.com/verivital/nnv
     %
-    %   Anne Tumlin: 1/13/2026
+    % Author: Anne Tumlin
+    % Date: 01/13/2026
 
     properties
         Name = 'gcn_layer';
@@ -268,14 +273,6 @@ classdef GCNLayer < handle
             end
 
         end
-
-        % % zonotope reachability (placeholder)
-        % function S = reach_zono_multipleInputs(obj, in_sets, A_norm, option)
-        %     % Zonotope-based reachability (not yet implemented)
-
-        %     error('Zonotope reachability for GCNLayer not yet implemented');
-
-        % end
 
     end
 

@@ -61,7 +61,7 @@ assert(isequal(gnn_full.adj_list, adj_list), 'adj_list should match');
 assert(isequal(gnn_full.E, E), 'E should match');
 
 %% 7) Constructor test - Full GNN with name
-gnn_named = GNN({L1, L2}, A_norm, adj_list, E, 'my_gnn');
+gnn_named = GNN({L1, L2}, A_norm, adj_list, E, [], 'my_gnn');
 assert(strcmp(gnn_named.Name, 'my_gnn'), 'Name should match');
 
 %% 8) Evaluate test - Mixed GCN + GINE network

@@ -1,8 +1,21 @@
 classdef GraphStar < handle
     % Class for representing set of graph node features using Star set
-    % Graph node features can be perturbed by bounded noise. A perturbed
-    % graph can be represented using a GraphStar Set.
-    % Anne Tumlin: 1/5/2026
+    %   Graph node features can be perturbed by bounded noise. A perturbed
+    %   graph can be represented using a GraphStar Set.
+    %
+    %   GraphStar extends the Star/ImageStar concept to graph-structured data,
+    %   enabling set-based reachability analysis for Graph Neural Networks.
+    %
+    % Main references:
+    % 1) Tran et al., "Star-Based Reachability Analysis of Deep Neural
+    %    Networks", FM 2019. https://arxiv.org/abs/1904.01790
+    % 2) Tran et al., "Verification of Deep Convolutional Neural Networks
+    %    Using ImageStars", CAV 2020. https://arxiv.org/abs/2004.05511
+    % 3) NNV verification tool documentation
+    %    https://github.com/verivital/nnv
+    %
+    % Author: Anne Tumlin
+    % Date: 01/05/2026
 
     %=================================================================%
     %   A graph with N nodes and F features per node is represented by
@@ -71,7 +84,7 @@ classdef GraphStar < handle
 
         % constructor using box representation or Star representation
         function obj = GraphStar(varargin)
-            % @nargin = 3: NF = varargin{1}, LB = varagin{2}, UB = varargin{3}
+            % @nargin = 3: NF = varargin{1}, LB = varargin{2}, UB = varargin{3}
             %         = 2: lb = varargin{1}, ub = varargin{2}
             %         = 5: V, C, d, pred_lb, pred_ub
             %         = 7: V, C, d, pred_lb, pred_ub, nf_lb, nf_ub
@@ -518,7 +531,7 @@ classdef GraphStar < handle
             end
 
             if isempty(obj.C) || isempty(obj.d)
-                warning('The GraphStar is empty');
+                % No constraints - GraphStar represents a single point (the center)
                 obj.nf_lb = obj.V(:,:,1);
                 obj.nf_ub = obj.V(:,:,1);
             end

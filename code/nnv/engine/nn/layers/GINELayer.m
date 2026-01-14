@@ -1,19 +1,30 @@
 classdef GINELayer < handle
     % The GINELayer class for Graph Isomorphism Networks with Edge features
-    %   Performs: Y = W_node * ((1+ε)*X + Σ_j ReLU(h_j + φ_edge(e_ij)))
+    %   Performs message passing with edge features:
+    %   H = X * W_node                           (transform nodes if F_in != F_out)
+    %   msg_ij = ReLU(h_i + E_ij * W_edge + b_edge)  (edge message)
+    %   agg_j = Σ_i w_ij * msg_ij                (weighted aggregation)
+    %   Y = H + agg + b_node                     (residual connection)
+    %
     %   Where:
     %     X: Input node features (N x F_in)
     %     E: Edge features (m x E_in)
     %     adj_list: Edge list (m x 2) with [src, dst] pairs
-    %     φ_edge: Edge transformation (W_edge * e_ij + b_edge)
     %     W_node: Node transformation weights (F_in x F_out)
-    %     ε: Self-loop scaling factor (typically 0)
+    %     W_edge: Edge transformation weights (E_in x F_out)
+    %     w_ij: Edge weights for aggregation (optional)
     %     Y: Output node features (N x F_out)
     %
-    %   Reference: Hu et al., "Strategies for Pre-training Graph Neural
-    %              Networks", ICLR 2020
+    % Main references:
+    % 1) Hu et al., "Strategies for Pre-training Graph Neural Networks",
+    %    ICLR 2020. https://arxiv.org/abs/1905.12265
+    % 2) GNNV: Graph Neural Network Verification prototype
+    %    (internal reference implementation)
+    % 3) NNV verification tool documentation
+    %    https://github.com/verivital/nnv
     %
-    %   Anne Tumlin: 1/13/2026
+    % Author: Anne Tumlin
+    % Date: 01/13/2026
 
     properties
         Name = 'gine_layer';
@@ -721,117 +732,6 @@ classdef GINELayer < handle
             end
         end
 
-        % Apply ReLU using approx-star with bounds
-        function [V_out, C_new, d_new, pred_lb_new, pred_ub_new] = ...
-                apply_relu_approx_star(obj, V_in, C, d, pred_lb, pred_ub)
-            % Approx-star ReLU: over-approximate using triangle relaxation
-            % For each element, if range crosses zero, introduce new predicate
-            %
-            % V_in: [m x F x K] (edge representation)
-            % Returns V_out with same shape, possibly expanded K
-
-            [m, F, K] = size(V_in);
-            numPred = K - 1;  % original number of predicates
-
-            % Estimate bounds for each element
-            [lb, ub] = obj.estimate_bounds(V_in, C, d, pred_lb, pred_ub);
-
-            % Count elements that cross zero (need new predicates)
-            crossing = (lb < 0) & (ub > 0);
-            num_new_pred = sum(crossing(:));
-
-            % Initialize output
-            V_out = zeros(m, F, K + num_new_pred, 'like', V_in);
-            V_out(:, :, 1:K) = V_in;  % copy existing generators
-
-            % Expand constraints for new predicates
-            C_new = [C, zeros(size(C, 1), num_new_pred)];
-            d_new = d;
-            pred_lb_new = [pred_lb; zeros(num_new_pred, 1)];
-            pred_ub_new = [pred_ub; ones(num_new_pred, 1)];
-
-            % Process each element
-            new_pred_idx = 0;
-            for i = 1:m
-                for j = 1:F
-                    l = lb(i, j);
-                    u = ub(i, j);
-
-                    if u <= 0
-                        % Entirely negative: output is 0
-                        V_out(i, j, :) = 0;
-                    elseif l >= 0
-                        % Entirely positive: output unchanged (already copied)
-                    else
-                        % Crosses zero: apply triangle relaxation
-                        % Output is in [0, u] with slope u/(u-l)
-                        new_pred_idx = new_pred_idx + 1;
-                        k_new = K + new_pred_idx;
-
-                        % Triangle approximation:
-                        % y = λ*x where λ = u/(u-l)
-                        % New predicate captures the range [0, u]
-                        lambda = u / (u - l);
-
-                        % Scale existing generators by lambda
-                        for k = 1:K
-                            V_out(i, j, k) = lambda * V_in(i, j, k);
-                        end
-
-                        % Shift center by -lambda*l to adjust for the cut
-                        V_out(i, j, 1) = V_out(i, j, 1) - lambda * l;
-
-                        % New generator captures approximation error
-                        % Error range is [0, -l*u/(u-l)]
-                        error_range = -l * u / (u - l);
-                        V_out(i, j, k_new) = error_range / 2;
-                        V_out(i, j, 1) = V_out(i, j, 1) + error_range / 2;
-
-                        % Predicate bounds already set to [0, 1]
-                    end
-                end
-            end
-
-        end
-
-        % Estimate bounds for V matrix elements
-        function [lb, ub] = estimate_bounds(~, V, C, d, pred_lb, pred_ub)
-            % Estimate bounds using interval arithmetic
-            % V: [m x F x K]
-            % Returns lb, ub: [m x F]
-
-            [m, F, K] = size(V);
-
-            % Center is first slice
-            center = V(:, :, 1);
-
-            % Compute contribution from generators
-            contrib_lb = zeros(m, F);
-            contrib_ub = zeros(m, F);
-
-            for k = 2:K
-                gen = V(:, :, k);
-                p_idx = k - 1;
-
-                if p_idx <= length(pred_lb)
-                    p_lb = pred_lb(p_idx);
-                    p_ub = pred_ub(p_idx);
-                else
-                    p_lb = -1;
-                    p_ub = 1;
-                end
-
-                % For each generator, contribution depends on sign
-                pos_gen = max(gen, 0);
-                neg_gen = min(gen, 0);
-
-                contrib_lb = contrib_lb + pos_gen * p_lb + neg_gen * p_ub;
-                contrib_ub = contrib_ub + pos_gen * p_ub + neg_gen * p_lb;
-            end
-
-            lb = center + contrib_lb;
-            ub = center + contrib_ub;
-        end
 
         % Pad two star representations to have same number of generators
         function [V1_out, C1_out, d1_out, lb1_out, ub1_out, ...

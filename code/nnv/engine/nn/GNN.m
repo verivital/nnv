@@ -21,6 +21,7 @@ classdef GNN < handle
         A_norm = [];           % Normalized adjacency matrix (for GCN layers)
         adj_list = [];         % Edge list [src, dst] (for GINE layers)
         E = [];                % Edge features (for GINE layers)
+        edge_weights = [];     % Edge weights for aggregation (for GINE layers)
 
         % Reachability options (mirrors NN.m)
         reachMethod = 'approx-star';
@@ -40,18 +41,20 @@ classdef GNN < handle
             % GNN Constructor
             %
             % Syntax:
-            %   gnn = GNN()                              % Empty GNN
-            %   gnn = GNN(layers)                        % Layers only
-            %   gnn = GNN(layers, A_norm)                % GCN-only network
-            %   gnn = GNN(layers, A_norm, adj_list, E)   % Full GNN
-            %   gnn = GNN(layers, A_norm, adj_list, E, name)
+            %   gnn = GNN()                                        % Empty GNN
+            %   gnn = GNN(layers)                                  % Layers only
+            %   gnn = GNN(layers, A_norm)                          % GCN-only network
+            %   gnn = GNN(layers, A_norm, adj_list, E)             % GINE without weights
+            %   gnn = GNN(layers, A_norm, adj_list, E, edge_wts)   % GINE with weights
+            %   gnn = GNN(layers, A_norm, adj_list, E, edge_wts, name)
             %
             % Inputs:
-            %   layers   - Cell array of GNN layers
-            %   A_norm   - Normalized adjacency matrix (N x N)
-            %   adj_list - Edge list (m x 2) with [src, dst] pairs
-            %   E        - Edge features (m x E_in)
-            %   name     - Network name (string)
+            %   layers     - Cell array of GNN layers
+            %   A_norm     - Normalized adjacency matrix (N x N)
+            %   adj_list   - Edge list (m x 2) with [src, dst] pairs
+            %   E          - Edge features (m x E_in)
+            %   edge_wts   - Edge weights for aggregation (m x 1)
+            %   name       - Network name (string)
 
             switch nargin
                 case 0
@@ -68,22 +71,31 @@ classdef GNN < handle
                     obj.A_norm = varargin{2};
 
                 case 4
-                    % Layers + A_norm + adj_list + E
+                    % Layers + A_norm + adj_list + E (no edge weights)
                     obj.Layers = varargin{1};
                     obj.A_norm = varargin{2};
                     obj.adj_list = varargin{3};
                     obj.E = varargin{4};
 
                 case 5
-                    % Layers + A_norm + adj_list + E + name
+                    % Layers + A_norm + adj_list + E + edge_weights
                     obj.Layers = varargin{1};
                     obj.A_norm = varargin{2};
                     obj.adj_list = varargin{3};
                     obj.E = varargin{4};
-                    obj.Name = varargin{5};
+                    obj.edge_weights = varargin{5};
+
+                case 6
+                    % Layers + A_norm + adj_list + E + edge_weights + name
+                    obj.Layers = varargin{1};
+                    obj.A_norm = varargin{2};
+                    obj.adj_list = varargin{3};
+                    obj.E = varargin{4};
+                    obj.edge_weights = varargin{5};
+                    obj.Name = varargin{6};
 
                 otherwise
-                    error('Invalid number of inputs. Expected 0, 1, 2, 4, or 5 arguments.');
+                    error('Invalid number of inputs. Expected 0, 1, 2, 4, 5, or 6 arguments.');
             end
 
             % Update layer count
@@ -103,17 +115,35 @@ classdef GNN < handle
         end
 
 
-        function Y = evaluate(obj, X)
+        function Y = evaluate(obj, X, E_sample)
             % Evaluate GNN given input node features
             %
             % Syntax:
             %   Y = gnn.evaluate(X)
+            %   Y = gnn.evaluate(X, E_sample)  % For edge perturbation sampling
             %
             % Inputs:
-            %   X - Node features (N x F_in)
+            %   X        - Node features (N x F_in)
+            %   E_sample - (Optional) Edge features (m x E_in) for sampling
+            %              If not provided, uses stored obj.E
             %
             % Outputs:
             %   Y - Output features (N x F_out)
+
+            % Use provided edge features or stored ones
+            if nargin < 3 || isempty(E_sample)
+                E_eval = obj.E;
+                % If E is a Star/ImageStar/GraphStar (edge perturbation mode),
+                % extract the center for evaluation
+                if isa(E_eval, 'GraphStar')
+                    E_eval = E_eval.V(:, :, 1);  % Center of GraphStar
+                elseif isa(E_eval, 'Star') || isa(E_eval, 'ImageStar')
+                    E_eval = E_eval.V(:, 1);  % Center of Star
+                    E_eval = reshape(E_eval, size(obj.adj_list, 1), []);
+                end
+            else
+                E_eval = E_sample;
+            end
 
             Y = X;
             for i = 1:obj.numLayers
@@ -122,7 +152,7 @@ classdef GNN < handle
                 if isa(layer, 'GCNLayer')
                     Y = layer.evaluate(Y, obj.A_norm);
                 elseif isa(layer, 'GINELayer')
-                    Y = layer.evaluate(Y, obj.E, obj.adj_list);
+                    Y = layer.evaluate(Y, E_eval, obj.adj_list, obj.edge_weights);
                 else
                     % Standard layer (ReLU, etc.)
                     Y = layer.evaluate(Y);
@@ -205,7 +235,28 @@ classdef GNN < handle
                 if isa(layer, 'GCNLayer')
                     rs = layer.reach(rs, obj.A_norm, obj.reachMethod, obj.reachOption);
                 elseif isa(layer, 'GINELayer')
-                    rs = layer.reach(rs, obj.E, obj.adj_list, obj.reachMethod);
+                    rs = layer.reach(rs, obj.E, obj.adj_list, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.lp_solver, obj.edge_weights);
+                elseif isa(layer, 'ReluLayer') || isa(layer, 'ActivationFunctionLayer')
+                    % Activation layers need Star, not GraphStar
+                    % Convert GraphStar to Star, apply activation, convert back
+                    numNodes = rs.numNodes;
+                    numFeatures = rs.numFeatures;
+                    S = rs.toStar();
+                    S_out = layer.reach(S, obj.reachMethod, obj.reachOption, ...
+                                       obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                    % Handle cell array output from ReLU (can produce multiple sets)
+                    if iscell(S_out)
+                        S_out = S_out{1};  % Take first set for approx methods
+                    end
+                    % Convert back to GraphStar
+                    new_V = reshape(S_out.V, [numNodes, numFeatures, S_out.nVar + 1]);
+                    if ~isempty(S_out.state_lb) && ~isempty(S_out.state_ub)
+                        nf_lb = reshape(S_out.state_lb, [numNodes, numFeatures]);
+                        nf_ub = reshape(S_out.state_ub, [numNodes, numFeatures]);
+                        rs = GraphStar(new_V, S_out.C, S_out.d, S_out.predicate_lb, S_out.predicate_ub, nf_lb, nf_ub);
+                    else
+                        rs = GraphStar(new_V, S_out.C, S_out.d, S_out.predicate_lb, S_out.predicate_ub);
+                    end
                 else
                     % Standard layer
                     rs = layer.reach(rs, obj.reachMethod, obj.reachOption, ...

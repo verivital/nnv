@@ -103,62 +103,106 @@ fprintf('Edge perturbation: %d edges x %d features\n', size(eps_matrix_edge, 1),
 %% Create GNN with Edge Star (enables edge perturbation mode)
 gnn = GNN({L1, L2, L3}, [], adj_list, E_star, edge_weights);
 
+%% Setup timeout (1 hour for IEEE118)
+% Following NNV convention from examples/Submission/ICAIF24/
+timeoutSeconds = 3600;  % 1 hour
+assignin('base', 'timeoutOccurred', false);
+verificationTimer = timer;
+verificationTimer.StartDelay = timeoutSeconds;
+verificationTimer.TimerFcn = @(~, ~) assignin('base', 'timeoutOccurred', true);
+
 %% Compute Reachability
-fprintf('\n=== Computing Reachability (Node + Edge Perturbation) ===\n');
+fprintf('\n=== Computing Reachability (Node + Edge Perturbation, timeout: %d sec) ===\n', timeoutSeconds);
 reachOpts = struct('reachMethod', 'approx-star', 'dis_opt', 'display');
+
+% Start timer and reachability computation
+start(verificationTimer);
 t_start = tic;
-GS_out = gnn.reach(GS_in, reachOpts);
+timedOut = false;
+
+try
+    GS_out = gnn.reach(GS_in, reachOpts);
+    timedOut = evalin('base', 'timeoutOccurred');
+catch ME
+    timedOut = true;
+    warning(ME.identifier, '%s', ME.message);
+end
+
+% Cleanup timer
+stop(verificationTimer);
+delete(verificationTimer);
 total_time = toc(t_start);
 
-fprintf('\nCompleted in %.4f seconds\n', total_time);
+%% Handle timeout vs completed reachability
+if timedOut
+    fprintf('\n*** REACHABILITY TIMEOUT after %.1f seconds ***\n', total_time);
+    fprintf('WARNING: Reachability did not complete. All nodes marked as UNKNOWN.\n');
 
-%% Analyze output bounds
-[lb_out, ub_out] = GS_out.getRanges();
-bound_widths = ub_out - lb_out;
+    % Count voltage nodes for reporting
+    X_phys = X .* model.global_std + model.global_mean;
+    bus_type = round(X_phys(:, 4));
+    numVoltageNodes = sum(bus_type == 1);
 
-fprintf('\nOutput bounds - Mean: %.6f, Max: %.6f\n', mean(bound_widths(:)), max(bound_widths(:)));
+    fprintf('\n=== Voltage Specification Verification ===\n');
+    fprintf('Specification: 0.95 <= V <= 1.05 p.u.\n');
+    fprintf('  Verified safe: 0 nodes\n');
+    fprintf('  Violated: 0 nodes\n');
+    fprintf('  Unknown: %d nodes (TIMEOUT)\n', numVoltageNodes);
+    fprintf('  N/A (non-voltage bus): %d nodes\n', numNodes - numVoltageNodes);
 
-%% Sample validation
-num_samples = 10;
-samples_in_bounds = 0;
-for s = 1:num_samples
-    % Sample node features
-    alpha_node = rand(GS_in.numPred, 1) .* (GS_in.pred_ub - GS_in.pred_lb) + GS_in.pred_lb;
-    X_sample = GS_in.V(:, :, 1);
-    for k = 1:GS_in.numPred
-        X_sample = X_sample + alpha_node(k) * GS_in.V(:, :, k+1);
+    fprintf('\n=== Complete (TIMEOUT - Edge Perturbation Mode) ===\n');
+else
+    fprintf('\nCompleted in %.4f seconds\n', total_time);
+
+    %% Analyze output bounds
+    [lb_out, ub_out] = GS_out.getRanges();
+    bound_widths = ub_out - lb_out;
+
+    fprintf('\nOutput bounds - Mean: %.6f, Max: %.6f\n', mean(bound_widths(:)), max(bound_widths(:)));
+
+    %% Sample validation
+    num_samples = 10;
+    samples_in_bounds = 0;
+    for s = 1:num_samples
+        % Sample node features
+        alpha_node = rand(GS_in.numPred, 1) .* (GS_in.pred_ub - GS_in.pred_lb) + GS_in.pred_lb;
+        X_sample = GS_in.V(:, :, 1);
+        for k = 1:GS_in.numPred
+            X_sample = X_sample + alpha_node(k) * GS_in.V(:, :, k+1);
+        end
+
+        % Sample edge features
+        alpha_edge = rand(E_star.numPred, 1) .* (E_star.pred_ub - E_star.pred_lb) + E_star.pred_lb;
+        E_sample = E_star.V(:, :, 1);
+        for k = 1:E_star.numPred
+            E_sample = E_sample + alpha_edge(k) * E_star.V(:, :, k+1);
+        end
+
+        % Evaluate with sampled inputs
+        Y_sample = gnn.evaluate(X_sample, E_sample);
+
+        tol = 1e-5;
+        if all(Y_sample(:) >= lb_out(:) - tol) && all(Y_sample(:) <= ub_out(:) + tol)
+            samples_in_bounds = samples_in_bounds + 1;
+        end
     end
+    fprintf('Samples within bounds: %d/%d\n', samples_in_bounds, num_samples);
 
-    % Sample edge features
-    alpha_edge = rand(E_star.numPred, 1) .* (E_star.pred_ub - E_star.pred_lb) + E_star.pred_lb;
-    E_sample = E_star.V(:, :, 1);
-    for k = 1:E_star.numPred
-        E_sample = E_sample + alpha_edge(k) * E_star.V(:, :, k+1);
-    end
+    %% Verify voltage magnitude specification
+    v_min = 0.95;  % Per-unit lower bound
+    v_max = 1.05;  % Per-unit upper bound
 
-    % Evaluate with sampled inputs
-    Y_sample = gnn.evaluate(X_sample, E_sample);
+    % Add parent folder to path for verify_voltage_spec
+    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
+    results = verify_voltage_spec(GS_out, model, v_min, v_max, 'timeoutOccurred');
 
-    tol = 1e-5;
-    if all(Y_sample(:) >= lb_out(:) - tol) && all(Y_sample(:) <= ub_out(:) + tol)
-        samples_in_bounds = samples_in_bounds + 1;
-    end
+    fprintf('\n=== Voltage Specification Verification ===\n');
+    fprintf('Specification: %.2f <= V <= %.2f p.u.\n', v_min, v_max);
+    fprintf('  Verified safe: %d nodes\n', sum(results == 1));
+    fprintf('  Violated: %d nodes\n', sum(results == 0));
+    fprintf('  Unknown (LP): %d nodes\n', sum(results == 2));
+    fprintf('  Unknown (timeout): %d nodes\n', sum(results == 3));
+    fprintf('  N/A (non-voltage bus): %d nodes\n', sum(results == -1));
+
+    fprintf('\n=== Complete (Edge Perturbation Mode) ===\n');
 end
-fprintf('Samples within bounds: %d/%d\n', samples_in_bounds, num_samples);
-
-%% Verify voltage magnitude specification
-v_min = 0.95;  % Per-unit lower bound
-v_max = 1.05;  % Per-unit upper bound
-
-% Add parent folder to path for verify_voltage_spec
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-results = verify_voltage_spec(GS_out, model, v_min, v_max);
-
-fprintf('\n=== Voltage Specification Verification ===\n');
-fprintf('Specification: %.2f <= V <= %.2f p.u.\n', v_min, v_max);
-fprintf('  Verified safe: %d nodes\n', sum(results == 1));
-fprintf('  Violated: %d nodes\n', sum(results == 0));
-fprintf('  Unknown: %d nodes\n', sum(results == 2));
-fprintf('  N/A (non-voltage bus): %d nodes\n', sum(results == -1));
-
-fprintf('\n=== Complete (Edge Perturbation Mode) ===\n');

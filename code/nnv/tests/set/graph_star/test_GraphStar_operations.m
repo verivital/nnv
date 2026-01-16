@@ -1,11 +1,13 @@
-% test operations for GraphStar class
+% test_GraphStar_operations.m - Unit tests for GraphStar operations
+%
+% Tests: toStar, affineMap, MinkowskiSum, estimateRanges, sample, evaluate, isEmptySet, contains
 
+% Shared setup (before any %% sections)
 numNodes = 5;
 numFeatures = 4;
 NF = rand(numNodes, numFeatures);
 LB = -0.1 * ones(numNodes, numFeatures);
 UB = 0.1 * ones(numNodes, numFeatures);
-
 GS = GraphStar(NF, LB, UB);
 
 %% 1) toStar conversion
@@ -33,11 +35,9 @@ GS4 = GS.MinkowskiSum(GS3);
 assert(isa(GS4, 'GraphStar'), 'MinkowskiSum should return a GraphStar');
 assert(GS4.numNodes == numNodes, 'numNodes should be preserved');
 assert(GS4.numFeatures == numFeatures, 'numFeatures should be preserved');
-% Note: Star.MinkowskiSum may combine generators when constraints match,
-% so we just verify numPred >= original (could be same or doubled)
 assert(GS4.numPred >= GS.numPred, 'Predicates should be preserved or combined');
 
-%% 4) estimateRanges
+%% 4) estimateRanges and estimateRange (single element)
 [lb_est, ub_est] = GS.estimateRanges();
 assert(size(lb_est, 1) == numNodes, 'lb_est rows should match numNodes');
 assert(size(lb_est, 2) == numFeatures, 'lb_est cols should match numFeatures');
@@ -45,30 +45,30 @@ assert(size(ub_est, 1) == numNodes, 'ub_est rows should match numNodes');
 assert(size(ub_est, 2) == numFeatures, 'ub_est cols should match numFeatures');
 assert(all(lb_est <= ub_est, 'all'), 'Lower bound should be <= upper bound');
 
-%% 5) estimateRange (single element)
+% Test single element range
 [xmin, xmax] = GS.estimateRange(1, 1);
 assert(xmin <= xmax, 'xmin should be <= xmax');
 assert(xmin >= lb_est(1,1) - 1e-10, 'xmin should match estimateRanges');
 assert(xmax <= ub_est(1,1) + 1e-10, 'xmax should match estimateRanges');
 
-%% 6) sample
+%% 5) sample
 samples = GS.sample(5);
 assert(length(samples) == 5, 'Should return 5 samples');
 assert(size(samples{1}, 1) == numNodes, 'Sample should have correct numNodes');
 assert(size(samples{1}, 2) == numFeatures, 'Sample should have correct numFeatures');
 
-%% 7) evaluate
+%% 6) evaluate
 pred_val = zeros(GS.numPred, 1);  % evaluate at center
 nf_center = GS.evaluate(pred_val);
 assert(size(nf_center, 1) == numNodes, 'Evaluated result should have correct numNodes');
 assert(size(nf_center, 2) == numFeatures, 'Evaluated result should have correct numFeatures');
 assert(max(abs(nf_center - GS.V(:,:,1)), [], 'all') < 1e-10, 'Zero predicates should give center');
 
-%% 8) isEmptySet
+%% 7) isEmptySet
 res = GS.isEmptySet();
 assert(res == 0, 'GraphStar should not be empty');
 
-%% 9) contains
+%% 8) contains
 % The center should be contained in the set
 center_nf = (GS.nf_lb + GS.nf_ub) / 2;
 res_contains = GS.contains(center_nf);

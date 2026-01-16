@@ -122,8 +122,15 @@ fprintf('Results saved to: %s\n', results_file);
 %% Generate figures
 if generate_figures
     fprintf('\nGenerating figures...\n');
+
+    % Original figures (bar chart and line plot)
     generate_model_comparison_figure(results, figuresDir);
     generate_epsilon_sensitivity_figure(results, figuresDir);
+
+    % New domain-specific figures (topology, bounds, dashboard)
+    fprintf('Generating domain-specific figures...\n');
+    generate_cav26_figures(results, gine_model, figuresDir, 'layout', 'force');
+
     fprintf('Figures saved to: %s\n', figuresDir);
 end
 
@@ -204,6 +211,15 @@ function result = run_gcn_experiment(model, epsilon, perturb_features, v_min, v_
     % Verify voltage spec
     verif_results = verify_voltage_spec(GS_out, model, v_min, v_max);
 
+    % Extract voltage-specific bounds for figures
+    voltage_idx = 3;  % Voltage magnitude index in output
+    voltage_lb = lb_out(:, voltage_idx);
+    voltage_ub = ub_out(:, voltage_idx);
+
+    % Convert to physical units for visualization
+    voltage_lb_phys = voltage_lb * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
+    voltage_ub_phys = voltage_ub * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
+
     % Package results
     result = struct();
     result.reach_time = reach_time;
@@ -212,6 +228,11 @@ function result = run_gcn_experiment(model, epsilon, perturb_features, v_min, v_
     result.unknown = sum(verif_results == 2);
     result.mean_width = mean(ub_out(:) - lb_out(:));
     result.max_width = max(ub_out(:) - lb_out(:));
+
+    % Store per-node data for figures
+    result.verif_per_node = verif_results;
+    result.voltage_bounds = [voltage_lb_phys, voltage_ub_phys];
+    result.bound_widths = ub_out(:, voltage_idx) - lb_out(:, voltage_idx);
 end
 
 
@@ -265,6 +286,15 @@ function result = run_gine_experiment(model, epsilon, perturb_features, v_min, v
     % Verify voltage spec
     verif_results = verify_voltage_spec(GS_out, model, v_min, v_max);
 
+    % Extract voltage-specific bounds for figures
+    voltage_idx = 3;  % Voltage magnitude index in output
+    voltage_lb = lb_out(:, voltage_idx);
+    voltage_ub = ub_out(:, voltage_idx);
+
+    % Convert to physical units for visualization
+    voltage_lb_phys = voltage_lb * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
+    voltage_ub_phys = voltage_ub * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
+
     % Package results
     result = struct();
     result.reach_time = reach_time;
@@ -273,6 +303,11 @@ function result = run_gine_experiment(model, epsilon, perturb_features, v_min, v
     result.unknown = sum(verif_results == 2);
     result.mean_width = mean(ub_out(:) - lb_out(:));
     result.max_width = max(ub_out(:) - lb_out(:));
+
+    % Store per-node data for figures
+    result.verif_per_node = verif_results;
+    result.voltage_bounds = [voltage_lb_phys, voltage_ub_phys];
+    result.bound_widths = ub_out(:, voltage_idx) - lb_out(:, voltage_idx);
 end
 
 
@@ -339,6 +374,15 @@ function result = run_gine_edge_experiment(model, epsilon, perturb_features, v_m
     % Verify voltage spec
     verif_results = verify_voltage_spec(GS_out, model, v_min, v_max);
 
+    % Extract voltage-specific bounds for figures
+    voltage_idx = 3;  % Voltage magnitude index in output
+    voltage_lb = lb_out(:, voltage_idx);
+    voltage_ub = ub_out(:, voltage_idx);
+
+    % Convert to physical units for visualization
+    voltage_lb_phys = voltage_lb * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
+    voltage_ub_phys = voltage_ub * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
+
     % Package results
     result = struct();
     result.reach_time = reach_time;
@@ -347,6 +391,11 @@ function result = run_gine_edge_experiment(model, epsilon, perturb_features, v_m
     result.unknown = sum(verif_results == 2);
     result.mean_width = mean(ub_out(:) - lb_out(:));
     result.max_width = max(ub_out(:) - lb_out(:));
+
+    % Store per-node data for figures
+    result.verif_per_node = verif_results;
+    result.voltage_bounds = [voltage_lb_phys, voltage_ub_phys];
+    result.bound_widths = ub_out(:, voltage_idx) - lb_out(:, voltage_idx);
 end
 
 
@@ -368,6 +417,28 @@ function GS = create_node_perturbation(X, epsilon, perturb_features)
     end
 
     GS = GraphStar(X, -eps_matrix, eps_matrix);
+end
+
+
+%% =========================================================================
+%  FIGURE SAVE HELPER
+%  =========================================================================
+
+function save_figure(fig, filepath_base)
+% Save figure to PDF and PNG without page size warnings
+
+    % Save PNG
+    saveas(fig, [filepath_base, '.png']);
+
+    % For PDF, set paper size to match figure
+    fig.Units = 'inches';
+    fig_pos = fig.Position;
+    fig.PaperUnits = 'inches';
+    fig.PaperSize = [fig_pos(3), fig_pos(4)];
+    fig.PaperPosition = [0, 0, fig_pos(3), fig_pos(4)];
+
+    % Save PDF
+    print(fig, [filepath_base, '.pdf'], '-dpdf', '-vector');
 end
 
 
@@ -401,28 +472,28 @@ function generate_model_comparison_figure(results, figuresDir)
     % Create figure
     fig = figure('Position', [100, 100, 600, 400], 'Visible', 'off');
 
+    % Stacked bar chart (same style as dashboard)
     bar_data = [verified; unknown; violated]';
-    b = bar(bar_data, 'grouped');
+    b = bar(bar_data, 'stacked');
 
-    % Colors
-    b(1).FaceColor = [0.2, 0.7, 0.3];  % Green for verified
-    b(2).FaceColor = [0.9, 0.7, 0.1];  % Yellow for unknown
-    b(3).FaceColor = [0.8, 0.2, 0.2];  % Red for violated
+    % Colors (matching dashboard)
+    b(1).FaceColor = [0.2, 0.65, 0.3];   % Green for verified
+    b(2).FaceColor = [0.95, 0.6, 0.1];   % Orange for unknown
+    b(3).FaceColor = [0.8, 0.15, 0.15];  % Red for violated
 
     % Labels
     set(gca, 'XTickLabel', models);
-    xlabel('Model Architecture', 'FontSize', 12);
+    xlabel('Model', 'FontSize', 12);
     ylabel('Number of Nodes', 'FontSize', 12);
     title(sprintf('Voltage Specification Verification (\\epsilon=%.3f)', epsilons(eps_idx)), 'FontSize', 14);
-    legend({'Verified Safe', 'Unknown', 'Violated'}, 'Location', 'northeast');
+    legend({'Verified', 'Unknown', 'Violated'}, 'Location', 'northeast');
 
     % Grid
     grid on;
     set(gca, 'GridLineStyle', '--', 'GridAlpha', 0.3);
 
     % Save
-    saveas(fig, fullfile(figuresDir, 'gnn_model_comparison.pdf'));
-    saveas(fig, fullfile(figuresDir, 'gnn_model_comparison.png'));
+    save_figure(fig, fullfile(figuresDir, 'gnn_model_comparison'));
     close(fig);
 end
 
@@ -470,8 +541,7 @@ function generate_epsilon_sensitivity_figure(results, figuresDir)
     set(gca, 'GridLineStyle', '--', 'GridAlpha', 0.3);
 
     % Save
-    saveas(fig, fullfile(figuresDir, 'gnn_epsilon_sensitivity.pdf'));
-    saveas(fig, fullfile(figuresDir, 'gnn_epsilon_sensitivity.png'));
+    save_figure(fig, fullfile(figuresDir, 'gnn_epsilon_sensitivity'));
     close(fig);
 end
 

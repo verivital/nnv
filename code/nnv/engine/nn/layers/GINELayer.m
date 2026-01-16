@@ -15,6 +15,12 @@ classdef GINELayer < handle
     %     w_ij: Edge weights for aggregation (optional)
     %     Y: Output node features (N x F_out)
     %
+    %   NOTE: This is a linear-projection variant of GINE designed for
+    %   verification. Unlike PyTorch Geometric's GINEConv which uses MLPs,
+    %   this implementation uses linear transformations (single weight matrix
+    %   per transform) to enable sound reachability analysis. Models must be
+    %   trained with a matching architecture.
+    %
     % Main references:
     % 1) Hu et al., "Strategies for Pre-training Graph Neural Networks",
     %    ICLR 2020. https://arxiv.org/abs/1905.12265

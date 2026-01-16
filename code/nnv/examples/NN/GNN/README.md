@@ -41,6 +41,56 @@ GNN/
 - Incorporates edge features in message passing
 - Layer operation: Y = W_node * ((1+ε)*X + Σ_j ReLU(h_j + φ_edge(e_ij)))
 
+## Importing Your Own Models
+
+### Weight Format Convention
+NNV uses weight matrices with shape `(F_in x F_out)`:
+- **PyTorch/PyTorch Geometric**: Uses `(F_out x F_in)` — **transpose required**
+- **MATLAB trained models**: Already in correct format
+
+Example conversion from PyTorch:
+```python
+# PyTorch: weight.shape = (out_features, in_features)
+nnv_weight = pytorch_weight.T  # Transpose for NNV
+```
+
+<!-- ### Adjacency Matrix Normalization
+For GCN layers, you must provide a pre-normalized adjacency matrix:
+```matlab
+% Standard symmetric normalization (Kipf & Welling)
+A_hat = A + eye(size(A));           % Add self-loops
+D_hat = diag(sum(A_hat, 2));        % Degree matrix
+D_inv_sqrt = diag(1 ./ sqrt(diag(D_hat)));
+A_norm = D_inv_sqrt * A_hat * D_inv_sqrt;
+``` -->
+
+### Architecture Compatibility
+
+| Layer | Compatible With | Notes |
+|-------|----------------|-------|
+| GCNLayer | PyTorch Geometric GCNConv | Standard Kipf & Welling; transpose weights |
+| GINELayer | Custom linear-projection GINE | NOT PyG GINEConv; requires matching training |
+
+**Important**: GINELayer uses linear projections (not MLPs) for verification soundness. Train models with a matching architecture or use the provided training scripts.
+
+## Model Training
+
+### How the Provided Models Were Trained
+The pre-trained models included in this repository were trained entirely in **MATLAB** using custom GCN and GINE training implementations. This ensures the training architecture exactly matches the NNV verification layers.
+
+**Training Pipeline:**
+1. Models trained in MATLAB with custom GCN/GINE implementations
+2. Weights saved directly to `.mat` format
+3. Same `.mat` files used for NNV verification
+
+
+### Training Your Own Models
+To train compatible models:
+1. Use the provided MATLAB training scripts (matching the GCNLayer/GINELayer architectures)
+2. Or implement your own training with matching architecture:
+   - **GCN**: Standard Kipf & Welling: `Y = A_norm * X * W + b`
+   - **GINE**: Linear projection variant (see GINELayer.m header for exact operation)
+
 
 ## IEEE Bus Systems
 

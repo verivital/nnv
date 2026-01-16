@@ -10,6 +10,13 @@ classdef GCNLayer < handle
     %
     %   Note: ReLU activation is applied by a separate ReluLayer
     %
+    %   Weight Format: W is (F_in x F_out). If importing from PyTorch,
+    %   transpose the weight matrix since PyTorch uses (F_out x F_in).
+    %
+    %   Adjacency Matrix: A_norm must be pre-normalized. Standard GCN uses
+    %   symmetric normalization: A_norm = D^(-1/2) * (A + I) * D^(-1/2)
+    %   where D is the degree matrix and I is identity (self-loops).
+    %
     % Main references:
     % 1) Kipf & Welling, "Semi-Supervised Classification with Graph
     %    Convolutional Networks", ICLR 2017

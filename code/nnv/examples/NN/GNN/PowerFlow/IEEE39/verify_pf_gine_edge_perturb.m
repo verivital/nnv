@@ -17,7 +17,7 @@
 clear; clc;
 
 % Load the trained GINE model
-modelPath = fullfile(fileparts(mfilename('fullpath')), 'models', 'gine_edgelist_pf_ieee39_run3_seed130.mat');
+modelPath = fullfile(fileparts(mfilename('fullpath')), 'models', 'gine_pf_ieee39.mat');
 model = load(modelPath);
 
 fprintf('=== GINE Power Flow Verification with Edge Perturbation (IEEE 39-bus) ===\n');
@@ -158,7 +158,13 @@ fprintf('\n=== Voltage Specification Verification ===\n');
 fprintf('Specification: %.2f <= V <= %.2f p.u.\n', v_min, v_max);
 fprintf('  Verified safe: %d nodes\n', sum(results == 1));
 fprintf('  Violated: %d nodes\n', sum(results == 0));
-fprintf('  Unknown: %d nodes\n', sum(results == 2));
+unknown_boundary = sum(results == 2);
+unknown_timeout = sum(results == 3);
+fprintf('  Unknown: %d nodes\n', unknown_boundary + unknown_timeout);
+if unknown_boundary > 0 || unknown_timeout > 0
+    fprintf('    - Bounds cross spec boundary: %d\n', unknown_boundary);
+    fprintf('    - Timeout/inconclusive: %d\n', unknown_timeout);
+end
 fprintf('  N/A (non-voltage bus): %d nodes\n', sum(results == -1));
 
 fprintf('\n=== Complete (Edge Perturbation Mode) ===\n');

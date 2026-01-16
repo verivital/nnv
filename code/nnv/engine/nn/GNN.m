@@ -7,11 +7,6 @@ classdef GNN < handle
     %   Unlike standard NN layers, GNN layers require graph structure
     %   (adjacency, edge list, edge features) which this wrapper provides.
     %
-    % Main references:
-    % 1) Graph Neural Networks: A Review of Methods and Applications
-    %    https://arxiv.org/abs/1812.08434
-    % 2) NNV verification tool documentation
-    %    https://github.com/verivital/nnv
     %
     % Author: Anne Tumlin
     % Date: 01/13/2026

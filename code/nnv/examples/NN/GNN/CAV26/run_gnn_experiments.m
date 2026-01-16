@@ -101,9 +101,15 @@ for m = 1:length(models)
         exp_result.time = toc(exp_start);
         results.data{m, e} = exp_result;
 
-        % Print summary
-        fprintf('  Verified: %d, Violated: %d, Unknown: %d (%.2fs)\n', ...
-            exp_result.verified, exp_result.violated, exp_result.unknown, exp_result.time);
+        % Print summary with unknown breakdown
+        if exp_result.unknown_boundary > 0 || exp_result.unknown_timeout > 0
+            fprintf('  Verified: %d, Violated: %d, Unknown: %d (boundary: %d, timeout: %d) (%.2fs)\n', ...
+                exp_result.verified, exp_result.violated, exp_result.unknown, ...
+                exp_result.unknown_boundary, exp_result.unknown_timeout, exp_result.time);
+        else
+            fprintf('  Verified: %d, Violated: %d, Unknown: %d (%.2fs)\n', ...
+                exp_result.verified, exp_result.violated, exp_result.unknown, exp_result.time);
+        end
     end
     fprintf('\n');
 end
@@ -225,7 +231,9 @@ function result = run_gcn_experiment(model, epsilon, perturb_features, v_min, v_
     result.reach_time = reach_time;
     result.verified = sum(verif_results == 1);
     result.violated = sum(verif_results == 0);
-    result.unknown = sum(verif_results == 2);
+    result.unknown_boundary = sum(verif_results == 2);
+    result.unknown_timeout = sum(verif_results == 3);
+    result.unknown = result.unknown_boundary + result.unknown_timeout;
     result.mean_width = mean(ub_out(:) - lb_out(:));
     result.max_width = max(ub_out(:) - lb_out(:));
 
@@ -300,7 +308,9 @@ function result = run_gine_experiment(model, epsilon, perturb_features, v_min, v
     result.reach_time = reach_time;
     result.verified = sum(verif_results == 1);
     result.violated = sum(verif_results == 0);
-    result.unknown = sum(verif_results == 2);
+    result.unknown_boundary = sum(verif_results == 2);
+    result.unknown_timeout = sum(verif_results == 3);
+    result.unknown = result.unknown_boundary + result.unknown_timeout;
     result.mean_width = mean(ub_out(:) - lb_out(:));
     result.max_width = max(ub_out(:) - lb_out(:));
 
@@ -388,7 +398,9 @@ function result = run_gine_edge_experiment(model, epsilon, perturb_features, v_m
     result.reach_time = reach_time;
     result.verified = sum(verif_results == 1);
     result.violated = sum(verif_results == 0);
-    result.unknown = sum(verif_results == 2);
+    result.unknown_boundary = sum(verif_results == 2);
+    result.unknown_timeout = sum(verif_results == 3);
+    result.unknown = result.unknown_boundary + result.unknown_timeout;
     result.mean_width = mean(ub_out(:) - lb_out(:));
     result.max_width = max(ub_out(:) - lb_out(:));
 
@@ -602,9 +614,11 @@ function results = verify_voltage_spec(GS_out, model_data, v_min, v_max)
         if res == 2
             [lb, ub] = Y_node.getRanges;
             if lb(1) >= v_min_norm && ub(1) <= v_max_norm
-                res = 1;  % Verified safe
+                res = 1;  % Verified safe - bounds fully within spec
             elseif ub(1) < v_min_norm || lb(1) > v_max_norm
-                res = 0;  % Violated
+                res = 0;  % Violated - bounds fully outside spec
+            else
+                res = 2;  % Unknown - bounds cross spec boundary
             end
         end
 

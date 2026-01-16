@@ -90,9 +90,11 @@ function results = verify_voltage_spec(GS_out, model_data, v_min, v_max, timeout
         if res == 2
             [lb, ub] = Y_node.getRanges;
             if lb(1) >= v_min_norm && ub(1) <= v_max_norm
-                res = 1;  % Verified safe
+                res = 1;  % Verified safe - bounds fully within spec
             elseif ub(1) < v_min_norm || lb(1) > v_max_norm
-                res = 0;  % Violated
+                res = 0;  % Violated - bounds fully outside spec
+            else
+                res = 2;  % Unknown - bounds cross spec boundary
             end
         end
 

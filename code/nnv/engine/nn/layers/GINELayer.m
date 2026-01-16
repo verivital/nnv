@@ -24,10 +24,6 @@ classdef GINELayer < handle
     % Main references:
     % 1) Hu et al., "Strategies for Pre-training Graph Neural Networks",
     %    ICLR 2020. https://arxiv.org/abs/1905.12265
-    % 2) GNNV: Graph Neural Network Verification prototype
-    %    (internal reference implementation)
-    % 3) NNV verification tool documentation
-    %    https://github.com/verivital/nnv
     %
     % Author: Anne Tumlin
     % Date: 01/13/2026
@@ -161,7 +157,7 @@ classdef GINELayer < handle
 
         % evaluation method
         function Y = evaluate(obj, X, E, adj_list, edge_weights)
-            % Forward pass through GINE layer (GNNV-compatible architecture)
+            % Forward pass through GINE layer 
             % @X: Input node features (N x F_in)
             % @E: Edge features (m x E_in)
             % @adj_list: Edge list (m x 2) with [src, dst] pairs

@@ -7,180 +7,140 @@ This folder contains examples demonstrating Graph Neural Network (GNN) verificat
 ```
 GNN/
 ├── PowerFlow/
-│   ├── verify_voltage_spec.m      # Shared voltage specification helper
+│   ├── run_pf_verification.m         # Helper function for all PF experiments
+│   ├── verify_voltage_spec.m         # Voltage specification verification
 │   ├── IEEE24/
 │   │   ├── models/
-│   │   │   ├── gcn_pf_ieee24_run4_seed131.mat
-│   │   │   └── gine_edgelist_pf_ieee24_run4_seed131.mat
+│   │   │   ├── gcn_pf_ieee24.mat
+│   │   │   └── gine_pf_ieee24.mat
 │   │   ├── verify_pf_gcn.m
-│   │   └── verify_pf_gine.m
+│   │   ├── verify_pf_gine.m
+│   │   └── verify_pf_gine_edge_perturb.m
 │   ├── IEEE39/
-│   │   ├── models/
-│   │   ├── verify_pf_gcn.m
-│   │   └── verify_pf_gine.m
+│   │   └── (same structure)
 │   └── IEEE118/
-│       ├── models/
-│       ├── verify_pf_gcn.m
-│       └── verify_pf_gine.m
+│       └── (same structure)
 ├── OptimalPowerFlow/
+│   ├── run_opf_verification.m        # Helper function for all OPF experiments
 │   ├── IEEE24/
+│   │   ├── models/
+│   │   │   ├── gcn_opf_ieee24.mat
+│   │   │   └── gine_opf_ieee24.mat
+│   │   ├── verify_opf_gcn.m
+│   │   └── verify_opf_gine.m
 │   ├── IEEE39/
+│   │   └── (same structure)
 │   └── IEEE118/
+│       └── (same structure)
 └── README.md
+```
+
+## Quick Start
+
+### Using Helper Functions (Recommended)
+
+```matlab
+% Power Flow verification
+results = run_pf_verification('IEEE24', 'GCN', 0.01);
+results = run_pf_verification('IEEE39', 'GINE', 0.01);
+
+% Optimal Power Flow verification
+results = run_opf_verification('IEEE24', 'GINE', 0.01);
+results = run_opf_verification('IEEE118', 'GCN', 0.01);
+
+% With edge perturbation (GINE only)
+results = run_pf_verification('IEEE24', 'GINE_edge', 0.01);
+```
+
+### Running Individual Scripts
+
+```matlab
+cd('examples/NN/GNN/PowerFlow/IEEE24');
+verify_pf_gcn;    % GCN verification
+verify_pf_gine;   % GINE verification
 ```
 
 ## Model Architectures
 
-### GCN (Graph Convolutional Network)
-- 3-layer GCN architecture
-- Uses normalized adjacency matrix for message passing
-- Layer operation: Y = A_norm * X * W + b
+| Architecture | Description | Layer Operation |
+|--------------|-------------|-----------------|
+| GCN | Graph Convolutional Network | Y = A_norm * X * W + b |
+| GINE | Graph Isomorphism Network with Edge features | Y = W_node * ((1+ε)*X + Σ_j ReLU(h_j + φ_edge(e_ij))) |
 
-### GINE (Graph Isomorphism Network with Edge features)
-- 3-layer GINE architecture with edge-list representation
-- Incorporates edge features in message passing
-- Layer operation: Y = W_node * ((1+ε)*X + Σ_j ReLU(h_j + φ_edge(e_ij)))
+Both use 3-layer architectures with ReLU activations.
 
-## Importing Your Own Models
+## Verification Parameters
 
-### Weight Format Convention
-NNV uses weight matrices with shape `(F_in x F_out)`:
-- **PyTorch/PyTorch Geometric**: Uses `(F_out x F_in)` — **transpose required**
-- **MATLAB trained models**: Already in correct format
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Epsilon | 0.01 (1%) | Perturbation magnitude relative to feature range |
+| Perturbed features | [1, 2] | Power injections (Pg-Pd, Qg-Qd) |
+| Voltage spec | 0.95-1.05 p.u. | Safety bounds for verification |
+| Reachability method | approx-star | Approximate star-based reachability |
 
-Example conversion from PyTorch:
-```python
-# PyTorch: weight.shape = (out_features, in_features)
-nnv_weight = pytorch_weight.T  # Transpose for NNV
+## Verification Results
+
+Results include verification status for each voltage node:
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| Verified safe | 1 | Output bounds fully within spec |
+| Violated | 0 | Output bounds fully outside spec |
+| Unknown (boundary) | 2 | Bounds cross specification boundary |
+| Unknown (timeout) | 3 | Verification timed out |
+| N/A | -1 | Non-voltage bus (not verified) |
+
+### Example Output
+
 ```
+=== GINE Power Flow Verification (IEEE24) ===
+Model: .../models/gine_pf_ieee24.mat
+Epsilon: 0.0100 (1.00%)
+Graph: 24 nodes, 92 edges
 
-<!-- ### Adjacency Matrix Normalization
-For GCN layers, you must provide a pre-normalized adjacency matrix:
-```matlab
-% Standard symmetric normalization (Kipf & Welling)
-A_hat = A + eye(size(A));           % Add self-loops
-D_hat = diag(sum(A_hat, 2));        % Degree matrix
-D_inv_sqrt = diag(1 ./ sqrt(diag(D_hat)));
-A_norm = D_inv_sqrt * A_hat * D_inv_sqrt;
-``` -->
+Computing reachability...
+Completed in 1.64 seconds
+Samples within bounds: 10/10
 
-### Architecture Compatibility
-
-| Layer | Compatible With | Notes |
-|-------|----------------|-------|
-| GCNLayer | PyTorch Geometric GCNConv | Standard Kipf & Welling; transpose weights |
-| GINELayer | Custom linear-projection GINE | NOT PyG GINEConv; requires matching training |
-
-**Important**: GINELayer uses linear projections (not MLPs) for verification soundness. Train models with a matching architecture or use the provided training scripts.
-
-## Model Training
-
-### How the Provided Models Were Trained
-The pre-trained models included in this repository were trained entirely in **MATLAB** using custom GCN and GINE training implementations. This ensures the training architecture exactly matches the NNV verification layers.
-
-**Training Pipeline:**
-1. Models trained in MATLAB with custom GCN/GINE implementations
-2. Weights saved directly to `.mat` format
-3. Same `.mat` files used for NNV verification
-
-
-### Training Your Own Models
-To train compatible models:
-1. Use the provided MATLAB training scripts (matching the GCNLayer/GINELayer architectures)
-2. Or implement your own training with matching architecture:
-   - **GCN**: Standard Kipf & Welling: `Y = A_norm * X * W + b`
-   - **GINE**: Linear projection variant (see GINELayer.m header for exact operation)
-
+=== Voltage Verification ===
+Spec: 0.95 <= V <= 1.05 p.u.
+  Verified safe: 7 nodes
+  Violated: 0 nodes
+  Unknown: 6 nodes
+    - Bounds cross spec boundary: 6
+    - Timeout/inconclusive: 0
+```
 
 ## IEEE Bus Systems
 
-The power system datasets used in this work are drawn from the **PowerGraph** benchmark suite [Varbella et al., 2024], which provides standardized graph-based representations of electrical power networks for graph machine learning and verification tasks.
+| System | Nodes | Edges | Description |
+|--------|-------|-------|-------------|
+| IEEE 24 | 24 | 92 | IEEE Reliability Test System |
+| IEEE 39 | 39 | 131 | New England Test System |
+| IEEE 118 | 118 | 476 | IEEE 118-bus Test System |
 
-| System    | Nodes | Description                         |
-|-----------|-------|-------------------------------------|
-| IEEE 24   | 24    | IEEE Reliability Test System        |
-| IEEE 39   | 39    | New England Test System             |
-| IEEE 118  | 118   | IEEE 118-bus Test System            |
+## Importing Your Own Models
 
-## Running Examples
+### Weight Format
+NNV uses weight matrices with shape `(F_in x F_out)`:
+- **PyTorch/PyG**: Uses `(F_out x F_in)` — transpose required
+- **MATLAB**: Already in correct format
 
-1. Start MATLAB and navigate to the NNV root directory:
-```matlab
-cd('/path/to/nnv/code/nnv');
-startup_nnv;
-```
+### Architecture Compatibility
 
-2. Navigate to an example folder and run:
-```matlab
-cd('examples/NN/GNN/PowerFlow/IEEE24');
-verify_pf_gcn;   % GCN verification
-verify_pf_gine;  % GINE verification
-```
+| NNV Layer | Compatible With | Notes |
+|-----------|----------------|-------|
+| GCNLayer | PyTorch Geometric GCNConv | Transpose weights |
+| GINELayer | Custom linear-projection GINE | NOT PyG GINEConv |
 
-## Verification Workflow
+**Note**: GINELayer uses linear projections (not MLPs) for verification soundness.
 
-Each example script performs:
-1. Loads the trained model and extracts weights
-2. Creates GCN or GINE layers
-3. Creates a GNN wrapper with graph structure
-4. Defines input perturbation (1% of feature range)
-5. Creates a GraphStar input set
-6. Computes reachability using approx-star method
-7. Reports output bound statistics
-8. Validates that random samples are within computed bounds
-9. **Verifies voltage magnitude specification (0.95-1.05 p.u.)**
-
-## Voltage Specification Verification
-
-The examples verify that predicted voltage magnitudes satisfy grid safety constraints:
-
-- **Specification**: 0.95 ≤ V ≤ 1.05 per-unit
-- **Method**: Output bounds are checked against normalized specification bounds
-- **Results**:
-  - `Verified safe`: All possible outputs within spec
-  - `Violated`: All possible outputs outside spec
-  - `Unknown`: Output bounds cross spec boundary
-  - `N/A`: Node does not predict voltage (non-voltage bus)
-
-## Example Output
-
-```
-=== GCN Power Flow Verification (IEEE 24-bus) ===
-Layer dimensions:
-  Layer 1: 8 -> 64
-  Layer 2: 64 -> 64
-  Layer 3: 64 -> 4
-
-Graph structure: 24 nodes
-
-=== Computing Reachability ===
-Completed in 0.1234 seconds
-
-Output bounds - Mean: 0.012345, Max: 0.045678
-Samples within bounds: 10/10
-
-=== Voltage Specification Verification ===
-Specification: 0.95 <= V <= 1.05 p.u.
-  Verified safe: 18 nodes
-  Violated: 0 nodes
-  Unknown: 2 nodes
-  N/A (non-voltage bus): 4 nodes
-
-=== Complete ===
-```
-
-## Key Classes Used
+## Key Classes
 
 - `GNN`: Wrapper class for GNN networks
 - `GCNLayer`: Graph Convolutional layer
 - `GINELayer`: GINE layer with edge features
 - `GraphStar`: Star set representation for graph node features
-
-## Helper Functions
-
-- `verify_voltage_spec.m`: Verifies voltage magnitude bounds on GNN output
-  - Inputs: GraphStar output, model data, v_min, v_max
-  - Returns: Per-node verification result array
 
 ## References
 

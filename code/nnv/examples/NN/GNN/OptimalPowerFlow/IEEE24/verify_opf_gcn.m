@@ -14,7 +14,7 @@
 clear; clc;
 
 % Load the trained GCN model
-modelPath = fullfile(fileparts(mfilename('fullpath')), 'models', 'gcn_opf_ieee24_run5_seed132.mat');
+modelPath = fullfile(fileparts(mfilename('fullpath')), 'models', 'gcn_opf_ieee24.mat');
 model = load(modelPath);
 
 fprintf('=== GCN Optimal Power Flow Verification (IEEE 24-bus) ===\n');
@@ -126,7 +126,13 @@ fprintf('\n=== Voltage Specification Verification ===\n');
 fprintf('Specification: %.2f <= V <= %.2f p.u.\n', v_min, v_max);
 fprintf('  Verified safe: %d nodes\n', sum(results == 1));
 fprintf('  Violated: %d nodes\n', sum(results == 0));
-fprintf('  Unknown: %d nodes\n', sum(results == 2));
+unknown_boundary = sum(results == 2);
+unknown_timeout = sum(results == 3);
+fprintf('  Unknown: %d nodes\n', unknown_boundary + unknown_timeout);
+if unknown_boundary > 0 || unknown_timeout > 0
+    fprintf('    - Bounds cross spec boundary: %d\n', unknown_boundary);
+    fprintf('    - Timeout/inconclusive: %d\n', unknown_timeout);
+end
 fprintf('  N/A (non-voltage bus): %d nodes\n', sum(results == -1));
 
 fprintf('\n=== Complete ===\n');

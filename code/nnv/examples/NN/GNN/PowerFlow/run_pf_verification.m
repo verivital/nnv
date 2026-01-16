@@ -63,11 +63,12 @@ function results = run_pf_verification(bus_system, layer_type, epsilon, options)
     %% Determine model path
     script_dir = fileparts(mfilename('fullpath'));
 
+    % PF model naming convention (simplified)
     switch layer_type
         case 'GCN'
-            model_file = sprintf('gcn_pf_%s_run4_seed131.mat', lower(bus_system));
+            model_file = sprintf('gcn_pf_%s.mat', lower(bus_system));
         case {'GINE', 'GINE_edge'}
-            model_file = sprintf('gine_edgelist_pf_%s_run4_seed131.mat', lower(bus_system));
+            model_file = sprintf('gine_pf_%s.mat', lower(bus_system));
     end
 
     model_path = fullfile(script_dir, bus_system, 'models', model_file);
@@ -236,7 +237,7 @@ function results = run_pf_verification(bus_system, layer_type, epsilon, options)
     end
 
     %% Voltage verification
-    [verified_safe, unknown, violated] = verify_voltage_nodes(GS_out, model, verbose);
+    [verified_safe, unknown_boundary, violated] = verify_voltage_nodes(GS_out, model, verbose);
 
     %% Package results
     results = struct();
@@ -246,7 +247,9 @@ function results = run_pf_verification(bus_system, layer_type, epsilon, options)
     results.ub = ub;
     results.samples_in_bounds = samples_in_bounds;
     results.verified_safe = verified_safe;
-    results.unknown = unknown;
+    results.unknown = unknown_boundary;  % Total unknown (for backwards compatibility)
+    results.unknown_boundary = unknown_boundary;  % Bounds cross spec boundary
+    results.unknown_timeout = 0;  % Timeout not applicable in this function
     results.violated = violated;
     results.bus_system = bus_system;
     results.layer_type = layer_type;
@@ -254,8 +257,9 @@ function results = run_pf_verification(bus_system, layer_type, epsilon, options)
 end
 
 
-function [verified_safe, unknown, violated] = verify_voltage_nodes(GS_out, model, verbose)
+function [verified_safe, unknown_boundary, violated] = verify_voltage_nodes(GS_out, model, verbose)
 % Verify voltage specification for all voltage nodes
+% Returns counts of: verified_safe, unknown_boundary (bounds cross spec), violated
 
     % Voltage specification (per-unit)
     v_min = 0.95;
@@ -284,7 +288,7 @@ function [verified_safe, unknown, violated] = verify_voltage_nodes(GS_out, model
 
     % Count by status
     verified_safe = 0;
-    unknown = 0;
+    unknown_boundary = 0;  % Bounds cross spec boundary
     violated = 0;
 
     numNodes = size(lb_out, 1);
@@ -302,7 +306,7 @@ function [verified_safe, unknown, violated] = verify_voltage_nodes(GS_out, model
         elseif node_ub < spec_lb || node_lb > spec_ub
             violated = violated + 1;
         else
-            unknown = unknown + 1;
+            unknown_boundary = unknown_boundary + 1;  % Bounds cross spec boundary
         end
     end
 
@@ -310,7 +314,10 @@ function [verified_safe, unknown, violated] = verify_voltage_nodes(GS_out, model
         fprintf('\n=== Voltage Verification ===\n');
         fprintf('Spec: %.2f <= V <= %.2f p.u.\n', v_min, v_max);
         fprintf('  Verified safe: %d nodes\n', verified_safe);
-        fprintf('  Unknown: %d nodes\n', unknown);
         fprintf('  Violated: %d nodes\n', violated);
+        fprintf('  Unknown: %d nodes\n', unknown_boundary);
+        if unknown_boundary > 0
+            fprintf('    - Bounds cross spec boundary: %d\n', unknown_boundary);
+        end
     end
 end

@@ -21,8 +21,6 @@ classdef GCNLayer < handle
     % 1) Kipf & Welling, "Semi-Supervised Classification with Graph
     %    Convolutional Networks", ICLR 2017
     %    https://arxiv.org/abs/1609.02907
-    % 2) NNV verification tool documentation
-    %    https://github.com/verivital/nnv
     %
     % Author: Anne Tumlin
     % Date: 01/13/2026

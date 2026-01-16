@@ -32,7 +32,7 @@ test_results = struct();
 fprintf('=== Test 1: GINE Layer (IEEE24) ===\n');
 
 % Load model
-modelPath = fullfile(fileparts(mfilename('fullpath')), 'IEEE24', 'models', 'gine_edgelist_pf_ieee24_run4_seed131.mat');
+modelPath = fullfile(fileparts(mfilename('fullpath')), 'IEEE24', 'models', 'gine_pf_ieee24.mat');
 if ~exist(modelPath, 'file')
     fprintf('WARNING: Model file not found, skipping GINE test\n');
     test_results.gine_ieee24 = 'SKIPPED';
@@ -197,7 +197,7 @@ end
 %% Test 2: GCN Layer - IEEE24
 fprintf('\n=== Test 2: GCN Layer (IEEE24) ===\n');
 
-modelPath = fullfile(fileparts(mfilename('fullpath')), 'IEEE24', 'models', 'gcn_pf_ieee24_run4_seed131.mat');
+modelPath = fullfile(fileparts(mfilename('fullpath')), 'IEEE24', 'models', 'gcn_pf_ieee24.mat');
 if ~exist(modelPath, 'file')
     fprintf('WARNING: Model file not found, skipping GCN test\n');
     test_results.gcn_ieee24 = 'SKIPPED';
@@ -299,7 +299,7 @@ end
 %% Test 3: GINE Layer with Edge Perturbation - IEEE24
 fprintf('\n=== Test 3: GINE Layer with Edge Perturbation (IEEE24) ===\n');
 
-modelPath = fullfile(fileparts(mfilename('fullpath')), 'IEEE24', 'models', 'gine_edgelist_pf_ieee24_run4_seed131.mat');
+modelPath = fullfile(fileparts(mfilename('fullpath')), 'IEEE24', 'models', 'gine_pf_ieee24.mat');
 if ~exist(modelPath, 'file')
     fprintf('WARNING: Model file not found, skipping edge perturbation test\n');
     test_results.gine_edge_ieee24 = 'SKIPPED';
@@ -431,7 +431,7 @@ fprintf('Checking that output bounds are not excessively large...\n');
 
 if isfield(test_results, 'gine_ieee24') && isstruct(test_results.gine_ieee24)
     % Load GINE results
-    modelPath = fullfile(fileparts(mfilename('fullpath')), 'IEEE24', 'models', 'gine_edgelist_pf_ieee24_run4_seed131.mat');
+    modelPath = fullfile(fileparts(mfilename('fullpath')), 'IEEE24', 'models', 'gine_pf_ieee24.mat');
     model = load(modelPath);
 
     % Recompute for quality metrics

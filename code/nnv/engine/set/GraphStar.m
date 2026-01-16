@@ -11,8 +11,6 @@ classdef GraphStar < handle
     %    Networks", FM 2019. https://arxiv.org/abs/1904.01790
     % 2) Tran et al., "Verification of Deep Convolutional Neural Networks
     %    Using ImageStars", CAV 2020. https://arxiv.org/abs/2004.05511
-    % 3) NNV verification tool documentation
-    %    https://github.com/verivital/nnv
     %
     % Author: Anne Tumlin
     % Date: 01/05/2026

@@ -22,3 +22,11 @@ code/nnv/tests/attacks/shuttle_images/**
 **/tbxmanager/**
 
 .DS_Store
+
+
+# --- Claude / MCP / OpenSpec (local dev only) ---
+.claude/
+.mcp.json
+openspec/
+AGENTS.md
+CLAUDE.md

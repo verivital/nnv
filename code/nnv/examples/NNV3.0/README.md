@@ -115,3 +115,40 @@ To copy results from the container to your local filesystem:
 ```bash
 docker cp <container_id>:/tmp/results/VideoStar ./videostar_results
 ```
+
+# GNNV (Graph Neural Network Verification)
+
+Demonstrates GNN verification for power flow prediction on the IEEE 24-bus system, comparing GCN, GINE, and GINE+Edge architectures.
+
+## Running GNNV
+
+```bash
+cd /home/matlab/nnv/code/nnv/examples/NNV3.0/GNNV
+matlab -nodisplay -r "run('run_gnn_experiments.m'); exit()"
+```
+
+**Options:**
+- `run_gnn_experiments('quiet')` - Minimal output, logs to file
+- `run_gnn_experiments('no_figures')` - Skip figure generation
+- `run_gnn_experiments('quiet', 'no_figures')` - Both
+
+**Configuration:**
+
+The experiments verify voltage magnitude bounds on GNN outputs with:
+- **Models**: GCN, GINE, GINE+Edge
+- **Perturbation levels (ε)**: 0.001, 0.005, 0.01
+- **Test scenarios**: 10 (evenly sampled from test set)
+- **Voltage specification**: [0.95, 1.05] p.u.
+
+**Expected runtime:** ~5 minutes
+
+## Results
+
+- `figures/dashboard.png`, `dashboard.pdf` - Visualization
+- `figures/results_table.tex` - LaTeX table
+- `results/gnn_results.mat` - Raw data
+
+To copy results from the container:
+```bash
+docker cp <container_id>:/home/matlab/nnv/code/nnv/examples/NNV3.0/GNNV/figures ./gnnv_figures
+```

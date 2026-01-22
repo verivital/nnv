@@ -90,6 +90,10 @@ for i=1:n
     elseif isa(L, 'nnet.cnn.layer.TanhLayer')
             Li = TanhLayer.parse(L);
 
+    % GELU Layer (Gaussian Error Linear Unit - used in Transformers)
+    elseif isa(L, 'nnet.cnn.layer.GELULayer')
+            Li = GeluLayer.parse(L);
+
     % Batch Normalization Layer
     elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
         Li = BatchNormalizationLayer.parse(L);

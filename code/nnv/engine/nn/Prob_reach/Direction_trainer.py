@@ -149,10 +149,10 @@ def main(mat_file_path: str, num_files: int, N_dir: int,
     for i, A in enumerate(A_list):
         print(f"A{i+1}: {A}")
     
-    path = mat_file_path + '/directions.mat'
+    path = mat_file_path + '/directions.npz'
     A_list_np = np.hstack([A.to('cpu').numpy().astype(np.float32) for A in A_list])
-    scipy.io.savemat(path, {'Directions': A_list_np, 'Direction_Training_time': Training_time})
-    print("Directions and training time saved to 'directions.mat'")
+    np.savez(path, Directions=A_list_np, Direction_Training_time=Training_time)
+    print("Directions and training time saved to 'directions.npz'")
 
     del A_list, A_list_np, X
     gc.collect()

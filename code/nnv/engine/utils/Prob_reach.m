@@ -1,5 +1,8 @@
 function Out_ImS = Prob_reach(Net, In_ImS, reachOptions)
 
+pe = pyenv;
+py_dir = pe.Executable;
+
 if isa(In_ImS, 'ImageStar')
     if isempty(In_ImS.im_lb)
         [LB, UB] = getRanges(In_ImS);
@@ -103,6 +106,7 @@ params.Nt = N;
 params.Ns = Ns;
 params.threshold_normal = threshold_normal;
 params.guarantee = coverage;
+params.py_dir = py_dir;
 params.inputFormat = inputFormat;
 
 

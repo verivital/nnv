@@ -204,19 +204,12 @@ classdef ProbReach_ImageStar
                 delete_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "Direction_data.mat";
                 delete(delete_path)
 
-                % load('directions.mat')
-                % pyenv
-                pyenv('Version', obj.params.py_dir)
-                load_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "directions.npz";
-                npz = py.numpy.load(load_path);
-                Directions_py = py.numpy.array(npz{'Directions'});
+                % Load directions from .mat file (saved by Direction_trainer.py)
+                load_path = nnvroot + "/code/nnv/engine/nn/Prob_reach/Temp_files_mid_run/" + "directions.mat";
+                data = load(load_path);
+                Directions = single(data.Directions);
 
-                directions_list = cell(Directions_py.tolist());
-                rows = cellfun(@(row) double(cellfun(@double, cell(row))), directions_list, 'UniformOutput', false);
-                Directions = single(vertcat(rows{:}));
-
-
-                clear Directions_py  npz
+                clear data
                 delete(load_path);
 
                 Y = reshape(Y, [n1 , N]);

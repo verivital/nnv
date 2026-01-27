@@ -21,16 +21,17 @@
 
 % Path to NNV root folder (contains startup_nnv.m)
 % This is used to add NNV to the MATLAB path
-config.nnvDir = '/home/matlab/nnv/code/nnv'; % NOTE: these paths are for the docker container
-
+% Detect local path automatically and resolve to absolute path
+scriptDir = fileparts(mfilename('fullpath'));
+oldDir = cd(fullfile(scriptDir, '..', '..', '..')); % Go up to code/nnv/examples -> code/nnv
+config.nnvDir = pwd; % code/nnv (absolute)
+cd(oldDir);
 
 % Path to folder containing ONNX models (e.g., AC-1.onnx, AC-3.onnx)
-% The path to the folder: ~/nnv/code/nnv/examples/Submission/ICAIF24/adult_onnx
-config.modelsDir = '/home/matlab/nnv/code/nnv/examples/Submission/ICAIF24/adult_onnx';
+config.modelsDir = fullfile(config.nnvDir, 'examples', 'Submission', 'ICAIF24', 'adult_onnx');
 
 % Path to folder containing data files (e.g., adult_data.mat)
-% The path to the folder: ~/nnv/code/nnv/examples/Submission/ICAIF24/data
-config.dataDir = '/home/matlab/nnv/code/nnv/examples/Submission/ICAIF24/data';
+config.dataDir = fullfile(config.nnvDir, 'examples', 'Submission', 'ICAIF24', 'data');
 
 % Path to output folder for results (will be created if it doesn't exist)
 config.outputDir = './fm26_fairnnv_results';

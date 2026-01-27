@@ -18,21 +18,23 @@
 %% ================== CONFIGURATION ==================
 % Set these paths before running
 
-% Path to NNV root folder (contains startup_nnv.m)
-% NOTE: these paths are for the docker container
-config.nnvDir = '/home/matlab/nnv/code/nnv';
+% Detect local path automatically and resolve to absolute path
+scriptDir = fileparts(mfilename('fullpath'));
+oldDir = cd(fullfile(scriptDir, '..', '..', '..')); % Go up to code/nnv
+config.nnvDir = pwd; % code/nnv (absolute)
+cd(oldDir);
 
 % Path to FORMALISE2025 submission directory
-config.formalise2025Dir = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025';
+config.formalise2025Dir = fullfile(config.nnvDir, 'examples', 'Submission', 'FORMALISE2025');
 
 % Path to folder containing ONNX models (e.g., zoomin_4f.onnx)
-config.modelsDir = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/models';
+config.modelsDir = fullfile(config.formalise2025Dir, 'models');
 
-% Path to folder containing data files
-config.dataDir = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/data';
+% Path to folder containing data files (use local VideoStar data)
+config.dataDir = fullfile(scriptDir, 'data');
 
 % Path to npy-matlab for reading .npy files
-config.npyMatlabDir = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/npy-matlab/npy-matlab';
+config.npyMatlabDir = fullfile(config.formalise2025Dir, 'npy-matlab', 'npy-matlab');
 
 % Path to output folder for results (will be created if it doesn't exist)
 config.outputDir = '/tmp/results/VideoStar/ZoomIn/4';

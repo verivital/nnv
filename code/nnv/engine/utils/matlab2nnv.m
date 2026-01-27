@@ -130,9 +130,9 @@ for i=1:n
     elseif isa(L, 'nnet.cnn.layer.FullyConnectedLayer')
         Li = FullyConnectedLayer.parse(L);
 
-    % Addition Layer
-    elseif isa(L, 'nnet.cnn.layer.AdditionLayer')
-        Li = AdditionLayer.parse(L);
+    % Addition Layer (standard MATLAB or ONNX-imported variant)
+    elseif isa(L, 'nnet.cnn.layer.AdditionLayer') || contains(class(L), 'AddLayer')
+        Li = AdditionLayer(L.Name, L.NumInputs, L.NumOutputs, L.InputNames, L.OutputNames);
     
     % Concatenation Layer
     elseif isa(L, 'nnet.cnn.layer.ConcatenationLayer')

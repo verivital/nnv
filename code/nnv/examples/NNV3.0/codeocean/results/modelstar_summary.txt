@@ -1,0 +1,29 @@
+ModelStar Weight Perturbation Verification Results
+==================================================
+
+Model: MNIST_MLP
+Number of layers tested: 3
+Number of images per test: 100
+
+Layer: fc_6
+--------
+  Perturbation 0.0050: 100/100 (100.0%) verified
+  Perturbation 0.0100: 83/100 (83.0%) verified
+  Perturbation 0.0150: 32/100 (32.0%) verified
+  Perturbation 0.0200: 8/100 (8.0%) verified
+
+Layer: fc_5
+--------
+  Perturbation 0.0010: 100/100 (100.0%) verified
+  Perturbation 0.0020: 92/100 (92.0%) verified
+  Perturbation 0.0030: 38/100 (38.0%) verified
+  Perturbation 0.0040: 14/100 (14.0%) verified
+
+Layer: fc_4
+--------
+  Perturbation 0.0010: 100/100 (100.0%) verified
+  Perturbation 0.0020: 69/100 (69.0%) verified
+  Perturbation 0.0030: 11/100 (11.0%) verified
+  Perturbation 0.0040: 0/100 (0.0%) verified
+
+Date: 23-Jan-2026 23:50:21

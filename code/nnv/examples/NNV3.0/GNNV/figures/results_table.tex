@@ -1,0 +1,16 @@
+\begin{table}[h]
+\centering
+\caption{Verification results for GNN-based power flow prediction on the IEEE 24-bus system. Percentage of voltage nodes verified safe (out of 130 total across 10 scenarios) and average time to verify all 13 voltage nodes per graph.}
+\label{tab:gnn-results}
+\begin{tabular}{l @{\hspace{0.8em}} cc @{\hspace{0.8em}} cc @{\hspace{0.8em}} cc}
+\toprule
+& \multicolumn{2}{c}{$\epsilon=0.001$} & \multicolumn{2}{c}{$\epsilon=0.005$} & \multicolumn{2}{c}{$\epsilon=0.01$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+Model & Verified (\%) & Time (s) & Verified (\%) & Time (s) & Verified (\%) & Time (s) \\
+\midrule
+GCN & 72.3 & 1.57 & 0.8 & 3.27 & 0.0 & 5.62 \\
+GINE & 92.3 & 1.45 & 83.8 & 2.48 & 49.2 & 3.76 \\
+GINE+Edge & 84.6 & 2.10 & 56.9 & 3.29 & 33.1 & 4.96 \\
+\bottomrule
+\end{tabular}
+\end{table}

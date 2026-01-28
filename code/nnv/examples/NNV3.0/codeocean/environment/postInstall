@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -ex
+
+# Install system dependencies
+apt-get update && apt-get -y install wget unzip git python3 python3-pip python3-venv
+
+# Create deps folder for submodules
+mkdir -p /deps
+cd /deps
+
+# Install NNV submodules/dependencies
+git clone --depth 1 https://github.com/verivital/onnx2nnv.git || true
+git clone --depth 1 https://github.com/verivital/nnvmt.git || true
+git clone --depth 1 https://github.com/verivital/CORA.git || true
+git clone --depth 1 https://github.com/kwikteam/npy-matlab.git || true
+
+# Setup Python virtual environment for ProbVer (CP-Star verification)
+# Note: /code is not mounted during Docker build, so we create the venv in /deps
+# The run.m script will set up symlinks at runtime if needed
+echo "Setting up Python virtual environment for ProbVer..."
+cd /deps
+python3 -m venv probver_venv || true
+if [ -f probver_venv/bin/activate ]; then
+    source probver_venv/bin/activate
+    pip install --upgrade pip || true
+    pip install torch numpy scipy || true
+    deactivate
+    echo "Python virtual environment created at /deps/probver_venv"
+else
+    echo "Warning: Could not create Python virtual environment"
+fi
+
+echo "=== NNV 3.0 Environment Setup Complete ==="

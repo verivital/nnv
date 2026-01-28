@@ -25,7 +25,12 @@ fprintf('\nAdding NNV to Matlab path...\n');
 %cd(newdir);
 
 addpath(pwd());
-addpath(genpath(pwd()));
+% Add all subdirectories except codeocean capsules (which contain a
+% standalone NNV copy that can shadow the real engine on the path)
+p = genpath(pwd());
+dirs = strsplit(p, pathsep);
+dirs = dirs(~contains(dirs, 'codeocean'));
+addpath(strjoin(dirs, pathsep));
 if is_codeocean()
     cd('/code/')
 end

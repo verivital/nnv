@@ -99,9 +99,15 @@ def generate_modelstar_figure():
         # Bottom row: avg time per image
         ax_bot = axes[1, col]
         bars_t = ax_bot.bar(range(len(fracs)), avg_time, color=ORANGE, edgecolor='white', width=0.6)
+        y_max = max(avg_time) * 1.18  # leave 18% headroom for labels
         for bar, t in zip(bars_t, avg_time):
-            ax_bot.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(avg_time)*0.02,
-                        f'{t:.2f}', ha='center', va='bottom', fontsize=7)
+            if t > y_max * 0.85:
+                ax_bot.text(bar.get_x() + bar.get_width()/2, bar.get_height() - y_max*0.03,
+                            f'{t:.2f}', ha='center', va='top', fontsize=7, color='white', fontweight='bold')
+            else:
+                ax_bot.text(bar.get_x() + bar.get_width()/2, bar.get_height() + y_max*0.02,
+                            f'{t:.2f}', ha='center', va='bottom', fontsize=7)
+        ax_bot.set_ylim(0, y_max)
         ax_bot.set_xticks(range(len(fracs)))
         ax_bot.set_xticklabels([f'{f*100:.1f}%' for f in fracs])
         ax_bot.set_xlabel('Perturbation Fraction')

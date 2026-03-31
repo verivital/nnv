@@ -1,0 +1,138 @@
+/* NNV Documentation Custom Styles */
+
+/* Brand colors */
+:root {
+    --color-brand-primary: #1A237E;
+    --color-brand-content: #1A237E;
+    --nnv-primary: #1A237E;
+    --nnv-primary-light: rgba(26, 35, 126, 0.08);
+}
+
+/* Dark mode brand colors */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-brand-primary: #7986CB;
+        --color-brand-content: #7986CB;
+        --nnv-primary: #7986CB;
+        --nnv-primary-light: rgba(121, 134, 203, 0.1);
+    }
+}
+
+/* Furo dark mode override */
+body[data-theme="dark"] {
+    --color-brand-primary: #7986CB;
+    --color-brand-content: #7986CB;
+    --nnv-primary: #7986CB;
+    --nnv-primary-light: rgba(121, 134, 203, 0.1);
+}
+
+/* All headings in brand color */
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6,
+article h1,
+article h2,
+article h3,
+article h4,
+article h5,
+article h6,
+.document h1,
+.document h2,
+.document h3,
+.document h4,
+.document h5,
+.document h6 {
+    color: var(--nnv-primary);
+}
+
+/* Card titles also branded */
+.sd-card .sd-card-title {
+    color: var(--nnv-primary);
+}
+
+/* Admonition titles in brand color */
+.admonition > .admonition-title {
+    color: var(--nnv-primary);
+}
+
+/* Lead paragraph style */
+.lead p {
+    font-size: 1.15em;
+    color: var(--color-foreground-secondary);
+    line-height: 1.6;
+}
+
+/* Horizontal rule as section divider */
+hr {
+    border: none;
+    border-top: 1px solid var(--color-background-border);
+    margin: 1.5rem 0;
+}
+
+/* Soundness guarantee admonition */
+.admonition.soundness {
+    border-color: #2E7D32;
+}
+
+.admonition.soundness > .admonition-title {
+    background-color: rgba(46, 125, 50, 0.1);
+}
+
+.admonition.soundness > .admonition-title::before {
+    content: "\2713";
+    color: #2E7D32;
+}
+
+/* Coverage guarantee admonition */
+.admonition.coverage {
+    border-color: #F57F17;
+}
+
+.admonition.coverage > .admonition-title {
+    background-color: rgba(245, 127, 23, 0.1);
+}
+
+/* Limit "On this page" right sidebar to 2 levels deep */
+.toc-tree li ul li ul {
+    display: none;
+}
+
+/* Table styling */
+table.docutils {
+    font-size: 0.9em;
+}
+
+/* Scrollable table wrapper */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+.table-scroll table.docutils {
+    min-width: 800px;
+    white-space: nowrap;
+}
+
+/* Sticky first column for wide comparison tables */
+.table-scroll table.docutils th:first-child,
+.table-scroll table.docutils td:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--color-background-primary);
+    z-index: 1;
+}
+
+/* NNV3 highlight for new features in tables */
+.nnv3-new {
+    color: #7B1FA2;
+    font-weight: 600;
+}
+
+.nnv2-new {
+    color: #1565C0;
+    font-weight: 600;
+}

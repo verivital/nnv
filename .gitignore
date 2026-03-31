@@ -23,6 +23,9 @@ code/nnv/tests/attacks/shuttle_images/**
 
 .DS_Store
 
+# Sphinx documentation build output
+docs/_build/
+
 
 # --- Claude / MCP / OpenSpec (local dev only) ---
 .claude/

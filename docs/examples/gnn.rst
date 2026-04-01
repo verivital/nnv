@@ -205,6 +205,22 @@ For power systems, the verification tells operators:
 - **VIOLATED buses**: The GNN fails to guarantee safety under this
   uncertainty level -- consider retraining or using a more robust model
 
+Experimental Results Summary
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+GNNV evaluation across IEEE systems and graph classification benchmarks:
+
+- **High verification rates**: Near-perfect robustness for OPF across all
+  systems; 70--99% for PF depending on perturbation level
+- **Edge perturbation impact minimal**: Adding edge uncertainty (1% line
+  parameter deviation) reduces robustness by at most 0.2%, with runtime
+  overhead of 1.1--2.9x
+- **Tighter than CORA**: GNNV consistently verifies more graphs than CORA's
+  polynomial-zonotope abstractions -- up to 21.6% more at larger perturbation
+  budgets (e.g., 99/100 vs 86/100 on IEEE-24 CFA at epsilon=0.005)
+- **Scalable**: Subgraph verification completes in under a second for small
+  perturbations, and under 90 seconds for IEEE-118 at epsilon=0.01
+
 Source Files
 ^^^^^^^^^^^^
 

@@ -116,22 +116,6 @@ An advantage of conformal inference over randomized smoothing (Fischer et al., 2
 
 On the other hand, randomized smoothing provides guarantees over the **worst-case** input $x' \in \mathbf{B}_r(x)$, whereas conformal inference assumes a **prior distribution** $x' \overset{\mathcal{W}}{\sim} \mathbf{B}_r(x)$.
 
-Experimental comparison on the Cityscapes HrNetV2-W48 model (65M parameters) shows the CI-based approach achieves dramatically fewer uncertifiable pixels (< 0.08%) compared to both SegCertify (7--39%) and AdaptiveCertify (5--28%).
-
-## Experimental Summary
-
-The approach has been validated on:
-
-| Dataset | Model | Parameters | Input | Output | Coverage | Confidence | Runtime |
-|---------|-------|-----------|-------|--------|----------|------------|---------|
-| M2NIST | m2nist_dc | 6.8M | 64x84x1 | 64x84x11 | 0.9999 | 0.9995 | 5.4 min |
-| Lung Seg. | UNet1 | 14.8M | 512x512x1 | 512x512x1 | 0.999 | 0.997 | 4 min |
-| OCTA-500 | UNet2 | 5.5M | 304x304x1 | 304x304x1 | 0.999 | 0.997 | 3.75 min |
-| CamVid | BiSeNet | 12.5M | 720x960x3 | 720x960x12 | 0.999 | 0.997 | 9 min |
-| Cityscapes | HrNetV2 | 65.9M | 1024x2048x3 | 256x512x19 | 0.99 | 0.999 | 210 sec |
-
-Deterministic tools ($\alpha,\beta$-CROWN, NNV Star reachability) encountered out-of-memory errors on these models, demonstrating that probabilistic verification fills a critical gap for large-scale SSN analysis.
-
 ## Limitations
 
 - Requires a **prior sampling distribution** $\mathcal{W}$ (unlike worst-case deterministic methods)

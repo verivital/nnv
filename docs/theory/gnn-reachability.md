@@ -129,15 +129,6 @@ The cost is dominated by ReLU branching:
 
 Subgraph verification reduces $N$ to the local neighborhood size, making per-node verification practical.
 
-## Experimental Results Summary
-
-GNNV has been evaluated on three power system tasks (PF, OPF, CFA) across IEEE-24, IEEE-39, and IEEE-118 networks, as well as graph classification benchmarks (ENZYMES, PROTEINS):
-
-- **High verification rates**: Near-perfect robustness for OPF across all systems; 70--99% for PF depending on perturbation level
-- **Edge perturbation impact minimal**: Adding edge uncertainty (1% line parameter deviation) reduces robustness by at most 0.2%, with runtime overhead of 1.1--2.9x
-- **Tighter than CORA**: GNNV consistently verifies more graphs than CORA's polynomial-zonotope abstractions -- up to 21.6% more at larger perturbation budgets
-- **Scalable**: Subgraph verification completes in under a second for small perturbations, and under 90 seconds for large systems at $\epsilon = 10^{-2}$
-
 ## See Also
 
 - {doc}`/user-guide/set-representations` -- GraphStar set definition and usage

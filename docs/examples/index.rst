@@ -100,6 +100,14 @@ Recommended Learning Path
       ModelStar verification under quantization, hardware faults,
       and model compression.
 
+   .. grid-item-card:: Fairness Verification
+      :link: fairness
+      :link-type: doc
+      :class-card: sd-border-0 sd-shadow-sm
+
+      FairNNV counterfactual and individual fairness on
+      financial benchmark datasets.
+
    .. grid-item-card:: Conference Tutorials
       :link: conference-tutorials
       :link-type: doc
@@ -122,4 +130,5 @@ Recommended Learning Path
    malware
    medical-imaging
    weight-perturbation
+   fairness
    conference-tutorials

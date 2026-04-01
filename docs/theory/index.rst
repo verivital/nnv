@@ -43,6 +43,14 @@ Theoretical Foundations
       GraphStar sets, GCN and GINE reachability, subgraph
       verification, and soundness guarantees.
 
+   .. grid-item-card:: Weight Perturbation (ModelStar)
+      :link: weight-perturbation
+      :link-type: doc
+      :class-card: sd-border-0 sd-shadow-sm
+
+      Perturbation maps, exact and over-approximate reachability
+      under parameter uncertainty from quantization and hardware faults.
+
    .. grid-item-card:: Fairness Verification
       :link: fairness
       :link-type: doc
@@ -59,4 +67,5 @@ Theoretical Foundations
    imagestar-volumestar
    probabilistic
    gnn-reachability
+   weight-perturbation
    fairness

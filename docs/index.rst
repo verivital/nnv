@@ -94,12 +94,14 @@ Quick Example
 
    getting-started/index
    user-guide/index
+   developer/index
+   api/index
    nnv3
    application-domains
    examples/index
    theory/index
    publications/index
-   testing/index
+   getting-started/courses
 
 Getting Started
 ---------------
@@ -126,14 +128,6 @@ Getting Started
 
       Create your first input set, run reachability analysis, and check
       safety properties.
-
-   .. grid-item-card:: Courses
-      :link: getting-started/courses
-      :link-type: doc
-      :class-card: sd-border-0 sd-shadow-sm
-
-      CS 8395 -- Machine Learning Verification course materials
-      from Vanderbilt University.
 
 ----
 
@@ -218,6 +212,34 @@ User Guide
       :class-card: sd-border-0 sd-shadow-sm
 
       Run NNV in a Docker container with MATLAB.
+
+----
+
+API Reference & Developer Guide
+---------------------------------
+
+.. rst-class:: lead
+
+   Function-level documentation and guides for extending NNV.
+
+.. grid:: 1 2 2 2
+   :gutter: 3
+
+   .. grid-item-card:: Developer Guide
+      :link: developer/index
+      :link-type: doc
+      :class-card: sd-border-0 sd-shadow-sm
+
+      Architecture overview, custom verification workflows,
+      adding new layers, set types, and reachability methods.
+
+   .. grid-item-card:: API Reference
+      :link: api/index
+      :link-type: doc
+      :class-card: sd-border-0 sd-shadow-sm
+
+      NN, GNN, Star, ImageStar, all 48 layers, NNCS classes,
+      utilities, and reachOptions -- complete function signatures.
 
 ----
 

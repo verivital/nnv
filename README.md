@@ -140,18 +140,19 @@ For the full list of 30+ publications using NNV, see the [Publications](https://
 
 ## Contributors
 
-* [Hoang-Dung Tran](https://sites.google.com/view/v2a2/)
 * [Diego Manzanas Lopez](https://mldiego.github.io/)
+* [Hoang-Dung Tran](https://sites.google.com/view/v2a2/)
+* [Taylor T. Johnson](http://www.taylortjohnson.com)
+* [Neelanjana Pal](https://scholar.google.com/citations?user=3j_f-ewAAAAJ&hl=en)
 * [Anne Tumlin](https://atumlin.github.io/)
 * [Samuel Sasaki](https://sammsaski.github.io/)
-* [Ben Wooding](https://woodingben.com)
-* [Neelanjana Pal](https://scholar.google.com/citations?user=3j_f-ewAAAAJ&hl=en)
-* [Weiming Xiang](https://xiangweiming.github.io/)
-* [Stanley Bak](http://stanleybak.com/)
-* [Patrick Musau](https://pmusau17.github.io/)
 * [Xiaodong Yang](https://scholar.google.com/citations?user=xe3Jr7EAAAAJ&hl=en)
+* [Patrick Musau](https://pmusau17.github.io/)
+* [Sung Woo Choi](https://scholar.google.com/citations?user=choi_sungwoo)
+* [Ben Wooding](https://woodingben.com)
+* [Stanley Bak](http://stanleybak.com/)
+* [Weiming Xiang](https://xiangweiming.github.io/)
 * [Luan Viet Nguyen](https://luanvietnguyen.github.io)
-* [Taylor T. Johnson](http://www.taylortjohnson.com)
 
 ## Acknowledgements
 

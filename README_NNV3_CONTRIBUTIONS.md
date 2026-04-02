@@ -1,5 +1,7 @@
 # NNV 3.0: Major Contributions and New Features
 
+> **Documentation:** For comprehensive tutorials, API reference, and application guides, visit [verivital.github.io/nnv](https://verivital.github.io/nnv/). See the [NNV3 Summary](https://verivital.github.io/nnv/nnv3.html) for a concise overview.
+
 ## Overview
 
 NNV 3.0 represents a significant evolution of the Neural Network Verification tool, building on the foundations laid in NNV 1.0 (CAV 2020) and NNV 2.0 (CAV 2023). While previous versions focused on expanding architectural support, NNV 3.0 introduces methodologies for verifying new classes of properties and handling previously intractable data formats.

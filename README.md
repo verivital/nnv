@@ -159,4 +159,6 @@ This work is supported in part by AFOSR, DARPA, NSF.
 
 ## Contact
 
-For questions, please [open an issue](https://github.com/verivital/nnv/issues) or contact [Diego Manzanas Lopez](mailto:diego.manzanas.lopez@vanderbilt.edu).
+For any questions related to NNV, please add them to the [issues](https://github.com/verivital/nnv/issues) or contact [Taylor T. Johnson](mailto:taylor.johnson@vanderbilt.edu), [Samuel Sasaki](mailto:samuel.sasaki@vanderbilt.edu), [Anne Tumlin](mailto:anne.m.tumlin@vanderbilt.edu), or [Ben Wooding](mailto:ben.wooding@vanderbilt.edu).
+
+Past contacts: [Diego Manzanas Lopez](mailto:diego.manzanas.lopez@vanderbilt.edu) and [Hoang-Dung Tran](mailto:trhoangdung@gmail.com).

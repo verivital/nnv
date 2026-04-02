@@ -106,6 +106,19 @@ If you use NNV in your research, please cite:
 }
 ```
 
+```bibtex
+@inproceedings{nnv_cav2020,
+  author = {Tran, Hoang-Dung and Yang, Xiaodong and Manzanas Lopez, Diego and
+            Musau, Patrick and Nguyen, Luan Viet and Xiang, Weiming and
+            Bak, Stanley and Johnson, Taylor T.},
+  title = {NNV: The Neural Network Verification Tool for Deep Neural Networks
+           and Learning-Enabled Cyber-Physical Systems},
+  booktitle = {Computer Aided Verification (CAV)},
+  year = {2020},
+  doi = {10.1007/978-3-030-53288-8_1}
+}
+```
+
 NNV3 paper is in preparation. For feature-specific citations (FairNNV, VolumeStar, GNNV, ModelStar, probabilistic verification), see the [How to Cite](https://verivital.github.io/nnv/publications/citing.html) page.
 
 For the full list of 30+ publications using NNV, see the [Publications](https://verivital.github.io/nnv/publications/papers.html) page.
@@ -114,6 +127,9 @@ For the full list of 30+ publications using NNV, see the [Publications](https://
 
 * [Hoang-Dung Tran](https://sites.google.com/view/v2a2/)
 * [Diego Manzanas Lopez](https://mldiego.github.io/)
+* [Anne Tumlin](https://atumlin.github.io/)
+* [Samuel Sasaki](https://sammsaski.github.io/)
+* [Ben Wooding](https://woodingben.com)
 * [Neelanjana Pal](https://scholar.google.com/citations?user=3j_f-ewAAAAJ&hl=en)
 * [Weiming Xiang](https://xiangweiming.github.io/)
 * [Stanley Bak](http://stanleybak.com/)

@@ -82,13 +82,29 @@ You will learn:
 - `Paper: DOI 10.1145/3607890.3608454 <https://doi.org/10.1145/3607890.3608454>`_
 - Location: ``examples/Tutorial/``
 
+Interactive Exercises
+-----------------------
+
+The tutorial folder includes hands-on exercises with starter code:
+
+- **ACAS Xu**: ``Tutorial/NN/ACAS Xu/exercise_vnnlib_onnx.m``
+- **Robustness verification**: ``Tutorial/NN/GTSRB/exercise_verify_robustness.m``
+- **NNCS reachability**: ``Tutorial/NNCS/ACC/Exercise/exercise_reachability_nncs.m``
+
+.. note::
+
+   The ACC training example requires the Simulink toolbox.
+
 Running Tutorials Online
 --------------------------
 
 All tutorials can be run without local installation:
 
 - **MATLAB Online**: `Try NNV on MATLAB Online <https://matlab.mathworks.com/>`_
-  (a MATLAB license may be required for some examples, but many run as guest)
+  (a MATLAB license may be required for some examples, but many run as guest).
+  `NNV shared folder <https://drive.mathworks.com/sharing/980b6270-7a14-451c-924c-ae07745fa279>`_
+  -- click "Open in MATLAB Online" → "Copy Folder" (copying may take 15 minutes
+  to a couple of hours). After copying, run ``startup_nnv.m`` to configure paths.
 - **CodeOcean**: `NNV CAV 2023 capsule <https://doi.org/10.24433/CO.0803700.v1>`_
   (runs in browser, no installation needed)
 

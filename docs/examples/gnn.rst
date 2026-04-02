@@ -221,6 +221,70 @@ GNNV evaluation across IEEE systems and graph classification benchmarks:
 - **Scalable**: Subgraph verification completes in under a second for small
   perturbations, and under 90 seconds for IEEE-118 at epsilon=0.01
 
+Helper Functions
+^^^^^^^^^^^^^^^^^
+
+The GNN examples provide convenience functions:
+
+.. code-block:: matlab
+
+   results = run_pf_verification('IEEE24', 'GCN', 0.01);
+   results = run_pf_verification('IEEE39', 'GINE', 0.01);
+   results = run_opf_verification('IEEE24', 'GINE', 0.01);
+
+IEEE Bus Systems
+^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 25 25
+
+   * - System
+     - Nodes
+     - Edges
+   * - IEEE 24-bus
+     - 24
+     - 92
+   * - IEEE 39-bus
+     - 39
+     - 131
+   * - IEEE 118-bus
+     - 118
+     - 476
+
+Verification Status Codes
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 85
+
+   * - Code
+     - Meaning
+   * - 1
+     - Verified safe (output within specification bounds)
+   * - 0
+     - Violated (output outside specification bounds)
+   * - 2
+     - Unknown boundary (over-approximation overlaps with spec)
+   * - 3
+     - Unknown timeout (verification did not complete)
+   * - -1
+     - N/A (non-voltage bus, no specification applies)
+
+Importing Your Own Models
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Models are trained in Python (PyTorch Geometric) and exported to MATLAB via
+``.mat`` files. Note that **PyTorch uses (F_out x F_in) weight layout** --
+transpose is required when loading into NNV's GCNLayer/GINELayer.
+
+.. warning::
+
+   GINELayer uses linear projections (not MLPs) for verification soundness.
+   This means the NNV GINE implementation may differ slightly from the full
+   PyTorch Geometric GINEConv with MLP update functions.
+
 Source Files
 ^^^^^^^^^^^^
 

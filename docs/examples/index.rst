@@ -17,6 +17,24 @@ Recommended Learning Path
 4. **Control systems**: :doc:`nncs` -- ACC, AEBS closed-loop verification
 5. **Advanced topics**: GNNs, Neural ODEs, probabilistic verification
 
+You can run any example directly:
+
+.. code-block:: matlab
+
+   cd('code/nnv/examples');
+   run('Tutorial/NN/MNIST/verify.m')             % Image classification
+   run('Tutorial/NN/ACAS Xu/verify_onnx_vnnlib.m') % ACAS Xu with VNNLIB
+   run('Tutorial/NNCS/ACC/Verification/verify.m')  % Closed-loop control
+
+Repository Folder Structure
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- ``examples/QuickStart/`` -- installation verification and first steps
+- ``examples/Tutorial/`` -- beginner-friendly walkthroughs (NN, NNCS, SPIE)
+- ``examples/NN/`` -- advanced neural network examples (CNN, RNN, GNN, NeuralODE, BNN)
+- ``examples/NNCS/`` -- advanced control system examples
+- ``examples/Submission/`` -- paper and competition reproduction code (ARCH-COMP, VNN-COMP, CAV, etc.)
+
 .. grid:: 1 2 2 3
    :gutter: 3
 

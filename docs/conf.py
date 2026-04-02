@@ -3,7 +3,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "NNV"
-copyright = "2025, VeriVITAL Team"
+copyright = "2026, VeriVITAL Team"
 author = "VeriVITAL Team"
 version = "3.0.0"
 release = "3.0.0"
@@ -23,6 +23,7 @@ exclude_patterns = [
     "Thumbs.db",
     ".DS_Store",
     "README.md",
+    "testing/**",
 ]
 
 # -- MyST configuration -----------------------------------------------------

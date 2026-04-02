@@ -92,6 +92,61 @@ These models demonstrate:
 - Batch normalization in the verification pipeline
 - Handling very large output dimensions (per-pixel, per-class)
 
+Probabilistic Verification Results
+------------------------------------
+
+The conformal prediction approach has been validated on large segmentation
+models where deterministic reachability is intractable:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 20 20 15 15
+
+   * - Dataset
+     - Model
+     - Parameters
+     - Output Dimension
+     - Coverage
+     - Runtime
+   * - M2NIST
+     - m2nist_dc
+     - 6.8M
+     - 64x84x11
+     - 0.9999
+     - 5.4 min
+   * - Lung Seg.
+     - UNet1
+     - 14.8M
+     - 512x512x1
+     - 0.999
+     - 4 min
+   * - OCTA-500
+     - UNet2
+     - 5.5M
+     - 304x304x1
+     - 0.999
+     - 3.75 min
+   * - CamVid
+     - BiSeNet
+     - 12.5M
+     - 720x960x12
+     - 0.999
+     - 9 min
+   * - Cityscapes
+     - HrNetV2
+     - 65.9M
+     - 256x512x19
+     - 0.99
+     - 210 sec
+
+On the Cityscapes HrNetV2-W48 model (65M parameters), the CI-based approach
+achieves < 0.08% uncertifiable pixels compared to 5--28% for AdaptiveCertify
+and 7--39% for SegCertify (randomized smoothing methods).
+
+Deterministic tools (a,b-CROWN, NNV Star reachability) encountered
+out-of-memory errors on these models, demonstrating that probabilistic
+verification fills a critical gap for large-scale SSN analysis.
+
 Source Files
 ^^^^^^^^^^^^
 

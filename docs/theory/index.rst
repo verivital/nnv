@@ -35,6 +35,22 @@ Theoretical Foundations
       Conformal inference, surrogate models, and formal
       coverage-confidence guarantees.
 
+   .. grid-item-card:: GNN Reachability
+      :link: gnn-reachability
+      :link-type: doc
+      :class-card: sd-border-0 sd-shadow-sm
+
+      GraphStar sets, GCN and GINE reachability, subgraph
+      verification, and soundness guarantees.
+
+   .. grid-item-card:: Weight Perturbation (ModelStar)
+      :link: weight-perturbation
+      :link-type: doc
+      :class-card: sd-border-0 sd-shadow-sm
+
+      Perturbation maps, exact and over-approximate reachability
+      under parameter uncertainty from quantization and hardware faults.
+
    .. grid-item-card:: Fairness Verification
       :link: fairness
       :link-type: doc
@@ -50,4 +66,6 @@ Theoretical Foundations
    star-reachability
    imagestar-volumestar
    probabilistic
+   gnn-reachability
+   weight-perturbation
    fairness

@@ -92,6 +92,22 @@ Recommended Learning Path
       SPIE 2025 tutorial: 2D/3D classification and segmentation
       robustness for medical images.
 
+   .. grid-item-card:: Weight Perturbation
+      :link: weight-perturbation
+      :link-type: doc
+      :class-card: sd-border-0 sd-shadow-sm
+
+      ModelStar verification under quantization, hardware faults,
+      and model compression.
+
+   .. grid-item-card:: Fairness Verification
+      :link: fairness
+      :link-type: doc
+      :class-card: sd-border-0 sd-shadow-sm
+
+      FairNNV counterfactual and individual fairness on
+      financial benchmark datasets.
+
    .. grid-item-card:: Conference Tutorials
       :link: conference-tutorials
       :link-type: doc
@@ -113,4 +129,6 @@ Recommended Learning Path
    nncs
    malware
    medical-imaging
+   weight-perturbation
+   fairness
    conference-tutorials

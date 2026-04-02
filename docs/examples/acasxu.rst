@@ -157,6 +157,7 @@ Property 3 states: "If the intruder is directly ahead and moving towards the
 ownship, the advisory should not be Clear-of-Conflict (COC)."
 
 In VNNLIB terms:
+
 - **Input region**: Intruder ahead (specific angle/distance bounds)
 - **Safety requirement**: The COC output score should NOT be the minimum
   (i.e., COC should not be the selected advisory)

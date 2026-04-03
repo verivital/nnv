@@ -30,7 +30,7 @@ git clone --recursive https://github.com/verivital/nnv.git
 In MATLAB:
 
 ```matlab
-cd nnv
+cd('nnv/code/nnv')
 install                  % Add NNV and dependencies to path
 check_nnv_setup()        % Verify installation
 

@@ -150,6 +150,52 @@ Output Locations
    * - Baselines
      - ``results/tests/baselines/{nn,nncs,set}/``
 
+Figure Breakdown
+----------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 20
+
+   * - Category
+     - Count
+   * - nn/
+     - 18
+   * - nncs/
+     - 24
+   * - set/star/
+     - 24
+   * - set/zono/
+     - 12
+   * - tutorial/
+     - 21
+   * - **Total**
+     - **99**
+
+Test Categories Explained
+--------------------------
+
+**Soundness tests** (``tests/soundness/``):
+Verify that NNV operations are mathematically correct -- sample points from
+input set, pass through operation, verify output points are contained in
+computed output set.
+
+**Regression tests** (``tests/regression/``):
+End-to-end verification workflows -- neural network verification, NNCS
+reachability, safety/robustness checking. Compare outputs against known baselines.
+
+**Set tests** (``tests/set/``):
+Test Star, Zonotope, ImageStar operations -- construction, affine maps,
+Minkowski sums, containment, sampling, plotting, convex hulls, intersections.
+
+**NN tests** (``tests/nn/``):
+Test neural network layer operations -- feedforward, CNN layers (Conv2D, Pooling),
+activation functions (ReLU, Sigmoid).
+
+**NNCS tests** (``tests/nncs/``):
+Test neural network control systems -- LinearODE, DLinearODE, LinearNNCS,
+DLinearNNCS, reachability analysis.
+
 Troubleshooting
 ---------------
 
@@ -164,8 +210,23 @@ Add ``function test_name()`` wrapper and ``end`` statement.
 **Missing Baselines:**
 Run ``manage_baselines('save')`` after a clean test pass.
 
+**Figure Not Saved:**
+Ensure ``save_test_figure()`` is called before the test ends.
+Check that the test is a function (not a script).
 
-   NNV 3.0 tracks code coverage via the ``track_coverage.m`` utility.
+Environment Variables
+---------------------
+
+.. code-block:: matlab
+
+   setenv('NNV_TEST_COMPARE_BASELINES', '1');   % Enable baseline comparison
+   setenv('NNV_TEST_SAVE_FIGURES', '1');         % Enable figure saving
+   setenv('NNV_TEST_FAIL_ON_REGRESSION', '1');   % Fail on regression
+
+Code Coverage
+-------------
+
+NNV 3.0 tracks code coverage via the ``track_coverage.m`` utility.
 
 ----
 

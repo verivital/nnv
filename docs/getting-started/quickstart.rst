@@ -11,7 +11,12 @@ Quick Start
 Test Your Installation
 ----------------------
 
-After installing NNV (see :doc:`installation`), verify everything works:
+After installing NNV (see :doc:`installation`), verify everything works.
+
+.. note::
+
+   Run ``install.m`` on first use. If you restart MATLAB, run ``startup_nnv.m``
+   to restore paths (or run ``savepath`` after installation to make it permanent).
 
 .. code-block:: matlab
 

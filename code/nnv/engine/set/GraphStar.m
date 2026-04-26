@@ -450,6 +450,67 @@ classdef GraphStar < handle
 
         end
 
+        function sub_gs = extractSubgraph(obj, node_indices)
+        % EXTRACTSUBGRAPH  Slice GraphStar to a node subset with predicate pruning.
+        %
+        %   Extracts the sub-GraphStar for the given node_indices, removing
+        %   predicate variables whose generators are all-zero for these nodes.
+        %   This keeps LP problem sizes proportional to subgraph size rather
+        %   than full-graph size, which is critical for scalable verification.
+        %
+        %   Used by GNN.reachSubgraph for k-hop subgraph verification.
+        %
+        % Input:
+        %   node_indices - vector of 1-indexed node indices to keep
+        %
+        % Output:
+        %   sub_gs - GraphStar over node_indices with pruned predicates
+        %
+        % Author: Anne Tumlin
+        % Date: 03/11/2026
+
+            sub_V = obj.V(node_indices, :, :);  % [n_sub x F x (numPred+1)]
+
+            n_pred = obj.numPred;
+            if n_pred == 0
+                % No predicates: just a center (point set)
+                sub_gs = GraphStar(sub_V, obj.C, obj.d, obj.pred_lb, obj.pred_ub);
+                return;
+            end
+
+            % Find active predicates: any non-zero generator for these nodes
+            V_gens = reshape(sub_V(:, :, 2:end), [], n_pred);  % [n_sub*F x n_pred]
+            active_mask = any(V_gens ~= 0, 1);                 % [1 x n_pred]
+            active_idx = find(active_mask);
+
+            if isempty(active_idx)
+                % All generators zero for this subgraph — return point set
+                center = sub_V(:, :, 1);
+                sub_gs = GraphStar(center, zeros(size(center)), zeros(size(center)));
+                return;
+            end
+
+            % Prune V columns to active predicates only
+            sub_V_pruned = sub_V(:, :, [1, 1 + active_idx]);
+
+            % Prune constraint rows: keep rows that reference active predicates
+            sub_C_full = obj.C(:, active_idx);
+            active_rows = any(sub_C_full ~= 0, 2);
+            sub_C = sub_C_full(active_rows, :);
+            sub_d = obj.d(active_rows);
+
+            % GraphStar requires at least one constraint row
+            if isempty(sub_C)
+                sub_C = zeros(1, length(active_idx));
+                sub_d = 1;
+            end
+
+            sub_pred_lb = obj.pred_lb(active_idx);
+            sub_pred_ub = obj.pred_ub(active_idx);
+
+            sub_gs = GraphStar(sub_V_pruned, sub_C, sub_d, sub_pred_lb, sub_pred_ub);
+        end
+
     end
 
 

@@ -118,37 +118,64 @@ docker cp <container_id>:/tmp/results/VideoStar ./videostar_results
 
 # GNNV (Graph Neural Network Verification)
 
-Demonstrates GNN verification for power flow prediction on the IEEE 24-bus system, comparing GCN, GINE, and GINE+Edge architectures.
+Reachability-based verification of GNNs for power-flow prediction on
+IEEE bus systems. Three PyTorch Geometric–compatible architectures
+ship with trained models: GCN, SAGE (`SAGEConv`), and GINE-Conv
+(`GINEConv`). Two tasks: PowerFlow (PF) and OptimalPowerFlow (OPF).
+IEEE 24-bus models ship in-tree.
 
 ## Running GNNV
 
 ```bash
 cd /home/matlab/nnv/code/nnv/examples/NNV3.0/GNNV
-matlab -nodisplay -r "run('run_gnn_experiments.m'); exit()"
+matlab -nodisplay -r "run_gnn_experiments(); exit()"
 ```
 
-**Options:**
-- `run_gnn_experiments('quiet')` - Minimal output, logs to file
-- `run_gnn_experiments('no_figures')` - Skip figure generation
-- `run_gnn_experiments('quiet', 'no_figures')` - Both
+**Examples:**
+```matlab
+run_gnn_experiments();                                   % all archs × both tasks × IEEE24
+run_gnn_experiments('task', 'pf');                       % PF only
+run_gnn_experiments('architectures', {'gcn'});           % single arch
+run_gnn_experiments('num_graphs', 5);                    % smoke test
+run_gnn_experiments('mode', 'node_edge', ...
+                    'architectures', {'gine_conv'});     % edge perturbation
+```
 
 **Configuration:**
 
-The experiments verify voltage magnitude bounds on GNN outputs with:
-- **Models**: GCN, GINE, GINE+Edge
-- **Perturbation levels (ε)**: 0.001, 0.005, 0.01
-- **Test scenarios**: 10 (evenly sampled from test set)
-- **Voltage specification**: [0.95, 1.05] p.u.
+The harness sweeps GNN reachability over (arch × task × mode × grid × ε):
+- **Architectures**: GCN, SAGE, GINE-Conv (subset selectable)
+- **Tasks**: PF, OPF
+- **Perturbation modes**: `node_only` (P, Q features), `node_edge` (impedance — GINE-Conv only, PF only)
+- **Node ε defaults**: `[1e-5, 1e-4, 1e-3, 1e-2]`
+- **Edge ε defaults**: `[1e-3, 1e-2]`
+- **Test graphs**: 100 (pre-filtered to graphs whose ground-truth voltages lie within spec)
+- **Voltage spec (IEEE24)**: `[0.95, 1.05]` p.u.
+- **Reachability method**: `approx-star`
 
-**Expected runtime:** ~5 minutes
+**Expected runtime:** ~5 min on a small smoke run, ~30+ min on the full default sweep.
 
-## Results
+## Soundness check
 
-- `figures/dashboard.png`, `dashboard.pdf` - Visualization
-- `figures/results_table.tex` - LaTeX table
-- `results/gnn_results.mat` - Raw data
-
-To copy results from the container:
 ```bash
-docker cp <container_id>:/home/matlab/nnv/code/nnv/examples/NNV3.0/GNNV/figures ./gnnv_figures
+matlab -nodisplay -r "soundness_check(); exit()"
 ```
+
+Validates that reachable bounds over-approximate the true model
+output across all shipped configs (Monte Carlo sampling within
+the ε-ball; every sample's voltage must lie inside the reachable
+bounds).
+
+## Outputs
+
+Each run writes to a fresh timestamped folder under `results/`:
+- `results.mat` — full nested struct keyed `arch.task.mode.grid.eps_*`
+- `gnn_results.csv` — flat row-per-config CSV (Architecture, Task, Mode, Grid, Node_Epsilon, Edge_Epsilon, …, Pct_Verified, Mean_Bound_Width, …)
+- `experiments.log` — diary
+
+To copy results out of the container:
+```bash
+docker cp <container_id>:/home/matlab/nnv/code/nnv/examples/NNV3.0/GNNV/results ./gnnv_results
+```
+
+See `GNNV/README.md` for full configuration details.

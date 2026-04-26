@@ -1,557 +1,684 @@
 function results = run_gnn_experiments(varargin)
-% run_gnn_experiments - GNN verification experiments for CAV26 NNV3.0
+% run_gnn_experiments  Generalized GNN reachability/verification harness.
 %
-% This script demonstrates GNN verification capabilities on the IEEE 24-bus
-% Power Flow prediction task using three model architectures:
-%   - GCN: Graph Convolutional Network
-%   - GINE: Graph Isomorphism Network with Edge features (node perturbation)
-%   - GINE+Edge: GINE with both node and edge perturbations
-%
-% Experiments sweep epsilon values [0.001, 0.005, 0.01] and generate
-% publication-ready figures for the CAV26 repeatability package.
+% Sweeps a chosen set of GNN architectures (PyTorch Geometric–compatible)
+% across PowerFlow / OptimalPowerFlow tasks on the IEEE bus-system grids,
+% over node and (optionally) edge perturbation budgets. Models are loaded
+% via gnn2nnv (auto-detects model_type from the .mat).
 %
 % Usage:
-%   run_gnn_experiments()              % Run all experiments, generate figures
-%   run_gnn_experiments('no_figures')  % Skip figure generation
-%   run_gnn_experiments('quiet')       % Minimal output, log to file
-%   run_gnn_experiments('quiet', 'no_figures')  % Quiet mode, no figures
-%   results = run_gnn_experiments()    % Return results struct
+%   run_gnn_experiments()                                 % defaults: all archs, all tasks, IEEE24
+%   run_gnn_experiments('architectures', {'gcn','sage'})  % subset of archs
+%   run_gnn_experiments('task', 'pf')                     % PF only
+%   run_gnn_experiments('mode', 'node_only')              % skip edge perturbation
+%   run_gnn_experiments('num_graphs', 5)                  % smoke test
+%   run_gnn_experiments('node_epsilons', [1e-3, 5e-3])    % custom node sweep
 %
-% Outputs:
-%   results - Struct containing all experiment data and verification results
+% Models expected under:
+%   PowerFlow/<GRID>/models/<arch>_pf_<grid>.mat
+%   OptimalPowerFlow/<GRID>/models/<arch>_opf_<grid>.mat
+% with <arch> ∈ {gcn, sage, gine_conv} and <grid> ∈ {ieee24, ieee39, ieee118}.
 %
-% Author: Anne Tumlin
-% Date: 01/15/2026
+% Outputs (under results/<timestamp>/):
+%   results.mat     — full nested results struct
+%   gnn_results.csv — flat CSV (one row per arch × task × mode × grid × eps)
+%   experiments.log — diary
 
 %% Parse arguments
-generate_figures = true;
-verbose = true;
+p = inputParser;
+addParameter(p, 'architectures', {'gcn', 'sage', 'gine_conv'}, @iscell);
+addParameter(p, 'grid', 'ieee24', @ischar);    % single grid name or 'all'
+addParameter(p, 'task', 'all', @ischar);
+addParameter(p, 'mode', 'all', @ischar);       % 'node_only', 'node_edge', or 'all'
+addParameter(p, 'num_graphs', 100, @isnumeric);
+addParameter(p, 'parallel', false, @islogical);
+addParameter(p, 'num_workers', 0, @isnumeric);
+addParameter(p, 'node_epsilons', [1e-5, 1e-4, 1e-3, 1e-2], @isnumeric);
+addParameter(p, 'edge_epsilons', [1e-3, 1e-2], @isnumeric);
+parse(p, varargin{:});
 
-for i = 1:nargin
-    if strcmpi(varargin{i}, 'no_figures')
-        generate_figures = false;
-    elseif strcmpi(varargin{i}, 'quiet')
-        verbose = false;
+architectures = p.Results.architectures;
+
+if strcmp(p.Results.grid, 'all')
+    grids = {'ieee24', 'ieee39', 'ieee118'};
+else
+    grids = {p.Results.grid};
+end
+
+switch lower(p.Results.task)
+    case 'all',  tasks = {'pf', 'opf'};
+    case 'pf',   tasks = {'pf'};
+    case 'opf',  tasks = {'opf'};
+    otherwise,   error('task must be ''pf'', ''opf'', or ''all''');
+end
+
+switch p.Results.mode
+    case 'node_only', perturbation_modes = {'node_only'};
+    case 'node_edge', perturbation_modes = {'node_edge'};
+    otherwise,        perturbation_modes = {'node_only', 'node_edge'};
+end
+
+epsilon_values = p.Results.node_epsilons;
+edge_epsilons  = p.Results.edge_epsilons;
+num_graphs     = p.Results.num_graphs;
+perturb_node_features = [1, 2];   % P, Q
+perturb_edge_features = [1];      % impedance
+
+grid_v_bounds = struct( ...
+    'ieee24',  [0.95, 1.05], ...
+    'ieee39',  [0.94, 1.06], ...
+    'ieee118', [0.94, 1.09]);
+
+% Architectures that carry edge features and can be perturbed on edges.
+% (GCN uses A_norm, SAGE uses binary A — neither has an edge-feature input.)
+edge_capable_archs = {'gine_conv', 'gine_linear', 'gine_pretrain'};
+
+%% Parallel pool (optional)
+use_parallel = p.Results.parallel;
+num_workers  = p.Results.num_workers;
+pool = gcp('nocreate');
+if ~isempty(pool) && ~use_parallel
+    delete(pool);
+end
+if use_parallel
+    if num_workers == 0
+        num_workers = min(8, feature('numcores'));
     end
+    pool = gcp('nocreate');
+    if isempty(pool) || pool.NumWorkers ~= num_workers
+        if ~isempty(pool); delete(pool); end
+        pool = parpool('local', num_workers);
+    end
+    fprintf('Parallel mode: %d workers\n', pool.NumWorkers);
 end
 
-%% Configuration
-models = {'GCN', 'GINE', 'GINE+Edge'};
-epsilons = [0.001, 0.005, 0.01];
-perturb_features = [1, 2];  % Power injections only (matches GNNV)
-v_min = 0.95;  % Voltage spec lower bound (p.u.)
-v_max = 1.05;  % Voltage spec upper bound (p.u.)
-
-% Scenario configuration for repeatability experiments
-% Note: GINE model has 1000 samples, GCN has 1500 - use minimum
-num_scenarios = 10;
-scenario_indices = 1:100:1000;  % Evenly spaced: 1, 101, 201, ..., 901
-
-% Paths (self-contained - all files in this folder)
 scriptDir = fileparts(mfilename('fullpath'));
-modelDir = fullfile(scriptDir, 'models');
-resultsDir = fullfile(scriptDir, 'results');
-figuresDir = fullfile(scriptDir, 'figures');
 
-%% Setup logging (quiet mode writes to log file)
-log_file = '';
-if ~verbose
-    log_file = fullfile(resultsDir, sprintf('experiment_log_%s.txt', datestr(now, 'yyyy-mm-dd_HH-MM-SS')));
-    diary(log_file);
-end
+%% Output directory
+ts = datestr(datetime, 'yymmdd-HHMMSS');
+out_dir = fullfile(scriptDir, 'results', ['gnn_' ts]);
+if ~exist(out_dir, 'dir'); mkdir(out_dir); end
+log_file = fullfile(out_dir, 'experiments.log');
+diary(log_file);
 
-%% Initialize results structure
-results = struct();
-results.config = struct('models', {models}, 'epsilons', epsilons, ...
-    'perturb_features', perturb_features, 'v_min', v_min, 'v_max', v_max, ...
-    'num_scenarios', num_scenarios, 'scenario_indices', scenario_indices);
-results.data = cell(length(models), length(epsilons), num_scenarios);
-
-%% Print header
-if verbose
-    fprintf('\n');
-    fprintf('================================================================\n');
-    fprintf('        CAV26 GNN Verification Experiments (NNV 3.0)\n');
-    fprintf('================================================================\n');
-    fprintf('System: IEEE 24-bus Power Flow\n');
-    fprintf('Models: %s\n', strjoin(models, ', '));
-    fprintf('Node epsilon: %s\n', mat2str(epsilons));
-    fprintf('Edge epsilon: 0.001 (fixed, GINE+Edge only)\n');
-    fprintf('Voltage spec: [%.2f, %.2f] p.u.\n', v_min, v_max);
-    fprintf('Scenarios: %d (indices: %s)\n', num_scenarios, mat2str(scenario_indices));
-    fprintf('Total experiments: %d\n', length(models) * length(epsilons) * num_scenarios);
-    fprintf('================================================================\n\n');
-end
+%% Header
+fprintf('\n');
+fprintf('================================================================\n');
+fprintf('   GNN Verification Experiments\n');
+fprintf('================================================================\n');
+fprintf('Architectures: %s\n', strjoin(architectures, ', '));
+fprintf('Tasks: %s\n', strjoin(tasks, ', '));
+fprintf('Grids: %s\n', strjoin(grids, ', '));
+fprintf('Perturbation modes: %s\n', strjoin(perturbation_modes, ', '));
+fprintf('Node epsilons: %s\n', mat2str(epsilon_values));
+fprintf('Edge epsilons: %s\n', mat2str(edge_epsilons));
+fprintf('Test graphs/config: %d\n', num_graphs);
+fprintf('Perturbed node features: %s (P, Q)\n', mat2str(perturb_node_features));
+fprintf('Perturbed edge features: %s (impedance)\n', mat2str(perturb_edge_features));
+fprintf('Method: approx-star\n');
+fprintf('Results: %s\n', out_dir);
+fprintf('================================================================\n\n');
 
 total_start = tic;
 
-%% Load models once
-if verbose, fprintf('Loading models...\n'); end
+%% Initialize results
+results = struct();
+results.config = struct( ...
+    'architectures', {architectures}, 'grids', {grids}, 'tasks', {tasks}, ...
+    'perturbation_modes', {perturbation_modes}, ...
+    'epsilon_values', epsilon_values, 'edge_epsilons', edge_epsilons, ...
+    'v_bounds', grid_v_bounds, 'num_graphs', num_graphs, ...
+    'perturb_node_features', perturb_node_features, ...
+    'perturb_edge_features', perturb_edge_features);
 
-% Load GINE model
-gine_path = fullfile(modelDir, 'gine_ieee24.mat');
-gine_model = load(gine_path);
+%% Main loop: architecture × task × mode × grid × epsilon
+for ai = 1:length(architectures)
+    arch = lower(architectures{ai});
+    arch_label = upper(strrep(arch, '_', '-'));
 
-% Load GCN model
-gcn_path = fullfile(modelDir, 'gcn_ieee24.mat');
-gcn_model = load(gcn_path);
+    fprintf('\n################################################################\n');
+    fprintf('   Architecture: %s\n', arch_label);
+    fprintf('################################################################\n');
 
-if verbose, fprintf('Models loaded successfully.\n\n'); end
+    for ti = 1:length(tasks)
+        task = tasks{ti};
+        task_upper = upper(task);
 
-%% Run experiments
-exp_count = 0;
-total_experiments = length(models) * length(epsilons) * num_scenarios;
+        for mi = 1:length(perturbation_modes)
+            mode = perturbation_modes{mi};
+            is_edge = strcmp(mode, 'node_edge');
 
-for s = 1:num_scenarios
-    scenario_idx = scenario_indices(s);
-    if verbose, fprintf('=== Scenario %d/%d (sample index: %d) ===\n', s, num_scenarios, scenario_idx); end
+            % Edge perturbation only for PF and only for edge-capable archs.
+            if is_edge && ~strcmp(task, 'pf')
+                continue;
+            end
+            if is_edge && ~any(strcmp(arch, edge_capable_archs))
+                continue;
+            end
 
-    for m = 1:length(models)
-        model_name = models{m};
+            fprintf('\n--- %s | %s | %s ---\n', arch_label, task_upper, strrep(mode, '_', ' '));
 
-        for e = 1:length(epsilons)
-            epsilon = epsilons(e);
-            exp_count = exp_count + 1;
+            for g = 1:length(grids)
+                grid = grids{g};
+                grid_upper = upper(grid);
+                bounds = grid_v_bounds.(grid);
+                v_min = bounds(1); v_max = bounds(2);
+                use_subgraph = true;  % per-PQ-node k-hop subgraph verification
 
-            % Print experiment header (compact format)
-            if verbose
-                if strcmp(model_name, 'GINE+Edge')
-                    fprintf('[%d/%d] %s, eps=%.3f, edge_eps=0.001: ', exp_count, total_experiments, model_name, epsilon);
+                if strcmp(task, 'pf')
+                    mat_file = sprintf('%s_pf_%s.mat', arch, grid);
+                    mat_path = fullfile(scriptDir, 'PowerFlow', grid_upper, 'models', mat_file);
                 else
-                    fprintf('[%d/%d] %s, eps=%.3f: ', exp_count, total_experiments, model_name, epsilon);
+                    mat_file = sprintf('%s_opf_%s.mat', arch, grid);
+                    mat_path = fullfile(scriptDir, 'OptimalPowerFlow', grid_upper, 'models', mat_file);
                 end
-            end
-            exp_start = tic;
+                if ~isfile(mat_path)
+                    fprintf('  SKIP: %s not found\n', mat_path);
+                    continue;
+                end
 
-            % Run experiment based on model type
-            switch model_name
-                case 'GCN'
-                    exp_result = run_gcn_experiment(gcn_model, epsilon, perturb_features, v_min, v_max, scenario_idx);
-                case 'GINE'
-                    exp_result = run_gine_experiment(gine_model, epsilon, perturb_features, v_min, v_max, scenario_idx);
-                case 'GINE+Edge'
-                    exp_result = run_gine_edge_experiment(gine_model, epsilon, perturb_features, v_min, v_max, scenario_idx);
-            end
+                fprintf('Loading %s ...\n', mat_file);
+                [gnn, test_data, norm_stats] = gnn2nnv(mat_path);
 
-            exp_result.time = toc(exp_start);
-            exp_result.scenario_idx = scenario_idx;
-            results.data{m, e, s} = exp_result;
+                n_graphs_avail = min(num_graphs, test_data.num_graphs);
+                valid_graphs = filter_safe_graphs(test_data, norm_stats, v_min, v_max, n_graphs_avail);
+                n_valid   = length(valid_graphs);
+                n_skipped = n_graphs_avail - n_valid;
+                fprintf('  GT voltage filter: %d/%d graphs in [%.2f, %.2f] p.u. (%d skipped)\n', ...
+                    n_valid, n_graphs_avail, v_min, v_max, n_skipped);
 
-            % Print compact summary
-            if verbose
-                fprintf('V=%d, X=%d, U=%d (%.2fs)\n', ...
-                    exp_result.verified, exp_result.violated, exp_result.unknown, exp_result.time);
+                X_all_valid = cell(n_valid, 1);
+                for vi = 1:n_valid
+                    X_all_valid{vi} = test_data.X_all{valid_graphs(vi)};
+                end
+
+                gnn_layers       = gnn.Layers;
+                gnn_adj_list     = gnn.adj_list;
+                gnn_E            = gnn.E;
+                gnn_edge_weights = gnn.edge_weights;
+                gnn_A_norm       = gnn.A_norm;
+                gnn_name         = gnn.Name;
+
+                if is_edge
+                    for ee = 1:length(edge_epsilons)
+                        epsilon_edge = edge_epsilons(ee);
+                        E_const = gnn.E;
+                        range_per_edge_col = max(E_const) - min(E_const);
+                        eps_matrix_edge = zeros(size(E_const));
+                        for f = perturb_edge_features
+                            if f <= size(E_const, 2)
+                                eps_matrix_edge(:, f) = range_per_edge_col(f) * epsilon_edge;
+                            end
+                        end
+                        E_star = GraphStar(E_const, -eps_matrix_edge, eps_matrix_edge);
+
+                        for e = 1:length(epsilon_values)
+                            epsilon = epsilon_values(e);
+                            fprintf('  %s %s %s: eps=%.0e edge_eps=%.0e\n', ...
+                                arch_label, task_upper, grid_upper, epsilon, epsilon_edge);
+                            graph_results = run_epsilon_batch(X_all_valid, valid_graphs, ...
+                                epsilon, perturb_node_features, use_subgraph, norm_stats, ...
+                                v_min, v_max, gnn_layers, gnn_A_norm, gnn_adj_list, ...
+                                E_star, gnn_edge_weights, gnn_name, use_parallel, ...
+                                n_graphs_avail, n_skipped);
+                            eps_key  = make_eps_key(epsilon);
+                            edge_key = make_eps_key(epsilon_edge);
+                            results.(arch).(task).node_edge.(grid).(edge_key).(eps_key) = graph_results;
+                            print_summary(arch_label, task_upper, grid_upper, epsilon, ...
+                                epsilon_edge, graph_results, n_skipped);
+                        end
+                    end
+                else
+                    for e = 1:length(epsilon_values)
+                        epsilon = epsilon_values(e);
+                        fprintf('  %s %s %s: eps=%.0e\n', ...
+                            arch_label, task_upper, grid_upper, epsilon);
+                        graph_results = run_epsilon_batch(X_all_valid, valid_graphs, ...
+                            epsilon, perturb_node_features, use_subgraph, norm_stats, ...
+                            v_min, v_max, gnn_layers, gnn_A_norm, gnn_adj_list, ...
+                            gnn_E, gnn_edge_weights, gnn_name, use_parallel, ...
+                            n_graphs_avail, n_skipped);
+                        eps_key = make_eps_key(epsilon);
+                        results.(arch).(task).node_only.(grid).(eps_key) = graph_results;
+                        print_summary(arch_label, task_upper, grid_upper, epsilon, ...
+                            [], graph_results, n_skipped);
+                    end
+                end
+
+                clear gnn test_data norm_stats;
             end
         end
+
+        % Intermediate save per (arch × task)
+        results.elapsed_time = toc(total_start);
+        save(fullfile(out_dir, 'results_partial.mat'), 'results');
     end
-    if verbose, fprintf('\n'); end
 end
 
 total_time = toc(total_start);
-if verbose
-    fprintf('================================================================\n');
-    fprintf('Total time: %.2f seconds\n', total_time);
-    fprintf('================================================================\n\n');
-end
 
-%% Save results
+%% Grand summary + outputs
+print_grand_summary(results, architectures, tasks, perturbation_modes, grids, ...
+    epsilon_values, edge_epsilons);
+
+fprintf('\nTotal time: %.1f seconds (%.1f minutes)\n', total_time, total_time/60);
+
 results.total_time = total_time;
-results_file = fullfile(resultsDir, 'gnn_results.mat');
-save(results_file, 'results');
-fprintf('Results saved to: %s\n', results_file);
+save(fullfile(out_dir, 'results.mat'), 'results');
+write_csv_summaries(results, architectures, tasks, perturbation_modes, grids, ...
+    epsilon_values, edge_epsilons, out_dir);
 
-%% Generate figures and LaTeX table
-if generate_figures
-    if verbose, fprintf('\nGenerating dashboard and LaTeX table...\n'); end
-
-    % Generate combined dashboard (topology + sensitivity)
-    generate_cav26_dashboard(results, gine_model, figuresDir, 'layout', 'force');
-
-    % Generate LaTeX results table (percentages)
-    generate_latex_table(results, figuresDir);
-
-    if verbose, fprintf('Outputs saved to: %s\n', figuresDir); end
-end
-
-%% Print summary table with mean ± std across scenarios
-fprintf('\n');
-fprintf('================================================================\n');
-fprintf('              RESULTS SUMMARY (mean ± std over %d scenarios)\n', num_scenarios);
-fprintf('================================================================\n');
-fprintf('%-12s | ', 'Model');
-for e = 1:length(epsilons)
-    fprintf('  eps=%.3f   | ', epsilons(e));
-end
-fprintf('\n');
-fprintf('%-12s-+-', repmat('-', 1, 12));
-for e = 1:length(epsilons)
-    fprintf('-------------+-');
-end
-fprintf('\n');
-
-for m = 1:length(models)
-    fprintf('%-12s | ', models{m});
-    for e = 1:length(epsilons)
-        % Collect verified counts across all scenarios
-        verified_counts = zeros(1, num_scenarios);
-        for s = 1:num_scenarios
-            verified_counts(s) = results.data{m, e, s}.verified;
-        end
-        mean_v = mean(verified_counts);
-        std_v = std(verified_counts);
-        fprintf('%5.1f ± %4.1f | ', mean_v, std_v);
-    end
-    fprintf('\n');
-end
-fprintf('================================================================\n');
-
-% Also print total nodes for reference
-fprintf('Note: Total voltage-output nodes per scenario: %d\n', ...
-    results.data{1,1,1}.verified + results.data{1,1,1}.unknown + results.data{1,1,1}.violated);
-
-%% Close logging
-if ~verbose
-    diary off;
-    fprintf('Log saved to: %s\n', log_file);
-end
-
+fprintf('Results saved to: %s\n', out_dir);
+diary off;
 end
 
 
 %% =========================================================================
-%  EXPERIMENT FUNCTIONS
+%  RUN ONE EPSILON BATCH (parfor or serial)
 %  =========================================================================
 
-function result = run_gcn_experiment(model, epsilon, perturb_features, v_min, v_max, scenario_idx)
-% Run GCN verification experiment
+function graph_results = run_epsilon_batch(X_all_valid, valid_graphs, ...
+        epsilon, perturb_node_features, use_subgraph, norm_stats, ...
+        v_min, v_max, gnn_layers, gnn_A_norm, gnn_adj_list, gnn_E, ...
+        gnn_edge_weights, gnn_name, use_parallel, n_total, n_skipped)
 
-    % Extract weights
-    params = model.best_params;
-    W1 = double(gather(params.mult1.Weights));
-    W2 = double(gather(params.mult2.Weights));
-    W3 = double(gather(params.mult3.Weights));
+    n_valid = length(valid_graphs);
+    tmp_reach_time = zeros(n_valid, 1);
+    tmp_verified   = zeros(n_valid, 1);
+    tmp_unknown    = zeros(n_valid, 1);
+    tmp_violated   = zeros(n_valid, 1);
+    tmp_na_nodes   = zeros(n_valid, 1);
+    tmp_mean_width = zeros(n_valid, 1);
+    tmp_max_width  = zeros(n_valid, 1);
 
-    % Extract bias from model (if present), otherwise use zeros
-    if isfield(params.mult1, 'Bias')
-        b1 = double(extractdata(gather(params.mult1.Bias)));
-        b2 = double(extractdata(gather(params.mult2.Bias)));
-        b3 = double(extractdata(gather(params.mult3.Bias)));
+    if use_parallel
+        parfor vi = 1:n_valid
+            X = X_all_valid{vi};
+            gnn_local = GNN(gnn_layers, gnn_A_norm, gnn_adj_list, gnn_E, gnn_edge_weights, gnn_name);
+            [t_vi, v_vi, u_vi, viol_vi, na_vi, mw_vi, xw_vi] = ...
+                verify_single_graph(gnn_local, X, epsilon, perturb_node_features, ...
+                    use_subgraph, norm_stats, v_min, v_max);
+            tmp_reach_time(vi) = t_vi;
+            tmp_verified(vi)   = v_vi;
+            tmp_unknown(vi)    = u_vi;
+            tmp_violated(vi)   = viol_vi;
+            tmp_na_nodes(vi)   = na_vi;
+            tmp_mean_width(vi) = mw_vi;
+            tmp_max_width(vi)  = xw_vi;
+        end
     else
-        b1 = zeros(size(W1, 2), 1);
-        b2 = zeros(size(W2, 2), 1);
-        b3 = zeros(size(W3, 2), 1);
-    end
-
-    % Create layers with ReLU activations
-    L1 = GCNLayer('gcn1', W1, b1);
-    R1 = ReluLayer();
-    L2 = GCNLayer('gcn2', W2, b2);
-    R2 = ReluLayer();
-    L3 = GCNLayer('gcn3', W3, b3);
-    R3 = ReluLayer();
-
-    % Graph structure
-    A_norm = double(model.ANorm_g);
-    X = double(model.X_test_g{scenario_idx});
-    numNodes = size(X, 1);
-
-    % Create GNN
-    gnn = GNN({L1, R1, L2, R2, L3, R3}, A_norm);
-
-    % Create input perturbation
-    GS_in = create_node_perturbation(X, epsilon, perturb_features);
-
-    % Compute reachability (quiet mode)
-    reachOpts = struct('reachMethod', 'approx-star');
-    t_reach = tic;
-    GS_out = gnn.reach(GS_in, reachOpts);
-    reach_time = toc(t_reach);
-
-    % Get bounds
-    [lb_out, ub_out] = GS_out.getRanges();
-
-    % Verify voltage spec
-    verif_results = verify_voltage_spec(GS_out, model, v_min, v_max, scenario_idx);
-
-    % Extract voltage-specific bounds for figures
-    voltage_idx = 3;  % Voltage magnitude index in output
-    voltage_lb = lb_out(:, voltage_idx);
-    voltage_ub = ub_out(:, voltage_idx);
-
-    % Convert to physical units for visualization
-    voltage_lb_phys = voltage_lb * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
-    voltage_ub_phys = voltage_ub * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
-
-    % Package results
-    result = struct();
-    result.reach_time = reach_time;
-    result.verified = sum(verif_results == 1);
-    result.violated = sum(verif_results == 0);
-    result.unknown_boundary = sum(verif_results == 2);
-    result.unknown_timeout = sum(verif_results == 3);
-    result.unknown = result.unknown_boundary + result.unknown_timeout;
-    result.mean_width = mean(ub_out(:) - lb_out(:));
-    result.max_width = max(ub_out(:) - lb_out(:));
-
-    % Store per-node data for figures
-    result.verif_per_node = verif_results;
-    result.voltage_bounds = [voltage_lb_phys, voltage_ub_phys];
-    result.bound_widths = ub_out(:, voltage_idx) - lb_out(:, voltage_idx);
-end
-
-
-function result = run_gine_experiment(model, epsilon, perturb_features, v_min, v_max, scenario_idx)
-% Run GINE verification experiment (node perturbation only)
-
-    % Extract weights
-    params = model.best_params;
-    W_node1 = double(gather(params.mult1.Weights));
-    W_node2 = double(gather(params.mult2.Weights));
-    W_node3 = double(gather(params.mult3.Weights));
-    W_edge1 = double(gather(params.edge1.Weights));
-    W_edge2 = double(gather(params.edge2.Weights));
-    W_edge3 = double(gather(params.edge3.Weights));
-
-    b_node1 = zeros(size(W_node1, 2), 1);
-    b_node2 = zeros(size(W_node2, 2), 1);
-    b_node3 = zeros(size(W_node3, 2), 1);
-    b_edge1 = zeros(size(W_edge1, 2), 1);
-    b_edge2 = zeros(size(W_edge2, 2), 1);
-    b_edge3 = zeros(size(W_edge3, 2), 1);
-
-    % Create layers
-    L1 = GINELayer('gine1', W_node1, b_node1, W_edge1, b_edge1);
-    L2 = GINELayer('gine2', W_node2, b_node2, W_edge2, b_edge2);
-    L3 = GINELayer('gine3', W_node3, b_node3, W_edge3, b_edge3);
-
-    % Graph structure
-    src = double(model.src);
-    dst = double(model.dst);
-    adj_list = [src, dst];
-    E = double(model.E_edge);
-    edge_weights = double(model.a);
-    X = double(model.X_test_g{scenario_idx});
-
-    % Create GNN
-    gnn = GNN({L1, L2, L3}, [], adj_list, E, edge_weights);
-
-    % Create input perturbation
-    GS_in = create_node_perturbation(X, epsilon, perturb_features);
-
-    % Compute reachability (quiet mode)
-    reachOpts = struct('reachMethod', 'approx-star');
-    t_reach = tic;
-    GS_out = gnn.reach(GS_in, reachOpts);
-    reach_time = toc(t_reach);
-
-    % Get bounds
-    [lb_out, ub_out] = GS_out.getRanges();
-
-    % Verify voltage spec
-    verif_results = verify_voltage_spec(GS_out, model, v_min, v_max, scenario_idx);
-
-    % Extract voltage-specific bounds for figures
-    voltage_idx = 3;  % Voltage magnitude index in output
-    voltage_lb = lb_out(:, voltage_idx);
-    voltage_ub = ub_out(:, voltage_idx);
-
-    % Convert to physical units for visualization
-    voltage_lb_phys = voltage_lb * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
-    voltage_ub_phys = voltage_ub * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
-
-    % Package results
-    result = struct();
-    result.reach_time = reach_time;
-    result.verified = sum(verif_results == 1);
-    result.violated = sum(verif_results == 0);
-    result.unknown_boundary = sum(verif_results == 2);
-    result.unknown_timeout = sum(verif_results == 3);
-    result.unknown = result.unknown_boundary + result.unknown_timeout;
-    result.mean_width = mean(ub_out(:) - lb_out(:));
-    result.max_width = max(ub_out(:) - lb_out(:));
-
-    % Store per-node data for figures
-    result.verif_per_node = verif_results;
-    result.voltage_bounds = [voltage_lb_phys, voltage_ub_phys];
-    result.bound_widths = ub_out(:, voltage_idx) - lb_out(:, voltage_idx);
-end
-
-
-function result = run_gine_edge_experiment(model, epsilon, perturb_features, v_min, v_max, scenario_idx)
-% Run GINE verification experiment (node + edge perturbation)
-
-    % Extract weights
-    params = model.best_params;
-    W_node1 = double(gather(params.mult1.Weights));
-    W_node2 = double(gather(params.mult2.Weights));
-    W_node3 = double(gather(params.mult3.Weights));
-    W_edge1 = double(gather(params.edge1.Weights));
-    W_edge2 = double(gather(params.edge2.Weights));
-    W_edge3 = double(gather(params.edge3.Weights));
-
-    b_node1 = zeros(size(W_node1, 2), 1);
-    b_node2 = zeros(size(W_node2, 2), 1);
-    b_node3 = zeros(size(W_node3, 2), 1);
-    b_edge1 = zeros(size(W_edge1, 2), 1);
-    b_edge2 = zeros(size(W_edge2, 2), 1);
-    b_edge3 = zeros(size(W_edge3, 2), 1);
-
-    % Create layers
-    L1 = GINELayer('gine1', W_node1, b_node1, W_edge1, b_edge1);
-    L2 = GINELayer('gine2', W_node2, b_node2, W_edge2, b_edge2);
-    L3 = GINELayer('gine3', W_node3, b_node3, W_edge3, b_edge3);
-
-    % Graph structure
-    src = double(model.src);
-    dst = double(model.dst);
-    adj_list = [src, dst];
-    E = double(model.E_edge);
-    edge_weights = double(model.a);
-    X = double(model.X_test_g{scenario_idx});
-    numEdges = size(adj_list, 1);
-
-    % Create node perturbation
-    GS_in = create_node_perturbation(X, epsilon, perturb_features);
-
-    % Create edge perturbation (fixed at 0.001, independent of node epsilon)
-    epsilon_edge = 0.001;  % Fixed edge perturbation
-    perturb_edge_features = [1];  % First edge feature (impedance)
-    range_per_edge_col = max(E) - min(E);
-    eps_matrix_edge = zeros(numEdges, size(E, 2));
-    for f = perturb_edge_features
-        if f <= size(E, 2)
-            eps_matrix_edge(:, f) = range_per_edge_col(f) * epsilon_edge;
+        for vi = 1:n_valid
+            X = X_all_valid{vi};
+            gi = valid_graphs(vi);
+            gnn_local = GNN(gnn_layers, gnn_A_norm, gnn_adj_list, gnn_E, gnn_edge_weights, gnn_name);
+            [t_vi, v_vi, u_vi, viol_vi, na_vi, mw_vi, xw_vi] = ...
+                verify_single_graph(gnn_local, X, epsilon, perturb_node_features, ...
+                    use_subgraph, norm_stats, v_min, v_max);
+            tmp_reach_time(vi) = t_vi;
+            tmp_verified(vi)   = v_vi;
+            tmp_unknown(vi)    = u_vi;
+            tmp_violated(vi)   = viol_vi;
+            tmp_na_nodes(vi)   = na_vi;
+            tmp_mean_width(vi) = mw_vi;
+            tmp_max_width(vi)  = xw_vi;
+            if mod(vi, 10) == 0 || vi == n_valid
+                fprintf('    [%d/%d] (graph %d) time=%.3fs, verified=%d, unknown=%d, violated=%d\n', ...
+                    vi, n_valid, gi, t_vi, v_vi, u_vi, viol_vi);
+            end
         end
     end
-    E_star = GraphStar(E, -eps_matrix_edge, eps_matrix_edge);
 
-    % Create GNN with edge perturbation
-    gnn = GNN({L1, L2, L3}, [], adj_list, E_star, edge_weights);
-
-    % Compute reachability (quiet mode)
-    reachOpts = struct('reachMethod', 'approx-star');
-    t_reach = tic;
-    GS_out = gnn.reach(GS_in, reachOpts);
-    reach_time = toc(t_reach);
-
-    % Get bounds
-    [lb_out, ub_out] = GS_out.getRanges();
-
-    % Verify voltage spec
-    verif_results = verify_voltage_spec(GS_out, model, v_min, v_max, scenario_idx);
-
-    % Extract voltage-specific bounds for figures
-    voltage_idx = 3;  % Voltage magnitude index in output
-    voltage_lb = lb_out(:, voltage_idx);
-    voltage_ub = ub_out(:, voltage_idx);
-
-    % Convert to physical units for visualization
-    voltage_lb_phys = voltage_lb * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
-    voltage_ub_phys = voltage_ub * model.global_std_labels(voltage_idx) + model.global_mean_labels(voltage_idx);
-
-    % Package results
-    result = struct();
-    result.reach_time = reach_time;
-    result.verified = sum(verif_results == 1);
-    result.violated = sum(verif_results == 0);
-    result.unknown_boundary = sum(verif_results == 2);
-    result.unknown_timeout = sum(verif_results == 3);
-    result.unknown = result.unknown_boundary + result.unknown_timeout;
-    result.mean_width = mean(ub_out(:) - lb_out(:));
-    result.max_width = max(ub_out(:) - lb_out(:));
-
-    % Store per-node data for figures
-    result.verif_per_node = verif_results;
-    result.voltage_bounds = [voltage_lb_phys, voltage_ub_phys];
-    result.bound_widths = ub_out(:, voltage_idx) - lb_out(:, voltage_idx);
+    graph_results = struct();
+    graph_results.reach_time    = tmp_reach_time;
+    graph_results.verified      = tmp_verified;
+    graph_results.unknown       = tmp_unknown;
+    graph_results.violated      = tmp_violated;
+    graph_results.na_nodes      = tmp_na_nodes;
+    graph_results.mean_width    = tmp_mean_width;
+    graph_results.max_width     = tmp_max_width;
+    graph_results.graph_indices = valid_graphs;
+    graph_results.n_total       = n_total;
+    graph_results.n_skipped     = n_skipped;
 end
 
 
 %% =========================================================================
-%  HELPER FUNCTIONS
+%  SINGLE-GRAPH VERIFICATION (parfor-compatible)
 %  =========================================================================
 
-function GS = create_node_perturbation(X, epsilon, perturb_features)
-% Create GraphStar with selective feature perturbation
+function [reach_time, n_verified, n_unknown, n_violated, n_na, mean_w, max_w] = ...
+        verify_single_graph(gnn_local, X, epsilon, perturb_node_features, ...
+            use_subgraph, norm_stats, v_min, v_max)
 
-    numNodes = size(X, 1);
     range_per_col = max(X) - min(X);
-    eps_matrix = zeros(numNodes, size(X, 2));
-
-    for f = perturb_features
+    eps_matrix = zeros(size(X));
+    for f = perturb_node_features
         if f <= size(X, 2)
             eps_matrix(:, f) = range_per_col(f) * epsilon;
         end
     end
+    GS_in = GraphStar(X, -eps_matrix, eps_matrix);
 
-    GS = GraphStar(X, -eps_matrix, eps_matrix);
+    reachOpts = struct('reachMethod', 'approx-star');
+
+    t_start = tic;
+
+    if use_subgraph
+        if isfield(norm_stats, 'X_max')
+            X_phys_sg = X .* norm_stats.X_max;
+        else
+            X_phys_sg = X;
+        end
+        pq_nodes = find(round(X_phys_sg(:, 4)) == 1);
+
+        [node_outputs, sg_info] = gnn_local.reachSubgraph(GS_in, pq_nodes, reachOpts);
+
+        voltage_idx_sg = 3;
+        if isfield(norm_stats, 'Y_max')
+            Y_max_v_sg = norm_stats.Y_max(voltage_idx_sg);
+        else
+            Y_max_v_sg = 1;
+        end
+        v_min_norm_sg = v_min / Y_max_v_sg;
+        v_max_norm_sg = v_max / Y_max_v_sg;
+
+        verif = -1 * ones(size(X, 1), 1);
+        all_widths = [];
+        for ti_sg = 1:length(pq_nodes)
+            t_node = pq_nodes(ti_sg);
+            t_local = sg_info(ti_sg).target_local_idx;
+            gs_t = node_outputs{ti_sg};
+            [v_lb, v_ub] = gs_t.getRange(t_local, voltage_idx_sg);
+            if v_lb >= v_min_norm_sg && v_ub <= v_max_norm_sg
+                verif(t_node) = 1;
+            elseif v_ub < v_min_norm_sg || v_lb > v_max_norm_sg
+                verif(t_node) = 0;
+            else
+                verif(t_node) = 2;
+            end
+            [lb_t, ub_t] = gs_t.estimateRanges();
+            all_widths = [all_widths; ub_t(t_local,:)' - lb_t(t_local,:)']; %#ok<AGROW>
+        end
+        if ~isempty(all_widths)
+            mean_w = mean(all_widths(:));
+            max_w  = max(all_widths(:));
+        else
+            mean_w = 0; max_w = 0;
+        end
+    else
+        GS_out = gnn_local.reach(GS_in, reachOpts);
+        mean_w = 0; max_w = 0;
+        verif = verify_voltage_maxnorm(GS_out, norm_stats, X, v_min, v_max);
+    end
+
+    reach_time = toc(t_start);
+    n_verified = sum(verif == 1);
+    n_unknown  = sum(verif == 2);
+    n_violated = sum(verif == 0);
+    n_na       = sum(verif == -1);
 end
 
 
 %% =========================================================================
-%  VERIFICATION FUNCTION (embedded for self-containment)
+%  GROUND TRUTH PRE-FILTER
 %  =========================================================================
 
-function results = verify_voltage_spec(GS_out, model_data, v_min, v_max, scenario_idx)
-% verify_voltage_spec - Verify voltage magnitude bounds on GNN output
-%
-% Uses LP-based verification (verify_specification) for precise results,
-% with fallback to interval bounds when LP returns unknown.
+function valid = filter_safe_graphs(test_data, norm_stats, v_min, v_max, n_graphs)
+    voltage_idx = 3;
+    bus_type_idx = 4;
+    valid = [];
+    for gi = 1:n_graphs
+        X = test_data.X_all{gi};
+        Y = test_data.Y_all{gi};
+        if isfield(norm_stats, 'X_max')
+            X_phys = X .* norm_stats.X_max;
+        else
+            X_phys = X;
+        end
+        if isfield(norm_stats, 'Y_max')
+            Y_max_v = norm_stats.Y_max(voltage_idx);
+        else
+            Y_max_v = 1;
+        end
+        voltage_mask = (round(X_phys(:, bus_type_idx)) == 1);
+        gt_voltages = Y(voltage_mask, voltage_idx) * Y_max_v;
+        if all(gt_voltages >= v_min) && all(gt_voltages <= v_max)
+            valid(end+1) = gi; %#ok<AGROW>
+        end
+    end
+end
 
-    voltage_idx = 3;   % Index of voltage magnitude in output features
-    bus_type_idx = 4;  % Index of bus_type in input features
 
-    % Normalize physical voltage bounds to model space
-    v_min_norm = (v_min - model_data.global_mean_labels(voltage_idx)) / ...
-                 model_data.global_std_labels(voltage_idx);
-    v_max_norm = (v_max - model_data.global_mean_labels(voltage_idx)) / ...
-                 model_data.global_std_labels(voltage_idx);
+%% =========================================================================
+%  VOLTAGE VERIFICATION (full-graph)
+%  =========================================================================
 
-    % Identify voltage-output nodes (bus_type == 1)
-    X_physical = model_data.X_test_g{scenario_idx} .* model_data.global_std + model_data.global_mean;
-    voltage_mask = (X_physical(:, bus_type_idx) == 1);
-
+function res = verify_voltage_maxnorm(GS_out, norm_stats, X, v_min, v_max)
+    voltage_idx = 3;
+    bus_type_idx = 4;
     numNodes = size(GS_out.V, 1);
     numFeatures = size(GS_out.V, 2);
-    results = zeros(numNodes, 1);
+    res = zeros(numNodes, 1);
 
-    % Convert GraphStar to Star for verification
+    if isfield(norm_stats, 'Y_max')
+        v_min_norm = v_min / norm_stats.Y_max(voltage_idx);
+        v_max_norm = v_max / norm_stats.Y_max(voltage_idx);
+    else
+        v_min_norm = v_min;
+        v_max_norm = v_max;
+    end
+
+    if isfield(norm_stats, 'X_max')
+        X_physical = X .* norm_stats.X_max;
+    else
+        X_physical = X;
+    end
+    voltage_mask = (round(X_physical(:, bus_type_idx)) == 1);
+
     Y_star = GS_out.toStar();
 
     for i = 1:numNodes
         if ~voltage_mask(i)
-            results(i) = -1;  % Not applicable (not a voltage-output node)
+            res(i) = -1;
             continue;
         end
-
-        % Extract the i-th node's features as a Star set
         matIdx = zeros(1, numNodes * numFeatures);
         flat_idx = (voltage_idx - 1) * numNodes + i;
         matIdx(flat_idx) = 1;
-
-        % Extract 1D Star for this node's voltage feature
         Y_node = Y_star.affineMap(matIdx, []);
-
-        % Create halfspace constraints for voltage bounds
         G = [1; -1];
-        g = [v_max_norm; -v_min_norm];
-        Hs = [HalfSpace(G(1,:), g(1)); HalfSpace(G(2,:), g(2))];
-
-        % LP-based verification
-        res = verify_specification(Y_node, Hs);
-
-        % Fallback to interval bounds if LP returns unknown
-        if res == 2
+        g_vec = [v_max_norm; -v_min_norm];
+        Hs = [HalfSpace(G(1,:), g_vec(1)); HalfSpace(G(2,:), g_vec(2))];
+        r = verify_specification(Y_node, Hs);
+        if r == 2
             [lb, ub] = Y_node.getRanges;
             if lb(1) >= v_min_norm && ub(1) <= v_max_norm
-                res = 1;  % Verified safe - bounds fully within spec
+                r = 1;
             elseif ub(1) < v_min_norm || lb(1) > v_max_norm
-                res = 0;  % Violated - bounds fully outside spec
-            else
-                res = 2;  % Unknown - bounds cross spec boundary
+                r = 0;
             end
         end
-
-        results(i) = res;
+        res(i) = r;
     end
+end
+
+
+%% =========================================================================
+%  SUMMARY HELPERS
+%  =========================================================================
+
+function print_summary(arch_label, task_upper, grid_upper, epsilon, epsilon_edge, r, n_skipped)
+    total_v = sum(r.verified);
+    total_u = sum(r.unknown);
+    total_viol = sum(r.violated);
+    total_nodes = total_v + total_u + total_viol;
+    avg_time = mean(r.reach_time);
+    if isempty(epsilon_edge)
+        fprintf('    [%s %s %s eps=%.0e] verified=%d/%d (%.1f%%), unknown=%d, violated=%d, avg=%.3fs\n', ...
+            arch_label, task_upper, grid_upper, epsilon, ...
+            total_v, total_nodes, 100*total_v/max(1,total_nodes), total_u, total_viol, avg_time);
+    else
+        fprintf('    [%s %s %s eps=%.0e edge=%.0e] verified=%d/%d (%.1f%%), unknown=%d, violated=%d, avg=%.3fs\n', ...
+            arch_label, task_upper, grid_upper, epsilon, epsilon_edge, ...
+            total_v, total_nodes, 100*total_v/max(1,total_nodes), total_u, total_viol, avg_time);
+    end
+    if n_skipped > 0
+        fprintf('      (%d graphs skipped — GT voltages outside spec)\n', n_skipped);
+    end
+end
+
+
+function key = make_eps_key(epsilon)
+    key = ['eps_' strrep(sprintf('%.0e', epsilon), '-', 'n')];
+    key = strrep(key, '+', '');
+    key = strrep(key, '.', '_');
+end
+
+
+function print_grand_summary(results, archs, tasks, modes, grids, epsilon_values, edge_epsilons)
+    fprintf('\n================================================================\n');
+    fprintf('  GRAND SUMMARY\n');
+    fprintf('================================================================\n');
+    for ai = 1:length(archs)
+        arch = lower(archs{ai});
+        if ~isfield(results, arch); continue; end
+        for ti = 1:length(tasks)
+            task = tasks{ti};
+            if ~isfield(results.(arch), task); continue; end
+            for mi = 1:length(modes)
+                mode = modes{mi};
+                if ~isfield(results.(arch).(task), mode); continue; end
+                is_edge = strcmp(mode, 'node_edge');
+                fprintf('\n--- %s | %s | %s ---\n', upper(arch), upper(task), strrep(mode, '_', ' '));
+                for g = 1:length(grids)
+                    grid = grids{g};
+                    if ~isfield(results.(arch).(task).(mode), grid); continue; end
+                    if is_edge
+                        for ee = 1:length(edge_epsilons)
+                            edge_key = make_eps_key(edge_epsilons(ee));
+                            if ~isfield(results.(arch).(task).(mode).(grid), edge_key); continue; end
+                            fprintf('  %s (edge_eps=%.0e):\n', upper(grid), edge_epsilons(ee));
+                            print_summary_table(results.(arch).(task).(mode).(grid).(edge_key), epsilon_values);
+                        end
+                    else
+                        fprintf('  %s:\n', upper(grid));
+                        print_summary_table(results.(arch).(task).(mode).(grid), epsilon_values);
+                    end
+                end
+            end
+        end
+    end
+    fprintf('\n================================================================\n');
+end
+
+
+function print_summary_table(grid_results, epsilon_values)
+    fprintf('  %-10s |', 'Time');
+    for e = 1:length(epsilon_values)
+        eps_key = make_eps_key(epsilon_values(e));
+        if isfield(grid_results, eps_key)
+            r = grid_results.(eps_key);
+            fprintf(' %8.3fs |', mean(r.reach_time));
+        else
+            fprintf('      N/A  |');
+        end
+    end
+    fprintf('\n  %-10s |', 'Verified');
+    for e = 1:length(epsilon_values)
+        eps_key = make_eps_key(epsilon_values(e));
+        if isfield(grid_results, eps_key)
+            r = grid_results.(eps_key);
+            tv = sum(r.verified);
+            total = tv + sum(r.unknown) + sum(r.violated);
+            fprintf(' %4d/%-4d  |', tv, total);
+        else
+            fprintf('      N/A  |');
+        end
+    end
+    fprintf('\n  %-10s |', 'Pct');
+    for e = 1:length(epsilon_values)
+        eps_key = make_eps_key(epsilon_values(e));
+        if isfield(grid_results, eps_key)
+            r = grid_results.(eps_key);
+            tv = sum(r.verified);
+            total = tv + sum(r.unknown) + sum(r.violated);
+            fprintf(' %7.1f%%  |', 100*tv/max(1,total));
+        else
+            fprintf('      N/A  |');
+        end
+    end
+    fprintf('\n');
+end
+
+
+%% =========================================================================
+%  CSV OUTPUT
+%  =========================================================================
+
+function write_csv_summaries(results, archs, tasks, modes, grids, epsilon_values, edge_epsilons, out_dir)
+    csv_file = fullfile(out_dir, 'gnn_results.csv');
+    fid = fopen(csv_file, 'w');
+    fprintf(fid, ['Architecture,Task,Mode,Grid,Node_Epsilon,Edge_Epsilon,' ...
+        'Total_Graphs,Safe_Graphs,Skipped_Graphs,Avg_Time_s,' ...
+        'Total_Verified,Total_Unknown,Total_Violated,Total_Voltage_Nodes,' ...
+        'Pct_Verified,Mean_Bound_Width,Max_Bound_Width\n']);
+    for ai = 1:length(archs)
+        arch = lower(archs{ai});
+        if ~isfield(results, arch); continue; end
+        for ti = 1:length(tasks)
+            task = tasks{ti};
+            if ~isfield(results.(arch), task); continue; end
+            for mi = 1:length(modes)
+                mode = modes{mi};
+                if ~isfield(results.(arch).(task), mode); continue; end
+                is_edge = strcmp(mode, 'node_edge');
+                for g = 1:length(grids)
+                    grid = grids{g};
+                    if ~isfield(results.(arch).(task).(mode), grid); continue; end
+                    if is_edge
+                        for ee = 1:length(edge_epsilons)
+                            edge_key = make_eps_key(edge_epsilons(ee));
+                            if ~isfield(results.(arch).(task).(mode).(grid), edge_key); continue; end
+                            for e = 1:length(epsilon_values)
+                                eps_key = make_eps_key(epsilon_values(e));
+                                if ~isfield(results.(arch).(task).(mode).(grid).(edge_key), eps_key); continue; end
+                                r = results.(arch).(task).(mode).(grid).(edge_key).(eps_key);
+                                write_csv_row(fid, arch, task, mode, grid, ...
+                                    epsilon_values(e), edge_epsilons(ee), r);
+                            end
+                        end
+                    else
+                        for e = 1:length(epsilon_values)
+                            eps_key = make_eps_key(epsilon_values(e));
+                            if ~isfield(results.(arch).(task).(mode).(grid), eps_key); continue; end
+                            r = results.(arch).(task).(mode).(grid).(eps_key);
+                            write_csv_row(fid, arch, task, mode, grid, ...
+                                epsilon_values(e), NaN, r);
+                        end
+                    end
+                end
+            end
+        end
+    end
+    fclose(fid);
+    fprintf('Saved: %s\n', csv_file);
+end
+
+
+function write_csv_row(fid, arch, task, mode, grid, node_eps, edge_eps, r)
+    tv = sum(r.verified);
+    tu = sum(r.unknown);
+    tviol = sum(r.violated);
+    total = tv + tu + tviol;
+    n_safe = length(r.reach_time);
+    if isnan(edge_eps)
+        edge_eps_str = 'N/A';
+    else
+        edge_eps_str = sprintf('%.0e', edge_eps);
+    end
+    fprintf(fid, '%s,%s,%s,%s,%.0e,%s,%d,%d,%d,%.4f,%d,%d,%d,%d,%.2f,%.6f,%.6f\n', ...
+        upper(arch), upper(task), mode, upper(grid), node_eps, edge_eps_str, ...
+        r.n_total, n_safe, r.n_skipped, mean(r.reach_time), ...
+        tv, tu, tviol, total, 100*tv/max(1,total), ...
+        mean(r.mean_width), max(r.max_width));
 end

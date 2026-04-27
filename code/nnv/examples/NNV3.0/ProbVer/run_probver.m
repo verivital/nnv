@@ -6,9 +6,11 @@
 % this script will attempt to do it automatically.
 
 %% ========== CONFIGURATION ==========
-numSamples = 3;   % Number of instances to verify
-randomSeed = 42;  % Seed for reproducibility
-nRand = 100;      % Number of random samples for falsification
+% Defaults below are applied only when the caller has not already set
+% these variables in scope (e.g., from run_all.sh --smoke).
+if ~exist('numSamples', 'var'); numSamples = 3; end   % Number of instances to verify
+if ~exist('randomSeed', 'var'); randomSeed = 42; end  % Seed for reproducibility
+if ~exist('nRand',      'var'); nRand      = 100; end % Number of random samples for falsification
 
 %% ========== SETUP PATHS ==========
 scriptDir = fileparts(mfilename('fullpath'));
@@ -16,7 +18,11 @@ benchmarkDir = fullfile(scriptDir, 'yolo_2023');
 onnxDir = fullfile(benchmarkDir, 'onnx');
 vnnlibDir = fullfile(benchmarkDir, 'vnnlib');
 instancesFile = fullfile(benchmarkDir, 'instances.csv');
-resultsFile = fullfile(scriptDir, 'results_summary.csv');
+% Timestamped output: results/<yymmdd-HHmmss>/results_summary.csv
+ts = char(datetime('now', 'Format', 'yyMMdd-HHmmss'));
+resultsDir = fullfile(scriptDir, 'results', ts);
+if ~exist(resultsDir, 'dir'); mkdir(resultsDir); end
+resultsFile = fullfile(resultsDir, 'results_summary.csv');
 
 %% ========== DECOMPRESS FILES IF NEEDED ==========
 disp('Checking for compressed files...');

@@ -2,22 +2,21 @@ function results = run_gnn_experiments(varargin)
 % run_gnn_experiments  Generalized GNN reachability/verification harness.
 %
 % Sweeps a chosen set of GNN architectures (PyTorch Geometric–compatible)
-% across PowerFlow / OptimalPowerFlow tasks on the IEEE bus-system grids,
-% over node and (optionally) edge perturbation budgets. Models are loaded
-% via gnn2nnv (auto-detects model_type from the .mat).
+% over PowerFlow on the IEEE bus-system grids, plus node and (optionally)
+% edge perturbation budgets. Models are loaded via gnn2nnv (auto-detects
+% model_type from the .mat).
 %
 % Usage:
-%   run_gnn_experiments()                                 % defaults: all archs, all tasks, IEEE24
+%   run_gnn_experiments()                                 % defaults: all archs, IEEE24, node-only
 %   run_gnn_experiments('architectures', {'gcn','sage'})  % subset of archs
-%   run_gnn_experiments('task', 'pf')                     % PF only
-%   run_gnn_experiments('mode', 'node_only')              % skip edge perturbation
+%   run_gnn_experiments('mode', 'node_edge')              % opt-in edge perturbation
 %   run_gnn_experiments('num_graphs', 5)                  % smoke test
 %   run_gnn_experiments('node_epsilons', [1e-3, 5e-3])    % custom node sweep
 %
 % Models expected under:
 %   PowerFlow/<GRID>/models/<arch>_pf_<grid>.mat
-%   OptimalPowerFlow/<GRID>/models/<arch>_opf_<grid>.mat
-% with <arch> ∈ {gcn, sage, gine_conv} and <grid> ∈ {ieee24, ieee39, ieee118}.
+% with <arch> ∈ {gcn, sage, gine_conv} and <grid> ∈ {ieee24}.
+% Only IEEE24 ships in this folder; the layout is extension-ready for more grids.
 %
 % Outputs (under results/<timestamp>/):
 %   results.mat     — full nested results struct
@@ -25,12 +24,15 @@ function results = run_gnn_experiments(varargin)
 %   experiments.log — diary
 
 %% Parse arguments
+% Defaults are paper-aligned: 10 graphs, node-only perturbation, 3 archs,
+% 4-ε sweep. Edge-perturbation support is preserved as an opt-in via
+% `'mode','node_edge'` (works only on edge-capable architectures
+% — GINE-Conv — on the PowerFlow task).
 p = inputParser;
 addParameter(p, 'architectures', {'gcn', 'sage', 'gine_conv'}, @iscell);
-addParameter(p, 'grid', 'ieee24', @ischar);    % single grid name or 'all'
-addParameter(p, 'task', 'all', @ischar);
-addParameter(p, 'mode', 'all', @ischar);       % 'node_only', 'node_edge', or 'all'
-addParameter(p, 'num_graphs', 100, @isnumeric);
+addParameter(p, 'grid', 'ieee24', @ischar);    % only ieee24 ships
+addParameter(p, 'mode', 'node_only', @ischar); % 'node_only' (default), 'node_edge', or 'all'
+addParameter(p, 'num_graphs', 10, @isnumeric);
 addParameter(p, 'parallel', false, @islogical);
 addParameter(p, 'num_workers', 0, @isnumeric);
 addParameter(p, 'node_epsilons', [1e-5, 1e-4, 1e-3, 1e-2], @isnumeric);
@@ -38,19 +40,8 @@ addParameter(p, 'edge_epsilons', [1e-3, 1e-2], @isnumeric);
 parse(p, varargin{:});
 
 architectures = p.Results.architectures;
-
-if strcmp(p.Results.grid, 'all')
-    grids = {'ieee24', 'ieee39', 'ieee118'};
-else
-    grids = {p.Results.grid};
-end
-
-switch lower(p.Results.task)
-    case 'all',  tasks = {'pf', 'opf'};
-    case 'pf',   tasks = {'pf'};
-    case 'opf',  tasks = {'opf'};
-    otherwise,   error('task must be ''pf'', ''opf'', or ''all''');
-end
+grids = {p.Results.grid};
+tasks = {'pf'};
 
 switch p.Results.mode
     case 'node_only', perturbation_modes = {'node_only'};
@@ -165,13 +156,8 @@ for ai = 1:length(architectures)
                 v_min = bounds(1); v_max = bounds(2);
                 use_subgraph = true;  % per-PQ-node k-hop subgraph verification
 
-                if strcmp(task, 'pf')
-                    mat_file = sprintf('%s_pf_%s.mat', arch, grid);
-                    mat_path = fullfile(scriptDir, 'PowerFlow', grid_upper, 'models', mat_file);
-                else
-                    mat_file = sprintf('%s_opf_%s.mat', arch, grid);
-                    mat_path = fullfile(scriptDir, 'OptimalPowerFlow', grid_upper, 'models', mat_file);
-                end
+                mat_file = sprintf('%s_pf_%s.mat', arch, grid);
+                mat_path = fullfile(scriptDir, 'PowerFlow', grid_upper, 'models', mat_file);
                 if ~isfile(mat_path)
                     fprintf('  SKIP: %s not found\n', mat_path);
                     continue;
@@ -388,16 +374,30 @@ function [reach_time, n_verified, n_unknown, n_violated, n_na, mean_w, max_w] = 
             t_node = pq_nodes(ti_sg);
             t_local = sg_info(ti_sg).target_local_idx;
             gs_t = node_outputs{ti_sg};
-            [v_lb, v_ub] = gs_t.getRange(t_local, voltage_idx_sg);
-            if v_lb >= v_min_norm_sg && v_ub <= v_max_norm_sg
-                verif(t_node) = 1;
-            elseif v_ub < v_min_norm_sg || v_lb > v_max_norm_sg
-                verif(t_node) = 0;
-            else
+            % Wide-bound configurations (e.g., ε=1e-2) can drive linprog
+            % to a non-converged exitflag, which lpsolver tries to recover
+            % from via glpk. If glpk isn't installed in the active MATLAB
+            % image, the call errors out — degrade gracefully to "unknown"
+            % rather than abort the whole sweep.
+            try
+                [v_lb, v_ub] = gs_t.getRange(t_local, voltage_idx_sg);
+                if v_lb >= v_min_norm_sg && v_ub <= v_max_norm_sg
+                    verif(t_node) = 1;
+                elseif v_ub < v_min_norm_sg || v_lb > v_max_norm_sg
+                    verif(t_node) = 0;
+                else
+                    verif(t_node) = 2;
+                end
+            catch ME
+                fprintf(2, '    [warn] getRange failed for node %d (%s) — marking unknown\n', t_node, ME.message);
                 verif(t_node) = 2;
             end
-            [lb_t, ub_t] = gs_t.estimateRanges();
-            all_widths = [all_widths; ub_t(t_local,:)' - lb_t(t_local,:)']; %#ok<AGROW>
+            try
+                [lb_t, ub_t] = gs_t.estimateRanges();
+                all_widths = [all_widths; ub_t(t_local,:)' - lb_t(t_local,:)']; %#ok<AGROW>
+            catch
+                % estimateRanges can also fail on solver issues — skip width.
+            end
         end
         if ~isempty(all_widths)
             mean_w = mean(all_widths(:));

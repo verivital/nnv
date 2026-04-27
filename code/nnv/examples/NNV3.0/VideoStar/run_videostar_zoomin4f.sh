@@ -1,46 +1,33 @@
 #!/bin/bash
 # VideoStar ZoomIn-4f Verification Script
 #
-# This script runs a subset of the ZoomIn-4f verification experiments
-# for VideoStar. It is designed to be run inside the NNV Docker container.
+# Thin wrapper around run_zoomin_4f.m. The .m file is the canonical
+# reference implementation; this wrapper is convenient for shell-only
+# automation and CI.
 #
-# Usage (inside Docker container):
-#   cd /home/matlab/nnv/code/nnv/examples/NNV3.0/VideoStar
-#   ./run_videostar_zoomin4f.sh
+# Usage:
+#   ./run_videostar_zoomin4f.sh            # from this directory
 #
-# Or with MATLAB headless:
-#   cd /home/matlab/nnv/code/nnv/examples/NNV3.0/VideoStar
-#   matlab -nodisplay -r "run('run_zoomin_4f.m'); exit()"
+# Equivalent direct invocation:
+#   matlab -batch "run_zoomin_4f"
 #
-# Or with Python:
-#   cd /home/matlab/nnv/code/nnv/examples/NNV3.0/VideoStar
-#   python run_zoomin_4f.py --algorithm relax --num-samples 10
+# A Python wrapper (run_zoomin_4f.py) is also provided.
+
+set -euo pipefail
+cd "$(dirname "$0")"
+
+if [ ! -f "run_zoomin_4f.m" ]; then
+    echo "Error: run_zoomin_4f.m not found in $(pwd)" >&2
+    exit 1
+fi
 
 echo "=============================================="
 echo "VideoStar ZoomIn-4f Verification"
 echo "=============================================="
-echo ""
 
-# Check if we're in the right directory
-if [ ! -f "run_zoomin_4f.m" ]; then
-    echo "Error: run_zoomin_4f.m not found."
-    echo "Please run this script from the VideoStar directory:"
-    echo "  cd /home/matlab/nnv/code/nnv/examples/NNV3.0/VideoStar"
-    exit 1
-fi
-
-echo "Running ZoomIn-4f verification with MATLAB..."
-echo ""
-
-# Run the MATLAB script
-matlab -nodisplay -r "run('run_zoomin_4f.m'); exit()"
+matlab -nodisplay -batch "run_zoomin_4f"
 
 echo ""
 echo "=============================================="
-echo "VideoStar ZoomIn-4f Verification Complete"
+echo "Done. Results under VideoStar/results/<timestamp>/"
 echo "=============================================="
-echo ""
-echo "Results saved to: /tmp/results/VideoStar/ZoomIn/4/"
-echo ""
-echo "To copy results from the container:"
-echo "  docker cp <container_id>:/tmp/results/VideoStar ./videostar_results"

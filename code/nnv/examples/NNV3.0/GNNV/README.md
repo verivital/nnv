@@ -1,122 +1,106 @@
-# GNN Verification (NNV3.0/GNNV)
+# GNNV — Graph Neural Network Verification
 
-Reachability-based verification of Graph Neural Networks for power-flow
-prediction on IEEE bus systems. Models are PyTorch Geometric–compatible
-architectures, exported to NNV via the `gnn2nnv` loader.
+Reachability-based verification of Graph Neural Networks for **AC power
+flow** prediction on the IEEE 24-bus system. The script runs three
+PyTorch Geometric–compatible architectures (GCN, SAGE, GINE-Conv) over
+a configurable ε grid and checks per-node voltage-magnitude safety
+constraints. Models load through `gnn2nnv.m`, which auto-detects the
+architecture from the `.mat`'s `model_type` field and builds the right
+NNV `GNN` object.
+
+## References
+
+- **GNNV (this work)**: Tumlin, A.M., Shao, Z., Manzanas Lopez, D.,
+  Derr, T., Johnson, T.T. *Reachability-based formal verification of
+  graph neural networks with node and edge features.* 2026 (under
+  review).
+- **Power-grid benchmark**: Varbella, A., Amara, K., Gjorgiev, B.,
+  El-Assady, M., Sansavini, G. *PowerGraph: A power grid benchmark
+  dataset for graph neural networks.* NeurIPS 2024 Datasets &
+  Benchmarks.
 
 ## Architectures
 
-Three GNN architectures with direct PyG analogues:
+Three GNN architectures, all with direct PyTorch Geometric analogues:
 
-| Tag         | PyG layer    | NNV class         | Edge features? |
-|-------------|--------------|-------------------|----------------|
-| `gcn`       | `GCNConv`    | `GCNLayer`        | no             |
-| `sage`      | `SAGEConv`   | `SAGEConvLayer`   | no             |
-| `gine_conv` | `GINEConv`   | `GINEConvLayer`   | yes            |
-
-Models trained externally and shipped here as `.mat` files. The
-`model_type` field inside each `.mat` is what `gnn2nnv` uses to dispatch
-to the right NNV layer construction.
-
-## Tasks and grids
-
-- **Tasks**: PowerFlow (`pf`), OptimalPowerFlow (`opf`).
-- **Grid (shipped)**: IEEE 24-bus only. Folder layout
-  (`PowerFlow/IEEE39/`, `IEEE118/`) is reserved for future grids — drop
-  more `.mat` files in and the harness picks them up via
-  `'grid','ieee39'`.
+| Tag         | PyG layer  | NNV class       | Edge features used? |
+|-------------|------------|-----------------|---------------------|
+| `gcn`       | `GCNConv`  | `GCNLayer`      | no                  |
+| `sage`      | `SAGEConv` | `SAGEConvLayer` | no (binary adjacency only) |
+| `gine_conv` | `GINEConv` | `GINEConvLayer` | yes (line impedance) |
 
 ## Layout
 
 ```
 NNV3.0/GNNV/
-├── run_gnn_experiments.m        Unified verification harness
-├── soundness_check.m            MC-sampling vs reachable bounds
-├── PowerFlow/IEEE24/models/     gcn|sage|gine_conv _pf_ieee24.mat
-├── OptimalPowerFlow/IEEE24/models/  gcn|sage|gine_conv _opf_ieee24.mat
-├── results/                     Timestamped output directories
-└── figures/                     Reserved for post-hoc plots
+├── README.md                       This file
+├── run_gnn_experiments.m           Main verification script
+├── PowerFlow/IEEE24/models/
+│   ├── gcn_pf_ieee24.mat
+│   ├── sage_pf_ieee24.mat
+│   └── gine_conv_pf_ieee24.mat
+└── results/                        Timestamped output (gnn_<ts>/)
 ```
+
+Only PowerFlow on IEEE 24-bus ships in this folder. The script is
+extension-ready (additional grids would live at `PowerFlow/IEEE39/`,
+etc.) but no other grids are included.
 
 ## Running
 
-NNV must be installed (`code/nnv/install.m`) and on the MATLAB path.
+NNV must be installed (`code/nnv/install.m`) and on the MATLAB path
+inside the Docker image.
 
-### Default sweep (all archs × both tasks × IEEE24)
-
-```matlab
-run_gnn_experiments();
-```
-
-Outputs go to `results/gnn_<timestamp>/`:
-- `results.mat` — full nested struct keyed `arch.task.mode.grid.eps_*`
-- `gnn_results.csv` — flat row-per-config CSV
-- `experiments.log` — diary
-
-### Smaller smoke test
+### Default sweep (paper-aligned)
 
 ```matlab
-run_gnn_experiments('num_graphs', 5, ...
-                    'architectures', {'gcn'}, ...
-                    'task', 'pf', ...
-                    'mode', 'node_only', ...
-                    'node_epsilons', [1e-3]);
+matlab -batch "cd code/nnv/examples/NNV3.0/GNNV; run_gnn_experiments"
 ```
 
-### Edge perturbation (PF only, GINE-Conv only)
+Sweeps all 3 architectures × PF × IEEE24 × node-only perturbation × 4 ε
+values × 10 graphs.
+
+### Smoke (single architecture, single ε, fewer graphs)
 
 ```matlab
-run_gnn_experiments('architectures', {'gine_conv'}, ...
-                    'task', 'pf', ...
-                    'mode', 'node_edge', ...
-                    'edge_epsilons', [1e-3, 5e-3]);
+matlab -batch "cd code/nnv/examples/NNV3.0/GNNV; \
+    run_gnn_experiments('num_graphs', 3, 'architectures', {'gcn'}, \
+                        'node_epsilons', [1e-3])"
 ```
 
-### Configuration parameters
+## Configuration parameters
 
 | Parameter        | Default                       | Notes |
 |------------------|-------------------------------|-------|
 | `architectures`  | `{'gcn','sage','gine_conv'}`  | Subset to run |
-| `grid`           | `'ieee24'`                    | Or `'all'` if more grids ship later |
-| `task`           | `'all'`                       | Or `'pf'` / `'opf'` |
-| `mode`           | `'all'`                       | `'node_only'` or `'node_edge'` |
-| `num_graphs`     | `100`                         | Pre-filtered to "safe" graphs (GT voltages within spec) |
-| `node_epsilons`  | `[1e-5,1e-4,1e-3,1e-2]`       | Relative perturbation on (P, Q) |
-| `edge_epsilons`  | `[1e-3,1e-2]`                 | Relative perturbation on impedance, GINE-Conv only |
+| `grid`           | `'ieee24'`                    | Only IEEE24 ships |
+| `task`           | `'pf'`                        | Only PowerFlow ships |
+| `mode`           | `'node_only'`                 | `'node_only'` or `'node_edge'` (GINE-Conv + PF only) |
+| `num_graphs`     | `10`                          | Pre-filtered to "safe" graphs (GT voltages within voltage spec) |
+| `node_epsilons`  | `[1e-5, 1e-4, 1e-3, 1e-2]`    | Relative perturbation on (P, Q) |
+| `edge_epsilons`  | `[1e-3, 1e-2]`                | Used only when `mode='node_edge'` |
 | `parallel`       | `false`                       | Set `true` for `parfor` |
-| `num_workers`    | `0` (auto)                    | Workers when `parallel=true` |
+| `num_workers`    | `0` (auto)                    | When `parallel=true` |
 
-## Soundness check
+## Outputs
 
-Validates that reachable bounds over-approximate the true output:
-```matlab
-soundness_check();                   % default: 3 graphs × 50 MC samples
-soundness_check('archs', {'gcn'});   % single arch
-```
+A timestamped subfolder `results/gnn_<yymmdd-HHMMSS>/` is created per
+run. Inside:
 
-For each shipped `(arch, task, grid)` config, the script:
-1. Verifies nominal accuracy: `gnn.evaluate(X)` matches stored `Y_test`.
-2. Runs reachability for ε = 0.005 and Monte Carlo samples 50 random
-   perturbations within the ε-ball — every sample's voltage output
-   must lie inside the reachable bounds.
-3. Reports mean / max bound widths.
+- `gnn_results.csv` — flat row-per-config CSV. Columns: Architecture,
+  Task, Mode, Grid, Node_Epsilon, Edge_Epsilon, Total_Graphs,
+  Safe_Graphs, Skipped_Graphs, Avg_Time_s, Total_Verified,
+  Total_Unknown, Total_Violated, Total_Voltage_Nodes, Pct_Verified,
+  Mean_Bound_Width, Max_Bound_Width
+- `results.mat` — full nested struct keyed `arch.task.mode.grid.eps_*`
+- `experiments.log` — MATLAB diary
 
-## Plotting / tables
+Plots and LaTeX tables for the paper are produced post-hoc from `gnn_results.csv` with external tools.
 
-`gnn_results.csv` is the single source of truth for results. Plots and
-LaTeX tables are intentionally not generated here — produce them with
-your own tooling (Python / pandas / matplotlib / siunitx) from the CSV.
+## Expected runtime
 
-## Adding new architectures or grids
+Measured on an NVIDIA RTX 4060 host running the `nnv3.0` Docker image
+(MATLAB R2024b), CPU verification:
 
-1. Train a model in PyTorch Geometric. Export to `.mat` via the
-   `mat_exporter.py` / `weight_converter.py` pipeline (lives in the
-   external research repo, not in NNV).
-2. Drop the `.mat` into the right folder
-   (`<Task>/<GRID>/models/<arch>_<task>_<grid>.mat`) and ensure
-   `model_type` is set inside the `.mat`.
-3. If the architecture is not already supported by `gnn2nnv`, extend
-   `code/nnv/engine/utils/gnn2nnv.m` and add a corresponding
-   `<Arch>Layer.m` under `code/nnv/engine/nn/layers/`.
-4. Add the architecture tag to the `architectures` arg of
-   `run_gnn_experiments`.
+- **Smoke** (1 arch × 1 ε × 3 graphs): ~10 s
+- **Default sweep** (3 archs × 4 ε × 10 graphs, PF only): **~3.5 minutes**

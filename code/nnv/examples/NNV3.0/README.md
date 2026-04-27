@@ -1,181 +1,230 @@
-# Instructions
+# NNV3 — Tool Paper Repeatability Package
 
-When building the docker image, we are copying the local NNV files into the container. The result of this is that
-the files are not in an editable state. So, if we make a change locally to the files, the changes will not show
-up within the container. We will have to rebuild the container if we want the files to be updated.
+This folder is the experimental repeatability package for the ATVA 2026
+paper.
 
-Additionally, we need to run the `docker build` command from NNV's root so that all of the code gets copied into the
-docker container correctly. We can do this with
-```
-cd /home/sasakis/v/tools/nnv
-docker build -t nnv3.0 -f code/nnv/examples/NNV3.0/Dockerfile .
-```
-Then access the container with
-```
-docker run --gpus all -it nnv3.0
-```
-We need the `--gpus all` flag for the probabilistic verification which uses GPU.
+It bundles five end-to-end verification examples covering the major
+new capabilities introduced by NNV3 — fairness, probabilistic, video,
+graph, and weight perturbation — each runnable from a single command,
+with all models and data shipped in-tree.
 
-# FairNNV
-Make sure to run the scripts after having already run
-```
-cd /path/to/NNV3.0/FairNNV
-```
-i.e., make sure you are in the FairNNV directory before running the scripts with MATLAB headless.
+## Examples at a glance
 
-After this, we can run the experiments with
-```
-matlab -nodisplay -r "run('run_fm26_fairnnv.m'); exit()"
-```
-Once the experiments run, we can copy them from the docker container onto the local filesystem by opening
-a new terminal, finding the container id with `docker ps -a` and then running
-```
-docker cp <container_id>:/path/to/fm26_fairnnv_results /target/destination/for/fm26_fairnnv_results
-```
-The first path is the path to the results directory within the container and the second will be the path to the 
-target destination of the directory on the local file system.
+| Folder | Capability | GPU? | Default sweep time |
+|---|---|---|---|
+| [GNNV](GNNV/) | Graph NN power-flow verification (PyG, GraphStar) | no | ~3.5 min |
+| [FairNNV](FairNNV/) | Fairness on Adult-Income classifier | no | ~2 min |
+| [ModelStar](ModelStar/) | Weight-perturbation on MNIST MLP | no | ~70 min |
+| [VideoStar](VideoStar/) | 3D-CNN video verification (ZoomIn-4f, VolumeStar) | no | ~12 min |
+| [ProbVer](ProbVer/) | Probabilistic verification of TinyYOLO (cp-star) | recommended | ~8 min (CPU) |
 
-# Probabilistic Verification
-After building the container and running it like in the earlier instructions, we can run the following to run the probabilistic
-verification:
-```
-cd /path/to/NNV3.0/ProbVer
-matlab -nodisplay -r "run('run_probver.m'); exit()"
-```
+Total wall-clock for the full sweep on a single workstation:
+**~95 minutes** (~1.5 hours).
 
-# ModelStar
+## TL;DR — running the full paper reproduction
 
-All of the code for running the examples for ModelStar are contained elsewhere within the tool (see `nnv/code/nnv/examples/Tutorial/NN/MNIST/weightPerturb`).
-
-In this repository, run the `run_expt_for_compute.m` script to run the experiments and then produce the plot shown in the paper by running the `EXPT.m` script.
-
-# VideoStar
-
-The VideoStar experiments run verification on video classification neural networks using the ZoomIn dataset.
-The full experiments are in `nnv/code/nnv/examples/Submission/FORMALISE2025`, and this directory contains
-scripts for running a subset of those experiments (ZoomIn-4f).
-
-## Prerequisites
-
-The VideoStar experiments require the ONNX models and data files to be placed in the FORMALISE2025 directory structure.
-
-### Data Setup
-
-If you have data files in `VideoStar/data/`, copy them to the FORMALISE2025 data directory:
-```bash
-cp -r code/nnv/examples/NNV3.0/VideoStar/data/* code/nnv/examples/Submission/FORMALISE2025/data/
-```
-
-The expected directory structure in `FORMALISE2025/data/` is:
-```
-data/
-└── ZoomIn/
-    ├── mnistvideo_zoom_in_4f_test_data_seq.npy
-    └── mnistvideo_zoom_in_test_labels_seq.npy
-```
-
-The ONNX models (e.g., `zoomin_4f.onnx`) should be in `FORMALISE2025/models/`.
-
-## Running VideoStar ZoomIn-4f (Subset)
-
-After building the container and running it, navigate to the VideoStar directory and run:
+After the prerequisites and one-time setup below:
 
 ```bash
-cd /home/matlab/nnv/code/nnv/examples/NNV3.0/VideoStar
-matlab -nodisplay -r "run('run_zoomin_4f.m'); exit()"
+docker run --rm --gpus all \
+    -v "$PWD":/home/matlab/nnv \
+    -w /home/matlab/nnv/code/nnv/examples/NNV3.0 \
+    nnv3.0 ./run_all.sh --full
 ```
 
-Alternatively, you can use the shell script:
-```bash
-cd /home/matlab/nnv/code/nnv/examples/NNV3.0/VideoStar
-./run_videostar_zoomin4f.sh
-```
+When it finishes, eyeball-compare your numbers against
+[`EXPECTED_RESULTS.md`](EXPECTED_RESULTS.md) (which documents the
+paper's headline numbers per example).
 
-Or use the Python interface:
-```bash
-cd /home/matlab/nnv/code/nnv/examples/NNV3.0/VideoStar
-python run_zoomin_4f.py --algorithm relax --num-samples 10
-```
+Read on for prerequisites, build, one-time setup, and the smaller
+options (smoke run, single example, no-GPU).
 
-## Configuration
+---
 
-The `run_zoomin_4f.m` script can be configured by editing the CONFIGURATION section:
-- `config.sampleIndices`: Which samples to verify (default: 1:10)
-- `config.verAlgorithm`: Either 'relax' or 'approx' (default: 'relax')
-- `config.timeout`: Timeout per sample in seconds (default: 1800)
+## 1. Prerequisites
 
-## Results
+- **Docker** with the `--gpus` runtime if you want ProbVer
+  GPU-accelerated.
+- **MATLAB license**. The Dockerfile references a network license
+  server via the `LICENSE_SERVER` build-arg (default Vandy's). External
+  evaluators must override this — see *License setup* below.
+- **NVIDIA GPU** with CUDA-capable drivers — recommended for ProbVer
+  only (other examples are CPU). ProbVer falls back to CPU if no
+  compatible GPU is detected.
+- **Disk space**: the `nnv3.0` Docker image is ~26 GB (MATLAB R2024b
+  dominates).
 
-Results are saved to `/tmp/results/VideoStar/ZoomIn/4/` with CSV files for each epsilon value:
-- `eps=1_255.csv`: Results with epsilon = 1/255
-- `eps=2_255.csv`: Results with epsilon = 2/255
-- `eps=3_255.csv`: Results with epsilon = 3/255
+## 2. Build the Docker image
 
-To copy results from the container to your local filesystem:
-```bash
-docker cp <container_id>:/tmp/results/VideoStar ./videostar_results
-```
-
-# GNNV (Graph Neural Network Verification)
-
-Reachability-based verification of GNNs for power-flow prediction on
-IEEE bus systems. Three PyTorch Geometric–compatible architectures
-ship with trained models: GCN, SAGE (`SAGEConv`), and GINE-Conv
-(`GINEConv`). Two tasks: PowerFlow (PF) and OptimalPowerFlow (OPF).
-IEEE 24-bus models ship in-tree.
-
-## Running GNNV
+From the repo root:
 
 ```bash
-cd /home/matlab/nnv/code/nnv/examples/NNV3.0/GNNV
-matlab -nodisplay -r "run_gnn_experiments(); exit()"
+docker build \
+    --build-arg LICENSE_SERVER=27009@your.license.server \
+    -t nnv3.0 \
+    -f code/nnv/examples/NNV3.0/Dockerfile \
+    .
 ```
 
-**Examples:**
-```matlab
-run_gnn_experiments();                                   % all archs × both tasks × IEEE24
-run_gnn_experiments('task', 'pf');                       % PF only
-run_gnn_experiments('architectures', {'gcn'});           % single arch
-run_gnn_experiments('num_graphs', 5);                    % smoke test
-run_gnn_experiments('mode', 'node_edge', ...
-                    'architectures', {'gine_conv'});     % edge perturbation
+The build:
+- Installs MATLAB R2024b plus the toolboxes NNV needs.
+- Copies the repo into the image at `/home/matlab/nnv`.
+- Creates a Python venv and installs `requirement.txt` (used by ProbVer).
+- Runs `install.m` to put NNV on the saved MATLAB path.
+
+### License setup
+
+Set `LICENSE_SERVER` to a license server you have access to:
+
+```
+--build-arg LICENSE_SERVER=27009@licenseserver.it.vanderbilt.edu   # internal default
+--build-arg LICENSE_SERVER=27000@your-floating-server              # your institution
 ```
 
-**Configuration:**
+If you don't have a network license, you'll need to either use a
+MathWorks-hosted MATLAB Online environment, or modify the Dockerfile
+to use a different licensing strategy (e.g. mounting an
+individual-license `network.lic`).
 
-The harness sweeps GNN reachability over (arch × task × mode × grid × ε):
-- **Architectures**: GCN, SAGE, GINE-Conv (subset selectable)
-- **Tasks**: PF, OPF
-- **Perturbation modes**: `node_only` (P, Q features), `node_edge` (impedance — GINE-Conv only, PF only)
-- **Node ε defaults**: `[1e-5, 1e-4, 1e-3, 1e-2]`
-- **Edge ε defaults**: `[1e-3, 1e-2]`
-- **Test graphs**: 100 (pre-filtered to graphs whose ground-truth voltages lie within spec)
-- **Voltage spec (IEEE24)**: `[0.95, 1.05]` p.u.
-- **Reachability method**: `approx-star`
+## 3. One-time host setup (when bind-mounting your repo)
 
-**Expected runtime:** ~5 min on a small smoke run, ~30+ min on the full default sweep.
-
-## Soundness check
+The default `docker run` command below bind-mounts your local repo
+into the container at `/home/matlab/nnv`, which **shadows** two things
+the image built during `docker build`: the Python `.venv` and the
+writable results / decompression directories. You need to recreate
+them on the host once:
 
 ```bash
-matlab -nodisplay -r "soundness_check(); exit()"
+# (a) Build .venv on the host (required by ProbVer's cp-star Python helpers).
+mkdir -p .venv && chmod 777 .venv
+docker run --rm \
+    -v "$PWD":/home/matlab/nnv \
+    -w /home/matlab/nnv \
+    nnv3.0 bash -c "python3 -m venv .venv && \
+                    .venv/bin/pip install --no-cache-dir -r requirement.txt"
+
+# (b) Make per-example results / decompression directories writable from
+#     inside the container (the matlab user inside has a different UID
+#     than your host user).
+chmod 777 \
+    code/nnv/examples/NNV3.0/results \
+    code/nnv/examples/NNV3.0/{FairNNV,ProbVer,VideoStar,ModelStar,GNNV}/results \
+    code/nnv/examples/NNV3.0/ProbVer/yolo_2023/{onnx,vnnlib} \
+    code/nnv/engine/nn/Prob_reach/Temp_files_mid_run \
+    code/nnv/examples/NNV3.0/ModelStar/runtime
 ```
 
-Validates that reachable bounds over-approximate the true model
-output across all shipped configs (Monte Carlo sampling within
-the ε-ball; every sample's voltage must lie inside the reachable
-bounds).
+Skip step (a) if you don't plan to run ProbVer. The other examples
+don't call into Python.
 
-## Outputs
+If you build the image without bind-mounting (i.e. run inside the
+image's own `/home/matlab/nnv`), neither step is needed — but then any
+local edits won't be picked up unless you rebuild.
 
-Each run writes to a fresh timestamped folder under `results/`:
-- `results.mat` — full nested struct keyed `arch.task.mode.grid.eps_*`
-- `gnn_results.csv` — flat row-per-config CSV (Architecture, Task, Mode, Grid, Node_Epsilon, Edge_Epsilon, …, Pct_Verified, Mean_Bound_Width, …)
-- `experiments.log` — diary
+## 4. Run
 
-To copy results out of the container:
+The orchestrator [`run_all.sh`](run_all.sh) handles all five examples
+through a uniform interface. Per-example logs land in
+`results/run_all_<timestamp>/<example>.log`.
+
+### Full reproduction (~95 min)
+
 ```bash
-docker cp <container_id>:/home/matlab/nnv/code/nnv/examples/NNV3.0/GNNV/results ./gnnv_results
+docker run --rm --gpus all \
+    -v "$PWD":/home/matlab/nnv \
+    -w /home/matlab/nnv/code/nnv/examples/NNV3.0 \
+    nnv3.0 ./run_all.sh --full
 ```
 
-See `GNNV/README.md` for full configuration details.
+### Smoke run (~5 min total — quick "does it all run?" check)
+
+```bash
+docker run --rm --gpus all \
+    -v "$PWD":/home/matlab/nnv \
+    -w /home/matlab/nnv/code/nnv/examples/NNV3.0 \
+    nnv3.0 ./run_all.sh --smoke
+```
+
+Smoke configurations per example:
+
+- **GNNV**: 3 graphs × 1 ε × GCN only (~10 s)
+- **FairNNV**: AC-1 only, 10 observations, ε ∈ {0.01} (~30 s)
+- **ModelStar**: 1 layer (`fc_6`) × 4 fractions × 100 images (~1 min)
+- **VideoStar**: 1 sample × ε=1/255 (~30 s)
+- **ProbVer**: 1 instance, `nRand=50` (~3 min on CPU)
+
+### No-GPU smoke (~2 min — skips ProbVer)
+
+```bash
+docker run --rm \
+    -v "$PWD":/home/matlab/nnv \
+    -w /home/matlab/nnv/code/nnv/examples/NNV3.0 \
+    nnv3.0 ./run_all.sh --smoke --no-gpu
+```
+
+### Single example
+
+```bash
+./run_all.sh --only gnnv          # gnnv | fairnnv | modelstar | videostar | probver
+./run_all.sh --only gnnv --full   # full sweep for one example
+```
+
+### Direct (skip orchestrator)
+
+Every example also runs standalone. From the NNV repo root:
+
+```bash
+matlab -batch "cd code/nnv/examples/NNV3.0/<Folder>; <entry-point>"
+```
+
+Per-example entry points:
+
+| Folder | Entry point |
+|---|---|
+| GNNV | `run_gnn_experiments` |
+| FairNNV | `run_fairnnv` |
+| ModelStar | `run_expt_for_compute` |
+| VideoStar | `run_zoomin_4f` |
+| ProbVer | `run_probver` |
+
+See each subfolder's `README.md` for full configuration options.
+
+## 5. Outputs
+
+Each example writes to its own `<Folder>/results/<timestamp>/`
+subfolder. The orchestrator's per-run logs live under
+`results/run_all_<timestamp>/<example>.log`. Outputs include CSVs,
+`.mat` summaries, MATLAB diaries, and (FairNNV only) PNG/PDF figures
+plus LaTeX tables.
+
+To copy results out of a running container:
+
+```bash
+docker cp <container_id>:/home/matlab/nnv/code/nnv/examples/NNV3.0/<Folder>/results ./<Folder>_results
+```
+
+## 6. Verifying your reproduction matches the paper
+
+After `--full` completes, eyeball-compare against
+[`EXPECTED_RESULTS.md`](EXPECTED_RESULTS.md). It documents the paper's
+headline numbers (Tables 3–6, Figure 5) per example, with the observed
+verdicts and timings from a known-good reference run on this artifact.
+
+For exact-match metrics (verified counts, SAT/UNSAT verdicts) the
+artifact reproduces the paper's numbers cell-by-cell. Timings vary
+with hardware.
+
+## 8. Layout
+
+```
+NNV3.0/
+├── README.md                   This file
+├── run_all.sh                  Top-level orchestrator (--smoke|--full|--no-gpu|--only)
+├── EXPECTED_RESULTS.md         Paper headline numbers per example
+├── Dockerfile                  Build image (parameterized LICENSE_SERVER)
+├── FairNNV/                    Fairness verification (Adult-Income)
+├── GNNV/                       Graph NN verification (IEEE 24-bus)
+├── ModelStar/                  Weight perturbation (MNIST MLP)
+├── ProbVer/                    Probabilistic verification (TinyYOLO)
+└── VideoStar/                  Video classification (ZoomIn-4f)
+```

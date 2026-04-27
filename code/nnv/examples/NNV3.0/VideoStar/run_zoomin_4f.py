@@ -2,37 +2,39 @@
 """
 VideoStar ZoomIn-4f Verification Script
 
-This script runs a subset of the ZoomIn-4f verification experiments using
-the MATLAB engine for Python. It is designed to run inside the NNV Docker
-container.
+Optional Python entry point that drives the same MATLAB verification as
+``run_zoomin_4f.m`` via the MATLAB engine for Python. The .m file is the
+canonical reference implementation; this wrapper is provided for users
+who want a Python-native CLI.
 
 Usage:
     python run_zoomin_4f.py [--algorithm {relax,approx,both}] [--num-samples N]
 
 Requirements:
-    - MATLAB with Python engine installed
-    - NNV toolbox
-    - Environment variables: NNV_PATH, NPY_MATLAB_PATH
+    - MATLAB R2024b with the Python engine installed (`matlab.engine`)
+    - NNV toolbox available at <repo>/code/nnv (auto-resolved below)
+    - All assets bundled in this folder (models/, data/ZoomIn/, src/vvn/, npy-matlab/)
 """
 
 import argparse
 import csv
+import datetime
 import io
 import os
 import sys
 from typing import Tuple
 
-# Add FORMALISE2025 src to path for importing modules
-FORMALISE2025_DIR = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025'
-sys.path.insert(0, os.path.join(FORMALISE2025_DIR, 'src'))
-
 import matlab.engine
 
 
-# Configuration
-NNV_PATH = '/home/matlab/nnv/code/nnv'
-NPY_MATLAB_PATH = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/npy-matlab/npy-matlab'
-RESULTS_DIR = '/tmp/results/VideoStar'
+# Paths resolved relative to this file so the script is self-contained.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+NNV_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..', '..'))
+VVN_SRC_PATH = os.path.join(SCRIPT_DIR, 'src', 'vvn')
+NPY_MATLAB_PATH = os.path.join(SCRIPT_DIR, 'npy-matlab')
+RESULTS_DIR = os.path.join(
+    SCRIPT_DIR, 'results', datetime.datetime.now().strftime('%y%m%d-%H%M%S')
+)
 
 
 def parse_args():
@@ -61,26 +63,19 @@ def parse_args():
     return parser.parse_args()
 
 
-def prepare_engine(nnv_path: str, npy_matlab_path: str):
+def prepare_engine(nnv_path: str, vvn_src_path: str, npy_matlab_path: str):
     """Start MATLAB engine and add required paths."""
-    if not nnv_path or not npy_matlab_path:
-        raise Exception(
-            'One of nnv_path or npy_matlab_path is not defined. '
-            'Please ensure these have been set before running.'
-        )
-
-    # Start MATLAB engine
     eng = matlab.engine.start_matlab()
     print('Started MATLAB engine!')
 
-    # Add paths
-    eng.addpath(FORMALISE2025_DIR)
-    eng.addpath(os.path.join(FORMALISE2025_DIR, 'src', 'vvn'))
+    # Add paths (NNV toolbox + vendored vvn + npy-matlab).
     eng.addpath(eng.genpath(nnv_path))
-    eng.addpath(eng.genpath(npy_matlab_path))
+    eng.addpath(vvn_src_path)
+    eng.addpath(npy_matlab_path)
 
-    # Change to FORMALISE2025 directory for data loading
-    eng.cd(FORMALISE2025_DIR)
+    # verifyvideo.m uses relative paths (`data/ZoomIn/...`, `models/...`),
+    # so cd into VideoStar/ where those exist.
+    eng.cd(SCRIPT_DIR)
 
     return eng
 
@@ -153,8 +148,8 @@ def run_zoomin_4f(algorithm: str, num_samples: int, timeout: int):
     # Sample indices to verify (1-indexed for MATLAB)
     sample_indices = list(range(1, num_samples + 1))
 
-    # Output directory
-    output_dir = os.path.join(RESULTS_DIR, 'ZoomIn', str(sample_len))
+    # Output directory: results/<timestamp>/
+    output_dir = RESULTS_DIR
     os.makedirs(output_dir, exist_ok=True)
 
     print("=" * 50)
@@ -169,7 +164,7 @@ def run_zoomin_4f(algorithm: str, num_samples: int, timeout: int):
     print()
 
     # Start MATLAB engine
-    eng = prepare_engine(NNV_PATH, NPY_MATLAB_PATH)
+    eng = prepare_engine(NNV_PATH, VVN_SRC_PATH, NPY_MATLAB_PATH)
 
     # Run verification
     for sample_idx, index in enumerate(sample_indices):

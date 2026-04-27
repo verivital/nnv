@@ -1,9 +1,17 @@
-# NOTE:
-# THIS DOCKERFILE IS A COPY OF THE ORIGINAL NNV DOCKERFILE
-# ONLY THIS ONE WILL NOT CLONE NNV BUT INSTEAD MOUNT THE CURRENT
-# LOCAL VERSION SO THAT WE CAN TEST CHANGES.
-
-# Building from Dockerfile provided by Mathworks
+# NNV3.0 — repeatability-package Dockerfile.
+#
+# Builds a MATLAB R2024b image with NNV pre-installed and the NNV3.0
+# example assets baked in. Build context must be the NNV repo root so
+# that `COPY . /home/matlab/nnv` includes the engine and tests.
+#
+# Build:
+#   docker build \
+#       --build-arg LICENSE_SERVER=27009@your.license.server \
+#       -t nnv3.0 \
+#       -f code/nnv/examples/NNV3.0/Dockerfile \
+#       .
+#
+# Adapted from the official Mathworks reference image:
 # https://github.com/mathworks-ref-arch/matlab-dockerfile/blob/main/Dockerfile
 
 # Specify MATLAB release
@@ -15,7 +23,10 @@ ARG MATLAB_PRODUCT_LIST="MATLAB Computer_Vision_Toolbox Control_System_Toolbox D
 # Specify MATLAB Install Location.
 ARG MATLAB_INSTALL_LOCATION="/opt/matlab/${MATLAB_RELEASE}"
 
-# Specify license server information using the format: port@hostname
+# License server in the format: port@hostname.
+# Default points at Vanderbilt's internal server. External evaluators MUST
+# override this with their own license server, e.g.:
+#   --build-arg LICENSE_SERVER=27000@your-floating-server
 ARG LICENSE_SERVER="27009@licenseserver.it.vanderbilt.edu"
 
 # To check the available matlab-deps images, see: https://hub.docker.com/r/mathworks/matlab-deps

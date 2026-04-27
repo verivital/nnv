@@ -63,7 +63,10 @@ classdef WPutils
                     
                     t3 = 1;
                     for l = fc_layers(2:end - 1)   % all fully-connected layers between the perturbed layer and the last layer
-                        t3 = t3*max(norms(net.Layers{l}.Weights, 1));
+                        % `norms` is from CVX (not bundled with NNV/MATLAB);
+                        % `vecnorm` is the built-in equivalent — both return
+                        % column-wise p-norms for a 2D matrix.
+                        t3 = t3*max(vecnorm(net.Layers{l}.Weights, 1));
                     end
                     
                     ub_on_decrease_in_margin = p*t1*t2*t3;

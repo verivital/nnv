@@ -18,8 +18,12 @@ cd(ms_scriptDir);
 ms_nnvDir = fullfile(ms_scriptDir, '..', '..', '..');
 addpath(genpath(ms_nnvDir));
 
-if ~exist('results', 'dir'); mkdir('results'); end
-results_file = fullfile('results', 'MNIST_MLP');
+% Use isfolder (not exist) for the results dir check: addpath(genpath(NNV))
+% pulls many sibling examples' `results/` folders onto the MATLAB path, and
+% exist('results','dir') would match those before mkdir gets a chance.
+results_dir = fullfile(ms_scriptDir, 'results');
+if ~isfolder(results_dir); mkdir(results_dir); end
+results_file = fullfile(results_dir, 'MNIST_MLP');
 
 % Build the empty experiment template programmatically (replaces the
 % legacy YAML template — no external yaml package required).

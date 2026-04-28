@@ -86,9 +86,16 @@ COPY --chown=matlab:matlab . /home/matlab/nnv
 WORKDIR /home/matlab/nnv
 
 # Vendor npy-matlab so VideoStar's run_zoomin_4f.m can load .npy data without
-# requiring network access at runtime.
-RUN git clone --depth=1 https://github.com/kwikteam/npy-matlab \
-        /home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/npy-matlab
+# requiring network access at runtime. If the host already has the submodule
+# populated (it's tracked at this path as a git submodule and the COPY above
+# brought it in), skip the clone — otherwise fetch a shallow copy.
+RUN NPY_DST=/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/npy-matlab; \
+    if [ -d "$NPY_DST" ] && [ -n "$(ls -A "$NPY_DST" 2>/dev/null)" ]; then \
+        echo "[npy-matlab] already populated (likely via submodule), skipping clone"; \
+    else \
+        rm -rf "$NPY_DST"; \
+        git clone --depth=1 https://github.com/kwikteam/npy-matlab "$NPY_DST"; \
+    fi
 
 # Python venv for cp_env / Prob_reach (PyTorch + CUDA wheels).
 RUN python3 -m venv /home/matlab/nnv/.venv \
@@ -102,11 +109,11 @@ ENV VIRTUAL_ENV="/home/matlab/nnv/.venv"
 # do not require MPT3 at runtime — but we surface a clear log line either way.
 RUN matlab -nodisplay -batch "\
     pyenv('Version', '/home/matlab/nnv/.venv/bin/python'); \
-    cd code/nnv/; \
+    cd('/home/matlab/nnv/code/nnv'); \
     try, install; catch ME, fprintf(2, '[install warning] %s\\n', ME.message); end; \
     savepath; \
     fprintf('[install] verifying core NNV...\\n'); \
-    cd code/nnv/; check_nnv_setup(); \
+    cd('/home/matlab/nnv/code/nnv'); check_nnv_setup(); \
     "
 
 # Where the experiments expect to write their outputs.

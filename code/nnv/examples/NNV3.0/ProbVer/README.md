@@ -46,10 +46,16 @@ inside the Docker image. The Python helpers used by cp-star
 require the host `.venv` to exist; see *One-time host setup* in the
 top-level [`NNV3.0/README.md`](../README.md).
 
+Both commands below assume pattern A from the top-level README's
+*License setup* (network license server). Substitute pattern B
+(`-v /path/to/network.lic:/opt/matlab/R2024b/licenses/network.lic:ro`)
+for an individual license file.
+
 ### Default sweep (paper-aligned)
 
 ```bash
 docker run --rm --gpus all \
+    -e MLM_LICENSE_FILE=27000@your.license.server \
     -v "$PWD":/home/matlab/nnv \
     -w /home/matlab/nnv/code/nnv/examples/NNV3.0/ProbVer \
     nnv3.0 matlab -nodisplay -batch "run_probver"
@@ -62,6 +68,7 @@ benchmark; each is verified at ε = 1/255.
 
 ```bash
 docker run --rm --gpus all \
+    -e MLM_LICENSE_FILE=27000@your.license.server \
     -v "$PWD":/home/matlab/nnv \
     -w /home/matlab/nnv/code/nnv/examples/NNV3.0/ProbVer \
     nnv3.0 matlab -nodisplay -batch \

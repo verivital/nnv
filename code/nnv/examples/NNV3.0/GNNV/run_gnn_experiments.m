@@ -85,6 +85,12 @@ end
 
 scriptDir = fileparts(mfilename('fullpath'));
 
+% Ensure NNV is on the MATLAB path. The Dockerfile no longer runs
+% `install.m` at build time (so the build doesn't need a MATLAB
+% license), so each example self-adds NNV at runtime instead.
+nnvDir = fullfile(scriptDir, '..', '..', '..');
+addpath(genpath(nnvDir));
+
 %% Output directory
 ts = datestr(datetime, 'yymmdd-HHMMSS');
 out_dir = fullfile(scriptDir, 'results', ['gnn_' ts]);

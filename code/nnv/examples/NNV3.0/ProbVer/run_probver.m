@@ -14,6 +14,13 @@ if ~exist('nRand',      'var'); nRand      = 100; end % Number of random samples
 
 %% ========== SETUP PATHS ==========
 scriptDir = fileparts(mfilename('fullpath'));
+
+% Ensure NNV is on the MATLAB path. The Dockerfile no longer runs
+% `install.m` at build time (so the build doesn't need a MATLAB
+% license), so each example self-adds NNV at runtime instead.
+nnvDir = fullfile(scriptDir, '..', '..', '..');
+addpath(genpath(nnvDir));
+
 benchmarkDir = fullfile(scriptDir, 'yolo_2023');
 onnxDir = fullfile(benchmarkDir, 'onnx');
 vnnlibDir = fullfile(benchmarkDir, 'vnnlib');

@@ -1,15 +1,18 @@
 # NNV3.0 — repeatability-package Dockerfile.
 #
-# Builds a MATLAB R2024b image with NNV pre-installed and the NNV3.0
-# example assets baked in. Build context must be the NNV repo root so
-# that `COPY . /home/matlab/nnv` includes the engine and tests.
+# Builds a MATLAB R2024b image with the NNV repo and the NNV3.0
+# example assets baked in. The build is **license-agnostic** — MATLAB
+# is installed via mpm but never launched, so no license check happens
+# at build time. License is supplied at `docker run` time. See the
+# top-level README's "License setup" section for the three supported
+# patterns (network license server / individual license file /
+# license-free CodeOcean evaluation).
+#
+# Build context must be the NNV repo root so `COPY . /home/matlab/nnv`
+# includes the engine and tests.
 #
 # Build:
-#   docker build \
-#       --build-arg LICENSE_SERVER=27009@your.license.server \
-#       -t nnv3.0 \
-#       -f code/nnv/examples/NNV3.0/Dockerfile \
-#       .
+#   docker build -t nnv3.0 -f code/nnv/examples/NNV3.0/Dockerfile .
 #
 # Adapted from the official Mathworks reference image:
 # https://github.com/mathworks-ref-arch/matlab-dockerfile/blob/main/Dockerfile
@@ -23,12 +26,6 @@ ARG MATLAB_PRODUCT_LIST="MATLAB Computer_Vision_Toolbox Control_System_Toolbox D
 # Specify MATLAB Install Location.
 ARG MATLAB_INSTALL_LOCATION="/opt/matlab/${MATLAB_RELEASE}"
 
-# License server in the format: port@hostname.
-# Default points at Vanderbilt's internal server. External evaluators MUST
-# override this with their own license server, e.g.:
-#   --build-arg LICENSE_SERVER=27000@your-floating-server
-ARG LICENSE_SERVER="27009@licenseserver.it.vanderbilt.edu"
-
 # To check the available matlab-deps images, see: https://hub.docker.com/r/mathworks/matlab-deps
 FROM mathworks/matlab-deps:${MATLAB_RELEASE}
 
@@ -36,7 +33,6 @@ FROM mathworks/matlab-deps:${MATLAB_RELEASE}
 ARG MATLAB_RELEASE
 ARG MATLAB_PRODUCT_LIST
 ARG MATLAB_INSTALL_LOCATION
-ARG LICENSE_SERVER
 
 # Install mpm dependencies and Python (with shared library for MATLAB).
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -76,19 +72,23 @@ RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \
     && sudo ln -s ${MATLAB_INSTALL_LOCATION}/bin/matlab /usr/local/bin/matlab
 
 
-ENV MLM_LICENSE_FILE=$LICENSE_SERVER
+# NOTE: MLM_LICENSE_FILE is intentionally NOT baked in here. Supply it
+# at `docker run` time via either `-e MLM_LICENSE_FILE=port@server` or
+# by mounting a `network.lic` to `/opt/matlab/${MATLAB_RELEASE}/licenses/`.
+# See the NNV3.0/README.md "License setup" section.
 
 # Install nnv
 
 COPY --chown=matlab:matlab . /home/matlab/nnv
 WORKDIR /home/matlab/nnv
 
-# Create Python virtual environment at .venv (required by cp_env.m)
+# Create Python virtual environment at .venv (required by ProbVer's cp-star).
 RUN python3 -m venv /home/matlab/nnv/.venv \
     && /home/matlab/nnv/.venv/bin/pip install --no-cache-dir -r requirement.txt
 
 ENV PATH="/home/matlab/nnv/.venv/bin:$PATH"
 ENV VIRTUAL_ENV="/home/matlab/nnv/.venv"
 
-# Configure MATLAB to use the venv Python and install NNV
-RUN matlab -nodisplay -r "pyenv('Version', '/home/matlab/nnv/.venv/bin/python'); cd code/nnv/; install; savepath; exit()"
+# NOTE: We deliberately do NOT run `install.m` (which would launch MATLAB
+# and require a license at build time). Each NNV3.0 example self-adds NNV
+# to the path at runtime via `addpath(genpath(<nnvDir>))`.

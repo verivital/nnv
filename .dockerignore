@@ -1,0 +1,44 @@
+# Keep the docker build context small. Anything matched here is NOT sent to the
+# Docker daemon and NOT baked into the image.
+
+# VCS / tooling
+.git/
+.github/
+.vscode/
+.idea/
+
+# Editor / OS junk
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Reproducibility logs / artifacts produced on host
+repro_logs/
+
+# Repo-root data and results dirs (not used by NNV3.0 experiments;
+# per-example data lives under code/nnv/examples/.../data/ and is preserved).
+/data/
+/results/
+
+# Build outputs / intermediate state
+docs/_build/
+docs/build/
+**/.ipynb_checkpoints/
+**/__pycache__/
+**/*.pyc
+
+# Python virtualenvs that may be present on host (rebuilt inside the container)
+.venv/
+venv/
+env/
+
+# Mounted MATLAB / IDE state
+*.asv
+*.mexw64
+*.mexa64
+slprj/
+
+# Scratch
+tmp/
+scratch/

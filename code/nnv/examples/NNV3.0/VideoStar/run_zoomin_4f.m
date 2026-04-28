@@ -60,6 +60,13 @@ end
 addpath(genpath(config.nnvDir));
 disp("NNV paths added successfully.");
 
+% GPU forward-compat (Blackwell / RTX 5090 under MATLAB R2024b).
+% No-op on hosts without an NVIDIA GPU.
+try
+    parallel.gpu.enableCUDAForwardCompatibility(true);
+catch
+end
+
 % Add npy-matlab to path for reading .npy files
 if ~exist(config.npyMatlabDir, 'dir')
     error("npy-matlab directory not found: %s", config.npyMatlabDir);

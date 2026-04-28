@@ -1,338 +1,275 @@
-# NNV3 — Tool Paper Repeatability Package
+# NNV 3.0 Repeatability Package
 
-Experimental repeatability package for the ATVA 2026 NNV3 paper.
-Five end-to-end verification examples covering NNV3's major new
-capabilities: fairness, probabilistic, video, graph, and weight
-perturbation.
+This directory bundles the five experiments demonstrating NNV 3.0's new
+capabilities — **FairNNV**, **ProbVer**, **GNNV**, **VideoStar**, and
+**ModelStar** — together with a Dockerfile that builds a self-contained
+MATLAB R2024b environment and a single `run_all.sh` driver that executes
+all five end-to-end. Each example folder is self-contained: bundled
+models, data, vendored sources, a per-folder `README.md`, and a single
+top-level runner script.
 
-> **Cite**: Tumlin, Sasaki, et al. *NNV3: Expanding Neural Network
-> Verification to New Architectures and Domains.* ATVA 2026.
->
-> **Issues / questions**: https://github.com/atumlin/nnv/issues
+## Examples at a glance
 
-| Folder | Capability | GPU? | Smoke | Default sweep |
-|---|---|---|---:|---:|
-| [GNNV](GNNV/) | Graph NN power-flow verification (PyG, GraphStar) | no | ~10 s | ~3.5 min |
-| [FairNNV](FairNNV/) | Fairness on Adult-Income classifier | no | ~30 s | ~2 min |
-| [ModelStar](ModelStar/) | Weight-perturbation on MNIST MLP | no | ~1 min | ~70 min |
-| [VideoStar](VideoStar/) | 3D-CNN video verification (ZoomIn-4f, VolumeStar) | no | ~30 s | ~12 min |
-| [ProbVer](ProbVer/) | Probabilistic verification of TinyYOLO (cp-star) | recommended | ~3 min | ~8 min (CPU) |
+| Folder      | What it verifies                                              | Hardware     |
+|-------------|---------------------------------------------------------------|--------------|
+| [FairNNV/](FairNNV/README.md)       | Counterfactual + individual fairness on Adult-Income FC nets         | CPU          |
+| [ProbVer/](ProbVer/README.md)       | Probabilistic robustness of TinyYOLO via cp-star reachability        | GPU required |
+| [GNNV/](GNNV/README.md)             | Per-node voltage-magnitude bounds on GCN/SAGE/GINE-Conv (PF/IEEE24)  | CPU/GPU      |
+| [VideoStar/](VideoStar/README.md)   | 3D-CNN robustness on the ZoomIn-4f video classifier                  | GPU required |
+| [ModelStar/](ModelStar/README.md)   | Weight-perturbation reachability on an MNIST MLP                     | CPU          |
 
-**Total full-sweep wall time** on a single workstation: **~95 minutes**
-(~1.5 hours). Smoke-only across all five: **~5 minutes**.
+## Prerequisites
 
-```
-NNV3.0/
-├── README.md                  This file
-├── EXPECTED_RESULTS.md        Paper headline numbers vs. observed (per example)
-├── Dockerfile                 License-agnostic build recipe
-├── run_all.sh                 Top-level orchestrator
-├── FairNNV/                   ↘
-├── GNNV/                       │  Each subfolder has its own README.md
-├── ModelStar/                  │  with overview, references, configuration,
-├── ProbVer/                    │  outputs, and observed runtime.
-└── VideoStar/                 ↗
-```
+Before the first `docker build`, the host must already have:
 
----
+- **Docker** ≥ 24, with the daemon running
+- **NVIDIA driver** ≥ 535 (CUDA 12+) on the host (only required for the GPU
+  experiments — ProbVer, GNNV, VideoStar)
+- **NVIDIA Container Toolkit** so `docker run --gpus all` works. On Windows,
+  this means **WSL2** with at least one registered Linux distro (e.g. Ubuntu)
+  and Docker Desktop's WSL Integration enabled
+- **MATLAB licence** that the container can reach. Either a network licence
+  server (`port@host`) or a node-locked licence file you can mount into the
+  container. The Dockerfile takes a `LICENSE_SERVER` build arg; if you set
+  it, it's baked in as `MLM_LICENSE_FILE`. Otherwise, supply
+  `-e MLM_LICENSE_FILE=...` (or mount `network.lic`) at `docker run` time.
+- **Disk**: ~14 GB for the image, plus ~1 GB for experiment artefacts.
 
-## Quickstart (~30 minutes to a working smoke run)
-
-Five steps, in order. Each builds on the previous. By the end you'll
-have run a smoke configuration of every example and verified the
-artifact works on your machine. After that, the *Full reproduction*
-section kicks off the paper-faithful sweep.
-
-### Step 1 — Prerequisites
-
-You need:
-
-- **Docker** (any recent version) with the `--gpus` runtime if you
-  want ProbVer GPU-accelerated.
-- **MATLAB R2024b license** at run time (not at build time). Three
-  reviewer patterns are supported in Step 3 below; pick one.
-- **NVIDIA GPU** with CUDA-capable drivers — recommended for ProbVer
-  only (other examples are CPU). ProbVer falls back to CPU if no
-  compatible GPU is detected.
-- **Disk space**: ~26 GB for the Docker image; another few GB for
-  per-run outputs.
-
-Confirm Docker is working:
+Quick GPU sanity check:
 
 ```bash
-docker --version                         # any recent version
-docker info | grep -i runtime            # should list 'nvidia' if you want GPU
+docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
 ```
 
-If you'll use a network license server (Pattern A in Step 3), confirm
-it's reachable from your build host before going further:
+If your GPU appears, `--gpus all` is wired up correctly.
+
+## Build
+
+From the **repository root** (so `.dockerignore` and the entire NNV checkout
+are available to the build):
 
 ```bash
-nc -zv your.license.server 27000         # substitute your port@host
+docker build \
+    -t nnv3.0 \
+    -f code/nnv/examples/NNV3.0/Dockerfile \
+    --build-arg LICENSE_SERVER=<port>@<host> \
+    .
 ```
 
-### Step 2 — Build the Docker image
+Omit `--build-arg LICENSE_SERVER=...` if you'd rather provide the licence at
+run time.
 
-The build is **license-agnostic** — MATLAB is installed but never
-launched, so no license check happens at build time. From the **NNV
-repo root** (the directory containing `code/`):
+The build is roughly:
+
+| Step                              | Wall-clock (RTX 5090, 1 Gbps link) |
+|-----------------------------------|------------------------------------|
+| Context copy + base image fetch   | ~1 min  (with `.dockerignore` — 5 min without) |
+| `mpm install` MATLAB toolboxes    | ~3 min  |
+| pip install Torch + CUDA wheels   | ~3 min  |
+| `matlab -batch install.m`         | ~1 min  |
+| Image export                      | ~3 min  |
+| **Total**                         | **~10–12 min** |
+
+## Run
 
 ```bash
-docker build -t nnv3.0 -f code/nnv/examples/NNV3.0/Dockerfile .
+docker run --gpus all -it nnv3.0
 ```
 
-What the build does:
+You'll land in `/home/matlab/nnv/code/nnv/examples/NNV3.0` with NNV already on
+the MATLAB path.
 
-- Installs MATLAB R2024b plus the toolboxes NNV needs (~15-20 min the first time).
-- Copies the repo into the image at `/home/matlab/nnv`.
-- Creates a Python venv inside the image and installs `requirement.txt` (used by ProbVer).
-
-NNV's MATLAB-path setup is **not** baked into the image — each example
-self-adds NNV at run time, which is why the build never needs to launch
-MATLAB.
-
-Verify:
+### One-shot: everything
 
 ```bash
-docker images | grep nnv3.0              # should show nnv3.0:latest, ~24 GB
+bash run_all.sh
 ```
 
-### Step 3 — License setup (pick one)
+Runs FairNNV, then ProbVer, then GNNV, then VideoStar, then ModelStar, each
+in its own MATLAB session. Per-experiment logs land in `repeatability_logs/`,
+and a final `summary.csv` records wall-clock time and exit status per
+experiment.
 
-This artifact supports three reviewer scenarios. The example commands
-in the rest of this README assume **Pattern A** (network license
-server). If you're using Pattern B, swap the `-e MLM_LICENSE_FILE=...`
-flag for `-v /path/to/network.lic:/opt/matlab/R2024b/licenses/network.lic:ro`.
+Skip individual experiments with `NNV3_SKIP="probver videostar" bash run_all.sh`.
 
-#### Pattern A — Institutional network license server
+**GPU autodetection.** `run_all.sh` checks for an NVIDIA GPU via `nvidia-smi -L`
+at startup and adapts:
 
-Most common for academic / corporate MATLAB users. Pass `port@hostname`
-as an env var at every `docker run`:
+- **GPU present** — runs the full suite (the README's reference timings).
+- **No GPU** — prints a "deferring to CPU" notice and:
+  - Skips **ProbVer** (cp-star reachability trains a surrogate network on
+    CUDA via the Python venv; there is no CPU fallback for it). It appears
+    in `summary.csv` as `skipped,0,no GPU (CPU fallback unsupported for
+    cp-star)`.
+  - Runs **FairNNV** and **ModelStar** (CPU-only by design — no change).
+  - Runs **GNNV** and **VideoStar** as CPU best-effort. NNV's reachability
+    is mostly CPU-side, but expect substantially longer wall-clock than
+    the GPU baselines below.
+
+Override the autodetection with `NNV3_FORCE_GPU=0` (force-skip ProbVer even
+on a GPU host) or `NNV3_FORCE_GPU=1` (assume a GPU exists and try ProbVer
+anyway).
+
+### Individual experiments
+
+#### FairNNV
 
 ```bash
-docker run --rm \
-    -e MLM_LICENSE_FILE=27000@your.license.server \
-    nnv3.0 matlab -nodisplay -batch "disp('license OK'); exit"
+cd FairNNV
+matlab -nodisplay -r "run('run_fairnnv.m'); exit()"
 ```
 
-(Replace `27000@your.license.server` with what your institution
-gave you — format is `port@hostname`.)
+Verifies counterfactual + individual fairness on the Adult-Income tabular
+classifier across two ONNX models (`AC-1`, `AC-3`), 100 samples, and 7
+ε values. Bundled models live in `FairNNV/models/`, the dataset in
+`FairNNV/data/adult_data.mat`. CPU-only.
 
-#### Pattern B — Individual MathWorks license file
+Outputs (in `FairNNV/results/<timestamp>/`):
+- `counterfactual_*.csv` — counterfactual fairness results
+- `individual_*.csv` — individual fairness results across ε
+- `timing_*.csv`, `timing_table.tex`, `counterfactual_table.tex`
+- `individual_fairness_combined.{png,pdf}`
 
-Mount your `network.lic` (from your activated MathWorks account or a
-floating-license file) into the container's licenses directory:
+#### ProbVer (requires `--gpus all`)
 
 ```bash
-docker run --rm \
-    -v /path/to/network.lic:/opt/matlab/R2024b/licenses/network.lic:ro \
-    nnv3.0 matlab -nodisplay -batch "disp('license OK'); exit"
+cd ProbVer
+bash run_probver.sh
 ```
 
-#### Pattern C — No local MATLAB license
+The bash driver verifies a random subset (default `PROBVER_NUM_SAMPLES = 3`)
+of the TinyYOLO `yolo_2023` benchmark using the cp-star reachability method.
+**Each instance runs in its own MATLAB process**, so if `Prob_reach` overflows
+host memory and the kernel SIGKILLs MATLAB on one instance (e.g. the
+`TinyYOLO_prop_000277_eps_1_255` ImageStar that warns `"large for memory"`),
+the next instance starts in a fresh address space and the run continues. The
+crashed instance is recorded in `results_summary.csv` with status `oom`.
 
-Three options:
+Tunables (env vars):
+- `PROBVER_NUM_SAMPLES` — number of instances (default 3)
+- `PROBVER_SEED` — instance-selection seed (default 42)
+- `PROBVER_NRAND` — falsification samples (default 100)
 
-- **CodeOcean capsule** (recommended for hosted evaluation): the paper
-  references a [hosted evaluation capsule](https://codeocean.com/capsule/1928763/tree)
-  that runs MATLAB in CodeOcean's environment with no local license.
-- **MathWorks 30-day trial**: register for a [free trial license](https://www.mathworks.com/campaigns/products/trials.html)
-  and use Pattern B above with the trial's `network.lic`.
-- **Read-only inspection**: this folder ships
-  [`EXPECTED_RESULTS.md`](EXPECTED_RESULTS.md) with the verdicts and
-  timings observed when the artifact was last validated end-to-end.
-  Reviewers without MATLAB can eyeball-compare those tables against
-  the paper's Tables 3-6 / Figure 5 directly without running anything.
+The single-MATLAB legacy path (`matlab -nodisplay -r "run('run_probver.m');
+exit()"`) still works and is useful for debugging a single instance, but it
+shares MATLAB state across instances and is more vulnerable to mid-run OOMs.
 
-### Step 4 — One-time host setup (when bind-mounting your repo)
-
-The `docker run` commands below bind-mount your local repo into the
-container at `/home/matlab/nnv`. The bind-mount **shadows** two things
-the image built during `docker build`: the Python `.venv` and writable
-results / decompression directories. Recreate them on the host once,
-from the **NNV repo root**.
-
-> The `chmod 777` block uses bash brace expansion. If you're in a
-> `dash`/POSIX `sh`, run `bash` first or expand the paths manually.
+#### GNNV
 
 ```bash
-# (a) Build .venv on the host (required only by ProbVer's Python helpers).
-mkdir -p .venv && chmod 777 .venv
-docker run --rm \
-    -v "$PWD":/home/matlab/nnv \
-    -w /home/matlab/nnv \
-    nnv3.0 bash -c "python3 -m venv .venv && \
-                    .venv/bin/pip install --no-cache-dir -r requirement.txt"
-
-# (b) Make per-example results / decompression directories writable from
-#     inside the container. The container's matlab user (UID 1001) has
-#     a different UID than your host user, so it can't write into
-#     host-owned directories without these chmods.
-chmod 777 code/nnv/examples/NNV3.0/results
-chmod 777 code/nnv/examples/NNV3.0/FairNNV/results
-chmod 777 code/nnv/examples/NNV3.0/GNNV/results
-chmod 777 code/nnv/examples/NNV3.0/ModelStar/results
-chmod 777 code/nnv/examples/NNV3.0/ModelStar/runtime
-chmod 777 code/nnv/examples/NNV3.0/ProbVer/results
-chmod 777 code/nnv/examples/NNV3.0/ProbVer/yolo_2023/onnx
-chmod 777 code/nnv/examples/NNV3.0/ProbVer/yolo_2023/vnnlib
-chmod 777 code/nnv/examples/NNV3.0/VideoStar/results
-chmod 777 code/nnv/engine/nn/Prob_reach/Temp_files_mid_run
+cd GNNV
+matlab -nodisplay -r "run_gnn_experiments(); exit()"
 ```
 
-Skip step (a) if you don't plan to run ProbVer; the other examples
-don't call into Python.
+Verifies per-node voltage-magnitude bounds on the AC power-flow task for
+the IEEE 24-bus grid, across three PyTorch Geometric–compatible
+architectures (`GCNConv`, `SAGEConv`, `GINEConv`) and 4 ε perturbation
+levels on 10 test graphs (120 verifications by default). Models load via
+`gnn2nnv.m`, which auto-detects the architecture from the `.mat`'s
+`model_type` field. Bundled models live in
+`GNNV/PowerFlow/IEEE24/models/`.
 
-If you don't bind-mount (i.e. run inside the image's own
-`/home/matlab/nnv`), neither step is needed — but then any local
-edits won't be picked up unless you rebuild.
+Outputs land in `GNNV/results/gnn_<timestamp>/`:
+- `gnn_results.csv` — flat per-row CSV (arch × task × eps × graph)
+- `results.mat` — full nested results struct
+- `experiments.log` — diary
 
-### Step 5 — Run the smoke (~5 minutes)
+Options (positional kwargs to `run_gnn_experiments`):
+- `'architectures', {'gcn','sage'}` — subset of architectures
+- `'mode', 'node_edge'` — opt-in edge-feature perturbation (GINE-Conv only)
+- `'num_graphs', 5` — smoke
+- `'node_epsilons', [1e-3, 5e-3]` — custom ε grid
 
-Quick end-to-end check of all five examples on small per-example
-configurations. From the **NNV repo root**:
+#### VideoStar ZoomIn-4f (requires `--gpus all`)
 
 ```bash
-docker run --rm --gpus all \
-    -e MLM_LICENSE_FILE=27000@your.license.server \
-    -v "$PWD":/home/matlab/nnv \
-    -w /home/matlab/nnv/code/nnv/examples/NNV3.0 \
-    nnv3.0 ./run_all.sh --smoke
+cd VideoStar
+matlab -nodisplay -r "run('run_zoomin_4f.m'); exit()"
 ```
 
-Variants:
+Verifies the bundled `zoomin_4f.onnx` 3D-CNN video classifier on the first
+10 ZoomIn test samples across ε ∈ {1/255, 2/255, 3/255}. All assets sit
+next to the script: model in `VideoStar/models/`, frames in
+`VideoStar/data/ZoomIn/`, vendored vvn helpers in `VideoStar/src/vvn/`,
+and `VideoStar/npy-matlab/` for `.npy` reads. Configuration sits in the
+script's top-level `config` struct: change `config.sampleIndices`,
+`config.verAlgorithm` (`'relax'` or `'approx'`), or `config.timeout` as
+needed.
 
-- **No GPU**: drop `--gpus all` and add `--no-gpu` to skip ProbVer.
-- **Subset of examples**: `--only gnnv` (or `fairnnv|modelstar|videostar|probver`).
-- **Full reproduction** instead of smoke: swap `--smoke` for `--full` (~95 min, see next section).
+Results: `VideoStar/results/<timestamp>/eps=*.csv`.
 
-What you should see (sample, abbreviated):
-
-```
-================================================================
-  NNV3.0 — run_all  (mode=smoke, no_gpu=0, only=all)
-================================================================
-[GNNV] >> matlab -batch "..."
-   OK
-[FairNNV] >> matlab -batch "..."
-   OK
-[ProbVer] >> matlab -batch "..."
-   OK
-[VideoStar] >> matlab -batch "..."
-   OK
-[ModelStar] >> matlab -batch "..."
-   OK
-================================================================
-  All requested examples completed.
-================================================================
-```
-
-If any example FAILs, the orchestrator continues with the rest and
-reports which example failed at the end. Inspect the failing
-example's log under `results/run_all_<timestamp>/<example>.log`; see
-*Troubleshooting* below for common issues.
-
----
-
-## Full reproduction (~95 minutes)
-
-Same command pattern as Step 5, with `--smoke` swapped for `--full`:
+#### ModelStar
 
 ```bash
-docker run --rm --gpus all \
-    -e MLM_LICENSE_FILE=27000@your.license.server \
-    -v "$PWD":/home/matlab/nnv \
-    -w /home/matlab/nnv/code/nnv/examples/NNV3.0 \
-    nnv3.0 ./run_all.sh --full
+cd ModelStar
+matlab -nodisplay -r "run('run_expt_for_compute.m'); run('EXPT.m'); exit()"
 ```
 
-ModelStar dominates the wall time (~70 min of the ~95 min total) —
-`fc_4` perturbations alone take ~30 minutes because deeper perturbed
-layers compose with more downstream ReLU operations. See the
-at-a-glance table at the top for per-example timing.
+Reproduces the weight-perturbation reachability experiment on the MNIST
+MLP: each fully-connected layer is perturbed independently across a sweep
+of magnitudes, and per-layer robustness is verified using a built-in
+weight-perturbation reachability operator. The runner reads the bundled
+`mnist_model_fc.mat`, builds an experiment template programmatically (no
+external YAML package required), and writes per-layer .mat results;
+`EXPT.m` then renders the paper's heatmap.
 
----
+Outputs:
+- `ModelStar/results/MNIST_MLP.mat` — per-fraction verification results
+- `ModelStar/runtime/` — per-experiment runtime CSVs
+- Heatmap printed by `EXPT.m`
 
-## Running a single example
-
-Most reviewers will use:
+## Copy results out of the container
 
 ```bash
-./run_all.sh --only gnnv          # one of: gnnv | fairnnv | modelstar | videostar | probver
-./run_all.sh --only modelstar --full
+docker cp <container_id>:/home/matlab/nnv/code/nnv/examples/NNV3.0 ./nnv30_results
 ```
 
-Per-example entry points (if you ever want to skip the orchestrator
-and call MATLAB directly):
+(`docker ps` to find the container ID.)
 
-| Folder | Entry point |
-|---|---|
-| GNNV | `run_gnn_experiments` |
-| FairNNV | `run_fairnnv` |
-| ModelStar | `run_expt_for_compute` |
-| VideoStar | `run_zoomin_4f` |
-| ProbVer | `run_probver` |
+## Reference timings on this machine
 
-See each subfolder's `README.md` for full configuration options
-(custom epsilons, subset of architectures, etc.).
+The table below records wall-clock times measured on a Windows 11 host with an
+RTX 5090 (32 GB VRAM, Blackwell, CC 12.0), driver 581.95, CUDA 13. MATLAB R2024b
+runs inside the container; the same host has MATLAB R2025b natively but it
+isn't used for these numbers.
 
----
+| Experiment              | Wall-clock | Notes                                                                                                |
+|-------------------------|-----------:|------------------------------------------------------------------------------------------------------|
+| FairNNV                 |     121 s  | 100 samples × 7 ε × 2 ONNX models. CPU only.                                                         |
+| ProbVer (3 instances)   |     519 s  | TinyYOLO + cp-star reach (per-instance MATLAB process). All 3 instances `unsat` (145.1, 148.1, 144.6 s). GPU. |
+| GNNV (120 verifs)       |     ~5 min | 10 graphs × 3 architectures × 4 ε on PF/IEEE24. Mostly CPU-bound under MATLAB's reach.               |
+| VideoStar ZoomIn-4f     |     754 s  | 10 samples × 3 ε with `relax` algorithm. GPU. 7 verified / 0 violated / 3 unknown per ε.             |
+| ModelStar (fc_4–fc_6)   |     ~3 min | Last-three-layer weight-perturbation sweep on MNIST MLP. CPU only.                                   |
+| **End-to-end suite**    |  **~30 min**| All five via `run_all.sh`, RTX 5090 host.                                                          |
 
-## Outputs and verification
-
-### Where outputs land
-
-- Each example writes to `<Folder>/results/<timestamp>/` containing
-  CSVs, `.mat` summaries, MATLAB diaries, and (FairNNV only) PNG/PDF
-  figures plus LaTeX tables.
-- The orchestrator writes per-example MATLAB stdout/stderr to
-  `results/run_all_<timestamp>/<example>.log`.
-
-### Comparing against the paper
-
-After a `--full` run, eyeball-compare against
-[`EXPECTED_RESULTS.md`](EXPECTED_RESULTS.md). It contains side-by-side
-tables of paper numbers vs. observed numbers (from a known-good
-validation run of this artifact) for every example.
-
-For verdicts (verified counts, SAT/UNSAT, fair/unfair %), the
-artifact reproduces the paper's headline numbers cell-by-cell.
-Timings vary with hardware — expect ±50% relative drift.
-
-### Copying outputs out of a stopped container
-
-Only relevant if you ran without `-v $PWD:...` bind-mount. The
-recommended setup uses bind-mount, so outputs already appear directly
-on your host under `code/nnv/examples/NNV3.0/<Folder>/results/`.
-
-```bash
-docker cp <container_id>:/home/matlab/nnv/code/nnv/examples/NNV3.0/<Folder>/results ./<Folder>_results
-```
-
----
+These numbers are intended as a baseline. Expect roughly 1.5–3× longer on a
+mid-range workstation GPU (RTX 4070 / A4000) and 5–10× longer on CPU-only hosts.
 
 ## Troubleshooting
 
-### Common (most reviewers will hit at least one)
+**`License Manager Error` on first `matlab` invocation.** The build doesn't
+validate the licence; it's consumed at first MATLAB run. Pass
+`--build-arg LICENSE_SERVER=port@host` at build time, or
+`-e MLM_LICENSE_FILE=port@host` at run time, or mount a `network.lic`.
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `Sign-in failed` / MATLAB asks for credentials | No license configured at `docker run` time | Add `-e MLM_LICENSE_FILE=...` (Pattern A) or mount a license file (Pattern B). See *Step 3*. |
-| `mkdir: Permission denied` on a `results/` folder | Container's `matlab` user (UID 1001) ≠ host user UID, can't write | Run *Step 4 (b)* — the `chmod 777` block — once on the host |
-| `Python virtual environment not found at /home/matlab/nnv/.venv` | Bind-mount has shadowed the image's pre-built venv | Run *Step 4 (a)* — the venv-build block |
+**`GPU device is not supported because it has a higher compute capability...`**
+RTX 50-series (Blackwell, CC 12.0) is too new for the CUDA libraries shipped
+with MATLAB R2024b. The experiment scripts call
+`parallel.gpu.enableCUDAForwardCompatibility(true)` automatically. If you
+are running a different MATLAB version that lacks this API, upgrade to
+MATLAB R2025a+ (CUDA 12+) or R2025b (CUDA 13).
 
-### GPU / Python edge cases
+**`Undefined function 'load_vnnlib'` from ProbVer.** The script auto-bootstraps
+the NNV path from its own location, so this should not happen if launched
+from the `ProbVer/` directory. If it does, run
+`addpath(genpath('/home/matlab/nnv/code/nnv'))` first.
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| ProbVer falls back to CPU even with `--gpus all` | torch wheels in `.venv` require CUDA 13; older drivers support only CUDA 12 | Acceptable (slower but works). For GPU acceleration, rebuild the venv with `pip install torch --index-url https://download.pytorch.org/whl/cu121` |
-| GNNV `Unrecognized function or variable 'glpk'` | Bind-mount shadows the image's tbxmanager/glpkmex; linprog falls back to glpk at the loosest ε | Already handled gracefully for GNNV (degrades to "unknown"). Elsewhere: rebuild the image without bind-mounting. |
-| `Unable to write file ... Direction_data.mat` | UID mismatch (same root cause as `mkdir: Permission denied`) but on ProbVer's intermediate-files dir | Same fix — *Step 4 (b)* covers `Prob_reach/Temp_files_mid_run` |
+**`tbxmanager.com` URL fetch error during `install.m`.** That mirror is
+sometimes unreachable. The build catches it; modern NNV3.0 examples do not
+require MPT3, so the install completes anyway. Run `check_nnv_setup` to
+confirm core NNV is healthy before invoking experiments.
 
-### Behavioral
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| One example fails — does the orchestrator stop? | No — `run_all.sh` wraps each example so failure doesn't abort the rest | Per-example exit status is printed; orchestrator returns non-zero if any failed |
-| Stale `.onnx` after rebuilding the model | `run_probver.m` only decompresses if the `.onnx` is missing | Delete `ProbVer/yolo_2023/onnx/TinyYOLO.onnx` to force fresh decompression |
-| First build is slow | First-time `mpm install` downloads ~10 GB of MATLAB toolboxes | Normal (~15-20 min). Layer cache makes subsequent builds nearly instant. |
+**`npy-matlab directory not found`.** Pull the latest image — the Dockerfile
+now clones `kwikteam/npy-matlab` during the build. For pre-built images,
+manually clone it into
+`code/nnv/examples/Submission/FORMALISE2025/npy-matlab/`.

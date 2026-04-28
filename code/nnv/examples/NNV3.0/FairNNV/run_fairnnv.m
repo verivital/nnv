@@ -78,6 +78,14 @@ end
 % Add NNV to path (simplified - avoids tbxmanager permission issues)
 addpath(genpath(config.nnvDir));
 disp("NNV paths added successfully.");
+
+% GPU forward-compat (Blackwell / RTX 5090 under MATLAB R2024b).
+% FairNNV is CPU-only, but the call is harmless and keeps the runners
+% uniform across experiments.
+try
+    parallel.gpu.enableCUDAForwardCompatibility(true);
+catch
+end
 disp(" ");
 
 %% Validate Configuration

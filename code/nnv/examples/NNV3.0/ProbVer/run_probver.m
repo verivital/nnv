@@ -119,6 +119,12 @@ disp(['Input size: ' mat2str(inputSize)]);
 results = cell(numSamples, 1);
 totalStartTime = tic;
 
+% Open the results CSV up front and write a row after each instance, so a
+% mid-run crash (e.g. OOM during ImageStar reachability) preserves earlier
+% successful results.
+incFid = fopen(resultsFile, 'w');
+fprintf(incFid, 'index,onnx,vnnlib,status,time,error\n');
+
 for i = 1:numSamples
     idx = selectedIndices(i);
     instance = instances{idx};
@@ -255,7 +261,15 @@ for i = 1:numSamples
     end
 
     results{i} = result;
+
+    % Persist this instance's result immediately so a crash on the next
+    % iteration (e.g. OOM during reachability) preserves earlier rows.
+    errorMsg = strrep(result.error, ',', ';');
+    errorMsg = strrep(errorMsg, newline, ' ');
+    fprintf(incFid, '%d,%s,%s,%s,%.4f,%s\n', ...
+        result.index, result.onnx, result.vnnlib, result.status, result.time, errorMsg);
 end
+fclose(incFid);
 
 totalTime = toc(totalStartTime);
 
@@ -290,20 +304,9 @@ disp(['  Unknown:          ' num2str(unknownCount)]);
 disp(['  Errors:           ' num2str(errorCount)]);
 disp(['Total time: ' num2str(totalTime) 's']);
 
-% Save to CSV
+% CSV is already on disk from the incremental writes inside the loop.
 disp(' ');
-disp(['Saving results to ' resultsFile '...']);
-fid = fopen(resultsFile, 'w');
-fprintf(fid, 'index,onnx,vnnlib,status,time,error\n');
-for i = 1:length(results)
-    r = results{i};
-    % Escape any commas in error message
-    errorMsg = strrep(r.error, ',', ';');
-    errorMsg = strrep(errorMsg, newline, ' ');
-    fprintf(fid, '%d,%s,%s,%s,%.4f,%s\n', r.index, r.onnx, r.vnnlib, r.status, r.time, errorMsg);
-end
-fclose(fid);
-disp('Results saved.');
+disp(['Results CSV at: ' resultsFile]);
 
 % Display errors if any
 if errorCount > 0

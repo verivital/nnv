@@ -34,6 +34,24 @@ Before the first `docker build`, the host must already have:
   it, it's baked in as `MLM_LICENSE_FILE`. Otherwise, supply
   `-e MLM_LICENSE_FILE=...` (or mount `network.lic`) at `docker run` time.
 - **Disk**: ~14 GB for the image, plus ~1 GB for experiment artefacts.
+- **RAM**: ≥ 16 GB to run FairNNV / GNNV / VideoStar / ModelStar; **≥ 48 GB recommended for ProbVer**.
+  ProbVer's cp-star reachability on TinyYOLO can produce intermediate ImageStars
+  whose peak size exceeds 31 GB. With less than that, MATLAB is liable to be
+  SIGKILLed mid-run on certain instances. `run_all.sh` measures container RAM at
+  startup and auto-skips ProbVer below the threshold (override with
+  `NNV3_FORCE_MEMORY=1`). Tune the threshold with `NNV3_MIN_MEMORY_GB`.
+
+  **Windows / Docker Desktop users**: by default WSL2 gives the container only
+  ~50% of host RAM. Raise the cap by creating `%USERPROFILE%\.wslconfig`:
+
+  ```ini
+  [wsl2]
+  memory=56GB
+  swap=32GB
+  processors=auto
+  ```
+
+  Then run `wsl --shutdown` in PowerShell and relaunch Docker Desktop.
 
 Quick GPU sanity check:
 
@@ -109,6 +127,12 @@ at startup and adapts:
 Override the autodetection with `NNV3_FORCE_GPU=0` (force-skip ProbVer even
 on a GPU host) or `NNV3_FORCE_GPU=1` (assume a GPU exists and try ProbVer
 anyway).
+
+**Memory autodetection.** `run_all.sh` reads `/proc/meminfo` at startup and
+auto-skips ProbVer below `NNV3_MIN_MEMORY_GB` (default **48 GB**) — see the
+RAM bullet under **Prerequisites**. Override with `NNV3_FORCE_MEMORY=1` to
+attempt ProbVer regardless (you'll see `oom` rows in `results_summary.csv`
+for instances that exceed the available memory).
 
 ### Individual experiments
 

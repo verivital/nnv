@@ -66,6 +66,36 @@ else
 fi
 export NNV3_HAS_GPU="$HAS_GPU"
 
+# ---------------------------------------------------------------------------
+# Memory preset. ProbVer's cp-star reachability builds ImageStars whose peak
+# size on TinyYOLO has been observed to exceed 31 GB on this host, causing a
+# SIGKILL inside `Prob_reach` (see ProbReach_ImageStar warning "The Image
+# Star is large for your memory and should be presented in sparse format").
+# We require >= NNV3_MIN_MEMORY_GB (default 48) of container RAM for ProbVer
+# and auto-skip it below that, unless NNV3_FORCE_MEMORY=1.
+# FairNNV / GNNV / VideoStar / ModelStar fit comfortably in <= 16 GB.
+# ---------------------------------------------------------------------------
+MIN_MEMORY_GB="${NNV3_MIN_MEMORY_GB:-48}"
+MEM_TOTAL_GB="$(awk '/MemTotal/ { printf "%d", $2/1024/1024 }' /proc/meminfo 2>/dev/null || echo 0)"
+echo "[run_all] Container RAM: ${MEM_TOTAL_GB} GB (recommended >= ${MIN_MEMORY_GB} GB for full suite)."
+if (( MEM_TOTAL_GB < MIN_MEMORY_GB )); then
+    if [[ "${NNV3_FORCE_MEMORY:-0}" == "1" ]]; then
+        echo "[run_all]   NNV3_FORCE_MEMORY=1 set — running ProbVer anyway; OOM risk on instance 52/68."
+    elif [[ " $SKIP " == *" probver "* ]]; then
+        : # already skipped
+    else
+        echo "[run_all]   ProbVer auto-SKIPPED (memory below threshold)."
+        echo "[run_all]   On Windows hosts, raise the WSL2 cap by creating ~/.wslconfig with:"
+        echo "[run_all]       [wsl2]"
+        echo "[run_all]       memory=56GB"
+        echo "[run_all]       swap=32GB"
+        echo "[run_all]   then run 'wsl --shutdown' and restart Docker Desktop."
+        echo "[run_all]   On Linux, add memory if available; otherwise set NNV3_FORCE_MEMORY=1 to try anyway."
+        SKIP="${SKIP} probver"
+        SKIP_REASON_PROBVER="memory ${MEM_TOTAL_GB}GB < ${MIN_MEMORY_GB}GB threshold"
+    fi
+fi
+
 # Forward-compat call is repeated in each script too; we set it here as well
 # so MATLAB doesn't error on Blackwell / RTX 5090 hosts. The call is wrapped
 # in try/catch and is a no-op on hosts without an NVIDIA GPU.
@@ -80,8 +110,12 @@ run_one() {
 
     if [[ " $SKIP " == *" $name "* ]]; then
         local reason="NNV3_SKIP"
-        if [[ "$HAS_GPU" -eq 0 && "$name" == "probver" ]]; then
-            reason="no GPU (CPU fallback unsupported for cp-star)"
+        if [[ "$name" == "probver" ]]; then
+            if [[ "$HAS_GPU" -eq 0 ]]; then
+                reason="no GPU (CPU fallback unsupported for cp-star)"
+            elif [[ -n "${SKIP_REASON_PROBVER:-}" ]]; then
+                reason="$SKIP_REASON_PROBVER"
+            fi
         fi
         printf '\n=== %-12s SKIPPED (%s) ===\n' "$name" "$reason"
         echo "${name},skipped,0,${reason}" >> "$SUMMARY_CSV"

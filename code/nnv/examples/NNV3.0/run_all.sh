@@ -8,8 +8,12 @@
 #
 # Optional environment overrides:
 #   NNV3_SKIP="probver videostar"     # space-separated experiments to skip
+#                                       (toolcomparison is also a valid name)
 #   NNV3_LOG_DIR=/tmp/nnv3_logs       # where per-experiment stdout lands
 #   MATLAB=/usr/local/bin/matlab      # MATLAB binary (default: 'matlab' on PATH)
+#   TOOLCOMPARISON_MODE=smoke|full    # ToolComparison mode (default: smoke).
+#                                       'full' takes ~6 h and won't fit a
+#                                       typical CodeOcean compute window.
 #
 # Exit code is 0 only if every selected experiment finished cleanly. The final
 # summary table (and a CSV at $NNV3_LOG_DIR/summary.csv) lists wall-clock time
@@ -160,6 +164,14 @@ run_one probver   ProbVer   shell  run_probver.sh        || overall=$?
 run_one gnnv      GNNV      matlab run_gnn_experiments.m || overall=$?
 run_one videostar VideoStar matlab run_zoomin_4f.m       || overall=$?
 run_one modelstar ModelStar matlab run_expt_for_compute.m || overall=$?
+# ToolComparison defaults to smoke mode (~12 min) inside run_all.sh so the
+# end-to-end suite stays under ~30 min. Override with:
+#   TOOLCOMPARISON_MODE=full bash run_all.sh
+# CPU-only; requires the AI Verification Toolbox Support Package staged
+# at /home/matlab/addons/atva26-aivl.tar.gz (or the other paths checked
+# by ToolComparison/scripts/toolbox_install.m).
+export TOOLCOMPARISON_MODE="${TOOLCOMPARISON_MODE:-smoke}"
+run_one toolcomparison ToolComparison matlab run_toolcomparison.m || overall=$?
 
 echo
 echo "=========================== SUMMARY ============================"

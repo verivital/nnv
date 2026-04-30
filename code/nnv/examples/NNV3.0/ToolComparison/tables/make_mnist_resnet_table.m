@@ -1,0 +1,69 @@
+function make_mnist_resnet_table(varargin)
+%MAKE_MNIST_RESNET_TABLE Emit Table C (ToolComparison ResNet head-to-head).
+%
+%   Reads ToolComparison/mnist_resnet/results/expC_<model>.mat and writes:
+%     out/table_C.tex   LaTeX tabular
+%     out/table_C.txt   plain-text mirror
+%   Metric: robust fraction per (model, eps, tool, algorithm) + mean time.
+
+    p = inputParser;
+    addParameter(p, 'resultsDir', ...
+        fullfile(toolcomparison_root(), 'mnist_resnet', 'results'));
+    addParameter(p, 'outDir', fullfile(toolcomparison_root(), 'tables', 'out'));
+    parse(p, varargin{:});
+    opts = p.Results;
+    if ~isfolder(opts.outDir), mkdir(opts.outDir); end
+
+    u = tool_utils();
+    models = {'mnist_resnet8','cifar_resnet20_small','cifar_resnet8'};
+
+    header = {"Model","\\epsilon","Tool","Algorithm","Robust","Mean time (s)"};
+    rows = {};
+    txtLines = strings(0,1);
+    for i = 1:numel(models)
+        model   = models{i};
+        matFile = fullfile(opts.resultsDir, sprintf("expC_%s.mat", model));
+        R = u.load_results(matFile);
+        if isempty(R), continue; end
+        epsVals = extract_eps(R.instance_id);
+        R.eps = epsVals;
+
+        keys = unique(R(:, {'eps','tool','algorithm'}));
+        for k = 1:height(keys)
+            e    = keys.eps(k);
+            tool = keys.tool(k);
+            alg  = keys.algorithm(k);
+            sel  = R(R.eps==e & R.tool==tool & R.algorithm==alg & R.benchmark==string(model), :);
+            total = height(sel);
+            v     = sum(sel.status == "verified");
+            mt    = mean(sel.time(sel.status ~= "timeout" & sel.status ~= "error" & ~isnan(sel.time)));
+            rows{end+1} = { model, sprintf("%.4f", e), tool, alg, ...
+                u.format_count(v, total), u.format_time(mt) }; %#ok<AGROW>
+            txtLines(end+1,1) = sprintf("%-22s eps=%.4f %-14s %-22s robust=%s mean=%s", ...
+                model, e, tool, alg, u.format_count(v,total), u.format_time(mt)); %#ok<AGROW>
+        end
+    end
+
+    u.emit_latex_table( fullfile(opts.outDir,'table_C.tex'), ...
+        header, rows, ...
+        "ToolComparison ResNet head-to-head: NNV vs MathWorks AIVL (additionLayer, R2024b+).", ...
+        "tab:toolcomparison-mnist-resnet");
+    fid = fopen(fullfile(opts.outDir,'table_C.txt'),'w');
+    fprintf(fid, "%s\n", strjoin(txtLines, newline));
+    fclose(fid);
+    fprintf("Wrote %s and %s\n", ...
+        fullfile(opts.outDir,'table_C.tex'), ...
+        fullfile(opts.outDir,'table_C.txt'));
+end
+
+function eps = extract_eps(ids)
+    eps = nan(numel(ids),1);
+    for i = 1:numel(ids)
+        tok = regexp(ids(i), "eps=([0-9.]+)", "tokens", "once");
+        if ~isempty(tok), eps(i) = str2double(tok{1}); end
+    end
+end
+
+function r = toolcomparison_root()
+    r = fileparts(fileparts(mfilename('fullpath')));
+end

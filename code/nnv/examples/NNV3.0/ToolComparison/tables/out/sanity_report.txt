@@ -1,0 +1,4 @@
+ATVA26 sanity report vs CAV'23 (NNV 2.0 exact-star)
+------------------------------------------------------------
+acas_p3: got (V=32, X=3, ?=0, T/O=10)  CAV'23 expected (V=42, X=3, ?=0)  OK (V+T/O matches CAV'23 V)
+acas_p4: got (V=39, X=3, ?=0, T/O=3)  CAV'23 expected (V=42, X=3, ?=0)  OK (V+T/O matches CAV'23 V)

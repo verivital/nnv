@@ -1,0 +1,19 @@
+\begin{table}[t]
+\centering
+\caption{ResNet DAG verification (MathWorks additionLayer path, R2024b+).}
+\label{tab:atva26-expC}
+\begin{tabular}{llllll}
+\toprule
+Model & \\epsilon & Tool & Algorithm & Robust & Mean time (s) \\
+\midrule
+mnist_resnet8 & 0.0039 & mw_deeppoly & deep-poly & 50/50 (100%) & 45.7 \\
+mnist_resnet8 & 0.0039 & nnv & relax-star-50 & 50/50 (100%) & 6.2 \\
+mnist_resnet8 & 0.0078 & mw_deeppoly & deep-poly & 50/50 (100%) & 43.0 \\
+mnist_resnet8 & 0.0078 & nnv & relax-star-50 & 50/50 (100%) & 8.3 \\
+mnist_resnet8 & 0.0157 & mw_deeppoly & deep-poly & 50/50 (100%) & 42.9 \\
+mnist_resnet8 & 0.0157 & nnv & relax-star-50 & 49/50 (98%) & 13.7 \\
+mnist_resnet8 & 0.0314 & mw_deeppoly & deep-poly & 50/50 (100%) & 41.4 \\
+mnist_resnet8 & 0.0314 & nnv & relax-star-50 & 50/50 (100%) & 38.6 \\
+\bottomrule
+\end{tabular}
+\end{table}

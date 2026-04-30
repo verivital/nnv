@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Refresh of NNV 2.0 NNV-vs-MathWorks comparison (2023 \\to 2026).}
+\label{tab:atva26-expA}
+\begin{tabular}{llllllll}
+\toprule
+Benchmark & Tool & Algorithm & Verified & Violated & Unknown & Timeout & Mean time (s) \\
+\midrule
+acas_p3 & mw_estimate & estimate-bounds & 2/45 (4%) & 3/45 (7%) & 40/45 (89%) & 0/45 (0%) & 0.05 \\
+acas_p3 & nnv & exact-star & 32/45 (71%) & 3/45 (7%) & 0/45 (0%) & 10/45 (22%) & 129 \\
+acas_p3 & nnv & relax-star-50 & 2/45 (4%) & 2/45 (4%) & 41/45 (91%) & 0/45 (0%) & 0.63 \\
+acas_p4 & mw_estimate & estimate-bounds & 0/45 (0%) & 1/45 (2%) & 44/45 (98%) & 0/45 (0%) & 0.03 \\
+acas_p4 & nnv & exact-star & 39/45 (87%) & 3/45 (7%) & 0/45 (0%) & 3/45 (7%) & 170 \\
+acas_p4 & nnv & relax-star-50 & 1/45 (2%) & 2/45 (4%) & 42/45 (93%) & 0/45 (0%) & 0.61 \\
+rl & mw_estimate & estimate-bounds & 20/50 (40%) & 11/50 (22%) & 19/50 (38%) & 0/50 (0%) & 0.02 \\
+rl & nnv & exact-star & 32/50 (64%) & 15/50 (30%) & 1/50 (2%) & 2/50 (4%) & 3.7 \\
+rl & nnv & relax-star-50 & 32/50 (64%) & 14/50 (28%) & 4/50 (8%) & 0/50 (0%) & 0.07 \\
+tllverify & mw_estimate & estimate-bounds & 0/32 (0%) & 0/32 (0%) & 24/32 (75%) & 0/32 (0%) & 1.00 \\
+tllverify & nnv & relax-star-50 & 0/32 (0%) & 0/32 (0%) & 17/32 (53%) & 7/32 (22%) & 98.1 \\
+\bottomrule
+\end{tabular}
+\end{table}

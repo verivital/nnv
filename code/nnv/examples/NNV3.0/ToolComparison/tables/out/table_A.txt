@@ -1,0 +1,11 @@
+acas_p3      mw_estimate    estimate-bounds V=  2 X=  3 ?= 40 T/O=  0 mean=0.05
+acas_p3      nnv            exact-star      V= 32 X=  3 ?=  0 T/O= 10 mean=129
+acas_p3      nnv            relax-star-50   V=  2 X=  2 ?= 41 T/O=  0 mean=0.63
+acas_p4      mw_estimate    estimate-bounds V=  0 X=  1 ?= 44 T/O=  0 mean=0.03
+acas_p4      nnv            exact-star      V= 39 X=  3 ?=  0 T/O=  3 mean=170
+acas_p4      nnv            relax-star-50   V=  1 X=  2 ?= 42 T/O=  0 mean=0.61
+rl           mw_estimate    estimate-bounds V= 20 X= 11 ?= 19 T/O=  0 mean=0.02
+rl           nnv            exact-star      V= 32 X= 15 ?=  1 T/O=  2 mean=3.7
+rl           nnv            relax-star-50   V= 32 X= 14 ?=  4 T/O=  0 mean=0.07
+tllverify    mw_estimate    estimate-bounds V=  0 X=  0 ?= 24 T/O=  0 mean=1.00
+tllverify    nnv            relax-star-50   V=  0 X=  0 ?= 17 T/O=  7 mean=98.1

@@ -17,6 +17,7 @@ top-level runner script.
 | [GNNV/](GNNV/README.md)             | Per-node voltage-magnitude bounds on GCN/SAGE/GINE-Conv (PF/IEEE24)  | CPU/GPU      |
 | [VideoStar/](VideoStar/README.md)   | 3D-CNN robustness on the ZoomIn-4f video classifier                  | GPU required |
 | [ModelStar/](ModelStar/README.md)   | Weight-perturbation reachability on an MNIST MLP                     | CPU          |
+| [ToolComparison/](ToolComparison/README.md) | NNV vs MathWorks AI Verification Toolbox on ACAS Xu / RL / TLL / MNIST-ResNet-8 | CPU; AI Verification Toolbox required |
 
 ## Prerequisites
 
@@ -242,6 +243,36 @@ Outputs:
 - `ModelStar/runtime/` — per-experiment runtime CSVs
 - Heatmap printed by `EXPT.m`
 
+#### ToolComparison
+
+```bash
+cd ToolComparison
+matlab -nodisplay -r "run('run_toolcomparison.m'); exit()"
+```
+
+Head-to-head between NNV's star-set reachability and the MathWorks AI
+Verification Toolbox on two regimes: feed-forward networks with VNNLIB
+half-space specs (ACAS Xu / RL / TLLverify) and a residual classifier
+(MNIST-ResNet-8). Algorithm grid mirrors NNV 2.0 / CAV'23 — `approx-star`,
+`relax-star-{range,area}-{25,50,75,100}`, `exact-star`. Renders Table A
+(FC-net half) and Table C (ResNet half) plus a CAV'23 cross-check.
+
+The MW-side comparison requires the **AI Verification Toolbox** Support
+Package; see `ToolComparison/README.md` for the tarball recipe and how
+to stage it for `scripts/toolbox_install.m` to extract. NNV-only runs
+work without it.
+
+```matlab
+% Smoke (~10 min, NNV-only):
+matlab -nodisplay -r "cd ToolComparison; run_toolcomparison('mode','smoke'); exit()"
+```
+
+Outputs:
+- `ToolComparison/acas_rl_tll/results/results_<benchmark>.{mat,csv}`
+- `ToolComparison/mnist_resnet/results/expC_<model>.{mat,csv}`
+- `ToolComparison/tables/out/{table_A,table_C}.{tex,txt}`,
+  `ToolComparison/tables/out/sanity_report.txt`
+
 ## Copy results out of the container
 
 ```bash
@@ -264,7 +295,9 @@ isn't used for these numbers.
 | GNNV (120 verifs)       |     ~5 min | 10 graphs × 3 architectures × 4 ε on PF/IEEE24. Mostly CPU-bound under MATLAB's reach.               |
 | VideoStar ZoomIn-4f     |     754 s  | 10 samples × 3 ε with `relax` algorithm. GPU. 7 verified / 0 violated / 3 unknown per ε.             |
 | ModelStar (fc_4–fc_6)   |     ~3 min | Last-three-layer weight-perturbation sweep on MNIST MLP. CPU only.                                   |
-| **End-to-end suite**    |  **~30 min**| All five via `run_all.sh`, RTX 5090 host.                                                          |
+| ToolComparison smoke    |     ~12 min| 5 ACAS networks + 5 MNIST images, NNV-only (`approx-star` + `relax-star-*-50`). CPU only.            |
+| ToolComparison full     |     ~6 h   | NNV grid (`approx-star` + 4 relax-star factors + `exact-star`) + AIVL on both halves. CPU only.      |
+| **End-to-end suite**    |  **~30 min**| All five via `run_all.sh`, RTX 5090 host (excludes ToolComparison full).                            |
 
 These numbers are intended as a baseline. Expect roughly 1.5–3× longer on a
 mid-range workstation GPU (RTX 4070 / A4000) and 5–10× longer on CPU-only hosts.

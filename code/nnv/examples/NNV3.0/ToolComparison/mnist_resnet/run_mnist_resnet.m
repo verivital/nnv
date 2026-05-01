@@ -87,22 +87,14 @@ end
 
 % -------------------------------------------------------------------------
 
-function algs = algorithms_for(tool, model, override)
-% Default algorithm set per tool. Matches CAV'23 grid for NNV (area-based
-% relax for image classification). exact-star is intentionally omitted
-% from the default for ResNet -- set splitting on residual paths is
-% intractable -- but stays accepted as an opt-in algorithm.
+function algs = algorithms_for(tool, model, override) %#ok<INUSD>
+% Default algorithm set for the ResNet head-to-head. Matches the NNV 2.0
+% paper methodology for residual networks: a single relax-star-area-50
+% NNV configuration vs AIVL's deep-poly. Other relax/approx algorithms
+% remain accepted via the 'algorithms' override but are not part of the
+% reproducible Table C grid.
     switch tool
-        case 'nnv'
-            if contains(model, 'cifar')
-                algs = {'approx-star', ...
-                        'relax-star-area-25', 'relax-star-area-50', ...
-                        'relax-star-area-75', 'relax-star-area-100'};
-            else
-                algs = {'approx-star', ...
-                        'relax-star-area-25', 'relax-star-area-50', ...
-                        'relax-star-area-75', 'relax-star-area-100'};
-            end
+        case 'nnv',         algs = {'relax-star-area-50'};
         case 'mw_deeppoly', algs = {'deep-poly'};
         case 'mw_abc',      algs = {'alpha-beta-crown'};
         otherwise, error("Unknown tool: %s", tool);
@@ -166,6 +158,11 @@ function [status, tsec] = verifyResNet(net_mw, net_nnv, x0, ytrue, eps, tool, al
             status = nnv_robust_status(R, ytrue);
 
         case 'mw_deeppoly'
+            % Worker-side AIVL path setup (parfeval workers don't auto-run startup.m).
+            sps = dir(fullfile(userpath(), 'SupportPackages', 'R*', 'toolbox', 'nnet', 'supportpackages', 'aivnv'));
+            for kk = 1:numel(sps)
+                addpath(fullfile(sps(kk).folder, sps(kk).name), '-begin');
+            end
             XL = dlarray(XLow, "SSCB");
             XU = dlarray(XUp,  "SSCB");
             ytrueIdx = double(ytrue);

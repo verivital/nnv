@@ -6,22 +6,25 @@ function run_toolcomparison(varargin)
 %   batch command, alongside FairNNV / GNNV / ProbVer / VideoStar / ModelStar.
 %
 %   Halves:
-%       acas_rl_tll/run_acas_rl_tll.m    -- ACAS Xu, RL controllers, TLLverify
-%                                           (NNV vs estimateNetworkOutputBounds)
+%       acas_rl_tll/run_acas_rl_tll.m    -- ACAS Xu p3/p4, RL controllers,
+%                                           OVAL21 (VNNCOMP'21), Collins RUL
+%                                           (VNNCOMP'22). NNV vs AIVL
+%                                           estimateNetworkOutputBounds.
 %       mnist_resnet/run_mnist_resnet.m  -- MNIST-ResNet-8 argmax robustness
-%                                           (NNV vs verifyNetworkRobustness)
+%                                           (NNV vs AIVL verifyNetworkRobustness
+%                                           with DeepPoly).
 %
-%   After both halves finish, renders:
-%       tables/out/table_A.tex (acas_rl_tll)
-%       tables/out/table_C.tex (mnist_resnet)
-%       tables/out/sanity_report.txt (CAV'23 cross-check)
+%   After both halves finish, renders the ATVA 2026 paper's Tables 5, 6, 7:
+%       tables/out/table_A.{tex,txt} (paper Tables 5+6: FC and CNN VNNLIB)
+%       tables/out/table_C.{tex,txt} (paper Table 7: MNIST-ResNet-8)
+%       tables/out/sanity_report.txt (CAV'23 exact-star cross-check)
 %
 %   Examples:
-%     run_toolcomparison()                 % full grid (~5-6 h)
-%     run_toolcomparison('mode','smoke')   % ~10-15 min smoke
+%     run_toolcomparison()                 % full grid (~3-5 h)
+%     run_toolcomparison('mode','smoke')   % ~12 min smoke
 %     run_toolcomparison('halves',{'acas_rl_tll'})  % skip ResNet half
 %
-%   Requires the AI Verification Toolbox Support Package (the MW-side calls
+%   Requires the AI Verification Library (AIVL) Support Package (the MW-side calls
 %   `verifyNetworkRobustness` and `estimateNetworkOutputBounds`). NNV-only
 %   runs work without it; pass 'tools',{'nnv'} to skip MW comparisons.
 
@@ -41,10 +44,7 @@ function run_toolcomparison(varargin)
     opts = p.Results;
 
     here = fileparts(mfilename('fullpath'));
-    addpath(here);                          % tool_utils, rebuild_for_aivl
-    addpath(fullfile(here, 'acas_rl_tll')); % run_acas_rl_tll
-    addpath(fullfile(here, 'mnist_resnet'));% run_mnist_resnet
-    addpath(fullfile(here, 'tables'));      % make_*_table
+    addpath(genpath(here));                 % runner + utils/, acas_rl_tll/, mnist_resnet/, tables/
 
     fprintf("\n========== ToolComparison run start ==========\n");
     fprintf("mode:    %s\n", opts.mode);

@@ -142,9 +142,6 @@ classdef EXPT < handle
                 end
                 
                 percentage_axes(pert_layer_no) = nexttile(pert_layer_no);
-                % set(gca, 'XScale', 'log')
-                
-                % bar_plot_xticks = string(pert_fracs);
                 pert_fracs_for_xticks = pert_fracs;
                 if args.x_axis_factor == 0.01
                     pert_fracs_for_xticks = pert_fracs_for_xticks*100;
@@ -155,8 +152,6 @@ classdef EXPT < handle
                 set(gca, 'Xticklabel', [])
                 if pert_layer_no == 1
                     ylabel('%age of Images Verified')
-                % else
-                %     set(gca, 'YTick', [])
                 end
                 
                 n_neurons_color = 'black';
@@ -186,47 +181,10 @@ classdef EXPT < handle
                     t.VerticalAlignment = 'top';
                     
                     set(t, 'Position', get(t, 'Position') + [xlabel_offset 0 0]);
-                    
-                    % position = get(t, 'Position');
-                    % position(2) = position(2) - 0.1;
-                    % set(t, 'Position', position);
                 end
-                
-                
-                % % Displaying something next to the x-axis
-                % 
-                % % Get the current axes
-                % ax = gca;
-                % 
-                % % Get the position of the axes in the figure
-                % ax_position = get(ax, 'Position');
-                % 
-                % % Get the x-axis and y-axis tick values
-                % x_ticks = double(get(ax, 'XTick'));
-                % y_ticks = double(get(ax, 'YTick'));
-                % 
-                % % Convert axis limits to double
-                % x_lim = double(ax.XLim);
-                % y_lim = double(ax.YLim);
-                % 
-                % % Calculate the normalized position of the last x-tick
-                % x_tick_pos = ax_position(1) + (x_ticks(end) - x_lim(1)) / diff(x_lim) * ax_position(3);
-                % y_tick_pos = ax_position(2) + (y_ticks(1) - y_lim(1)) / diff(y_lim) * ax_position(4);
-                % 
-                % % Display the position
-                % disp(['X-tick position: ', num2str(x_tick_pos)]);
-                % disp(['Y-tick position: ', num2str(y_tick_pos)]);
-                % 
-                % % Add text next to the last x-tick
-                % text(x_ticks(end) + 0.8 * diff(x_lim), y_lim(1) - 0.1 * diff(y_lim), 'Last X-Tick', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
-                
-                
-                % set(gca, 'YScale', 'log')
+
                 if pert_layer_no == 1
                     ylabel({'Average Execution', 'Time per image (s)'});
-                    % ylabel('Execution time per image (s)')
-                % else
-                %     set(gca, 'YTick', [])
                 end
                 
             end

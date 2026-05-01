@@ -80,43 +80,74 @@ function train_mnist_resnet8(opts)
 end
 
 function train_cifar_resnet8(opts)
-    % MATLAB ships CIFAR-10 since R2024a as cifar10Dataset.
-    try
-        cifar = cifar10Dataset;
-    catch
-        error("CIFAR-10 dataset not available in this MATLAB; run R2024a or later.");
+    % CIFAR-10 source: the R2024b matlab-deps image does not ship the
+    % cifar10Dataset helper, so we read the Krizhevsky binary distribution
+    % staged at data/cifar-10-batches-mat/ (downloaded once via wget).
+    dataDir = fullfile(fileparts(mfilename('fullpath')), 'data', 'cifar-10-batches-mat');
+    if ~isfolder(dataDir)
+        error(['cifar_resnet8: CIFAR-10 not available at %s. Download via:', newline, ...
+               '  wget https://www.cs.toronto.edu/~kriz/cifar-10-matlab.tar.gz', newline, ...
+               '  tar xzf cifar-10-matlab.tar.gz -C %s'], ...
+              dataDir, fileparts(dataDir));
     end
-    trainImds = cifar.TrainingImages;
-    testImds  = cifar.TestImages;
-    fprintf("  train=%d test=%d\n", numel(trainImds.Files), numel(testImds.Files));
+    [Xtrain, Ytrain, Xtest, Ytest] = load_cifar10_batches(dataDir);
+    fprintf("  train=%d test=%d (Krizhevsky batches)\n", size(Xtrain,4), size(Xtest,4));
 
-    lgraph = cifar_resnet8_layers();
-    net0   = dlnetwork(lgraph);
+    lgraph  = cifar_resnet8_layers();
+    net0    = dlnetwork(lgraph);
     options = trainingOptions('adam', ...
-        'MaxEpochs',         opts.cifarEpochs, ...
-        'MiniBatchSize',     opts.miniBatch, ...
-        'InitialLearnRate',  1e-3, ...
-        'Shuffle',           'every-epoch', ...
-        'Verbose',           true, ...
-        'VerboseFrequency',  100, ...
-        'Plots',             'none', ...
+        'MaxEpochs',            opts.cifarEpochs, ...
+        'MiniBatchSize',        opts.miniBatch, ...
+        'InitialLearnRate',     1e-3, ...
+        'Shuffle',              'every-epoch', ...
+        'Verbose',              true, ...
+        'VerboseFrequency',     100, ...
+        'Plots',                'none', ...
         'ExecutionEnvironment', 'cpu');
 
-    net = trainnet(trainImds, net0, 'crossentropy', options);
+    % onehot Ytrain for crossentropy
+    classNames = categories(Ytrain);
+    Ttrain = onehotencode(Ytrain, 2, 'ClassNames', classNames);
+    net = trainnet(Xtrain, Ttrain, net0, 'crossentropy', options);
 
     save(fullfile(opts.modelsDir, 'cifar_resnet8.mat'), 'net', '-v7.3');
     fprintf("  wrote cifar_resnet8.mat\n");
 
-    YPred = minibatchpredict(net, testImds);
+    YPred = minibatchpredict(net, Xtest);
     [~, I] = max(YPred, [], 2);
-    classes = categories(trainImds.Labels);
-    YPredLab = categorical(classes(I));
-    acc = mean(YPredLab == testImds.Labels);
+    YPredLab = categorical(classNames(I));
+    acc = mean(YPredLab == Ytest);
     fprintf("  CIFAR-ResNet-8 test accuracy: %.3f\n", acc);
 
-    [Xtest, Ytest] = collect_testset(testImds, 100); %#ok<ASGLU>
+    % Trim testset to 100 images for the verification suite.
+    nKeep = min(100, size(Xtest, 4));
+    Xtest = Xtest(:,:,:,1:nKeep);
+    Ytest = Ytest(1:nKeep);
     save(fullfile(opts.modelsDir, 'cifar_resnet8_testset.mat'), 'Xtest', 'Ytest', '-v7.3');
     fprintf("  wrote testset (%d images)\n", numel(Ytest));
+end
+
+function [Xtrain, Ytrain, Xtest, Ytest] = load_cifar10_batches(dataDir)
+% Read CIFAR-10 Krizhevsky-MATLAB binary distribution into HxWxCxN arrays.
+    classNames = {'airplane','automobile','bird','cat','deer', ...
+                  'dog','frog','horse','ship','truck'};
+    Xtrain = zeros(32, 32, 3, 50000, 'single');
+    Ytrain = zeros(50000, 1, 'uint8');
+    for k = 1:5
+        S = load(fullfile(dataDir, sprintf('data_batch_%d.mat', k)));
+        % S.data is 10000x3072 uint8 (RGB row-major). Reshape -> 32x32x3xN.
+        D = reshape(S.data', 32, 32, 3, []);
+        D = permute(D, [2 1 3 4]);                       % swap rows/cols
+        Xtrain(:,:,:, (k-1)*10000 + (1:10000)) = single(D) ./ 255;
+        Ytrain((k-1)*10000 + (1:10000))        = uint8(S.labels) + 1;
+    end
+    T = load(fullfile(dataDir, 'test_batch.mat'));
+    D = reshape(T.data', 32, 32, 3, []);
+    D = permute(D, [2 1 3 4]);
+    Xtest = single(D) ./ 255;
+    Ytest = uint8(T.labels) + 1;
+    Ytrain = categorical(Ytrain, 1:10, classNames);
+    Ytest  = categorical(Ytest,  1:10, classNames);
 end
 
 % =========================================================================

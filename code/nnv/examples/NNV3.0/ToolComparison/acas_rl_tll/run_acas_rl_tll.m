@@ -1,25 +1,30 @@
 function run_acas_rl_tll(varargin)
-%RUN_ACAS_RL_TLL ToolComparison FC-net half: ACAS Xu, RL controllers, TLLverify.
+%RUN_ACAS_RL_TLL ToolComparison FC-net half: ACAS Xu + RL controllers.
 %
 %   Refresh of the NNV 2.0 / CAV'23 head-to-head on:
 %       acas_p3   (45 ACAS Xu networks, property 3)
 %       acas_p4   (45 ACAS Xu networks, property 4)
 %       rl        (50 reinforcement-learning VNNLIB properties, fixed random subset)
-%       tllverify (32 TLL VNNLIB properties)
+%
+%   (TLLverify was dropped from the active comparison because both tools'
+%   fast methods give V=0 across the full grid; bundled CAV'23 rows are
+%   preserved at acas_rl_tll/legacy/results_tllverify.{mat,csv}.)
 %
 %   Tools:
 %       'nnv'         -> NNV 3.0 reachability
 %       'mw_estimate' -> estimateNetworkOutputBounds + manual bound-check
-%                        (requires AI Verification Toolbox)
+%                        (requires AI Verification Library / AIVL)
 %       'mw_abc'      -> verifyNetworkRobustness(net, vnnlib, Algorithm="alpha-beta-crown")
-%                        (ACAS + TLLverify only; requires R2026a bridge)
+%                        (ACAS only; requires R2026a bridge)
 %
-%   NNV reach-method grid (CAV'23-style):
-%       'approx-star'              fastest, baseline
-%       'relax-star-range-25/50/75/100'   range-based relax with relaxFactor 0.25/0.5/0.75/1.0
-%       'exact-star'               sound and complete; 8-core parallel
-%       'relax-star-50'            legacy alias for 'relax-star-range-50' (back-compat
-%                                  with persisted result rows from earlier runs)
+%   NNV algorithm grid (per benchmark, mirrors NNV 2.0 / CAV'23 paper):
+%       acas_p3 / acas_p4: full grid -- approx-star,
+%                          relax-star-range-{25,50,75,100}, exact-star
+%       rl (and other VNNLIB-style benchmarks): approx-star only
+%
+%   Override per call via 'algorithms' option. The legacy alias
+%   'relax-star-50' maps to 'relax-star-range-50' for back-compat with
+%   persisted result rows from earlier runs.
 %
 %   The mw_deeppoly variant of verifyNetworkRobustness only accepts argmax-style
 %   robustness specs, not VNNLIB half-space properties; it's exercised in
@@ -37,7 +42,7 @@ function run_acas_rl_tll(varargin)
 %     run_acas_rl_tll('timeout', 60, 'numNets', 5)         % smoke
 
     p = inputParser;
-    addParameter(p, 'benchmarks', {'acas_p3','acas_p4','rl','tllverify'});
+    addParameter(p, 'benchmarks', {'acas_p3','acas_p4','rl','oval21','collins_rul'});
     % mw_abc (alpha-beta-CROWN bridge) is intentionally absent from defaults:
     % the bridge requires R2026a. Override via 'tools' to include 'mw_abc'.
     addParameter(p, 'tools',      {'nnv','mw_estimate'});
@@ -66,8 +71,14 @@ function run_acas_rl_tll(varargin)
                 run_acas(bench, matFile, opts, u);
             case 'rl'
                 run_rl(matFile, opts, u);
-            case 'tllverify'
-                run_tllverify(matFile, opts, u);
+            case 'oval21'
+                run_image_vnnlib_csv('oval21', ...
+                    fullfile(nnv_root(),'examples','NNV2.0','Submission','CAV2023','NNV_vs_MATLAB','oval21'), ...
+                    matFile, opts, u);
+            case 'collins_rul'
+                run_image_vnnlib_csv('collins_rul', ...
+                    fullfile(fileparts(mfilename('fullpath')), 'collins_rul_cnn_2022'), ...
+                    matFile, opts, u);
             otherwise
                 warning("Unknown benchmark: %s -- skipping", bench);
         end
@@ -100,7 +111,7 @@ function run_acas(bench, matFile, opts, u)
         for t = 1:numel(opts.tools)
             tool = opts.tools{t};
             if strcmp(tool, 'mw_deeppoly'), continue; end     % N/A for ACAS half-spaces
-            algs = algorithms_for(tool, opts.algorithms);
+            algs = algorithms_for(tool, bench, opts.algorithms);
             for k = 1:numel(algs)
                 alg = algs{k};
                 if u.has_instance(matFile, tool, bench, instance_id, alg), continue; end
@@ -134,7 +145,7 @@ function run_rl(matFile, opts, u)
         for t = 1:numel(opts.tools)
             tool = opts.tools{t};
             if ismember(tool, {'mw_deeppoly','mw_abc'}), continue; end
-            algs = algorithms_for(tool, opts.algorithms);
+            algs = algorithms_for(tool, 'rl', opts.algorithms);
             for k = 1:numel(algs)
                 alg = algs{k};
                 if u.has_instance(matFile, tool, 'rl', instance_id, alg), continue; end
@@ -148,35 +159,58 @@ function run_rl(matFile, opts, u)
     end
 end
 
-function run_tllverify(matFile, opts, u)
+function run_image_vnnlib_csv(bench, assetDir, matFile, opts, u)
+% Generic driver for VNNCOMP-style image-input + VNNLIB-output benchmarks.
+% Reads instances.csv (cols: onnx_rel, vnnlib_rel, timeout), iterates each
+% instance through the (tool, algorithm) grid, and persists rows.
     if ~isempty(opts.rerun)
         n = u.purge_status(matFile, opts.rerun);
         if n > 0, fprintf("  purged %d rows with status in {%s}\n", n, strjoin(opts.rerun, ', ')); end
     end
-    assetDir  = find_cav23_subdir('tllverify');
-    csvFile   = fullfile(assetDir, 'instances.csv');
-    T         = readtable(csvFile, 'Delimiter', ',', 'ReadVariableNames', false);
+    csvFile = fullfile(assetDir, 'instances.csv');
+    T       = readtable(csvFile, 'Delimiter', ',', 'ReadVariableNames', false);
     T.Properties.VariableNames(1:3) = {'onnx_rel','vnnlib_rel','timeout'};
 
     for i = 1:height(T)
-        onnx        = fullfile(assetDir, string(T.onnx_rel{i}));
-        vnnlib      = fullfile(assetDir, string(T.vnnlib_rel{i}));
-        instance_id = sprintf("%s|%s", T.onnx_rel{i}, T.vnnlib_rel{i});
+        onnxRel  = strip_dot_slash(string(T.onnx_rel{i}));
+        vnnRel   = strip_dot_slash(string(T.vnnlib_rel{i}));
+        onnx     = char(fullfile(assetDir, onnxRel));
+        vnnlib   = char(fullfile(assetDir, vnnRel));
+        instance_id = sprintf("%s|%s", onnxRel, vnnRel);
         for t = 1:numel(opts.tools)
             tool = opts.tools{t};
-            if strcmp(tool, 'mw_deeppoly'), continue; end
-            algs = algorithms_for(tool, opts.algorithms);
+            if ismember(tool, {'mw_deeppoly','mw_abc'}), continue; end
+            algs = algorithms_for(tool, bench, opts.algorithms);
             for k = 1:numel(algs)
                 alg = algs{k};
-                if u.has_instance(matFile, tool, 'tllverify', instance_id, alg), continue; end
-                fprintf("  [tllverify %-8s %-22s] %s ... ", tool, alg, instance_id);
-                [status, tsec] = run_one( @() verifyTLL(onnx, vnnlib, tool, alg), opts.timeout);
-                row = u.new_row(tool, 'tllverify', instance_id, status, tsec, alg, opts.timeout);
+                if u.has_instance(matFile, tool, bench, instance_id, alg), continue; end
+                fprintf("  [%s %-12s %-22s] %s ... ", bench, tool, alg, instance_id);
+                [status, tsec] = run_one( @() verifyImageVnnlib(onnx, vnnlib, tool, alg), opts.timeout);
+                row = u.new_row(tool, bench, instance_id, status, tsec, alg, opts.timeout);
                 u.append_to_mat(matFile, row);
                 fprintf("%s (%s s)\n", status, u.format_time(tsec, opts.timeout));
             end
         end
     end
+end
+
+function s = strip_dot_slash(s)
+    s = string(s);
+    if startsWith(s, "./"), s = extractAfter(s, 2); end
+end
+
+function ensure_aivl_on_path()
+% Make sure the manually-extracted AIVL Support Package wins over the
+% matlabroot stub. parfeval workers don't auto-run startup.m, so we do
+% it idempotently at each call. No-op if AIVL is already on path or not
+% installed.
+    persistent done
+    if ~isempty(done) && done, return; end
+    sps = dir(fullfile(userpath(), 'SupportPackages', 'R*', 'toolbox', 'nnet', 'supportpackages', 'aivnv'));
+    for k = 1:numel(sps)
+        addpath(fullfile(sps(k).folder, sps(k).name), '-begin');
+    end
+    done = true;
 end
 
 % =========================================================================
@@ -246,38 +280,47 @@ function [status, tsec] = verifyRL(onnx, vnnlibFile, tool, alg)
     end
 end
 
-function [status, tsec] = verifyTLL(onnx, vnnlibFile, tool, alg)
-% Verify a single TLLverify instance.
+function [status, tsec] = verifyImageVnnlib(onnx, vnnlibFile, tool, alg)
+% Verify a single image-input + VNNLIB-output instance (oval21, collins_rul, ...).
+%   Mirrors verifyRL but uses BCSS input + ImageStar (reshaped from VNNLIB lb/ub
+%   to the network's image input dims). Same nnv_rl_status / mw_evalbounds_status
+%   reuse the OR-of-half-spaces logic from CAV'23.
     status = "error"; tsec = NaN; %#ok<NASGU>
     switch tool
         case 'nnv'
-            nn       = matlab2nnv(rebuild_for_aivl(load_mw_network(onnx, 'BC')));
+            nn       = matlab2nnv(load_mw_network(onnx, 'BCSS'));
             property = load_vnnlib(vnnlibFile);
-            IS       = Star(property.lb, property.ub);
+            inSize   = nn.Layers{1}.InputSize;
+            lb       = reshape(property.lb, inSize);
+            ub       = reshape(property.ub, inSize);
+            IS       = ImageStar(lb, ub);
             reachOpt = reach_opt_for(alg);
             t = tic;
             R = nn.reach(IS, reachOpt);
-            status = nnv_rl_status(R, property.prop);
+            status = nnv_vnnlib_status(R, property.prop);
             tsec   = toc(t);
 
         case 'mw_estimate'
-            netMW = rebuild_for_aivl(load_mw_network(onnx, 'BC'));
-            [XLower, XUpper, output] = load_vnnlib_matlab(vnnlibFile);
-            XL = dlarray(XLower, "CB"); XU = dlarray(XUpper, "CB");
+            % Use load_vnnlib (NNV-side parser) to get lb/ub + prop struct.
+            % NNV's load_vnnlib_matlab parser has a paren-counting bug on
+            % (or (and (<= Y_i Y_j))) outputs (oval21, collins_rul); this
+            % path avoids it by evaluating the disjunctive halfspaces
+            % manually against the AIVL output bounds.
+            ensure_aivl_on_path();
+            netMW    = rebuild_for_aivl(load_mw_network(onnx, 'BCSS'));
+            property = load_vnnlib(vnnlibFile);
+            inSize   = netMW.Layers(1).InputSize;
+            XL = dlarray(reshape(property.lb, inSize), "SSCB");
+            XU = dlarray(reshape(property.ub, inSize), "SSCB");
             t = tic;
-            [lb, ub] = estimateNetworkOutputBounds(netMW, XL, XU);
-            status = mw_evalbounds_status(lb, ub, output);
-            tsec   = toc(t);
-
-        case 'mw_abc'
-            netMW = rebuild_for_aivl(load_mw_network(onnx, 'BC'));
-            t = tic;
-            r = verifyNetworkRobustness(netMW, vnnlibFile, Algorithm="alpha-beta-crown");
-            status = mw_verifyresult_to_status(r);
+            [yL, yU] = estimateNetworkOutputBounds(netMW, XL, XU);
+            yL = extractdata(yL); yU = extractdata(yU);
+            yL = yL(:); yU = yU(:);
+            status = mw_vnnlib_status(yL, yU, property.prop);
             tsec   = toc(t);
 
         otherwise
-            error("verifyTLL: tool %s not supported", tool);
+            error("verifyImageVnnlib: tool %s not supported", tool);
     end
 end
 
@@ -338,6 +381,117 @@ function status = nnv_rl_status(R, prop)
     end
 end
 
+function status = nnv_vnnlib_status(R, prop)
+% VNNLIB-spec verifier supporting both shapes that load_vnnlib returns:
+%   (a) RL-style: prop is a cell wrapping an ARRAY of structs, each with .Hg
+%       a single halfspace struct (so np = numel(prop), prop(k).Hg.G).
+%   (b) oval21-style: prop is a cell wrapping a SINGLE struct whose .Hg is
+%       a struct array of halfspaces (so np = numel(prop.Hg), prop.Hg(k).G).
+% Both encode an OR of half-spaces; we flatten to a list of (G, g) pairs.
+    if iscell(prop), prop = prop{1}; end
+    halves = struct('G',{},'g',{});
+    if isstruct(prop) && isscalar(prop) && isfield(prop,'Hg')
+        % oval21-style
+        Hg = prop.Hg;
+        for k = 1:numel(Hg), halves(end+1) = struct('G', Hg(k).G, 'g', Hg(k).g); end %#ok<AGROW>
+    elseif isstruct(prop)
+        % RL-style: array of structs, each has .Hg
+        for k = 1:numel(prop)
+            Hg = prop(k).Hg;
+            for j = 1:numel(Hg), halves(end+1) = struct('G', Hg(j).G, 'g', Hg(j).g); end %#ok<AGROW>
+        end
+    else
+        status = "unknown"; return;
+    end
+
+    np = numel(halves);
+    nr = numel(R);
+    Sets = cell(nr, 1);
+    for k = 1:nr
+        S = R(k);
+        if isa(S, 'ImageStar'), S = S.toStar; end
+        Sets{k} = S;
+    end
+
+    if np == 1
+        h = halves(1);
+        status = "verified";
+        for k = 1:nr
+            Inter = Sets{k}.intersectHalfSpace(h.G, h.g);
+            if isempty(Inter), continue; end
+            if isempty(Sets{k}.intersectHalfSpace(-h.G, -h.g))
+                status = "violated"; return;
+            end
+            status = "unknown"; return;
+        end
+        return;
+    end
+
+    status = "verified";
+    for cp = 1:np
+        h = halves(cp);
+        for k = 1:nr
+            Inter = Sets{k}.intersectHalfSpace(h.G, h.g);
+            if isempty(Inter), continue; end
+            if isempty(Sets{k}.intersectHalfSpace(-h.G, -h.g))
+                status = "violated"; return;
+            end
+            status = "unknown";
+        end
+    end
+end
+
+function status = mw_vnnlib_status(yL, yU, prop)
+% Evaluate an OR-of-halfspaces VNNLIB property against AIVL output bounds.
+% Used as a load_vnnlib_matlab-free path for benchmarks whose VNNLIB output
+% specs trip up that parser (oval21, collins_rul). The property encodes
+% counterexample conditions: status="violated" iff at least one half-space
+% (G*y <= g) is forced over [yL,yU]; status="verified" iff ALL halfspaces
+% are infeasible over [yL,yU]; otherwise unknown.
+%
+% Half-space feasibility test using interval arithmetic on G*y:
+%   max(G*y - g) <= 0  ->  forced (definite counterexample)
+%   min(G*y - g) >  0  ->  infeasible (no counterexample for this disjunct)
+%
+% Reuses nnv_vnnlib_status's halfspace flattening so RL-style and
+% oval21-style prop encodings both work.
+    if iscell(prop), prop = prop{1}; end
+    halves = struct('G',{},'g',{});
+    if isstruct(prop) && isscalar(prop) && isfield(prop, 'Hg')
+        Hg = prop.Hg;
+        for k = 1:numel(Hg), halves(end+1) = struct('G', Hg(k).G, 'g', Hg(k).g); end %#ok<AGROW>
+    elseif isstruct(prop)
+        for k = 1:numel(prop)
+            Hg = prop(k).Hg;
+            for j = 1:numel(Hg), halves(end+1) = struct('G', Hg(j).G, 'g', Hg(j).g); end %#ok<AGROW>
+        end
+    else
+        status = "unknown"; return;
+    end
+
+    forced = false; allInfeasible = true;
+    for k = 1:numel(halves)
+        h = halves(k);
+        Gpos = max(h.G, 0); Gneg = min(h.G, 0);
+        Gy_max = Gpos * yU + Gneg * yL;
+        Gy_min = Gpos * yL + Gneg * yU;
+        gv = h.g(:);
+        if all(Gy_max - gv <= 0)
+            forced = true; break;
+        end
+        if ~all(Gy_min - gv > 0)
+            allInfeasible = false;
+        end
+    end
+    if forced
+        status = "violated";
+    elseif allInfeasible
+        status = "verified";
+    else
+        status = "unknown";
+    end
+end
+
 function status = acas_mw_estimate_status(YLower, YUpper)
 % Port of verifyMAT() from CAV'23 verifyP3.m.
     YLower = extractdata(YLower); YUpper = extractdata(YUpper);
@@ -383,20 +537,40 @@ end
 % MISC HELPERS
 % =========================================================================
 
-function algs = algorithms_for(tool, override)
-% Default algorithm set per tool (CAV'23-style grid for NNV).
+function algs = algorithms_for(tool, benchmark, override)
+% Default algorithm set per (tool, benchmark). Mirrors the NNV 2.0 / CAV'23
+% paper methodology: ACAS p3/p4 use the full grid (CAV'23 Tables 2-3); RL
+% and other VNNLIB-style benchmarks were originally evaluated on approx-star
+% only. Override by passing a non-empty 'algorithms' option to the driver.
     switch tool
         case 'nnv'
-            algs = {'approx-star', ...
-                    'relax-star-range-25', 'relax-star-range-50', ...
-                    'relax-star-range-75', 'relax-star-range-100', ...
-                    'exact-star'};
+            full_grid_range = {'approx-star', ...
+                               'relax-star-range-25', 'relax-star-range-50', ...
+                               'relax-star-range-75', 'relax-star-range-100', ...
+                               'exact-star'};
+            full_grid_area  = {'approx-star', ...
+                               'relax-star-area-25', 'relax-star-area-50', ...
+                               'relax-star-area-75', 'relax-star-area-100'};
+            switch string(benchmark)
+                case {"acas_p3","acas_p4"}
+                    algs = full_grid_range;
+                case "oval21"
+                    % CAV'23 used approx-star only; we extend with the area-relax
+                    % grid for the ATVA26 paper. exact-star is documented as
+                    % intractable on CIFAR Conv+ReLU networks; not in defaults.
+                    algs = full_grid_area;
+                case "collins_rul"
+                    % Small RUL CNNs; exact-star is tractable here (~few s/inst).
+                    algs = [full_grid_area, {'exact-star'}];
+                otherwise
+                    algs = {'approx-star'};
+            end
         case 'mw_estimate', algs = {'estimate-bounds'};
         case 'mw_deeppoly', algs = {'deep-poly'};
         case 'mw_abc',      algs = {'alpha-beta-crown'};
         otherwise, error("Unknown tool: %s", tool);
     end
-    if nargin >= 2 && ~isempty(override)
+    if nargin >= 3 && ~isempty(override)
         algs = algs(ismember(algs, override));
     end
 end
@@ -425,6 +599,18 @@ function reachOpt = reach_opt_for(alg)
         case {'relax-star-range-100'}
             reachOpt.reachMethod = 'relax-star-range';
             reachOpt.relaxFactor = 1.0;
+        case 'relax-star-area-25'
+            reachOpt.reachMethod = 'relax-star-area';
+            reachOpt.relaxFactor = 0.25;
+        case 'relax-star-area-50'
+            reachOpt.reachMethod = 'relax-star-area';
+            reachOpt.relaxFactor = 0.5;
+        case 'relax-star-area-75'
+            reachOpt.reachMethod = 'relax-star-area';
+            reachOpt.relaxFactor = 0.75;
+        case 'relax-star-area-100'
+            reachOpt.reachMethod = 'relax-star-area';
+            reachOpt.relaxFactor = 1.0;
         case 'exact-star'
             reachOpt.reachMethod = 'exact-star';
             reachOpt.reachOption = "parallel";
@@ -451,6 +637,16 @@ function net = load_mw_network(onnx, inputFmt)
 % R2025b-compatible ONNX loader. Prefer importNetworkFromONNX (returns
 % dlnetwork with affine folds). Fall back to the manual ElementwiseAffineLayer
 % fold from CAV'23 on older opsets. Accepts inputFmt in {'BCSS','BC'}.
+%
+% importNetworkFromONNX writes auto-generated custom layers to a `+pkgname`
+% directory in the current working directory. When the cwd is read-only (as
+% with a bind-mounted host source tree owned by a different UID), the import
+% fails. We `cd` to tempdir for the import and restore the original cwd.
+    oldDir   = pwd;
+    importDir = tempname; mkdir(importDir);
+    cleanupCd  = onCleanup(@() safe_cd(oldDir));
+    cleanupRm  = onCleanup(@() safe_rmdir(importDir));
+    cd(importDir);
     try
         net = importNetworkFromONNX(onnx, InputDataFormats=string(inputFmt));
         return;
@@ -474,6 +670,9 @@ function net = load_mw_network(onnx, inputFmt)
         error("load_mw_network: both importNetworkFromONNX and importONNXNetwork failed: %s", ME2.message);
     end
 end
+
+function safe_cd(d), try, cd(d); catch, end, end %#ok<TRYNC>
+function safe_rmdir(d), try, rmdir(d, 's'); catch, end, end %#ok<TRYNC>
 
 function d = find_cav23_subdir(sub)
 % Find NNV_vs_MATLAB/<sub> under the NNV examples tree.

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Run the full NNV3.0 repeatability suite (FairNNV + ProbVer + GNNV +
-# VideoStar + ModelStar) in one shot. Each experiment runs in its own
-# MATLAB session so a crash in one does not lose the others.
+# Run the full NNV3.0 ATVA 2026 artifact-evaluation suite (FairNNV +
+# ProbVer + GNNV + VideoStar + ModelStar + ToolComparison) in one shot.
+# Each experiment runs in its own MATLAB session so a crash in one does
+# not lose the others.
 #
 # Usage (inside the nnv3.0 container, or any MATLAB+NNV install):
 #   bash code/nnv/examples/NNV3.0/run_all.sh
@@ -12,14 +13,43 @@
 #   NNV3_LOG_DIR=/tmp/nnv3_logs       # where per-experiment stdout lands
 #   MATLAB=/usr/local/bin/matlab      # MATLAB binary (default: 'matlab' on PATH)
 #   TOOLCOMPARISON_MODE=smoke|full    # ToolComparison mode (default: smoke).
-#                                       'full' takes ~6 h and won't fit a
-#                                       typical CodeOcean compute window.
+#                                       'full' takes ~3-5 h and renders the
+#                                       ATVA 2026 paper's Tables 5, 6, 7.
 #
 # Exit code is 0 only if every selected experiment finished cleanly. The final
 # summary table (and a CSV at $NNV3_LOG_DIR/summary.csv) lists wall-clock time
 # per experiment.
 
 set -uo pipefail
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: bash run_all.sh
+
+Runs the NNV3.0 repeatability suite end-to-end (FairNNV + ProbVer + GNNV
++ VideoStar + ModelStar + ToolComparison). Each experiment runs in its
+own MATLAB session so a crash in one does not lose the others.
+
+Environment overrides:
+  NNV3_SKIP="probver videostar"   space-separated experiment names to skip
+                                  (valid: fairnnv probver gnnv videostar
+                                  modelstar toolcomparison)
+  NNV3_LOG_DIR=/tmp/nnv3_logs     where per-experiment stdout lands
+                                  (default: <script_dir>/repeatability_logs)
+  MATLAB=/usr/local/bin/matlab    MATLAB binary (default: 'matlab' on PATH)
+  NNV3_FORCE_GPU=0|1              override GPU autodetection
+  NNV3_FORCE_MEMORY=1             attempt ProbVer regardless of host RAM
+  NNV3_MIN_MEMORY_GB=48           ProbVer auto-skip threshold (default 48)
+  TOOLCOMPARISON_MODE=smoke|full  ToolComparison mode (default: smoke,
+                                  ~12 min). 'full' takes ~3-5 h and renders
+                                  the ATVA 2026 paper's Tables 5, 6, and 7.
+
+Exit code is 0 only if every selected experiment finished cleanly. A
+summary CSV at $NNV3_LOG_DIR/summary.csv lists wall-clock time per
+experiment.
+EOF
+    exit 0
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NNV_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"  # .../code/nnv
@@ -167,9 +197,9 @@ run_one modelstar ModelStar matlab run_expt_for_compute.m || overall=$?
 # ToolComparison defaults to smoke mode (~12 min) inside run_all.sh so the
 # end-to-end suite stays under ~30 min. Override with:
 #   TOOLCOMPARISON_MODE=full bash run_all.sh
-# CPU-only; requires the AI Verification Toolbox Support Package staged
+# CPU-only; requires the AI Verification Library (AIVL) Support Package staged
 # at /home/matlab/addons/atva26-aivl.tar.gz (or the other paths checked
-# by ToolComparison/scripts/toolbox_install.m).
+# by ToolComparison/utils/toolbox_install.m).
 export TOOLCOMPARISON_MODE="${TOOLCOMPARISON_MODE:-smoke}"
 run_one toolcomparison ToolComparison matlab run_toolcomparison.m || overall=$?
 

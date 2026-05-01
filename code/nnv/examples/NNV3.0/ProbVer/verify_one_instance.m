@@ -177,16 +177,18 @@ function IS = local_input_set(lb, ub, inputSize, needReshape)
         ub = reshape(ub, newSize); ub = permute(ub, [2 1 3 4]);
     end
     IS = ImageStar(lb, ub);
-    try
-        xxx = find((lb - ub));
-        xxx = reshape(xxx, [], 1);
-        if numel(lb) ~= length(xxx)
-            IS.C = IS.C(:, xxx);
-            IS.pred_lb = IS.pred_lb(xxx);
-            IS.pred_ub = IS.pred_ub(xxx);
-            xxx = xxx + 1;
-            IS.V = IS.V(:, :, :, [1; xxx]);
-            IS.numPred = length(xxx);
+    % Drop predicates whose lb == ub (degenerate, no slack), and subset
+    % the ImageStar's basis matrices accordingly. Best-effort: if the
+    % shapes don't match, leave IS untouched.
+    try %#ok<TRYNC>
+        nonDegenIdx = find((lb - ub));
+        nonDegenIdx = reshape(nonDegenIdx, [], 1);
+        if numel(lb) ~= length(nonDegenIdx)
+            IS.C = IS.C(:, nonDegenIdx);
+            IS.pred_lb = IS.pred_lb(nonDegenIdx);
+            IS.pred_ub = IS.pred_ub(nonDegenIdx);
+            IS.V = IS.V(:, :, :, [1; nonDegenIdx + 1]);  % +1 for V's leading center column
+            IS.numPred = length(nonDegenIdx);
         end
     end
 end

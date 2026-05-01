@@ -1,19 +1,19 @@
 \begin{table}[t]
 \centering
-\caption{ResNet DAG verification (MathWorks additionLayer path, R2024b+).}
-\label{tab:atva26-expC}
-\begin{tabular}{llllll}
+\caption{ToolComparison ResNet head-to-head: NNV vs MathWorks AIVL (additionLayer, R2024b+).}
+\label{tab:toolcomparison-mnist-resnet}
+\begin{tabular}{llllllllll}
 \toprule
-Model & \\epsilon & Tool & Algorithm & Robust & Mean time (s) \\
+Model & \\epsilon & Tool & Algorithm & V & X & ? & E & Mean t (s) & Total t (s) \\
 \midrule
-mnist_resnet8 & 0.0039 & mw_deeppoly & deep-poly & 50/50 (100%) & 45.7 \\
-mnist_resnet8 & 0.0039 & nnv & relax-star-50 & 50/50 (100%) & 6.2 \\
-mnist_resnet8 & 0.0078 & mw_deeppoly & deep-poly & 50/50 (100%) & 43.0 \\
-mnist_resnet8 & 0.0078 & nnv & relax-star-50 & 50/50 (100%) & 8.3 \\
-mnist_resnet8 & 0.0157 & mw_deeppoly & deep-poly & 50/50 (100%) & 42.9 \\
-mnist_resnet8 & 0.0157 & nnv & relax-star-50 & 49/50 (98%) & 13.7 \\
-mnist_resnet8 & 0.0314 & mw_deeppoly & deep-poly & 50/50 (100%) & 41.4 \\
-mnist_resnet8 & 0.0314 & nnv & relax-star-50 & 50/50 (100%) & 38.6 \\
+mnist_resnet8 & 0.0039 & mw_deeppoly & deep-poly & 50 & 0 & 0 & 0 & 45.7 & 2284 \\
+mnist_resnet8 & 0.0039 & nnv & relax-star-area-50 & 50 & 0 & 0 & 0 & 6.2 & 308 \\
+mnist_resnet8 & 0.0078 & mw_deeppoly & deep-poly & 50 & 0 & 0 & 0 & 43.0 & 2152 \\
+mnist_resnet8 & 0.0078 & nnv & relax-star-area-50 & 50 & 0 & 0 & 0 & 8.3 & 413 \\
+mnist_resnet8 & 0.0157 & mw_deeppoly & deep-poly & 50 & 0 & 0 & 0 & 42.9 & 2147 \\
+mnist_resnet8 & 0.0157 & nnv & relax-star-area-50 & 50 & 0 & 0 & 0 & 13.7 & 686 \\
+mnist_resnet8 & 0.0314 & mw_deeppoly & deep-poly & 50 & 0 & 0 & 0 & 41.4 & 2072 \\
+mnist_resnet8 & 0.0314 & nnv & relax-star-area-50 & 50 & 0 & 0 & 0 & 38.6 & 1928 \\
 \bottomrule
 \end{tabular}
 \end{table}

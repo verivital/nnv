@@ -116,17 +116,17 @@ RUN matlab -nodisplay -batch "\
     cd('/home/matlab/nnv/code/nnv'); check_nnv_setup(); \
     "
 
-# Optional: extract the AI Verification Toolbox Support Package for the
+# Optional: extract the AI Verification Library (AIVL) Support Package for the
 # ToolComparison experiment. The tarball is non-redistributable MathWorks
 # code, so it is NOT bundled in this repo. If you have it, drop it at:
-#   code/nnv/examples/NNV3.0/ToolComparison/scripts/atva26-aivl.tar.gz
+#   code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz
 # (or set TOOLCOMPARISON_AIVL_TARBALL at build time). The bulk COPY above
 # brings it into the image automatically. If the tarball isn't present,
 # the script prints a warning and returns; the rest of the suite builds
 # normally and only the MW-side rows of ToolComparison will fail at run
 # time. See ToolComparison/README.md for the tarball recipe.
 RUN matlab -nodisplay -batch "\
-    cd('/home/matlab/nnv/code/nnv/examples/NNV3.0/ToolComparison/scripts'); \
+    cd('/home/matlab/nnv/code/nnv/examples/NNV3.0/ToolComparison/utils'); \
     try, run('toolbox_install.m'); catch ME, fprintf(2, '[toolbox_install warning] %s\\n', ME.message); end; \
     "
 

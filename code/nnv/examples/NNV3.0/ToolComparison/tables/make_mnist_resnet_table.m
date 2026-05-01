@@ -15,9 +15,9 @@ function make_mnist_resnet_table(varargin)
     if ~isfolder(opts.outDir), mkdir(opts.outDir); end
 
     u = tool_utils();
-    models = {'mnist_resnet8','cifar_resnet20_small','cifar_resnet8'};
+    models = {'mnist_resnet8','cifar_resnet8'};
 
-    header = {"Model","\\epsilon","Tool","Algorithm","Robust","Mean time (s)"};
+    header = {"Model","\\epsilon","Tool","Algorithm","V","X","?","E","Mean t (s)","Total t (s)"};
     rows = {};
     txtLines = strings(0,1);
     for i = 1:numel(models)
@@ -34,13 +34,19 @@ function make_mnist_resnet_table(varargin)
             tool = keys.tool(k);
             alg  = keys.algorithm(k);
             sel  = R(R.eps==e & R.tool==tool & R.algorithm==alg & R.benchmark==string(model), :);
-            total = height(sel);
+            n     = height(sel);
             v     = sum(sel.status == "verified");
-            mt    = mean(sel.time(sel.status ~= "timeout" & sel.status ~= "error" & ~isnan(sel.time)));
+            x     = sum(sel.status == "violated");
+            unk   = sum(sel.status == "unknown");
+            errN  = sum(sel.status == "error");
+            tlist = sel.time(sel.status ~= "timeout" & sel.status ~= "error" & ~isnan(sel.time));
+            mt    = mean(tlist);
+            tt    = sum(tlist);
             rows{end+1} = { model, sprintf("%.4f", e), tool, alg, ...
-                u.format_count(v, total), u.format_time(mt) }; %#ok<AGROW>
-            txtLines(end+1,1) = sprintf("%-22s eps=%.4f %-14s %-22s robust=%s mean=%s", ...
-                model, e, tool, alg, u.format_count(v,total), u.format_time(mt)); %#ok<AGROW>
+                sprintf("%d", v), sprintf("%d", x), sprintf("%d", unk), sprintf("%d", errN), ...
+                u.format_time(mt), u.format_time(tt) }; %#ok<AGROW>
+            txtLines(end+1,1) = sprintf("%-15s eps=%.4f %-14s %-22s V=%2d X=%2d ?=%2d E=%2d (n=%2d) mean=%s tot=%s", ...
+                model, e, tool, alg, v, x, unk, errN, n, u.format_time(mt), u.format_time(tt)); %#ok<AGROW>
         end
     end
 

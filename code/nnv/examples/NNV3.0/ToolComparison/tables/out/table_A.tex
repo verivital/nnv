@@ -1,22 +1,42 @@
 \begin{table}[t]
 \centering
-\caption{Refresh of NNV 2.0 NNV-vs-MathWorks comparison (2023 \\to 2026).}
-\label{tab:atva26-expA}
+\caption{ToolComparison FC-net half: NNV vs MathWorks AIVL on ACAS Xu and RL controllers.}
+\label{tab:toolcomparison-acas-rl}
 \begin{tabular}{llllllll}
 \toprule
-Benchmark & Tool & Algorithm & Verified & Violated & Unknown & Timeout & Mean time (s) \\
+Benchmark & Tool & Algorithm & V & X & ? & T/O & Mean t (s) \\
 \midrule
-acas_p3 & mw_estimate & estimate-bounds & 2/45 (4%) & 3/45 (7%) & 40/45 (89%) & 0/45 (0%) & 0.05 \\
-acas_p3 & nnv & exact-star & 32/45 (71%) & 3/45 (7%) & 0/45 (0%) & 10/45 (22%) & 129 \\
-acas_p3 & nnv & relax-star-50 & 2/45 (4%) & 2/45 (4%) & 41/45 (91%) & 0/45 (0%) & 0.63 \\
-acas_p4 & mw_estimate & estimate-bounds & 0/45 (0%) & 1/45 (2%) & 44/45 (98%) & 0/45 (0%) & 0.03 \\
-acas_p4 & nnv & exact-star & 39/45 (87%) & 3/45 (7%) & 0/45 (0%) & 3/45 (7%) & 170 \\
-acas_p4 & nnv & relax-star-50 & 1/45 (2%) & 2/45 (4%) & 42/45 (93%) & 0/45 (0%) & 0.61 \\
-rl & mw_estimate & estimate-bounds & 20/50 (40%) & 11/50 (22%) & 19/50 (38%) & 0/50 (0%) & 0.02 \\
-rl & nnv & exact-star & 32/50 (64%) & 15/50 (30%) & 1/50 (2%) & 2/50 (4%) & 3.7 \\
-rl & nnv & relax-star-50 & 32/50 (64%) & 14/50 (28%) & 4/50 (8%) & 0/50 (0%) & 0.07 \\
-tllverify & mw_estimate & estimate-bounds & 0/32 (0%) & 0/32 (0%) & 24/32 (75%) & 0/32 (0%) & 1.00 \\
-tllverify & nnv & relax-star-50 & 0/32 (0%) & 0/32 (0%) & 17/32 (53%) & 7/32 (22%) & 98.1 \\
+acas_p3 & mw_estimate & estimate-bounds & 2 & 3 & 40 & 0 & 0.05 \\
+acas_p3 & nnv & approx-star & 29 & 3 & 13 & 0 & 0.57 \\
+acas_p3 & nnv & exact-star & 32 & 3 & 0 & 10 & 129 \\
+acas_p3 & nnv & relax-star-range-100 & 0 & 0 & 45 & 0 & 0.02 \\
+acas_p3 & nnv & relax-star-range-25 & 8 & 3 & 34 & 0 & 0.57 \\
+acas_p3 & nnv & relax-star-range-50 & 2 & 2 & 41 & 0 & 0.63 \\
+acas_p3 & nnv & relax-star-range-75 & 1 & 0 & 44 & 0 & 0.31 \\
+acas_p4 & mw_estimate & estimate-bounds & 0 & 1 & 44 & 0 & 0.03 \\
+acas_p4 & nnv & approx-star & 32 & 3 & 10 & 0 & 0.59 \\
+acas_p4 & nnv & exact-star & 39 & 3 & 0 & 3 & 170 \\
+acas_p4 & nnv & relax-star-range-100 & 0 & 0 & 45 & 0 & 0.02 \\
+acas_p4 & nnv & relax-star-range-25 & 6 & 3 & 36 & 0 & 0.57 \\
+acas_p4 & nnv & relax-star-range-50 & 1 & 2 & 42 & 0 & 0.61 \\
+acas_p4 & nnv & relax-star-range-75 & 1 & 0 & 44 & 0 & 0.30 \\
+rl & mw_estimate & estimate-bounds & 20 & 11 & 19 & 0 & 0.02 \\
+rl & nnv & approx-star & 32 & 14 & 4 & 0 & 0.09 \\
+rl & nnv & exact-star & 32 & 15 & 1 & 2 & 3.7 \\
+rl & nnv & relax-star-range-50 & 32 & 14 & 4 & 0 & 0.07 \\
+oval21 & mw_estimate & estimate-bounds & 0 & 9 & 21 & 0 & 0.18 \\
+oval21 & nnv & approx-star & 0 & 10 & 15 & 5 & 102 \\
+oval21 & nnv & relax-star-area-100 & 0 & 9 & 21 & 0 & 56.3 \\
+oval21 & nnv & relax-star-area-25 & 0 & 9 & 15 & 6 & 63.4 \\
+oval21 & nnv & relax-star-area-50 & 0 & 9 & 16 & 5 & 76.7 \\
+oval21 & nnv & relax-star-area-75 & 0 & 9 & 17 & 4 & 53.4 \\
+collins_rul & mw_estimate & estimate-bounds & 10 & 47 & 5 & 0 & 0.17 \\
+collins_rul & nnv & approx-star & 10 & 47 & 5 & 0 & 2.3 \\
+collins_rul & nnv & exact-star & 8 & 37 & 0 & 16 & 16.8 \\
+collins_rul & nnv & relax-star-area-100 & 10 & 47 & 5 & 0 & 0.55 \\
+collins_rul & nnv & relax-star-area-25 & 10 & 47 & 5 & 0 & 15.0 \\
+collins_rul & nnv & relax-star-area-50 & 10 & 47 & 5 & 0 & 9.2 \\
+collins_rul & nnv & relax-star-area-75 & 10 & 47 & 5 & 0 & 5.2 \\
 \bottomrule
 \end{tabular}
 \end{table}

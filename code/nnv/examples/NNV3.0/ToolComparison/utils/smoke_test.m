@@ -28,15 +28,30 @@ function smoke_test()
     end
 
     % --- 2. AIVL entry points -------------------------------------------
+    %   AIVL is optional. If the Support Package isn't staged, we skip the
+    %   MW-side checks (steps 2 and 5) and the rest of the smoke test still
+    %   verifies the NNV-only path that 'tools',{'nnv'} runs use.
+    %   Note: which() finds stub .m files shipped with MATLAB even when the
+    %   support package isn't installed; we have to actually probe.
+    haveAIVL = false;
     try
+        netProbe = dlnetwork([featureInputLayer(2, "Name", "in"); ...
+                              fullyConnectedLayer(2, "Name", "fc", ...
+                                  "Weights", eye(2,'single'), "Bias", zeros(2,1,'single'))]);
+        XLp = dlarray([0;0], "CB"); XUp = dlarray([1;1], "CB");
+        [~, ~] = estimateNetworkOutputBounds(netProbe, XLp, XUp); %#ok<ASGLU>
+        haveAIVL = true;
+    catch
+        haveAIVL = false;
+    end
+    if haveAIVL
         v1 = which('verifyNetworkRobustness');
         v2 = which('estimateNetworkOutputBounds');
-        assert(~isempty(v1), "verifyNetworkRobustness missing");
-        assert(~isempty(v2), "estimateNetworkOutputBounds missing");
         fprintf("[2] AIVL verifyNet:      %s\n", v1);
         fprintf("    AIVL estimateBounds: %s\n", v2);
-    catch ME
-        fail("2", sprintf("AIVL not found -- toolbox_install.m may have skipped extract: %s", ME.message));
+    else
+        fprintf("[2] AIVL not installed -- skipping MW-side checks (steps 2, 5).\n");
+        fprintf("    To enable: stage atva26-aivl.tar.gz and run scripts/toolbox_install.m\n");
     end
 
     % --- 3. Build a tiny 3-layer FC network directly -------------------
@@ -75,20 +90,24 @@ function smoke_test()
     end
 
     % --- 5. estimateNetworkOutputBounds ---------------------------------
-    try
-        XL = dlarray(XLower, "CB");
-        XU = dlarray(XUpper, "CB");
-        t = tic;
-        [yL, yU] = estimateNetworkOutputBounds(netMW, XL, XU);
-        tMW = toc(t);
-        yL = extractdata(yL); yU = extractdata(yU);
-        assert(all(isfinite(yL)) && all(isfinite(yU)), "estimateNetworkOutputBounds returned non-finite values");
-        assert(all(yU >= yL),                          "estimateNetworkOutputBounds bounds inverted");
-        fprintf("[5] estimateBounds:      yL=%s yU=%s, %.2fs\n", ...
-                mat2str(yL(:)', 4), mat2str(yU(:)', 4), tMW);
-    catch ME
-        fprintf(2, "[5] estimateBounds FAILED:\n%s\n", getReport(ME, 'extended'));
-        fail("5", sprintf("estimateNetworkOutputBounds failed: %s", ME.message));
+    if haveAIVL
+        try
+            XL = dlarray(XLower, "CB");
+            XU = dlarray(XUpper, "CB");
+            t = tic;
+            [yL, yU] = estimateNetworkOutputBounds(netMW, XL, XU);
+            tMW = toc(t);
+            yL = extractdata(yL); yU = extractdata(yU);
+            assert(all(isfinite(yL)) && all(isfinite(yU)), "estimateNetworkOutputBounds returned non-finite values");
+            assert(all(yU >= yL),                          "estimateNetworkOutputBounds bounds inverted");
+            fprintf("[5] estimateBounds:      yL=%s yU=%s, %.2fs\n", ...
+                    mat2str(yL(:)', 4), mat2str(yU(:)', 4), tMW);
+        catch ME
+            fprintf(2, "[5] estimateBounds FAILED:\n%s\n", getReport(ME, 'extended'));
+            fail("5", sprintf("estimateNetworkOutputBounds failed: %s", ME.message));
+        end
+    else
+        fprintf("[5] skipped (AIVL not installed)\n");
     end
 
     % --- 6. tool_utils round-trip ---------------------------------------

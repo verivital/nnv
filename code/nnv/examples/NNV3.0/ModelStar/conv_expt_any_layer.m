@@ -98,7 +98,6 @@ for pert_layer_no = 1:n_layers_to_run_for_from_yaml_file
         p = f*WPutils.get_weights_range(net, l);
         net.Layers{l}.perturb_whole_layer(-p, p);
         
-        % run robustness verification for chosen images in parallel
         no_of_images_verified = 0;
         no_of_images_verified_towards = 0;
         no_of_images_verified_formalizing = 0;
@@ -193,7 +192,6 @@ for pert_layer_no = 1:n_layers_to_run_for_from_yaml_file
         disp('       Percentage of images verified by "Towards": ' + string(percent_verif_towards) + ' % in ' + string(t_towards) + ' s.')
         
         percent_verif_formalizing = no_of_images_verified_formalizing/length(images)*100;
-        % disp(['       Percentage of images verified by "Formalizing": ' + string(percent_verif_formalizing) + ' % in ' + string(t_formalizing) + ' s.'])
         
         expt = EXPT(expt_path);
         expt.data.layers{pert_layer_no}.fracs{frac_no}.percents = num2cell([percent_verif_modelstar, percent_verif_towards, percent_verif_formalizing]);

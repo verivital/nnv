@@ -26,6 +26,12 @@ code/nnv/tests/attacks/shuttle_images/**
 # Sphinx documentation build output
 docs/_build/
 
+# NNV3.0/ToolComparison local-run scratch
+.cache/
+repro_logs/
+code/nnv/examples/NNV3.0/ToolComparison/mnist_resnet/data/
+**/*.mlpkginstall
+
 
 # --- Claude / MCP / OpenSpec (local dev only) ---
 .claude/

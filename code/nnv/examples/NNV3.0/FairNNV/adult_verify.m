@@ -133,7 +133,7 @@ for k = 1:length(onnxFiles)
     rand_indices = randsample(total_obs, numObs);
 
     for e=1:length(epsilon)
-        clear R outputSet IS temp t
+        clear R outputSet IS is_robust t
         % Reset the timeout flag
         assignin('base', 'timeoutOccurred', false);
 
@@ -168,18 +168,19 @@ for k = 1:length(onnxFiles)
             % Process fairness specification
             target = net.robustness_set(target, 'min');
 
-            % Verify fairness
-            temp = 1;
+            % Verify fairness: per-sample flag, 1 = all reach sets satisfy
+            % the spec, 0 = at least one violates.
+            is_robust = 1;
             for s = 1:length(R)
                 if verify_specification(R(s), target) ~= 1
-                    temp = 0;
+                    is_robust = 0;
                     break
                 end
             end
 
             met(i,e) = 'exact';
 
-            res(i,e) = temp; % robust result
+            res(i,e) = is_robust;
 
             time(i,e) = toc(t); % store computation time
 

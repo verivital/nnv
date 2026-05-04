@@ -1,40 +1,25 @@
 function train_mnist_resnet(varargin)
-%TRAIN_MNIST_RESNET Train compact ResNet classifiers for Experiment C.
+%TRAIN_MNIST_RESNET Train the ResNet classifier for Experiment C.
 %
-%   Produces two dlnetwork .mat files in models/:
+%   Produces a dlnetwork .mat file in models/:
 %     mnist_resnet8.mat  -- 28x28x1 MNIST classifier with addition layers
-%     cifar_resnet8.mat  -- 32x32x3 CIFAR-10 classifier with addition layers
 %
-%   Both are deliberately small: enough conv depth to demonstrate residual
-%   structure (so MW's additionLayer code path is exercised), small enough
-%   that NNV's relax-star reach is tractable in seconds and exact-star is
-%   feasible on at least MNIST.
-%
-%   train_resnets() trains both with default short epochs.
-%   train_resnets('skipMNIST', true) skips MNIST.
+%   Deliberately small: enough conv depth to demonstrate residual structure
+%   (so MW's additionLayer code path is exercised), small enough that NNV's
+%   relax-star reach is tractable in seconds and exact-star is feasible.
 
     p = inputParser;
     addParameter(p, 'modelsDir',  fullfile(fileparts(mfilename('fullpath')), 'models'));
     addParameter(p, 'mnistEpochs', 3);
-    addParameter(p, 'cifarEpochs', 5);
     addParameter(p, 'miniBatch',   128);
-    addParameter(p, 'skipMNIST',   false);
-    addParameter(p, 'skipCIFAR',   false);
     parse(p, varargin{:});
     opts = p.Results;
     if ~isfolder(opts.modelsDir), mkdir(opts.modelsDir); end
 
     rng(0);
 
-    if ~opts.skipMNIST
-        fprintf("\n=== Training MNIST-ResNet-8 ===\n");
-        train_mnist_resnet8(opts);
-    end
-
-    if ~opts.skipCIFAR
-        fprintf("\n=== Training CIFAR-ResNet-8 ===\n");
-        train_cifar_resnet8(opts);
-    end
+    fprintf("\n=== Training MNIST-ResNet-8 ===\n");
+    train_mnist_resnet8(opts);
 end
 
 % =========================================================================
@@ -79,79 +64,8 @@ function train_mnist_resnet8(opts)
     fprintf("  wrote testset (%d images)\n", numel(Ytest));
 end
 
-function train_cifar_resnet8(opts)
-    % CIFAR-10 source: the R2024b matlab-deps image does not ship the
-    % cifar10Dataset helper, so we read the Krizhevsky binary distribution
-    % staged at data/cifar-10-batches-mat/ (downloaded once via wget).
-    dataDir = fullfile(fileparts(mfilename('fullpath')), 'data', 'cifar-10-batches-mat');
-    if ~isfolder(dataDir)
-        error(['cifar_resnet8: CIFAR-10 not available at %s. Download via:', newline, ...
-               '  wget https://www.cs.toronto.edu/~kriz/cifar-10-matlab.tar.gz', newline, ...
-               '  tar xzf cifar-10-matlab.tar.gz -C %s'], ...
-              dataDir, fileparts(dataDir));
-    end
-    [Xtrain, Ytrain, Xtest, Ytest] = load_cifar10_batches(dataDir);
-    fprintf("  train=%d test=%d (Krizhevsky batches)\n", size(Xtrain,4), size(Xtest,4));
-
-    lgraph  = cifar_resnet8_layers();
-    net0    = dlnetwork(lgraph);
-    options = trainingOptions('adam', ...
-        'MaxEpochs',            opts.cifarEpochs, ...
-        'MiniBatchSize',        opts.miniBatch, ...
-        'InitialLearnRate',     1e-3, ...
-        'Shuffle',              'every-epoch', ...
-        'Verbose',              true, ...
-        'VerboseFrequency',     100, ...
-        'Plots',                'none', ...
-        'ExecutionEnvironment', 'cpu');
-
-    % onehot Ytrain for crossentropy
-    classNames = categories(Ytrain);
-    Ttrain = onehotencode(Ytrain, 2, 'ClassNames', classNames);
-    net = trainnet(Xtrain, Ttrain, net0, 'crossentropy', options);
-
-    save(fullfile(opts.modelsDir, 'cifar_resnet8.mat'), 'net', '-v7.3');
-    fprintf("  wrote cifar_resnet8.mat\n");
-
-    YPred = minibatchpredict(net, Xtest);
-    [~, I] = max(YPred, [], 2);
-    YPredLab = categorical(classNames(I));
-    acc = mean(YPredLab == Ytest);
-    fprintf("  CIFAR-ResNet-8 test accuracy: %.3f\n", acc);
-
-    % Trim testset to 100 images for the verification suite.
-    nKeep = min(100, size(Xtest, 4));
-    Xtest = Xtest(:,:,:,1:nKeep);
-    Ytest = Ytest(1:nKeep);
-    save(fullfile(opts.modelsDir, 'cifar_resnet8_testset.mat'), 'Xtest', 'Ytest', '-v7.3');
-    fprintf("  wrote testset (%d images)\n", numel(Ytest));
-end
-
-function [Xtrain, Ytrain, Xtest, Ytest] = load_cifar10_batches(dataDir)
-% Read CIFAR-10 Krizhevsky-MATLAB binary distribution into HxWxCxN arrays.
-    classNames = {'airplane','automobile','bird','cat','deer', ...
-                  'dog','frog','horse','ship','truck'};
-    Xtrain = zeros(32, 32, 3, 50000, 'single');
-    Ytrain = zeros(50000, 1, 'uint8');
-    for k = 1:5
-        S = load(fullfile(dataDir, sprintf('data_batch_%d.mat', k)));
-        % S.data is 10000x3072 uint8 (RGB row-major). Reshape -> 32x32x3xN.
-        D = reshape(S.data', 32, 32, 3, []);
-        D = permute(D, [2 1 3 4]);                       % swap rows/cols
-        Xtrain(:,:,:, (k-1)*10000 + (1:10000)) = single(D) ./ 255;
-        Ytrain((k-1)*10000 + (1:10000))        = uint8(S.labels) + 1;
-    end
-    T = load(fullfile(dataDir, 'test_batch.mat'));
-    D = reshape(T.data', 32, 32, 3, []);
-    D = permute(D, [2 1 3 4]);
-    Xtest = single(D) ./ 255;
-    Ytest = uint8(T.labels) + 1;
-    Ytrain = categorical(Ytrain, 1:10, classNames);
-    Ytest  = categorical(Ytest,  1:10, classNames);
-end
-
 % =========================================================================
-% Architecture definitions: both networks have additionLayer (residual).
+% Architecture definition: residual network with additionLayer.
 
 function lgraph = mnist_resnet8_layers()
 % ~8 weight layers: stem conv + 3 residual blocks + avg-pool + fc.
@@ -164,32 +78,6 @@ function lgraph = mnist_resnet8_layers()
     rb1 = residual_block('rb1', 16, 1);
     rb2 = residual_block('rb2', 16, 1);
     rb3 = residual_block('rb3', 16, 1);
-    head = [
-        globalAveragePooling2dLayer('Name','gap')
-        fullyConnectedLayer(10, 'Name','fc')
-        softmaxLayer('Name','sm')
-    ];
-
-    lgraph = layerGraph(in);
-    lgraph = addLayers(lgraph, stem);
-    lgraph = connectLayers(lgraph, 'in', 'c1');
-    lgraph = chain(lgraph, 'r1', rb1);
-    lgraph = chain(lgraph, [rb1{end}.Name], rb2);
-    lgraph = chain(lgraph, [rb2{end}.Name], rb3);
-    lgraph = addLayers(lgraph, head);
-    lgraph = connectLayers(lgraph, [rb3{end}.Name], 'gap');
-end
-
-function lgraph = cifar_resnet8_layers()
-    in = imageInputLayer([32 32 3], 'Name','in', 'Normalization','zerocenter');
-    stem = [
-        convolution2dLayer(3, 32, 'Padding','same', 'Name','c1')
-        batchNormalizationLayer('Name','bn1')
-        reluLayer('Name','r1')
-    ];
-    rb1 = residual_block('rb1', 32, 1);
-    rb2 = residual_block('rb2', 32, 1);
-    rb3 = residual_block('rb3', 32, 1);
     head = [
         globalAveragePooling2dLayer('Name','gap')
         fullyConnectedLayer(10, 'Name','fc')

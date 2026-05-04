@@ -69,12 +69,15 @@ end
 % but the MATLAB here is R2024a) -- in that case the extracted directory
 % is SupportPackages/R2025b/... not R<current>/... Either is fine; AIVL's
 % .m files are version-portable.
+% dir(<dir>) returns CONTENTS, so each match's .folder is the aivnv path itself.
+% (Older versions of this script joined .folder + .name and ended up adding
+% the +aivnv namespace subdir, which doesn't expose verifyNetworkRobustness.)
 aivlMatches = dir(fullfile(char(mlUser), 'SupportPackages', 'R*', 'toolbox', 'nnet', 'supportpackages', 'aivnv'));
 if isempty(aivlMatches)
     fprintf(2, '[toolbox_install] no aivnv directory found under %s/SupportPackages/R*/...\n', mlUser);
     return;
 end
-aivlDir = fullfile(aivlMatches(1).folder, aivlMatches(1).name);
+aivlDir = aivlMatches(1).folder;
 fprintf('[toolbox_install] addpath %s  (isfolder=%d)\n', aivlDir, isfolder(aivlDir));
 % Use '-begin' so the AIVL implementation overrides the matlabroot stub at
 % /opt/matlab/R<release>/toolbox/nnet/cnn/spkgs/{verifyNetworkRobustness,

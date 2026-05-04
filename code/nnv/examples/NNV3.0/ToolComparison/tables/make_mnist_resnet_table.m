@@ -15,7 +15,7 @@ function make_mnist_resnet_table(varargin)
     if ~isfolder(opts.outDir), mkdir(opts.outDir); end
 
     u = tool_utils();
-    models = {'mnist_resnet8','cifar_resnet8'};
+    models = {'mnist_resnet8'};
 
     header = {"Model","\\epsilon","Tool","Algorithm","V","X","?","E","Mean t (s)","Total t (s)"};
     rows = {};

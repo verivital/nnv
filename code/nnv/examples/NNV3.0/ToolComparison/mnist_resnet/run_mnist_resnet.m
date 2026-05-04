@@ -6,7 +6,6 @@ function run_mnist_resnet(varargin)
 %
 %   Models:
 %       mnist_resnet8          ~8 conv + 3 residual blocks (additionLayer)
-%       cifar_resnet8          (placeholder; defaults to relax-star only)
 %
 %   Tools:
 %       'nnv'          -> NNV 3.0 reachability
@@ -29,7 +28,7 @@ function run_mnist_resnet(varargin)
 %     run_mnist_resnet('algorithms', {'approx-star','relax-star-area-50'})
 
     p = inputParser;
-    addParameter(p, 'models',     {'mnist_resnet8','cifar_resnet8'});
+    addParameter(p, 'models',     {'mnist_resnet8'});
     addParameter(p, 'tools',      {'nnv','mw_deeppoly'});
     addParameter(p, 'algorithms', {});
     addParameter(p, 'epsilons',   [1/255, 2/255, 4/255]);

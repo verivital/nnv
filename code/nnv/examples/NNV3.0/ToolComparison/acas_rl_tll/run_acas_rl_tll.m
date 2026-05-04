@@ -47,7 +47,12 @@ function run_acas_rl_tll(varargin)
     % the bridge requires R2026a. Override via 'tools' to include 'mw_abc'.
     addParameter(p, 'tools',      {'nnv','mw_estimate'});
     addParameter(p, 'algorithms', {});    % empty = use default algorithms_for(tool) per tool
-    addParameter(p, 'timeout',    900);   % CAV'23 ACAS exact-star had max ~10000s -- cap outliers.
+    addParameter(p, 'timeout',    300);   % ACAS/RL global cap. CAV'23 had no cap (one outlier at 10479s);
+                                          % we cap at 300s -- instances that need >300s also needed >900s
+                                          % in prior runs, so paper-faithful T-counts are preserved while
+                                          % wall-clock drops ~3x. VNNCOMP-style benchmarks (oval21,
+                                          % collins_rul) use per-instance timeouts from instances.csv
+                                          % directly (this default does NOT apply to them).
     addParameter(p, 'resultsDir', fullfile(fileparts(mfilename('fullpath')), 'results'));
     addParameter(p, 'rlSeed',     1);     % CAV'23 used rng(1) then randperm(200,50)
     addParameter(p, 'rerun',      {});    % statuses to re-run (e.g., {'error','timeout'})
@@ -177,6 +182,17 @@ function run_image_vnnlib_csv(bench, assetDir, matFile, opts, u)
         onnx     = char(fullfile(assetDir, onnxRel));
         vnnlib   = char(fullfile(assetDir, vnnRel));
         instance_id = sprintf("%s|%s", onnxRel, vnnRel);
+        % VNNCOMP semantics: each instances.csv row carries its own timeout
+        % (30 s on easy props, up to 1800 s on hard ones). We honor it
+        % directly -- opts.timeout governs ACAS/RL only, not VNNCOMP-style
+        % benchmarks where the suite ships authoritative per-instance caps.
+        instTimeout = double(T.timeout(i));
+        if ~isfinite(instTimeout) || instTimeout <= 0, instTimeout = opts.timeout; end
+        effTimeout = instTimeout;
+        % Restart parpool between instances to avoid worker-state corruption.
+        % We saw AIVL `verifyNetworkRobustness` hang on Collins RUL full_window
+        % nets after NNV exact-star ran on the same parpool worker.
+        delete(gcp('nocreate'));
         for t = 1:numel(opts.tools)
             tool = opts.tools{t};
             if ismember(tool, {'mw_deeppoly','mw_abc'}), continue; end
@@ -185,10 +201,10 @@ function run_image_vnnlib_csv(bench, assetDir, matFile, opts, u)
                 alg = algs{k};
                 if u.has_instance(matFile, tool, bench, instance_id, alg), continue; end
                 fprintf("  [%s %-12s %-22s] %s ... ", bench, tool, alg, instance_id);
-                [status, tsec] = run_one( @() verifyImageVnnlib(onnx, vnnlib, tool, alg), opts.timeout);
-                row = u.new_row(tool, bench, instance_id, status, tsec, alg, opts.timeout);
+                [status, tsec] = run_one( @() verifyImageVnnlib(onnx, vnnlib, tool, alg), effTimeout);
+                row = u.new_row(tool, bench, instance_id, status, tsec, alg, effTimeout);
                 u.append_to_mat(matFile, row);
-                fprintf("%s (%s s)\n", status, u.format_time(tsec, opts.timeout));
+                fprintf("%s (%s s)\n", status, u.format_time(tsec, effTimeout));
             end
         end
     end

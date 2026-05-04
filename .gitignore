@@ -29,8 +29,12 @@ docs/_build/
 # NNV3.0/ToolComparison local-run scratch
 .cache/
 repro_logs/
+code/nnv/examples/NNV3.0/repeatability_logs/
 code/nnv/examples/NNV3.0/ToolComparison/mnist_resnet/data/
 **/*.mlpkginstall
+# AIVL Support Package tarball — non-redistributable MathWorks code.
+# Staged here for Dockerfile build to extract; never committed.
+code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz
 
 
 # --- Claude / MCP / OpenSpec (local dev only) ---

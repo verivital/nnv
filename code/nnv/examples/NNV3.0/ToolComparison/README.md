@@ -93,7 +93,6 @@ NNV3.0/ToolComparison/
 ├── mnist_resnet/                      argmax-robustness half
 │   ├── run_mnist_resnet.m             driver
 │   ├── train_mnist_resnet.m           native-MATLAB ResNet trainer
-│   ├── data/                          CIFAR-10 batches (Krizhevsky binary; gitignored)
 │   ├── models/                        trained dlnetworks + testsets
 │   └── results/                       expC_<model>.{mat,csv}
 │

@@ -38,8 +38,8 @@ function [res, time, met] = verifyvideo(dsVar, smpLen, verAlg, index, epsIndex)
     fprintf("Running robustness verification on %s dataset...", dsVarCaps);
 
     % Load data
-    data = readNPY(sprintf("data/%s/test/mnistvideo_%s_%df_test_data_seq.npy", dsVarCaps, dsVar, smpLen));
-    labels = readNPY(sprintf("data/%s/test/mnistvideo_%s_test_labels_seq.npy", dsVarCaps, dsVar));
+    data = readNPY(sprintf("data/%s/mnistvideo_%s_%df_test_data_seq.npy", dsVarCaps, dsVar, smpLen));
+    labels = readNPY(sprintf("data/%s/mnistvideo_%s_test_labels_seq.npy", dsVarCaps, dsVar));
 
     % Preprocessing
     reshaped_data = permute(data, [1, 3, 2, 4, 5]); % to match BCSSS

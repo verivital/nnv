@@ -19,8 +19,8 @@ function [res, time, met] = verifygtsrb(smpLen, verAlg, index, epsIndex)
     fprintf("Running robustness verification on GTSRB %df dataset...", smpLen);
 
     % Load data
-    data = readNPY(sprintf("data/GTSRB/test/gtsrbvideo_%df_test_data_seq.npy", smpLen));
-    labels = readNPY("data/GTSRB/test/gtsrbvideo_test_labels_seq.npy");
+    data = readNPY(sprintf("data/GTSRB/gtsrbvideo_%df_test_data_seq.npy", smpLen));
+    labels = readNPY("data/GTSRB/gtsrbvideo_test_labels_seq.npy");
 
     % Preprocessing
     reshaped_data = permute(data, [1, 2, 4, 5, 3]); % to match BCSSS

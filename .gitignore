@@ -20,3 +20,16 @@ code/nnv/tests/attacks/shuttle_images/**
 **/shuttle_images/**
 **/tbxmanager/
 **/tbxmanager/**
+
+.DS_Store
+
+# Sphinx documentation build output
+docs/_build/
+
+
+# --- Claude / MCP / OpenSpec (local dev only) ---
+.claude/
+.mcp.json
+openspec/
+AGENTS.md
+CLAUDE.md

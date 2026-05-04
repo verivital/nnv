@@ -147,7 +147,12 @@ classdef FlattenLayer < handle
                 elseif length(n) == 4
                     image = permute(image, [3 2 1 4]);
                     flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)*n(4)]);
+                elseif length(n) == 5
+                    % image = permute(image, [3 2 1 4 5]);
+                    image = permute(image, [1, 5, 4, 3, 2]);
+                    flatten_im = reshape(image, [1 1 n(1)*n(2)*n(3)*n(4)*n(5)]);
                 else
+                    disp(n);
                     fprintf("Invalid input image with size %d", length(n));
                     error('Invalid input image');
                 end 

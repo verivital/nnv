@@ -225,41 +225,25 @@ classdef ScaledDotProductAttentionLayer < handle
             Z = Zono(center, generators);
         end
 
-        function [out_lb, out_ub] = compute_attention_bounds(obj, Q_lb, Q_ub, ...
-                K_lb, K_ub, V_lb, V_ub)
-            % Compute bounds on attention output
+        function [out_lb, out_ub] = compute_attention_bounds(~, ~, ~, ~, ~, V_lb, V_ub)
+            % Compute bounds on attention output for the SINGLE-TOKEN case.
             %
-            % Attention(Q, K, V) = softmax(QK^T / sqrt(d_k)) * V
-
-            % For simplified analysis, assume Q, K, V are vectors
-            % In full implementation, handle matrix case
-
-            d_k = length(Q_lb);
-            d_v = length(V_lb);
-
-            % Step 1: Bound QK^T (dot product for vector case)
-            % For interval [a, b] * [c, d]:
-            % min = min(ac, ad, bc, bd), max = max(ac, ad, bc, bd)
-            products = [Q_lb .* K_lb, Q_lb .* K_ub, Q_ub .* K_lb, Q_ub .* K_ub];
-            score_lb = sum(min(products, [], 2));
-            score_ub = sum(max(products, [], 2));
-
-            % Step 2: Scale by 1/sqrt(d_k)
-            scale = 1 / sqrt(d_k);
-            score_lb = score_lb * scale;
-            score_ub = score_ub * scale;
-
-            % Step 3: Softmax bounds (for single score, softmax is identity-like)
-            % For vector of scores, use Softmax.compute_softmax_bounds
-            % Here we simplify for the single attention weight case
-            attn_lb = max(0, 1 / (1 + exp(-score_lb)));  % Approximate
-            attn_ub = min(1, 1 / (1 + exp(-score_ub)));  % Approximate
-
-            % Step 4: Bound attention * V
-            % attn * V where attn in [attn_lb, attn_ub], V in [V_lb, V_ub]
-            products_v = [attn_lb * V_lb, attn_lb * V_ub, attn_ub * V_lb, attn_ub * V_ub];
-            out_lb = min(products_v, [], 2);
-            out_ub = max(products_v, [], 2);
+            % The reach_*_approx routines flatten Q, K, V into vector Stars
+            % (treating each as a single-token query/key/value vector). For
+            % seq_len = 1 the softmax is taken over a single key, so
+            % attn_weights == 1 identically, and Attention(Q,K,V) = V.
+            %
+            % Returning V's bounds as the output is therefore exact (sound and
+            % tight) for this case. Q and K bounds are unused.
+            %
+            % NOTE: this implementation does NOT generalize to seq_len > 1.
+            % For multi-token attention, the reach() API needs to be extended
+            % to take per-token Star sets and call Softmax.compute_softmax_bounds
+            % on the score row before mixing with V. Until then, callers that
+            % want to verify multi-token attention should construct an
+            % equivalent per-token model.
+            out_lb = V_lb;
+            out_ub = V_ub;
         end
 
         %% Utility Methods

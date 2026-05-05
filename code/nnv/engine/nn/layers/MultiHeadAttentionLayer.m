@@ -148,9 +148,12 @@ classdef MultiHeadAttentionLayer < handle
             head_outputs = zeros(seq_len, obj.NumHeads, obj.HeadDim);
 
             for h = 1:obj.NumHeads
-                Q_h = squeeze(Q_heads(:, h, :));  % [seq_len x head_dim]
-                K_h = squeeze(K_heads(:, h, :));
-                V_h = squeeze(V_heads(:, h, :));
+                % Use reshape (not squeeze) so seq_len = 1 doesn't collapse the
+                % sequence axis along with the head axis — the previous squeeze
+                % returned a head_dim-vector for seq_len = 1, breaking attention.
+                Q_h = reshape(Q_heads(:, h, :), seq_len, obj.HeadDim);
+                K_h = reshape(K_heads(:, h, :), seq_len, obj.HeadDim);
+                V_h = reshape(V_heads(:, h, :), seq_len, obj.HeadDim);
 
                 % Scaled dot-product attention
                 d_k = obj.HeadDim;
@@ -506,32 +509,23 @@ classdef MultiHeadAttentionLayer < handle
             end
         end
 
-        function [out_lb, out_ub] = compute_attention_bounds_single_head(obj, ...
-                q_lb, q_ub, k_lb, k_ub, v_lb, v_ub)
-            % Compute bounds for a single attention head
-
-            d_k = length(q_lb);
-
-            % Bound QK^T (dot product)
-            products = [q_lb .* k_lb, q_lb .* k_ub, q_ub .* k_lb, q_ub .* k_ub];
-            score_lb = sum(min(products, [], 2));
-            score_ub = sum(max(products, [], 2));
-
-            % Scale by 1/sqrt(d_k)
-            scale = 1 / sqrt(d_k);
-            score_lb = score_lb * scale;
-            score_ub = score_ub * scale;
-
-            % Softmax bounds (approximation for single score)
-            attn_lb = 1 / (1 + exp(-score_lb));
-            attn_ub = 1 / (1 + exp(-score_ub));
-            attn_lb = max(0, min(1, attn_lb));
-            attn_ub = max(0, min(1, attn_ub));
-
-            % Bound attention * V
-            products_v = [attn_lb * v_lb, attn_lb * v_ub, attn_ub * v_lb, attn_ub * v_ub];
-            out_lb = min(products_v, [], 2);
-            out_ub = max(products_v, [], 2);
+        function [out_lb, out_ub] = compute_attention_bounds_single_head(~, ...
+                ~, ~, ~, ~, v_lb, v_ub)
+            % Compute bounds for a single attention head — SINGLE-TOKEN case.
+            %
+            % This bounds-computation path treats Q, K, V as flat vectors per
+            % head (each represents a single-token query/key/value). For
+            % seq_len = 1 the softmax is over a single score, so attn_weights
+            % is identically 1, and Attention(Q,K,V) = V. Returning V's bounds
+            % is therefore exact (sound and tight).
+            %
+            % NOTE: this does NOT generalize to seq_len > 1. The previous
+            % sigmoid-of-score formulation was unsound — softmax over a single
+            % score is 1, not sigmoid(score). For multi-token attention the
+            % reach API needs per-token Stars and a proper softmax bound
+            % (see Softmax.compute_softmax_bounds).
+            out_lb = v_lb;
+            out_ub = v_ub;
         end
 
         %% Utility Methods

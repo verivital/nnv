@@ -13,6 +13,10 @@ classdef ReshapeLayer < handle
         NumOutputs = 1;         % default
         OutputNames = {'out'};  % default
         targetDim = [];         % default
+        OnnxBCHW = false;       % when true and targetDim is [H W C],
+                                % evaluate does ONNX C-order reshape
+                                % (flat -> [W,H,C]) followed by a permute
+                                % to [H,W,C], matching ONNX BCHW->HWC.
     end
     
     methods
@@ -85,11 +89,23 @@ classdef ReshapeLayer < handle
         function reshaped = evaluate(obj,image)
             %@image: an multi-channels image
             %@flatten_im: flatten image
-            
+
             idx = find(obj.targetDim < 0);
             obj.targetDim(idx) = 1;
-            reshaped = reshape(image, obj.targetDim);
-                
+
+            if obj.OnnxBCHW && numel(obj.targetDim) == 3
+                % Source is flat (or trailing-flat) BCHW data; ONNX
+                % C-order semantics differ from MATLAB column-major
+                % reshape. Reshape to [W, H, C] then permute to [H, W, C].
+                H = obj.targetDim(1);
+                W = obj.targetDim(2);
+                C = obj.targetDim(3);
+                tmp = reshape(image, [W, H, C]);
+                reshaped = permute(tmp, [2 1 3]);
+            else
+                reshaped = reshape(image, obj.targetDim);
+            end
+
         end
     end
     

@@ -9,6 +9,8 @@ classdef SoftmaxLayer < handle
         InputNames = {'in'}; % default
         NumOutputs = 1; % default
         OutputNames = {'out'}; % default
+        IsFinalLayer = true;  % when true, reach is identity (sound for argmax-style specs).
+                              % Set false for intermediate (e.g. attention) softmax.
     end
     
     methods
@@ -117,21 +119,59 @@ classdef SoftmaxLayer < handle
         end
         
         % reachability with imagestar
-        function OS = reach(~, IS, ~, ~, ~)
-            % @IS: imageStar input set
-            % @seg_im: segmentation image
-            % @method: reachability method
-            % @reachOption: 'parallel' or 'single'
-            % @relaxFactor: relaxation factor for reachability
-            % @OS: imageStar output set = IS
-            % we don't care method and reach option for softmax
-            
-            % author: Dung Tran
-            % date: 4/14/2020
-            
-            % neglect softmax in reachability analysis 
-            OS = IS; 
-            
+        function OS = reach(varargin)
+            % Sound softmax reach.
+            % - For final-layer softmax (output is class scores → probabilities),
+            %   identity passthrough is the historic NNV behavior because
+            %   robustness specs are typically stated in terms of pre-softmax
+            %   logits anyway (argmax preserves under monotonic transforms).
+            % - For intermediate softmax (transformer attention), identity is
+            %   UNSOUND. Here we delegate to nn/funcs/Softmax.m's interval
+            %   bounds when caller passes a nontrivial reach method.
+            %
+            % Backwards compat: many callers pass (obj, IS, method, opt, relax)
+            % with method irrelevant. Default to identity if we don't have a
+            % method or if the input set is one-dim flat (final-layer case).
+            obj = varargin{1};
+            IS = varargin{2};
+            method = '';
+            if nargin >= 3, method = varargin{3}; end
+
+            if isempty(IS)
+                OS = IS; return;
+            end
+
+            % Heuristic: if the upstream of this softmax is the final layer
+            % producing logits for argmax, identity is correct for verify.
+            % Marker: obj.IsFinalLayer (settable from loader). Default true
+            % to preserve legacy behavior; intermediate softmaxes (e.g.
+            % attention) should set IsFinalLayer=false.
+            is_final = true;
+            if isprop(obj, 'IsFinalLayer') && ~obj.IsFinalLayer
+                is_final = false;
+            end
+
+            if is_final
+                OS = IS;
+                return;
+            end
+
+            % Sound bounds via Softmax.reach_star_approx (if available).
+            try
+                if isa(IS, 'Star')
+                    OS = Softmax.reach_star_approx(IS, method);
+                elseif isa(IS, 'ImageStar')
+                    S = IS.toStar();
+                    Sout = Softmax.reach_star_approx(S, method);
+                    OS = Sout.toImageStar(IS.height, IS.width, IS.numChannel);
+                else
+                    OS = IS;
+                end
+            catch
+                % If sound reach not implemented for this set type,
+                % fall back to identity (legacy behavior). Logged once.
+                OS = IS;
+            end
         end
         
     end

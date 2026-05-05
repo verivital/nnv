@@ -213,6 +213,13 @@ classdef FlattenLayer < handle
                 S(n) = ImageZono;
             elseif isa(inputs(1), 'VolumeStar')
                 S(n) = Star; % convert to Star as we move to a 2D set
+            elseif isa(inputs(1), 'Star')
+                % Star is already flat — flatten is a no-op. Pass through.
+                S = inputs;
+                return;
+            elseif isa(inputs(1), 'Zono')
+                S = inputs;
+                return;
             else
                 error('Unknown input data set');
             end

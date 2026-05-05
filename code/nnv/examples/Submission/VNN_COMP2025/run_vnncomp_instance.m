@@ -95,23 +95,27 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                 reachOptions = reachOptionsList{1};
     
                 IS = create_input_set(lb, ub, inputSize, needReshape);
-            
+
                 % Compute reachability
                 if ~strcmp(reachOptions.reachMethod, "cp-star")
+                    if ~is_nnvnet_valid(nnvnet)
+                        % matlab2nnv conversion failed earlier; report unknown
+                        status = 2; break;
+                    end
                     ySet = nnvnet.reach(IS, reachOptions);
                 else
                     ySet = Prob_reach(net, IS, reachOptions);
                 end
-    
+
                 % Verify property
                 status = verify_specification(ySet, prop);
-    
+
                 if status == 1 % verified, then stop
                     break
                 else
                     reachOptionsList = reachOptionsList(2:end);
                 end
-    
+
             end
 
         end
@@ -133,34 +137,38 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                 reachOptPar = reachOptionsList;
                 
+                tempStatus = 2;
                 while ~isempty(reachOptPar)
-    
+
                     reachOptions = reachOptPar{1};
-                
+
                     IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
-            
+
                     % Compute reachability
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
+                        if ~is_nnvnet_valid(nnvnet)
+                            tempStatus = 2; break;
+                        end
                         ySet = nnvnet.reach(IS, reachOptions);
                     else
                         ySet = Prob_reach(net, IS, reachOptions);
                     end
-            
+
                     % Verify property
                     if isempty(ySet.C)
                         dd = ySet.V; DD = ySet.V;
                         ySet = Star(dd,DD);
                     end
-        
+
                     % Add verification status
                     tempStatus = verify_specification(ySet, prop(spc));
-    
+
                     if tempStatus ~= 2 % verified, then stop (or falsified)
                         break
                     else
                         reachOptPar = reachOptPar(2:end);
                     end
-    
+
                 end
 
                 local_status(spc) = tempStatus;
@@ -192,32 +200,37 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                 local_status(spc) = 1; % verified, since we already tested this earlier
                 
             else
-            
+
+                tempStatus = 2;
                 while ~isempty(reachOptPar)
-    
+
                     reachOptions = reachOptPar{1};
-                
+
                     IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
-            
+
                     % Compute reachability
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
+                        if ~is_nnvnet_valid(nnvnet)
+                            tempStatus = 2; break;
+                        end
                         ySet = nnvnet.reach(IS, reachOptions);
                     else
                         ySet = Prob_reach(net, IS, reachOptions);
                     end
-        
+
                     % Add verification status
                     tempStatus = verify_specification(ySet, prop(spc));
-    
+
                     if tempStatus ~= 2 % verified, then stop (or falsified)
                         break
                     else
                         reachOptPar = reachOptPar(2:end);
                     end
-    
+
                     local_status(spc) = tempStatus;
-    
+
                 end
+                local_status(spc) = tempStatus;
 
             end
 
@@ -280,7 +293,18 @@ end
 
 function IS = create_input_set(lb, ub, inputSize, needReshape)
 
-    % Get input bounds
+    % If the network has a flat feature input (scalar inputSize, or
+    % singleton-with-channels), build a Star instead of an ImageStar.
+    % Some downstream NNV layer reach() implementations read Set.dim,
+    % which Star has but ImageStar does not.
+    is_feature_input = isscalar(inputSize) || ...
+        (numel(inputSize) <= 3 && nnz(inputSize > 1) <= 1);
+    if is_feature_input
+        IS = Star(double(lb(:)), double(ub(:)));
+        return;
+    end
+
+    % Image input: original behavior
     if ~isscalar(inputSize)
         lb = reshape(lb, inputSize);
         ub = reshape(ub, inputSize);
@@ -299,7 +323,7 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
     end
 
     % Create input set
-    IS = ImageStar(lb, ub); 
+    IS = ImageStar(lb, ub);
 
     % Delete constraints for non-interval dimensions
     try
@@ -315,6 +339,13 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
         end
     end
 
+end
+
+function ok = is_nnvnet_valid(nnvnet)
+% Sanity-check that nnvnet was built (some dispatchers set it to "" when
+% matlab2nnv conversion fails inside a try/catch). We need an NN object,
+% not a string sentinel.
+    ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
 end
 
 function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] = load_vnncomp_network(category, onnx, vnnlib)
@@ -340,7 +371,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         nnvnet = matlab2nnv(net);
         if ~contains(vnnlib, "prop_3.") && ~contains(vnnlib, "prop_4.")
             reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = numCores;
+            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
             reachOptionsList{1} = reachOptions;
             nRand = 500;
         else
@@ -348,7 +379,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
             reachOptions.reachMethod = 'approx-star'; % default parameters
             reachOptionsList{1} = reachOptions;
             reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = numCores;
+            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
             reachOptionsList{2} = reachOptions;
         end
         
@@ -471,7 +502,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = numCores;
+        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
         reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "linearize")
@@ -484,7 +515,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
             reachOptionsList{1} = reachOptions;
             reachOptions = struct;
             reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = numCores;
+            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
             reachOptionsList{1} = reachOptions;
         catch
             nnvnet = "";
@@ -520,7 +551,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = numCores;
+        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
         reachOptionsList{1} = reachOptions;
         needReshape = 2;
 
@@ -629,7 +660,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star'; % default parameters
-        reachOptions.numCores = numCores;
+        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
         reachOptionsList{2} = reachOptions;
         nRand = 500;
 
@@ -641,7 +672,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star'; % default parameters
-        reachOptions.numCores = numCores;
+        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "soundness")
@@ -725,24 +756,40 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
     
     elseif contains(category, "vit")
-        % vit: onnx to matlab
+        % vit: onnx to matlab. Try sound Star-set reach first (approx-star
+        % then relax-star fallback), since cp-star is probabilistic and
+        % doesn't exercise the actual reach() chain through attention layers.
+        % If matlab2nnv conversion fails (e.g., unsupported layer in the ONNX
+        % import), fall back to cp-star to get *some* result.
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
         try
             nnvnet = matlab2nnv(net);
+            needReshape = 1;
+            reachOptionsList = {};
+            % First: approx-star (tightest sound bound NNV offers without LP)
+            reachOpts1 = struct;
+            reachOpts1.reachMethod = 'approx-star';
+            reachOptionsList{end+1} = reachOpts1;
+            % Second: relax-star (faster fallback for deeper nets)
+            reachOpts2 = struct;
+            reachOpts2.reachMethod = 'relax-star-area';
+            reachOpts2.relaxFactor = 0.5;
+            reachOptionsList{end+1} = reachOpts2;
         catch
             nnvnet = "";
+            % cp-star fallback ONLY when sound conversion failed
+            reachOpts = struct;
+            reachOpts.train_epochs = 100;
+            reachOpts.train_lr = 0.001;
+            reachOpts.coverage = 0.999;
+            reachOpts.confidence = 0.999;
+            reachOpts.train_mode = 'Linear';
+            reachOpts.surrogate_dim = [-1,-1];
+            reachOpts.threshold_normal = 1e-5;
+            reachOpts.reachMethod = 'cp-star';
+            reachOptionsList = {reachOpts};
+            needReshape = 1;
         end
-        needReshape= 1; % 1 is correct
-        reachOptions = struct;
-        reachOptions.train_epochs = 100;
-        reachOptions.train_lr = 0.001;
-        reachOptions.coverage = 0.999;
-        reachOptions.confidence = 0.999;
-        reachOptions.train_mode = 'Linear';
-        reachOptions.surrogate_dim = [-1,-1];
-        reachOptions.threshold_normal = 1e-5;
-        reachOptions.reachMethod = 'cp-star';
-        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "yolo")
         % yolo: onnx to nnv
@@ -768,13 +815,20 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         error("ONNX model not supported")
     end
 
-    % if reachOptionsList{1}.reachMethod ~= "cp-star"
-    %     reachOptionsList = {};
-    %     reachOptions = struct;
-    %     reachOptions.reachMethod = 'relax-star-area';
-    %     reachOptions.relaxFactor = 1;
-    %     reachOptionsList{1} = reachOptions;
-    % end
+    % Phase 1.5 (TODO_VNNCOMP25_V01): for any category whose first reach
+    % method is "cp-star" (probabilistic, requires GPU on this machine),
+    % prepend sound CPU-only methods so the dispatcher tries them first.
+    % cp-star remains as fallback when the sound methods can't decide.
+    if ~isempty(reachOptionsList) && isfield(reachOptionsList{1}, 'reachMethod') ...
+            && strcmp(reachOptionsList{1}.reachMethod, 'cp-star') ...
+            && is_nnvnet_valid(nnvnet)
+        sound_opts = cell(1,2);
+        o1 = struct(); o1.reachMethod = 'approx-star';
+        sound_opts{1} = o1;
+        o2 = struct(); o2.reachMethod = 'relax-star-area'; o2.relaxFactor = 0.5;
+        sound_opts{2} = o2;
+        reachOptionsList = [sound_opts, reachOptionsList];
+    end
 
 end
 

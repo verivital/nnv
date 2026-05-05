@@ -90,6 +90,10 @@ for i=1:n
     elseif isa(L, 'nnet.cnn.layer.TanhLayer')
             Li = TanhLayer.parse(L);
 
+    % GELU Layer (Gaussian Error Linear Unit - used in Transformers)
+    elseif isa(L, 'nnet.cnn.layer.GELULayer')
+            Li = GeluLayer.parse(L);
+
     % Batch Normalization Layer
     elseif isa(L, 'nnet.cnn.layer.BatchNormalizationLayer')
         Li = BatchNormalizationLayer.parse(L);
@@ -154,6 +158,18 @@ for i=1:n
     % ElementWise Affine Layer (often used as a bias layer after FC layers)
     elseif isa(L, 'nnet.onnx.layer.ElementwiseAffineLayer')
         Li = ElementwiseAffineLayer.parse(L);
+
+    % Scaling Layer (built-in MATLAB Deep Learning Toolbox layer used by
+    % some ONNX imports for input normalization). Equivalent to elementwise
+    % affine with Scale and Bias.
+    elseif isa(L, 'nnet.onnx.layer.ScalingLayer') || isa(L, 'nnet.cnn.layer.ScalingLayer')
+        scaleVal  = L.Scale;
+        if isprop(L, 'Bias') && ~isempty(L.Bias)
+            offsetVal = L.Bias;
+        else
+            offsetVal = zeros(size(scaleVal), 'like', scaleVal);
+        end
+        Li = ElementwiseAffineLayer(L.Name, scaleVal, offsetVal, true, true);
     
     % Feature input layer
     elseif isa(L, 'nnet.cnn.layer.FeatureInputLayer') || isa(L, 'nnet.onnx.layer.FeatureInputLayer')

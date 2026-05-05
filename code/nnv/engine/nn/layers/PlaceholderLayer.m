@@ -10,8 +10,10 @@ classdef PlaceholderLayer < handle
     properties
         Name = 'NoOpLayer';
         Type = ''; % e.g. dropout
+        Perm = [];  % optional MATLAB-style permutation order (1-indexed)
+                    % set when this placeholder represents a Transpose op
     end
-    
+
     methods % constructor
 
         % create layer
@@ -21,15 +23,37 @@ classdef PlaceholderLayer < handle
             obj.Name = name;
             obj.Type = Ltype;
         end
-    
+
     end
-        
+
     methods % main methods
 
-        % evaluate 
-        function out_im = evaluate(~, inputs)
-            % return output = input
-            out_im = inputs;
+        % evaluate
+        function out_im = evaluate(obj, inputs)
+            % return output = input, optionally permuted or with an
+            % element-wise function applied (Sign/Abs/etc.).
+            if ~isempty(obj.Perm)
+                % MATLAB's permute requires perm to cover at least ndims(inputs).
+                % If the perm is shorter (e.g. ONNX rank-2 perm but MATLAB
+                % already promoted the tensor to rank-3), pad with identity.
+                p = obj.Perm(:).';
+                k = max(numel(p), ndims(inputs));
+                if numel(p) < k
+                    p = [p, (numel(p)+1):k];
+                end
+                out_im = permute(inputs, p);
+                return;
+            end
+            % Element-wise op stored as the Type tag (set by the loader for
+            % ops like Sign / Abs that NNV doesn't have a dedicated layer for).
+            switch obj.Type
+                case 'Sign'
+                    out_im = sign(inputs);
+                case 'Abs'
+                    out_im = abs(inputs);
+                otherwise
+                    out_im = inputs;
+            end
         end
 
         function out_sq = evaluateSequence(~, inputs)

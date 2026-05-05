@@ -89,16 +89,23 @@ classdef AdditionLayer < handle
                 
         end
  
-        % reach 
+        % reach
         function outputs = reach_single_input(~, inputs)
-            % @in_image: input imagestar
+            % @in_image: input cell array of sets to add (Star/ImageStar/...)
             % @image: output set
-            
+            % AdditionLayer reach Minkowski-sums all input sets. The caller
+            % must provide a cell array of length >= 1; if a single Star
+            % slips through (callers like NN.reach_withConns sometimes pass
+            % the dest_indx's stored input directly), wrap it.
+            if ~iscell(inputs)
+                outputs = inputs;
+                return;
+            end
             outputs = inputs{1};
             for k = 2 : length(inputs)
                 outputs = outputs.MinkowskiSum(inputs{k});
             end
-            
+
         end
         
         % handle multiple inputs

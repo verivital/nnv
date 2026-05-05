@@ -1307,7 +1307,10 @@ classdef NN < handle
                     y = obj.Layers{source_indx}.evaluate(x);
                     obj.features{source_indx} = y;
                 else
-
+                    % DAG fix: source already evaluated by an earlier
+                    % iteration; reuse its stored output instead of
+                    % carrying the previous iteration's `y` forward.
+                    y = obj.features{source_indx};
                 end
                 
                 % 4) save inputs to destination layer
@@ -1442,6 +1445,9 @@ classdef NN < handle
                     end
                     obj.reachTime(source_indx) = toc(t);
                     obj.reachSet{source_indx} = outSet;
+                else
+                    % DAG fix: source already reached; reuse stored set.
+                    outSet = obj.reachSet{source_indx};
                 end
                 
                 % 4) save inputs to destination layer

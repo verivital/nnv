@@ -15,15 +15,15 @@ Updated as work lands. Most-recent entries at the top.
 | A1  | Proper AIVL invocation (verifyNetworkRobustness, scope-bounded by R2025b) | partial | TBD |
 | A2  | Collapse `mw_*` tools → one `aivl` tool with algorithm column | done         | TBD     |
 | A3  | Replace in-tree MNIST-ResNet-8 with VNNCOMP CNN               | pending      | —       |
-| A4  | Add PAR-2 to Tables A and C                                   | pending      | —       |
+| A4  | PAR-2 + timeout columns in Tables A and C                     | done         | TBD     |
 | A5  | Bundle CAV'23 assets locally instead of reaching into NNV2.0/ | done         | TBD     |
 | B1  | Add one VNNCOMP'24 benchmark (likely `dist_shift`)            | pending      | —       |
-| B2  | Pareto plot (additive, not replacement)                       | pending      | —       |
-| B3  | ACAS exact-star reconciliation at 1800s                       | pending      | —       |
+| B2  | Pareto plot (additive)                                        | code done    | TBD     |
+| B3  | ACAS exact-star reconciliation at 1800s (option + helper)     | code done    | TBD     |
 | B4  | AIVL falsification baseline (R2025b API permitting)           | pending      | —       |
-| C1  | Table A timeout column / regime split                         | pending      | —       |
-| C2  | Drop noisy supplement / legacy rows from active table         | pending      | —       |
-| C3  | README refresh                                                | pending      | —       |
+| C1  | Table A timeout column / regime split                         | done w/ A4   | —       |
+| C2  | Drop noisy supplement / legacy rows from active table         | deferred     | —       |
+| C3  | README refresh                                                | done         | TBD     |
 
 ## Constraints
 
@@ -100,6 +100,62 @@ Each entry: timestamp, what was tested, outcome, log path.
   α/β-CROWN remains absent. This is the artifact's faithful AIVL surface
   area; the paper should state this constraint explicitly rather than
   leave reviewers wondering why we didn't use deep-poly on ACAS.
+
+- **2026-05-06 10:18** — A1 end-to-end smoke OK in nnv3.0:r2025b:
+  - ACAS NNV approx-star: dispatch via 'nnv' tool ✓
+  - ACAS AIVL estimate-bounds: dispatch via 'aivl' + 'estimate-bounds' ✓
+  - MNIST-ResNet AIVL deep-poly: `verifyNetworkRobustness(net, XL, XU, ytrueIdx)`
+    returned `verified` in 7.77s ✓
+  Smoke harness lives at `utils/smoke_a1.m`.
+
+- **2026-05-06 10:30** — A4 (PAR-2 + timeout columns) shipped.
+  Tables now show: V / X / ? / T/O counts, per-instance Timeout (s) (with
+  `*` suffix when per-instance timeouts vary within a row, e.g. VNNCOMP
+  benchmarks), Mean t (over solved instances only), and PAR-2 (s) (the
+  VNNCOMP scoring metric: unsolved instances counted at 2 * timeout).
+
+  Sample numbers under new schema:
+  - ACAS p3 NNV exact-star : V=32 X=3 T/O=10  T=300* mean=129  PAR-2=234
+  - ACAS p3 AIVL estimate  : V= 2 X=3 ?=40   T=900   mean=0.05 PAR-2=1600
+  - RL NNV exact-star      : V=32 X=15 T/O=2  T=900  mean=3.7  PAR-2=112
+  - RL AIVL estimate       : V=20 X=11 ?=19  T=900   mean=0.02 PAR-2=684
+  - Collins RUL NNV approx : V=10 X=47 ?=5   T=60.0  mean=2.3  PAR-2=9.8
+  - Collins RUL AIVL est   : V=10 X=47 ?=5   T=60.0  mean=0.17 PAR-2=9.8
+
+  PAR-2 reveals: NNV's exact-star is the precision winner where applicable
+  (ACAS, RL) — it pays a wall-clock cost but the score reflects that
+  unsolved instances cost 2T. AIVL's estimate-bounds is fast-but-imprecise
+  on ACAS Xu (PAR-2 1.6 ks vs NNV's 234 s) but ties NNV approx-star on
+  Collins RUL (both at 9.8 s — Collins is structurally easy).
+
+- **2026-05-06 11:00** — B2 + B3 + C3 implemented file-only (auto-mode
+  Bash classifier was transiently unavailable; commits queued):
+  - **B2 Pareto plot** (`tables/make_pareto_plot.m`, ~150 lines): per-
+    benchmark scatter of (PAR-2, V-rate). Pareto frontier highlighted,
+    dominated points dimmed, tool encoded by color, algorithm by marker.
+    Wired into `run_toolcomparison.m` so it's a side-effect of the full
+    suite. Outputs `tables/out/pareto_<benchmark>.{png,pdf}`.
+  - **B3 exact-star reconciliation** (`run_acas_rl_tll.m` +
+    `tool_utils.m`): added `'reconcileExact', true` option that
+    surgically re-runs `(tool='nnv', algorithm='exact-star',
+    status='timeout')` rows at 1800 s without disturbing other
+    algorithms' rows. Required extending `tool_utils.purge_status` to
+    accept optional (tool, algorithm) filter args. ~6 hours wall to
+    convert "V+T/O matches CAV'23" to "V matches CAV'23" with no hedge.
+  - **C3 README** (`ToolComparison/README.md`): rewrote tool/algorithm
+    grid to single `nnv`/`aivl` rows with footnotes documenting the
+    R2025b constraints; added a "Constraints" section spelling out the
+    R2025b ceiling (no VNNLIB ingest, no `Algorithm=` knob, no
+    α/β-CROWN bridge); added "Reconcile ACAS exact-star at a higher
+    cap" usage example; documented the new metric columns
+    (timeout/Mean/PAR-2) and the Pareto plot; updated Layout to show
+    bundled `acas/`, `rl_benchmarks/`, `oval21/` next to
+    `collins_rul_cnn_2022/`.
+
+  Pending: stage + commit (A4 + B2 + B3 + C3) when the classifier is
+  back. A3 (swap MNIST-ResNet-8 for a VNNCOMP CNN) and B1 (add VNNCOMP'24)
+  both need shell access to fetch the asset files; deferred until Bash
+  is unblocked.
 
 ## Notes for reviewers (paper-side framing)
 

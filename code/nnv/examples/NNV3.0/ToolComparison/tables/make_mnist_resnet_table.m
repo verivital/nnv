@@ -17,7 +17,7 @@ function make_mnist_resnet_table(varargin)
     u = tool_utils();
     models = {'mnist_resnet8'};
 
-    header = {"Model","\\epsilon","Tool","Algorithm","V","X","?","E","Mean t (s)","Total t (s)"};
+    header = {"Model","\\epsilon","Tool","Algorithm","V","X","?","E","Mean t (s)","Total t (s)","PAR-2 (s)"};
     rows = {};
     txtLines = strings(0,1);
     for i = 1:numel(models)
@@ -42,11 +42,16 @@ function make_mnist_resnet_table(varargin)
             tlist = sel.time(sel.status ~= "timeout" & sel.status ~= "error" & ~isnan(sel.time));
             mt    = mean(tlist);
             tt    = sum(tlist);
+            % PAR-2 score: unsolved instances counted at 2 * timeout. Use the
+            % canonical timeout from this group (uniform per row in this half).
+            tEff  = median(sel.timeout(~isnan(sel.timeout)));
+            if isnan(tEff), tEff = 0; end
+            par2  = u.par2(sel.time, sel.status, tEff);
             rows{end+1} = { model, sprintf("%.4f", e), tool, alg, ...
                 sprintf("%d", v), sprintf("%d", x), sprintf("%d", unk), sprintf("%d", errN), ...
-                u.format_time(mt), u.format_time(tt) }; %#ok<AGROW>
-            txtLines(end+1,1) = sprintf("%-15s eps=%.4f %-14s %-22s V=%2d X=%2d ?=%2d E=%2d (n=%2d) mean=%s tot=%s", ...
-                model, e, tool, alg, v, x, unk, errN, n, u.format_time(mt), u.format_time(tt)); %#ok<AGROW>
+                u.format_time(mt), u.format_time(tt), u.format_time(par2) }; %#ok<AGROW>
+            txtLines(end+1,1) = sprintf("%-15s eps=%.4f %-14s %-22s V=%2d X=%2d ?=%2d E=%2d (n=%2d) mean=%s tot=%s PAR-2=%s", ...
+                model, e, tool, alg, v, x, unk, errN, n, u.format_time(mt), u.format_time(tt), u.format_time(par2)); %#ok<AGROW>
         end
     end
 

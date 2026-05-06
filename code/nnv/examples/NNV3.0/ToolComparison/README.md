@@ -6,7 +6,9 @@ the verification regimes the NNV3.0 paper claims:
 
 - **`acas_rl_tll/`** — feed-forward and CNN networks with VNNLIB-style output
   specifications. NNV's star-set reachability is compared against AIVL's
-  `estimateNetworkOutputBounds`. Active benchmarks:
+  `estimateNetworkOutputBounds` + interval-arithmetic property check
+  (the only AIVL path under R2025b for half-space VNNLIB properties; see
+  *Constraints* below). Active benchmarks:
   - ACAS Xu p3, p4 (CAV'23 baseline; full algorithm grid)
   - RL controllers (cartpole, lunarlander, ...; CAV'23, `approx-star`)
   - **OVAL21** — 3 CIFAR CNNs × 10 properties (VNNCOMP 2021)
@@ -16,8 +18,11 @@ the verification regimes the NNV3.0 paper claims:
   [`acas_rl_tll/legacy/`](acas_rl_tll/legacy/).
 - **`mnist_resnet/`** — first head-to-head on a residual network
   (MNIST-ResNet-8). NNV's star-set reachability vs AIVL's
-  `verifyNetworkRobustness` with DeepPoly. Enabled by R2024b's
-  `additionLayer` support.
+  `verifyNetworkRobustness(net, XL, XU, ytrueIdx)` (argmax form, DeepPoly
+  internally per MathWorks docs). This is the **proper** AIVL invocation
+  for image-classification robustness; AIVL has no equivalent
+  user-callable verifier for general half-space VNNLIB on FC/CNN nets
+  in R2025b.
 
 For each instance we record verdict (verified / violated / unknown / timeout
 / error) and per-instance solve time. Schema is uniform across both halves:
@@ -41,17 +46,45 @@ methodology; the new VNNCOMP-derived FC/CNN benchmarks extend this story.
 For MNIST-ResNet-8 we use a single `relax-star-area-50` configuration
 that matches the residual-network methodology.
 
-| Tool | acas_p3 / p4 | rl | oval21 | collins_rul | mnist_resnet8 |
-|------|--------------|----|--------|-------------|---------------|
-| `nnv` | approx-star + relax-star-range-{25,50,75,100} + exact-star | approx-star | approx-star + relax-star-area-{25,50,75,100} | approx-star + relax-star-area-{25,50,75,100} + exact-star | relax-star-area-50 |
-| `mw_estimate` | estimate-bounds | estimate-bounds | estimate-bounds | estimate-bounds | (n/a — argmax robustness) |
-| `mw_deeppoly` | (n/a — VNNLIB half-spaces only) | (n/a) | (n/a) | (n/a) | deep-poly |
-| `mw_abc` | alpha-beta-crown (R2026a bridge required) | (n/a) | (n/a) | (n/a) | (n/a) |
+Schema: a single `tool` column with values `nnv` / `aivl`. The `algorithm`
+column distinguishes methods within each tool (full grid below).
+
+| Tool   | acas_p3 / p4 | rl | oval21 | collins_rul | mnist_resnet8 |
+|--------|--------------|----|--------|-------------|---------------|
+| `nnv`  | approx-star + relax-star-range-{25,50,75,100} + exact-star | approx-star | approx-star + relax-star-area-{25,50,75,100} | approx-star + relax-star-area-{25,50,75,100} + exact-star | relax-star-area-50 |
+| `aivl` | estimate-bounds¹ | estimate-bounds¹ | estimate-bounds¹ | estimate-bounds¹ | deep-poly² |
+
+¹ AIVL `estimate-bounds` = `estimateNetworkOutputBounds` + interval-arithmetic
+on G·y over the returned [yL, yU] (see `aivl_vnnlib_status` in
+[`acas_rl_tll/run_acas_rl_tll.m`](acas_rl_tll/run_acas_rl_tll.m)). Sound but
+conservative — anything verified here is verified in fact, but `unknown`
+counts include cases AIVL would prove with a tighter VNNLIB-aware path
+(landing in R2026a as `verifyNetworkRobustness(net, vnnlibFile)`).
+
+² AIVL `deep-poly` = `verifyNetworkRobustness(net, XL, XU, ytrueIdx)`,
+the public DeepPoly entry point. R2025b's signature accepts only
+`MiniBatchSize` and `ExecutionEnvironment` Name-Value pairs (no
+user-facing `Algorithm=` knob); the alpha-beta-CROWN bridge ships in
+R2026a.
 
 The driver `algorithms_for(tool, benchmark)` enforces these defaults; pass
 `'algorithms', {...}` to override. The legacy algorithm string `relax-star-50`
 is accepted as an alias for `relax-star-range-50` (FC) or `relax-star-area-50`
 (CNN), so persisted result rows from older runs keep matching on resume.
+
+## Constraints
+
+- **MATLAB ceiling: R2025b.** Matches the CodeOcean reproducibility
+  capsule's MATLAB ceiling; the Docker image (`Dockerfile`) installs
+  R2025b. AIVL VNNLIB ingest and the alpha-beta-CROWN bridge require
+  R2026a — out of scope for this artifact. See
+  [`utils/probe_aivl_vnnlib.m`](utils/probe_aivl_vnnlib.m) for the
+  signature probe behind these claims.
+- **AIVL Support Package is non-redistributable.** A tarball recipe for
+  staging is below; reviewers without a MathWorks AIVL license can run
+  the NNV-only path and the bundled `.mat` rows still render the tables.
+- **GPU not required.** The whole comparison is CPU-bound by design
+  (parpool of process workers).
 
 ## Headline results
 
@@ -86,7 +119,10 @@ NNV3.0/ToolComparison/
 │
 ├── acas_rl_tll/                       FC + image-VNNLIB half
 │   ├── run_acas_rl_tll.m              driver (ACAS, RL, oval21, collins_rul)
-│   ├── collins_rul_cnn_2022/          VNNCOMP'22 RUL CNN assets (3 ONNX + 41 vnnlib)
+│   ├── acas/                          45 ACAS Xu ONNX + 10 VNNLIB (CAV'23 / VNNCOMP)
+│   ├── rl_benchmarks/                 RL controllers (3 ONNX + 296 VNNLIB)
+│   ├── oval21/                        VNNCOMP'21 CIFAR ResNets (3 ONNX + 30 VNNLIB)
+│   ├── collins_rul_cnn_2022/          VNNCOMP'22 RUL CNN assets (3 ONNX + 41 VNNLIB)
 │   ├── results/                       results_<benchmark>.{mat,csv}
 │   └── legacy/                        retired benchmarks (TLLverify; see below)
 │
@@ -97,14 +133,17 @@ NNV3.0/ToolComparison/
 │   └── results/                       expC_<model>.{mat,csv}
 │
 └── tables/
-    ├── make_acas_rl_tll_table.m       renders paper Tables 5 (FC) + 6 (CNN)
-    ├── make_mnist_resnet_table.m      renders paper Table 7 (MNIST-ResNet-8)
-    └── out/                           {table_A,table_C,sanity_report}.{tex,txt}
+    ├── make_acas_rl_tll_table.m       Table A (FC + CNN VNNLIB headline)
+    ├── make_mnist_resnet_table.m      Table C (MNIST-ResNet-8)
+    ├── make_pareto_plot.m             per-benchmark V-rate vs PAR-2 Pareto
+    └── out/                           {table_A,table_C}.{tex,txt}, sanity_report.txt,
+                                       pareto_<benchmark>.{png,pdf}
 ```
 
-OVAL21 and ACAS / RL ONNX assets live in
-[`code/nnv/examples/NNV2.0/Submission/CAV2023/NNV_vs_MATLAB/`](../../NNV2.0/Submission/CAV2023/NNV_vs_MATLAB/),
-referenced by the driver (no copy needed).
+All benchmark assets are bundled in-tree (`acas_rl_tll/{acas,rl_benchmarks,
+oval21,collins_rul_cnn_2022}`); the driver's `find_asset_dir(sub)` prefers
+the local copy and falls back to the legacy NNV2.0/CAV2023 path so older
+work-trees still resolve.
 
 ## Running
 
@@ -141,14 +180,53 @@ run_mnist_resnet('models',{'mnist_resnet8'}, 'epsilons',[1/255]);
 ```matlab
 make_acas_rl_tll_table;     % from bundled .mat in acas_rl_tll/results/
 make_mnist_resnet_table;    % from bundled .mat in mnist_resnet/results/
+make_pareto_plot;           % per-benchmark V-rate vs PAR-2 figure
 ```
+
+### Reconcile ACAS exact-star at a higher cap
+
+The bundled CAV'23 baselines compare `Verified + Timeout = 42` rather than
+`Verified = 42` because of the artifact's 300 s default timeout (CAV'23
+had no cap; the slowest network ran 10479 s). To re-run only the exact-
+star timeouts at 1800 s and tighten the table to V matching CAV'23 V
+exactly:
+
+```matlab
+run_acas_rl_tll('reconcileExact', true);   % uses timeout=1800 by default
+```
+
+This filter-purges only `(tool='nnv', algorithm='exact-star',
+status='timeout')` rows (other algorithms' rows are preserved) and
+re-runs those instances. ~6 hours wall on a 4-core CPU.
+
+### Metrics
+
+Tables A and C report:
+- **V / X / ? / T/O** — verified / violated (counterexample) / unknown /
+  timeout counts.
+- **Timeout (s)** — per-row timeout. A `*` suffix means per-instance
+  timeouts vary within the row (VNNCOMP-style benchmarks); the value
+  shown is the median.
+- **Mean t (s)** — average wall-clock over solved instances only.
+- **PAR-2 (s)** — VNN-COMP scoring metric. Unsolved instances counted
+  at 2 × timeout. PAR-2 is what `Mean t` alone misses: a fast tool that
+  times out a lot looks fast on `Mean t` but loses on PAR-2.
 
 ## AI Verification Library setup
 
-The MW-side comparison (`mw_estimate`, `mw_deeppoly`, `mw_abc`) requires
-the AIVL Support Package, gated by a MathWorks account and not
-redistributable. NNV-only runs work without it; pass `'tools',{'nnv'}`
-to skip.
+The AIVL paths (`tool='aivl'` rows in result tables) require the
+**MathWorks AI Verification Library Support Package**. AIVL is gated by
+a MathWorks account and not redistributable. NNV-only runs work without
+it; pass `'tools',{'nnv'}` to skip the AIVL rows.
+
+R2025b exposes two AIVL functions used here:
+- `estimateNetworkOutputBounds(net, XL, XU)` → output interval bounds
+  (DeepPoly internally). Used for half-space VNNLIB benchmarks with a
+  manual property post-check.
+- `verifyNetworkRobustness(net, XL, XU, ytrueIdx)` → categorical verdict
+  (`verified` / `violated` / `unproven`). Argmax-form only in R2025b
+  (the VNNLIB-file overload lands in R2026a). Used for argmax-form
+  image classification (the MNIST-ResNet half).
 
 To enable the MW-side, produce a tarball on a workstation that has AIVL
 installed. From `~/Documents/MATLAB`:

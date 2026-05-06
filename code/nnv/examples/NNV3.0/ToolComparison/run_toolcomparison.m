@@ -106,6 +106,11 @@ function run_toolcomparison(varargin)
     catch ME
         fprintf(2, "export_csv failed: %s\n", ME.message);
     end
+    try
+        make_pareto_plot();      % Per-benchmark Pareto plot of V-rate vs PAR-2.
+    catch ME
+        fprintf(2, "make_pareto_plot failed: %s\n", ME.message);
+    end
 
     fprintf("\n========== ToolComparison run done ==========\n");
 end

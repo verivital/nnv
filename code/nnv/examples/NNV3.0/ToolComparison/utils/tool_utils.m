@@ -70,16 +70,28 @@ function results = load_results(matFile)
     results = S.results;
 end
 
-function n = purge_status(matFile, statuses)
-% Drop all rows in matFile whose status is in the given cell/string array.
-% Returns the number of rows removed. Useful for re-running error/timeout
-% cells without losing the successful ones.
+function n = purge_status(matFile, statuses, tool, algorithm)
+% Drop rows in matFile whose status is in the given cell/string array.
+% Optional filters narrow the purge:
+%   purge_status(f, 'timeout')                       drops every timeout row
+%   purge_status(f, 'timeout', 'nnv')                drops timeout rows where tool=nnv only
+%   purge_status(f, 'timeout', 'nnv', 'exact-star')  drops timeout rows where (tool, alg) match
+%
+% Returns the number of rows removed. Used to re-run error/timeout cells
+% (or surgically reconcile a specific (tool, algorithm) subset, e.g.
+% ACAS exact-star at a higher timeout) without losing successful rows.
     if ~exist(matFile, 'file'), n = 0; return; end
     R = load_results(matFile);
     if isempty(R), n = 0; return; end
-    keep = ~ismember(R.status, string(statuses));
+    drop = ismember(R.status, string(statuses));
+    if nargin >= 3 && ~isempty(tool)
+        drop = drop & (R.tool == string(tool));
+    end
+    if nargin >= 4 && ~isempty(algorithm)
+        drop = drop & (R.algorithm == string(algorithm));
+    end
     nbefore = height(R);
-    R = R(keep, :);
+    R = R(~drop, :);
     n = nbefore - height(R);
     if n > 0
         results = R; %#ok<NASGU>

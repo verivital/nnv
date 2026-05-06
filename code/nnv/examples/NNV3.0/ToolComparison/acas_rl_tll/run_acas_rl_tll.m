@@ -60,11 +60,43 @@ function run_acas_rl_tll(varargin)
     addParameter(p, 'rlSeed',     1);     % CAV'23 used rng(1) then randperm(200,50)
     addParameter(p, 'rerun',      {});    % statuses to re-run (e.g., {'error','timeout'})
     addParameter(p, 'numNets',    Inf);   % cap on # ACAS networks per benchmark (smoke: e.g. 5)
+    % `reconcileExact`: surgically re-run ACAS exact-star timeouts at a
+    % higher cap to convert "V+T/O matches CAV'23 V" into "V matches CAV'23
+    % V" with no hedge. When set:
+    %   - benchmarks is forced to {'acas_p3','acas_p4'}
+    %   - tools     is forced to {'nnv'}
+    %   - algorithms is forced to {'exact-star'}
+    %   - the existing exact-star timeout rows are filter-purged from the
+    %     bundled .mat files; everything else is preserved
+    %   - the timeout option's value (default 1800) is used to re-run
+    %     exactly those instances
+    % Pass `'reconcileExact', true, 'timeout', 1800` to invoke.
+    addParameter(p, 'reconcileExact', false, @islogical);
     parse(p, varargin{:});
     opts = p.Results;
     if ~isfolder(opts.resultsDir), mkdir(opts.resultsDir); end
 
     u = tool_utils();
+
+    % Reconcile-exact-star path: rewrite the option grid before the main loop.
+    if opts.reconcileExact
+        opts.benchmarks = {'acas_p3','acas_p4'};
+        opts.tools      = {'nnv'};
+        opts.algorithms = {'exact-star'};
+        % Default to 1800s (CAV'23 had no cap; this should be enough to
+        % convert all ACAS exact-star timeouts to verified for paper-grade
+        % numbers). User can override by setting `timeout` explicitly.
+        if opts.timeout < 1800, opts.timeout = 1800; end
+        % Filter-purge ONLY (tool='nnv', algorithm='exact-star', status='timeout').
+        % Other algorithms' rows stay intact.
+        for b = 1:numel(opts.benchmarks)
+            bench   = opts.benchmarks{b};
+            matFile = fullfile(opts.resultsDir, sprintf("results_%s.mat", bench));
+            n = u.purge_status(matFile, {'timeout'}, 'nnv', 'exact-star');
+            fprintf("[reconcile] %s: purged %d (nnv, exact-star, timeout) rows; rerunning at %g s\n", ...
+                    bench, n, opts.timeout);
+        end
+    end
     fprintf("acas_rl_tll: benchmarks = {%s}\n", strjoin(opts.benchmarks, ", "));
     fprintf("acas_rl_tll: tools      = {%s}\n", strjoin(opts.tools, ", "));
     fprintf("acas_rl_tll: timeout    = %g s\n", opts.timeout);

@@ -42,9 +42,16 @@ function make_acas_rl_tll_table(varargin)
         'relax-star-area-75','relax-star-area-100', ...
         'exact-star','estimate-bounds'};
 
-    header = {"Benchmark","Tool","Algorithm","V","X","?","T/O","Mean t (s)"};
+    % Column order: counts, then per-row timeout (read from the .mat row's
+    % `timeout` column to expose mixed regimes — 300s for ACAS/RL global cap
+    % vs per-instance VNNCOMP timeouts on OVAL21/Collins RUL), then mean
+    % wall-time on solved instances, then PAR-2 (VNN-COMP scoring metric:
+    % unsolved instances counted at 2*timeout). PAR-2 is what NN-verification
+    % reviewers expect; without it any quoted "mean time" is misleading
+    % because timeouts get filtered out of the average.
+    header = {"Benchmark","Tool","Algorithm","V","X","?","T/O","Timeout (s)","Mean t (s)","PAR-2 (s)"};
     rows = {};
-    suppRows = {};                            % supplement: out-of-grid rows
+    suppRows = {};
     txtLines = strings(0,1);
     for i = 1:numel(benches)
         bench   = benches{i};
@@ -65,14 +72,28 @@ function make_acas_rl_tll_table(varargin)
             un  = sum(sel.status == "unknown");
             to  = sum(sel.status == "timeout");
             mt  = mean(sel.time(sel.status ~= "timeout" & sel.status ~= "error" & ~isnan(sel.time)));
+            % Per-instance timeout: most rows in a (tool, alg, bench) group
+            % share a timeout. Surface the mode; if it varies (per-instance
+            % VNNCOMP caps), append "*" to flag it.
+            timeouts = sel.timeout;
+            if numel(unique(timeouts)) <= 1
+                tStr = u.format_time(timeouts(1), Inf);
+            else
+                tStr = sprintf("%s*", u.format_time(median(timeouts), Inf));
+            end
+            % PAR-2 score: unsolved instances counted at 2*timeout.
+            % Use median timeout when per-instance timeouts vary.
+            tEff = median(timeouts(~isnan(timeouts)));
+            if isnan(tEff), tEff = 0; end
+            par2 = u.par2(sel.time, sel.status, tEff);
             rowCells = { bench, tool, alg, ...
                 sprintf("%d", v), sprintf("%d", vi), sprintf("%d", un), sprintf("%d", to), ...
-                u.format_time(mt) };
+                tStr, u.format_time(mt), u.format_time(par2) };
             isHeadline = any(string(algSet) == alg);
             if isHeadline
                 rows{end+1} = rowCells; %#ok<AGROW>
-                txtLines(end+1,1) = sprintf("%-12s %-14s %-22s V=%3d X=%3d ?=%3d T/O=%3d mean=%s", ...
-                    bench, tool, alg, v, vi, un, to, u.format_time(mt)); %#ok<AGROW>
+                txtLines(end+1,1) = sprintf("%-12s %-14s %-22s V=%3d X=%3d ?=%3d T/O=%3d  T=%s  mean=%s  PAR-2=%s", ...
+                    bench, tool, alg, v, vi, un, to, tStr, u.format_time(mt), u.format_time(par2)); %#ok<AGROW>
             else
                 suppRows{end+1} = rowCells; %#ok<AGROW>
             end
@@ -83,10 +104,12 @@ function make_acas_rl_tll_table(varargin)
         txtLines(end+1,1) = "--- supplement (out-of-headline-grid rows; preserved in .mat) ---";
         for k = 1:numel(suppRows)
             r = suppRows{k};
-            txtLines(end+1,1) = sprintf("%-12s %-14s %-22s V=%3s X=%3s ?=%3s T/O=%3s mean=%s", ...
-                r{1}, r{2}, r{3}, r{4}, r{5}, r{6}, r{7}, r{8}); %#ok<AGROW>
+            txtLines(end+1,1) = sprintf("%-12s %-14s %-22s V=%3s X=%3s ?=%3s T/O=%3s  T=%s  mean=%s  PAR-2=%s", ...
+                r{1}, r{2}, r{3}, r{4}, r{5}, r{6}, r{7}, r{8}, r{9}, r{10}); %#ok<AGROW>
         end
     end
+    txtLines(end+1,1) = "";
+    txtLines(end+1,1) = "Timeout column: '*' suffix = per-instance timeouts vary (VNNCOMP-style); value shown is the median.";
 
     u.emit_latex_table( fullfile(opts.outDir,'table_A.tex'), ...
         header, rows, ...

@@ -78,7 +78,9 @@ RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \
         --products ${MATLAB_PRODUCT_LIST} \
     || (echo "MPM Installation Failure. See below for more information:" && cat /tmp/mathworks_root.log && false) \
     && sudo rm -rf mpm /tmp/mathworks_root.log \
-    && sudo ln -s ${MATLAB_INSTALL_LOCATION}/bin/matlab /usr/local/bin/matlab
+    && sudo ln -s ${MATLAB_INSTALL_LOCATION}/bin/matlab /usr/local/bin/matlab \
+    && sudo mkdir -p /home/matlab/Documents/MATLAB \
+    && sudo chown -R matlab:matlab /home/matlab/Documents
 
 # If a build-arg was supplied, bake it into the image. Otherwise leave
 # MLM_LICENSE_FILE unset and let the user provide it at `docker run` time.

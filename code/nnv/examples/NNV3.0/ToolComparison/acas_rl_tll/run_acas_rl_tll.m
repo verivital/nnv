@@ -219,11 +219,17 @@ function ensure_aivl_on_path()
 % matlabroot stub. parfeval workers don't auto-run startup.m, so we do
 % it idempotently at each call. No-op if AIVL is already on path or not
 % installed.
+%
+%   The aivnv directory itself goes on the path (NOT genpath, because
+%   genpath would pull namespace dirs `+aivnv/`, `+coder/`, `+matlab/`
+%   onto the path explicitly which MATLAB rejects with
+%   "Namespace directories not allowed in MATLAB path"). MATLAB resolves
+%   namespaces from the parent dir automatically.
     persistent done
     if ~isempty(done) && done, return; end
-    sps = dir(fullfile(userpath(), 'SupportPackages', 'R*', 'toolbox', 'nnet', 'supportpackages', 'aivnv'));
-    for k = 1:numel(sps)
-        addpath(fullfile(sps(k).folder, sps(k).name), '-begin');
+    matches = dir(fullfile(userpath(), 'SupportPackages', 'R*', 'toolbox', 'nnet', 'supportpackages', 'aivnv'));
+    if ~isempty(matches)
+        addpath(matches(1).folder, '-begin');
     end
     done = true;
 end
@@ -258,18 +264,17 @@ function [status, tsec] = verifyAcas(onnx, vnnlibFile, XLower, XUpper, H, g, too
                     tsec   = toc(t);
 
                 case 'deep-poly'
-                    ensure_aivl_on_path();
-                    t = tic;
-                    r = verifyNetworkRobustness(netMW, vnnlibFile);  % R2025b: default = DeepPoly
-                    status = aivl_verifyresult_to_status(r);
-                    tsec   = toc(t);
+                    % AIVL's verifyNetworkRobustness in R2025b accepts only
+                    % argmax-form properties: (net, XL, XU, ytrue_class).
+                    % ACAS p3/p4 are half-space properties (output 1 <= each
+                    % of outputs 2..5) — not argmax. VNNLIB-file ingest was
+                    % added in R2026a. So under the R2025b artifact ceiling
+                    % we cannot exercise verifyNetworkRobustness for ACAS;
+                    % the proper AIVL baseline here is `estimate-bounds`.
+                    error('verifyAcas: AIVL ''deep-poly'' on ACAS requires VNNLIB-form verifyNetworkRobustness (R2026a). Use ''estimate-bounds'' under R2025b.');
 
                 case 'alpha-beta-crown'
-                    ensure_aivl_on_path();
-                    t = tic;
-                    r = verifyNetworkRobustness(netMW, vnnlibFile, Algorithm="alpha-beta-crown");
-                    status = aivl_verifyresult_to_status(r);
-                    tsec   = toc(t);
+                    error('verifyAcas: AIVL ''alpha-beta-crown'' bridge requires R2026a (out of scope for R2025b).');
 
                 otherwise
                     error("verifyAcas: aivl algorithm %s not supported", alg);
@@ -306,11 +311,12 @@ function [status, tsec] = verifyRL(onnx, vnnlibFile, tool, alg)
                     tsec   = toc(t);
 
                 case 'deep-poly'
-                    ensure_aivl_on_path();
-                    t = tic;
-                    r = verifyNetworkRobustness(netMW, vnnlibFile);  % R2025b: default = DeepPoly
-                    status = aivl_verifyresult_to_status(r);
-                    tsec   = toc(t);
+                    % R2025b: verifyNetworkRobustness accepts argmax-form
+                    % (net, XL, XU, ytrue) only; VNNLIB ingest is R2026a+.
+                    % RL controllers use general half-space properties — not
+                    % argmax. Under R2025b the AIVL baseline is `estimate-
+                    % bounds + manual half-space check`.
+                    error('verifyRL: AIVL ''deep-poly'' requires VNNLIB-form verifyNetworkRobustness (R2026a). Use ''estimate-bounds'' under R2025b.');
 
                 otherwise
                     error("verifyRL: aivl algorithm %s not supported", alg);
@@ -364,10 +370,13 @@ function [status, tsec] = verifyImageVnnlib(onnx, vnnlibFile, tool, alg)
                     tsec   = toc(t);
 
                 case 'deep-poly'
-                    t = tic;
-                    r = verifyNetworkRobustness(netMW, vnnlibFile);  % R2025b: default = DeepPoly
-                    status = aivl_verifyresult_to_status(r);
-                    tsec   = toc(t);
+                    % R2025b: verifyNetworkRobustness accepts argmax-form
+                    % (net, XL, XU, ytrue) only; VNNLIB ingest is R2026a+.
+                    % OVAL21 / Collins RUL ship VNNLIB with general
+                    % disjunctive half-space outputs — not argmax. Under
+                    % R2025b the AIVL baseline is `estimate-bounds + manual
+                    % half-space check`.
+                    error('verifyImageVnnlib: AIVL ''deep-poly'' requires VNNLIB-form verifyNetworkRobustness (R2026a). Use ''estimate-bounds'' under R2025b.');
 
                 otherwise
                     error("verifyImageVnnlib: aivl algorithm %s not supported", alg);

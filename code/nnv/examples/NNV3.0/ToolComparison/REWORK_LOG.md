@@ -12,7 +12,7 @@ Updated as work lands. Most-recent entries at the top.
 | ID  | Item                                                          | State        | Commit  |
 |-----|---------------------------------------------------------------|--------------|---------|
 | 0   | Bump MATLAB R2024b → R2025b in Dockerfile                     | done         | TBD     |
-| A1  | `mw_estimate` → `verifyNetworkRobustness(net, vnnlib, ...)`   | pending      | —       |
+| A1  | Proper AIVL invocation (verifyNetworkRobustness, scope-bounded by R2025b) | partial | TBD |
 | A2  | Collapse `mw_*` tools → one `aivl` tool with algorithm column | done         | TBD     |
 | A3  | Replace in-tree MNIST-ResNet-8 with VNNCOMP CNN               | pending      | —       |
 | A4  | Add PAR-2 to Tables A and C                                   | pending      | —       |
@@ -56,6 +56,50 @@ Each entry: timestamp, what was tested, outcome, log path.
   `aivl` + `estimate-bounds`. Both table renderers run cleanly under
   the new schema. Local asset locator finds 45 ACAS ONNX, 296 RL VNNLIB,
   30 OVAL21 properties. Log: `/tmp/nnv3_a2_smoke_20260505_*.log`.
+
+- **2026-05-05 19:33** — Dockerfile chown fix verified: rebuilt
+  `nnv3.0:r2025b` extracts AIVL cleanly. `which verifyNetworkRobustness`
+  resolves to the extracted `aivnv/` dir. Committed `0b6aa0bbc`.
+
+- **2026-05-05 19:50** — AIVL VNNLIB ingest probe (Phase A1 gate).
+  Findings (`probe_aivl_vnnlib.m`):
+  1. `verifyNetworkRobustness(net, vnnlibFile)` does NOT exist in R2025b.
+     Error: `Invalid argument list. Function requires 2 more input(s).`
+     The signature is `(net, XL, XU, ytrue_class)` — argmax-form only.
+     VNNLIB ingest landed in R2026a.
+  2. The `Algorithm=` Name-Value param is absent in R2025b. Allowed names
+     are `'MiniBatchSize'` and `'ExecutionEnvironment'` only. There is a
+     single internal algorithm (DeepPoly per MathWorks docs) with no
+     user-facing knob.
+  3. Argmax-form works on FC ACAS networks:
+     `verifyNetworkRobustness(net, XL, XU, 1)` returned `categorical
+     unproven` in 0.80s.
+  4. Side issue: the previously bundled `ensure_aivl_on_path()` and
+     worker-side path setup mistakenly addpath'd CONTENTS of `aivnv/`,
+     producing 10+ MATLAB warnings about namespace dirs (`+aivnv/`,
+     `+coder/`, `+matlab/`) and `resources/`. Fixed: addpath the
+     `aivnv/` dir itself, once. MATLAB resolves namespaces from the
+     parent.
+
+  **Implications**:
+  - ACAS p3/p4 / RL / OVAL21 / Collins RUL: all are general half-space
+    VNNLIB properties, not argmax. Under R2025b we cannot use
+    `verifyNetworkRobustness`; the proper AIVL baseline remains
+    `estimateNetworkOutputBounds` + manual property check.
+  - MNIST-ResNet (and any future argmax-form image benchmark): proper
+    AIVL invocation is `verifyNetworkRobustness(net, XL, XU, ytrueIdx)`
+    — already wired correctly post-A2.
+  - Speculative `'deep-poly'` branches I had stubbed in verifyAcas /
+    verifyRL / verifyImageVnnlib are now hard-error stubs documenting the
+    R2026a requirement. They become real branches when an R2026a host
+    runs the code.
+
+  Paper-text consequence: AIVL R2025b is honestly the
+  estimateNetworkOutputBounds + interval-arithmetic baseline for
+  half-space properties, plus `verifyNetworkRobustness` for argmax-form.
+  α/β-CROWN remains absent. This is the artifact's faithful AIVL surface
+  area; the paper should state this constraint explicitly rather than
+  leave reviewers wondering why we didn't use deep-poly on ACAS.
 
 ## Notes for reviewers (paper-side framing)
 

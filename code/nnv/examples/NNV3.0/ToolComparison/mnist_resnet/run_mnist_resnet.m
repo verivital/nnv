@@ -161,9 +161,11 @@ function [status, tsec] = verifyResNet(net_mw, net_nnv, x0, ytrue, eps, tool, al
 
         case 'aivl'
             % Worker-side AIVL path setup (parfeval workers don't auto-run startup.m).
-            sps = dir(fullfile(userpath(), 'SupportPackages', 'R*', 'toolbox', 'nnet', 'supportpackages', 'aivnv'));
-            for kk = 1:numel(sps)
-                addpath(fullfile(sps(kk).folder, sps(kk).name), '-begin');
+            % Add the aivnv dir itself, NOT its contents — addpath'ing namespace
+            % subdirs (`+aivnv/`, `+coder/`, `+matlab/`) is rejected by MATLAB.
+            matches = dir(fullfile(userpath(), 'SupportPackages', 'R*', 'toolbox', 'nnet', 'supportpackages', 'aivnv'));
+            if ~isempty(matches)
+                addpath(matches(1).folder, '-begin');
             end
             switch alg
                 case 'deep-poly'

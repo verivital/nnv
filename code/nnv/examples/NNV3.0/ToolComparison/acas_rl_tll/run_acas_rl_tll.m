@@ -10,12 +10,18 @@ function run_acas_rl_tll(varargin)
 %   fast methods give V=0 across the full grid; bundled CAV'23 rows are
 %   preserved at acas_rl_tll/legacy/results_tllverify.{mat,csv}.)
 %
-%   Tools:
-%       'nnv'         -> NNV 3.0 reachability
-%       'mw_estimate' -> estimateNetworkOutputBounds + manual bound-check
-%                        (requires AI Verification Library / AIVL)
-%       'mw_abc'      -> verifyNetworkRobustness(net, vnnlib, Algorithm="alpha-beta-crown")
-%                        (ACAS only; requires R2026a bridge)
+%   Tools (the 'tool' column in result rows):
+%       'nnv'   -- NNV 3.0 reachability (algorithms below)
+%       'aivl'  -- MathWorks AI Verification Library Support Package.
+%                  The algorithm column distinguishes AIVL methods:
+%                    'estimate-bounds'    estimateNetworkOutputBounds + interval-arith
+%                                         post-check on the VNNLIB property. A bound
+%                                         + manual-check baseline; supplementary row.
+%                    'deep-poly'          verifyNetworkRobustness(net, vnnlibFile, ...)
+%                                         under R2025b's VNNLIB ingest. Headline AIVL.
+%                    'alpha-beta-crown'   verifyNetworkRobustness(..., Algorithm=
+%                                         "alpha-beta-crown"). R2026a only -- not
+%                                         exercised in the R2025b artifact.
 %
 %   NNV algorithm grid (per benchmark, mirrors NNV 2.0 / CAV'23 paper):
 %       acas_p3 / acas_p4: full grid -- approx-star,
@@ -26,10 +32,6 @@ function run_acas_rl_tll(varargin)
 %   'relax-star-50' maps to 'relax-star-range-50' for back-compat with
 %   persisted result rows from earlier runs.
 %
-%   The mw_deeppoly variant of verifyNetworkRobustness only accepts argmax-style
-%   robustness specs, not VNNLIB half-space properties; it's exercised in
-%   mnist_resnet/run_mnist_resnet.m instead.
-%
 %   Results append incrementally to results/results_<benchmark>.mat with the
 %   canonical schema from tool_utils. Instances already present in a result
 %   file are skipped (resumable).
@@ -37,15 +39,16 @@ function run_acas_rl_tll(varargin)
 %   Examples:
 %     run_acas_rl_tll()                                    % all benchmarks, default tools
 %     run_acas_rl_tll('benchmarks',{'acas_p3','rl'})
-%     run_acas_rl_tll('tools', {'nnv','mw_estimate'})
+%     run_acas_rl_tll('tools', {'nnv','aivl'})
 %     run_acas_rl_tll('algorithms', {'approx-star','relax-star-range-50'})
 %     run_acas_rl_tll('timeout', 60, 'numNets', 5)         % smoke
 
     p = inputParser;
     addParameter(p, 'benchmarks', {'acas_p3','acas_p4','rl','oval21','collins_rul'});
-    % mw_abc (alpha-beta-CROWN bridge) is intentionally absent from defaults:
-    % the bridge requires R2026a. Override via 'tools' to include 'mw_abc'.
-    addParameter(p, 'tools',      {'nnv','mw_estimate'});
+    % AIVL alpha-beta-CROWN is excluded from algorithm defaults: the bridge
+    % requires R2026a, above the R2025b ceiling of the CodeOcean capsule.
+    % Override 'algorithms' to add 'alpha-beta-crown' on a R2026a host.
+    addParameter(p, 'tools',      {'nnv','aivl'});
     addParameter(p, 'algorithms', {});    % empty = use default algorithms_for(tool) per tool
     addParameter(p, 'timeout',    300);   % ACAS/RL global cap. CAV'23 had no cap (one outlier at 10479s);
                                           % we cap at 300s -- instances that need >300s also needed >900s
@@ -77,8 +80,7 @@ function run_acas_rl_tll(varargin)
             case 'rl'
                 run_rl(matFile, opts, u);
             case 'oval21'
-                run_image_vnnlib_csv('oval21', ...
-                    fullfile(nnv_root(),'examples','NNV2.0','Submission','CAV2023','NNV_vs_MATLAB','oval21'), ...
+                run_image_vnnlib_csv('oval21', find_asset_dir('oval21'), ...
                     matFile, opts, u);
             case 'collins_rul'
                 run_image_vnnlib_csv('collins_rul', ...
@@ -101,7 +103,7 @@ function run_acas(bench, matFile, opts, u)
         n = u.purge_status(matFile, opts.rerun);
         if n > 0, fprintf("  purged %d rows with status in {%s}\n", n, strjoin(opts.rerun, ', ')); end
     end
-    assetDir   = find_cav23_subdir('acas');
+    assetDir   = find_asset_dir('acas');
     acasOnnx   = fullfile(assetDir, 'onnx');
     propVnnlib = fullfile(assetDir, 'vnnlib', sprintf('prop_%s.vnnlib', last_char(bench)));
     [XLower, XUpper, H, g] = acas_property(bench);
@@ -115,7 +117,6 @@ function run_acas(bench, matFile, opts, u)
         onnx        = fullfile(acasOnnx, char(instance_id));
         for t = 1:numel(opts.tools)
             tool = opts.tools{t};
-            if strcmp(tool, 'mw_deeppoly'), continue; end     % N/A for ACAS half-spaces
             algs = algorithms_for(tool, bench, opts.algorithms);
             for k = 1:numel(algs)
                 alg = algs{k};
@@ -135,7 +136,7 @@ function run_rl(matFile, opts, u)
         n = u.purge_status(matFile, opts.rerun);
         if n > 0, fprintf("  purged %d rows with status in {%s}\n", n, strjoin(opts.rerun, ', ')); end
     end
-    assetDir  = find_cav23_subdir('rl_benchmarks');
+    assetDir  = find_asset_dir('rl_benchmarks');
     csvFile   = fullfile(assetDir, 'instances.csv');
     T         = readtable(csvFile, 'Delimiter', ',', 'ReadVariableNames', false);
     T.Properties.VariableNames(1:3) = {'onnx_rel','vnnlib_rel','timeout'};
@@ -149,7 +150,6 @@ function run_rl(matFile, opts, u)
         instance_id = sprintf("%s|%s", T.onnx_rel{i}, T.vnnlib_rel{i});
         for t = 1:numel(opts.tools)
             tool = opts.tools{t};
-            if ismember(tool, {'mw_deeppoly','mw_abc'}), continue; end
             algs = algorithms_for(tool, 'rl', opts.algorithms);
             for k = 1:numel(algs)
                 alg = algs{k};
@@ -195,7 +195,6 @@ function run_image_vnnlib_csv(bench, assetDir, matFile, opts, u)
         delete(gcp('nocreate'));
         for t = 1:numel(opts.tools)
             tool = opts.tools{t};
-            if ismember(tool, {'mw_deeppoly','mw_abc'}), continue; end
             algs = algorithms_for(tool, bench, opts.algorithms);
             for k = 1:numel(algs)
                 alg = algs{k};
@@ -234,7 +233,7 @@ end
 % =========================================================================
 
 function [status, tsec] = verifyAcas(onnx, vnnlibFile, XLower, XUpper, H, g, tool, alg)
-% Verify a single ACAS Xu (network, property) with tool/algorithm.
+% Verify a single ACAS Xu (network, property) with (tool, algorithm).
     status = "error"; tsec = NaN; %#ok<NASGU>
     switch tool
         case 'nnv'
@@ -248,20 +247,33 @@ function [status, tsec] = verifyAcas(onnx, vnnlibFile, XLower, XUpper, H, g, too
             status = nnv_halfspace_status(Rstar, H, g);
             tsec   = toc(t);
 
-        case 'mw_estimate'
+        case 'aivl'
             netMW = rebuild_for_aivl(load_mw_network(onnx, 'BCSS'));
-            XL = dlarray(XLower, "CB"); XU = dlarray(XUpper, "CB");
-            t = tic;
-            [YLower, YUpper] = estimateNetworkOutputBounds(netMW, XL, XU);
-            status = acas_mw_estimate_status(YLower, YUpper);
-            tsec   = toc(t);
+            switch alg
+                case 'estimate-bounds'
+                    XL = dlarray(XLower, "CB"); XU = dlarray(XUpper, "CB");
+                    t = tic;
+                    [YLower, YUpper] = estimateNetworkOutputBounds(netMW, XL, XU);
+                    status = acas_aivl_estimate_status(YLower, YUpper);
+                    tsec   = toc(t);
 
-        case 'mw_abc'
-            netMW = rebuild_for_aivl(load_mw_network(onnx, 'BCSS'));
-            t = tic;
-            r = verifyNetworkRobustness(netMW, vnnlibFile, Algorithm="alpha-beta-crown");
-            status = mw_verifyresult_to_status(r);
-            tsec   = toc(t);
+                case 'deep-poly'
+                    ensure_aivl_on_path();
+                    t = tic;
+                    r = verifyNetworkRobustness(netMW, vnnlibFile);  % R2025b: default = DeepPoly
+                    status = aivl_verifyresult_to_status(r);
+                    tsec   = toc(t);
+
+                case 'alpha-beta-crown'
+                    ensure_aivl_on_path();
+                    t = tic;
+                    r = verifyNetworkRobustness(netMW, vnnlibFile, Algorithm="alpha-beta-crown");
+                    status = aivl_verifyresult_to_status(r);
+                    tsec   = toc(t);
+
+                otherwise
+                    error("verifyAcas: aivl algorithm %s not supported", alg);
+            end
 
         otherwise
             error("verifyAcas: tool %s not supported", tool);
@@ -282,14 +294,27 @@ function [status, tsec] = verifyRL(onnx, vnnlibFile, tool, alg)
             status = nnv_rl_status(R, property.prop);
             tsec   = toc(t);
 
-        case 'mw_estimate'
+        case 'aivl'
             netMW = rebuild_for_aivl(load_mw_network(onnx, 'BC'));
-            [XLower, XUpper, output] = load_vnnlib_matlab(vnnlibFile);
-            XL = dlarray(XLower, "CB"); XU = dlarray(XUpper, "CB");
-            t = tic;
-            [lb, ub] = estimateNetworkOutputBounds(netMW, XL, XU);
-            status = mw_evalbounds_status(lb, ub, output);
-            tsec   = toc(t);
+            switch alg
+                case 'estimate-bounds'
+                    [XLower, XUpper, output] = load_vnnlib_matlab(vnnlibFile);
+                    XL = dlarray(XLower, "CB"); XU = dlarray(XUpper, "CB");
+                    t = tic;
+                    [lb, ub] = estimateNetworkOutputBounds(netMW, XL, XU);
+                    status = aivl_evalbounds_status(lb, ub, output);
+                    tsec   = toc(t);
+
+                case 'deep-poly'
+                    ensure_aivl_on_path();
+                    t = tic;
+                    r = verifyNetworkRobustness(netMW, vnnlibFile);  % R2025b: default = DeepPoly
+                    status = aivl_verifyresult_to_status(r);
+                    tsec   = toc(t);
+
+                otherwise
+                    error("verifyRL: aivl algorithm %s not supported", alg);
+            end
 
         otherwise
             error("verifyRL: tool %s not supported", tool);
@@ -299,7 +324,7 @@ end
 function [status, tsec] = verifyImageVnnlib(onnx, vnnlibFile, tool, alg)
 % Verify a single image-input + VNNLIB-output instance (oval21, collins_rul, ...).
 %   Mirrors verifyRL but uses BCSS input + ImageStar (reshaped from VNNLIB lb/ub
-%   to the network's image input dims). Same nnv_rl_status / mw_evalbounds_status
+%   to the network's image input dims). Same nnv_rl_status / aivl_evalbounds_status
 %   reuse the OR-of-half-spaces logic from CAV'23.
     status = "error"; tsec = NaN; %#ok<NASGU>
     switch tool
@@ -316,24 +341,37 @@ function [status, tsec] = verifyImageVnnlib(onnx, vnnlibFile, tool, alg)
             status = nnv_vnnlib_status(R, property.prop);
             tsec   = toc(t);
 
-        case 'mw_estimate'
-            % Use load_vnnlib (NNV-side parser) to get lb/ub + prop struct.
-            % NNV's load_vnnlib_matlab parser has a paren-counting bug on
-            % (or (and (<= Y_i Y_j))) outputs (oval21, collins_rul); this
-            % path avoids it by evaluating the disjunctive halfspaces
-            % manually against the AIVL output bounds.
+        case 'aivl'
             ensure_aivl_on_path();
             netMW    = rebuild_for_aivl(load_mw_network(onnx, 'BCSS'));
-            property = load_vnnlib(vnnlibFile);
-            inSize   = netMW.Layers(1).InputSize;
-            XL = dlarray(reshape(property.lb, inSize), "SSCB");
-            XU = dlarray(reshape(property.ub, inSize), "SSCB");
-            t = tic;
-            [yL, yU] = estimateNetworkOutputBounds(netMW, XL, XU);
-            yL = extractdata(yL); yU = extractdata(yU);
-            yL = yL(:); yU = yU(:);
-            status = mw_vnnlib_status(yL, yU, property.prop);
-            tsec   = toc(t);
+            switch alg
+                case 'estimate-bounds'
+                    % Use load_vnnlib (NNV-side parser) to get lb/ub + prop
+                    % struct. NNV's load_vnnlib_matlab parser has a paren-
+                    % counting bug on (or (and (<= Y_i Y_j))) outputs (oval21,
+                    % collins_rul); this path avoids it by evaluating the
+                    % disjunctive halfspaces manually against the AIVL
+                    % output bounds.
+                    property = load_vnnlib(vnnlibFile);
+                    inSize   = netMW.Layers(1).InputSize;
+                    XL = dlarray(reshape(property.lb, inSize), "SSCB");
+                    XU = dlarray(reshape(property.ub, inSize), "SSCB");
+                    t = tic;
+                    [yL, yU] = estimateNetworkOutputBounds(netMW, XL, XU);
+                    yL = extractdata(yL); yU = extractdata(yU);
+                    yL = yL(:); yU = yU(:);
+                    status = aivl_vnnlib_status(yL, yU, property.prop);
+                    tsec   = toc(t);
+
+                case 'deep-poly'
+                    t = tic;
+                    r = verifyNetworkRobustness(netMW, vnnlibFile);  % R2025b: default = DeepPoly
+                    status = aivl_verifyresult_to_status(r);
+                    tsec   = toc(t);
+
+                otherwise
+                    error("verifyImageVnnlib: aivl algorithm %s not supported", alg);
+            end
 
         otherwise
             error("verifyImageVnnlib: tool %s not supported", tool);
@@ -457,7 +495,7 @@ function status = nnv_vnnlib_status(R, prop)
     end
 end
 
-function status = mw_vnnlib_status(yL, yU, prop)
+function status = aivl_vnnlib_status(yL, yU, prop)
 % Evaluate an OR-of-halfspaces VNNLIB property against AIVL output bounds.
 % Used as a load_vnnlib_matlab-free path for benchmarks whose VNNLIB output
 % specs trip up that parser (oval21, collins_rul). The property encodes
@@ -508,7 +546,7 @@ function status = mw_vnnlib_status(yL, yU, prop)
     end
 end
 
-function status = acas_mw_estimate_status(YLower, YUpper)
+function status = acas_aivl_estimate_status(YLower, YUpper)
 % Port of verifyMAT() from CAV'23 verifyP3.m.
     YLower = extractdata(YLower); YUpper = extractdata(YUpper);
     if YLower(1) > YUpper(2) && YLower(1) > YUpper(3) && ...
@@ -522,7 +560,7 @@ function status = acas_mw_estimate_status(YLower, YUpper)
     end
 end
 
-function status = mw_evalbounds_status(lb, ub, output)
+function status = aivl_evalbounds_status(lb, ub, output)
 % Port of verifyMAT() from CAV'23 verify_rl_matlab.m / verify_tllverify_matlab.m.
     lb = extractdata(lb); ub = extractdata(ub); %#ok<NASGU>
     n = numel(output);
@@ -540,7 +578,7 @@ function status = mw_evalbounds_status(lb, ub, output)
     end
 end
 
-function status = mw_verifyresult_to_status(r)
+function status = aivl_verifyresult_to_status(r)
     r = string(r);
     switch r
         case "verified", status = "verified";
@@ -581,9 +619,14 @@ function algs = algorithms_for(tool, benchmark, override)
                 otherwise
                     algs = {'approx-star'};
             end
-        case 'mw_estimate', algs = {'estimate-bounds'};
-        case 'mw_deeppoly', algs = {'deep-poly'};
-        case 'mw_abc',      algs = {'alpha-beta-crown'};
+        case 'aivl'
+            % AIVL default is `estimate-bounds` everywhere -- the
+            % interval-arithmetic baseline that runs on R2024b+. `deep-poly`
+            % is enabled per-benchmark via the override mechanism (and
+            % requires R2025b's verifyNetworkRobustness VNNLIB ingest).
+            % `alpha-beta-crown` requires R2026a, out of scope for the
+            % R2025b ceiling.
+            algs = {'estimate-bounds'};
         otherwise, error("Unknown tool: %s", tool);
     end
     if nargin >= 3 && ~isempty(override)
@@ -690,16 +733,24 @@ end
 function safe_cd(d), try, cd(d); catch, end, end %#ok<TRYNC>
 function safe_rmdir(d), try, rmdir(d, 's'); catch, end, end %#ok<TRYNC>
 
-function d = find_cav23_subdir(sub)
-% Find NNV_vs_MATLAB/<sub> under the NNV examples tree.
+function d = find_asset_dir(sub)
+% Locate a benchmark asset directory. Looks first inside this folder
+% (acas_rl_tll/<sub>/), where ToolComparison's bundled copy lives, then
+% falls back to the original NNV2.0/CAV'23 location for backwards
+% compatibility with hosts that haven't pulled in the bundle.
+    here = fileparts(mfilename('fullpath'));
     candidates = { ...
+        fullfile(here, sub), ...
         fullfile(nnv_root(), 'examples', 'NNV2.0', 'Submission', 'CAV2023', 'NNV_vs_MATLAB', sub), ...
         fullfile('/home/matlab/nnv/code/nnv/examples/NNV2.0/Submission/CAV2023/NNV_vs_MATLAB', sub)};
     for i = 1:numel(candidates)
         if isfolder(candidates{i}), d = candidates{i}; return; end
     end
-    error("Cannot locate CAV'23 %s directory; tried:\n  %s", sub, strjoin(candidates, [newline '  ']));
+    error("Cannot locate %s asset directory; tried:\n  %s", sub, strjoin(candidates, [newline '  ']));
 end
+
+% Back-compat alias for any outside callers.
+function d = find_cav23_subdir(sub), d = find_asset_dir(sub); end %#ok<DEFNU>
 
 function r = nnv_root()
 % This file lives at code/nnv/examples/NNV3.0/ToolComparison/acas_rl_tll/run_acas_rl_tll.m

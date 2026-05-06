@@ -7,9 +7,13 @@ function run_mnist_resnet(varargin)
 %   Models:
 %       mnist_resnet8          ~8 conv + 3 residual blocks (additionLayer)
 %
-%   Tools:
-%       'nnv'          -> NNV 3.0 reachability
-%       'mw_deeppoly'  -> verifyNetworkRobustness (DeepPoly, R2024b+)
+%   Tools (the 'tool' column in result rows):
+%       'nnv'   -- NNV 3.0 reachability (algorithms below)
+%       'aivl'  -- MathWorks AI Verification Library Support Package.
+%                  Algorithm column distinguishes:
+%                    'deep-poly'         verifyNetworkRobustness(..., XL, XU, ytrueIdx)
+%                                        with the default DeepPoly algorithm.
+%                    'alpha-beta-crown'  R2026a only, not exercised here.
 %
 %   NNV reach-method grid (CAV'23-style, area-based for image classification):
 %       'approx-star'              fastest
@@ -29,7 +33,7 @@ function run_mnist_resnet(varargin)
 
     p = inputParser;
     addParameter(p, 'models',     {'mnist_resnet8'});
-    addParameter(p, 'tools',      {'nnv','mw_deeppoly'});
+    addParameter(p, 'tools',      {'nnv','aivl'});
     addParameter(p, 'algorithms', {});
     addParameter(p, 'epsilons',   [1/255, 2/255, 4/255]);
     addParameter(p, 'numPoints',  50);
@@ -93,9 +97,8 @@ function algs = algorithms_for(tool, model, override) %#ok<INUSD>
 % remain accepted via the 'algorithms' override but are not part of the
 % reproducible Table C grid.
     switch tool
-        case 'nnv',         algs = {'relax-star-area-50'};
-        case 'mw_deeppoly', algs = {'deep-poly'};
-        case 'mw_abc',      algs = {'alpha-beta-crown'};
+        case 'nnv',  algs = {'relax-star-area-50'};
+        case 'aivl', algs = {'deep-poly'};   % alpha-beta-crown excluded (R2026a)
         otherwise, error("Unknown tool: %s", tool);
     end
     if nargin >= 3 && ~isempty(override)
@@ -156,22 +159,28 @@ function [status, tsec] = verifyResNet(net_mw, net_nnv, x0, ytrue, eps, tool, al
             tsec = toc(t);
             status = nnv_robust_status(R, ytrue);
 
-        case 'mw_deeppoly'
+        case 'aivl'
             % Worker-side AIVL path setup (parfeval workers don't auto-run startup.m).
             sps = dir(fullfile(userpath(), 'SupportPackages', 'R*', 'toolbox', 'nnet', 'supportpackages', 'aivnv'));
             for kk = 1:numel(sps)
                 addpath(fullfile(sps(kk).folder, sps(kk).name), '-begin');
             end
-            XL = dlarray(XLow, "SSCB");
-            XU = dlarray(XUp,  "SSCB");
-            ytrueIdx = double(ytrue);
-            t = tic;
-            r = verifyNetworkRobustness(net_mw, XL, XU, ytrueIdx);
-            tsec = toc(t);
-            status = mw_result_to_status(r);
+            switch alg
+                case 'deep-poly'
+                    XL = dlarray(XLow, "SSCB");
+                    XU = dlarray(XUp,  "SSCB");
+                    ytrueIdx = double(ytrue);
+                    t = tic;
+                    r = verifyNetworkRobustness(net_mw, XL, XU, ytrueIdx);
+                    tsec = toc(t);
+                    status = aivl_result_to_status(r);
 
-        case 'mw_abc'
-            error('verifyResNet: mw_abc requires the R2026a alpha-beta-CROWN bridge.');
+                case 'alpha-beta-crown'
+                    error('verifyResNet: alpha-beta-crown requires the R2026a AIVL bridge (out of scope for R2025b).');
+
+                otherwise
+                    error("verifyResNet: aivl algorithm %s not supported", alg);
+            end
 
         otherwise
             error("verifyResNet: unknown tool %s", tool);
@@ -234,7 +243,7 @@ function status = nnv_robust_status(R, ytrue)
     end
 end
 
-function status = mw_result_to_status(r)
+function status = aivl_result_to_status(r)
     s = string(r);
     switch s
         case "verified", status = "verified";

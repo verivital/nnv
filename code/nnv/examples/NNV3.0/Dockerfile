@@ -18,8 +18,11 @@
 #
 #   docker run --gpus all -it nnv3.0
 
-# Specify MATLAB release
-ARG MATLAB_RELEASE=R2024b
+# Specify MATLAB release. Bumped from R2024b to R2025b to match the CodeOcean
+# capsule's MATLAB ceiling, so the Docker artifact and the CodeOcean artifact
+# run against an identical MATLAB. R2025b's AIVL Support Package adds VNNLIB
+# ingest to verifyNetworkRobustness, which the ToolComparison rework leans on.
+ARG MATLAB_RELEASE=R2025b
 
 # Specify the list of products to install into MATLAB.
 ARG MATLAB_PRODUCT_LIST="MATLAB Computer_Vision_Toolbox Control_System_Toolbox Deep_Learning_Toolbox Image_Processing_Toolbox Optimization_Toolbox Parallel_Computing_Toolbox Statistics_and_Machine_Learning_Toolbox Symbolic_Math_Toolbox System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format"

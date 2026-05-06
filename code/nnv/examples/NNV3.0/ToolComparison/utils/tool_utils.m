@@ -8,12 +8,17 @@ function utils = tool_utils()
 %   u.emit_latex_table('out/table_A.tex', header, rows, caption, label);
 %
 %   Single canonical result-row schema (MATLAB table):
-%     tool         (string)  'nnv' | 'mw_deeppoly' | 'mw_abc' | 'mw_estimate'
-%     benchmark    (string)  'acas_p3' | 'acas_p4' | 'rl' | 'tllverify' | ...
+%     tool         (string)  'nnv' | 'aivl'
+%                            (legacy 'mw_estimate' / 'mw_deeppoly' / 'mw_abc'
+%                             rows in older .mat files are migrated by
+%                             utils/canonicalize_bundled_results.m to
+%                             tool='aivl' + the matching algorithm.)
+%     benchmark    (string)  'acas_p3' | 'acas_p4' | 'rl' | 'oval21' | ...
 %     instance_id  (string)  e.g. 'ACASXU_run2a_1_1_batch_2000' or integer row id
 %     status       (string)  'verified' | 'violated' | 'unknown' | 'timeout' | 'error'
 %     time         (double)  wallclock seconds (NaN on error/timeout)
-%     algorithm    (string)  'exact-star' | 'relax-star-range-50' | 'deep-poly' | ...
+%     algorithm    (string)  NNV  : 'approx-star' | 'exact-star' | 'relax-star-range-50' | ...
+%                            AIVL : 'estimate-bounds' | 'deep-poly' | 'alpha-beta-crown'
 %     timeout      (double)  configured timeout in seconds
 %     note         (string)  free-form; use for error messages
 

@@ -1,6 +1,0 @@
-tool,algorithm,status,count,mean_time_s,median_time_s
-mw_estimate,estimate-bounds,error,8,NaN,NaN
-mw_estimate,estimate-bounds,unknown,24,0.998866125,0.28841
-nnv,relax-star-50,error,8,NaN,NaN
-nnv,relax-star-50,timeout,7,900,900
-nnv,relax-star-50,unknown,17,98.1467709411765,56.466221

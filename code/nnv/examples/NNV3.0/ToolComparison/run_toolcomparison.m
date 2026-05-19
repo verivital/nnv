@@ -1,116 +1,91 @@
 function run_toolcomparison(varargin)
-%RUN_TOOLCOMPARISON Top-level orchestrator for the NNV vs MathWorks AIVL comparison.
+%RUN_TOOLCOMPARISON  Top-level entry for the NNV-vs-AIVL artifact-evaluation
+%comparison.
 %
-%   Dispatches to the two halves of the comparison and renders the paper
-%   tables. Designed to be invoked from NNV3.0/run_all.sh as a single MATLAB
-%   batch command, alongside FairNNV / GNNV / ProbVer / VideoStar / ModelStar.
+%   run_toolcomparison()                              -- default mode, all tools, all algorithms
+%   run_toolcomparison('mode','smoke')                -- ~10-min smoke
+%   run_toolcomparison('mode','default')              -- ~3-5 h full grid
+%   run_toolcomparison('mode','full')                 -- alias for 'default' (paper convention)
+%   run_toolcomparison('mode','smoke','tools',{'nnv'}) -- NNV-only (skip AIVL)
+%   run_toolcomparison('mode','default','algorithms', {'approx-star','deep-poly'}) -- restrict
 %
-%   Halves:
-%       acas_rl_tll/run_acas_rl_tll.m    -- ACAS Xu p3/p4, RL controllers,
-%                                           OVAL21 (VNNCOMP'21), Collins RUL
-%                                           (VNNCOMP'22). NNV vs AIVL
-%                                           estimateNetworkOutputBounds.
-%       mnist_resnet/run_mnist_resnet.m  -- MNIST-ResNet-8 argmax robustness
-%                                           (NNV vs AIVL verifyNetworkRobustness
-%                                           with DeepPoly).
+%   If 'mode' is not passed, honors the TOOLCOMPARISON_MODE env var
+%   (smoke|default|full); defaults to 'default'. This matches the
+%   contract expected by ../run_all.sh (the NNV3.0 orchestrator).
 %
-%   After both halves finish, renders the ATVA 2026 paper's Tables 5, 6, 7:
-%       tables/out/table_A.{tex,txt} (paper Tables 5+6: FC and CNN VNNLIB)
-%       tables/out/table_C.{tex,txt} (paper Table 7: MNIST-ResNet-8)
-%       tables/out/sanity_report.txt (CAV'23 exact-star cross-check)
-%
-%   Examples:
-%     run_toolcomparison()                 % full grid (~3-5 h)
-%     run_toolcomparison('mode','smoke')   % ~12 min smoke
-%     run_toolcomparison('halves',{'acas_rl_tll'})  % skip ResNet half
-%
-%   Requires the AI Verification Library (AIVL) Support Package (the MW-side calls
-%   `verifyNetworkRobustness` and `estimateNetworkOutputBounds`). NNV-only
-%   runs work without it; pass 'tools',{'nnv'} to skip MW comparisons.
+%   On entry: applies the 4 shipped NNV patches (idempotent), addpath's
+%   the local utils, runs the vnnlib half then the argmax half, and
+%   renders the consolidated table to tables/out/table_main.{tex,txt}.
 
-    % Default mode: env var TOOLCOMPARISON_MODE if set ('smoke'|'full'),
-    % otherwise 'full'. run_all.sh sets it to 'smoke' so the full suite stays
-    % under ~30 min total.
-    defaultMode = getenv('TOOLCOMPARISON_MODE');
-    if isempty(defaultMode), defaultMode = 'full'; end
+    % Resolve env-var fallback for mode before parsing args.
+    envMode = getenv('TOOLCOMPARISON_MODE');
+    if isempty(envMode), envMode = 'default'; end
 
     p = inputParser;
-    addParameter(p, 'mode',   defaultMode);                   % 'full' | 'smoke'
-    addParameter(p, 'halves', {'acas_rl_tll','mnist_resnet'});
-    addParameter(p, 'tools',  {});                            % empty = each half's defaults
-    addParameter(p, 'algorithms', {});                        % empty = each half's defaults
-    addParameter(p, 'rerun', {});
-    parse(p, varargin{:});
+    p.addParameter('mode',        envMode,    @(x) ischar(x) || isstring(x));
+    p.addParameter('tools',       {'nnv','aivl'}, @iscell);
+    p.addParameter('algorithms',  {},        @iscell);
+    p.addParameter('halves',      {'vnnlib','argmax'}, @iscell);
+    p.addParameter('benchmarks',  {},        @iscell);  % empty = all in scope; else filter to listed
+    p.addParameter('skipPatches', false,    @islogical);
+    p.parse(varargin{:});
     opts = p.Results;
+    opts.mode = char(opts.mode);
+    % 'full' is the legacy alias for 'default' used by the NNV3.0 paper /
+    % top-level orchestrator (legacy run_toolcomparison.m supported 'full').
+    if strcmp(opts.mode, 'full'), opts.mode = 'default'; end
+    if ~any(strcmp(opts.mode, {'smoke','default'}))
+        error('run_toolcomparison: mode must be ''smoke''|''default''|''full'' (got ''%s'').', opts.mode);
+    end
 
     here = fileparts(mfilename('fullpath'));
-    addpath(genpath(here));                 % runner + utils/, acas_rl_tll/, mnist_resnet/, tables/
 
-    fprintf("\n========== ToolComparison run start ==========\n");
-    fprintf("mode:    %s\n", opts.mode);
-    fprintf("halves:  {%s}\n\n", strjoin(opts.halves, ", "));
+    fprintf('=== ToolComparison (mode=%s) ===\n', opts.mode);
 
-    if any(strcmp(opts.halves, 'acas_rl_tll'))
-        switch opts.mode
-            case 'smoke'
-                run_acas_rl_tll('benchmarks',{'acas_p3'}, 'tools',{'nnv'}, ...
-                                'algorithms',{'approx-star','relax-star-range-50'}, ...
-                                'numNets',5, 'timeout',60);
-            case 'full'
-                if isempty(opts.tools) && isempty(opts.algorithms)
-                    run_acas_rl_tll('rerun', opts.rerun);
-                else
-                    args = {};
-                    if ~isempty(opts.tools),      args = [args, {'tools', opts.tools}]; end
-                    if ~isempty(opts.algorithms), args = [args, {'algorithms', opts.algorithms}]; end
-                    if ~isempty(opts.rerun),      args = [args, {'rerun', opts.rerun}]; end
-                    run_acas_rl_tll(args{:});
-                end
-            otherwise, error("Unknown mode: %s", opts.mode);
+    % 1. Apply NNV patches (idempotent).
+    if ~opts.skipPatches
+        try
+            addpath(fullfile(here, 'patches'));
+            install_patches();
+        catch ME
+            warning('run_toolcomparison:install_patches_failed', ...
+                'install_patches threw: %s. Proceeding — patches may already be applied.', ME.message);
         end
     end
 
-    if any(strcmp(opts.halves, 'mnist_resnet'))
-        switch opts.mode
-            case 'smoke'
-                run_mnist_resnet('models',{'mnist_resnet8'}, 'tools',{'nnv'}, ...
-                                 'algorithms',{'approx-star','relax-star-area-50'}, ...
-                                 'numPoints',5, 'epsilons',[1/255], 'timeout',60);
-            case 'full'
-                if isempty(opts.tools) && isempty(opts.algorithms)
-                    run_mnist_resnet('rerun', opts.rerun);
-                else
-                    args = {};
-                    if ~isempty(opts.tools),      args = [args, {'tools', opts.tools}]; end
-                    if ~isempty(opts.algorithms), args = [args, {'algorithms', opts.algorithms}]; end
-                    if ~isempty(opts.rerun),      args = [args, {'rerun', opts.rerun}]; end
-                    run_mnist_resnet(args{:});
-                end
-        end
+    % 2. addpath local utils (tool_utils, rebuild_for_aivl, parse_argmax_vnnlib).
+    addpath(fullfile(here, 'utils'));
+    addpath_shared();
+    addpath(fullfile(here, 'drivers'));
+
+    % 3. NNV must already be installed and on the path.
+    if isempty(which('matlab2nnv'))
+        error(['run_toolcomparison: NNV not on MATLAB path. ', ...
+               'Run code/nnv/install.m or addpath(genpath(''code/nnv/'')) first.']);
     end
 
-    % Render tables (cheap; always do it, falls back gracefully if a half had
-    % no rows).
-    try
-        make_acas_rl_tll_table();
-    catch ME
-        fprintf(2, "make_acas_rl_tll_table failed: %s\n", ME.message);
+    % 4. tool_utils handle (single canonical schema).
+    u = tool_utils();
+
+    t0 = tic;
+    if ismember('vnnlib', opts.halves)
+        fprintf('\n--- vnnlib half ---\n');
+        run_vnnlib_half(opts, u);
     end
-    try
-        make_mnist_resnet_table();
-    catch ME
-        fprintf(2, "make_mnist_resnet_table failed: %s\n", ME.message);
+    if ismember('argmax', opts.halves)
+        fprintf('\n--- argmax half ---\n');
+        run_argmax_half(opts, u);
     end
+    walltime = toc(t0);
+
+    % 5. Render consolidated table.
+    fprintf('\n--- table render ---\n');
+    addpath(fullfile(here, 'tables'));
     try
-        export_csv();
+        make_table_main();
     catch ME
-        fprintf(2, "export_csv failed: %s\n", ME.message);
-    end
-    try
-        make_pareto_plot();      % Per-benchmark Pareto plot of V-rate vs PAR-2.
-    catch ME
-        fprintf(2, "make_pareto_plot failed: %s\n", ME.message);
+        warning('run_toolcomparison:table_render_failed', 'make_table_main threw: %s', ME.message);
     end
 
-    fprintf("\n========== ToolComparison run done ==========\n");
+    fprintf('\n=== run_toolcomparison done (mode=%s, wall=%.1f min) ===\n', opts.mode, walltime/60);
 end

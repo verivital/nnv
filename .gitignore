@@ -31,10 +31,16 @@ docs/_build/
 repro_logs/
 code/nnv/examples/NNV3.0/repeatability_logs/
 code/nnv/examples/NNV3.0/ToolComparison/mnist_resnet/data/
+code/nnv/examples/NNV3.0/ToolComparison/results/
+code/nnv/examples/NNV3.0/ToolComparison/logs/
+code/nnv/examples/NNV3.0/ToolComparison/ISSUES.md
+code/nnv/examples/NNV3.0/ToolComparison/tables/out/
 **/*.mlpkginstall
 # AIVL Support Package tarball — non-redistributable MathWorks code.
 # Staged here for Dockerfile build to extract; never committed.
 code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz
+# Legacy 24h/8-benchmark study (preserved for paper reference, not part of AE artifact)
+code/nnv/examples/NNV3.0/ToolComparison_legacy/
 
 
 # --- Claude / MCP / OpenSpec (local dev only) ---

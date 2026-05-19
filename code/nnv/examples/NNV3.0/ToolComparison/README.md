@@ -24,8 +24,8 @@ run_toolcomparison('mode','smoke')      % ~5 minutes
 run_toolcomparison                       % default mode, ~2.5 h
 ```
 
-`run_toolcomparison` applies the bundled NNV patches first (idempotent),
-runs both halves, and renders `tables/out/table_main.{tex,txt}`.
+`run_toolcomparison` runs both halves (vnnlib + argmax) and renders
+`tables/out/table_main.{tex,txt}`.
 
 `run_toolcomparison` also honors the `TOOLCOMPARISON_MODE` env var
 (`smoke|default|full`) so the NNV3.0 top-level `run_all.sh` orchestrator
@@ -47,26 +47,24 @@ license server baked in. `run_all.sh` runs the sweep sequentially inside
 the container, logging to `logs/` and writing per-benchmark results to
 `results/`.
 
-## Step 1 — Install NNV patches (one-time, reversible)
+## NNV engine fixes included in this branch
 
-Two NNV-engine fixes are required for the grid to run cleanly:
+Two small engine fixes are required for the grid to run cleanly on R2025b.
+Both are committed directly on this branch (no separate install step) and
+are intended to land in NNV `main`:
 
-| Patch | Fixes |
+| File | Fix |
 |---|---|
-| `01_FeatureInputLayer.patch` | Reverts an Oct-2025 regression in `reach_star_single_input` that crashed on any `ImageStar` input (affects every FC-imported benchmark — acas_xu_p3/p4 and rl all hit this) |
-| `02_NN_start_pool.patch` | `start_pool` bails when `getCurrentTask()` indicates a parfeval worker context, so exact-star's pool isn't re-created from inside a worker (required for any exact-star instance — acas_xu_p3/p4 + rl) |
+| `code/nnv/engine/nn/layers/FeatureInputLayer.m` | Reverts an Oct-2025 regression in `reach_star_single_input` that crashed on any `ImageStar` input (affects every FC-imported benchmark — acas_xu_p3/p4 and rl all hit this). Restores the pre-Oct-2025 `affineMap([], -obj.Mean)` form that works for both `Star` and `ImageStar`. |
+| `code/nnv/engine/nn/NN.m` | `start_pool` bails when `getCurrentTask()` indicates a parfeval worker context, so `exact-star`'s pool isn't re-created from inside a worker. Also switches `parpool('local',n)` to a `parcluster()` handle to bypass the default 8-worker Processes-profile cap. Required for any `exact-star` call wrapped in `parfeval` (acas_xu_p3/p4 + rl). |
 
-```matlab
-cd code/nnv/examples/NNV3.0/ToolComparison/patches
-install_patches    % idempotent; safe to rerun
-% later:
-uninstall_patches  % cleanly reverts
-```
+If you're running this artifact from a fresh clone of NNV `main` that
+*doesn't* yet have these fixes merged, `cd code/nnv && git log
+code/nnv/engine/nn/layers/FeatureInputLayer.m code/nnv/engine/nn/NN.m`
+will tell you whether the fixes are present. If absent, cherry-pick this
+branch's engine commit or apply the diffs manually.
 
-`run_toolcomparison` calls `install_patches` automatically. The patches
-do **not** land in the NNV `main` branch — they live inside this artifact only.
-
-## Step 2 — Install AIVL
+## Install AIVL
 
 ```matlab
 cd code/nnv/examples/NNV3.0/ToolComparison/utils
@@ -89,8 +87,7 @@ which estimateNetworkOutputBounds
 run_toolcomparison('mode','default','tools',{'nnv'})
 ```
 
-The bundled patches and harness work unchanged; AIVL rows are simply
-absent from `table_main`.
+The harness works unchanged; AIVL rows are simply absent from `table_main`.
 
 ## Benchmark catalog
 
@@ -196,7 +193,6 @@ ToolComparison/
 │   ├── load_mw_network.m
 │   ├── addpath_shared.m
 │   └── atva26-aivl.tar.gz             AIVL Support Package tarball
-├── patches/                           2 NNV engine patches + install/uninstall
 ├── tables/
 │   ├── make_table_main.m              consolidated table renderer
 │   └── out/                           generated table_main.{tex,txt}

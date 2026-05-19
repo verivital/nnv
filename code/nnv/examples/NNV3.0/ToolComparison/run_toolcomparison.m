@@ -13,9 +13,9 @@ function run_toolcomparison(varargin)
 %   (smoke|default|full); defaults to 'default'. This matches the
 %   contract expected by ../run_all.sh (the NNV3.0 orchestrator).
 %
-%   On entry: applies the 4 shipped NNV patches (idempotent), addpath's
-%   the local utils, runs the vnnlib half then the argmax half, and
-%   renders the consolidated table to tables/out/table_main.{tex,txt}.
+%   On entry: addpath's the local utils, runs the vnnlib half then the
+%   argmax half, and renders the consolidated table to
+%   tables/out/table_main.{tex,txt}.
 
     % Resolve env-var fallback for mode before parsing args.
     envMode = getenv('TOOLCOMPARISON_MODE');
@@ -27,7 +27,6 @@ function run_toolcomparison(varargin)
     p.addParameter('algorithms',  {},        @iscell);
     p.addParameter('halves',      {'vnnlib','argmax'}, @iscell);
     p.addParameter('benchmarks',  {},        @iscell);  % empty = all in scope; else filter to listed
-    p.addParameter('skipPatches', false,    @islogical);
     p.parse(varargin{:});
     opts = p.Results;
     opts.mode = char(opts.mode);
@@ -42,23 +41,12 @@ function run_toolcomparison(varargin)
 
     fprintf('=== ToolComparison (mode=%s) ===\n', opts.mode);
 
-    % 1. Apply NNV patches (idempotent).
-    if ~opts.skipPatches
-        try
-            addpath(fullfile(here, 'patches'));
-            install_patches();
-        catch ME
-            warning('run_toolcomparison:install_patches_failed', ...
-                'install_patches threw: %s. Proceeding — patches may already be applied.', ME.message);
-        end
-    end
-
-    % 2. addpath local utils (tool_utils, rebuild_for_aivl, parse_argmax_vnnlib).
+    % addpath local utils (tool_utils, rebuild_for_aivl, parse_argmax_vnnlib).
     addpath(fullfile(here, 'utils'));
     addpath_shared();
     addpath(fullfile(here, 'drivers'));
 
-    % 3. NNV must already be installed and on the path.
+    % NNV must already be installed and on the path.
     if isempty(which('matlab2nnv'))
         error(['run_toolcomparison: NNV not on MATLAB path. ', ...
                'Run code/nnv/install.m or addpath(genpath(''code/nnv/'')) first.']);

@@ -40,6 +40,22 @@ claims in the paper are unaffected.
 
 ### Local Docker — step by step
 
+> **Windows / PowerShell users.** The snippets below use bash syntax
+> (`$PWD`, trailing `\` line continuations, single-quoted heredocs).
+> To run them directly in native PowerShell, apply three substitutions:
+>
+> - Replace `$PWD` with `${PWD}` (curly braces) for clean expansion.
+> - Quote each `-v` mount value as a single string, e.g.
+>   `-v "${PWD}/results:/out"` instead of `-v "$PWD/results":/out`.
+>   Without this the Windows drive-letter colon collides with the
+>   `source:dest` separator and Docker fails with
+>   `invalid reference format`.
+> - Replace trailing `\` line continuations with backtick (`` ` ``),
+>   or simply put each command on one line.
+>
+> Reviewers who prefer to keep the snippets verbatim can run them
+> unchanged in **WSL2** or **Git Bash**.
+
 **Step 1.** Clone the repository (or unzip the artifact ZIP):
 
 ```bash

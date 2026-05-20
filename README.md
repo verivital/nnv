@@ -6,6 +6,121 @@ NNV is an open-source MATLAB toolbox for formal verification of deep neural netw
 
 Developed by the [VeriVITAL](https://www.verivital.com/) research group at Vanderbilt University.
 
+## ATVA 2026 Artifact — NNV 3.0 Tool Paper
+
+This repository includes the artifact-evaluation package for the **NNV 3.0
+tool paper** at ATVA 2026. The reproducibility flow exercises six
+experiments (FairNNV, ProbVer, GNNV, VideoStar, ModelStar, and a
+NNV-vs-AIVL ToolComparison) and renders the paper's headline tables.
+
+### Reviewer paths
+
+| Path | When to choose |
+|---|---|
+| **Code Ocean** (recommended) | You want one-click reproduction with no local setup. AIVL and all toolboxes are pre-installed in the capsule at - ADD - |
+| **Local Docker** | You have Docker installed and access to a MATLAB license. Build a self-contained R2025b image from this repo. |
+| **Local MATLAB** | You already have MATLAB R2025b on the host and want to run experiments outside Docker. See [`code/nnv/examples/NNV3.0/README.md`](code/nnv/examples/NNV3.0/README.md). |
+
+The walkthrough below covers the **Local Docker** path. Code Ocean
+reviewers can skip to the capsule link above.
+
+### AIVL Support Package
+
+The MathWorks AI Verification Library is non-redistributable, so the
+tarball is not in this repository. Three acquisition paths are supported:
+
+1. **MATLAB Add-On Explorer** — any MATLAB user can install AIVL via
+   **Home → Add-Ons → Get Add-Ons** ("AI Verification Library").
+2. **ATVA 2026 AE reviewers** — a pre-built tarball is provided via a
+   private Dropbox link in the HotCRP submission cover note.
+
+Without AIVL, the NNV-side of the ToolComparison still runs end-to-end;
+only the MathWorks rows are absent from the comparison table. NNV
+claims in the paper are unaffected.
+
+### Local Docker — step by step
+
+**Step 1.** Clone the repository (or unzip the artifact ZIP):
+
+```bash
+git clone --recursive https://github.com/verivital/nnv.git
+cd nnv
+```
+
+The `--recursive` flag pulls in the `npy-matlab` submodule used by
+VideoStar. If you already cloned without it, run
+`git submodule update --init --recursive`.
+
+**Step 2.** (Optional, AIVL only) Stage the AIVL tarball if you want
+the MathWorks-side rows of the ToolComparison experiment. Drop the
+file at:
+
+```
+code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz
+```
+
+If you skip this step, the Dockerfile prints a warning during build and
+the ToolComparison runs NNV-only.
+
+**Step 3.** Build the Docker image (~15-25 min depending on network).
+Pass your MATLAB license source via `--build-arg`:
+
+```bash
+docker build -t nnv3.0 --build-arg LICENSE_SERVER=<port>@<host> .
+```
+
+The build does not validate the license — it is consumed at first
+`matlab` invocation inside the container. If you have a `network.lic`
+file rather than a server, mount it at run time with
+`-v /path/to/network.lic:/opt/matlab/R2025b/licenses/network.lic`
+instead of `--build-arg`.
+
+**Step 4.** Run the smoke test (~30 min on a 4-core / 16 GB host):
+
+```bash
+docker run --rm nnv3.0 bash run_all.sh
+```
+
+The script runs all six experiments sequentially, each in its own
+MATLAB session so a failure in one doesn't lose the others. On a
+CPU-only host, ProbVer auto-skips (it requires GPU + 48 GB RAM).
+Expect a `summary.csv` with 5 `ok` rows and `probver,skipped`.
+
+**Step 5.** Copy results out of the container:
+
+```bash
+docker run --rm -v "$PWD/results":/out nnv3.0 \
+    cp -r /home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs /out/
+```
+
+The summary CSV at `results/repeatability_logs/summary.csv` lists
+per-experiment wall-clock time and status. Per-example output files
+land alongside the script that produced them (e.g.,
+`FairNNV/results/<ts>/`).
+
+**Step 6.** (Optional) Full reproduction (~5-7 h) renders the paper's
+Tables 5, 6, and 7:
+
+```bash
+docker run --rm -e TOOLCOMPARISON_MODE=full nnv3.0 bash run_all.sh
+```
+
+### Full options
+
+For per-experiment knobs (`NNV3_SKIP`, `NNV3_FORCE_GPU`,
+`PROBVER_NUM_SAMPLES`, etc.), expected outputs cell-by-cell, host-side
+MATLAB setup, troubleshooting, and reference timings, see:
+
+- [`code/nnv/examples/NNV3.0/README.md`](code/nnv/examples/NNV3.0/README.md) — artifact-level run instructions
+- [`code/nnv/examples/NNV3.0/EXPECTED_RESULTS.md`](code/nnv/examples/NNV3.0/EXPECTED_RESULTS.md) — per-table expected verdicts and timings
+- [`code/nnv/examples/NNV3.0/ToolComparison/README.md`](code/nnv/examples/NNV3.0/ToolComparison/README.md) — NNV-vs-AIVL benchmark catalog
+
+---
+
+The rest of this README documents NNV as a general toolbox. For artifact
+evaluation, the section above and the artifact-specific docs linked
+above are the relevant entry points.
+
 ## Documentation
 
 **Full documentation, tutorials, and API reference:**

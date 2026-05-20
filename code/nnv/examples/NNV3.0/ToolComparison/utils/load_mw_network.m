@@ -8,9 +8,6 @@ function net = load_mw_network(onnx, inputFmt, outputFmt)
 %   `+pkgname` directory in the current working directory. When the cwd
 %   is read-only (e.g. a bind-mounted host source tree), the import
 %   fails. We cd to tempdir for the import and restore the original cwd.
-%
-%   Copied from ToolComparison/acas_rl_tll/run_acas_rl_tll.m so v2 has
-%   it as a top-level callable. Single source of truth lives in v2/utils/.
 
     if nargin < 3, outputFmt = ''; end
     oldDir   = pwd;

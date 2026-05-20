@@ -1,14 +1,14 @@
 # ToolComparison — NNV vs AIVL (ATVA 2026 artifact)
 
 NNV vs MathWorks AI Verification Library (AIVL) head-to-head across the
-six benchmarks reported in the ATVA 2026 paper. Smoke runs in ~5 min;
-default runs in ~3 h on a reviewer-grade VM.
+six benchmarks reported in the ATVA 2026 paper. Smoke runs in ~1 min
+(parpool-startup-dominated); default runs in ~3 h on a reviewer-grade VM.
 
 ## System requirements
 
 | | |
 |---|---|
-| MATLAB | R2025b (matches the CodeOcean capsule ceiling) |
+| MATLAB | R2025b |
 | Toolboxes | Deep Learning Toolbox, Deep Learning Toolbox Converter for ONNX Model Format, Parallel Computing Toolbox |
 | AIVL | MathWorks AI Verification Library Support Package (tarball recipe below) |
 | RAM | ≥ 16 GB |
@@ -20,7 +20,7 @@ default runs in ~3 h on a reviewer-grade VM.
 
 ```matlab
 cd code/nnv/examples/NNV3.0/ToolComparison
-run_toolcomparison('mode','smoke')      % ~5 minutes
+run_toolcomparison('mode','smoke')      % ~1 minute
 run_toolcomparison                       % default mode, ~2.5 h
 ```
 
@@ -47,47 +47,61 @@ license server baked in. `run_all.sh` runs the sweep sequentially inside
 the container, logging to `logs/` and writing per-benchmark results to
 `results/`.
 
-## NNV engine fixes included in this branch
-
-Two small engine fixes are required for the grid to run cleanly on R2025b.
-Both are committed directly on this branch (no separate install step) and
-are intended to land in NNV `main`:
-
-| File | Fix |
-|---|---|
-| `code/nnv/engine/nn/layers/FeatureInputLayer.m` | Reverts an Oct-2025 regression in `reach_star_single_input` that crashed on any `ImageStar` input (affects every FC-imported benchmark — acas_xu_p3/p4 and rl all hit this). Restores the pre-Oct-2025 `affineMap([], -obj.Mean)` form that works for both `Star` and `ImageStar`. |
-| `code/nnv/engine/nn/NN.m` | `start_pool` bails when `getCurrentTask()` indicates a parfeval worker context, so `exact-star`'s pool isn't re-created from inside a worker. Also switches `parpool('local',n)` to a `parcluster()` handle to bypass the default 8-worker Processes-profile cap. Required for any `exact-star` call wrapped in `parfeval` (acas_xu_p3/p4 + rl). |
-
-If you're running this artifact from a fresh clone of NNV `main` that
-*doesn't* yet have these fixes merged, `cd code/nnv && git log
-code/nnv/engine/nn/layers/FeatureInputLayer.m code/nnv/engine/nn/NN.m`
-will tell you whether the fixes are present. If absent, cherry-pick this
-branch's engine commit or apply the diffs manually.
-
 ## Install AIVL
+
+The AIVL Support Package is **non-redistributable MathWorks code**, so the
+tarball is not included in this public repository. Pick whichever option
+applies to you:
+
+### Option 1 — Install AIVL yourself via MATLAB (recommended for general users)
+
+Any MATLAB user with the appropriate entitlement can install AIVL through
+the Add-On Explorer:
+
+1. In MATLAB, **Home → Add-Ons → Get Add-Ons**.
+2. Search for **"AI Verification Library"** and install.
+3. Restart MATLAB. Verify the entry points resolve:
+
+   ```matlab
+   which verifyNetworkRobustness        % should resolve to an aivnv dir
+   which estimateNetworkOutputBounds
+   ```
+
+No further setup is needed — `run_toolcomparison` will pick AIVL up
+automatically.
+
+### Option 2 — Pre-built tarball (ATVA 2026 AE reviewers)
+
+A pre-built `atva26-aivl.tar.gz` is distributed privately to the ATVA
+artifact-evaluation chairs via a Dropbox link included in the HotCRP
+submission cover note. Reviewers: place the tarball at
+
+```
+code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz
+```
+
+then from MATLAB:
 
 ```matlab
 cd code/nnv/examples/NNV3.0/ToolComparison/utils
 aivl_install
 ```
 
-This finds the tarball at `../atva26-aivl.tar.gz` (symlinked to
-`utils/atva26-aivl.tar.gz`), extracts the AIVL Support Package into
-`userpath()/SupportPackages/`, and persists the addpath via `startup.m`.
-Restart MATLAB once after the first install, then verify:
+This extracts the AIVL Support Package into `userpath()/SupportPackages/`,
+persists the addpath via `startup.m`, and smoke-checks the entry points.
+Restart MATLAB once after the first install.
 
-```matlab
-which verifyNetworkRobustness   % should resolve to the aivnv dir
-which estimateNetworkOutputBounds
-```
+### Running without AIVL
 
-**No AIVL license?** Run NNV-only:
+If you don't have AIVL (or want a faster NNV-only sanity pass), run:
 
 ```matlab
 run_toolcomparison('mode','default','tools',{'nnv'})
 ```
 
-The harness works unchanged; AIVL rows are simply absent from `table_main`.
+The harness works unchanged; AIVL rows are simply absent from
+`table_main`. The headline NNV results (paper Tables 5–7 NNV columns) are
+unaffected.
 
 ## Benchmark catalog
 
@@ -102,23 +116,18 @@ The harness works unchanged; AIVL rows are simply absent from `table_main`.
 
 In **smoke mode** every benchmark runs **one instance with one NNV
 algorithm only**; AIVL is skipped (avoids the ~30 s AIVL warmup × 6
-benchmarks). Smoke produces 6 result rows in ~5 minutes.
+benchmarks). Smoke produces 6 result rows in ~1 minute (the wall is
+dominated by `parpool` startup; the actual verification work is a few
+seconds total across the six benchmarks).
 
 In **default mode** every benchmark runs every algorithm above on its
 full instance count. AIVL rows are included.
-
-### Notes on algorithm choices
-
-- **FC nets (ACAS, RL):** `approx-star` + `exact-star` + `relax-star-range-50`. The full FC grid matches NNV's CAV'23 convention; exact-star is feasible on these small networks.
-- **CNN / ResNet (oval21, collins_rul, mnist_resnet8):** `approx-star` for oval21/collins_rul; `relax-star-area-50` for mnist_resnet8. `exact-star` never finishes under VNN-COMP timeouts on Conv nets. `relax-star-area-50` produced identical V/X counts to `approx-star` on prior oval21/collins_rul runs, so it's omitted for those two as redundant. mnist_resnet8 uses `relax-star-area-50` per its argmax robustness convention.
-- **Other `relax-star-{range,area}-25/-75/-100` variants:** deliberately omitted. Prior data shows `-25` ≈ `approx-star` (no value-add) and `-100` ≈ pure interval (loses precision). `-50` is the documented sweet spot.
-- **AIVL `deep-poly`** is the right pick for `mnist_resnet8` (argmax-form, test set carries `ytrue`). The five VNNLIB-style benchmarks use `estimate-bounds` instead — VNNLIB-form `verifyNetworkRobustness` is an R2026a feature.
 
 ## Mode reference
 
 | Mode | What runs | Wall-clock | Disk written |
 |---|---|---|---|
-| `'smoke'` | 1 inst × 1 NNV alg per benchmark, AIVL skipped | ~5 min | <1 MB results |
+| `'smoke'` | 1 inst × 1 NNV alg per benchmark, AIVL skipped | ~1 min (parpool-startup-dominated) | <1 MB results |
 | `'default'` | Full grid above, full instance counts | ~2.5 h | ~5 MB results |
 | `'full'` | Alias for `'default'` (paper convention) | ~2.5 h | ~5 MB results |
 
@@ -160,14 +169,9 @@ PAR-2 is the VNN-COMP scoring metric — unsolved instances contribute 2 × thei
   output specs) is also R2026a-only. The five VNNLIB benchmarks use
   `estimate-bounds` instead, which is the documented R2025b AIVL
   VNNLIB path.
-- No CIFAR2020 — NNV's existing data shows it loses badly to AIVL on
-  CIFAR2020; out of scope for the head-to-head story.
 - No cgan / TransposedConv2D — AIVL R2025b doesn't support
   `TransposedConv2D` or custom `FunctionLayer`, blocking the cgan
   comparison entirely.
-- No dubinsrejoin from the RL bench — R2025b ScalingLayer folding
-  produces a Star/affineMap dim mismatch we couldn't fix without
-  engine-level changes.
 
 ## Repository layout
 
@@ -199,15 +203,4 @@ ToolComparison/
 ├── results/                           created at runtime
 ├── logs/                              created by run_all.sh
 └── ISSUES.md                          auto-appended summary
-```
-
-## Citation
-
-```bibtex
-@inproceedings{tumlin2026nnv3,
-  title  = {NNV 3.0 Tool Paper},
-  author = {Tumlin, Anne M. and Manzanas Lopez, Diego and Johnson, Taylor T. and others},
-  booktitle = {ATVA 2026},
-  year   = {2026}
-}
 ```

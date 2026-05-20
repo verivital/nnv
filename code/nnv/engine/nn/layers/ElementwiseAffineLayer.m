@@ -133,7 +133,17 @@ classdef ElementwiseAffineLayer < handle
                 % Scale (weights)
                 image = in_image; % create copy to perform operations (if need to)
                 if obj.DoScale
-                    image = image.affineMap(obj.Scale, []); % W*x
+                    % R2025b's ONNX importer emits ScalingLayer (mapped to
+                    % ElementwiseAffineLayer) with Scale as a per-channel
+                    % vector, not a square matrix. Wrap accordingly so Star
+                    % dim is preserved (mirrors the ImageStar branch above).
+                    if isscalar(obj.Scale)
+                        image = image.affineMap(obj.Scale * eye(image.dim), []);
+                    elseif isvector(obj.Scale)
+                        image = image.affineMap(diag(obj.Scale(:)), []);
+                    else
+                        image = image.affineMap(obj.Scale, []); % W*x
+                    end
                 end
                 % Offset (bias)
                 if obj.DoOffset

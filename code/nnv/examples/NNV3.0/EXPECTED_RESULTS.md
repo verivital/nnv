@@ -11,11 +11,11 @@ Use it to eyeball-compare your reproduction:
 - **Timings** depend on hardware (CPU model, GPU presence, MATLAB
   threading); reference numbers below are from a Windows 11 host with
   an NVIDIA RTX 5090 (32 GB, Blackwell), driver 581.95, CUDA 13,
-  running the `nnv3.0` Docker image (MATLAB R2024b).
+  running the `nnv3.0` Docker image (MATLAB R2025b).
 
 To run the full paper reproduction (including the long ToolComparison
-grid; default `bash run_all.sh` uses the ~12 min ToolComparison smoke mode
-so the end-to-end suite stays under ~30 min):
+grid; default `bash run_all.sh` uses the ~1 min ToolComparison smoke mode
+so the end-to-end suite stays well under an hour):
 
 ```bash
 docker run --rm --gpus all \
@@ -184,9 +184,10 @@ five VNNLIB benchmarks (ACAS Xu p3/p4, RL controllers, OVAL21, Collins
 RUL CNN) plus MNIST-ResNet-8 argmax robustness. AIVL Support Package
 required for the `mw_*` rows; pass `'tools',{'nnv'}` to skip. Two modes:
 
-- `'mode','smoke'` — 5 ACAS networks + 5 MNIST images, NNV-only,
-  `approx-star` + `relax-star-area-50`. Used by `run_all.sh` to keep
-  the end-to-end suite under ~30 min.
+- `'mode','smoke'` — 1 instance × 1 NNV algorithm × 6 benchmarks
+  (acas_xu_p3, acas_xu_p4, rl, oval21, collins_rul, mnist_resnet8),
+  AIVL skipped. Used by `run_all.sh` so ToolComparison doesn't dominate
+  the end-to-end suite.
 - `'mode','full'` (default) — full per-benchmark NNV grid + AIVL.
   Renders the paper's Tables 5, 6, and 7.
 
@@ -227,9 +228,11 @@ images per ε; NNV's `relax-star-area-50` is faster:
 
 ### Smoke mode (used by `run_all.sh`)
 
-Smoke mode produces a much smaller subset (5 ACAS networks × 2
-algorithms + 5 MNIST images × 2 algorithms, NNV-only) — sanity check,
-not paper-grade. Expected wall time **~12 minutes**.
+Smoke mode produces a much smaller subset (6 rows: 1 instance × 1 NNV
+algorithm per benchmark, AIVL skipped) — sanity check that the harness
+runs end-to-end, not paper-grade. Expected wall time **~1 minute** (the
+wall is dominated by `parpool` startup; the actual verification work is
+a handful of seconds across the six benchmarks).
 
 **Full-mode total wall time**: ~3–5 h on a 4-core CPU (driven by
 `exact-star` on ACAS Xu, ≤900 s/instance). Set
@@ -263,7 +266,7 @@ On the reference host:
 | ProbVer | ~9 min    |
 | VideoStar | ~12 min |
 | ModelStar | ~70 min |
-| ToolComparison (smoke) | ~12 min |
-| ToolComparison (full)  | ~3–5 h (opt-in via `TOOLCOMPARISON_MODE=full`) |
-| **Total (smoke ToolComparison)** | **~107 min (~1.8 h)** |
-| **Total (full ToolComparison)**  | **~5–7 h** |
+| ToolComparison (smoke) | ~1 min  |
+| ToolComparison (full)  | ~3 h (opt-in via `TOOLCOMPARISON_MODE=full`) |
+| **Total (smoke ToolComparison)** | **~97 min (~1.6 h)** |
+| **Total (full ToolComparison)**  | **~5 h** |

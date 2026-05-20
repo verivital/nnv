@@ -56,13 +56,6 @@ function run_vnnlib_half(opts, u)
             inst_to = double(T.timeout(i));
             if ~isfinite(inst_to) || inst_to <= 0, inst_to = 300; end
 
-            % No per-instance parpool restart. Diego's original concern (AIVL
-            % verifyNetworkRobustness hanging after exact-star on the same
-            % worker) is mitigated by patch 02 (NN.start_pool bails on
-            % parfeval workers), which keeps exact-star's pool usage on the
-            % client process — so cross-tool worker state isn't shared.
-            % Saves ~30 s × N_inst per benchmark (~90 min across the grid).
-
             for t = 1:numel(opts.tools)
                 tool = opts.tools{t};
                 algs = algorithms_for(tool, bench, opts.mode, opts.algorithms);
@@ -97,20 +90,10 @@ function algs = algorithms_for(tool, bench, mode, override)
                 case 'acas_xu_p4'
                     full = {'approx-star','exact-star','relax-star-range-50'};
                 case 'oval21'
-                    % CIFAR ResNet — approx-star only. relax-star-area-50
-                    % produced identical V/X counts on prior runs (no
-                    % story-bearing distinction), and exact-star is
-                    % intractable on Conv+ReLU CIFAR.
                     full = {'approx-star'};
                 case 'rl'
-                    % FC mixed activations (tanh+ReLU) — full FC grid per
-                    % ToolComparison/run_acas_rl_tll.m's rl convention.
                     full = {'approx-star','exact-star','relax-star-range-50'};
                 case 'collins_rul'
-                    % Small 1D CNN — approx-star only. relax-star-area-50
-                    % yielded identical 10V/47X/5? to approx-star on prior
-                    % runs (redundant). Exact-star deliberately excluded
-                    % (prior data shows 16 T/O + 1 LP-degeneracy error).
                     full = {'approx-star'};
                 otherwise
                     full = {'approx-star'};
@@ -382,8 +365,6 @@ function status = aivl_vnnlib_status_local(yL, yU, prop)
 % Gpos/Gneg split (standard interval bound propagation):
 %   max(G*y - g) <= 0  ->  forced  (definite counterexample)
 %   min(G*y - g) >  0  ->  infeasible (no counterexample for this disjunct)
-%
-% Ported from legacy ToolComparison/acas_rl_tll/run_acas_rl_tll.m::aivl_vnnlib_status.
     if iscell(prop), prop = prop{1}; end
     halves = struct('G',{},'g',{});
     if isstruct(prop) && isscalar(prop) && isfield(prop, 'Hg')
@@ -454,13 +435,6 @@ end
 
 function [status, tsec] = run_with_timeout(fn, timeout_s)
 %RUN_WITH_TIMEOUT Process-pool parfeval with wall-clock timeout enforcement.
-%   Mirrors the existing ToolComparison/run_acas_rl_tll.m `run_one` pattern.
-%
-%   Important: exact-star's NN.start_pool reuses the parent pool when its
-%   NumWorkers matches obj.numCores. Our reach_opt_for caps exact-star
-%   at 8 to match the default Processes profile, so start_pool sees pool
-%   size == numCores and never tries the illegal-from-worker parpool()
-%   recreate.
     persistent havePar
     if isempty(havePar)
         havePar = license('test','Distrib_Computing_Toolbox') && ~isempty(ver('parallel'));

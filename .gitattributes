@@ -1,0 +1,84 @@
+# Default: let git auto-detect text vs binary and normalize CRLF -> LF on
+# check-in. Per-pattern rules below override this where we need a specific
+# line ending regardless of the contributor's core.autocrlf setting.
+* text=auto
+
+# --- POSIX scripts and Linux-interpreted files: must stay LF ---
+# CRLF here breaks shebangs and 'bash: $'\r': command not found' errors
+# inside the Docker container.
+*.sh           text eol=lf
+*.bash         text eol=lf
+*.zsh          text eol=lf
+Dockerfile     text eol=lf
+.dockerignore  text eol=lf
+Makefile       text eol=lf
+*.mk           text eol=lf
+
+# --- Source code: LF is the cross-platform default ---
+*.py           text eol=lf
+*.m            text eol=lf
+*.jl           text eol=lf
+*.c            text eol=lf
+*.h            text eol=lf
+*.cpp          text eol=lf
+*.hpp          text eol=lf
+
+# --- Config / text data ---
+*.yml          text eol=lf
+*.yaml         text eol=lf
+*.json         text eol=lf
+*.toml         text eol=lf
+*.cfg          text eol=lf
+*.ini          text eol=lf
+*.xml          text eol=lf
+*.vnnlib       text eol=lf
+*.csv          text eol=lf
+*.txt          text eol=lf
+*.md           text eol=lf
+*.rst          text eol=lf
+*.tex          text eol=lf
+*.l            text eol=lf
+*.info         text eol=lf
+*.ipynb        text eol=lf
+
+# --- Windows-only scripts: must stay CRLF ---
+*.bat          text eol=crlf
+*.cmd          text eol=crlf
+*.ps1          text eol=crlf
+
+# --- Binary: never line-end-convert, never text-diff ---
+# Images
+*.jpg          binary
+*.jpeg         binary
+*.png          binary
+*.ppm          binary
+*.gif          binary
+*.ico          binary
+*.tif          binary
+*.tiff         binary
+*.pdf          binary
+
+# MATLAB binary formats
+*.mat          binary
+*.fig          binary
+*.slx          binary
+*.mdl          binary
+*.mlx          binary
+*.mex*         binary
+
+# ML model / data formats
+*.onnx         binary
+*.h5           binary
+*.pth          binary
+*.pt           binary
+*.npy          binary
+*.npz          binary
+*.nnet         binary
+*.model        binary
+
+# Archives
+*.gz           binary
+*.tgz          binary
+*.tar          binary
+*.zip          binary
+*.7z           binary

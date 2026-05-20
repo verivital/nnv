@@ -75,34 +75,52 @@ file rather than a server, mount it at run time with
 `-v /path/to/network.lic:/opt/matlab/R2025b/licenses/network.lic`
 instead of `--build-arg`.
 
-**Step 4.** Run the smoke test (~30 min on a 4-core / 16 GB host):
+If you don't know your `port@host`, the helper scripts at
+[`code/nnv/examples/NNV3.0/utils/`](code/nnv/examples/NNV3.0/utils/)
+search the standard MATLAB license locations on your host and emit
+any `port@host` values they find (`find-matlab-license.ps1` on Windows,
+`find-matlab-license.sh` on Linux / macOS / WSL / Git Bash).
+
+**Step 4.** (Optional) GPU sanity check. If you intend to run with
+`--gpus all`, verify Docker can actually see your GPU before
+committing to the ~30 min smoke run:
 
 ```bash
-docker run --rm nnv3.0 bash run_all.sh
+docker run --rm --gpus all nnv3.0 nvidia-smi
 ```
 
-The script runs all six experiments sequentially, each in its own
-MATLAB session so a failure in one doesn't lose the others. On a
-CPU-only host, ProbVer auto-skips (it requires GPU + 48 GB RAM).
-Expect a `summary.csv` with 5 `ok` rows and `probver,skipped`.
+This should print your device name and driver version. If it errors
+with `could not select device driver`, install/enable the NVIDIA
+Container Toolkit on the host (or on Docker Desktop with WSL2,
+enable GPU support in *Settings → Resources → WSL Integration*).
 
-**Step 5.** Copy results out of the container:
+**Step 5.** Run the smoke test (~30 min on a 4-core / 16 GB host).
+Mount a host directory at run time so the per-experiment outputs and
+`summary.csv` persist after `--rm` removes the container:
 
 ```bash
-docker run --rm -v "$PWD/results":/out nnv3.0 \
-    cp -r /home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs /out/
+docker run --rm --gpus all -v "$PWD/results":/out nnv3.0 \
+    bash -c "bash run_all.sh && \
+        cp -r /home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs /out/"
 ```
 
-The summary CSV at `results/repeatability_logs/summary.csv` lists
-per-experiment wall-clock time and status. Per-example output files
-land alongside the script that produced them (e.g.,
-`FairNNV/results/<ts>/`).
+`run_all.sh` runs all six experiments sequentially, each in its own
+MATLAB session so a failure in one doesn't lose the others. Drop
+`--gpus all` if you don't have an NVIDIA GPU available to Docker:
+ProbVer auto-skips on CPU-only hosts (it requires GPU + 48 GB RAM),
+and the rest fall back to CPU. The summary CSV at
+`results/repeatability_logs/summary.csv` lists per-experiment
+wall-clock time and status. Expect 5 `ok` rows and `probver,skipped`
+on CPU, or 6 `ok` rows with a GPU.
 
 **Step 6.** (Optional) Full reproduction (~5-7 h) renders the paper's
 Tables 5, 6, and 7:
 
 ```bash
-docker run --rm -e TOOLCOMPARISON_MODE=full nnv3.0 bash run_all.sh
+docker run --rm --gpus all -v "$PWD/results":/out \
+    -e TOOLCOMPARISON_MODE=full nnv3.0 \
+    bash -c "bash run_all.sh && \
+        cp -r /home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs /out/"
 ```
 
 ### Full options

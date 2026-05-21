@@ -11,7 +11,7 @@
 #
 #   docker build -t nnv3.0-online -f Dockerfile.online .
 #
-# First-time sign-in + setup (one-time, ~5 min, interactive):
+# Start the container in browser mode and sign in (one-time, ~5 min):
 #
 #   docker run -it --rm \
 #     -p 8888:8888 --shm-size=512M \
@@ -20,29 +20,28 @@
 #     --name nnv3-setup \
 #     nnv3.0-online -browser
 #
-# Open http://localhost:8888 in a browser, sign in to your MathWorks
-# account, then in a second terminal run the NNV / AIVL setup:
+# Open http://localhost:8888 and sign in. Then, in the browser MATLAB
+# Command Window, run the three entry-point scripts in turn:
 #
-#   docker exec -it nnv3-setup \
-#     bash /home/matlab/nnv/code/nnv/examples/NNV3.0/utils/setup-online-license.sh
+#   run('/home/matlab/nnv/code/nnv/examples/NNV3.0/setup_online.m')
+#   run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_smoke.m')   % ~20-25 min
+#   run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_full.m')    % ~3-5 h
 #
-# Exit the interactive container (Ctrl-C in the first terminal). The
-# named volumes (nnv3-matlab-prefs, nnv3-matlab-mw) now hold the cached
-# activation and saved MATLAB path.
+# setup_online.m runs the install.m and AIVL extraction the standard
+# Dockerfile does at build time (deferred here because matlab -batch
+# cannot use a browser sign-in). run_smoke.m / run_full.m drive the six
+# experiments in the SAME MATLAB session so they reuse the cached
+# online sign-in, then consolidate outputs into repeatability_logs/ and
+# write a single PAPER_COMPARISON.md index a reviewer can open to find
+# every output and the paper table / figure it backs.
 #
-# Subsequent runs (~30 min smoke test):
+# Extract results to the host afterwards (from a host PowerShell):
 #
-#   docker run --rm --gpus all \
-#     -v nnv3-matlab-prefs:/home/matlab/.matlab \
-#     -v nnv3-matlab-mw:/home/matlab/.MathWorks \
-#     -v "${PWD}/results:/out" \
-#     --entrypoint /bin/bash nnv3.0-online \
-#     -lc "bash run_all.sh && \
-#          cp -r /home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs /out/"
+#   docker cp nnv3-setup:/home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs .
 #
-# Sign-in is cached in the volumes; MathWorks may invalidate it
+# Sign-in is cached in the named volumes; MathWorks may invalidate it
 # periodically. If experiments start failing with a licence-checkout
-# error, re-run the "First-time sign-in" step above to refresh.
+# error, re-launch with -browser and re-sign-in.
 #
 # See code/nnv/examples/NNV3.0/ONLINE_LICENSE.md for a full walkthrough,
 # troubleshooting, and the trade-offs vs the network-licence Dockerfile.

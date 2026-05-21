@@ -70,52 +70,83 @@ docker run -it --rm \
     nnv3.0-online -browser
 ```
 
-Open <http://localhost:8888> in a browser, sign in with your MathWorks
-account. Once MATLAB is running in the browser, drop to a second
-terminal and run the setup script inside the same container:
+Open <http://localhost:8888> in a browser and sign in with your
+MathWorks account. Once the MATLAB Command Window is ready, paste
+this single line to install NNV paths and extract AIVL:
 
-```bash
-docker exec -it nnv3-setup \
-    bash /home/matlab/nnv/code/nnv/examples/NNV3.0/utils/setup-online-license.sh
+```matlab
+run('/home/matlab/nnv/code/nnv/examples/NNV3.0/setup_online.m')
 ```
 
-That runs NNV's `install.m` and the AIVL `toolbox_install.m`, then
-writes a marker so the next setup invocation is a no-op. When it
-finishes, exit the first terminal's interactive container (Ctrl-C).
+`setup_online.m` runs the equivalent of the standard Dockerfile's
+build-time `install.m` and AIVL `toolbox_install.m` steps. It is
+idempotent -- safe to re-run if anything fails -- and prints an
+`AIVL availability check` at the end so you know whether ToolComparison
+will include the MathWorks-side rows. When it finishes, do **not**
+exit the container: the smoke / full runs below reuse this same
+MATLAB session (and its cached licence).
 
-### Step 3 — Run experiments (headless, ~30 min smoke)
+### Step 3 — Run experiments in the same browser session
 
-```bash
-docker run --rm --gpus all \
-    -v nnv3-matlab-prefs:/home/matlab/.matlab \
-    -v nnv3-matlab-mw:/home/matlab/.MathWorks \
-    -v "$PWD/results":/out \
-    --entrypoint /bin/bash nnv3.0-online \
-    -lc "bash run_all.sh && \
-        cp -r /home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs /out/"
+Online sign-in is only valid for the current MATLAB process; a fresh
+`matlab -batch` launched from `docker exec` cannot use it. So unlike
+the network-licence path, experiments run **inside the same browser
+MATLAB** that owns the sign-in. Two single-line entry points:
+
+Smoke (~20-25 min on CPU, faster with `--gpus all`):
+
+```matlab
+run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_smoke.m')
 ```
 
-Drop `--gpus all` on CPU-only hosts (ProbVer auto-skips). The two
-named volumes carry the cached activation and the NNV install from
-Step 2, so `run_all.sh` runs headlessly with no sign-in prompt.
+Full reproduction (~3-5 h, renders ATVA 2026 paper Tables 5, 6, 7):
 
-For the full ~5-7 h reproduction, add `-e TOOLCOMPARISON_MODE=full`
-inside the run command, as in the standard path.
+```matlab
+run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_full.m')
+```
+
+Both runners loop over the six experiments in this session, autodetect
+GPU availability (ProbVer auto-skips on CPU-only hosts), consolidate
+per-experiment outputs into `repeatability_logs/results/`, and write a
+single index file `repeatability_logs/PAPER_COMPARISON.md` mapping each
+experiment to its primary output and to the paper artefact it backs.
+
+### Step 4 — Extract results to the host
+
+From a separate PowerShell on the host:
+
+```powershell
+docker cp nnv3-setup:/home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs .\repeatability_logs
+```
+
+Then open `repeatability_logs/PAPER_COMPARISON.md` -- it is the single
+file a repeatability committee can open to find every output, with
+explicit pointers to `results/ToolComparison/tables/table_main.{tex,txt}`
+(paper Tables 5, 6, 7) and to each experiment's CSV / `.mat` outputs.
 
 ## Troubleshooting
 
 **`license checkout failed` mid-run.** MathWorks may invalidate cached
-online activations periodically. Re-run Step 2 (the named volumes will
-be refreshed, the `setup-online-license.sh` marker keeps the NNV
-install from re-running unnecessarily).
+online activations periodically. Restart from Step 2: launch the
+container in `-browser` mode, sign in again, and re-run `setup_online`
++ `run_smoke` / `run_full`. The named volumes preserve the saved
+MATLAB path and AIVL install, so only the activation needs refreshing.
 
 **MATLAB browser at localhost:8888 won't load.** Check Docker Desktop
 has port 8888 free and `--shm-size=512M` was passed (insufficient
 shared memory will hang the VNC server).
 
-**`setup-online-license.sh` errors with "no licence"**. You're not yet
-signed in. Switch to the first terminal, complete the browser sign-in,
-wait for MATLAB to fully start, then re-run the `docker exec` step.
+**`setup_online.m` prints AIVL extraction errors.** AIVL's tarball
+extracts into `/home/matlab/Documents/MATLAB/SupportPackages/...`,
+which the Dockerfile pre-creates with matlab-user ownership. If you
+built before this Dockerfile fix, run once as root:
+
+```bash
+docker exec -it --user root nnv3-setup chown -R matlab:matlab /home/matlab/Documents
+```
+
+then re-run `setup_online.m`. ToolComparison still runs NNV-only
+without AIVL; only the MathWorks-side rows are absent.
 
 **Re-run the setup**: delete the marker inside the container:
 

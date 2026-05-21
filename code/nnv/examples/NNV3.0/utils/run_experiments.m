@@ -29,6 +29,7 @@ function run_experiments(toolcomparisonMode)
     warning('off','nnet_cnn_onnx:onnx:InputLabelMismatch');
     warning('off','nnet_cnn:internal:cnn:analyzer:NetworkAnalyzer:NetworkHasWarnings');
     warning('off','MATLAB:mpath:nameNonexistentOrNotADirectory');
+    warning('off','MATLAB:linkaxes:RequireDataAxes');
     addpath(genpath('/home/matlab/nnv/code/nnv'));
     try, parallel.gpu.enableCUDAForwardCompatibility(true); catch; end
 

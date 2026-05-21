@@ -11,9 +11,14 @@
 #
 #   docker build -t nnv3.0-online -f Dockerfile.online .
 #
-# Start the container in browser mode and sign in (one-time, ~5 min):
+# Start the container in browser mode and sign in (one-time, ~5 min).
+# --gpus all is the recommended default -- ProbVer requires CUDA, and
+# GNNV / VideoStar are faster with it. Drop the flag on CPU-only hosts;
+# ProbVer auto-skips when gpuDeviceCount == 0. On Windows + Docker
+# Desktop, --gpus all needs the WSL2 backend AND a host NVIDIA driver
+# (Docker Desktop -> Settings -> Resources -> WSL Integration).
 #
-#   docker run -it --rm \
+#   docker run -it --rm --gpus all \
 #     -p 8888:8888 --shm-size=512M \
 #     -v nnv3-matlab-prefs:/home/matlab/.matlab \
 #     -v nnv3-matlab-mw:/home/matlab/.MathWorks \

@@ -58,17 +58,32 @@ without any sign-in.
 
 ### Step 2 — Sign in + one-time setup (~5 min, interactive, once)
 
-Start the container in browser mode with two named volumes that will
-hold the cached MATLAB activation and the NNV / AIVL install state:
+Start the container in browser mode with `--gpus all` and two named
+volumes that will hold the cached MATLAB activation and the NNV / AIVL
+install state:
 
 ```bash
-docker run -it --rm \
+docker run -it --rm --gpus all \
     -p 8888:8888 --shm-size=512M \
     -v nnv3-matlab-prefs:/home/matlab/.matlab \
     -v nnv3-matlab-mw:/home/matlab/.MathWorks \
     --name nnv3-setup \
     nnv3.0-online -browser
 ```
+
+Drop `--gpus all` on CPU-only hosts; ProbVer will auto-skip and
+GNNV / VideoStar fall back to CPU (with proportional slowdowns).
+
+> **Windows + Docker Desktop GPU passthrough**: `--gpus all` requires
+> the **WSL2 backend** plus an **NVIDIA driver on the host** (not inside
+> WSL2). Enable WSL2 in Docker Desktop *Settings → General* and confirm
+> *Settings → Resources → WSL Integration* lists your distro. Sanity
+> check with: `docker run --rm --gpus all nnv3.0-online nvidia-smi`
+> — it should print your device name and driver version. If it errors
+> with `could not select device driver`, install/enable the NVIDIA
+> Container Toolkit (or, on Docker Desktop, update to a recent version
+> that ships it bundled). From inside the MATLAB Command Window, verify
+> with `gpuDeviceCount` (returns `1` or more if passthrough is working).
 
 Open <http://localhost:8888> in a browser and sign in with your
 MathWorks account. Once the MATLAB Command Window is ready, paste

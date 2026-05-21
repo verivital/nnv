@@ -58,9 +58,8 @@ ARG MATLAB_RELEASE=r2025b
 # underscore-separated names rather than spaces.
 #
 # Including Deep_Learning_Toolbox_Verification_Library lets mpm pull
-# the AI Verification Library Support Package at build time, replacing
-# the network-licence Dockerfile's tarball-staging + toolbox_install.m
-# extraction flow. Reviewers MUST have a MathWorks licence whose Deep
+# the AI Verification Library Support Package at build time. Reviewers
+# MUST have a MathWorks licence whose Deep
 # Learning Toolbox entitlement covers the Verification Library
 # (normally free for any Deep Learning Toolbox holder, but a paid /
 # restricted licence may exclude it). If excluded, mpm install still
@@ -96,14 +95,10 @@ WORKDIR /home/matlab
 #
 # mpm install runs via sudo (root) and creates
 # /home/matlab/Documents/MATLAB/SupportPackages/R2025b/toolbox/nnet/
-# supportpackages/ owned by root for the bundled ONNX Converter Support
-# Package. Without a follow-up chown, the matlab user later cannot
-# mkdir aivnv/ next to onnx/ at AIVL extraction time, and
-# toolbox_install.m's `tar -xzf` fails with "Cannot mkdir: Permission
-# denied" cascading into ~200 "No such file or directory" lines.
-# The same fix landed on the network-licence Dockerfile in commit
-# 0b6aa0bbc -- consolidating chown into the same RUN as mpm so the
-# layer can't be skipped.
+# supportpackages/ owned by root. Without a follow-up chown, the matlab
+# user can't write the aivnv support-package directory, causing AIVL
+# entry-point resolution to fail at runtime. The chown is consolidated
+# into the same RUN as mpm so the layer can't be skipped.
 RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \
     && chmod +x mpm \
     && EXISTING_MATLAB_LOCATION=$(dirname $(dirname $(readlink -f $(which matlab)))) \

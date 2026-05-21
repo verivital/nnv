@@ -11,7 +11,7 @@ set -euo pipefail
 IMAGE_TAG="nnv3.0:r2025b"
 LICENSE_SERVER="${LICENSE_SERVER:-27009@licenseserver.it.vanderbilt.edu}"
 HOST_REPO="$(cd "$(dirname "$0")/../../../../.." && pwd)"
-DOCKERFILE="code/nnv/examples/NNV3.0/Dockerfile"
+DOCKERFILE="Dockerfile"
 
 echo "=== Docker build ==="
 echo "  tag:        $IMAGE_TAG"

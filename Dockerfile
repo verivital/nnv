@@ -1,10 +1,12 @@
 # NNV 3.0 reproducibility image (ATVA 2026 artifact).
 #
-# This image bundles MATLAB R2025b + the required toolboxes, builds NNV from
-# the local checkout (so engine fixes for ToolComparison are included),
-# provisions a Python venv for ProbVer's CUDA path, and (optionally) extracts
-# the AIVL Support Package if a tarball is staged at
-# code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz.
+# This image bundles MATLAB R2025b + the required toolboxes (including the
+# AI Verification Library, installed automatically via mpm as
+# Deep_Learning_Toolbox_Verification_Library), builds NNV from the local
+# checkout (so engine fixes for ToolComparison are included), and provisions
+# a Python venv for ProbVer's CUDA path. Reviewers do not stage any tarball.
+# The reviewer's MATLAB licence must entitle the Verification Library; this
+# is normally true for any Deep Learning Toolbox holder.
 #
 # Build from the repository root (build context = entire checkout, kept lean
 # by /.dockerignore):
@@ -26,11 +28,16 @@
 # host MATLAB. See code/nnv/README and the top-level README.md for details.
 
 # Pinned to R2025b to match the CodeOcean capsule's MATLAB ceiling.
-# ToolComparison's AIVL path requires R2025b's AIVL Support Package.
+# ToolComparison's AIVL path requires R2025b's AIVL Support Package
+# (mpm-installable as Deep_Learning_Toolbox_Verification_Library).
 ARG MATLAB_RELEASE=R2025b
 
 # Specify the list of products to install into MATLAB.
-ARG MATLAB_PRODUCT_LIST="MATLAB Computer_Vision_Toolbox Control_System_Toolbox Deep_Learning_Toolbox Image_Processing_Toolbox Optimization_Toolbox Parallel_Computing_Toolbox Statistics_and_Machine_Learning_Toolbox Symbolic_Math_Toolbox System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format"
+# Deep_Learning_Toolbox_Verification_Library is the AIVL Support Package
+# (MathWorks AI Verification Library) — installed inline by mpm during the
+# MATLAB install step below; the ToolComparison experiment's MathWorks-side
+# rows depend on it. Reviewers don't need to stage anything separately.
+ARG MATLAB_PRODUCT_LIST="MATLAB Computer_Vision_Toolbox Control_System_Toolbox Deep_Learning_Toolbox Image_Processing_Toolbox Optimization_Toolbox Parallel_Computing_Toolbox Statistics_and_Machine_Learning_Toolbox Symbolic_Math_Toolbox System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format Deep_Learning_Toolbox_Verification_Library"
 
 # Specify MATLAB Install Location.
 ARG MATLAB_INSTALL_LOCATION="/opt/matlab/${MATLAB_RELEASE}"
@@ -134,24 +141,6 @@ RUN matlab -nodisplay -batch "\
     savepath; \
     fprintf('[install] verifying core NNV...\\n'); \
     cd('/home/matlab/nnv/code/nnv'); check_nnv_setup(); \
-    "
-
-# Extract the AI Verification Library (AIVL) Support Package for the
-# ToolComparison experiment. The tarball is non-redistributable MathWorks
-# code, so it is NOT committed to git (.gitignored). Acquisition paths:
-#   - General users: install AIVL via MATLAB's Add-On Explorer in a host
-#     MATLAB session (not used by this Dockerfile).
-#   - ATVA 2026 AE reviewers: drop the Dropbox-linked tarball at
-#     code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz
-#     before building this image.
-#   - Code Ocean reviewers: AIVL is pre-installed in the capsule; this
-#     Dockerfile is not used.
-# If the tarball isn't present, this step prints a warning and returns; the
-# rest of the suite builds normally and only the AIVL rows of ToolComparison
-# will be skipped at run time.
-RUN matlab -nodisplay -batch "\
-    cd('/home/matlab/nnv/code/nnv/examples/NNV3.0/ToolComparison/utils'); \
-    try, run('toolbox_install.m'); catch ME, fprintf(2, '[toolbox_install warning] %s\\n', ME.message); end; \
     "
 
 # Where the experiments expect to write their outputs.

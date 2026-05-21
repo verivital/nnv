@@ -10,7 +10,7 @@ six benchmarks reported in the ATVA 2026 paper. Smoke runs in ~1 min
 |---|---|
 | MATLAB | R2025b |
 | Toolboxes | Deep Learning Toolbox, Deep Learning Toolbox Converter for ONNX Model Format, Parallel Computing Toolbox |
-| AIVL | MathWorks AI Verification Library Support Package (tarball recipe below) |
+| AIVL | MathWorks AI Verification Library Support Package (auto-installed via `mpm` in both Docker flows; see "Install AIVL" below for host-MATLAB users) |
 | RAM | ≥ 16 GB |
 | Cores | ≥ 4 |
 | Disk | ~250 MB (assets) + ~50 MB (results) |
@@ -32,31 +32,31 @@ run_toolcomparison                       % default mode, ~2.5 h
 can drive it without MATLAB-side arg plumbing. `'full'` is accepted as
 an alias for `'default'`.
 
-## Docker quickstart (R2025b)
+## Docker quickstart
+
+The artifact-evaluation Docker path is documented in the
+[NNV3.0 README](../README.md) — Option A (`Dockerfile.online`, browser
+sign-in) and Option B (root `Dockerfile`, `port@host` licence). Both
+flows auto-install AIVL via `mpm`. From inside the resulting container:
 
 ```bash
 cd code/nnv/examples/NNV3.0/ToolComparison
-./build_image.sh                 # one-time, ~30–60 min
-./run_all.sh                     # full sweep, all 6, nnv+aivl
-./run_all.sh nnv                 # nnv only
-./run_all.sh nnv,aivl rl oval21  # nnv+aivl, specific benchmarks
+matlab -nodisplay -batch "run_toolcomparison('mode','smoke')"   # ~1 min
+matlab -nodisplay -batch "run_toolcomparison"                    # ~3 h
 ```
-
-`build_image.sh` builds `nnv3.0:r2025b` with the Vanderbilt MATLAB
-license server baked in. `run_all.sh` runs the sweep sequentially inside
-the container, logging to `logs/` and writing per-benchmark results to
-`results/`.
 
 ## Install AIVL
 
-The AIVL Support Package is **non-redistributable MathWorks code**, so the
-tarball is not included in this public repository. Pick whichever option
-applies to you:
+Both NNV3.0 Docker flows (Option A `Dockerfile.online`, Option B main
+`Dockerfile`) install the AIVL Support Package automatically via `mpm`
+(`Deep_Learning_Toolbox_Verification_Library`). Reviewers using either
+Docker path do **not** stage anything separately — verify in the smoke
+log that the `[AIVL] status: AVAILABLE` line appears.
 
-### Option 1 — Install AIVL yourself via MATLAB (recommended for general users)
+### Host MATLAB (no Docker)
 
-Any MATLAB user with the appropriate entitlement can install AIVL through
-the Add-On Explorer:
+Users running the experiments directly against a host MATLAB R2025b
+install AIVL via the Add-On Explorer:
 
 1. In MATLAB, **Home → Add-Ons → Get Add-Ons**.
 2. Search for **"AI Verification Library"** and install.
@@ -67,41 +67,21 @@ the Add-On Explorer:
    which estimateNetworkOutputBounds
    ```
 
-No further setup is needed — `run_toolcomparison` will pick AIVL up
+No further setup is needed — `run_toolcomparison` picks AIVL up
 automatically.
-
-### Option 2 — Pre-built tarball (ATVA 2026 AE reviewers)
-
-A pre-built `atva26-aivl.tar.gz` is distributed privately to the ATVA
-artifact-evaluation chairs via a Dropbox link included in the HotCRP
-submission cover note. Reviewers: place the tarball at
-
-```
-code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz
-```
-
-then from MATLAB:
-
-```matlab
-cd code/nnv/examples/NNV3.0/ToolComparison/utils
-aivl_install
-```
-
-This extracts the AIVL Support Package into `userpath()/SupportPackages/`,
-persists the addpath via `startup.m`, and smoke-checks the entry points.
-Restart MATLAB once after the first install.
 
 ### Running without AIVL
 
-If you don't have AIVL (or want a faster NNV-only sanity pass), run:
+If your MATLAB licence doesn't entitle the AI Verification Library, or
+you want a faster NNV-only sanity pass, run:
 
 ```matlab
 run_toolcomparison('mode','default','tools',{'nnv'})
 ```
 
 The harness works unchanged; AIVL rows are simply absent from
-`table_main`. The headline NNV results (paper Tables 5–7 NNV columns) are
-unaffected.
+`table_main`. The headline NNV results (paper Tables 5–7 NNV columns)
+are unaffected.
 
 ## Benchmark catalog
 
@@ -121,9 +101,10 @@ produces 12 result rows (or 6 when AIVL is not installed) in ~1 minute
 ~14 s deep-poly warmup on MNIST-ResNet-8; pure verification work is a
 few seconds total). Doubles as an AIVL-setup validation: a
 `[AIVL] status: AVAILABLE` line in the terminal/run.log confirms the
-Support Package was extracted correctly, while a
-`[AIVL] status: NOT FOUND` warning surfaces a misconfigured tarball
-before reviewers waste time on the full-mode run.
+Support Package was installed correctly, while a
+`[AIVL] status: NOT FOUND` warning surfaces a missing Support Package
+(licence not entitled, or `mpm` step skipped) before reviewers waste
+time on the full-mode run.
 
 In **default mode** every benchmark runs every algorithm above on its
 full instance count. AIVL rows are included.
@@ -196,12 +177,9 @@ ToolComparison/
 │   ├── tool_utils.m                   schema, append, has_instance, par2
 │   ├── reach_opt_for.m                algorithm string → reachOpt
 │   ├── rebuild_for_aivl.m             strip ScalingLayer/VerifyBatchSize
-│   ├── aivl_install.m                 AIVL tarball installer
-│   ├── toolbox_install.m              tarball extractor
 │   ├── parse_argmax_vnnlib.m
 │   ├── load_mw_network.m
-│   ├── addpath_shared.m
-│   └── atva26-aivl.tar.gz             AIVL Support Package tarball
+│   └── addpath_shared.m
 ├── tables/
 │   ├── make_table_main.m              consolidated table renderer
 │   └── out/                           generated table_main.{tex,txt}

@@ -19,35 +19,22 @@ NNV-vs-AIVL ToolComparison) and renders the paper's headline tables.
 |---|---|
 | **Local Docker — online licence** (recommended) | You have a MathWorks account but no network licence server. Sign in once via the browser; uses `Dockerfile.online`. |
 | **Local Docker — network licence** | Your institution provides a `port@host` MATLAB licence server (or you have a 30-day eval network licence). Uses the standard `Dockerfile`. |
-| **Local MATLAB** | You already have MATLAB R2025b on the host and want to run experiments outside Docker. See [`code/nnv/examples/NNV3.0/README.md`](code/nnv/examples/NNV3.0/README.md). |
 
 Both Local Docker paths are described below in dedicated sections.
 
 ### AIVL Support Package
 
-The MathWorks AI Verification Library is non-redistributable, so the
-tarball is not in this repository. How it is installed depends on the
-Docker path:
+The MathWorks AI Verification Library is installed automatically inside
+both Docker images via `mpm` (the
+`Deep_Learning_Toolbox_Verification_Library` product). 
 
-- **Option A (online licence)** — AIVL is installed automatically at
-  `docker build` time via `mpm` (the `Deep_Learning_Toolbox_Verification_Library`
-  product). No manual tarball staging.
-- **Option B (network licence)** — Two manual acquisition paths are
-  supported:
-    1. **MATLAB Add-On Explorer** — any MATLAB user can install AIVL via
-       **Home → Add-Ons → Get Add-Ons** ("AI Verification Library").
-    2. **ATVA 2026 AE reviewers** — a pre-built tarball is provided via a
-       private Dropbox link in the HotCRP submission cover note. Stage it
-       at `code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz`
-       before `docker build`.
-
-> **Licence requirement (Option A only).** The online-licence build
-> needs the reviewer's MathWorks account entitlement to include the
-> **Deep Learning Toolbox Verification Library** (normally free for any
-> Deep Learning Toolbox holder, but some restricted seats may exclude
-> it). If excluded, `mpm` still succeeds but AIVL's runtime functions
-> fail at first invocation; `setup_online.m`'s AIVL availability check
-> will flag this.
+> **Licence requirement.** The reviewer's MATLAB licence must entitle
+> the **Deep Learning Toolbox Verification Library**. This is normally
+> true for any Deep Learning Toolbox holder (institutional licences,
+> MathWorks 30-day evals, etc. ); a
+> small number of restricted academic seats may exclude it. If excluded,
+> `docker build` fails at the `mpm install` step with an entitlement
+> error. 
 
 Without AIVL, the NNV-side of the ToolComparison still runs end-to-end;
 only the MathWorks rows are absent from the comparison table. NNV
@@ -94,8 +81,7 @@ spawned by `bash run_all.sh`). Three short `.m` entry points handle
 this; see the full walkthrough in
 [`code/nnv/examples/NNV3.0/ONLINE_LICENSE.md`](code/nnv/examples/NNV3.0/ONLINE_LICENSE.md).
 
-**Step A1.** Clone (with submodules). AIVL is installed automatically
-by the Dockerfile via `mpm` -- no tarball staging needed.
+**Step A1.** Clone (with submodules). 
 
 **Step A2.** Build the online image (~20 min, no licence needed):
 
@@ -119,7 +105,7 @@ turn:
 
 ```matlab
 run('/home/matlab/nnv/code/nnv/examples/NNV3.0/setup_online.m')   % ~5 min
-run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_smoke.m')      % ~20-25 min
+run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_smoke.m')      % <1 h
 run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_full.m')       % ~3-5 h, Tables 5,6,7
 ```
 
@@ -148,8 +134,12 @@ search the standard MATLAB licence locations on your host
 (`find-matlab-license.ps1` on Windows,
 `find-matlab-license.sh` on Linux / macOS / WSL / Git Bash).
 
-**Step B1.** Clone (with submodules) and optionally stage the AIVL
-tarball at `code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz`.
+**Step B1.** Clone the repository (with submodules):
+
+```bash
+git clone --recursive https://github.com/verivital/nnv.git
+cd nnv
+```
 
 **Step B2.** Build the network-licence image (~15-25 min):
 
@@ -180,7 +170,7 @@ docker run --rm --gpus all -v "$PWD/results":/out nnv3.0 \
 
 `run_all.sh` runs all six experiments sequentially, each in its own
 MATLAB session so a failure in one doesn't lose the others. Two
-artefacts land in `results/repeatability_logs/`: `summary.csv`
+artifacts land in `results/repeatability_logs/`: `summary.csv`
 (per-experiment wall-clock and status — expect 5 `ok` rows and
 `probver,skipped` on CPU, or 6 `ok` rows with a GPU) and `run.log`
 (consolidated terminal output filtered to status markers, per-instance

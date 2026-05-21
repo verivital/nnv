@@ -5,7 +5,7 @@
 % installs NNV paths, and verifies AIVL availability. AIVL itself is
 % already installed at build time by Dockerfile.online's `mpm install
 % ... Deep_Learning_Toolbox_Verification_Library ...` -- no manual
-% tarball staging or `toolbox_install.m` extraction needed.
+% staging needed.
 %
 % Usage (paste in the MATLAB Command Window):
 %   run('/home/matlab/nnv/code/nnv/examples/NNV3.0/setup_online.m')

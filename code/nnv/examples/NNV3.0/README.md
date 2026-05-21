@@ -40,10 +40,10 @@ self-contained: bundled models, data, vendored sources, a per-folder
   ImageStars >31 GB; `run_all.sh` auto-skips ProbVer below
   `NNV3_MIN_MEMORY_GB=48`, override with `NNV3_FORCE_MEMORY=1`).
 - **~14 GB disk** for the image, ~1 GB for outputs.
-- **AIVL Support Package** (optional, only for the MathWorks-side rows
-  of ToolComparison). See
-  [`ToolComparison/README.md`](ToolComparison/README.md) for the three
-  acquisition paths.
+- **AIVL Support Package** is installed automatically by either Docker
+  flow via `mpm` (`Deep_Learning_Toolbox_Verification_Library`); the
+  reviewer's MATLAB licence must entitle it (normally true for any
+  Deep Learning Toolbox holder).
 
 Windows WSL2 RAM cap and GPU sanity-check commands are in
 [§Host setup](#host-setup).
@@ -87,7 +87,7 @@ Detailed walkthrough, troubleshooting, and licence-refresh recipe:
 > holder, but some restricted seats may exclude it). If excluded,
 > ToolComparison runs NNV-only and the rest of the artefact is
 > unaffected; `setup_online.m`'s AIVL availability check flags this
-> at run time. No manual tarball staging needed for Option A.
+> at run time.
 
 **A1.** Build the online image (~20 min, no licence at build time):
 
@@ -142,20 +142,15 @@ who hold a network-licence trial. Builds on
 time, bakes the licence source into the image, and runs everything
 end-to-end via the bash `run_all.sh` orchestrator.
 
-End-to-end smoke (`Steps B1–B4`) runs the six experiments at reduced
+End-to-end smoke (`Steps B1–B3`) runs the six experiments at reduced
 counts and finishes in ~30 min on a 4-core / 16 GB host. Full
-reproduction (`Step B5`) adds ~3–5 h to render the ATVA paper's
+reproduction (`Step B4`) adds ~3–5 h to render the ATVA paper's
 Tables 5, 6, and 7.
 
-**B1.** (Optional, AIVL only) Stage the AIVL tarball *before* Step B2
-if you want the MathWorks-side rows of the ToolComparison experiment.
-Place the file at `ToolComparison/utils/atva26-aivl.tar.gz` (relative
-to this directory). The Dockerfile picks it up automatically; without
-it the build prints a warning and ToolComparison runs NNV-only.
-
-**B2.** From the repository root (the directory containing
+**B1.** From the repository root (the directory containing
 `Dockerfile`), build the Docker image (~15–25 min depending on
-network):
+network). AIVL installs automatically via `mpm`
+(`Deep_Learning_Toolbox_Verification_Library`):
 
 ```bash
 docker build -t nnv3.0 --build-arg LICENSE_SERVER=<port>@<host> .
@@ -172,7 +167,7 @@ If you don't know your `port@host`, the helper scripts at
 host (`find-matlab-license.ps1` on Windows, `find-matlab-license.sh`
 on Linux / macOS / WSL / Git Bash) and print any values they find.
 
-**B3.** Run the end-to-end smoke (~30 min):
+**B2.** Run the end-to-end smoke (~30 min):
 
 ```bash
 docker run --rm --gpus all -e MLM_LICENSE_FILE=<port>@<host> \
@@ -189,7 +184,7 @@ filter and stream every line (for debugging).
 
 Expected `summary.csv` on a CPU-only host: 5 `ok` rows, `probver,skipped`.
 
-**B4.** Copy results out of the container. Mount a host directory
+**B3.** Copy results out of the container. Mount a host directory
 at run time so outputs persist after `--rm`:
 
 ```bash
@@ -204,7 +199,7 @@ The summary CSV at `results/repeatability_logs/summary.csv` lists
 wall-clock and status per experiment. Per-example output files land
 under each experiment's `results/` directory inside the container.
 
-**B5.** (Optional) Full reproduction (~5–7 h). Renders the paper's
+**B4.** (Optional) Full reproduction (~5–7 h). Renders the paper's
 Tables 5, 6, and 7:
 
 ```bash
@@ -243,14 +238,10 @@ the ATVA paper's Tables 5, 6, and 7 plus the CAV'23 sanity report). Pass
 + 1 instance × 1 AIVL algorithm per benchmark when AIVL is on path, 12
 rows; falls back to 6 NNV-only rows with a `[AIVL] NOT FOUND` warning
 if the Support Package wasn't extracted). Wall is
-parpool-startup-dominated. The AIVL
-Support Package is non-redistributable MathWorks code, so
-it is not committed to this repository. Two acquisition paths are
-supported: (1) install AIVL yourself from MATLAB's Add-On Explorer, (2)
-ATVA 2026 AE reviewers receive a pre-built tarball via a private link in
-the HotCRP submission cover note. Without AIVL, pass `'tools',{'nnv'}`
-to skip the MathWorks-side rows — NNV rows are unchanged. Setup details
-in
+parpool-startup-dominated. AIVL ships pre-installed in both Docker
+images via `mpm` (`Deep_Learning_Toolbox_Verification_Library`). If AIVL is unavailable, pass
+`'tools',{'nnv'}` to skip the MathWorks-side rows — NNV rows are
+unchanged. Setup details in
 [`ToolComparison/README.md`](ToolComparison/README.md).
 
 ## Reference timings
@@ -275,19 +266,6 @@ Verdicts are hardware-independent; see
 verified-counts and timing baselines.
 
 ## Host setup
-
-### Build with licence baked in (optional)
-
-```bash
-docker build \
-    -t nnv3.0 \
-    --build-arg LICENSE_SERVER=<port>@<host> \
-    .
-```
-
-This sets `MLM_LICENSE_FILE` inside the image so you can drop the
-`-e MLM_LICENSE_FILE=…` from `docker run`. The build itself does not
-validate the licence; it's consumed at first MATLAB invocation.
 
 ### Windows / Docker Desktop RAM cap
 
@@ -322,6 +300,6 @@ tags also work on Blackwell hosts; pick any tag from the
 | `Undefined function 'load_vnnlib'` from ProbVer | NNV path not on MATLAB path | `addpath(genpath('/home/matlab/nnv/code/nnv'))` |
 | `Unrecognized function or variable 'glpk'` from ToolComparison's `lpsolver` | Host bind-mount over `code/nnv/` hides image's populated `tbxmanager/` directory | `docker cp <container>:/home/matlab/nnv/code/nnv/tbxmanager ./tbxmanager` so the bind mount has GLPK visible |
 | `tbxmanager.com` fetch error during `install.m` | Mirror intermittently unreachable | Caught by the build; NNV3.0 examples don't need MPT3. Run `check_nnv_setup` to confirm core NNV |
-| AIVL "Support Package required" inside ToolComparison parfeval workers | Workers don't auto-run `startup.m`; manual-extract AIVL isn't registered with the Support Package system | The verifier's MW path re-adds `aivnv` on entry. Confirm `utils/toolbox_install.m` ran and `/home/matlab/Documents/MATLAB/SupportPackages/R*/.../aivnv` exists |
+| AIVL "Support Package required" inside ToolComparison parfeval workers | Workers don't auto-run `startup.m`; AIVL isn't on the worker MATLAB path | The verifier's MW path re-adds `aivnv` on entry. Confirm `mpm` installed the Support Package and `/home/matlab/Documents/MATLAB/SupportPackages/R*/.../aivnv` exists |
 | `scripts/` not found inside ToolComparison | Helpers moved to `utils/` (May 2026 refactor) | Use `cd ToolComparison/utils` |
 | `npy-matlab directory not found` | Pre-built image without clone | Pull latest image, or `git clone https://github.com/kwikteam/npy-matlab code/nnv/examples/Submission/FORMALISE2025/npy-matlab` |

@@ -69,7 +69,7 @@ RUN_LOG="${LOG_DIR}/run.log"
 # summaries, and final result tables. Everything else is dropped from both the
 # terminal stream and run.log. Set NNV3_VERBOSE=1 to disable the filter (every
 # line passes through unchanged, for debugging).
-TERMINAL_WHITELIST='^=== |^\[run_all\]|^\[install|^\[toolbox_install|^\[make_table_main\]|^\[OK\]|^\[AIVL\]|^======= |^Model: |^Number of fair |^Number of non-fair |^Number of unknown |^It took a total of|idx=[0-9]+ status=|^Fraction:|Percentage of images verified|verified=[0-9]+/[0-9]+|^Starting verification with epsilon|^Epsilon = [0-9]+/255:|^  (Verified|Violated|Unknown|Timeout|Average time):|verified \([0-9.]+|violated \([0-9.]+|timeout \(>?[0-9.]+|unknown \([0-9.]+|^Trained parameters saved|^Final loss:|^Estimated Lipschitz|^Using device:|sufficient amount of principal directions|directions and training time saved|^Benchmark .*Tool .*Algorithm|^-{10,}$|^(acas_xu_p[34]|rl|oval21|collins_rul|mnist_resnet8) +(nnv|aivl)|^=== run_toolcomparison|^(experiment|fairnnv|probver|gnnv|videostar|modelstar|toolcomparison)[, ]|^Consolidated log:|^Results consolidated'
+TERMINAL_WHITELIST='^=== |^\[run_all\]|^\[install|^\[make_table_main\]|^\[OK\]|^\[AIVL\]|^======= |^Model: |^Number of fair |^Number of non-fair |^Number of unknown |^It took a total of|idx=[0-9]+ status=|^Fraction:|Percentage of images verified|verified=[0-9]+/[0-9]+|^Starting verification with epsilon|^Epsilon = [0-9]+/255:|^  (Verified|Violated|Unknown|Timeout|Average time):|verified \([0-9.]+|violated \([0-9.]+|timeout \(>?[0-9.]+|unknown \([0-9.]+|^Trained parameters saved|^Final loss:|^Estimated Lipschitz|^Using device:|sufficient amount of principal directions|directions and training time saved|^Benchmark .*Tool .*Algorithm|^-{10,}$|^(acas_xu_p[34]|rl|oval21|collins_rul|mnist_resnet8) +(nnv|aivl)|^=== run_toolcomparison|^(experiment|fairnnv|probver|gnnv|videostar|modelstar|toolcomparison)[, ]|^Consolidated log:|^Results consolidated'
 
 filter_terminal() {
     if [[ "${NNV3_VERBOSE:-0}" == "1" ]]; then
@@ -240,9 +240,10 @@ run_one modelstar ModelStar matlab run_expt_for_compute.m || overall=$?
 # ToolComparison defaults to smoke mode (~12 min) inside run_all.sh so the
 # end-to-end suite stays under ~30 min. Override with:
 #   TOOLCOMPARISON_MODE=full bash run_all.sh
-# CPU-only; requires the AI Verification Library (AIVL) Support Package staged
-# at /home/matlab/addons/atva26-aivl.tar.gz (or the other paths checked
-# by ToolComparison/utils/toolbox_install.m).
+# CPU-only; requires the AI Verification Library (AIVL) Support Package, which
+# both Docker flows auto-install via `mpm`
+# (`Deep_Learning_Toolbox_Verification_Library`). The build host's MATLAB
+# licence must entitle the Verification Library.
 export TOOLCOMPARISON_MODE="${TOOLCOMPARISON_MODE:-smoke}"
 run_one toolcomparison ToolComparison matlab run_toolcomparison.m || overall=$?
 

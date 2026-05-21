@@ -81,6 +81,17 @@ WORKDIR /home/matlab
 # existing MATLAB install path from the in-image `matlab` symlink
 # rather than hard-coding /opt/matlab, since the official image's
 # layout differs slightly between releases.
+#
+# mpm install runs via sudo (root) and creates
+# /home/matlab/Documents/MATLAB/SupportPackages/R2025b/toolbox/nnet/
+# supportpackages/ owned by root for the bundled ONNX Converter Support
+# Package. Without a follow-up chown, the matlab user later cannot
+# mkdir aivnv/ next to onnx/ at AIVL extraction time, and
+# toolbox_install.m's `tar -xzf` fails with "Cannot mkdir: Permission
+# denied" cascading into ~200 "No such file or directory" lines.
+# The same fix landed on the network-licence Dockerfile in commit
+# 0b6aa0bbc -- consolidating chown into the same RUN as mpm so the
+# layer can't be skipped.
 RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \
     && chmod +x mpm \
     && EXISTING_MATLAB_LOCATION=$(dirname $(dirname $(readlink -f $(which matlab)))) \
@@ -88,7 +99,8 @@ RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \
        --destination=${EXISTING_MATLAB_LOCATION} \
        --release=${MATLAB_RELEASE} \
        --products ${ADDITIONAL_PRODUCTS} \
-    && sudo rm -rf mpm
+    && sudo rm -rf mpm \
+    && sudo chown -R matlab:matlab /home/matlab/Documents
 
 # Copy the (lean, courtesy of /.dockerignore) NNV checkout into the image.
 COPY --chown=matlab:matlab . /home/matlab/nnv

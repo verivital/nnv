@@ -52,6 +52,33 @@ function run_toolcomparison(varargin)
                'Run code/nnv/install.m or addpath(genpath(''code/nnv/'')) first.']);
     end
 
+    % --- AIVL availability probe ---
+    % R2025b ships matlabroot stubs at /opt/matlab/R*/toolbox/nnet/cnn/spkgs/
+    % that throw "Support Package required" when called. The real AIVL
+    % implementation lives under userpath()/SupportPackages/R*/toolbox/nnet/
+    % supportpackages/aivnv/. Detect whether which() resolves to the bundled
+    % implementation by searching for "aivnv" in the path string. If AIVL is
+    % missing, strip 'aivl' from opts.tools and continue NNV-only with a
+    % prominent warning so reviewers immediately see that the Support
+    % Package wasn't extracted (a common artifact-setup mistake).
+    if ismember('aivl', opts.tools)
+        vnr_path = which('verifyNetworkRobustness');
+        enb_path = which('estimateNetworkOutputBounds');
+        aivl_ok  = ~isempty(vnr_path) && contains(vnr_path, 'aivnv') ...
+                && ~isempty(enb_path) && contains(enb_path, 'aivnv');
+        fprintf('[AIVL] verifyNetworkRobustness    -> %s\n', vnr_path);
+        fprintf('[AIVL] estimateNetworkOutputBounds -> %s\n', enb_path);
+        if aivl_ok
+            fprintf('[AIVL] status: AVAILABLE -- AIVL rows will run\n');
+        else
+            fprintf(2, '[AIVL] status: NOT FOUND -- Support Package not extracted to userpath\n');
+            fprintf(2, '[AIVL] expected: userpath/SupportPackages/R*/toolbox/nnet/supportpackages/aivnv/\n');
+            fprintf(2, '[AIVL] see NNV3.0/ToolComparison/README.md "Install AIVL" for setup\n');
+            fprintf(2, '[AIVL] continuing NNV-only\n');
+            opts.tools = opts.tools(~strcmp(opts.tools, 'aivl'));
+        end
+    end
+
     % 4. tool_utils handle (single canonical schema).
     u = tool_utils();
 

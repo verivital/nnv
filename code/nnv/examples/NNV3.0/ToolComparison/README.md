@@ -114,11 +114,16 @@ unaffected.
 | **collins_rul** | 62 | Small 1D Conv (Collins RUL) | half-space VNNLIB | `approx-star` | `estimate-bounds` |
 | **mnist_resnet8** | 25 imgs × 4 ε | Custom MNIST ResNet-8 (additionLayer) | argmax robustness (L∞) | `relax-star-area-50` | `deep-poly` (verifyNetworkRobustness) |
 
-In **smoke mode** every benchmark runs **one instance with one NNV
-algorithm only**; AIVL is skipped (avoids the ~30 s AIVL warmup × 6
-benchmarks). Smoke produces 6 result rows in ~1 minute (the wall is
-dominated by `parpool` startup; the actual verification work is a few
-seconds total across the six benchmarks).
+In **smoke mode** every benchmark runs one instance × one NNV algorithm
+and (when AIVL is on path) one instance × one AIVL algorithm. Smoke
+produces 12 result rows (or 6 when AIVL is not installed) in ~1 minute
+(the wall is dominated by `parpool` startup + the first AIVL call's
+~14 s deep-poly warmup on MNIST-ResNet-8; pure verification work is a
+few seconds total). Doubles as an AIVL-setup validation: a
+`[AIVL] status: AVAILABLE` line in the terminal/run.log confirms the
+Support Package was extracted correctly, while a
+`[AIVL] status: NOT FOUND` warning surfaces a misconfigured tarball
+before reviewers waste time on the full-mode run.
 
 In **default mode** every benchmark runs every algorithm above on its
 full instance count. AIVL rows are included.
@@ -127,7 +132,7 @@ full instance count. AIVL rows are included.
 
 | Mode | What runs | Wall-clock | Disk written |
 |---|---|---|---|
-| `'smoke'` | 1 inst × 1 NNV alg per benchmark, AIVL skipped | ~1 min (parpool-startup-dominated) | <1 MB results |
+| `'smoke'` | 1 inst × 1 NNV alg + 1 inst × 1 AIVL alg per benchmark when AIVL is on path (12 rows); 1 inst × 1 NNV alg only otherwise (6 rows) | ~1 min (parpool-startup-dominated) | <1 MB results |
 | `'default'` | Full grid above, full instance counts | ~2.5 h | ~5 MB results |
 | `'full'` | Alias for `'default'` (paper convention) | ~2.5 h | ~5 MB results |
 

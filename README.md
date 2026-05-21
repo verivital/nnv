@@ -80,7 +80,7 @@ claims in the paper are unaffected.
 > If that prints your device, `--gpus all` is wired up. From inside
 > the MATLAB session, `gpuDeviceCount` returns `1` or more.
 
-### Local Docker — Option A: Online MATLAB licence
+### Local Docker — Option A: Online MATLAB licence (Recommended)
 
 For reviewers with a personal MathWorks account (`matlab.mathworks.com`
 sign-in) but no network licence server. Builds on the official

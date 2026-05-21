@@ -67,7 +67,7 @@ Windows WSL2 RAM cap and GPU sanity-check commands are in
 > `-v "${PWD}/results:/out"`), and replace trailing `\` with backtick
 > (`` ` ``). WSL2 and Git Bash run the snippets verbatim.
 
-## Option A — Online MATLAB licence (`Dockerfile.online`)
+## Option A — Online MATLAB licence (`Dockerfile.online`) (Recommended)
 
 For reviewers with a personal MathWorks account but no network licence
 server. Authenticates via a one-time browser sign-in to

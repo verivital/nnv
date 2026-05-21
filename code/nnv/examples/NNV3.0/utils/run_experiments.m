@@ -23,6 +23,8 @@ function run_experiments(toolcomparisonMode)
 
     NNV3_EXAMPLES = '/home/matlab/nnv/code/nnv/examples/NNV3.0';
     LOG_DIR       = fullfile(NNV3_EXAMPLES, 'repeatability_logs');
+    FIG_DIR       = fullfile(LOG_DIR, 'figures');
+    if ~isfolder(FIG_DIR), mkdir(FIG_DIR); end
 
     warning('off','backtrace');
     warning('off','nnet_cnn_onnx:onnx:WarnAPIDeprecation');
@@ -77,7 +79,7 @@ function run_experiments(toolcomparisonMode)
         fprintf('\n=== %-15s start: %s ===\n', name, datestr(now,'yyyy-mm-ddTHH:MM:SS'));
         t0 = tic;
         try
-            run_isolated(fullfile(NNV3_EXAMPLES, subdir), entry);
+            run_isolated(fullfile(NNV3_EXAMPLES, subdir), entry, FIG_DIR, name);
             status{k} = 'ok';
         catch ME
             status{k} = sprintf('failed: %s', ME.message);
@@ -124,11 +126,13 @@ function run_experiments(toolcomparisonMode)
     fprintf('  3. Exit the browser MATLAB session / Ctrl-C the docker run\n');
     fprintf('     terminal when you are done.\n\n');
 
+    print_paper_artefacts(LOG_DIR);
+
     cd(NNV3_EXAMPLES);
 end
 
 % -------------------------------------------------------------------------
-function run_isolated(entryDir, entry)
+function run_isolated(entryDir, entry, figDir, expLabel)
 % Run a single experiment script in this function's local workspace so
 % any variables it creates (notably `config`, which several runners
 % guard with `if ~exist('config','var')` and then *inherit* any
@@ -140,9 +144,145 @@ function run_isolated(entryDir, entry)
 % run_zoomin_4f.m then resolves `zoomin_4f.onnx` against FairNNV/models/
 % and fails with "Model not found". The bash run_all.sh path doesn't hit
 % this because every experiment runs in a fresh matlab -batch process.
+%
+% After the script returns, any figures it left open are captured as
+% PNG + PDF under figDir/ (DefaultFigureVisible='off' from the prelude
+% keeps them off-screen, but exportgraphics still renders them) and
+% then closed so they don't leak into the next experiment. Used to
+% surface paper Fig. 2 (ModelStar) which is otherwise drawn but never
+% saved by the per-experiment script.
 
     cd(entryDir);
     run(entry);
+
+    if nargin >= 4 && ~isempty(figDir)
+        figs = findall(groot, 'Type', 'figure');
+        for fk = 1:numel(figs)
+            base = fullfile(figDir, sprintf('%s_fig%d', expLabel, fk));
+            try, exportgraphics(figs(fk), [base '.png'], 'Resolution', 200); catch; end
+            try, exportgraphics(figs(fk), [base '.pdf']); catch; end
+        end
+        close all force
+    end
+end
+
+% -------------------------------------------------------------------------
+function print_paper_artefacts(logDir)
+% Surface the paper figures and tables at the end of the run so a
+% reviewer can directly compare against the ATVA 2026 PDF without
+% hunting through subdirectories.
+%
+% Paper -> artefact map (per the NNV3 ATVA 2026 paper):
+%   Fig. 2  -> ModelStar single-layer weight-perturbation
+%   Fig. 3  -> GNNV IEEE-24 power flow (3 architectures)
+%   Table 2 -> VolumeStar / VideoStar verdicts (eps=*.csv)
+%   Table 3 -> ProbVer TinyYOLO verdicts (results_summary.csv)
+%   Table 4 -> FairNNV Adult Census (counterfactual + individual CSVs)
+%   Table 5 -> ToolComparison FC VNNLIB  (table_A.txt; full mode)
+%   Table 6 -> ToolComparison CNN VNNLIB (table_A.txt; full mode)
+%   Table 7 -> ToolComparison MNIST-ResNet-8 (table_C.txt; full mode)
+%   In smoke mode the full per-table renders aren't produced; we fall
+%   back to ToolComparison's table_main.{tex,txt}.
+
+    resultsDir = fullfile(logDir, 'results');
+    figDir     = fullfile(logDir, 'figures');
+
+    fprintf('\n');
+    fprintf('================================================================\n');
+    fprintf('  PAPER ARTEFACTS (compare against the NNV3 ATVA 2026 PDF)\n');
+    fprintf('================================================================\n');
+
+    fprintf('\nFIGURES saved as PNG + PDF under:\n  %s/\n', figDir);
+    fprintf('  Fig. 2 -- ModelStar single-layer weight-perturbation\n');
+    list_fig_matches(figDir, 'modelstar_*', '    Source: results/ModelStar/MNIST_MLP.mat (per-cell verdicts)');
+    fprintf('  Fig. 3 -- GNNV IEEE-24 power flow (GCN / SAGE / GINE-Conv)\n');
+    list_fig_matches(figDir, 'gnnv_*', '    Source: results/GNNV/gnn_results.csv (verified percentages per arch x epsilon)');
+
+    print_table_file('Table 2 -- VolumeStar / VideoStar (paper Sec. on VolumeStar)', ...
+        fullfile(resultsDir, 'VideoStar', 'eps=1_255.csv'), ...
+        fullfile(resultsDir, 'VideoStar', 'eps=2_255.csv'), ...
+        fullfile(resultsDir, 'VideoStar', 'eps=3_255.csv'));
+
+    print_table_file('Table 3 -- Probabilistic verification (paper Sec. on ProbVer)', ...
+        fullfile(resultsDir, 'ProbVer', 'results_summary.csv'));
+
+    print_table_glob('Table 4 -- FairNNV on Adult Census', ...
+        fullfile(resultsDir, 'FairNNV'), {'counterfactual_*.csv', 'individual_*.csv'});
+
+    tc_tables  = fullfile(resultsDir, 'ToolComparison', 'tables');
+    table_A    = fullfile(tc_tables, 'table_A.txt');
+    table_C    = fullfile(tc_tables, 'table_C.txt');
+    table_main = fullfile(tc_tables, 'table_main.txt');
+    if exist(table_A, 'file') || exist(table_C, 'file')
+        print_table_file('Tables 5 + 6 -- Tool comparison (FC + CNN VNNLIB)', table_A);
+        print_table_file('Table 7 -- MNIST-ResNet-8 robustness', table_C);
+    elseif exist(table_main, 'file')
+        print_table_file('Tables 5, 6, 7 -- Tool comparison (smoke mode -- table_main aggregates all three)', table_main);
+    else
+        fprintf('\n--- Tables 5, 6, 7 ---\n  (no ToolComparison table found at %s)\n', tc_tables);
+    end
+
+    fprintf('\n================================================================\n\n');
+end
+
+% -------------------------------------------------------------------------
+function list_fig_matches(figDir, prefix, sourceNote)
+    if ~isfolder(figDir)
+        fprintf('    (no figure directory yet -- experiment may not have run)\n');
+        if nargin >= 3, fprintf('%s\n', sourceNote); end
+        return;
+    end
+    info = [dir(fullfile(figDir, [prefix '.png'])); dir(fullfile(figDir, [prefix '.pdf']))];
+    if isempty(info)
+        fprintf('    (not auto-generated by this experiment)\n');
+        if nargin >= 3, fprintf('%s\n', sourceNote); end
+    else
+        for k = 1:numel(info)
+            fprintf('    %s\n', fullfile(info(k).folder, info(k).name));
+        end
+    end
+end
+
+% -------------------------------------------------------------------------
+function print_table_file(label, varargin)
+    fprintf('\n--- %s ---\n', label);
+    for k = 1:numel(varargin)
+        f = varargin{k};
+        if isempty(f), continue; end
+        fprintf('\n  [%s]\n', f);
+        if exist(f, 'file')
+            try
+                txt = fileread(f);
+                fprintf('%s\n', txt);
+            catch ME
+                fprintf('    (could not read: %s)\n', ME.message);
+            end
+        else
+            fprintf('    (not found)\n');
+        end
+    end
+end
+
+% -------------------------------------------------------------------------
+function print_table_glob(label, baseDir, patterns)
+    fprintf('\n--- %s ---\n', label);
+    if ~isfolder(baseDir)
+        fprintf('  (directory not found: %s)\n', baseDir);
+        return;
+    end
+    for k = 1:numel(patterns)
+        info = dir(fullfile(baseDir, patterns{k}));
+        for j = 1:numel(info)
+            f = fullfile(info(j).folder, info(j).name);
+            fprintf('\n  [%s]\n', f);
+            try
+                txt = fileread(f);
+                fprintf('%s\n', txt);
+            catch
+                fprintf('    (could not read)\n');
+            end
+        end
+    end
 end
 
 % -------------------------------------------------------------------------

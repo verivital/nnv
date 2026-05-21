@@ -32,6 +32,15 @@ function run_experiments(toolcomparisonMode)
     addpath(genpath('/home/matlab/nnv/code/nnv'));
     try, parallel.gpu.enableCUDAForwardCompatibility(true); catch; end
 
+    % Suppress figure pop-ups while keeping saveas/exportgraphics/print
+    % calls in the experiment scripts fully functional. Invisible figures
+    % render and save normally; they just don't appear on the browser
+    % MATLAB desktop. Restored on exit so the user's interactive session
+    % is unchanged after the runner returns.
+    prevFigVis = get(0, 'DefaultFigureVisible');
+    restoreFigVis = onCleanup(@() set(0, 'DefaultFigureVisible', prevFigVis)); %#ok<NASGU>
+    set(0, 'DefaultFigureVisible', 'off');
+
     setenv('TOOLCOMPARISON_MODE', toolcomparisonMode);
 
     hasGPU = false;

@@ -236,12 +236,12 @@ rows; falls back to 6 NNV-only rows with a `[AIVL] NOT FOUND` warning
 if the Support Package wasn't extracted). Wall is
 parpool-startup-dominated. The AIVL
 Support Package is non-redistributable MathWorks code, so
-it is not committed to this repository. Three acquisition paths are
+it is not committed to this repository. Two acquisition paths are
 supported: (1) install AIVL yourself from MATLAB's Add-On Explorer, (2)
 ATVA 2026 AE reviewers receive a pre-built tarball via a private link in
-the HotCRP submission cover note, (3) the Code Ocean capsule ships AIVL
-pre-installed. Without AIVL, pass `'tools',{'nnv'}` to skip the
-MathWorks-side rows — NNV rows are unchanged. Setup details in
+the HotCRP submission cover note. Without AIVL, pass `'tools',{'nnv'}`
+to skip the MathWorks-side rows — NNV rows are unchanged. Setup details
+in
 [`ToolComparison/README.md`](ToolComparison/README.md).
 
 ## Reference timings

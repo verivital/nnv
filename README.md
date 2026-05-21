@@ -17,25 +17,21 @@ NNV-vs-AIVL ToolComparison) and renders the paper's headline tables.
 
 | Path | When to choose |
 |---|---|
-| **Code Ocean** (recommended) | You want one-click reproduction with no local setup. AIVL and all toolboxes are pre-installed in the capsule at - ADD - |
-| **Local Docker — online licence** | You have a MathWorks account but no network licence server. Sign in once via the browser; uses `Dockerfile.online`. |
+| **Local Docker — online licence** (recommended) | You have a MathWorks account but no network licence server. Sign in once via the browser; uses `Dockerfile.online`. |
 | **Local Docker — network licence** | Your institution provides a `port@host` MATLAB licence server (or you have a 30-day eval network licence). Uses the standard `Dockerfile`. |
 | **Local MATLAB** | You already have MATLAB R2025b on the host and want to run experiments outside Docker. See [`code/nnv/examples/NNV3.0/README.md`](code/nnv/examples/NNV3.0/README.md). |
 
-The two Local Docker paths are described below in dedicated sections.
-Code Ocean reviewers can skip to the capsule link above.
+Both Local Docker paths are described below in dedicated sections.
 
 ### AIVL Support Package
 
 The MathWorks AI Verification Library is non-redistributable, so the
-tarball is not in this repository. Three acquisition paths are supported:
+tarball is not in this repository. Two acquisition paths are supported:
 
 1. **MATLAB Add-On Explorer** — any MATLAB user can install AIVL via
    **Home → Add-Ons → Get Add-Ons** ("AI Verification Library").
 2. **ATVA 2026 AE reviewers** — a pre-built tarball is provided via a
    private Dropbox link in the HotCRP submission cover note.
-3. **Code Ocean capsule** — AIVL is pre-installed in the published
-   capsule; no separate setup needed.
 
 Without AIVL, the NNV-side of the ToolComparison still runs end-to-end;
 only the MathWorks rows are absent from the comparison table. NNV
@@ -275,14 +271,18 @@ See the [full 14-tool comparison](https://verivital.github.io/nnv/user-guide/arc
 
 ## Execution Without Installation
 
-NNV can be run online without installing MATLAB:
+Earlier NNV versions can be run online without installing MATLAB:
 
 | Version | Platform | Link |
 |---------|----------|------|
-| **NNV3** (latest) | CodeOcean | https://codeocean.com/capsule/6810863/tree/v1 |
 | NNV 2.0 (CAV 2023) | CodeOcean | https://doi.org/10.24433/CO.0803700.v1 |
 | NNV 1.0 (CAV 2020) | CodeOcean | https://doi.org/10.24433/CO.0221760.v1 |
 | Tutorials | MATLAB Online | [Try on MATLAB Online](https://matlab.mathworks.com/) |
+
+For NNV 3.0 (the ATVA 2026 artifact), use one of the Local Docker
+paths described in the
+[ATVA 2026 Artifact](#atva-2026-artifact--nnv-30-tool-paper) section
+above.
 
 ## Related Tools
 

@@ -109,8 +109,14 @@ function algs = algorithms_for(tool, bench, mode, override)
     end
 
     if strcmp(mode, 'smoke')
-        if strcmp(tool, 'nnv'), algs = full(1);
-        else, algs = {};   % skip AIVL in smoke (avoid warmup latency)
+        % Smoke runs 1 algorithm per (tool, benchmark) so reviewers validate
+        % both NNV and AIVL paths end-to-end without paying the full-mode cost.
+        % AIVL inclusion is gated upstream by run_toolcomparison.m's probe;
+        % if AIVL is missing from path, opts.tools is filtered and this branch
+        % is never reached for 'aivl'.
+        if strcmp(tool, 'nnv'),       algs = full(1);
+        elseif strcmp(tool, 'aivl'),  algs = {'estimate-bounds'};
+        else,                          algs = {};
         end
     else
         algs = full;

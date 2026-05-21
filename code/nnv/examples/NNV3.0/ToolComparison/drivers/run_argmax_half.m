@@ -80,11 +80,11 @@ function algs = algs_for(tool, mode, override)
         case 'aivl', full = {'deep-poly'};
         otherwise,   error('algs_for: unknown tool %s', tool);
     end
-    if strcmp(mode, 'smoke') && strcmp(tool, 'aivl')
-        algs = {};   % skip AIVL in smoke for 10-min budget
-    else
-        algs = full;
-    end
+    % Smoke and default both run their full algorithm list (only 1 alg per tool
+    % on mnist_resnet8 either way). AIVL inclusion is gated upstream by
+    % run_toolcomparison.m's probe; if AIVL is missing from path, opts.tools is
+    % filtered there and this function isn't invoked for 'aivl'.
+    algs = full;
     if nargin >= 3 && ~isempty(override)
         algs = algs(ismember(algs, override));
     end

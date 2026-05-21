@@ -184,10 +184,12 @@ five VNNLIB benchmarks (ACAS Xu p3/p4, RL controllers, OVAL21, Collins
 RUL CNN) plus MNIST-ResNet-8 argmax robustness. AIVL Support Package
 required for the `mw_*` rows; pass `'tools',{'nnv'}` to skip. Two modes:
 
-- `'mode','smoke'` — 1 instance × 1 NNV algorithm × 6 benchmarks
-  (acas_xu_p3, acas_xu_p4, rl, oval21, collins_rul, mnist_resnet8),
-  AIVL skipped. Used by `run_all.sh` so ToolComparison doesn't dominate
-  the end-to-end suite.
+- `'mode','smoke'` — 1 instance × 1 NNV algorithm + 1 instance × 1 AIVL
+  algorithm per benchmark (12 rows when AIVL is on path; 6 NNV-only
+  rows otherwise) across acas_xu_p3, acas_xu_p4, rl, oval21,
+  collins_rul, mnist_resnet8. Used by `run_all.sh` so ToolComparison
+  doesn't dominate the end-to-end suite, and to validate that the AIVL
+  Support Package was extracted correctly.
 - `'mode','full'` (default) — full per-benchmark NNV grid + AIVL.
   Renders the paper's Tables 5, 6, and 7.
 
@@ -228,11 +230,13 @@ images per ε; NNV's `relax-star-area-50` is faster:
 
 ### Smoke mode (used by `run_all.sh`)
 
-Smoke mode produces a much smaller subset (6 rows: 1 instance × 1 NNV
-algorithm per benchmark, AIVL skipped) — sanity check that the harness
-runs end-to-end, not paper-grade. Expected wall time **~1 minute** (the
-wall is dominated by `parpool` startup; the actual verification work is
-a handful of seconds across the six benchmarks).
+Smoke mode produces a much smaller subset (12 rows when AIVL is on
+path: 1 instance × 1 NNV algorithm + 1 instance × 1 AIVL algorithm per
+benchmark; or 6 NNV-only rows when AIVL is not installed) — sanity
+check that the NNV + AIVL harnesses run end-to-end, not paper-grade.
+Expected wall time **~1 minute** (the wall is dominated by `parpool`
+startup + the first AIVL call's ~14 s deep-poly warmup on
+MNIST-ResNet-8).
 
 **Full-mode total wall time**: ~3–5 h on a 4-core CPU (driven by
 `exact-star` on ACAS Xu, ≤900 s/instance). Set

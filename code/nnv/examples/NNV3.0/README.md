@@ -141,8 +141,11 @@ overshoot 30 GB on TinyYOLO). Single-process fallback is `matlab -r
 
 ToolComparison defaults to **full** when called directly (~3 h, renders
 the ATVA paper's Tables 5, 6, and 7 plus the CAV'23 sanity report). Pass
-`'mode','smoke'` for a ~1 min NNV-only sanity pass (1 instance × 1 NNV
-algorithm × 6 benchmarks; wall is parpool-startup-dominated). The AIVL
+`'mode','smoke'` for a ~1 min sanity pass (1 instance × 1 NNV algorithm
++ 1 instance × 1 AIVL algorithm per benchmark when AIVL is on path, 12
+rows; falls back to 6 NNV-only rows with a `[AIVL] NOT FOUND` warning
+if the Support Package wasn't extracted). Wall is
+parpool-startup-dominated. The AIVL
 Support Package is non-redistributable MathWorks code, so
 it is not committed to this repository. Three acquisition paths are
 supported: (1) install AIVL yourself from MATLAB's Add-On Explorer, (2)
@@ -164,7 +167,7 @@ Wall-clock from a Windows 11 host with RTX 5090 (32 GB, Blackwell), driver
 | GNNV (120 verifs) | ~5 min | 10 graphs × 3 archs × 4 ε on PF/IEEE24, CPU |
 | VideoStar ZoomIn-4f | 754 s | 10 samples × 3 ε with `relax`, GPU; 7 verified / 3 unknown per ε |
 | ModelStar (fc_4–fc_6) | ~3 min | MNIST MLP weight-perturbation sweep, CPU |
-| ToolComparison smoke | ~1 min | 1 instance × 1 algorithm × 6 benchmarks, NNV-only; parpool-startup-dominated |
+| ToolComparison smoke | ~1 min | 1 instance × 1 alg × 6 benchmarks for NNV + AIVL (12 rows when AIVL on path; 6 NNV-only otherwise); parpool-startup-dominated + ~14 s MNIST deep-poly warmup |
 | ToolComparison full | ~3 h | NNV per-benchmark grid + AIVL, CPU |
 | **End-to-end (`run_all.sh`)** | **~30 min** | All six (ToolComparison defaults to smoke inside `run_all.sh`) |
 

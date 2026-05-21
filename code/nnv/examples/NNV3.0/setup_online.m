@@ -1,24 +1,24 @@
-% setup_online.m -- one-time NNV + AIVL setup for the nnv3.0-online image.
+% setup_online.m -- one-time NNV setup for the nnv3.0-online image.
 %
 % Run this in the BROWSER MATLAB session at http://localhost:8888 after
-% signing in to your MathWorks account. Equivalent to what install.m and
-% toolbox_install.m do at build time on the network-licence Dockerfile,
-% but deferred to runtime because matlab -batch cannot use a browser
-% sign-in.
+% signing in to your MathWorks account. Configures the Python venv,
+% installs NNV paths, and verifies AIVL availability. AIVL itself is
+% already installed at build time by Dockerfile.online's `mpm install
+% ... Deep_Learning_Toolbox_Verification_Library ...` -- no manual
+% tarball staging or `toolbox_install.m` extraction needed.
 %
 % Usage (paste in the MATLAB Command Window):
 %   run('/home/matlab/nnv/code/nnv/examples/NNV3.0/setup_online.m')
 %
 % Subsequent docker run invocations of nnv3.0-online with the same
 % nnv3-matlab-prefs and nnv3-matlab-mw named volumes mounted reuse the
-% saved MATLAB path. AIVL extraction is idempotent: it skips if the
-% support package is already present.
+% saved MATLAB path. The script is idempotent: NNV install.m is
+% safe to re-run.
 
 NNV_ROOT = '/home/matlab/nnv/code/nnv';
 VENV_PY  = '/home/matlab/nnv/.venv/bin/python';
-AIVL_INSTALLED_MARKER = '/home/matlab/Documents/MATLAB/SupportPackages/R2025b/toolbox/nnet/supportpackages/aivnv/verifyNetworkRobustness.m';
 
-fprintf('\n=== setup_online (1/3) Python venv ===\n');
+fprintf('\n=== setup_online (1/2) Python venv ===\n');
 try
     pyenv('Version', VENV_PY);
     pe = pyenv;
@@ -27,7 +27,7 @@ catch ME
     fprintf(2, '  [pyenv warning] %s\n', ME.message);
 end
 
-fprintf('\n=== setup_online (2/3) NNV paths ===\n');
+fprintf('\n=== setup_online (2/2) NNV paths ===\n');
 try
     cd(NNV_ROOT);
     install
@@ -38,25 +38,16 @@ catch ME
     fprintf(2, '  [install warning] %s\n', ME.message);
 end
 
-fprintf('\n=== setup_online (3/3) AIVL Support Package ===\n');
-if exist(AIVL_INSTALLED_MARKER, 'file')
-    fprintf('  AIVL already installed at %s -- skipping.\n', AIVL_INSTALLED_MARKER);
-else
-    try
-        cd('/home/matlab/nnv/code/nnv/examples/NNV3.0/ToolComparison/utils');
-        run('toolbox_install.m');
-    catch ME
-        fprintf(2, '  [toolbox_install warning] %s\n', ME.message);
-    end
-end
-
 fprintf('\n=== AIVL availability check ===\n');
-if exist(AIVL_INSTALLED_MARKER, 'file')
-    fprintf('  OK -- ToolComparison will include MathWorks-side rows.\n');
+vnr_path = which('verifyNetworkRobustness');
+if ~isempty(vnr_path) && contains(vnr_path, 'aivnv')
+    fprintf('  OK -- AIVL available at %s\n', vnr_path);
+    fprintf('  ToolComparison will include MathWorks-side rows.\n');
 else
-    fprintf(2, '  AIVL NOT present at %s\n', AIVL_INSTALLED_MARKER);
+    fprintf(2, '  AIVL NOT found on the MATLAB path.\n');
+    fprintf(2, '  This means your MathWorks licence may not include the\n');
+    fprintf(2, '  Deep Learning Toolbox Verification Library entitlement.\n');
     fprintf(2, '  ToolComparison will run NNV-only; MathWorks rows absent from table_main.\n');
-    fprintf(2, '  Check that ToolComparison/utils/atva26-aivl.tar.gz exists in the image.\n');
 end
 
 fprintf('\n=== setup_online DONE ===\n');

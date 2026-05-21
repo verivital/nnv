@@ -49,8 +49,19 @@ docker build -t nnv3.0-online -f Dockerfile.online .
 ```
 
 The build installs the same toolbox set the network-licence path uses,
-via `mpm`. `mpm` does not validate a MATLAB licence, so this completes
-without any sign-in.
+**plus the Deep Learning Toolbox Verification Library** (the AIVL
+Support Package), via `mpm`. `mpm` does not validate a MATLAB licence,
+so this completes without any sign-in.
+
+> **Licence requirement for AIVL.** This flow assumes the reviewer's
+> MathWorks account entitlement includes the **Deep Learning Toolbox
+> Verification Library**. It is normally free for any Deep Learning
+> Toolbox licence holder, but some restricted seats may exclude it.
+> If excluded, `mpm install` still succeeds but
+> `verifyNetworkRobustness` / `estimateNetworkOutputBounds` fail at
+> runtime with a licence-checkout error; the AIVL availability check
+> in `setup_online.m` will flag this and ToolComparison will run
+> NNV-only.
 
 > **Windows / PowerShell users**: the same substitutions noted at the
 > top of the root README apply to every `docker run` below (`${PWD}`,
@@ -87,17 +98,19 @@ GNNV / VideoStar fall back to CPU (with proportional slowdowns).
 
 Open <http://localhost:8888> in a browser and sign in with your
 MathWorks account. Once the MATLAB Command Window is ready, paste
-this single line to install NNV paths and extract AIVL:
+this single line to install NNV paths and verify AIVL:
 
 ```matlab
 run('/home/matlab/nnv/code/nnv/examples/NNV3.0/setup_online.m')
 ```
 
-`setup_online.m` runs the equivalent of the standard Dockerfile's
-build-time `install.m` and AIVL `toolbox_install.m` steps. It is
-idempotent -- safe to re-run if anything fails -- and prints an
-`AIVL availability check` at the end so you know whether ToolComparison
-will include the MathWorks-side rows. When it finishes, do **not**
+`setup_online.m` runs `install.m` (equivalent to the standard
+Dockerfile's build-time NNV path setup, deferred here because online
+sign-in is not available at build time) and then checks that AIVL is
+on the path. AIVL itself is already installed by the Dockerfile build
+via `mpm` -- no manual tarball staging needed. The `AIVL availability
+check` at the end of the script confirms whether ToolComparison will
+include the MathWorks-side rows. When the script finishes, do **not**
 exit the container: the smoke / full runs below reuse this same
 MATLAB session (and its cached licence).
 
@@ -151,23 +164,22 @@ MATLAB path and AIVL install, so only the activation needs refreshing.
 has port 8888 free and `--shm-size=512M` was passed (insufficient
 shared memory will hang the VNC server).
 
-**`setup_online.m` prints AIVL extraction errors.** AIVL's tarball
-extracts into `/home/matlab/Documents/MATLAB/SupportPackages/...`,
-which the Dockerfile pre-creates with matlab-user ownership. If you
-built before this Dockerfile fix, run once as root:
+**`setup_online.m` reports `AIVL NOT found on the MATLAB path`.** The
+`mpm` install in the Dockerfile did not pull
+`Deep_Learning_Toolbox_Verification_Library`, or your MathWorks
+account's Deep Learning Toolbox entitlement does not include it.
+Check inside the container that the support package was extracted:
 
 ```bash
-docker exec -it --user root nnv3-setup chown -R matlab:matlab /home/matlab/Documents
+docker exec -it nnv3-setup ls /opt/matlab/R2025b/toolbox/nnet/supportpackages/
 ```
 
-then re-run `setup_online.m`. ToolComparison still runs NNV-only
-without AIVL; only the MathWorks-side rows are absent.
-
-**Re-run the setup**: delete the marker inside the container:
-
-```bash
-docker exec -it nnv3-setup rm /home/matlab/.matlab/.nnv-online-setup-done
-```
+If `aivnv/` is missing, rebuild from a clean image
+(`docker build --no-cache -t nnv3.0-online -f Dockerfile.online .`)
+and watch the mpm install output for a "skipped: not licensed" line
+for `Deep_Learning_Toolbox_Verification_Library`. If the entitlement
+is missing, AIVL cannot be installed; ToolComparison will still run
+NNV-only and the rest of the artefact is unaffected.
 
 or from a fresh container with the same volume mounted, then re-run
 `setup-online-license.sh`.

@@ -53,9 +53,21 @@
 
 ARG MATLAB_RELEASE=r2025b
 
-# Same product set NNV needs as the network-licence Dockerfile. mpm uses
+# Same product set NNV needs as the network-licence Dockerfile, plus
+# Deep_Learning_Toolbox_Verification_Library (AIVL). mpm uses
 # underscore-separated names rather than spaces.
-ARG ADDITIONAL_PRODUCTS="Computer_Vision_Toolbox Control_System_Toolbox Deep_Learning_Toolbox Image_Processing_Toolbox Optimization_Toolbox Parallel_Computing_Toolbox Statistics_and_Machine_Learning_Toolbox Symbolic_Math_Toolbox System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format"
+#
+# Including Deep_Learning_Toolbox_Verification_Library lets mpm pull
+# the AI Verification Library Support Package at build time, replacing
+# the network-licence Dockerfile's tarball-staging + toolbox_install.m
+# extraction flow. Reviewers MUST have a MathWorks licence whose Deep
+# Learning Toolbox entitlement covers the Verification Library
+# (normally free for any Deep Learning Toolbox holder, but a paid /
+# restricted licence may exclude it). If excluded, mpm install still
+# succeeds but verifyNetworkRobustness / estimateNetworkOutputBounds
+# fail at runtime with a licence-checkout error; ToolComparison will
+# fall back to NNV-only rows.
+ARG ADDITIONAL_PRODUCTS="Computer_Vision_Toolbox Control_System_Toolbox Deep_Learning_Toolbox Deep_Learning_Toolbox_Verification_Library Image_Processing_Toolbox Optimization_Toolbox Parallel_Computing_Toolbox Statistics_and_Machine_Learning_Toolbox Symbolic_Math_Toolbox System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format"
 
 FROM mathworks/matlab:${MATLAB_RELEASE}
 

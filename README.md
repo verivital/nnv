@@ -26,12 +26,28 @@ Both Local Docker paths are described below in dedicated sections.
 ### AIVL Support Package
 
 The MathWorks AI Verification Library is non-redistributable, so the
-tarball is not in this repository. Two acquisition paths are supported:
+tarball is not in this repository. How it is installed depends on the
+Docker path:
 
-1. **MATLAB Add-On Explorer** — any MATLAB user can install AIVL via
-   **Home → Add-Ons → Get Add-Ons** ("AI Verification Library").
-2. **ATVA 2026 AE reviewers** — a pre-built tarball is provided via a
-   private Dropbox link in the HotCRP submission cover note.
+- **Option A (online licence)** — AIVL is installed automatically at
+  `docker build` time via `mpm` (the `Deep_Learning_Toolbox_Verification_Library`
+  product). No manual tarball staging.
+- **Option B (network licence)** — Two manual acquisition paths are
+  supported:
+    1. **MATLAB Add-On Explorer** — any MATLAB user can install AIVL via
+       **Home → Add-Ons → Get Add-Ons** ("AI Verification Library").
+    2. **ATVA 2026 AE reviewers** — a pre-built tarball is provided via a
+       private Dropbox link in the HotCRP submission cover note. Stage it
+       at `code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz`
+       before `docker build`.
+
+> **Licence requirement (Option A only).** The online-licence build
+> needs the reviewer's MathWorks account entitlement to include the
+> **Deep Learning Toolbox Verification Library** (normally free for any
+> Deep Learning Toolbox holder, but some restricted seats may exclude
+> it). If excluded, `mpm` still succeeds but AIVL's runtime functions
+> fail at first invocation; `setup_online.m`'s AIVL availability check
+> will flag this.
 
 Without AIVL, the NNV-side of the ToolComparison still runs end-to-end;
 only the MathWorks rows are absent from the comparison table. NNV
@@ -78,8 +94,8 @@ spawned by `bash run_all.sh`). Three short `.m` entry points handle
 this; see the full walkthrough in
 [`code/nnv/examples/NNV3.0/ONLINE_LICENSE.md`](code/nnv/examples/NNV3.0/ONLINE_LICENSE.md).
 
-**Step A1.** Clone (with submodules) and optionally stage the AIVL
-tarball at `code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz`.
+**Step A1.** Clone (with submodules). AIVL is installed automatically
+by the Dockerfile via `mpm` -- no tarball staging needed.
 
 **Step A2.** Build the online image (~20 min, no licence needed):
 

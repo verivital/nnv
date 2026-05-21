@@ -105,7 +105,24 @@ function run_experiments(toolcomparisonMode)
     end
     fprintf('\nTo extract to the host (from a separate PowerShell):\n');
     fprintf('  docker cp nnv3-setup:%s .\\repeatability_logs\n', LOG_DIR);
+
+    total_wall = sum(wall);
     fprintf('\n');
+    fprintf('################################################################\n');
+    fprintf('################################################################\n');
+    fprintf('##                                                            ##\n');
+    fprintf('##              NNV 3.0 %-4s RUN COMPLETED                    ##\n', upper(toolcomparisonMode));
+    fprintf('##              Total wall: %5.0f s  (%5.1f min)              ##\n', total_wall, total_wall/60);
+    fprintf('##                                                            ##\n');
+    fprintf('################################################################\n');
+    fprintf('################################################################\n');
+    fprintf('\nThe run has finished. You can now:\n');
+    fprintf('  1. Open the paper comparison index inside the container:\n');
+    fprintf('       %s/PAPER_COMPARISON.md\n', LOG_DIR);
+    fprintf('  2. Or extract the whole repeatability_logs tree to the host\n');
+    fprintf('     with the docker cp command shown above.\n');
+    fprintf('  3. Exit the browser MATLAB session / Ctrl-C the docker run\n');
+    fprintf('     terminal when you are done.\n\n');
 
     cd(NNV3_EXAMPLES);
 end

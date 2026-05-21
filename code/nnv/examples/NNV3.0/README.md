@@ -80,6 +80,15 @@ via three short `.m` entry points instead of `bash run_all.sh`.
 Detailed walkthrough, troubleshooting, and licence-refresh recipe:
 [`ONLINE_LICENSE.md`](ONLINE_LICENSE.md).
 
+> **Licence requirement.** The online-licence build installs AIVL
+> automatically via `mpm` (`Deep_Learning_Toolbox_Verification_Library`).
+> The reviewer's MathWorks account entitlement must include the
+> Verification Library (normally free for any Deep Learning Toolbox
+> holder, but some restricted seats may exclude it). If excluded,
+> ToolComparison runs NNV-only and the rest of the artefact is
+> unaffected; `setup_online.m`'s AIVL availability check flags this
+> at run time. No manual tarball staging needed for Option A.
+
 **A1.** Build the online image (~20 min, no licence at build time):
 
 ```bash

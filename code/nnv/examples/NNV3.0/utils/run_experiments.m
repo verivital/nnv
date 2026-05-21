@@ -67,8 +67,7 @@ function run_experiments(toolcomparisonMode)
         fprintf('\n=== %-15s start: %s ===\n', name, datestr(now,'yyyy-mm-ddTHH:MM:SS'));
         t0 = tic;
         try
-            cd(fullfile(NNV3_EXAMPLES, subdir));
-            run(entry);
+            run_isolated(fullfile(NNV3_EXAMPLES, subdir), entry);
             status{k} = 'ok';
         catch ME
             status{k} = sprintf('failed: %s', ME.message);
@@ -99,6 +98,24 @@ function run_experiments(toolcomparisonMode)
     fprintf('\n');
 
     cd(NNV3_EXAMPLES);
+end
+
+% -------------------------------------------------------------------------
+function run_isolated(entryDir, entry)
+% Run a single experiment script in this function's local workspace so
+% any variables it creates (notably `config`, which several runners
+% guard with `if ~exist('config','var')` and then *inherit* any
+% pre-existing value from) cannot leak into sibling experiments in the
+% shared single-MATLAB-session online flow.
+%
+% Without this isolation, FairNNV sets config.modelsDir = .../FairNNV/models;
+% the variable persists across experiments and VideoStar's
+% run_zoomin_4f.m then resolves `zoomin_4f.onnx` against FairNNV/models/
+% and fails with "Model not found". The bash run_all.sh path doesn't hit
+% this because every experiment runs in a fresh matlab -batch process.
+
+    cd(entryDir);
+    run(entry);
 end
 
 % -------------------------------------------------------------------------

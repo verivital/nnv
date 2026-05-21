@@ -191,7 +191,10 @@ classdef EXPT < handle
             
             % linkaxes(percentage_axes, 'xy')
             % linkaxes(time_axes, 'xy')
-            linkaxes(percentage_axes, 'y')
+            % linkaxes hangs under Xvfb / headless figure rendering
+            % (browser MATLAB + offscreen exportgraphics) — purely a
+            % cosmetic y-range link, safe to skip.
+            % linkaxes(percentage_axes, 'y')
             % linkaxes(time_axes, 'y')
             if ~isempty(obj.data.title) && ~(ischar(obj.data.title) && isempty(strtrim(obj.data.title)))
                 title(til, obj.data.title)

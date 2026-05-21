@@ -23,15 +23,19 @@ self-contained: bundled models, data, vendored sources, a per-folder
 ## Prerequisites
 
 - **Docker** ≥ 24 with the daemon running.
-- **MATLAB licence** the container can reach: a network server
-  (`port@host` via `MLM_LICENSE_FILE`) or a `network.lic` you can mount.
-  MathWorks issues 30-day eval licences that include the required
-  toolboxes
-  ([trial signup](https://www.mathworks.com/campaigns/products/trials.html)).
+- **A MATLAB licence the container can reach.** Two flows are
+  supported (full walkthroughs in the next two sections):
+  - **Online (signed-in MathWorks account)** — uses
+    `Dockerfile.online` and a browser sign-in. No `port@host` needed.
+  - **Network (`port@host` server / `network.lic`)** — uses the
+    standard `Dockerfile`. MathWorks issues 30-day network-licence
+    trials that include the required toolboxes
+    ([trial signup](https://www.mathworks.com/campaigns/products/trials.html)).
 - **NVIDIA driver** ≥ 535 + Container Toolkit — *only* for ProbVer and
   VideoStar. GNNV is CPU-only by design; without a GPU `run_all.sh`
-  auto-skips ProbVer and runs everything else (VideoStar/GNNV fall back
-  to CPU, slower).
+  (and the online flow's `run_smoke.m` / `run_full.m`) auto-skip
+  ProbVer and run everything else (VideoStar / GNNV fall back to CPU,
+  slower).
 - **≥ 16 GB RAM**; **≥ 48 GB for ProbVer** (cp-star can produce
   ImageStars >31 GB; `run_all.sh` auto-skips ProbVer below
   `NNV3_MIN_MEMORY_GB=48`, override with `NNV3_FORCE_MEMORY=1`).
@@ -44,14 +48,112 @@ self-contained: bundled models, data, vendored sources, a per-folder
 Windows WSL2 RAM cap and GPU sanity-check commands are in
 [§Host setup](#host-setup).
 
-## Reproduction — step by step
+## Cross-cutting notes (apply to both flows)
 
-End-to-end smoke (`Steps 1–4`) runs the six experiments at reduced
+> **Windows + Docker Desktop GPU passthrough.** Both flows below use
+> `--gpus all` as the default. On Windows this needs the **WSL2
+> backend** in Docker Desktop *Settings → General* AND an **NVIDIA
+> driver on the host** (not inside WSL2; Windows-side `nvidia-smi`
+> should already work). Sanity check from the host:
+> `docker run --rm --gpus all nvidia/cuda:12.8.2-base-ubuntu22.04 nvidia-smi`.
+> From the MATLAB session, `gpuDeviceCount` returns `1` or more if
+> passthrough is working. Drop `--gpus all` on CPU-only hosts —
+> ProbVer auto-skips and the rest fall back to CPU with proportional
+> slowdowns.
+
+> **Windows / PowerShell users.** The bash snippets below use `$PWD`
+> and trailing `\` line continuations. In native PowerShell, replace
+> `$PWD` with `${PWD}`, quote each `-v` value as a single string (e.g.
+> `-v "${PWD}/results:/out"`), and replace trailing `\` with backtick
+> (`` ` ``). WSL2 and Git Bash run the snippets verbatim.
+
+## Option A — Online MATLAB licence (`Dockerfile.online`) (Recommended)
+
+For reviewers with a personal MathWorks account but no network licence
+server. Authenticates via a one-time browser sign-in to
+`mathworks/matlab:r2025b`; activation is cached in named Docker volumes
+so subsequent runs reuse it without re-prompting. Because online
+sign-in is only visible to the MATLAB process that owns it (and not to
+`matlab -batch`), experiments run **inside the browser MATLAB session**
+via three short `.m` entry points instead of `bash run_all.sh`.
+
+Detailed walkthrough, troubleshooting, and licence-refresh recipe:
+[`ONLINE_LICENSE.md`](ONLINE_LICENSE.md).
+
+> **Licence requirement.** The online-licence build installs AIVL
+> automatically via `mpm` (`Deep_Learning_Toolbox_Verification_Library`).
+> The reviewer's MathWorks account entitlement must include the
+> Verification Library (normally free for any Deep Learning Toolbox
+> holder, but some restricted seats may exclude it). If excluded,
+> ToolComparison runs NNV-only and the rest of the artefact is
+> unaffected; `setup_online.m`'s AIVL availability check flags this
+> at run time. No manual tarball staging needed for Option A.
+
+**A1.** Build the online image (~20 min, no licence at build time):
+
+```bash
+docker build -t nnv3.0-online -f Dockerfile.online .
+```
+
+**A2.** Launch in browser mode + sign in (one-time, ~5 min):
+
+```bash
+docker run -it --rm --gpus all \
+    -p 8888:8888 --shm-size=512M \
+    -v nnv3-matlab-prefs:/home/matlab/.matlab \
+    -v nnv3-matlab-mw:/home/matlab/.MathWorks \
+    --name nnv3-setup nnv3.0-online -browser
+```
+
+Open <http://localhost:8888>, sign in with your MathWorks account.
+
+**A3.** In the browser MATLAB Command Window, run the three entry
+points in turn:
+
+```matlab
+run('/home/matlab/nnv/code/nnv/examples/NNV3.0/setup_online.m')   % ~5 min
+run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_smoke.m')      % ~20-25 min, smoke
+run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_full.m')       % ~3-5 h, Tables 5,6,7
+```
+
+`setup_online.m` installs NNV paths and extracts AIVL (idempotent;
+prints an AIVL availability check). `run_smoke.m` / `run_full.m` drive
+the six experiments in this session, consolidate per-experiment
+outputs into `repeatability_logs/results/`, and write a single
+`PAPER_COMPARISON.md` index file that maps every output to the paper
+artefact it backs.
+
+**A4.** Extract results to the host (from a separate shell):
+
+```bash
+docker cp nnv3-setup:/home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs .
+```
+
+Open `repeatability_logs/PAPER_COMPARISON.md` — the single-file index
+a repeatability committee opens to find every output, with explicit
+pointers to `results/ToolComparison/tables/table_main.{tex,txt}`
+(paper Tables 5, 6, 7).
+
+## Option B — Network MATLAB licence (`Dockerfile`, port@host)
+
+For reviewers whose institution provides a MATLAB licence server, or
+who hold a network-licence trial. Builds on
+`mathworks/matlab-deps:R2025b`, installs MATLAB via `mpm` at build
+time, bakes the licence source into the image, and runs everything
+end-to-end via the bash `run_all.sh` orchestrator.
+
+End-to-end smoke (`Steps B1–B4`) runs the six experiments at reduced
 counts and finishes in ~30 min on a 4-core / 16 GB host. Full
-reproduction (`Step 5`) adds ~3–5 h to render the ATVA paper's
+reproduction (`Step B5`) adds ~3–5 h to render the ATVA paper's
 Tables 5, 6, and 7.
 
-**Step 1.** From the repository root (the directory containing
+**B1.** (Optional, AIVL only) Stage the AIVL tarball *before* Step B2
+if you want the MathWorks-side rows of the ToolComparison experiment.
+Place the file at `ToolComparison/utils/atva26-aivl.tar.gz` (relative
+to this directory). The Dockerfile picks it up automatically; without
+it the build prints a warning and ToolComparison runs NNV-only.
+
+**B2.** From the repository root (the directory containing
 `Dockerfile`), build the Docker image (~15–25 min depending on
 network):
 
@@ -65,14 +167,12 @@ first runs inside the container. If you have a `network.lic` file
 rather than a server, omit `--build-arg` and mount the file at run
 time: `-v /path/to/network.lic:/opt/matlab/R2025b/licenses/network.lic`.
 
-**Step 2.** (Optional, AIVL only) Stage the AIVL tarball *before*
-Step 1 if you want the MathWorks-side rows of the ToolComparison
-experiment. Place the file at
-`ToolComparison/utils/atva26-aivl.tar.gz` (relative to this directory).
-The Dockerfile picks it up automatically; without it the build prints a
-warning and the ToolComparison runs NNV-only.
+If you don't know your `port@host`, the helper scripts at
+[`utils/`](utils/) search the standard MATLAB licence locations on your
+host (`find-matlab-license.ps1` on Windows, `find-matlab-license.sh`
+on Linux / macOS / WSL / Git Bash) and print any values they find.
 
-**Step 3.** Run the end-to-end smoke (~30 min):
+**B3.** Run the end-to-end smoke (~30 min):
 
 ```bash
 docker run --rm --gpus all -e MLM_LICENSE_FILE=<port>@<host> \
@@ -84,14 +184,12 @@ session so a crash in one doesn't lose the others. The consolidated log
 lands at `repeatability_logs/run.log` (status markers + per-instance
 verdicts + final tables — filtered for reviewer-readable summary);
 `summary.csv` records wall-clock and status (`ok` / `skipped` /
-`failed`) per experiment. Drop `--gpus all` if you don't have an NVIDIA
-GPU — ProbVer auto-skips, and the rest fall back to CPU. Set
-`NNV3_VERBOSE=1` to disable the log filter and stream every line (for
-debugging).
+`failed`) per experiment. Set `NNV3_VERBOSE=1` to disable the log
+filter and stream every line (for debugging).
 
 Expected `summary.csv` on a CPU-only host: 5 `ok` rows, `probver,skipped`.
 
-**Step 4.** Copy results out of the container. Mount a host directory
+**B4.** Copy results out of the container. Mount a host directory
 at run time so outputs persist after `--rm`:
 
 ```bash
@@ -106,7 +204,7 @@ The summary CSV at `results/repeatability_logs/summary.csv` lists
 wall-clock and status per experiment. Per-example output files land
 under each experiment's `results/` directory inside the container.
 
-**Step 5.** (Optional) Full reproduction (~5–7 h). Renders the paper's
+**B5.** (Optional) Full reproduction (~5–7 h). Renders the paper's
 Tables 5, 6, and 7:
 
 ```bash
@@ -147,12 +245,12 @@ rows; falls back to 6 NNV-only rows with a `[AIVL] NOT FOUND` warning
 if the Support Package wasn't extracted). Wall is
 parpool-startup-dominated. The AIVL
 Support Package is non-redistributable MathWorks code, so
-it is not committed to this repository. Three acquisition paths are
+it is not committed to this repository. Two acquisition paths are
 supported: (1) install AIVL yourself from MATLAB's Add-On Explorer, (2)
 ATVA 2026 AE reviewers receive a pre-built tarball via a private link in
-the HotCRP submission cover note, (3) the Code Ocean capsule ships AIVL
-pre-installed. Without AIVL, pass `'tools',{'nnv'}` to skip the
-MathWorks-side rows — NNV rows are unchanged. Setup details in
+the HotCRP submission cover note. Without AIVL, pass `'tools',{'nnv'}`
+to skip the MathWorks-side rows — NNV rows are unchanged. Setup details
+in
 [`ToolComparison/README.md`](ToolComparison/README.md).
 
 ## Reference timings

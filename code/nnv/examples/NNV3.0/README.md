@@ -80,11 +80,14 @@ docker run --rm --gpus all -e MLM_LICENSE_FILE=<port>@<host> \
 ```
 
 `run_all.sh` runs the six experiments in series, each in its own MATLAB
-session so a crash in one doesn't lose the others. Per-experiment logs
-land in `repeatability_logs/`; `summary.csv` records wall-clock and
-status (`ok` / `skipped` / `failed`) per experiment. Drop `--gpus all`
-if you don't have an NVIDIA GPU — ProbVer auto-skips, and the rest fall
-back to CPU.
+session so a crash in one doesn't lose the others. The consolidated log
+lands at `repeatability_logs/run.log` (status markers + per-instance
+verdicts + final tables — filtered for reviewer-readable summary);
+`summary.csv` records wall-clock and status (`ok` / `skipped` /
+`failed`) per experiment. Drop `--gpus all` if you don't have an NVIDIA
+GPU — ProbVer auto-skips, and the rest fall back to CPU. Set
+`NNV3_VERBOSE=1` to disable the log filter and stream every line (for
+debugging).
 
 Expected `summary.csv` on a CPU-only host: 5 `ok` rows, `probver,skipped`.
 

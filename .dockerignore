@@ -28,6 +28,18 @@ repro_logs/
 # table from cached .mat files. Mirrors the same entry in .gitignore.
 code/nnv/examples/NNV3.0/ToolComparison/results/
 
+# NNV3.0 runtime outputs that accumulate on host but are not part of the
+# image. Mirrors the corresponding entries in .gitignore. Without these,
+# legacy `repeatability_logs/full*-2026*` dirs (and friends) get baked into
+# the image's saved MATLAB pathdef.m at install time; once a bind mount
+# overlays an empty `repeatability_logs/` at run time those refs go stale
+# and MATLAB emits "Name is nonexistent or not a directory" warnings.
+code/nnv/examples/NNV3.0/repeatability_logs/
+code/nnv/examples/NNV3.0/ToolComparison/mnist_resnet/data/
+code/nnv/examples/NNV3.0/ToolComparison/logs/
+code/nnv/examples/NNV3.0/ToolComparison/ISSUES.md
+code/nnv/examples/NNV3.0/ToolComparison/tables/out/
+
 # Build outputs / intermediate state
 docs/_build/
 docs/build/

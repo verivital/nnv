@@ -1263,15 +1263,18 @@ classdef NN < handle
                     if cl.NumWorkers < obj.numCores
                         cl.NumWorkers = obj.numCores;
                     end
-                    parpool(cl, obj.numCores);
+                    % evalc captures "Starting parallel pool..." / "Connected
+                    % to parallel pool with N workers." chatter; the pool is
+                    % otherwise unaffected (gcp/parfor pick it up normally).
+                    evalc('parpool(cl, obj.numCores);');
                 else
                     if poolobj.NumWorkers ~= obj.numCores
-                        delete(poolobj); % delete the old poolobj
+                        evalc('delete(poolobj);'); % delete old; suppress "shutting down" message
                         cl = parcluster();
                         if cl.NumWorkers < obj.numCores
                             cl.NumWorkers = obj.numCores;
                         end
-                        parpool(cl, obj.numCores); % start the new one with new number of cores
+                        evalc('parpool(cl, obj.numCores);'); % start new; suppress "Connected to" message
                     end
                 end
             end

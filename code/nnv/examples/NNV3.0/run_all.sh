@@ -61,6 +61,24 @@ mkdir -p "$LOG_DIR"
 SUMMARY_CSV="${LOG_DIR}/summary.csv"
 echo "experiment,status,wall_seconds,log" > "$SUMMARY_CSV"
 
+# Single consolidated log captures everything the terminal sees.
+RUN_LOG="${LOG_DIR}/run.log"
+: > "$RUN_LOG"
+
+# Terminal filter: keeps only status markers, per-instance verdicts, milestone
+# summaries, and final result tables. Everything else is dropped from both the
+# terminal stream and run.log. Set NNV3_VERBOSE=1 to disable the filter (every
+# line passes through unchanged, for debugging).
+TERMINAL_WHITELIST='^=== |^\[run_all\]|^\[install|^\[toolbox_install|^\[make_table_main\]|^\[OK\]|^======= |^Model: |^Number of fair |^Number of non-fair |^Number of unknown |^It took a total of|idx=[0-9]+ status=|^Fraction:|Percentage of images verified|verified=[0-9]+/[0-9]+|^Starting verification with epsilon|^Epsilon = [0-9]+/255:|^  (Verified|Violated|Unknown|Timeout|Average time):|verified \([0-9.]+|violated \([0-9.]+|timeout \(>?[0-9.]+|unknown \([0-9.]+|^Trained parameters saved|^Final loss:|^Estimated Lipschitz|^Using device:|sufficient amount of principal directions|directions and training time saved|^Benchmark .*Tool .*Algorithm|^-{10,}$|^(acas_xu_p[34]|rl|oval21|collins_rul|mnist_resnet8) +(nnv|aivl)|^=== run_toolcomparison|^(experiment|fairnnv|probver|gnnv|videostar|modelstar|toolcomparison)[, ]|^Consolidated log:|^Results consolidated'
+
+filter_terminal() {
+    if [[ "${NNV3_VERBOSE:-0}" == "1" ]]; then
+        cat
+    else
+        grep -E --line-buffered "$TERMINAL_WHITELIST" || true
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # GPU autodetection. ProbVer's cp-star reachability trains a surrogate
 # network on CUDA via the Python venv; without a GPU it cannot run, so we
@@ -130,10 +148,36 @@ if (( MEM_TOTAL_GB < MIN_MEMORY_GB )); then
     fi
 fi
 
-# Forward-compat call is repeated in each script too; we set it here as well
-# so MATLAB doesn't error on Blackwell / RTX 5090 hosts. The call is wrapped
-# in try/catch and is a no-op on hosts without an NVIDIA GPU.
-MATLAB_PRELUDE="addpath(genpath('${NNV_ROOT}')); try, parallel.gpu.enableCUDAForwardCompatibility(true); catch; end;"
+# MATLAB prelude executed at the start of every experiment's MATLAB session.
+# Forward-compat call (no-op on hosts without an NVIDIA GPU) keeps Blackwell /
+# RTX 50-series usable. Warning silencing strips four known-noisy warnings
+# from the terminal/log stream:
+#   - nnet_cnn_onnx:onnx:WarnAPIDeprecation
+#       "'importONNXNetwork' is not recommended..." (R2025b deprecation of an
+#       API the artifact deliberately uses; no actionable signal for reviewers).
+#   - nnet_cnn_onnx:onnx:InputLabelMismatch
+#       "Data format '...' you specified for input 1 does not match the format
+#       '...' derived by the software." (Our ONNX nets pass an explicit input
+#       format; MATLAB falls back to its derived format which is identical in
+#       intent.)
+#   - nnet_cnn:internal:cnn:analyzer:NetworkAnalyzer:NetworkHasWarnings
+#       Post-import analyzer warnings about cosmetic layer-property defaults
+#       (e.g., "Empty Classes property") that don't affect reachability.
+#   - MATLAB:mpath:nameNonexistentOrNotADirectory
+#       Defensive: addpath() on a non-existent dir. The .dockerignore now
+#       excludes stale runtime-output dirs (repeatability_logs, etc.) so
+#       pathdef.m no longer hard-codes refs to them, but this catches any
+#       transient saved-path entry that survives a future build.
+# `warning('off','backtrace')` drops the multi-line stack trace each remaining
+# warning would otherwise emit (each trace adds ~8 lines per warning event).
+MATLAB_PRELUDE="\
+warning('off','backtrace'); \
+warning('off','nnet_cnn_onnx:onnx:WarnAPIDeprecation'); \
+warning('off','nnet_cnn_onnx:onnx:InputLabelMismatch'); \
+warning('off','nnet_cnn:internal:cnn:analyzer:NetworkAnalyzer:NetworkHasWarnings'); \
+warning('off','MATLAB:mpath:nameNonexistentOrNotADirectory'); \
+addpath(genpath('${NNV_ROOT}')); \
+try, parallel.gpu.enableCUDAForwardCompatibility(true); catch; end;"
 
 run_one() {
     # Args: name, subdir, kind ("matlab"|"shell"), entry
@@ -151,36 +195,35 @@ run_one() {
                 reason="$SKIP_REASON_PROBVER"
             fi
         fi
-        printf '\n=== %-12s SKIPPED (%s) ===\n' "$name" "$reason"
+        printf '\n=== %-12s SKIPPED (%s) ===\n' "$name" "$reason" | tee -a "$RUN_LOG"
         echo "${name},skipped,0,${reason}" >> "$SUMMARY_CSV"
         return 0
     fi
 
-    local logfile="${LOG_DIR}/${name}.log"
-    printf '\n=== %-12s start: %s ===\n' "$name" "$(date -u +%FT%TZ)"
+    printf '\n=== %-12s start: %s ===\n' "$name" "$(date -u +%FT%TZ)" | tee -a "$RUN_LOG"
     local t0
     t0=$(date -u +%s)
     if [[ "$kind" == "matlab" ]]; then
         (
             cd "${SCRIPT_DIR}/${subdir}" || exit 99
             "$MATLAB" -nodisplay -batch "${MATLAB_PRELUDE} run('${entry}'); exit()"
-        ) 2>&1 | tee "$logfile"
+        ) 2>&1 | filter_terminal | tee -a "$RUN_LOG"
     else
         (
             cd "${SCRIPT_DIR}/${subdir}" || exit 99
             bash "${SCRIPT_DIR}/${subdir}/${entry}"
-        ) 2>&1 | tee "$logfile"
+        ) 2>&1 | filter_terminal | tee -a "$RUN_LOG"
     fi
     local rc=${PIPESTATUS[0]}
     local t1
     t1=$(date -u +%s)
     local elapsed=$(( t1 - t0 ))
     if [[ $rc -eq 0 ]]; then
-        printf '=== %-12s OK in %ds (log: %s) ===\n' "$name" "$elapsed" "$logfile"
-        echo "${name},ok,${elapsed},${logfile}" >> "$SUMMARY_CSV"
+        printf '=== %-12s OK in %ds ===\n' "$name" "$elapsed" | tee -a "$RUN_LOG"
+        echo "${name},ok,${elapsed},${RUN_LOG}" >> "$SUMMARY_CSV"
     else
-        printf '=== %-12s FAILED (rc=%d) in %ds (log: %s) ===\n' "$name" "$rc" "$elapsed" "$logfile"
-        echo "${name},failed,${elapsed},${logfile}" >> "$SUMMARY_CSV"
+        printf '=== %-12s FAILED (rc=%d) in %ds ===\n' "$name" "$rc" "$elapsed" | tee -a "$RUN_LOG"
+        echo "${name},failed,${elapsed},${RUN_LOG}" >> "$SUMMARY_CSV"
     fi
     return $rc
 }
@@ -203,9 +246,51 @@ run_one modelstar ModelStar matlab run_expt_for_compute.m || overall=$?
 export TOOLCOMPARISON_MODE="${TOOLCOMPARISON_MODE:-smoke}"
 run_one toolcomparison ToolComparison matlab run_toolcomparison.m || overall=$?
 
-echo
-echo "=========================== SUMMARY ============================"
-column -t -s, "$SUMMARY_CSV" 2>/dev/null || cat "$SUMMARY_CSV"
-echo "================================================================"
-echo "Per-experiment logs: $LOG_DIR"
+# Consolidate experiment-specific result artifacts into repeatability_logs/results/
+# so a single bind mount of repeatability_logs captures everything a reviewer
+# needs to cross-check against the paper tables.
+mkdir -p "${LOG_DIR}/results"
+for exp_dir in FairNNV ProbVer GNNV VideoStar ModelStar; do
+    src="${SCRIPT_DIR}/${exp_dir}/results"
+    if [ ! -d "$src" ]; then continue; fi
+    # Prefer the most recently modified timestamped subdir (e.g. results/<ts>/),
+    # which is where FairNNV / GNNV / VideoStar / ProbVer write. ModelStar
+    # writes directly into results/ without a subdir; the find branch catches
+    # both shapes.
+    latest=$(ls -dt "$src"/*/ 2>/dev/null | head -1)
+    if [ -n "$latest" ]; then
+        cp -r "$latest" "${LOG_DIR}/results/${exp_dir}" 2>/dev/null || true
+    else
+        cp -r "$src" "${LOG_DIR}/results/${exp_dir}" 2>/dev/null || true
+    fi
+done
+# ToolComparison: not timestamped; .mat files in results/, rendered tables in
+# tables/out/. Copy both so reviewers can compare table_main.{tex,txt} against
+# the paper's aivl_comparison.tex.
+if [ -d "${SCRIPT_DIR}/ToolComparison/results" ]; then
+    mkdir -p "${LOG_DIR}/results/ToolComparison"
+    cp -r "${SCRIPT_DIR}/ToolComparison/results/." \
+        "${LOG_DIR}/results/ToolComparison/" 2>/dev/null || true
+fi
+if [ -d "${SCRIPT_DIR}/ToolComparison/tables/out" ]; then
+    mkdir -p "${LOG_DIR}/results/ToolComparison/tables"
+    cp -r "${SCRIPT_DIR}/ToolComparison/tables/out/." \
+        "${LOG_DIR}/results/ToolComparison/tables/" 2>/dev/null || true
+fi
+
+{
+    echo
+    echo "=========================== SUMMARY ============================"
+    column -t -s, "$SUMMARY_CSV" 2>/dev/null || cat "$SUMMARY_CSV"
+    echo "================================================================"
+    echo "Outputs written to repeatability_logs/ inside the container:"
+    echo "    run.log                       consolidated, filtered terminal log"
+    echo "    summary.csv                   per-experiment status + wall time"
+    echo "    results/<experiment>/         per-experiment CSV / .mat / .tex artifacts"
+    echo ""
+    echo "If you followed the README docker-run command"
+    echo "(-v \"\$PWD/results\":/out, with the trailing cp), these are now"
+    echo "available on your HOST at:"
+    echo "    \$PWD/results/repeatability_logs/"
+} | tee -a "$RUN_LOG"
 exit "$overall"

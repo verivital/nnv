@@ -8,6 +8,11 @@ import random
 import time
 import gc
 import argparse
+import os
+
+# Verbosity flag (per-epoch loss printed only when set). Default off for
+# artifact reviewers. Toggle with: PROBVER_VERBOSE=1 bash run_all.sh
+VERBOSE = os.environ.get('PROBVER_VERBOSE', '0') == '1'
 
 
 def main(mat_file_path: str):
@@ -107,7 +112,10 @@ def main(mat_file_path: str):
             total_loss += loss.item()
     
         if epoch % 10 == 0:
-            print(f'Epoch [{epoch}/{epochs}], Loss: {total_loss / len(dataloader):.4f}')
+            if VERBOSE:
+                print(f'Epoch [{epoch}/{epochs}], Loss: {total_loss / len(dataloader):.4f}')
+    # Always print final loss as a milestone (one line per training).
+    print(f'Final loss: {total_loss / len(dataloader):.4f}')
             
     
     

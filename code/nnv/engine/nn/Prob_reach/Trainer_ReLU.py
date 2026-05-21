@@ -8,10 +8,16 @@ import random
 import time
 import gc
 import argparse
+import os
+
+# Verbosity flag (per-epoch loss and mid-training scale printed only when set).
+# Default off for artifact reviewers. Toggle with: PROBVER_VERBOSE=1 bash run_all.sh
+VERBOSE = os.environ.get('PROBVER_VERBOSE', '0') == '1'
+
 
 def estimate_lipschitz(x, y, num_samples=1000):
     n = x.shape[0]
-    print(n)
+    # print(n)  # silenced (debug leftover; printed only the input dimension)
     slopes = []
 
     for _ in range(num_samples):
@@ -111,25 +117,26 @@ def main(mat_file_path: str):
     x_batch, y_batch = x_batch.to(device), y_batch.to(device)
     y_pred = model(x_batch)
     loss = criterion(y_pred, y_batch)
-    print(f'Before training, Loss is: {loss.item():.4f}')
-    
+    if VERBOSE:
+        print(f'Before training, Loss is: {loss.item():.4f}')
+
     for epoch in range(epochs):
         total_loss = 0
         for x_batch, y_batch in dataloader:
             x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-    
+
             optimizer.zero_grad()
             y_pred = model(x_batch)
             loss = criterion(y_pred, y_batch)
             loss.backward()
             optimizer.step()
-    
+
             total_loss += loss.item()
-    
+
         if epoch % 10 == 0:
-            print(f'Epoch [{epoch}/{epochs}], Loss: {total_loss / len(dataloader):.4f}')
-            
-            
+            if VERBOSE:
+                print(f'Epoch [{epoch}/{epochs}], Loss: {total_loss / len(dataloader):.4f}')
+
         if (epoch % 10 == 0)  and (epoch > 0.7*epochs):
             # === Enforce Lipschitz constraint per layer ===
             with torch.no_grad():
@@ -137,8 +144,11 @@ def main(mat_file_path: str):
                     weight = layer.weight.data
                     norm = torch.linalg.norm(weight, ord=2)
                     scale = max(1.0, norm.item() / lam)
-                    print(f'The scale is calculated as [{scale}]')
+                    if VERBOSE:
+                        print(f'The scale is calculated as [{scale}]')
                     layer.weight.data = weight / scale
+    # Always print final loss as a milestone (one line per training).
+    print(f'Final loss: {total_loss / len(dataloader):.4f}')
     
     
     

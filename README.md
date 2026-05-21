@@ -112,9 +112,12 @@ enable GPU support in *Settings → Resources → WSL Integration*).
 
 **Step 5.** Run the smoke test (~30 min on a 4-core / 16 GB host).
 Mount a host directory at run time so the per-experiment outputs and
-`summary.csv` persist after `--rm` removes the container:
+`summary.csv` persist after `--rm` removes the container. Pre-create
+`results/` with permissive permissions so the in-container `matlab`
+user can write to it:
 
 ```bash
+mkdir -p results && chmod 777 results
 docker run --rm --gpus all -v "$PWD/results":/out nnv3.0 \
     bash -c "bash run_all.sh && \
         cp -r /home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs /out/"
@@ -124,10 +127,12 @@ docker run --rm --gpus all -v "$PWD/results":/out nnv3.0 \
 MATLAB session so a failure in one doesn't lose the others. Drop
 `--gpus all` if you don't have an NVIDIA GPU available to Docker:
 ProbVer auto-skips on CPU-only hosts (it requires GPU + 48 GB RAM),
-and the rest fall back to CPU. The summary CSV at
-`results/repeatability_logs/summary.csv` lists per-experiment
-wall-clock time and status. Expect 5 `ok` rows and `probver,skipped`
-on CPU, or 6 `ok` rows with a GPU.
+and the rest fall back to CPU. Two output artifacts land in
+`results/repeatability_logs/`: `summary.csv` (per-experiment wall-clock
+and status — expect 5 `ok` rows and `probver,skipped` on CPU, or 6 `ok`
+rows with a GPU) and `run.log` (consolidated terminal output filtered
+to status markers, per-instance verdicts, and final result tables; set
+`NNV3_VERBOSE=1` to disable the filter for debugging).
 
 **Step 6.** (Optional) Full reproduction (~5-7 h) renders the paper's
 Tables 5, 6, and 7:

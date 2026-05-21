@@ -442,7 +442,13 @@ function [status, tsec] = run_with_timeout(fn, timeout_s)
 
     if havePar && timeout_s > 0 && isfinite(timeout_s)
         pool = gcp('nocreate');
-        if isempty(pool), pool = parpool('local'); end
+        if isempty(pool)
+            % evalc captures parpool's "Starting parallel pool..." /
+            % "Connected to parallel pool with N workers." chatter so it
+            % doesn't flood the smoke log.
+            evalc('parpool(''local'');');
+            pool = gcp('nocreate');
+        end
         F  = parfeval(pool, fn, 2);
         ok = wait(F, 'finished', timeout_s);
         if ~ok

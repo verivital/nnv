@@ -19,6 +19,9 @@ GS_in = GraphStar(NF, LB, UB);
 
 gnn = GNN({L1, L2}, A_norm);
 
+% Numerical tolerance for soundness containment asserts (shared across cells).
+tol = 1e-6;
+
 %% 1) Constructor test
 assert(gnn.numLayers == 2, 'Should have 2 layers');
 assert(isequal(gnn.A_norm, A_norm), 'A_norm should match');
@@ -53,7 +56,6 @@ assert(max(abs(center_out - expected), [], 'all') < 1e-10, ...
 % Containment: center output should be within bounds
 [lb_out, ub_out] = GS_out.getRanges();
 Y_center = gnn.evaluate(GS_in.V(:,:,1));
-tol = 1e-6;
 assert(all(Y_center(:) >= lb_out(:) - tol), 'Center output should be >= lower bound');
 assert(all(Y_center(:) <= ub_out(:) + tol), 'Center output should be <= upper bound');
 

@@ -35,6 +35,8 @@ code/nnv/examples/NNV3.0/ToolComparison/results/
 code/nnv/examples/NNV3.0/ToolComparison/logs/
 code/nnv/examples/NNV3.0/ToolComparison/ISSUES.md
 code/nnv/examples/NNV3.0/ToolComparison/tables/out/
+# Host-side bind-mount target for run_all.sh outputs (Option B docker run).
+results/repeatability_logs/
 **/*.mlpkginstall
 # AIVL Support Package tarball — non-redistributable MathWorks code.
 # Staged here for Dockerfile build to extract; never committed.
@@ -49,3 +51,7 @@ code/nnv/examples/NNV3.0/ToolComparison_legacy/
 openspec/
 AGENTS.md
 CLAUDE.md
+
+# Paper draft (local only, not tracked)
+paper_draft/
+Formal_Methods_2026__FM_2026____NNV___TOOL_PAPER___3_0*.zip

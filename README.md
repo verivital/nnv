@@ -40,6 +40,15 @@ claims in the paper are unaffected.
 
 ### Local Docker — step by step
 
+> **Have a MathWorks account but no network licence server?** The
+> standard `Dockerfile` below requires a `port@host` to pass via
+> `--build-arg LICENSE_SERVER=`. If you only have an individual
+> (signed-in) MathWorks account, use the alternative
+> [`Dockerfile.online`](Dockerfile.online) instead -- it derives from
+> `mathworks/matlab:r2025b` and authenticates via a one-time browser
+> sign-in. Full walkthrough in
+> [`code/nnv/examples/NNV3.0/ONLINE_LICENSE.md`](code/nnv/examples/NNV3.0/ONLINE_LICENSE.md).
+
 > **Windows / PowerShell users.** The snippets below use bash syntax
 > (`$PWD`, trailing `\` line continuations, single-quoted heredocs).
 > To run them directly in native PowerShell, apply three substitutions:

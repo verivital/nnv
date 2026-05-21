@@ -109,6 +109,20 @@ ENV VIRTUAL_ENV="/home/matlab/nnv/.venv"
 # Where the experiments expect to write their outputs.
 RUN mkdir -p /home/matlab/nnv/repeatability_output
 
+# Pre-create the MATLAB user Documents tree the AIVL Support Package
+# extracts into. Without this, the official mathworks/matlab image's
+# browser session can create parts of `Documents/MATLAB/SupportPackages`
+# with root ownership at first run, which then makes the AIVL
+# `tar -xzf ... -C /home/matlab/Documents/MATLAB` step in
+# `setup-online-license.sh` fail with
+#   tar: SupportPackages/R2025b/toolbox/nnet/supportpackages/aivnv: \
+#        Cannot mkdir: Permission denied
+# Pre-creating the full path under USER matlab guarantees the tree
+# already exists and is writable when MATLAB starts.
+RUN mkdir -p \
+    /home/matlab/Documents/MATLAB/SupportPackages/R2025b/toolbox/nnet/supportpackages \
+    /home/matlab/Documents/MATLAB/SupportPackages/R2025b/resources
+
 # Inherit ENTRYPOINT and CMD from mathworks/matlab so `-browser`,
 # `-vnc`, `-batch`, and `-shell` continue to work. Default WORKDIR is
 # the NNV3.0 examples directory so reviewers running `-shell` or

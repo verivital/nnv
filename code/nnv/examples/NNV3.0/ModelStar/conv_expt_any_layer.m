@@ -199,7 +199,12 @@ for pert_layer_no = 1:n_layers_to_run_for_from_yaml_file
         expt.save;
     end
     
-    expt.plot_results(layers_to_plot_for_from_yaml_file=1:n_layers_to_run_for_from_yaml_file);
+    % reverse_order=0 makes the tile layout iterate `obj.data.layers` in
+    % its native fc_6, fc_5, fc_4 order so the saved figure matches the
+    % paper's Fig. 2 left-to-right column ordering. The EXPT default
+    % (reverse_order=1) flips to fc_4, fc_5, fc_6 -- correct verdict
+    % numbers, wrong axis order.
+    expt.plot_results(layers_to_plot_for_from_yaml_file=1:n_layers_to_run_for_from_yaml_file, reverse_order=0);
     
 end
 

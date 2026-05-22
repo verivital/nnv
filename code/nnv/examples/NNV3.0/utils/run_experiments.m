@@ -32,6 +32,7 @@ function run_experiments(toolcomparisonMode)
     warning('off','nnet_cnn:internal:cnn:analyzer:NetworkAnalyzer:NetworkHasWarnings');
     warning('off','MATLAB:mpath:nameNonexistentOrNotADirectory');
     warning('off','MATLAB:linkaxes:RequireDataAxes');
+    warning('off','MATLAB:table:ModifiedAndSavedVarnames');
     addpath(genpath('/home/matlab/nnv/code/nnv'));
     try, parallel.gpu.enableCUDAForwardCompatibility(true); catch; end
 
@@ -365,16 +366,58 @@ function render_table_3(fids, resultsDir)
         return;
     end
 
+    % Look columns up by substring rather than exact name -- run_probver.m
+    % and the bash run_probver.sh driver have occasionally diverged on the
+    % exact header (`vnnlib` vs `Vnnlib` vs `vnnlib_file` etc.), and we
+    % want this render to keep working regardless.
+    vnnCol    = find_col(T, 'vnnlib');
+    statusCol = find_col(T, 'status');
+    timeCol   = find_col(T, 'time');
+    indexCol  = find_col(T, 'index');
+    if isempty(vnnCol) || isempty(statusCol) || isempty(timeCol)
+        dprintf(fids, '  (results_summary.csv has unexpected columns: %s)\n', ...
+            strjoin(T.Properties.VariableNames, ', '));
+        return;
+    end
+
     dprintf(fids, '  %-10s | %-7s | %-9s | %-7s\n', 'Property', 'epsilon', 'Time (s)', 'Result');
     dprintf(fids, '  %s\n', '-----------+---------+-----------+--------');
     for k = 1:height(T)
-        v = char(T.vnnlib{k});
+        v = cell_to_char(T.(vnnCol)(k));
         propTok = regexp(v, 'prop_0*(\d+)', 'tokens', 'once');
         epsTok  = regexp(v, 'eps_(\d+)_(\d+)', 'tokens', 'once');
-        if isempty(propTok), propStr = ['#' num2str(T.index(k))]; else, propStr = ['Prop ' propTok{1}]; end
-        if isempty(epsTok),  epsStr  = '?'; else, epsStr = [epsTok{1} '/' epsTok{2}]; end
-        statusStr = upper(char(T.status{k}));
-        dprintf(fids, '  %-10s | %-7s | %9.2f | %-7s\n', propStr, epsStr, T.time(k), statusStr);
+        if isempty(propTok)
+            if isempty(indexCol), propStr = ['#' num2str(k)];
+            else,                 propStr = ['#' num2str(T.(indexCol)(k))];
+            end
+        else
+            propStr = ['Prop ' propTok{1}];
+        end
+        if isempty(epsTok), epsStr = '?'; else, epsStr = [epsTok{1} '/' epsTok{2}]; end
+        statusStr = upper(cell_to_char(T.(statusCol)(k)));
+        timeVal = T.(timeCol)(k); if iscell(timeVal), timeVal = timeVal{1}; end
+        dprintf(fids, '  %-10s | %-7s | %9.2f | %-7s\n', propStr, epsStr, double(timeVal), statusStr);
+    end
+end
+
+% -------------------------------------------------------------------------
+function name = find_col(T, substr)
+%FIND_COL  First column in table T whose name contains `substr` (case-insensitive).
+%   Returns '' if no column matches. Lets the renderers tolerate small
+%   schema drift between runs / between the single-process .m and bash
+%   driver variants of an experiment.
+    cols = T.Properties.VariableNames;
+    idx = find(contains(lower(cols), lower(substr)), 1);
+    if isempty(idx), name = ''; else, name = cols{idx}; end
+end
+
+% -------------------------------------------------------------------------
+function s = cell_to_char(v)
+%CELL_TO_CHAR  Normalise readtable cell-array-of-char / string / char output to a char vector.
+    if iscell(v),     s = char(v{1});
+    elseif isstring(v), s = char(v);
+    elseif ischar(v), s = v;
+    else,             s = char(string(v));
     end
 end
 

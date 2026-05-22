@@ -1,0 +1,63 @@
+# Keep the docker build context small. Anything matched here is NOT sent to the
+# Docker daemon and NOT baked into the image.
+
+# VCS / tooling
+.git/
+.github/
+.vscode/
+.idea/
+
+# Editor / OS junk
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Reproducibility logs / artifacts produced on host
+repro_logs/
+
+# Repo-root data and results dirs (not used by NNV3.0 experiments;
+# per-example data lives under code/nnv/examples/.../data/ and is preserved).
+/data/
+/results/
+
+# NNV3.0/ToolComparison: per-run benchmark results land in `results/` and
+# the harness skips already-present (tool, benchmark, instance, algorithm)
+# rows on rerun. Keep stale local results out of the image so a fresh
+# build's smoke actually exercises the benchmarks instead of rendering a
+# table from cached .mat files. Mirrors the same entry in .gitignore.
+code/nnv/examples/NNV3.0/ToolComparison/results/
+
+# NNV3.0 runtime outputs that accumulate on host but are not part of the
+# image. Mirrors the corresponding entries in .gitignore. Without these,
+# legacy `repeatability_logs/full*-2026*` dirs (and friends) get baked into
+# the image's saved MATLAB pathdef.m at install time; once a bind mount
+# overlays an empty `repeatability_logs/` at run time those refs go stale
+# and MATLAB emits "Name is nonexistent or not a directory" warnings.
+code/nnv/examples/NNV3.0/repeatability_logs/
+code/nnv/examples/NNV3.0/ToolComparison/mnist_resnet/data/
+code/nnv/examples/NNV3.0/ToolComparison/logs/
+code/nnv/examples/NNV3.0/ToolComparison/ISSUES.md
+code/nnv/examples/NNV3.0/ToolComparison/tables/out/
+
+# Build outputs / intermediate state
+docs/_build/
+docs/build/
+**/.ipynb_checkpoints/
+**/__pycache__/
+**/*.pyc
+
+# Python virtualenvs that may be present on host (rebuilt inside the container)
+.venv/
+venv/
+env/
+
+# Mounted MATLAB / IDE state
+*.asv
+*.mexw64
+*.mexa64
+slprj/
+
+# Scratch
+tmp/
+scratch/

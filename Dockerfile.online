@@ -1,0 +1,153 @@
+# NNV 3.0 reproducibility image with MathWorks online (individual) licensing.
+#
+# Designed for users with a MathWorks account license rather than a
+# network license server (port@host). Builds on the official
+# mathworks/matlab:r2025b image and skips ALL build-time MATLAB
+# invocations -- NNV's install.m and the AIVL extraction run on first
+# interactive launch, with the activation cached in named Docker volumes
+# so subsequent runs are unattended.
+#
+# Build (~20 min, no MATLAB licence needed):
+#
+#   docker build -t nnv3.0-online -f Dockerfile.online .
+#
+# Start the container in browser mode and sign in (one-time, ~5 min).
+# --gpus all is the recommended default -- ProbVer requires CUDA, and
+# GNNV / VideoStar are faster with it. Drop the flag on CPU-only hosts;
+# ProbVer auto-skips when gpuDeviceCount == 0. On Windows + Docker
+# Desktop, --gpus all needs the WSL2 backend AND a host NVIDIA driver
+# (Docker Desktop -> Settings -> Resources -> WSL Integration).
+#
+#   docker run -it --rm --gpus all \
+#     -p 8888:8888 --shm-size=512M \
+#     -v nnv3-matlab-prefs:/home/matlab/.matlab \
+#     -v nnv3-matlab-mw:/home/matlab/.MathWorks \
+#     --name nnv3-setup \
+#     nnv3.0-online -browser
+#
+# Open http://localhost:8888 and sign in. Then, in the browser MATLAB
+# Command Window, run the three entry-point scripts in turn:
+#
+#   run('/home/matlab/nnv/code/nnv/examples/NNV3.0/setup_online.m')
+#   run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_smoke.m')   % ~20-25 min
+#   run('/home/matlab/nnv/code/nnv/examples/NNV3.0/run_full.m')    % ~3-5 h
+#
+# setup_online.m runs the install.m and AIVL extraction the standard
+# Dockerfile does at build time (deferred here because matlab -batch
+# cannot use a browser sign-in). run_smoke.m / run_full.m drive the six
+# experiments in the SAME MATLAB session so they reuse the cached
+# online sign-in, then consolidate outputs into repeatability_logs/ and
+# write a single PAPER_COMPARISON.md index a reviewer can open to find
+# every output and the paper table / figure it backs.
+#
+# Extract results to the host afterwards (from a host PowerShell):
+#
+#   docker cp nnv3-setup:/home/matlab/nnv/code/nnv/examples/NNV3.0/repeatability_logs .
+#
+# Sign-in is cached in the named volumes; MathWorks may invalidate it
+# periodically. If experiments start failing with a licence-checkout
+# error, re-launch with -browser and re-sign-in.
+#
+# See code/nnv/examples/NNV3.0/ONLINE_LICENSE.md for a full walkthrough,
+# troubleshooting, and the trade-offs vs the network-licence Dockerfile.
+
+ARG MATLAB_RELEASE=r2025b
+
+# Same product set NNV needs as the network-licence Dockerfile, plus
+# Deep_Learning_Toolbox_Verification_Library (AIVL). mpm uses
+# underscore-separated names rather than spaces.
+#
+# Including Deep_Learning_Toolbox_Verification_Library lets mpm pull
+# the AI Verification Library Support Package at build time. Reviewers
+# MUST have a MathWorks licence whose Deep
+# Learning Toolbox entitlement covers the Verification Library
+# (normally free for any Deep Learning Toolbox holder, but a paid /
+# restricted licence may exclude it). If excluded, mpm install still
+# succeeds but verifyNetworkRobustness / estimateNetworkOutputBounds
+# fail at runtime with a licence-checkout error; ToolComparison will
+# fall back to NNV-only rows.
+ARG ADDITIONAL_PRODUCTS="Computer_Vision_Toolbox Control_System_Toolbox Deep_Learning_Toolbox Deep_Learning_Toolbox_Verification_Library Image_Processing_Toolbox Optimization_Toolbox Parallel_Computing_Toolbox Statistics_and_Machine_Learning_Toolbox Symbolic_Math_Toolbox System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format"
+
+FROM mathworks/matlab:${MATLAB_RELEASE}
+
+ARG MATLAB_RELEASE
+ARG ADDITIONAL_PRODUCTS
+
+# OS-level dependencies: wget for mpm, git for npy-matlab fallback,
+# Python for ProbVer's PyTorch path.
+USER root
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update \
+    && apt-get install --no-install-recommends -y \
+       wget ca-certificates git \
+       python3 python3-pip python3-venv libpython3-dev \
+    && apt-get clean && apt-get autoremove \
+    && rm -rf /var/lib/apt/lists/*
+
+USER matlab
+WORKDIR /home/matlab
+
+# Add toolboxes via mpm. mpm itself does NOT validate a MATLAB licence,
+# so this works during build without any sign-in. We resolve the
+# existing MATLAB install path from the in-image `matlab` symlink
+# rather than hard-coding /opt/matlab, since the official image's
+# layout differs slightly between releases.
+#
+# mpm install runs via sudo (root) and creates
+# /home/matlab/Documents/MATLAB/SupportPackages/R2025b/toolbox/nnet/
+# supportpackages/ owned by root. Without a follow-up chown, the matlab
+# user can't write the aivnv support-package directory, causing AIVL
+# entry-point resolution to fail at runtime. The chown is consolidated
+# into the same RUN as mpm so the layer can't be skipped.
+RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \
+    && chmod +x mpm \
+    && EXISTING_MATLAB_LOCATION=$(dirname $(dirname $(readlink -f $(which matlab)))) \
+    && sudo HOME=${HOME} ./mpm install \
+       --destination=${EXISTING_MATLAB_LOCATION} \
+       --release=${MATLAB_RELEASE} \
+       --products ${ADDITIONAL_PRODUCTS} \
+    && sudo rm -rf mpm \
+    && sudo chown -R matlab:matlab /home/matlab/Documents
+
+# Copy the (lean, courtesy of /.dockerignore) NNV checkout into the image.
+COPY --chown=matlab:matlab . /home/matlab/nnv
+WORKDIR /home/matlab/nnv
+
+# Vendor npy-matlab so VideoStar's run_zoomin_4f.m can load .npy data
+# without requiring network access at run time.
+RUN NPY_DST=/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/npy-matlab; \
+    if [ -d "$NPY_DST" ] && [ -n "$(ls -A "$NPY_DST" 2>/dev/null)" ]; then \
+        echo "[npy-matlab] already populated (likely via submodule), skipping clone"; \
+    else \
+        rm -rf "$NPY_DST"; \
+        git clone --depth=1 https://github.com/kwikteam/npy-matlab "$NPY_DST"; \
+    fi
+
+# Python venv for cp_env / Prob_reach (PyTorch + CUDA wheels).
+RUN python3 -m venv /home/matlab/nnv/.venv \
+    && /home/matlab/nnv/.venv/bin/pip install --no-cache-dir -r requirement.txt
+ENV PATH="/home/matlab/nnv/.venv/bin:$PATH"
+ENV VIRTUAL_ENV="/home/matlab/nnv/.venv"
+
+# Where the experiments expect to write their outputs.
+RUN mkdir -p /home/matlab/nnv/repeatability_output
+
+# Pre-create the MATLAB user Documents tree the AIVL Support Package
+# extracts into. Without this, the official mathworks/matlab image's
+# browser session can create parts of `Documents/MATLAB/SupportPackages`
+# with root ownership at first run, which then makes the AIVL
+# `tar -xzf ... -C /home/matlab/Documents/MATLAB` step in
+# `setup-online-license.sh` fail with
+#   tar: SupportPackages/R2025b/toolbox/nnet/supportpackages/aivnv: \
+#        Cannot mkdir: Permission denied
+# Pre-creating the full path under USER matlab guarantees the tree
+# already exists and is writable when MATLAB starts.
+RUN mkdir -p \
+    /home/matlab/Documents/MATLAB/SupportPackages/R2025b/toolbox/nnet/supportpackages \
+    /home/matlab/Documents/MATLAB/SupportPackages/R2025b/resources
+
+# Inherit ENTRYPOINT and CMD from mathworks/matlab so `-browser`,
+# `-vnc`, `-batch`, and `-shell` continue to work. Default WORKDIR is
+# the NNV3.0 examples directory so reviewers running `-shell` or
+# `--entrypoint /bin/bash` land where the experiment scripts live.
+WORKDIR /home/matlab/nnv/code/nnv/examples/NNV3.0

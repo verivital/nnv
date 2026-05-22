@@ -48,7 +48,6 @@ jobs:
             Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
             Deep_Learning_Toolbox_Converter_for_TensorFlow_models
-            Deep_Learning_Toolbox_Verification_Library
 
       # Sets up python for CP
       - name: Setup python

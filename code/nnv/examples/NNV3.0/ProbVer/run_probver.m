@@ -6,17 +6,34 @@
 % this script will attempt to do it automatically.
 
 %% ========== CONFIGURATION ==========
-numSamples = 3;   % Number of instances to verify
-randomSeed = 42;  % Seed for reproducibility
-nRand = 100;      % Number of random samples for falsification
+% Defaults below are applied only when the caller has not already set
+% these variables in scope (e.g., from run_all.sh --smoke).
+if ~exist('numSamples', 'var'); numSamples = 3; end   % Number of instances to verify
+if ~exist('randomSeed', 'var'); randomSeed = 42; end  % Seed for reproducibility
+if ~exist('nRand',      'var'); nRand      = 100; end % Number of random samples for falsification
 
 %% ========== SETUP PATHS ==========
 scriptDir = fileparts(mfilename('fullpath'));
+
+nnvDir = fullfile(scriptDir, '..', '..', '..');
+addpath(genpath(nnvDir));
+
+% GPU forward-compat (Blackwell / RTX 5090 under MATLAB R2024b).
+% Required for cp-star surrogate training; no-op on non-NVIDIA hosts.
+try
+    parallel.gpu.enableCUDAForwardCompatibility(true);
+catch
+end
+
 benchmarkDir = fullfile(scriptDir, 'yolo_2023');
 onnxDir = fullfile(benchmarkDir, 'onnx');
 vnnlibDir = fullfile(benchmarkDir, 'vnnlib');
 instancesFile = fullfile(benchmarkDir, 'instances.csv');
-resultsFile = fullfile(scriptDir, 'results_summary.csv');
+% Timestamped output: results/<yymmdd-HHmmss>/results_summary.csv
+ts = char(datetime('now', 'Format', 'yyMMdd-HHmmss'));
+resultsDir = fullfile(scriptDir, 'results', ts);
+if ~exist(resultsDir, 'dir'); mkdir(resultsDir); end
+resultsFile = fullfile(resultsDir, 'results_summary.csv');
 
 %% ========== DECOMPRESS FILES IF NEEDED ==========
 disp('Checking for compressed files...');
@@ -101,6 +118,12 @@ disp(['Input size: ' mat2str(inputSize)]);
 %% ========== MAIN VERIFICATION LOOP ==========
 results = cell(numSamples, 1);
 totalStartTime = tic;
+
+% Open the results CSV up front and write a row after each instance, so a
+% mid-run crash (e.g. OOM during ImageStar reachability) preserves earlier
+% successful results.
+incFid = fopen(resultsFile, 'w');
+fprintf(incFid, 'index,onnx,vnnlib,status,time,error\n');
 
 for i = 1:numSamples
     idx = selectedIndices(i);
@@ -238,7 +261,15 @@ for i = 1:numSamples
     end
 
     results{i} = result;
+
+    % Persist this instance's result immediately so a crash on the next
+    % iteration (e.g. OOM during reachability) preserves earlier rows.
+    errorMsg = strrep(result.error, ',', ';');
+    errorMsg = strrep(errorMsg, newline, ' ');
+    fprintf(incFid, '%d,%s,%s,%s,%.4f,%s\n', ...
+        result.index, result.onnx, result.vnnlib, result.status, result.time, errorMsg);
 end
+fclose(incFid);
 
 totalTime = toc(totalStartTime);
 
@@ -273,20 +304,9 @@ disp(['  Unknown:          ' num2str(unknownCount)]);
 disp(['  Errors:           ' num2str(errorCount)]);
 disp(['Total time: ' num2str(totalTime) 's']);
 
-% Save to CSV
+% CSV is already on disk from the incremental writes inside the loop.
 disp(' ');
-disp(['Saving results to ' resultsFile '...']);
-fid = fopen(resultsFile, 'w');
-fprintf(fid, 'index,onnx,vnnlib,status,time,error\n');
-for i = 1:length(results)
-    r = results{i};
-    % Escape any commas in error message
-    errorMsg = strrep(r.error, ',', ';');
-    errorMsg = strrep(errorMsg, newline, ' ');
-    fprintf(fid, '%d,%s,%s,%s,%.4f,%s\n', r.index, r.onnx, r.vnnlib, r.status, r.time, errorMsg);
-end
-fclose(fid);
-disp('Results saved.');
+disp(['Results CSV at: ' resultsFile]);
 
 % Display errors if any
 if errorCount > 0
@@ -324,17 +344,18 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
     % Create input set
     IS = ImageStar(lb, ub);
 
-    % Delete constraints for non-interval dimensions
-    try
-        xxx = find((lb-ub));
-        xxx = reshape(xxx, [], 1);
-        if numel(lb) ~= length(xxx)
-            IS.C = IS.C(:,xxx);
-            IS.pred_lb = IS.pred_lb(xxx);
-            IS.pred_ub = IS.pred_ub(xxx);
-            xxx = xxx + 1;
-            IS.V = IS.V(:,:,:,[1;xxx]);
-            IS.numPred = length(xxx);
+    % Drop predicates whose lb == ub (degenerate, no slack) and subset
+    % the ImageStar's basis matrices accordingly. Best-effort: if the
+    % shapes don't match, leave IS untouched.
+    try %#ok<TRYNC>
+        nonDegenIdx = find((lb-ub));
+        nonDegenIdx = reshape(nonDegenIdx, [], 1);
+        if numel(lb) ~= length(nonDegenIdx)
+            IS.C = IS.C(:, nonDegenIdx);
+            IS.pred_lb = IS.pred_lb(nonDegenIdx);
+            IS.pred_ub = IS.pred_ub(nonDegenIdx);
+            IS.V = IS.V(:, :, :, [1; nonDegenIdx + 1]);  % +1 for V's leading center column
+            IS.numPred = length(nonDegenIdx);
         end
     end
 end

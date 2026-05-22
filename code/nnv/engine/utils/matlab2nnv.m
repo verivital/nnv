@@ -152,7 +152,12 @@ for i=1:n
         Li = SigmoidLayer.parse(L);
 
     % ElementWise Affine Layer (often used as a bias layer after FC layers)
-    elseif isa(L, 'nnet.onnx.layer.ElementwiseAffineLayer')
+    % R2024b and earlier ONNX imports emit nnet.onnx.layer.ElementwiseAffineLayer.
+    % R2025a+ ONNX imports emit nnet.cnn.layer.ScalingLayer with identical
+    % Y = Scale.*X + Offset semantics (MathWorks release note:
+    % "ONNX Add, Mul, Sub, Neg, Div imported as scalingLayer"). Both route to
+    % the same parse() -- ElementwiseAffineLayer.parse now accepts either class.
+    elseif isa(L, 'nnet.onnx.layer.ElementwiseAffineLayer') || isa(L, 'nnet.cnn.layer.ScalingLayer')
         Li = ElementwiseAffineLayer.parse(L);
     
     % Feature input layer

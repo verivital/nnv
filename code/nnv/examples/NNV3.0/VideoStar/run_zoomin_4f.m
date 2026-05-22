@@ -1,59 +1,48 @@
 %% VideoStar ZoomIn-4f - Main Runner Script
-% This script runs a subset of the ZoomIn-4f verification experiments.
+% Runs a subset of the ZoomIn-4f video verification experiments.
 %
-% INSTRUCTIONS:
-%   1. Set the paths in the CONFIGURATION section below
-%   2. Run this script from the VideoStar directory
-%   3. Results will be saved to the specified output folder
+% USAGE:
+%   matlab -batch "cd code/nnv/examples/NNV3.0/VideoStar; run_zoomin_4f"
 %
-% OUTPUTS:
-%   - CSV files with verification results for each epsilon value
+% OUTPUTS (under VideoStar/results/<timestamp>/):
+%   - eps=<i>_255.csv: per-epsilon CSV with sample, result, time, method
 %
 % REQUIREMENTS:
-%   - NNV toolbox must be installed
-%   - ONNX models from FORMALISE2025/models/
-%   - Data files from FORMALISE2025/data/
-%   - npy-matlab for reading .npy files
+%   - NNV toolbox available at <repo>/code/nnv (resolved automatically below)
+%   - Bundled ONNX model in VideoStar/models/zoomin_4f.onnx
+%   - Bundled data in VideoStar/data/ZoomIn/*.npy
+%   - Bundled npy-matlab and vvn src in this folder
 
 %% ================== CONFIGURATION ==================
-% Set these paths before running
+% Defaults below are applied only for fields the caller has not already
+% set in a pre-populated `config` struct (e.g., from run_all.sh --smoke).
 
-% Path to NNV root folder (contains startup_nnv.m)
-% NOTE: these paths are for the docker container
-config.nnvDir = '/home/matlab/nnv/code/nnv';
+if ~exist('config', 'var'); config = struct(); end
+scriptDir = fileparts(mfilename('fullpath'));
 
-% Path to FORMALISE2025 submission directory
-config.formalise2025Dir = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025';
+% Path to NNV root folder (three levels up from VideoStar/).
+if ~isfield(config, 'nnvDir');        config.nnvDir       = fullfile(scriptDir, '..', '..', '..'); end
 
-% Path to folder containing ONNX models (e.g., zoomin_4f.onnx)
-config.modelsDir = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/models';
+% Bundled assets next to this script.
+if ~isfield(config, 'modelsDir');     config.modelsDir    = fullfile(scriptDir, 'models'); end
+if ~isfield(config, 'dataDir');       config.dataDir      = fullfile(scriptDir, 'data'); end
+if ~isfield(config, 'npyMatlabDir');  config.npyMatlabDir = fullfile(scriptDir, 'npy-matlab'); end
+if ~isfield(config, 'vvnSrcDir');     config.vvnSrcDir    = fullfile(scriptDir, 'src', 'vvn'); end
 
-% Path to folder containing data files
-config.dataDir = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/data';
-
-% Path to npy-matlab for reading .npy files
-config.npyMatlabDir = '/home/matlab/nnv/code/nnv/examples/Submission/FORMALISE2025/npy-matlab/npy-matlab';
-
-% Path to output folder for results (will be created if it doesn't exist)
-config.outputDir = '/tmp/results/VideoStar/ZoomIn/4';
+% Timestamped output: results/<yymmdd-HHmmss>/
+if ~isfield(config, 'outputDir')
+    ts = char(datetime('now', 'Format', 'yyMMdd-HHmmss'));
+    config.outputDir = fullfile(scriptDir, 'results', ts);
+end
 
 % Verification settings
-config.dsType = 'zoom_in';          % Dataset type: 'zoom_in' or 'zoom_out'
-config.sampleLen = 4;               % Number of frames: 4, 8, or 16
-config.verAlgorithm = 'relax';      % Verification algorithm: 'relax' or 'approx'
-
-% Number of classes
-config.numClasses = 10;
-
-% Epsilon values for verification (perturbation sizes)
-config.epsilon = [1/255; 2/255; 3/255];
-
-% Timeout per sample in seconds (default: 1800 = 30 minutes)
-config.timeout = 1800;
-
-% Sample indices to verify (subset for quick testing)
-% Using first 10 samples for a subset run
-config.sampleIndices = 1:10;
+if ~isfield(config, 'dsType');        config.dsType       = 'zoom_in'; end       % 'zoom_in' or 'zoom_out'
+if ~isfield(config, 'sampleLen');     config.sampleLen    = 4; end               % 4, 8, or 16
+if ~isfield(config, 'verAlgorithm');  config.verAlgorithm = 'relax'; end         % 'relax' or 'approx'
+if ~isfield(config, 'numClasses');    config.numClasses   = 10; end
+if ~isfield(config, 'epsilon');       config.epsilon      = [1/255; 2/255; 3/255]; end
+if ~isfield(config, 'timeout');       config.timeout      = 1800; end
+if ~isfield(config, 'sampleIndices'); config.sampleIndices = 1:10; end
 
 %% ================== END CONFIGURATION ==================
 
@@ -71,6 +60,13 @@ end
 addpath(genpath(config.nnvDir));
 disp("NNV paths added successfully.");
 
+% GPU forward-compat (Blackwell / RTX 5090 under MATLAB R2024b).
+% No-op on hosts without an NVIDIA GPU.
+try
+    parallel.gpu.enableCUDAForwardCompatibility(true);
+catch
+end
+
 % Add npy-matlab to path for reading .npy files
 if ~exist(config.npyMatlabDir, 'dir')
     error("npy-matlab directory not found: %s", config.npyMatlabDir);
@@ -78,9 +74,9 @@ end
 addpath(config.npyMatlabDir);
 disp("npy-matlab paths added successfully.");
 
-% Add FORMALISE2025 src directory to path (for verifyvideo.m)
-addpath(fullfile(config.formalise2025Dir, 'src', 'vvn'));
-disp("FORMALISE2025 verification functions added to path.");
+% Add bundled vvn src directory to path (for verifyvideo.m)
+addpath(config.vvnSrcDir);
+disp("vvn verification functions added to path.");
 
 disp(" ");
 
@@ -117,10 +113,11 @@ disp(" ");
 disp("Configuration validated successfully.");
 disp(" ");
 
-%% Change to FORMALISE2025 directory (required for data loading paths)
+%% Change to VideoStar directory so verifyvideo.m's relative paths
+% (`data/ZoomIn/...`, `models/...`) resolve against this folder.
 currentDir = pwd;
-cd(config.formalise2025Dir);
-disp("Changed to FORMALISE2025 directory for data loading.");
+cd(scriptDir);
+disp("Changed working directory to VideoStar for data loading.");
 disp(" ");
 
 %% Run Verification

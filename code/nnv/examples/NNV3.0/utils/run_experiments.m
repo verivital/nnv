@@ -32,6 +32,7 @@ function run_experiments(toolcomparisonMode)
     warning('off','nnet_cnn:internal:cnn:analyzer:NetworkAnalyzer:NetworkHasWarnings');
     warning('off','MATLAB:mpath:nameNonexistentOrNotADirectory');
     warning('off','MATLAB:linkaxes:RequireDataAxes');
+    warning('off','MATLAB:table:ModifiedAndSavedVarnames');
     addpath(genpath('/home/matlab/nnv/code/nnv'));
     try, parallel.gpu.enableCUDAForwardCompatibility(true); catch; end
 
@@ -168,121 +169,574 @@ end
 
 % -------------------------------------------------------------------------
 function print_paper_artefacts(logDir)
-% Surface the paper figures and tables at the end of the run so a
-% reviewer can directly compare against the ATVA 2026 PDF without
-% hunting through subdirectories.
+% Render the paper's Figs 2-3 and Tables 2-7 from the consolidated
+% experiment outputs and tee the rendered output to both the MATLAB
+% Command Window AND repeatability_logs/PAPER_TABLES.txt so reviewers
+% have a single file to compare against the ATVA 2026 PDF.
 %
-% Paper -> artefact map (per the NNV3 ATVA 2026 paper):
-%   Fig. 2  -> ModelStar single-layer weight-perturbation
-%   Fig. 3  -> GNNV IEEE-24 power flow (3 architectures)
-%   Table 2 -> VolumeStar / VideoStar verdicts (eps=*.csv)
-%   Table 3 -> ProbVer TinyYOLO verdicts (results_summary.csv)
-%   Table 4 -> FairNNV Adult Census (counterfactual + individual CSVs)
-%   Table 5 -> ToolComparison FC VNNLIB  (table_A.txt; full mode)
-%   Table 6 -> ToolComparison CNN VNNLIB (table_A.txt; full mode)
-%   Table 7 -> ToolComparison MNIST-ResNet-8 (table_C.txt; full mode)
-%   In smoke mode the full per-table renders aren't produced; we fall
-%   back to ToolComparison's table_main.{tex,txt}.
+% Paper -> artefact map:
+%   Fig. 2  -> ModelStar single-layer weight-perturbation (paper Fig. 2)
+%             Captured by run_isolated post-step from the figure ModelStar's
+%             plot_results leaves open. The conv_expt_any_layer.m caller
+%             passes reverse_order=0 so the columns appear as fc_6|fc_5|fc_4
+%             matching the paper.
+%   Fig. 3  -> GNNV IEEE-24 power flow (paper Fig. 3)
+%             Generated here from gnn_results.csv (verified-% vs node-eps,
+%             one line per architecture) -- GNNV's per-experiment script
+%             doesn't save it.
+%   Table 2 -> VolumeStar / VideoStar; aggregate the per-sample CSVs into
+%             per-epsilon (Ver, Unk, Avg time) rows.
+%   Table 3 -> ProbVer; extract property number from the vnnlib filename.
+%   Table 4 -> FairNNV; combine counterfactual + individual + timing CSVs
+%             into the paper's (Small / Medium) x (VF% / Time) layout.
+%   Tables 5+6+7 -> ToolComparison; loaded straight from per-benchmark
+%             .mat files via the canonical tool_utils schema, split into
+%             FC VNNLIB (ACAS p3/p4/RL), CNN VNNLIB (OVAL21, Collins RUL),
+%             and MNIST-ResNet-8 (per epsilon, decoded from instance_id).
 
-    resultsDir = fullfile(logDir, 'results');
-    figDir     = fullfile(logDir, 'figures');
+    resultsDir   = fullfile(logDir, 'results');
+    figDir       = fullfile(logDir, 'figures');
+    paperTxt     = fullfile(logDir, 'PAPER_TABLES.txt');
 
-    fprintf('\n');
-    fprintf('================================================================\n');
-    fprintf('  PAPER ARTEFACTS (compare against the NNV3 ATVA 2026 PDF)\n');
-    fprintf('================================================================\n');
+    mode    = getenv('TOOLCOMPARISON_MODE');
+    if isempty(mode), mode = 'unknown'; end
+    isSmoke = strcmp(mode, 'smoke');
 
-    fprintf('\nFIGURES saved as PNG + PDF under:\n  %s/\n', figDir);
-    fprintf('  Fig. 2 -- ModelStar single-layer weight-perturbation\n');
-    list_fig_matches(figDir, 'modelstar_*', '    Source: results/ModelStar/MNIST_MLP.mat (per-cell verdicts)');
-    fprintf('  Fig. 3 -- GNNV IEEE-24 power flow (GCN / SAGE / GINE-Conv)\n');
-    list_fig_matches(figDir, 'gnnv_*', '    Source: results/GNNV/gnn_results.csv (verified percentages per arch x epsilon)');
-
-    print_table_file('Table 2 -- VolumeStar / VideoStar (paper Sec. on VolumeStar)', ...
-        fullfile(resultsDir, 'VideoStar', 'eps=1_255.csv'), ...
-        fullfile(resultsDir, 'VideoStar', 'eps=2_255.csv'), ...
-        fullfile(resultsDir, 'VideoStar', 'eps=3_255.csv'));
-
-    print_table_file('Table 3 -- Probabilistic verification (paper Sec. on ProbVer)', ...
-        fullfile(resultsDir, 'ProbVer', 'results_summary.csv'));
-
-    print_table_glob('Table 4 -- FairNNV on Adult Census', ...
-        fullfile(resultsDir, 'FairNNV'), {'counterfactual_*.csv', 'individual_*.csv'});
-
-    tc_tables  = fullfile(resultsDir, 'ToolComparison', 'tables');
-    table_A    = fullfile(tc_tables, 'table_A.txt');
-    table_C    = fullfile(tc_tables, 'table_C.txt');
-    table_main = fullfile(tc_tables, 'table_main.txt');
-    if exist(table_A, 'file') || exist(table_C, 'file')
-        print_table_file('Tables 5 + 6 -- Tool comparison (FC + CNN VNNLIB)', table_A);
-        print_table_file('Table 7 -- MNIST-ResNet-8 robustness', table_C);
-    elseif exist(table_main, 'file')
-        print_table_file('Tables 5, 6, 7 -- Tool comparison (smoke mode -- table_main aggregates all three)', table_main);
-    else
-        fprintf('\n--- Tables 5, 6, 7 ---\n  (no ToolComparison table found at %s)\n', tc_tables);
+    % Generate Fig. 3 before listing the figures section.
+    try
+        generate_fig3(resultsDir, figDir);
+    catch ME
+        fprintf(2, '  [fig 3 generation] %s\n', ME.message);
     end
 
-    fprintf('\n================================================================\n\n');
+    tfid = fopen(paperTxt, 'w');
+    if tfid > 0
+        fids = [1, tfid];
+        cleanup = onCleanup(@() fclose(tfid)); %#ok<NASGU>
+    else
+        fids = 1;
+    end
+
+    dprintf(fids, '\n');
+    dprintf(fids, '================================================================\n');
+    dprintf(fids, '  PAPER ARTEFACTS (compare against the NNV3 ATVA 2026 PDF)\n');
+    dprintf(fids, '  Run mode: %s\n', mode);
+    dprintf(fids, '================================================================\n');
+
+    dprintf(fids, '\nFIGURES saved as PNG + PDF under:\n  %s/\n', figDir);
+    dprintf(fids, '\n  Fig. 2 -- ModelStar single-layer weight-perturbation (paper Fig. 2)\n');
+    list_fig_matches(fids, figDir, 'modelstar_*', ...
+        '    Source: results/ModelStar/MNIST_MLP.mat (per-cell verdicts)');
+    dprintf(fids, '    Layer order: fc_6 | fc_5 | fc_4  (paper-aligned via reverse_order=0)\n');
+    dprintf(fids, '\n  Fig. 3 -- GNNV IEEE-24 power flow (paper Fig. 3)\n');
+    list_fig_matches(fids, figDir, 'fig_3_gnnv*', ...
+        '    Source: results/GNNV/gnn_results.csv');
+    dprintf(fids, '    Plot: verified-%% vs node-epsilon, one line per arch (GCN / SAGE / GINE-Conv)\n');
+
+    render_table_2(fids, resultsDir);
+    render_table_3(fids, resultsDir);
+    render_table_4(fids, resultsDir);
+    render_tables_5_6_7(fids, resultsDir, isSmoke);
+
+    dprintf(fids, '\n================================================================\n');
+    if tfid > 0
+        dprintf(fids, 'Rendered tables saved to: %s\n', paperTxt);
+        dprintf(fids, 'docker cp the parent repeatability_logs/ dir to get every artefact.\n');
+    end
+    dprintf(fids, '================================================================\n\n');
 end
 
 % -------------------------------------------------------------------------
-function list_fig_matches(figDir, prefix, sourceNote)
+function dprintf(fids, varargin)
+%DPRINTF  fprintf to a vector of file IDs (e.g. [1 fid] for stdout+file).
+    for k = 1:numel(fids)
+        fprintf(fids(k), varargin{:});
+    end
+end
+
+% -------------------------------------------------------------------------
+function list_fig_matches(fids, figDir, prefix, sourceNote)
     if ~isfolder(figDir)
-        fprintf('    (no figure directory yet -- experiment may not have run)\n');
-        if nargin >= 3, fprintf('%s\n', sourceNote); end
+        dprintf(fids, '    (no figure directory yet -- experiment may not have run)\n');
+        if nargin >= 4, dprintf(fids, '%s\n', sourceNote); end
         return;
     end
-    info = [dir(fullfile(figDir, [prefix '.png'])); dir(fullfile(figDir, [prefix '.pdf']))];
+    info = [dir(fullfile(figDir, [prefix '.png'])); ...
+            dir(fullfile(figDir, [prefix '.pdf']))];
     if isempty(info)
-        fprintf('    (not auto-generated by this experiment)\n');
-        if nargin >= 3, fprintf('%s\n', sourceNote); end
+        dprintf(fids, '    (not auto-generated by this experiment)\n');
+        if nargin >= 4, dprintf(fids, '%s\n', sourceNote); end
     else
         for k = 1:numel(info)
-            fprintf('    %s\n', fullfile(info(k).folder, info(k).name));
+            dprintf(fids, '    %s\n', fullfile(info(k).folder, info(k).name));
         end
     end
 end
 
 % -------------------------------------------------------------------------
-function print_table_file(label, varargin)
-    fprintf('\n--- %s ---\n', label);
-    for k = 1:numel(varargin)
-        f = varargin{k};
-        if isempty(f), continue; end
-        fprintf('\n  [%s]\n', f);
-        if exist(f, 'file')
-            try
-                txt = fileread(f);
-                fprintf('%s\n', txt);
-            catch ME
-                fprintf('    (could not read: %s)\n', ME.message);
-            end
-        else
-            fprintf('    (not found)\n');
+function generate_fig3(resultsDir, figDir)
+% Plot verified-% vs node-epsilon, one line per architecture, from
+% GNNV's gnn_results.csv. GNNV doesn't save its figure; without this
+% step there's no Fig. 3 artefact on disk.
+
+    csv = fullfile(resultsDir, 'GNNV', 'gnn_results.csv');
+    if ~isfile(csv), return; end
+    T = readtable(csv);
+
+    archs = unique(T.Architecture, 'stable');
+    if isempty(archs), return; end
+
+    fig = figure('Visible', 'off', 'Position', [100 100 720 480]);
+    hold on;
+    markers = {'o','s','d','^','v','>'};
+    for k = 1:numel(archs)
+        Tk = T(strcmp(T.Architecture, archs{k}), :);
+        [eps_sorted, idx] = sort(Tk.Node_Epsilon);
+        pct_sorted = Tk.Pct_Verified(idx);
+        if numel(eps_sorted) >= 1
+            semilogx(eps_sorted, pct_sorted, '-', ...
+                'Marker', markers{mod(k-1, numel(markers))+1}, ...
+                'LineWidth', 2, 'MarkerSize', 8, ...
+                'DisplayName', upper(archs{k}));
+        end
+    end
+    xlabel('Node \epsilon');
+    ylabel('Verified voltage nodes (%)');
+    title('Fig. 3 -- GNNV IEEE-24 power flow verification');
+    legend('Location', 'best');
+    grid on;
+    ylim([0 105]);
+
+    if ~isfolder(figDir), mkdir(figDir); end
+    try, exportgraphics(fig, fullfile(figDir, 'fig_3_gnnv.png'), 'Resolution', 200); catch; end
+    try, exportgraphics(fig, fullfile(figDir, 'fig_3_gnnv.pdf')); catch; end
+    close(fig);
+end
+
+% -------------------------------------------------------------------------
+function render_table_2(fids, resultsDir)
+% Paper Table 2: VolumeStar verification on ZoomIn-4f.
+% Aggregate per-sample eps=*.csv into per-epsilon (Ver, Unk, Avg time).
+% Result codes: 1 = verified, 2 = unknown.
+
+    dprintf(fids, '\n--- Table 2 -- VolumeStar / VideoStar (paper Tab. 2) ---\n');
+    dprintf(fids, '10 samples per epsilon, 30-min timeout, relax algorithm\n\n');
+
+    epsCases = {'1/255', '2/255', '3/255'};
+    csvFiles = {'eps=1_255.csv', 'eps=2_255.csv', 'eps=3_255.csv'};
+
+    dprintf(fids, '  %-9s | %-4s | %-4s | %-14s\n', 'epsilon', 'Ver.', 'Unk.', 'Avg. Time (s)');
+    dprintf(fids, '  %s\n', '----------+------+------+---------------');
+    for k = 1:numel(epsCases)
+        f = fullfile(resultsDir, 'VideoStar', csvFiles{k});
+        if ~isfile(f)
+            dprintf(fids, '  %-9s | %-4s | %-4s | %-14s\n', epsCases{k}, '?', '?', '(missing)');
+            continue;
+        end
+        try
+            T = readtable(f);
+            nV = sum(T.Result == 1);
+            nU = sum(T.Result == 2);
+            avgT = mean(T.Time);
+            dprintf(fids, '  %-9s | %4d | %4d | %14.2f\n', epsCases{k}, nV, nU, avgT);
+        catch ME
+            dprintf(fids, '  %-9s | %-4s | %-4s | (parse error: %s)\n', epsCases{k}, '?', '?', ME.message);
         end
     end
 end
 
 % -------------------------------------------------------------------------
-function print_table_glob(label, baseDir, patterns)
-    fprintf('\n--- %s ---\n', label);
-    if ~isfolder(baseDir)
-        fprintf('  (directory not found: %s)\n', baseDir);
+function render_table_3(fids, resultsDir)
+% Paper Table 3: Probabilistic verification on TinyYOLO.
+% Replace onnx/vnnlib columns with property number extracted from
+% the vnnlib filename ("TinyYOLO_prop_000101_eps_1_255.vnnlib" -> Prop 101).
+
+    dprintf(fids, '\n--- Table 3 -- Probabilistic verification (paper Tab. 3) ---\n');
+    dprintf(fids, 'CP-Star reachability, surrogate 99.9%% coverage / 99.9%% confidence, GPU\n\n');
+
+    f = fullfile(resultsDir, 'ProbVer', 'results_summary.csv');
+    if ~isfile(f)
+        dprintf(fids, '  (results_summary.csv not found at %s)\n', f);
         return;
     end
-    for k = 1:numel(patterns)
-        info = dir(fullfile(baseDir, patterns{k}));
-        for j = 1:numel(info)
-            f = fullfile(info(j).folder, info(j).name);
-            fprintf('\n  [%s]\n', f);
-            try
-                txt = fileread(f);
-                fprintf('%s\n', txt);
-            catch
-                fprintf('    (could not read)\n');
+    try
+        T = readtable(f);
+    catch ME
+        dprintf(fids, '  (could not read: %s)\n', ME.message);
+        return;
+    end
+
+    % Look columns up by substring rather than exact name -- run_probver.m
+    % and the bash run_probver.sh driver have occasionally diverged on the
+    % exact header (`vnnlib` vs `Vnnlib` vs `vnnlib_file` etc.), and we
+    % want this render to keep working regardless.
+    vnnCol    = find_col(T, 'vnnlib');
+    statusCol = find_col(T, 'status');
+    timeCol   = find_col(T, 'time');
+    indexCol  = find_col(T, 'index');
+    if isempty(vnnCol) || isempty(statusCol) || isempty(timeCol)
+        dprintf(fids, '  (results_summary.csv has unexpected columns: %s)\n', ...
+            strjoin(T.Properties.VariableNames, ', '));
+        return;
+    end
+
+    dprintf(fids, '  %-10s | %-7s | %-9s | %-7s\n', 'Property', 'epsilon', 'Time (s)', 'Result');
+    dprintf(fids, '  %s\n', '-----------+---------+-----------+--------');
+    for k = 1:height(T)
+        v = cell_to_char(T.(vnnCol)(k));
+        propTok = regexp(v, 'prop_0*(\d+)', 'tokens', 'once');
+        epsTok  = regexp(v, 'eps_(\d+)_(\d+)', 'tokens', 'once');
+        if isempty(propTok)
+            if isempty(indexCol), propStr = ['#' num2str(k)];
+            else,                 propStr = ['#' num2str(T.(indexCol)(k))];
             end
+        else
+            propStr = ['Prop ' propTok{1}];
+        end
+        if isempty(epsTok), epsStr = '?'; else, epsStr = [epsTok{1} '/' epsTok{2}]; end
+        statusStr = upper(cell_to_char(T.(statusCol)(k)));
+        timeVal = T.(timeCol)(k); if iscell(timeVal), timeVal = timeVal{1}; end
+        dprintf(fids, '  %-10s | %-7s | %9.2f | %-7s\n', propStr, epsStr, double(timeVal), statusStr);
+    end
+end
+
+% -------------------------------------------------------------------------
+function name = find_col(T, substr)
+%FIND_COL  First column in table T whose name contains `substr` (case-insensitive).
+%   Returns '' if no column matches. Lets the renderers tolerate small
+%   schema drift between runs / between the single-process .m and bash
+%   driver variants of an experiment.
+    cols = T.Properties.VariableNames;
+    idx = find(contains(lower(cols), lower(substr)), 1);
+    if isempty(idx), name = ''; else, name = cols{idx}; end
+end
+
+% -------------------------------------------------------------------------
+function s = cell_to_char(v)
+%CELL_TO_CHAR  Normalise readtable cell-array-of-char / string / char output to a char vector.
+    if iscell(v),     s = char(v{1});
+    elseif isstring(v), s = char(v);
+    elseif ischar(v), s = v;
+    else,             s = char(string(v));
+    end
+end
+
+% -------------------------------------------------------------------------
+function render_table_4(fids, resultsDir)
+% Paper Table 4: FairNNV on Adult Census.
+% Combine counterfactual + individual fairness CSVs with the timing CSV
+% into the paper's two-row-per-model (VF % / Time s) layout. Use only
+% the latest timestamped run (the consolidator may carry duplicates).
+% Display labels: AC-1 -> Small, AC-3 -> Medium.
+
+    dprintf(fids, '\n--- Table 4 -- FairNNV on Adult Census (paper Tab. 4) ---\n');
+    dprintf(fids, 'CF = counterfactual fairness (epsilon=0); IF = individual fairness\n\n');
+
+    fnDir = fullfile(resultsDir, 'FairNNV');
+    cfPath  = latest_match(fnDir, 'counterfactual_*.csv');
+    indPath = latest_match(fnDir, 'individual_*.csv');
+    timPath = latest_match(fnDir, 'timing_*.csv');
+
+    if isempty(cfPath) || isempty(indPath)
+        dprintf(fids, '  (FairNNV CSVs not found under %s)\n', fnDir);
+        return;
+    end
+
+    try
+        cfT  = readtable(cfPath);
+        indT = readtable(indPath);
+    catch ME
+        dprintf(fids, '  (could not read CSVs: %s)\n', ME.message);
+        return;
+    end
+    timT = [];
+    if ~isempty(timPath), try, timT = readtable(timPath); catch; end; end
+
+    eps_list = unique(indT.Epsilon, 'stable');
+    if isempty(eps_list)
+        dprintf(fids, '  (no epsilons in individual_*.csv)\n');
+        return;
+    end
+
+    % Header
+    head = sprintf('  %-9s %-10s   %-8s', 'Model', 'Metric', 'CF(e=0)');
+    for k = 1:numel(eps_list)
+        head = [head sprintf(' %-8s', sprintf('IF(%.2f)', eps_list(k)))]; %#ok<AGROW>
+    end
+    dprintf(fids, '%s\n', head);
+    dprintf(fids, '  %s\n', repmat('-', 1, length(head)-2));
+
+    modelMap = {{'AC-1','Small'}, {'AC-3','Medium'}};
+    for mi = 1:numel(modelMap)
+        key  = modelMap{mi}{1};
+        disp_= modelMap{mi}{2};
+
+        cfRow = cfT(strcmp(cfT.Model, key), :);
+        cfVF  = NaN; if ~isempty(cfRow), cfVF = cfRow.FairPercent(1); end
+
+        % VF row
+        line = sprintf('  %-9s %-10s   %8.0f', disp_, 'VF (%)', cfVF);
+        for k = 1:numel(eps_list)
+            r = indT(strcmp(indT.Model, key) & indT.Epsilon == eps_list(k), :);
+            v = NaN; if ~isempty(r), v = r.FairPercent(1); end
+            line = [line sprintf(' %8.0f', v)]; %#ok<AGROW>
+        end
+        dprintf(fids, '%s\n', line);
+
+        % Time row (only if timing CSV present)
+        if ~isempty(timT)
+            cfTimeRow = timT(strcmp(timT.Model, key) & timT.Epsilon == 0, :);
+            cfTime = NaN;
+            if ~isempty(cfTimeRow) && ismember('AvgTimePerSample', timT.Properties.VariableNames)
+                cfTime = cfTimeRow.AvgTimePerSample(1);
+            end
+            tline = sprintf('  %-9s %-10s   %8.2f', '', 'Time (s)', cfTime);
+            for k = 1:numel(eps_list)
+                r = timT(strcmp(timT.Model, key) & timT.Epsilon == eps_list(k), :);
+                v = NaN;
+                if ~isempty(r) && ismember('AvgTimePerSample', timT.Properties.VariableNames)
+                    v = r.AvgTimePerSample(1);
+                end
+                tline = [tline sprintf(' %8.2f', v)]; %#ok<AGROW>
+            end
+            dprintf(fids, '%s\n', tline);
         end
     end
+
+    dprintf(fids, '\n  Note: ''Small'' aggregates AC-1 rows, ''Medium'' aggregates AC-3 rows.\n');
+    if isempty(timT)
+        dprintf(fids, '  Note: per-sample timing data not found (timing_*.csv missing).\n');
+    end
+end
+
+% -------------------------------------------------------------------------
+function render_tables_5_6_7(fids, resultsDir, isSmoke)
+% Paper Tables 5, 6, 7: ToolComparison NNV vs AIVL.
+% Load per-benchmark .mat files via the canonical tool_utils schema
+% (tool/benchmark/instance_id/status/time/algorithm/timeout/note),
+% aggregate, and render the paper's three separate tables. For MNIST-
+% ResNet-8 (Table 7), decode epsilon from the instance_id string
+% ("img%d|eps=%s") to get per-epsilon mean times.
+
+    smokeTag = '';
+    if isSmoke, smokeTag = ' (SMOKE -- ~1 instance per cell)'; end
+
+    % --- Table 5: FC VNNLIB ---
+    dprintf(fids, '\n--- Table 5 -- Tool comparison on FC VNNLIB benchmarks (paper Tab. 5)%s ---\n', smokeTag);
+    dprintf(fids, 'Per cell: V verified, X violated, U unknown, T timeout, S mean time on solved (s)\n');
+    render_tc_grouped(fids, resultsDir, ...
+        {'acas_xu_p3', 'acas_xu_p4', 'rl'}, {'ACAS p3', 'ACAS p4', 'RL'});
+
+    % --- Table 6: CNN VNNLIB ---
+    dprintf(fids, '\n--- Table 6 -- Tool comparison on CNN VNNLIB benchmarks (paper Tab. 6)%s ---\n', smokeTag);
+    dprintf(fids, 'Per cell: V verified, X violated, U unknown, T timeout, S mean time on solved (s)\n');
+    render_tc_grouped(fids, resultsDir, ...
+        {'oval21', 'collins_rul'}, {'OVAL21', 'Collins RUL'});
+
+    % --- Table 7: MNIST-ResNet-8 per epsilon ---
+    dprintf(fids, '\n--- Table 7 -- MNIST-ResNet-8 robustness per epsilon (paper Tab. 7)%s ---\n', smokeTag);
+    render_table_7_resnet(fids, resultsDir);
+
+    if isSmoke
+        dprintf(fids, '\n  Smoke mode is a structural sanity check, not a paper-faithful\n');
+        dprintf(fids, '  reproduction. For the paper numbers, run run_full.m\n');
+        dprintf(fids, '  (~3-5 h ToolComparison wall).\n');
+    end
+end
+
+% -------------------------------------------------------------------------
+function render_tc_grouped(fids, resultsDir, benches, labels)
+% Aggregate each benchmark's .mat by (tool, algorithm) and print a
+% side-by-side table with V/X/U/T/S columns per benchmark.
+
+    aggregated = cell(1, numel(benches));
+    Ns = zeros(1, numel(benches));
+    for b = 1:numel(benches)
+        matFile = fullfile(resultsDir, 'ToolComparison', [benches{b} '.mat']);
+        R = load_tc_results(matFile);
+        if ~istable(R) || isempty(R)
+            aggregated{b} = []; Ns(b) = 0; continue;
+        end
+        aggregated{b} = aggregate_by_algo(R);
+        Ns(b) = max(arrayfun(@(k) sum(R.tool == aggregated{b}.tool(k) & ...
+                                       R.algorithm == aggregated{b}.algorithm(k)), ...
+                              1:height(aggregated{b})));
+    end
+
+    if all(cellfun(@isempty, aggregated))
+        dprintf(fids, '  (no ToolComparison results found under %s)\n', ...
+            fullfile(resultsDir, 'ToolComparison'));
+        return;
+    end
+
+    % Header rows
+    cell_w = 26;
+    headRow1 = sprintf('  %-26s', 'Algorithm');
+    headRow2 = sprintf('  %-26s', '');
+    for b = 1:numel(benches)
+        headRow1 = [headRow1 ' | ' pad_center(sprintf('%s (N=%d)', labels{b}, Ns(b)), cell_w)]; %#ok<AGROW>
+        headRow2 = [headRow2 ' | ' pad_center(' V   X   U   T      S', cell_w)]; %#ok<AGROW>
+    end
+    dprintf(fids, '\n%s\n%s\n', headRow1, headRow2);
+    dprintf(fids, '  %s\n', repmat('-', 1, length(headRow1)-2));
+
+    % Union of (tool, algorithm) keys across all benchmarks, AIVL first.
+    keys = strings(0,1);
+    for b = 1:numel(benches)
+        if isempty(aggregated{b}), continue; end
+        for r = 1:height(aggregated{b})
+            keys(end+1, 1) = aggregated{b}.tool(r) + "/" + aggregated{b}.algorithm(r); %#ok<AGROW>
+        end
+    end
+    keys = unique(keys, 'stable');
+    aivl_k = keys(startsWith(keys, "aivl/"));
+    nnv_k  = sort(keys(startsWith(keys, "nnv/")));
+    keys   = [aivl_k; nnv_k];
+
+    for ki = 1:numel(keys)
+        parts = strsplit(char(keys(ki)), '/');
+        toolS = parts{1}; algoS = parts{2};
+        rowLabel = sprintf('%-4s %s', toolS, algoS);
+        line = sprintf('  %-26s', rowLabel);
+        for b = 1:numel(benches)
+            agg = aggregated{b};
+            if isempty(agg)
+                line = [line ' | ' pad_center('--', cell_w)]; %#ok<AGROW>
+                continue;
+            end
+            r = agg(agg.tool == toolS & agg.algorithm == algoS, :);
+            if isempty(r)
+                cell_s = '--';
+            else
+                if isnan(r.MeanTime(1)), ts = '  --'; else, ts = sprintf('%6.2f', r.MeanTime(1)); end
+                cell_s = sprintf('%2d  %2d  %2d  %2d  %s', r.V(1), r.X(1), r.U(1), r.T(1), ts);
+            end
+            line = [line ' | ' pad_center(cell_s, cell_w)]; %#ok<AGROW>
+        end
+        dprintf(fids, '%s\n', line);
+    end
+end
+
+% -------------------------------------------------------------------------
+function render_table_7_resnet(fids, resultsDir)
+    matFile = fullfile(resultsDir, 'ToolComparison', 'mnist_resnet8.mat');
+    R = load_tc_results(matFile);
+    if ~istable(R) || isempty(R)
+        dprintf(fids, '  (mnist_resnet8.mat not found under %s)\n', ...
+            fullfile(resultsDir, 'ToolComparison'));
+        return;
+    end
+
+    % Decode epsilon from instance_id = "img%d|eps=%s"
+    eps_vec = nan(height(R), 1);
+    for k = 1:height(R)
+        tok = regexp(char(R.instance_id(k)), 'eps=([\d.eE+-]+)', 'tokens', 'once');
+        if ~isempty(tok), eps_vec(k) = str2double(tok{1}); end
+    end
+    R.eps = eps_vec;
+    R = R(~isnan(R.eps), :);
+    if isempty(R)
+        dprintf(fids, '  (no eps-tagged instance_ids in mnist_resnet8.mat)\n');
+        return;
+    end
+
+    eps_unique = sort(unique(R.eps));
+    eps_labels = arrayfun(@(e) format_eps(e), eps_unique, 'UniformOutput', false);
+
+    % Determine tool/algorithm pairs in canonical order: AIVL first.
+    pairs = unique(R(:, {'tool','algorithm'}), 'rows', 'stable');
+    aivlMask = strcmp(string(pairs.tool), 'aivl');
+    pairs = [pairs(aivlMask, :); pairs(~aivlMask, :)];
+
+    dprintf(fids, '%d images per epsilon (full mode renders all eps; smoke mode is single-eps).\n\n', ...
+        round(height(R) / max(1, numel(eps_unique) * height(pairs))));
+
+    head = sprintf('  %-30s', 'Tool / Algorithm');
+    for k = 1:numel(eps_unique), head = [head sprintf(' | %8s', eps_labels{k})]; end %#ok<AGROW>
+    head2 = sprintf('  %-30s', '');
+    for k = 1:numel(eps_unique), head2 = [head2 sprintf(' | %8s', 'mean t(s)')]; end %#ok<AGROW>
+    dprintf(fids, '%s\n%s\n', head, head2);
+    dprintf(fids, '  %s\n', repmat('-', 1, length(head)-2));
+
+    for pi = 1:height(pairs)
+        toolS = string(pairs.tool(pi)); algoS = string(pairs.algorithm(pi));
+        line = sprintf('  %-30s', sprintf('%-4s %s', toolS, algoS));
+        for ei = 1:numel(eps_unique)
+            e = eps_unique(ei);
+            sub = R(R.tool == toolS & R.algorithm == algoS & abs(R.eps - e) < 1e-9, :);
+            solved = sub.status == "verified" | sub.status == "violated";
+            if any(solved), mt = mean(sub.time(solved)); else, mt = NaN; end
+            if isnan(mt), line = [line sprintf(' | %8s', '--')]; %#ok<AGROW>
+            else,         line = [line sprintf(' | %8.2f', mt)]; %#ok<AGROW>
+            end
+        end
+        dprintf(fids, '%s\n', line);
+    end
+end
+
+% -------------------------------------------------------------------------
+function agg = aggregate_by_algo(R)
+    keys = unique(R(:, {'tool','algorithm'}), 'rows', 'stable');
+    n = height(keys);
+    agg = table('Size', [n 7], ...
+        'VariableTypes', {'string','string','double','double','double','double','double'}, ...
+        'VariableNames', {'tool','algorithm','V','X','U','T','MeanTime'});
+    for k = 1:n
+        toolS = string(keys.tool(k));
+        algoS = string(keys.algorithm(k));
+        sub   = R(string(R.tool) == toolS & string(R.algorithm) == algoS, :);
+        agg.tool(k) = toolS; agg.algorithm(k) = algoS;
+        agg.V(k) = sum(string(sub.status) == "verified");
+        agg.X(k) = sum(string(sub.status) == "violated");
+        agg.U(k) = sum(string(sub.status) == "unknown");
+        agg.T(k) = sum(string(sub.status) == "timeout");
+        solved   = string(sub.status) == "verified" | string(sub.status) == "violated";
+        if any(solved), agg.MeanTime(k) = mean(sub.time(solved));
+        else,           agg.MeanTime(k) = NaN;
+        end
+    end
+end
+
+% -------------------------------------------------------------------------
+function R = load_tc_results(matFile)
+    R = [];
+    if ~isfile(matFile), return; end
+    try
+        S = load(matFile);
+        f = fieldnames(S);
+        if isempty(f), return; end
+        R = S.(f{1});
+    catch
+        R = [];
+    end
+end
+
+% -------------------------------------------------------------------------
+function p = latest_match(d, pat)
+    p = '';
+    if ~isfolder(d), return; end
+    info = dir(fullfile(d, pat));
+    if isempty(info), return; end
+    [~, idx] = max([info.datenum]);
+    p = fullfile(info(idx).folder, info(idx).name);
+end
+
+% -------------------------------------------------------------------------
+function s = format_eps(e)
+    if abs(e * 255 - round(e*255)) < 1e-3
+        s = sprintf('%d/255', round(e*255));
+    else
+        s = sprintf('%.5g', e);
+    end
+end
+
+% -------------------------------------------------------------------------
+function s = pad_center(str, w)
+    str = char(str);
+    if length(str) >= w, s = str(1:w); return; end
+    pad = w - length(str);
+    left = floor(pad/2); right = pad - left;
+    s = [repmat(' ', 1, left) str repmat(' ', 1, right)];
 end
 
 % -------------------------------------------------------------------------

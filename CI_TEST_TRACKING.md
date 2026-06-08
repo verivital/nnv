@@ -83,18 +83,22 @@ heavy sections of `test_all_tutorial` (segmentation, etc.).
 
 ---
 
-## D. Linux-hanging NNCS tutorials (identified → excluded)
-- **`test_all_tutorial/test13_NNCS_InvertedPendulum`** (definitive — was alone in its shard,
-  which hung) and **`test_all_tutorial/test10_NNCS_ACC`** (same family, shard 6 long-pole)
-  **hang / run away on the Linux runner** — NNCS *nonlinear* CORA `NonLinearODE` reachability
-  is very slow/looping there (`test13` also has a fragile relative `cd`). Now in
-  `confirmedCrashPatterns` → **excluded from standard CI**, run via the fallback/locally.
-  - [ ] **Resolve:** investigate why CORA nonlinear reachability hangs on Linux (solver
-    tolerance/iterations vs Windows); fix the relative `cd` (use `nnvroot()`); then remove
-    from `confirmedCrashPatterns`.
-  - Safety nets: the `report` job reds the build on any **missing shard**, and
-    `continue-on-error` on the run step lets a timed-out shard still upload its progress trace
-    (which names the offending test) — so a new hang can't slip through unseen.
+## D. CORA nonlinear reachability hangs on the Linux runner (class excluded)
+**`test_all_tutorial/test13_NNCS_InvertedPendulum`** was alone in its shard, which hung →
+definitive. The whole **CORA *nonlinear* family** hangs/runs-away on the Linux runner (vs
+~minutes on Windows); excluding one at a time was whack-a-mole as bin-packing reshuffled, so
+the class is excluded together (`confirmedCrashPatterns` in `run_shard.m`) and run via the
+fallback/locally — **38 elements across:** `test_NonLinearODE_*` (evaluate / reach_zono /
+stepReachStar), `test_hybridA`, `test_soundness_HybridA`, `test_soundness_NonlinearNNCS`,
+`test_soundness_DNonlinearNNCS`, `test_regression_neural_ode`, and
+`test_all_tutorial/{test10_NNCS_ACC, test13_NNCS_InvertedPendulum}`. Linear reachability
+(`DLinearODE`, `LinearNNCS`, `DLinearNNCS`) is fine and stays.
+- [ ] **ROOT FIX:** investigate why CORA `NonLinearODE` reachability hangs on Linux (solver
+  tolerance/iterations vs Windows) + fix the tutorials' relative `cd` (use `nnvroot()`); then
+  remove from `confirmedCrashPatterns`. Until then they run via the high-mem fallback / locally.
+- Safety net: the `report` job reds the build on any **missing shard**, so a new hang can't
+  slip through unseen (and `continue-on-error` lets a cleanly-crashed shard still upload the
+  progress trace that names the offender).
 
 ## C. How to update
 - **Fixed a failing test?** Run it under `runtests` (not as a script) to confirm it passes, then

@@ -33,13 +33,15 @@ function run_shard(shardIdx, numShards, mode)
     % Excluded from CI shards (cannot run on a GitHub-hosted runner):
     %   GPU tests -- no GPU on the runners (error/incomplete there).
     gpuPatterns = {'_gpu_', 'toGPU'};
-    %   CONFIRMED to crash/HANG on the Linux runner (exit 255 / OOM / run-away). Excluded so
-    %   the shard's other results survive; run via the high-mem fallback (highmem mode,
-    %   self-hosted/ACCRE) or locally. From CI evidence:
-    %     - test13_NNCS_InvertedPendulum: alone in its shard, HUNG (NNCS nonlinear CORA
-    %       reachability runs away on Linux; also has a fragile relative cd).
-    %     - test10_NNCS_ACC: same NNCS/CORA-nonlinear family, the long pole in a hung shard.
-    confirmedCrashPatterns = {'test13_NNCS_InvertedPendulum', 'test10_NNCS_ACC'};
+    %   CORA NONLINEAR reachability HANGS / runs away on the Linux runner (confirmed:
+    %   test13_NNCS_InvertedPendulum was alone in its shard and hung). The whole nonlinear-CORA
+    %   family is excluded as a class (otherwise it's whack-a-mole as bin-packing reshuffles)
+    %   and run via the fallback/locally: NonLinearODE reachability, nonlinear NNCS (ACC +
+    %   InvertedPendulum tutorials + soundness), hybrid automata, and neural ODEs. Linear
+    %   reachability (DLinearODE, LinearNNCS) is fine and stays. ROOT FIX: CORA NonLinearODE
+    %   on Linux (solver tolerance/iterations vs Windows).
+    confirmedCrashPatterns = {'NonLinearODE', 'Hybrid', 'neural_ode', 'NeuralODE', ...
+        'NonlinearNNCS', 'test10_NNCS_ACC', 'test13_NNCS_InvertedPendulum'};
 
     % Tests that merely FAIL (incl. WIP transformer/SLM, tutorial env-diffs) are NOT excluded:
     % they run, results land in JUnit, and the report job classifies them vs

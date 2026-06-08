@@ -88,7 +88,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: results-standard-shard-${{ matrix.shard }}
-          path: code/nnv/test-results-ci/*.xml
+          path: code/nnv/test-results-ci/*
           if-no-files-found: ignore
 
   # High-memory / GPU-excluded tests. OPT-IN (run_highmem=true). Point this at a
@@ -127,5 +127,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: results-highmem
-          path: code/nnv/test-results-ci/*.xml
+          path: code/nnv/test-results-ci/*
           if-no-files-found: ignore

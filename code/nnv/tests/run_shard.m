@@ -80,8 +80,10 @@ function run_shard(shardIdx, numShards, mode)
         return;
     end
 
+    progressFile = fullfile(outDir, sprintf('progress-%s-shard%02d-of%02d.txt', lower(mode), shardIdx, numShards));
     runner = TestRunner.withTextOutput('OutputDetail', Verbosity.Concise);
     runner.addPlugin(XMLPlugin.producingJUnitFormat(xmlFile));
+    runner.addPlugin(ProgressPlugin(progressFile));   % self-identifying crash log (last START w/o DONE = crasher)
     results = runner.run(sel);
 
     fprintf('== shard %d/%d done: %d passed, %d failed, %d incomplete ==\n', ...

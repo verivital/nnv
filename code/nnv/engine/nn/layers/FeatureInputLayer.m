@@ -92,19 +92,27 @@ classdef FeatureInputLayer < handle
         
         % Main star reachability function (TODO: update to other normalization techniques)
         function out_set = reach_star_single_input(obj, in_set)
-            % @in_set: an input ImageStar
-            % @out_set: an output ImageStar
-            n = in_set.dim;
-            
+            % @in_set: an input ImageStar or Star
+            % @out_set: an output ImageStar or Star (matching the input type)
+
             % Compute normalization
             if strcmp(obj.Normalization, 'none')
                 out_set = in_set;
             elseif strcmp(obj.Normalization, 'zerocenter')
-                out_set = in_set.affineMap(eye(n), -obj.Mean);
+                % ImageStar.affineMap accepts an empty W (treated as identity)
+                % so we can shift by the mean directly. Star.affineMap requires
+                % a square W (it checks size(W,2)==star.dim and errors on
+                % size([],2)==0), so for plain Star inputs we supply an explicit
+                % identity matrix.
+                if isa(in_set, 'Star')
+                    out_set = in_set.affineMap(eye(in_set.dim), -obj.Mean(:));
+                else
+                    out_set = in_set.affineMap([], -obj.Mean);
+                end
             else
                 error('The normalization method is not supported yet.')
             end
-            
+
         end
         
         % handling multiple inputs (star)

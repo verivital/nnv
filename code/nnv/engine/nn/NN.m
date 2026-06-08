@@ -1247,20 +1247,37 @@ classdef NN < handle
             end
         end
 
-        % start parallel pool for computing 
+        % start parallel pool for computing
         function start_pool(obj)
 
             if obj.numCores > 1
+                % If running inside a parfeval worker, cannot spawn a nested
+                % parpool. Whatever pool is visible (or none) is what reach's
+                % parfor will use — it falls back to serial when no pool.
+                if ~isempty(getCurrentTask())
+                    return;
+                end
                 poolobj = gcp('nocreate'); % If no pool, do not create new one.
                 if isempty(poolobj)
-                    parpool('local', obj.numCores); 
+                    cl = parcluster();
+                    if cl.NumWorkers < obj.numCores
+                        cl.NumWorkers = obj.numCores;
+                    end
+                    % evalc captures "Starting parallel pool..." / "Connected
+                    % to parallel pool with N workers." chatter; the pool is
+                    % otherwise unaffected (gcp/parfor pick it up normally).
+                    evalc('parpool(cl, obj.numCores);');
                 else
                     if poolobj.NumWorkers ~= obj.numCores
-                        delete(poolobj); % delete the old poolobj
-                        parpool('local', obj.numCores); % start the new one with new number of cores
-                    end                    
+                        evalc('delete(poolobj);'); % delete old; suppress "shutting down" message
+                        cl = parcluster();
+                        if cl.NumWorkers < obj.numCores
+                            cl.NumWorkers = obj.numCores;
+                        end
+                        evalc('parpool(cl, obj.numCores);'); % start new; suppress "Connected to" message
+                    end
                 end
-            end   
+            end
         end
         
         % evaluate NN when no connections are defined

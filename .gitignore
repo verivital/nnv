@@ -26,6 +26,24 @@ code/nnv/tests/attacks/shuttle_images/**
 # Sphinx documentation build output
 docs/_build/
 
+# NNV3.0/ToolComparison local-run scratch
+.cache/
+repro_logs/
+code/nnv/examples/NNV3.0/repeatability_logs/
+code/nnv/examples/NNV3.0/ToolComparison/mnist_resnet/data/
+code/nnv/examples/NNV3.0/ToolComparison/results/
+code/nnv/examples/NNV3.0/ToolComparison/logs/
+code/nnv/examples/NNV3.0/ToolComparison/ISSUES.md
+code/nnv/examples/NNV3.0/ToolComparison/tables/out/
+# Host-side bind-mount target for run_all.sh outputs (Option B docker run).
+results/repeatability_logs/
+**/*.mlpkginstall
+# AIVL Support Package tarball — non-redistributable MathWorks code.
+# Staged here for Dockerfile build to extract; never committed.
+code/nnv/examples/NNV3.0/ToolComparison/utils/atva26-aivl.tar.gz
+# Legacy 24h/8-benchmark study (preserved for paper reference, not part of AE artifact)
+code/nnv/examples/NNV3.0/ToolComparison_legacy/
+
 
 # --- Claude / MCP / OpenSpec (local dev only) ---
 .claude/
@@ -33,3 +51,7 @@ docs/_build/
 openspec/
 AGENTS.md
 CLAUDE.md
+
+# Paper draft (local only, not tracked)
+paper_draft/
+Formal_Methods_2026__FM_2026____NNV___TOOL_PAPER___3_0*.zip

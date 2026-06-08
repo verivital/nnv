@@ -4,6 +4,14 @@ import scipy.io
 import gc
 import time
 import argparse
+import os
+
+# Verbosity flag: default off (suppresses per-iter / per-round / tensor-shape
+# diagnostic prints). Reviewers running the artifact see only milestone lines
+# ("A sufficient amount of principal directions ..." and "Directions and
+# training time saved to 'directions.npz'"). Re-enable with
+# PROBVER_VERBOSE=1 bash run_all.sh for debugging.
+VERBOSE = os.environ.get('PROBVER_VERBOSE', '0') == '1'
 
 # Define the function to compute covariance
 @torch.jit.script
@@ -46,7 +54,8 @@ def deflation(X, n, m, device , batch_size):
         
         iter = 0
         Cov = compute_f(A, X)
-        print(f"Initial guess for covaiance is: {Cov.item()}")
+        if VERBOSE:
+            print(f"Initial guess for covaiance is: {Cov.item()}")
         
         # Train A to find the principal direction for this round
         while True:
@@ -69,16 +78,19 @@ def deflation(X, n, m, device , batch_size):
             # Check convergence
             if iter % 100 == 0:
                 Cov = compute_f(A, X)
-                print(f"Round {round+1} - Iteration {iter} - Covariance: {Cov.item()}")
-                
+                if VERBOSE:
+                    print(f"Round {round+1} - Iteration {iter} - Covariance: {Cov.item()}")
+
                 # Check if convergence condition is met
                 if round == 0:
                     if abs(Cov - Cov_prev) < Cov_prev * 1e-2:
-                        print(f"Convergence achieved at iteration {iter}. Stopping optimization.")
+                        if VERBOSE:
+                            print(f"Convergence achieved at iteration {iter}. Stopping optimization.")
                         break
                 else:
                     if abs(Cov - Cov_prev) < Largest * 1e-2:
-                        print(f"Convergence achieved at iteration {iter}. Stopping optimization.")
+                        if VERBOSE:
+                            print(f"Convergence achieved at iteration {iter}. Stopping optimization.")
                         break
                     
                 
@@ -93,7 +105,7 @@ def deflation(X, n, m, device , batch_size):
         # Remove the component of the data in the direction of A
         X_proj = torch.matmul(A.T, X) * A  # Project the data onto A
         del A
-        print(X_proj.shape)  # Should be (64*84*11, 5*2000)
+        # print(X_proj.shape)  # Should be (64*84*11, 5*2000) -- silenced (debug)
         X = X - X_proj  # Subtract projection from X to remove the direction
         X = X.detach()
         
@@ -134,7 +146,7 @@ def main(mat_file_path: str, num_files: int, N_dir: int,
     del Y
     gc.collect()
 
-    print("X shape:", X.shape)
+    # print("X shape:", X.shape)  # silenced (debug)
 
     n = X.shape[0]
     m = X.shape[1]
@@ -144,10 +156,10 @@ def main(mat_file_path: str, num_files: int, N_dir: int,
 
     Training_time = end_time - start_time
 
-    print("Updated X shape:", X_updated.shape)
-    print("Principal directions found:")
-    for i, A in enumerate(A_list):
-        print(f"A{i+1}: {A}")
+    # print("Updated X shape:", X_updated.shape)  # silenced (debug)
+    # print("Principal directions found:")  # silenced (header for tensor dump)
+    # for i, A in enumerate(A_list):
+    #     print(f"A{i+1}: {A}")  # silenced (per-direction tensor dump, ~1500 lines)
     
     path = mat_file_path + '/directions.npz'
     A_list_np = np.hstack([A.to('cpu').numpy().astype(np.float32) for A in A_list])

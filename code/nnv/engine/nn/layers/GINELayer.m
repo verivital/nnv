@@ -45,6 +45,11 @@ classdef GINELayer < handle
         % Epsilon parameter for self-loop
         Epsilon = 0;
 
+        % Transform order: when true, always apply W_node before message
+        % passing (matches Python LinearGINEConv). When false, uses legacy
+        % behavior: apply W first only when F_in != F_out.
+        TransformFirst = true;
+
         % Standard layer interface
         NumInputs = 1;
         InputNames = {'in'};
@@ -201,19 +206,21 @@ classdef GINELayer < handle
             src_nodes = adj_list(:, 1);
             dst_nodes = adj_list(:, 2);
 
-            % (1) Transform nodes first if dimensions change
-            used_W = false;
-            if obj.InputSize ~= obj.OutputSize
+            % (1) Transform nodes
+            if obj.TransformFirst || obj.InputSize ~= obj.OutputSize
+                % Always apply W first (Python convention) or when dims differ
                 H = X * obj.Weights;  % [N x F_out]
-                used_W = true;
+                apply_W_at_end = false;
             else
-                H = X;  % [N x F_out]
+                % Legacy: defer W when F_in == F_out
+                H = X;  % [N x F_in]
+                apply_W_at_end = true;
             end
 
             % (2) Gather source node features to edges
             H_src = H(src_nodes, :);  % [m x F_out]
 
-            % (3) Transform edge features to F_out and add
+            % (3) Transform edge features and add
             E_trans = E * obj.EdgeWeights;  % [m x F_out]
             if ~isempty(obj.EdgeBias)
                 E_trans = E_trans + obj.EdgeBias';
@@ -224,7 +231,7 @@ classdef GINELayer < handle
             edge_msg = max(0, edge_sum);  % [m x F_out]
 
             % (5) Aggregate messages to destination nodes (weighted)
-            agg = zeros(numNodes, obj.OutputSize);
+            agg = zeros(numNodes, size(H, 2));
             for e = 1:numEdges
                 agg(dst_nodes(e), :) = agg(dst_nodes(e), :) + edge_weights(e) * edge_msg(e, :);
             end
@@ -232,8 +239,8 @@ classdef GINELayer < handle
             % (6) Residual connection: H + aggregated
             combined = H + agg;  % [N x F_out]
 
-            % (7) Apply W at end if not used earlier
-            if ~used_W
+            % (7) Apply W at end if deferred
+            if apply_W_at_end
                 Y = combined * obj.Weights;  % [N x F_out]
             else
                 Y = combined;
@@ -403,20 +410,20 @@ classdef GINELayer < handle
             src_nodes = adj_list(:, 1);
             dst_nodes = adj_list(:, 2);
 
-            % (1) Transform nodes first if dimensions change
-            used_W = false;
-            if obj.InputSize ~= obj.OutputSize
+            % (1) Transform nodes
+            if obj.TransformFirst || obj.InputSize ~= obj.OutputSize
                 V_H = obj.map_features_star(in_gs.V, obj.Weights);  % [N x F_out x K]
-                used_W = true;
+                apply_W_at_end = false;
             else
-                V_H = in_gs.V;  % [N x F_out x K]
+                V_H = in_gs.V;  % [N x F_in x K]
+                apply_W_at_end = true;
             end
 
             % (2) Gather source node features to edges
-            V_edge = obj.gather_src_features_star(V_H, src_nodes);  % [m x F_out x K]
+            V_edge = obj.gather_src_features_star(V_H, src_nodes);  % [m x F x K]
 
-            % (3) Transform edge features to F_out (constant) and add to center
-            E_trans = E * obj.EdgeWeights;  % [m x F_out]
+            % (3) Transform edge features (constant) and add to center
+            E_trans = E * obj.EdgeWeights;  % [m x F]
             if ~isempty(obj.EdgeBias)
                 E_trans = E_trans + obj.EdgeBias';
             end
@@ -424,8 +431,9 @@ classdef GINELayer < handle
 
             % (4) Apply ReLU using NNV's standard ReluLayer (sound implementation)
             % Convert GraphStar V [m x F x K] to Star V [m*F x K]
-            [m_edges, F_out, K_orig] = size(V_edge);
-            V_flat = reshape(permute(V_edge, [2, 1, 3]), [m_edges * F_out, K_orig]);
+            F_msg = size(V_edge, 2);
+            [m_edges, ~, K_orig] = size(V_edge);
+            V_flat = reshape(permute(V_edge, [2, 1, 3]), [m_edges * F_msg, K_orig]);
 
             % Create Star for edge features
             edge_star = Star(V_flat, in_gs.C, in_gs.d, in_gs.pred_lb, in_gs.pred_ub);
@@ -442,7 +450,7 @@ classdef GINELayer < handle
             % Reshape back to [m x F x K']
             K_new = edge_star_out.nVar + 1;
             V_flat_out = edge_star_out.V;
-            V_edge_relu = permute(reshape(V_flat_out, [F_out, m_edges, K_new]), [2, 1, 3]);
+            V_edge_relu = permute(reshape(V_flat_out, [F_msg, m_edges, K_new]), [2, 1, 3]);
 
             % Get updated constraints
             C_new = edge_star_out.C;
@@ -458,15 +466,15 @@ classdef GINELayer < handle
             K_agg = size(V_agg, 3);
             K_H = size(V_H, 3);
             if K_agg > K_H
-                V_H_expanded = zeros(numNodes, obj.OutputSize, K_agg, 'like', V_H);
+                V_H_expanded = zeros(numNodes, size(V_H, 2), K_agg, 'like', V_H);
                 V_H_expanded(:, :, 1:K_H) = V_H;
                 V_combined = V_H_expanded + V_agg;
             else
                 V_combined = V_H + V_agg;
             end
 
-            % (7) Apply W at end if not used earlier
-            if ~used_W
+            % (7) Apply W at end if deferred
+            if apply_W_at_end
                 V_out = obj.map_features_star(V_combined, obj.Weights);
             else
                 V_out = V_combined;
@@ -514,13 +522,13 @@ classdef GINELayer < handle
             src_nodes = adj_list(:, 1);
             dst_nodes = adj_list(:, 2);
 
-            % (1) Transform node features first if dimensions change (GNNV architecture)
-            used_W = false;
-            if obj.InputSize ~= obj.OutputSize
+            % (1) Transform node features
+            if obj.TransformFirst || obj.InputSize ~= obj.OutputSize
                 V_H = obj.map_features_star(in_gs.V, obj.Weights);  % [N x F_out x K]
-                used_W = true;
+                apply_W_at_end = false;
             else
-                V_H = in_gs.V;  % [N x F_out x K]
+                V_H = in_gs.V;  % [N x F_in x K]
+                apply_W_at_end = true;
             end
 
             % Extract edge Star properties
@@ -562,28 +570,38 @@ classdef GINELayer < handle
             end
 
             % (4) Combine node and edge features via Minkowski sum
-            % Need to pad both to same number of generators
-            [V_node_padded, C_node_padded, d_node, pred_lb_node, pred_ub_node, ...
-             V_edge_padded, C_edge_padded, d_edge, pred_lb_edge, pred_ub_edge] = ...
-                obj.pad_to_same_K(V_node_edge, in_gs.C, in_gs.d, in_gs.pred_lb, in_gs.pred_ub, ...
-                                  E_trans_V, E_C, E_d, E_pred_lb, E_pred_ub);
+            % Direct combination without padding — avoids inflating
+            % generator count from 2*K_pad-1 to K_node+K_edge-1
+            C_node = in_gs.C; d_node = in_gs.d;
+            lb_node = in_gs.pred_lb; ub_node = in_gs.pred_ub;
+            C_edge = E_C; d_edge = E_d;
+            lb_edge = E_pred_lb; ub_edge = E_pred_ub;
+
+            K_node = size(V_node_edge, 3);
+            K_edge = size(E_trans_V, 3);
+
+            % Normalize empty constraints for blkdiag
+            if isempty(C_node), C_node = zeros(0, max(K_node-1, 0)); end
+            if isempty(C_edge), C_edge = zeros(0, max(K_edge-1, 0)); end
+            if isempty(d_node), d_node = zeros(0, 1); end
+            if isempty(d_edge), d_edge = zeros(0, 1); end
+            if isempty(lb_node), lb_node = -ones(max(K_node-1, 0), 1); end
+            if isempty(ub_node), ub_node = ones(max(K_node-1, 0), 1); end
+            if isempty(lb_edge), lb_edge = -ones(max(K_edge-1, 0), 1); end
+            if isempty(ub_edge), ub_edge = ones(max(K_edge-1, 0), 1); end
 
             % Minkowski sum: add centers, concatenate generators
-            K_node = size(V_node_padded, 3);
-            K_edge = size(V_edge_padded, 3);
-
-            % Combined V: center is sum of centers, generators are concatenated
-            % Now both are in F_out space
-            V_combined = zeros(numEdges, obj.OutputSize, K_node + K_edge - 1, 'like', V_node_padded);
-            V_combined(:, :, 1) = V_node_padded(:, :, 1) + V_edge_padded(:, :, 1);  % centers
-            V_combined(:, :, 2:K_node) = V_node_padded(:, :, 2:end);  % node generators
-            V_combined(:, :, K_node+1:end) = V_edge_padded(:, :, 2:end);  % edge generators
+            F_msg = size(V_node_edge, 2);
+            V_combined = zeros(numEdges, F_msg, K_node + K_edge - 1, 'like', V_node_edge);
+            V_combined(:, :, 1) = V_node_edge(:, :, 1) + E_trans_V(:, :, 1);  % centers
+            V_combined(:, :, 2:K_node) = V_node_edge(:, :, 2:end);  % node generators
+            V_combined(:, :, K_node+1:end) = E_trans_V(:, :, 2:end);  % edge generators
 
             % Combined constraints: block diagonal
-            C_combined = blkdiag(C_node_padded, C_edge_padded);
+            C_combined = blkdiag(C_node, C_edge);
             d_combined = [d_node; d_edge];
-            pred_lb_combined = [pred_lb_node; pred_lb_edge];
-            pred_ub_combined = [pred_ub_node; pred_ub_edge];
+            pred_lb_combined = [lb_node; lb_edge];
+            pred_ub_combined = [ub_node; ub_edge];
 
             % (5) Apply ReLU using NNV's standard ReluLayer (sound implementation)
             % Convert V [m x F x K] to Star V [m*F x K]
@@ -621,15 +639,15 @@ classdef GINELayer < handle
             K_agg = size(V_agg, 3);
             K_H = size(V_H, 3);
             if K_agg > K_H
-                V_H_expanded = zeros(numNodes, obj.OutputSize, K_agg, 'like', V_H);
+                V_H_expanded = zeros(numNodes, size(V_H, 2), K_agg, 'like', V_H);
                 V_H_expanded(:, :, 1:K_H) = V_H;
                 V_combined_final = V_H_expanded + V_agg;
             else
                 V_combined_final = V_H + V_agg;
             end
 
-            % (8) Apply W at end if not used earlier (GNNV architecture)
-            if ~used_W
+            % (8) Apply W at end if deferred
+            if apply_W_at_end
                 V_out = obj.map_features_star(V_combined_final, obj.Weights);
             else
                 V_out = V_combined_final;

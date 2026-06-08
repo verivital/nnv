@@ -157,16 +157,18 @@ classdef ElementwiseAffineLayer < handle
                 % Scale (weights)
                 image = in_image; % create copy to perform operations (if need to)
                 if obj.DoScale
+                    % R2025b's ONNX importer emits ScalingLayer (mapped to
+                    % ElementwiseAffineLayer) with Scale as a per-channel
+                    % vector, not a square matrix. Wrap accordingly so Star
+                    % dim is preserved (mirrors the ImageStar branch above).
+                    % double() casts guard against single-precision ONNX scales.
                     s = obj.Scale;
                     if isscalar(s)
-                        % Broadcast scalar scale over all dimensions:
-                        % use a diagonal matrix of size [dim, dim]
-                        image = image.affineMap(diag(double(s) * ones(image.dim, 1)), []);
-                    elseif numel(s) == image.dim
-                        % ND scale collapses to a per-dim diagonal scaling
+                        image = image.affineMap(double(s) * eye(image.dim), []);
+                    elseif isvector(s)
                         image = image.affineMap(diag(double(s(:))), []);
                     else
-                        image = image.affineMap(s, []); % full matrix
+                        image = image.affineMap(s, []); % W*x (full matrix)
                     end
                 end
                 % Offset (bias)
@@ -324,17 +326,29 @@ classdef ElementwiseAffineLayer < handle
     methods(Static)
         
         % parse a trained elementwise affine layer from matlab
-        function L = parse(elementwise_affine_layer)
-            % @elementwise_affine_layer: a elementwise affine layer from matlab deep
-            % neural network tool box
-            % @L : a ElementwiseAffineLayer obj for reachability analysis purpose            
-            
-            if ~isa(elementwise_affine_layer, 'nnet.onnx.layer.ElementwiseAffineLayer')
-                error('Input is not a Matlab nnet.onnx.layer.ElementwiseAffineLayer class');
+        function L = parse(src)
+            % @src: either nnet.onnx.layer.ElementwiseAffineLayer (R2024b and
+            %       earlier ONNX imports) or nnet.cnn.layer.ScalingLayer
+            %       (R2025a+ ONNX imports -- semantically identical: Y = Scale.*X + Offset)
+            % @L : a ElementwiseAffineLayer obj for reachability analysis purpose
+
+            isElementwise = isa(src, 'nnet.onnx.layer.ElementwiseAffineLayer');
+            isScaling     = isa(src, 'nnet.cnn.layer.ScalingLayer');
+            if ~isElementwise && ~isScaling
+                error(['Input must be nnet.onnx.layer.ElementwiseAffineLayer or ' ...
+                       'nnet.cnn.layer.ScalingLayer (got %s).'], class(src));
             end
-                        
-            L = ElementwiseAffineLayer(elementwise_affine_layer.Name, elementwise_affine_layer.Scale, elementwise_affine_layer.Offset, ...
-                elementwise_affine_layer.DoScale, elementwise_affine_layer.DoOffset);
+
+            % Scale / Offset are public on both classes and have the same semantics.
+            scale  = src.Scale;
+            offset = src.Offset;
+            % ScalingLayer has no DoScale/DoOffset flags -- synthesize defaults
+            % (the reach code treats both-true as "apply scale and offset", which
+            % matches the ScalingLayer forward pass).
+            if isprop(src, 'DoScale'),  doScale  = src.DoScale;  else, doScale  = true; end
+            if isprop(src, 'DoOffset'), doOffset = src.DoOffset; else, doOffset = true; end
+
+            L = ElementwiseAffineLayer(src.Name, scale, offset, doScale, doOffset);
 
         end
 

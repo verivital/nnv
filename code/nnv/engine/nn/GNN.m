@@ -1,6 +1,6 @@
 classdef GNN < handle
     % GNN class encodes Graph Neural Networks for verification in NNV
-    %   This class wraps GNN layers (GCNLayer, GINELayer) and manages
+    %   This class wraps GNN layers (GCNLayer, SAGEConvLayer, GINELayer, HuGINEConvLayer) and manages
     %   graph structure separately from layer weights, enabling weight
     %   reuse across different graphs.
     %
@@ -152,10 +152,12 @@ classdef GNN < handle
 
                 if isa(layer, 'GCNLayer')
                     Y = layer.evaluate(Y, obj.A_norm);
-                elseif isa(layer, 'GINELayer')
+                elseif isa(layer, 'SAGEConvLayer')
+                    Y = layer.evaluate(Y, obj.A_norm);
+                elseif isa(layer, 'GINELayer') || isa(layer, 'GINEConvLayer') || isa(layer, 'GINEConvLayerOptimized') || isa(layer, 'HuGINEConvLayer')
                     Y = layer.evaluate(Y, E_eval, obj.adj_list, obj.edge_weights);
                 else
-                    % Standard layer (ReLU, etc.)
+                    % Standard layer (ReLU, AddPoolLayer, etc.)
                     Y = layer.evaluate(Y);
                 end
             end
@@ -235,8 +237,24 @@ classdef GNN < handle
 
                 if isa(layer, 'GCNLayer')
                     rs = layer.reach(rs, obj.A_norm, obj.reachMethod, obj.reachOption);
-                elseif isa(layer, 'GINELayer')
+                elseif isa(layer, 'SAGEConvLayer')
+                    rs = layer.reach(rs, obj.A_norm, obj.reachMethod, obj.reachOption);
+                elseif isa(layer, 'GINELayer') || isa(layer, 'GINEConvLayer') || isa(layer, 'GINEConvLayerOptimized') || isa(layer, 'HuGINEConvLayer')
                     rs = layer.reach(rs, obj.E, obj.adj_list, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.lp_solver, obj.edge_weights);
+                elseif isa(layer, 'AddPoolLayer')
+                    rs = layer.reach(rs);
+                elseif isa(layer, 'FullyConnectedLayer')
+                    % Dense layer after pooling: convert GraphStar -> Star -> GraphStar
+                    numNodes = rs.numNodes;
+                    S = rs.toStar();
+                    S_out = layer.reach(S, obj.reachMethod, obj.reachOption, ...
+                                       obj.relaxFactor, obj.dis_opt, obj.lp_solver);
+                    if iscell(S_out)
+                        S_out = S_out{1};
+                    end
+                    n_out = layer.OutputSize;
+                    new_V = reshape(S_out.V, [numNodes, n_out, S_out.nVar + 1]);
+                    rs = GraphStar(new_V, S_out.C, S_out.d, S_out.predicate_lb, S_out.predicate_ub);
                 elseif isa(layer, 'ReluLayer') || isa(layer, 'ActivationFunctionLayer')
                     % Activation layers need Star, not GraphStar
                     % Convert GraphStar to Star, apply activation, convert back
@@ -273,6 +291,135 @@ classdef GNN < handle
             end
 
             outputSet = rs;
+        end
+
+
+        function [node_results, subgraph_info] = reachSubgraph(obj, inputSet, target_nodes, reachOptions)
+        % REACHSUBGRAPH  Per-target-node subgraph verification via k-hop locality.
+        %
+        %   For each target node, extracts its k-hop neighborhood subgraph,
+        %   builds a small sub-GraphStar (with predicate pruning), and runs
+        %   reachability on the subgraph. The output for target_node is
+        %   mathematically identical to full-graph reachability (exact, not
+        %   an approximation) because message passing is k-hop local.
+        %
+        %   Supports all message-passing layer types:
+        %     - GINEConv: uses explicit adj_list + edge_weights (khop_subgraph)
+        %     - GCN/SAGEConv: uses A_norm submatrix (khop_subgraph_matrix)
+        %
+        %   For GCN/SAGEConv, the A_norm submatrix preserves full-graph degree
+        %   normalization. Boundary nodes at distance k may compute incorrect
+        %   intermediate values, but those are never used in the target's
+        %   computation tree (only nodes at distance <= k-1 have their
+        %   aggregation results consumed by the target).
+        %
+        %   Scales to large graphs: a 3-layer GNN on a sparse power grid
+        %   produces subgraphs of ~15-25 nodes regardless of full graph size.
+        %   Each subgraph is independent and could trivially be parallelized.
+        %
+        %   Reference: CORA GNN verification (TMLR), Corollary 17.
+        %              SCIP-MPNN (ICML 2024), k_hop_subgraph.
+        %
+        % Inputs:
+        %   inputSet     - Full-graph GraphStar (N nodes)
+        %   target_nodes - (t x 1) vector of 1-indexed target node indices
+        %   reachOptions - struct with field reachMethod (e.g. 'approx-star')
+        %
+        % Outputs:
+        %   node_results  - cell(t,1); node_results{ti} is a small GraphStar
+        %                   output for the subgraph centered on target_nodes(ti)
+        %   subgraph_info - struct array with per-target metadata:
+        %                     .target_node       original node index
+        %                     .target_local_idx  node's index in sub-GraphStar
+        %                     .n_sub_nodes       subgraph size
+        %                     .n_sub_edges       subgraph edge count
+        %                     .time              wall-clock time (seconds)
+        %
+        % Usage for voltage verification:
+        %   [node_results, sg_info] = gnn.reachSubgraph(GS_in, pq_nodes, opts);
+        %   for ti = 1:length(pq_nodes)
+        %       [lb, ub] = node_results{ti}.getRange(sg_info(ti).target_local_idx, volt_feat);
+        %   end
+        %
+        % Author: Anne Tumlin
+        % Date: 03/11/2026
+
+            % Count message-passing layers to determine k (hop depth)
+            k = 0;
+            for i = 1:obj.numLayers
+                L = obj.Layers{i};
+                if isa(L, 'GINELayer') || isa(L, 'GINEConvLayer') || isa(L, 'GINEConvLayerOptimized') || ...
+                   isa(L, 'HuGINEConvLayer') || isa(L, 'GCNLayer') || isa(L, 'SAGEConvLayer')
+                    k = k + 1;
+                end
+            end
+
+            % Detect layer types to choose subgraph extraction method
+            has_gine = false;
+            has_matrix = false;
+            for i = 1:obj.numLayers
+                L = obj.Layers{i};
+                if isa(L, 'GINELayer') || isa(L, 'GINEConvLayer') || isa(L, 'GINEConvLayerOptimized') || isa(L, 'HuGINEConvLayer')
+                    has_gine = true;
+                elseif isa(L, 'GCNLayer') || isa(L, 'SAGEConvLayer')
+                    has_matrix = true;
+                end
+            end
+
+            if ~has_gine && ~has_matrix
+                error('reachSubgraph: No supported message-passing layers found');
+            end
+
+            n_targets = length(target_nodes);
+            node_results = cell(n_targets, 1);
+            subgraph_info = repmat(struct('target_node', 0, 'target_local_idx', 0, ...
+                'n_sub_nodes', 0, 'n_sub_edges', 0, 'time', 0), n_targets, 1);
+
+            for ti = 1:n_targets
+                t = target_nodes(ti);
+                t_start = tic;
+
+                % 1. Extract k-hop neighborhood (method depends on layer type)
+                if has_gine
+                    % GINE path: edge-list-based subgraph
+                    [sub_nodes, sub_adj, sub_E, sub_ew, t_local] = ...
+                        khop_subgraph(t, k, obj.adj_list, obj.E, obj.edge_weights);
+                else
+                    % GCN/SAGEConv path: matrix-based subgraph
+                    [sub_nodes, sub_A, t_local] = ...
+                        khop_subgraph_matrix(t, k, obj.A_norm);
+                end
+
+                % 2. Extract sub-GraphStar with predicate pruning
+                sub_GS = inputSet.extractSubgraph(sub_nodes);
+
+                % 3. Build temporary sub-GNN with same layer weights
+                sub_gnn = GNN(obj.Layers);
+                sub_gnn.reachMethod = obj.reachMethod;
+                sub_gnn.lp_solver = obj.lp_solver;
+                sub_gnn.relaxFactor = obj.relaxFactor;
+
+                if has_gine
+                    sub_gnn.adj_list = sub_adj;
+                    sub_gnn.E = sub_E;
+                    sub_gnn.edge_weights = sub_ew;
+                    n_edges = size(sub_adj, 1);
+                else
+                    sub_gnn.A_norm = sub_A;
+                    n_edges = nnz(sub_A) - length(sub_nodes);  % exclude self-loops
+                end
+
+                % 4. Run reachability on the small subgraph
+                sub_output = sub_gnn.reach(sub_GS, reachOptions);
+
+                % 5. Store results
+                node_results{ti} = sub_output;
+                subgraph_info(ti).target_node = t;
+                subgraph_info(ti).target_local_idx = t_local;
+                subgraph_info(ti).n_sub_nodes = length(sub_nodes);
+                subgraph_info(ti).n_sub_edges = n_edges;
+                subgraph_info(ti).time = toc(t_start);
+            end
         end
 
 
@@ -396,5 +543,6 @@ classdef GNN < handle
         end
 
     end
+
 
 end

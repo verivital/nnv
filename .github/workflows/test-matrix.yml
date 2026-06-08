@@ -2,8 +2,11 @@ name: CI (matrix-sharded)
 
 # Fast, fan-out CI for NNV. Splits the test suite into N parallel shards on free
 # GitHub-hosted runners (public repo -> matlab-actions auto-licenses all toolboxes,
-# no token needed). High-memory/GPU tests are excluded from the standard shards and
-# run in a separate, opt-in job (see the `highmem` job + CLOUD_COMPUTE_OPTIONS.md).
+# no token needed). Standard shards exclude only GPU tests (no GPU on runners) and a
+# couple of tests broken under `runtests`; the anticipated-heavy tests run in the
+# standard shards too, so we learn empirically which (if any) OOM the ~16 GB runner.
+# The opt-in `highmem` job runs just the heavy set on a big-RAM/self-hosted runner
+# (see CLOUD_COMPUTE_OPTIONS.md).
 
 on:
   workflow_dispatch:

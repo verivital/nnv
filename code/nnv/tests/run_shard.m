@@ -1,22 +1,21 @@
 function run_shard(shardIdx, numShards, mode)
-% RUN_SHARD  Run a deterministic 1-of-N shard of the NNV test suite (CI fan-out).
+% RUN_SHARD  Run a deterministic, duration-balanced 1-of-N shard of the NNV test suite.
 %
-%   run_shard(k, N)             % standard shard k of N (see exclusions below)
-%   run_shard(k, N, 'standard') % same as above
+%   run_shard(k, N)             % standard shard k of N
+%   run_shard(k, N, 'standard') % same
 %   run_shard(k, N, 'highmem')  % ONLY the anticipated-heavy tests (big-RAM/self-hosted/ACCRE)
-%   run_shard(k, N, 'all')      % everything CI can run (excludes only GPU + broken-under-runtests)
+%   run_shard(k, N, 'all')      % everything CI can run (excludes only GPU tests)
 %
-% Designed for GitHub Actions `strategy.matrix` via matlab-actions/run-command:
+% For GitHub Actions strategy.matrix via matlab-actions/run-command:
 %   cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests')));
 %   run_shard(${{ matrix.shard }}, ${{ N }}, 'standard');
 %
-% Writes a JUnit XML report to code/nnv/test-results-ci/ (uploaded as a CI artifact)
-% and calls assertSuccess(results) so the job FAILS if any test in the shard fails.
-%
-% PHILOSOPHY (maximize standard coverage): exclude from the standard ubuntu-latest
-% shards ONLY what genuinely cannot run there. The "anticipated-heavy" tests are
-% INCLUDED by default and only moved to confirmedOomPatterns once a real CI run proves
-% they OOM the ~16 GB runner.
+% - Sharding is DURATION-BALANCED (LPT bin-packing over test_durations.csv) to minimize
+%   wall-clock; falls back to round-robin if the CSV is missing.
+% - Writes JUnit XML + a ProgressPlugin START/DONE trace to code/nnv/test-results-ci/
+%   (uploaded as a CI artifact). It does NOT assertSuccess: failing tests are recorded and
+%   gated by the report job (ci_report.py vs ci_allowed_failures.txt). A shard fails only if
+%   MATLAB itself crashes -- the progress trace then names the offending test.
 
     if nargin < 3 || isempty(mode), mode = 'standard'; end
     if ischar(shardIdx) || isstring(shardIdx), shardIdx = str2double(shardIdx); end
@@ -31,26 +30,27 @@ function run_shard(shardIdx, numShards, mode)
 
     testsDir = fileparts(mfilename('fullpath'));
 
-    % (a) GPU tests — no GPU on GitHub-hosted runners (error / incomplete there).
+    % Excluded from CI shards (cannot run on a GitHub-hosted runner):
+    %   GPU tests -- no GPU on the runners (error/incomplete there).
     gpuPatterns = {'_gpu_', 'toGPU'};
+    %   CONFIRMED to crash MATLAB on the ~16 GB runner (exit 255 / OOM). Excluded so the
+    %   shard's other results survive; run these via the high-mem fallback (highmem mode,
+    %   self-hosted/ACCRE) or locally. Populate (exact full Names) from the report's crash list.
+    confirmedCrashPatterns = { };
 
-    % (b) Known broken UNDER runtests — these tests share variables across %% sections,
-    %     but runtests runs each %% in a fresh workspace (they pass when run as a script,
-    %     fail as unit tests: "Unrecognized function or variable 'results'/'N_SAMPLES'").
-    %     Excluded until the sections are made self-contained. TODO(SLM soundness work).
-    brokenUnderRuntests = {'test_SLM_layers_soundness', 'test_SoftmaxLayer_reach_soundness'};
+    % Tests that merely FAIL (incl. WIP transformer/SLM, tutorial env-diffs) are NOT excluded:
+    % they run, results land in JUnit, and the report job classifies them vs
+    % ci_allowed_failures.txt (known = visible + non-blocking; new = red).
 
-    % (c) CONFIRMED to OOM the ~16 GB ubuntu-latest runner. Populate ONLY from a real CI
-    %     run that proves OOM; keep minimal to maximize standard coverage. (Empty so far.)
-    confirmedOomPatterns = { };
-
-    % Anticipated-heavy (memory/time) tests — NOT excluded from standard; we run them in
-    % CI and move only proven-OOM ones into confirmedOomPatterns. mode='highmem' runs just
-    % these (for a targeted big-RAM/self-hosted runner or ACCRE SLURM array).
+    % Anticipated-heavy (memory/time) tests. EMPIRICALLY these flake on the 16 GB runner:
+    % including them caused NONDETERMINISTIC crashes (exit 255) AND hangs (a shard ran 30+
+    % min while peers finished in ~10). So they are EXCLUDED from the standard shards and run
+    % via mode='highmem' on a big-RAM/self-hosted runner or ACCRE (or locally). To recover
+    % specific ones into standard later, pinpoint the few flaky tests and narrow this list.
     anticipatedHeavyPatterns = {'VolumeStar', 'Conv3D', 'AveragePooling3D', ...
         'Segmentation', 'SEGNET', 'PixelClassification', 'reach_exact', 'comprehensive_network'};
 
-    ciExclude = [gpuPatterns, brokenUnderRuntests, confirmedOomPatterns];
+    ciExclude = [gpuPatterns, anticipatedHeavyPatterns, confirmedCrashPatterns];
 
     suite = TestSuite.fromFolder(testsDir, 'IncludingSubfolders', true);
     names = string({suite.Name});
@@ -58,16 +58,43 @@ function run_shard(shardIdx, numShards, mode)
     switch lower(mode)
         case 'standard', sel = suite(~matchAny(names, ciExclude));
         case 'highmem',  sel = suite(matchAny(names, anticipatedHeavyPatterns) & ~matchAny(names, gpuPatterns));
-        case 'all',      sel = suite(~matchAny(names, [gpuPatterns, brokenUnderRuntests]));
+        case 'all',      sel = suite(~matchAny(names, gpuPatterns));
         otherwise, error('run_shard:mode', "mode must be 'standard', 'highmem', or 'all'.");
     end
 
-    % Deterministic round-robin partition (interleaves heavy/light tests for balance).
-    sel = sel(shardIdx:numShards:end);
-
-    fprintf('== run_shard %d/%d mode=%s: running %d of %d total (excluded: %d gpu, %d broken, %d confirmed-OOM) ==\n', ...
+    fprintf('== run_shard %d/%d mode=%s: %d of %d total (excluded: %d gpu, %d heavy, %d confirmed-crash) ==\n', ...
         shardIdx, numShards, mode, numel(sel), numel(suite), ...
-        nnz(matchAny(names, gpuPatterns)), nnz(matchAny(names, brokenUnderRuntests)), nnz(matchAny(names, confirmedOomPatterns)));
+        nnz(matchAny(names, gpuPatterns)), nnz(matchAny(names, anticipatedHeavyPatterns)), nnz(matchAny(names, confirmedCrashPatterns)));
+
+    % Duration-balanced (LPT bin-packing) sharding: assign each test heaviest-first to the
+    % currently-lightest shard. Deterministic, so every shard computes the same global
+    % assignment and selects its own bin. Round-robin fallback if test_durations.csv is
+    % missing. (Regenerate the CSV from a full-suite run:
+    %   writetable(sortrows(T(:,{'Name','Duration'}),'Duration','descend'), test_durations.csv).)
+    selNames = string({sel.Name});
+    durFile = fullfile(testsDir, 'test_durations.csv');
+    if isfile(durFile) && numShards > 1
+        DT = readtable(durFile, 'TextType', 'string');
+        dmap = containers.Map('KeyType','char','ValueType','double');
+        for i = 1:height(DT), dmap(char(DT.Name(i))) = DT.Duration(i); end
+        defDur = 1.0;   % default seconds for new/unknown tests
+        durs = zeros(1, numel(selNames));
+        for i = 1:numel(selNames)
+            k = char(selNames(i));
+            if isKey(dmap, k), durs(i) = dmap(k); else, durs(i) = defDur; end
+        end
+        [~, order] = sort(durs, 'descend');   % stable on ties -> deterministic
+        binTot = zeros(1, numShards); binOf = zeros(1, numel(durs));
+        for j = order
+            [~, b] = min(binTot);
+            binOf(j) = b; binTot(b) = binTot(b) + durs(j);
+        end
+        sel = sel(binOf == shardIdx);
+        fprintf('  (duration-balanced: this shard est %.0fs of %.0fs total / %d shards)\n', ...
+            binTot(shardIdx), sum(durs), numShards);
+    else
+        sel = sel(shardIdx:numShards:end);   % round-robin fallback
+    end
 
     outDir = fullfile(fileparts(testsDir), 'test-results-ci');   % code/nnv/test-results-ci
     if ~exist(outDir, 'dir'), mkdir(outDir); end
@@ -86,10 +113,8 @@ function run_shard(shardIdx, numShards, mode)
     runner.addPlugin(ProgressPlugin(progressFile));   % self-identifying crash log (last START w/o DONE = crasher)
     results = runner.run(sel);
 
-    fprintf('== shard %d/%d done: %d passed, %d failed, %d incomplete ==\n', ...
+    fprintf('== shard %d/%d done: %d passed, %d failed, %d incomplete (failures gated by report job) ==\n', ...
         shardIdx, numShards, nnz([results.Passed]), nnz([results.Failed]), nnz([results.Incomplete]));
-
-    assertSuccess(results);
 end
 
 function tf = matchAny(names, patterns)

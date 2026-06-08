@@ -1,12 +1,11 @@
 name: CI (matrix-sharded)
 
-# Fast, fan-out CI for NNV. Splits the test suite into N parallel shards on free
-# GitHub-hosted runners (public repo -> matlab-actions auto-licenses all toolboxes,
-# no token needed). Standard shards exclude only GPU tests (no GPU on runners) and a
-# couple of tests broken under `runtests`; the anticipated-heavy tests run in the
-# standard shards too, so we learn empirically which (if any) OOM the ~16 GB runner.
-# The opt-in `highmem` job runs just the heavy set on a big-RAM/self-hosted runner
-# (see CLOUD_COMPUTE_OPTIONS.md).
+# Fast, fan-out CI for NNV. Splits the test suite into N DURATION-BALANCED parallel shards
+# on free GitHub-hosted runners (public repo -> matlab-actions auto-licenses all toolboxes,
+# no token needed). Standard shards exclude only GPU tests (no GPU) and tests confirmed to
+# crash the runner; everything else runs (failures incl. WIP stay visible). The `report`
+# job aggregates all shard results, classifies known-WIP vs new regressions, flags crashes,
+# and gates the build. The shard count auto-scales with the suite. (See CLOUD_COMPUTE_OPTIONS.md.)
 
 on:
   workflow_dispatch:
@@ -16,9 +15,9 @@ on:
         type: string
         default: "R2026a"
       num_shards:
-        description: "Number of parallel shards"
+        description: "Number of parallel shards (blank = auto-scale from suite size)"
         type: string
-        default: "8"
+        default: ""
       run_highmem:
         description: "Also run high-memory tests (needs a big-RAM/self-hosted runner)"
         type: boolean
@@ -34,23 +33,40 @@ concurrency:
 
 env:
   MATLAB_RELEASE: ${{ github.event.inputs.release || 'R2026a' }}
-  NUM_SHARDS: ${{ github.event.inputs.num_shards || '8' }}
 
 jobs:
-  # Build the shard index list [1,2,...,N] from NUM_SHARDS so parallelism is configurable.
+  # Decide the shard count and build the index list [1..N]. Uses the workflow_dispatch
+  # input if given, else AUTO-SCALES from test_durations.csv (~4 min of tests per shard,
+  # clamped [4,24]) so parallelism grows with the suite as tests are added.
   prepare:
     runs-on: ubuntu-latest
     outputs:
       shards: ${{ steps.gen.outputs.shards }}
       n: ${{ steps.gen.outputs.n }}
     steps:
+      - uses: actions/checkout@v4
       - id: gen
         run: |
-          N="${{ env.NUM_SHARDS }}"
+          IN="${{ github.event.inputs.num_shards }}"
+          if [ -n "$IN" ]; then
+            N="$IN"
+          else
+            CSV=code/nnv/tests/test_durations.csv
+            if [ -f "$CSV" ]; then
+              TOTAL=$(awk -F, 'NR>1{s+=$NF} END{printf "%d", s+0}' "$CSV")
+            else
+              TOTAL=1600
+            fi
+            N=$(( (TOTAL + 239) / 240 ))
+            [ "$N" -lt 4 ] && N=4
+            [ "$N" -gt 24 ] && N=24
+          fi
+          echo "Using N=$N shards"
           echo "n=$N" >> "$GITHUB_OUTPUT"
           echo "shards=$(seq 1 "$N" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
 
-  # Standard shards on free ~16 GB ubuntu-latest runners (high-memory tests excluded).
+  # Duration-balanced standard shards on free ~16 GB ubuntu-latest runners.
+  # Failures are recorded (not hard-failed here); the report job gates the build.
   standard:
     needs: prepare
     name: tests ${{ matrix.shard }}/${{ needs.prepare.outputs.n }}
@@ -81,6 +97,7 @@ jobs:
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
       - name: Run shard ${{ matrix.shard }} of ${{ needs.prepare.outputs.n }}
         uses: matlab-actions/run-command@v2
+        timeout-minutes: 30
         with:
           command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(${{ matrix.shard }}, ${{ needs.prepare.outputs.n }}, 'standard');
       - name: Upload shard results
@@ -91,9 +108,26 @@ jobs:
           path: code/nnv/test-results-ci/*
           if-no-files-found: ignore
 
-  # High-memory / GPU-excluded tests. OPT-IN (run_highmem=true). Point this at a
-  # big-RAM runner via the NNV_HIGHMEM_RUNNER repo variable (a self-hosted runner
-  # label, e.g. 'nnv-highmem'); defaults to ubuntu-latest if unset (may OOM).
+  # Aggregate all shard results into one report: preserves failure logs, classifies
+  # known-WIP (ci_allowed_failures.txt) vs new regressions, flags crashes; GATES the build
+  # (red only on new failures or crashes). Always runs, even if shards crashed.
+  report:
+    needs: standard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: ci-artifacts
+          pattern: results-standard-shard-*
+          merge-multiple: true
+      - name: Aggregate shard results
+        run: python3 code/nnv/tests/ci_report.py ci-artifacts --allowed code/nnv/tests/ci_allowed_failures.txt
+
+  # High-memory tests. OPT-IN (run_highmem=true). Point this at a big-RAM runner via the
+  # NNV_HIGHMEM_RUNNER repo variable (a self-hosted runner label, e.g. 'nnv-highmem');
+  # defaults to ubuntu-latest if unset. Use for tests confirmed to crash the standard runner.
   highmem:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_highmem == 'true' }}
     name: high-memory tests
@@ -120,6 +154,7 @@ jobs:
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
       - name: Run high-memory tests
         uses: matlab-actions/run-command@v2
+        timeout-minutes: 60
         with:
           command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(1, 1, 'highmem');
       - name: Upload high-memory results

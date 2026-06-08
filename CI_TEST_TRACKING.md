@@ -83,14 +83,18 @@ heavy sections of `test_all_tutorial` (segmentation, etc.).
 
 ---
 
-## D. Open CI issue (intermittent)
-- **A non-heavy test hangs on the Linux runner.** Seen as shard 6 in two runs (ran ~61 min
-  vs ~10 for peers) — fast locally, loops on Linux. The hung job is cancelled, which skips its
-  artifact upload, so it can't be auto-named yet; the `report` job now **flags the missing
-  shard (red)** and points to the job's live log (last `START` line = the hanger). To pinpoint:
-  open the missing shard's live log in the Actions UI, or re-run with finer sharding. Likely
-  area: NNCS/CORA reachability or an LP-solver edge case on Linux. If it recurs, add the test
-  to `confirmedCrashPatterns` in `run_shard.m` (→ runs via fallback) until fixed.
+## D. Linux-hanging NNCS tutorials (identified → excluded)
+- **`test_all_tutorial/test13_NNCS_InvertedPendulum`** (definitive — was alone in its shard,
+  which hung) and **`test_all_tutorial/test10_NNCS_ACC`** (same family, shard 6 long-pole)
+  **hang / run away on the Linux runner** — NNCS *nonlinear* CORA `NonLinearODE` reachability
+  is very slow/looping there (`test13` also has a fragile relative `cd`). Now in
+  `confirmedCrashPatterns` → **excluded from standard CI**, run via the fallback/locally.
+  - [ ] **Resolve:** investigate why CORA nonlinear reachability hangs on Linux (solver
+    tolerance/iterations vs Windows); fix the relative `cd` (use `nnvroot()`); then remove
+    from `confirmedCrashPatterns`.
+  - Safety nets: the `report` job reds the build on any **missing shard**, and
+    `continue-on-error` on the run step lets a timed-out shard still upload its progress trace
+    (which names the offending test) — so a new hang can't slip through unseen.
 
 ## C. How to update
 - **Fixed a failing test?** Run it under `runtests` (not as a script) to confirm it passes, then

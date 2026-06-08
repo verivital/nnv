@@ -33,10 +33,13 @@ function run_shard(shardIdx, numShards, mode)
     % Excluded from CI shards (cannot run on a GitHub-hosted runner):
     %   GPU tests -- no GPU on the runners (error/incomplete there).
     gpuPatterns = {'_gpu_', 'toGPU'};
-    %   CONFIRMED to crash MATLAB on the ~16 GB runner (exit 255 / OOM). Excluded so the
-    %   shard's other results survive; run these via the high-mem fallback (highmem mode,
-    %   self-hosted/ACCRE) or locally. Populate (exact full Names) from the report's crash list.
-    confirmedCrashPatterns = { };
+    %   CONFIRMED to crash/HANG on the Linux runner (exit 255 / OOM / run-away). Excluded so
+    %   the shard's other results survive; run via the high-mem fallback (highmem mode,
+    %   self-hosted/ACCRE) or locally. From CI evidence:
+    %     - test13_NNCS_InvertedPendulum: alone in its shard, HUNG (NNCS nonlinear CORA
+    %       reachability runs away on Linux; also has a fragile relative cd).
+    %     - test10_NNCS_ACC: same NNCS/CORA-nonlinear family, the long pole in a hung shard.
+    confirmedCrashPatterns = {'test13_NNCS_InvertedPendulum', 'test10_NNCS_ACC'};
 
     % Tests that merely FAIL (incl. WIP transformer/SLM, tutorial env-diffs) are NOT excluded:
     % they run, results land in JUnit, and the report job classifies them vs

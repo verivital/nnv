@@ -36,8 +36,10 @@ env:
 
 jobs:
   # Decide the shard count and build the index list [1..N]. Uses the workflow_dispatch
-  # input if given, else AUTO-SCALES from test_durations.csv (~4 min of tests per shard,
-  # clamped [4,24]) so parallelism grows with the suite as tests are added.
+  # input if given, else AUTO-SCALES from test_durations.csv. We deliberately OVER-shard
+  # (~2 min of *local* test time per shard, clamped [8,24]): local Windows durations are
+  # only an estimate of Linux-CI time, so smaller shards keep an under-estimated test from
+  # overloading a shard, and the per-shard step timeout bounds any remaining surprise.
   prepare:
     runs-on: ubuntu-latest
     outputs:
@@ -57,8 +59,8 @@ jobs:
             else
               TOTAL=1600
             fi
-            N=$(( (TOTAL + 239) / 240 ))
-            [ "$N" -lt 4 ] && N=4
+            N=$(( (TOTAL + 119) / 120 ))
+            [ "$N" -lt 8 ] && N=8
             [ "$N" -gt 24 ] && N=24
           fi
           echo "Using N=$N shards"

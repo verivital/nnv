@@ -55,3 +55,6 @@ CLAUDE.md
 # Paper draft (local only, not tracked)
 paper_draft/
 Formal_Methods_2026__FM_2026____NNV___TOOL_PAPER___3_0*.zip
+
+# CI matrix shard results (JUnit XML; uploaded as Actions artifacts, not committed)
+code/nnv/test-results-ci/

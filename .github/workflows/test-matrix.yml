@@ -1,0 +1,128 @@
+name: CI (matrix-sharded)
+
+# Fast, fan-out CI for NNV. Splits the test suite into N parallel shards on free
+# GitHub-hosted runners (public repo -> matlab-actions auto-licenses all toolboxes,
+# no token needed). High-memory/GPU tests are excluded from the standard shards and
+# run in a separate, opt-in job (see the `highmem` job + CLOUD_COMPUTE_OPTIONS.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "MATLAB release (e.g. R2026a, R2024b)"
+        type: string
+        default: "R2026a"
+      num_shards:
+        description: "Number of parallel shards"
+        type: string
+        default: "8"
+      run_highmem:
+        description: "Also run high-memory tests (needs a big-RAM/self-hosted runner)"
+        type: boolean
+        default: false
+  pull_request:
+    branches: [ "master" ]
+  push:
+    branches: [ "transformer" ]
+
+concurrency:
+  group: ci-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MATLAB_RELEASE: ${{ github.event.inputs.release || 'R2026a' }}
+  NUM_SHARDS: ${{ github.event.inputs.num_shards || '8' }}
+
+jobs:
+  # Build the shard index list [1,2,...,N] from NUM_SHARDS so parallelism is configurable.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.gen.outputs.shards }}
+      n: ${{ steps.gen.outputs.n }}
+    steps:
+      - id: gen
+        run: |
+          N="${{ env.NUM_SHARDS }}"
+          echo "n=$N" >> "$GITHUB_OUTPUT"
+          echo "shards=$(seq 1 "$N" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+  # Standard shards on free ~16 GB ubuntu-latest runners (high-memory tests excluded).
+  standard:
+    needs: prepare
+    name: tests ${{ matrix.shard }}/${{ needs.prepare.outputs.n }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ env.MATLAB_RELEASE }}
+          products: >
+            Computer_Vision_Toolbox
+            Control_System_Toolbox
+            Deep_Learning_Toolbox
+            Image_Processing_Toolbox
+            Optimization_Toolbox
+            Parallel_Computing_Toolbox
+            Statistics_and_Machine_Learning_Toolbox
+            Symbolic_Math_Toolbox
+            System_Identification_Toolbox
+            Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
+            Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+      - name: Run shard ${{ matrix.shard }} of ${{ needs.prepare.outputs.n }}
+        uses: matlab-actions/run-command@v2
+        with:
+          command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(${{ matrix.shard }}, ${{ needs.prepare.outputs.n }}, 'standard');
+      - name: Upload shard results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-standard-shard-${{ matrix.shard }}
+          path: code/nnv/test-results-ci/*.xml
+          if-no-files-found: ignore
+
+  # High-memory / GPU-excluded tests. OPT-IN (run_highmem=true). Point this at a
+  # big-RAM runner via the NNV_HIGHMEM_RUNNER repo variable (a self-hosted runner
+  # label, e.g. 'nnv-highmem'); defaults to ubuntu-latest if unset (may OOM).
+  highmem:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_highmem == 'true' }}
+    name: high-memory tests
+    runs-on: ${{ vars.NNV_HIGHMEM_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ env.MATLAB_RELEASE }}
+          products: >
+            Computer_Vision_Toolbox
+            Control_System_Toolbox
+            Deep_Learning_Toolbox
+            Image_Processing_Toolbox
+            Optimization_Toolbox
+            Parallel_Computing_Toolbox
+            Statistics_and_Machine_Learning_Toolbox
+            Symbolic_Math_Toolbox
+            System_Identification_Toolbox
+            Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
+            Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+      - name: Run high-memory tests
+        uses: matlab-actions/run-command@v2
+        with:
+          command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(1, 1, 'highmem');
+      - name: Upload high-memory results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-highmem
+          path: code/nnv/test-results-ci/*.xml
+          if-no-files-found: ignore

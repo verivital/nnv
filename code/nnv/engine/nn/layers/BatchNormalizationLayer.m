@@ -158,6 +158,31 @@ classdef BatchNormalizationLayer < handle
                 obj.NumChannels = 1;
             end
 
+            % Channel-axis-aware fast path: works for any input rank as long
+            % as exactly one input dim equals NumChannels. Reshape per-channel
+            % stats to align with the channel axis and use implicit broadcast.
+            % Triggers for transformer rank-3 [B, C, T] (ViT-style) where
+            % channels can be in any of dims 1..ndims(input).
+            try_axis_aware = obj.NumChannels > 1 && ~isempty(obj.Scale);
+            if try_axis_aware
+                sz_in = size(input);
+                ch_dims = find(sz_in == obj.NumChannels);
+                if numel(ch_dims) == 1 && ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset)
+                    ax = ch_dims(1);
+                    % Build a target shape with NumChannels on axis ax, ones elsewhere
+                    tgt = ones(1, max(2, numel(sz_in)));
+                    tgt(ax) = obj.NumChannels;
+                    m = reshape(obj.TrainedMean(:), tgt);
+                    v = reshape(obj.TrainedVariance(:), tgt);
+                    s = reshape(obj.Scale(:), tgt);
+                    o = reshape(obj.Offset(:), tgt);
+                    eps_v = obj.Epsilon;
+                    if ~isscalar(eps_v), eps_v = reshape(eps_v(:), tgt); end
+                    y = ((input - m) ./ sqrt(v + eps_v)) .* s + o;
+                    return;
+                end
+            end
+
             % input -> 3d image / volume
             if length(size(input)) == 4 || (length(size(input)) == 3 && obj.NumChannels == 1)
                 if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)

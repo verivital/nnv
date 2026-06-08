@@ -461,12 +461,19 @@ classdef ImageStar < handle
         
         % Minkowski Sum of two ImageStars is another Imagestar (y = x1 + x2)
         function image = MinkowskiSum(obj, I)
-            
+
             S1 = obj.toStar;
-            S2 = I.toStar;
+            % I may be either ImageStar (call .toStar) or Star (already flat).
+            if isa(I, 'Star')
+                S2 = I;
+                H = obj.height; W = obj.width; C = obj.numChannel;
+            else
+                S2 = I.toStar;
+                H = I.height; W = I.width; C = I.numChannel;
+            end
             S = S1.MinkowskiSum(S2);
-            
-            image = S.toImageStar(I.height, I.width, I.numChannel);
+
+            image = S.toImageStar(H, W, C);
 
         end
         

@@ -12,6 +12,10 @@ classdef PlaceholderLayer < handle
         Type = ''; % e.g. dropout
         Perm = [];  % optional MATLAB-style permutation order (1-indexed)
                     % set when this placeholder represents a Transpose op
+        Constant = [];  % optional constant tensor; if non-empty, evaluate
+                        % returns this value regardless of input. Used for
+                        % ONNX initializer tensors fed as data inputs (e.g.
+                        % CLS token to a Concat).
     end
 
     methods % constructor
@@ -30,6 +34,12 @@ classdef PlaceholderLayer < handle
 
         % evaluate
         function out_im = evaluate(obj, inputs)
+            % If this is a constant-producing placeholder (e.g. a CLS-token
+            % initializer fed to Concat), return the stored value.
+            if ~isempty(obj.Constant)
+                out_im = obj.Constant;
+                return;
+            end
             % return output = input, optionally permuted or with an
             % element-wise function applied (Sign/Abs/etc.).
             if ~isempty(obj.Perm)
@@ -51,6 +61,24 @@ classdef PlaceholderLayer < handle
                     out_im = sign(inputs);
                 case 'Abs'
                     out_im = abs(inputs);
+                case 'Floor'
+                    out_im = floor(inputs);
+                case 'Ceil'
+                    out_im = ceil(inputs);
+                case 'Round'
+                    out_im = round(inputs);
+                case 'Sin'
+                    out_im = sin(inputs);
+                case 'Cos'
+                    out_im = cos(inputs);
+                case 'Tan'
+                    out_im = tan(inputs);
+                case 'Exp'
+                    out_im = exp(inputs);
+                case 'Log'
+                    out_im = log(inputs);
+                case 'Sqrt'
+                    out_im = sqrt(inputs);
                 otherwise
                     out_im = inputs;
             end

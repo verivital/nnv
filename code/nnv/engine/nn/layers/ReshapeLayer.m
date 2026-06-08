@@ -90,20 +90,33 @@ classdef ReshapeLayer < handle
             %@image: an multi-channels image
             %@flatten_im: flatten image
 
-            idx = find(obj.targetDim < 0);
-            obj.targetDim(idx) = 1;
+            % Resolve -1 sentinel: ONNX semantics — exactly one dim may be
+            % -1 and is computed as numel(image) / prod(known_dims).
+            tgt = obj.targetDim;
+            neg = find(tgt < 0);
+            if numel(neg) > 1
+                error('ReshapeLayer: more than one -1 sentinel in targetDim');
+            elseif numel(neg) == 1
+                known = tgt; known(neg) = 1;
+                rest = prod(known);
+                if rest > 0
+                    tgt(neg) = numel(image) / rest;
+                else
+                    tgt(neg) = 1;
+                end
+            end
 
-            if obj.OnnxBCHW && numel(obj.targetDim) == 3
+            if obj.OnnxBCHW && numel(tgt) == 3
                 % Source is flat (or trailing-flat) BCHW data; ONNX
                 % C-order semantics differ from MATLAB column-major
                 % reshape. Reshape to [W, H, C] then permute to [H, W, C].
-                H = obj.targetDim(1);
-                W = obj.targetDim(2);
-                C = obj.targetDim(3);
+                H = tgt(1);
+                W = tgt(2);
+                C = tgt(3);
                 tmp = reshape(image, [W, H, C]);
                 reshaped = permute(tmp, [2 1 3]);
             else
-                reshaped = reshape(image, obj.targetDim);
+                reshaped = reshape(image, tgt);
             end
 
         end
@@ -118,6 +131,21 @@ classdef ReshapeLayer < handle
             idx = find(obj.targetDim < 0);
             obj.targetDim(idx) = 1;
 
+            % Star path: if targetDim is image-shaped (rank 3) AND total
+            % numel matches, convert Star → ImageStar so downstream Conv
+            % layers see the right type. Otherwise pass through (Star is
+            % already a flat column vector).
+            if isa(in_image, 'Star')
+                td = obj.targetDim;
+                if numel(td) >= 3 && prod(td(end-2:end)) == in_image.dim
+                    H = td(end-2); W = td(end-1); C = td(end);
+                    image = in_image.toImageStar(H, W, C);
+                    return;
+                end
+                image = in_image;
+                return;
+            end
+
             image = in_image.reshapeImagestar(obj.targetDim);
 
         end
@@ -129,24 +157,33 @@ classdef ReshapeLayer < handle
             % @S: output ImageStar
             
             n = length(inputs);
-            if isa(inputs(1), 'ImageStar')
-                S(n) = ImageStar;
-            elseif isa(inputs(1), 'ImageZono')
-                S(n) = ImageZono;
-            else
-                error('Unknown input data set');
-            end
-          
+            % Compute outputs first, then assemble — the per-element type
+            % may change (Star → ImageStar) when the reshape promotes a
+            % flat vector to image shape.
+            tmp = cell(1, n);
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    S(i) = obj.reach_single_input(inputs(i));
+                    tmp{i} = obj.reach_single_input(inputs(i));
                 end
             elseif strcmp(option, 'single') || isempty(option)
                 for i=1:n
-                    S(i) = obj.reach_single_input(inputs(i));
+                    tmp{i} = obj.reach_single_input(inputs(i));
                 end
             else
                 error('Unknown computation option, should be parallel or single');
+            end
+            % Determine output array type from first element
+            if isa(tmp{1}, 'ImageStar')
+                S(n) = ImageStar;
+            elseif isa(tmp{1}, 'ImageZono')
+                S(n) = ImageZono;
+            elseif isa(tmp{1}, 'Star')
+                S(n) = Star;
+            else
+                error('Unknown output data set');
+            end
+            for i = 1:n
+                S(i) = tmp{i};
             end
             
         end

@@ -1347,7 +1347,10 @@ classdef NN < handle
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
                         obj.input_vals{dest_indx}{input_num} = y;
-                    elseif isa(obj.Layers{dest_indx}, 'AdditionLayer')
+                    elseif isa(obj.Layers{dest_indx}, 'AdditionLayer') ...
+                            || isa(obj.Layers{dest_indx}, 'ElementwiseProductLayer') ...
+                            || isa(obj.Layers{dest_indx}, 'ElementwiseDivisionLayer') ...
+                            || isa(obj.Layers{dest_indx}, 'DynamicMatmulLayer')
                         destP = dest{2};
                         if startsWith(destP, 'in')
                             input_num = str2double(destP(3:end));
@@ -1487,7 +1490,10 @@ classdef NN < handle
                             error("Destination not valid ("+string(obj.Connections.Destination(i))+")");
                         end
                         obj.input_sets{dest_indx}{input_num} = outSet;
-                    elseif isa(obj.Layers{dest_indx}, 'AdditionLayer')
+                    elseif isa(obj.Layers{dest_indx}, 'AdditionLayer') ...
+                            || isa(obj.Layers{dest_indx}, 'ElementwiseProductLayer') ...
+                            || isa(obj.Layers{dest_indx}, 'ElementwiseDivisionLayer') ...
+                            || isa(obj.Layers{dest_indx}, 'DynamicMatmulLayer')
                         destP = dest{2};
                         if startsWith(destP, 'in')
                             input_num = str2double(destP(3:end));

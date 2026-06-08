@@ -183,7 +183,29 @@ function nnvL = build_layer(type_str, name_str, attrs, wkeys, weights, L) %#ok<I
 
         case 'AdditionLayer'
             % AdditionLayer(name, NumInputs, NumOutputs, InputNames, OutputNames)
-            nnvL = AdditionLayer(name_str, 2, 1, {'in1','in2'}, {'out'});
+            if isstruct(L) && isfield(L, 'inputs')
+                nIn = max(2, numel(L.inputs));
+            else
+                nIn = 2;
+            end
+            inNames = arrayfun(@(k) sprintf('in%d', k), 1:nIn, 'UniformOutput', false);
+            nnvL = AdditionLayer(name_str, nIn, 1, inNames, {'out'});
+
+        case 'ElementwiseProductLayer'
+            % Hadamard product of N dynamic inputs.
+            if isstruct(L) && isfield(L, 'inputs')
+                nIn = max(2, numel(L.inputs));
+            else
+                nIn = 2;
+            end
+            inNames = arrayfun(@(k) sprintf('in%d', k), 1:nIn, 'UniformOutput', false);
+            nnvL = ElementwiseProductLayer(name_str, nIn, 1, inNames, {'out'});
+
+        case 'ElementwiseDivisionLayer'
+            nnvL = ElementwiseDivisionLayer(name_str, 2, 1, {'in1','in2'}, {'out'});
+
+        case 'DynamicMatmulLayer'
+            nnvL = DynamicMatmulLayer(name_str, 2, 1, {'in1','in2'}, {'out'});
 
         case 'FlattenLayer'
             nnvL = FlattenLayer(name_str);
@@ -234,6 +256,12 @@ function nnvL = build_layer(type_str, name_str, attrs, wkeys, weights, L) %#ok<I
             if in_rank == 2
                 axis = (onnx_pos == 1) * 1 + (onnx_pos == 0) * 2;
                 if axis == 0, axis = 1; end
+            elseif in_rank == 3
+                % Transformer-style [B, T, C]: ONNX axis 0/1/2 → MATLAB
+                % Dim 1/2/3 since ViT etc. carry the rank-3 layout literally
+                % (batch is the singleton MATLAB dim 1, tokens are MATLAB
+                % dim 2, features are MATLAB dim 3).
+                axis = onnx_pos + 1;
             elseif in_rank == 4
                 % BCHW: batch=0, C=1→Dim=3, H=2→Dim=1, W=3→Dim=2
                 map4 = [3 3 1 2];   % index by onnx_pos+1
@@ -329,11 +357,20 @@ function nnvL = build_layer(type_str, name_str, attrs, wkeys, weights, L) %#ok<I
             tag = 'Identity';
             if isfield(attrs, 'OriginalOp')
                 op = char(string(attrs.OriginalOp));
-                if any(strcmp(op, {'Sign','Abs'}))
+                if any(strcmp(op, {'Sign','Abs','Constant', ...
+                                   'Floor','Ceil','Round', ...
+                                   'Sin','Cos','Tan','Exp','Log','Sqrt'}))
                     tag = op;
                 end
             end
             nnvL = PlaceholderLayer(name_str, tag);
+            % If this is a Constant placeholder, attach the value.
+            if strcmp(tag, 'Constant') && ~isempty(wkeys)
+                vkey = wkeys{1};
+                if isfield(weights, vkey)
+                    nnvL.Constant = double(weights.(vkey));
+                end
+            end
 
         otherwise
             error('Unsupported layer type in manifest: %s', type_str);
@@ -356,7 +393,9 @@ function T = build_connections_table(layer_cells, layer_names)
         ins_pairs = normalize_inputs(ins_raw);
 
         type_str = char(L.type);
-        is_multi = ismember(type_str, {'AdditionLayer','ConcatenationLayer'});
+        is_multi = ismember(type_str, {'AdditionLayer', 'ConcatenationLayer', ...
+            'ElementwiseProductLayer', 'ElementwiseDivisionLayer', ...
+            'DynamicMatmulLayer', 'DepthConcatenationLayer'});
 
         for k = 1:numel(ins_pairs)
             src_name = ins_pairs{k}{1};

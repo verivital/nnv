@@ -110,11 +110,30 @@ classdef ConcatenationLayer < handle
             % Fixed: 2024 - Previously only used constraints from one input,
             % causing soundness issues. Now properly combines all constraints.
 
+            % Caller may pass either a cell array or a non-cell array of
+            % set objects. Normalize to a cell array.
+            if ~iscell(inputs)
+                if isa(inputs, 'Star') || isa(inputs, 'ImageStar') || isa(inputs, 'ImageZono')
+                    if numel(inputs) == 1
+                        outputs = inputs;
+                        return;
+                    end
+                    inputs = num2cell(inputs);
+                end
+            end
+
             n = length(inputs);
 
             if n == 1
                 % Single input - just return it
                 outputs = inputs{1};
+                return;
+            end
+
+            % Star sets (column-vector convention) take a separate path —
+            % their V is [dim, nVar+1] and they have `nVar`, not `numPred`.
+            if isa(inputs{1}, 'Star')
+                outputs = obj.reach_concat_star(inputs);
                 return;
             end
 
@@ -217,7 +236,55 @@ classdef ConcatenationLayer < handle
             outputs = ImageStar(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
 
         end
-        
+
+        % Concatenation for column-vector Star sets. For NNV's column
+        % convention, only obj.Dim == 1 (the feature axis) is meaningful;
+        % we vertically stack the V matrices (with independent predicates
+        % via block-diagonal C) and union the constraints.
+        function out = reach_concat_star(obj, inputs)
+            n = length(inputs);
+            nVars = zeros(n, 1);
+            for i = 1:n
+                nVars(i) = inputs{i}.nVar;
+            end
+            totalVars = sum(nVars);
+
+            new_V = [];
+            new_C = [];
+            new_d = [];
+            new_pred_lb = [];
+            new_pred_ub = [];
+            varOffset = 0;
+            for i = 1:n
+                Vi = inputs{i}.V;       % [dim_i, nVar_i + 1]
+                ci = Vi(:, 1);           % center
+                bi = Vi(:, 2:end);       % basis
+                dim_i = size(Vi, 1);
+                % Pad basis to total predicate width with zeros
+                Bi_padded = zeros(dim_i, totalVars, 'like', Vi);
+                Bi_padded(:, varOffset + (1:nVars(i))) = bi;
+                Vi_padded = [ci, Bi_padded];
+                new_V = [new_V; Vi_padded];
+
+                if ~isempty(inputs{i}.C)
+                    if isempty(new_C)
+                        new_C = inputs{i}.C;
+                    else
+                        new_C = blkdiag(new_C, inputs{i}.C);
+                    end
+                    new_d = [new_d; inputs{i}.d];
+                end
+                new_pred_lb = [new_pred_lb; inputs{i}.predicate_lb];
+                new_pred_ub = [new_pred_ub; inputs{i}.predicate_ub];
+                varOffset = varOffset + nVars(i);
+            end
+            if isempty(new_C)
+                new_C = zeros(0, totalVars);
+                new_d = zeros(0, 1);
+            end
+            out = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
+        end
+
         % handle multiple inputs
         function S = reach_multipleInputs(obj, inputs, option)
             % @inputs: an array of ImageStars
@@ -229,6 +296,8 @@ classdef ConcatenationLayer < handle
                 S(n) = ImageStar;
             elseif isa(inputs(1), 'ImageZono')
                 S(n) = ImageZono;
+            elseif isa(inputs(1), 'Star')
+                S(n) = Star;
             else
                 error('Unknown input data set');
             end

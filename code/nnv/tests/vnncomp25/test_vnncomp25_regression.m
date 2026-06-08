@@ -245,4 +245,219 @@ assert(max(abs(lb16a - lb16b)) < 1e-9 && max(abs(ub16a - ub16b)) < 1e-9, ...
 fprintf('Test 16 PASSED (SoftmaxLayer final-layer identity preserved)\n');
 
 
-fprintf('\n=== All V04/V05/V06/V07 NNV regression tests PASSED ===\n');
+%% Test 17: ElementwiseProductLayer (V08, dynamic Mul)
+L17 = ElementwiseProductLayer('mul17', 2, 1, {'in1','in2'}, {'out'});
+ins17 = {single([1; 2; 3]), single([4; 5; 6])};
+y17 = L17.evaluate(ins17);
+assert(isequal(double(y17), [4; 10; 18]), 'Test 17 failed: Hadamard product');
+% Reach (sound interval over-approx)
+Sa = Star([0; 0], [1; 1]);   % [0, 1]^2
+Sb = Star([1; 1], [2; 2]);   % [1, 2]^2
+Sout17 = L17.reach({Sa, Sb}, 'approx-star');
+[lb17, ub17] = Sout17.getRanges();
+% [0,1] * [1,2] elementwise product should be [0, 2] each
+assert(all(abs(lb17 - 0) < 1e-9) && all(abs(ub17 - 2) < 1e-9), ...
+    'Test 17 failed: bilinear product bounds wrong');
+fprintf('Test 17 PASSED (ElementwiseProductLayer Hadamard + interval reach)\n');
+
+
+%% Test 18: ElementwiseDivisionLayer (V08, dynamic Div)
+L18 = ElementwiseDivisionLayer('div18', 2, 1, {'in1','in2'}, {'out'});
+ins18 = {single([4; 10; 18]), single([2; 5; 6])};
+y18 = L18.evaluate(ins18);
+assert(isequal(double(y18), [2; 2; 3]), 'Test 18 failed: Hadamard division');
+% Reach (divisor strictly positive — well-defined)
+Sn = Star([4; 6], [8; 12]);   % numerator in [4, 8] x [6, 12]
+Sd = Star([2; 2], [4; 4]);    % divisor in [2, 4] x [2, 4]
+Sout18 = L18.reach({Sn, Sd}, 'approx-star');
+[lb18, ub18] = Sout18.getRanges();
+% [4,8]/[2,4] = [1, 4]; [6,12]/[2,4] = [1.5, 6]
+assert(all(abs(lb18 - [1; 1.5]) < 1e-9), 'Test 18 failed: division lb');
+assert(all(abs(ub18 - [4; 6]) < 1e-9), 'Test 18 failed: division ub');
+fprintf('Test 18 PASSED (ElementwiseDivisionLayer + interval reach)\n');
+
+
+%% Test 19: DynamicMatmulLayer (V09, dynamic Q*K^T attention)
+L19 = DynamicMatmulLayer('mm19', 2, 1, {'in1','in2'}, {'out'});
+A = rand(3, 4, 'single');
+B = rand(4, 5, 'single');
+y19 = L19.evaluate({A, B});
+expected = A * B;
+assert(isequal(size(y19), [3 5]), 'Test 19 failed: 2D matmul shape');
+assert(max(abs(double(y19(:)) - double(expected(:)))) < 1e-5, 'Test 19 failed: matmul values');
+fprintf('Test 19 PASSED (DynamicMatmulLayer 2D matmul)\n');
+
+
+%% Test 20: ReshapeLayer -1 sentinel resolves correctly (V09)
+L20 = ReshapeLayer('rs20', [1 48 -1]);
+x20 = ones(2, 2, 48, 'single');   % numel = 192
+y20 = L20.evaluate(x20);
+assert(isequal(size(y20), [1 48 4]), 'Test 20 failed: -1 should resolve to 4');
+fprintf('Test 20 PASSED (ReshapeLayer -1 sentinel)\n');
+
+
+%% Test 21: ElementwiseAffineLayer align_to_input (V09)
+% Bias [1,1,1,5] aligned to input [5,1] should reshape to [5,1] not broadcast 4D.
+L21 = ElementwiseAffineLayer('ea21', single(1), reshape(single(1:5), 1,1,1,5), false, true);
+x21 = single([10; 20; 30; 40; 50]);   % column [5,1]
+y21 = L21.evaluate(x21);
+assert(isequal(size(y21), [5 1]), 'Test 21 failed: shape mismatch (expected [5,1])');
+expected21 = single([11; 22; 33; 44; 55]);
+assert(max(abs(double(y21) - double(expected21))) < 1e-6, 'Test 21 failed: values');
+fprintf('Test 21 PASSED (ElementwiseAffineLayer align_to_input squeeze [1,1,1,5] -> [5,1])\n');
+
+
+%% Test 22: PlaceholderLayer Constant (V09 — initializer-as-data input)
+L22 = PlaceholderLayer('cls', 'Constant');
+L22.Constant = single(reshape(1:48, 1, 1, 48));
+y22 = L22.evaluate([]);  % constant doesn't depend on input
+assert(isequal(size(y22), [1 1 48]), 'Test 22 failed: shape');
+assert(double(y22(1,1,5)) == 5, 'Test 22 failed: value');
+fprintf('Test 22 PASSED (PlaceholderLayer Constant value)\n');
+
+%% Test 23: BHWC-to-Flatten transpose pre-permute order (V10 — traffic_signs)
+% In ONNX, when a Conv (BCHW) is followed by Transpose [0,2,3,1] -> Flatten,
+% the flatten happens on BHWC data (c-fastest C-order). NNV's HWC convention
+% with its ONNX-style Flatten produces a w-fastest order by default, so the
+% importer now inserts a TransposeLayer with MATLAB perm [2,3,1] BEFORE the
+% Flatten so the final flat order matches ONNX.
+%
+% This test reproduces the data path: HWC -> Transpose [2,3,1] -> Flatten,
+% checks that the resulting flat layout reads channel-fastest.
+
+% Build a tiny tensor with distinguishable values
+H_t = 2; W_t = 3; C_t = 4;
+x_hwc = single(reshape(1:H_t*W_t*C_t, H_t, W_t, C_t));   % MATLAB column-major fill
+
+% Manual reference: ONNX BHWC C-order flat = (h, w, c) iteration with c fastest
+ref = zeros(1, H_t*W_t*C_t, 'single');
+k = 0;
+for h_t = 1:H_t
+    for w_t = 1:W_t
+        for c_t = 1:C_t
+            k = k + 1;
+            ref(k) = x_hwc(h_t, w_t, c_t);
+        end
+    end
+end
+
+% NNV path: TransposeLayer [3,4,2] (1-indexed MATLAB perm) then Flatten
+ph23 = PlaceholderLayer('t23', 'Transpose');
+ph23.Perm = [2, 3, 1];
+y_perm = ph23.evaluate(x_hwc);
+assert(isequal(size(y_perm), [W_t, C_t, H_t]), 'Test 23 failed: pre-permute shape');
+
+fl23 = FlattenLayer('f23');
+fl23.Type = 'nnet.onnx.layer.FlattenInto2dLayer';
+y_flat = fl23.evaluate(y_perm);
+y_flat_v = squeeze(y_flat);
+assert(numel(y_flat_v) == H_t*W_t*C_t, 'Test 23 failed: flat numel');
+assert(max(abs(double(y_flat_v(:)) - double(ref(:)))) < 1e-6, ...
+    'Test 23 failed: BHWC-Flatten order does not match ONNX C-order');
+fprintf('Test 23 PASSED (BHWC-to-Flatten transpose pre-permute)\n');
+
+
+%% Test 24: ml4acopf-style PWL Sigmoid expansion (V10b)
+% Verify the FC-replicate + ElementwiseAffine + ReLU + FC-sum chain that
+% the importer emits for the Unsqueeze->Sub->Relu->MatMul->Add Sigmoid PWL
+% pattern computes the right values.
+%
+% Pattern math (per element x_i of input):
+%   y_i = b + sum_j (delta_m[j] * max(0, x_i - thresholds[j]))
+
+in_size = 4; N = 3;
+thresholds = single([-1; 0; 1]);
+delta_m = single([0.5; 0.3; 0.2]);
+b_val = single(0.1);
+x_in = single([-2; -0.5; 0.5; 2]);
+
+% Reference output
+ref = zeros(in_size, 1, 'single');
+for ii = 1:in_size
+    s = 0;
+    for jj = 1:N
+        s = s + delta_m(jj) * max(0, x_in(ii) - thresholds(jj));
+    end
+    ref(ii) = b_val + s;
+end
+
+% NNV chain: FC expand, ElementwiseAffine sub, ReLU, FC sum-with-bias
+W_exp = zeros(in_size*N, in_size, 'single');
+for ii = 1:in_size
+    for jj = 1:N
+        W_exp((ii-1)*N + jj, ii) = 1;
+    end
+end
+b_exp = zeros(in_size*N, 1, 'single');
+fc_exp = FullyConnectedLayer('exp', W_exp, b_exp);
+y1 = fc_exp.evaluate(x_in);
+
+tiled_th = repmat(thresholds, in_size, 1);
+ea = ElementwiseAffineLayer('sub', single(1), -tiled_th, false, true);
+y2 = ea.evaluate(y1);
+
+rl = ReluLayer('relu24');
+y3 = rl.evaluate(y2);
+
+W_sum = zeros(in_size, in_size*N, 'single');
+for ii = 1:in_size
+    for jj = 1:N
+        W_sum(ii, (ii-1)*N + jj) = delta_m(jj);
+    end
+end
+b_sum = b_val * ones(in_size, 1, 'single');
+fc_sum = FullyConnectedLayer('sum', W_sum, b_sum);
+y_out = fc_sum.evaluate(y3);
+
+assert(isequal(size(y_out), size(ref)), 'Test 24 failed: shape');
+assert(max(abs(double(y_out(:)) - double(ref(:)))) < 1e-5, ...
+    sprintf('Test 24 failed: max diff %g', max(abs(double(y_out(:)) - double(ref(:))))));
+fprintf('Test 24 PASSED (PWL Sigmoid expansion: FC + EA + ReLU + FC)\n');
+
+
+%% Test 25: PlaceholderLayer trig/floor element-wise op handlers (V10c)
+% PlaceholderLayer with Type set to Floor/Sin/Cos/Tan/Exp/Log/Sqrt/Ceil/Round
+% should compute the actual element-wise op rather than identity-passthrough.
+
+x_t25 = single([-2.7; -0.5; 0; 0.5; 2.7]);
+
+L_floor = PlaceholderLayer('ph_floor', 'Floor');
+assert(max(abs(double(L_floor.evaluate(x_t25)) - double(floor(x_t25)))) < 1e-5, 'Test 25 floor');
+L_ceil = PlaceholderLayer('ph_ceil', 'Ceil');
+assert(max(abs(double(L_ceil.evaluate(x_t25)) - double(ceil(x_t25)))) < 1e-5, 'Test 25 ceil');
+L_round = PlaceholderLayer('ph_round', 'Round');
+assert(max(abs(double(L_round.evaluate(x_t25)) - double(round(x_t25)))) < 1e-5, 'Test 25 round');
+L_sin = PlaceholderLayer('ph_sin', 'Sin');
+assert(max(abs(double(L_sin.evaluate(x_t25)) - double(sin(x_t25)))) < 1e-5, 'Test 25 sin');
+L_cos = PlaceholderLayer('ph_cos', 'Cos');
+assert(max(abs(double(L_cos.evaluate(x_t25)) - double(cos(x_t25)))) < 1e-5, 'Test 25 cos');
+L_tan = PlaceholderLayer('ph_tan', 'Tan');
+assert(max(abs(double(L_tan.evaluate(x_t25)) - double(tan(x_t25)))) < 1e-5, 'Test 25 tan');
+L_exp = PlaceholderLayer('ph_exp', 'Exp');
+assert(max(abs(double(L_exp.evaluate(x_t25)) - double(exp(x_t25)))) < 1e-5, 'Test 25 exp');
+L_sqrt = PlaceholderLayer('ph_sqrt', 'Sqrt');
+x_pos = abs(x_t25);
+assert(max(abs(double(L_sqrt.evaluate(x_pos)) - double(sqrt(x_pos)))) < 1e-5, 'Test 25 sqrt');
+fprintf('Test 25 PASSED (PlaceholderLayer Floor/Ceil/Round/Sin/Cos/Tan/Exp/Sqrt)\n');
+
+%% Test 26: ElementwiseAffineLayer reach with ND-shaped Offset (V10c)
+% ACAS Xu leading norm has Offset shape [1,1,1,5]; prior reach() failed
+% because Star.affineMap expects a flat [dim,1] bias.
+
+off26 = single(zeros(1,1,1,5));
+off26(1,1,1,1) = 1; off26(1,1,1,2) = 2; off26(1,1,1,3) = 3;
+off26(1,1,1,4) = 4; off26(1,1,1,5) = 5;
+L26 = ElementwiseAffineLayer('ea26', single(1), off26, false, true);
+lb26 = double([0;0;0;0;0]);
+ub26 = double([1;1;1;1;1]);
+S26 = Star(lb26, ub26);
+out26 = L26.reach(S26, 'approx-star', 'single');
+[olb, oub] = out26.getRanges();
+exp_lb = lb26 + (1:5)';
+exp_ub = ub26 + (1:5)';
+assert(max(abs(olb - exp_lb)) < 1e-6, 'Test 26 failed: lb mismatch');
+assert(max(abs(oub - exp_ub)) < 1e-6, 'Test 26 failed: ub mismatch');
+fprintf('Test 26 PASSED (ElementwiseAffineLayer reach with ND offset)\n');
+
+
+fprintf('\n=== All V04/V05/V06/V07/V08/V09/V10 NNV regression tests PASSED ===\n');

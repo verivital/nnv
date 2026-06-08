@@ -97,7 +97,7 @@ jobs:
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
       - name: Run shard ${{ matrix.shard }} of ${{ needs.prepare.outputs.n }}
         uses: matlab-actions/run-command@v2
-        timeout-minutes: 30
+        timeout-minutes: 20
         with:
           command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(${{ matrix.shard }}, ${{ needs.prepare.outputs.n }}, 'standard');
       - name: Upload shard results

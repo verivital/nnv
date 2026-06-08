@@ -6,15 +6,16 @@ Reads downloaded shard artifacts (JUnit XML + progress-*.txt) from a directory, 
   - lists failures WITH their messages (preserves the "what happened" logs),
   - detects crashed shards (last 'START <t>' with no 'DONE <t>' in a progress file =
     the test that killed MATLAB; GitHub discards a crashed job's stdout),
-  - classifies failures against ci_allowed_failures.txt (known WIP, kept visible but
-    non-blocking) vs NEW regressions,
-  - writes a Markdown summary to stdout and to $GITHUB_STEP_SUMMARY,
-  - exits non-zero on any NEW failure or any crash (so CI is red only for real problems,
-    while known-WIP/transformer failures stay green and visible).
+  - detects MISSING shards (a shard that produced no artifact at all = a hang/crash whose
+    upload was skipped by job cancellation),
+  - classifies failures against ci_allowed_failures.txt (known WIP = visible/non-blocking)
+    vs NEW regressions,
+  - writes a Markdown summary to stdout and $GITHUB_STEP_SUMMARY,
+  - exits non-zero on any NEW failure, crash, or missing shard.
 
 Usage: python3 ci_report.py <artifacts-dir> [--allowed ci_allowed_failures.txt]
 """
-import sys, os, glob, argparse, xml.etree.ElementTree as ET
+import sys, os, re, glob, argparse, xml.etree.ElementTree as ET
 
 
 def load_allowed(path):
@@ -63,6 +64,22 @@ def parse_crashes(d):
     return crashes
 
 
+def detect_missing_shards(d):
+    """Determine expected shard count from artifact filenames (results-*-shardKK-ofNN)
+    and return the list of shard indices that produced NO artifact (their job hung/crashed
+    and the upload was skipped)."""
+    present, total = set(), None
+    for f in (glob.glob(os.path.join(d, '**', '*.xml'), recursive=True)
+              + glob.glob(os.path.join(d, '**', 'progress-*.txt'), recursive=True)):
+        m = re.search(r'shard(\d+)-of(\d+)', os.path.basename(f))
+        if m:
+            present.add(int(m.group(1)))
+            total = int(m.group(2))
+    if total is None:
+        return []
+    return [k for k in range(1, total + 1) if k not in present]
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding='utf-8')   # emojis print on Windows consoles too
@@ -76,6 +93,7 @@ def main():
     allowed = load_allowed(a.allowed)
     res = parse_junit(a.artifacts)
     crashes = parse_crashes(a.artifacts)
+    missing = detect_missing_shards(a.artifacts)
 
     total = len(res)
     npass = sum(1 for _, s, _ in res if s == 'pass')
@@ -86,8 +104,13 @@ def main():
     out = ["## NNV matrix-CI report", ""]
     out.append(f"- **{npass}/{total}** passed across recorded shards")
     out.append(f"- **{len(fails)}** failed/errored — {len(new)} NEW, {len(known)} known-allowed")
-    out.append(f"- **{len(crashes)}** shard crash(es)")
+    out.append(f"- **{len(crashes)}** shard crash(es), **{len(missing)}** missing shard(s)")
     out.append("")
+    if missing:
+        out.append("### ⛔ MISSING shards — produced no results (hang/crash whose upload was skipped)")
+        out.append(f"- shard(s): {', '.join(map(str, missing))}. Their tests did not run/report; "
+                   f"check the job's live log for the last `START` (the hanger).")
+        out.append("")
     if crashes:
         out.append("### 💥 Crashes — test that killed the shard (exit 255 / OOM; add to confirmedCrashPatterns)")
         for pf, t in crashes:
@@ -110,7 +133,7 @@ def main():
         with open(gs, 'a', encoding='utf-8') as fh:
             fh.write(report + "\n")
 
-    sys.exit(1 if (new or crashes) else 0)
+    sys.exit(1 if (new or crashes or missing) else 0)
 
 
 if __name__ == '__main__':

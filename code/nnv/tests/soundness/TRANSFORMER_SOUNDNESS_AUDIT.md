@@ -89,6 +89,32 @@ CI. Decide whether to commit/convert the SLM ones.
 
 ---
 
+## End-to-end validation (2026-06-08, MCP / R2026a)
+
+- **`examples/Transformer/MNIST/verify_mnist_vit.m` (FC-simulated attention): WORKS** — 4/5
+  verified at ε=0.5 (matches the prior result), 0 errors. Confirms the softmax/loader/attention
+  changes don't regress the real pipeline. Per-layer activation soundness also re-confirmed:
+  Gelu 25/25, Sigmoid 2/2, Tanh 2/2, LayerNorm 3/3.
+
+- **`verify_mnist_vit_attention.m` (REAL `MultiHeadAttentionLayer` at index 5): BROKEN —
+  pre-existing, HIGH priority.** Symptoms: `Could not extract attention weights. Using identity
+  projections` → `LayerNormalizationLayer.reach` receives an **empty ImageStar**
+  (`estimateRanges` warns) → garbage output bounds (e.g. class lb −134.9, max-other ub 155.9 for
+  ε=0.02) → **0/5 verified**. The user's own `debug_soundness.m` /
+  `diagnose_attention_mismatch.m` / `analyze_bound_looseness.m` confirm this is a known-hard area.
+  - **Not caused by this session's changes**: `matlab2nnv`, `LayerNormalizationLayer`, and the
+    `ImageStar` path are untouched; the multi-token guard provably didn't alter flow (it didn't
+    fire — see next point).
+  - **Why the multi-token guard missed it**: weight extraction failed, so `compute_mha_bounds`
+    took the `isempty(W_Q)` branch and set `EmbedDim = n`; the guard's `n > EmbedDim` test is then
+    false, so a genuinely multi-token ViT looks single-token and the unsound bounds flowed on. The
+    guard is therefore **best-effort** (catches multi-token only when dims are correctly set).
+  - **Root causes to fix (for review):** (1) `MultiHeadAttentionLayer.parse` weight extraction for
+    real ViT / ImageStar models; (2) the empty-ImageStar produced upstream of LayerNorm (likely
+    the MHA ImageStar reach, possibly compounded by the `single`-precision conversion warning);
+    (3) the sound multi-token attention bound (item A above). Until then, **real-attention ViT
+    verification should not be trusted** — use the FC-simulated path.
+
 ## Corrected attribution
 
 There is **no "Ben Wooding" PR** in `sammsaski/n2v` (PR authors are Kiguli, HCWDavid, sammsaski;

@@ -81,6 +81,28 @@ assert(L.EmbedDim == 8 && L.HeadDim == 4, ...
     'parse failed to derive dims from weights (EmbedDim=%g, HeadDim=%g)', L.EmbedDim, L.HeadDim);
 fprintf('Test 8 PASSED (parse derives EmbedDim/HeadDim from extracted weights)\n');
 
+%% Test 9: matlab2nnv mid-network softmax -> SOUND SoftmaxLayer (not identity
+%% placeholder); final softmax stays a placeholder (legacy, argmax-on-logits).
+dln = dlnetwork([featureInputLayer(4, 'Name', 'in') ...
+                 fullyConnectedLayer(4, 'Name', 'fc1') ...
+                 softmaxLayer('Name', 'sm_mid') ...
+                 fullyConnectedLayer(3, 'Name', 'fc2') ...
+                 softmaxLayer('Name', 'sm_out')]);
+nnvnet = matlab2nnv(dln);
+Ls = nnvnet.Layers; if ~iscell(Ls), Ls = num2cell(Ls); end
+idx_mid = 0; idx_out = 0;
+for k = 1:numel(Ls)
+    nm = ''; if isprop(Ls{k}, 'Name'), nm = Ls{k}.Name; end
+    if strcmp(nm, 'sm_mid'), idx_mid = k; end
+    if strcmp(nm, 'sm_out'), idx_out = k; end
+end
+assert(idx_mid > 0 && idx_out > 0, 'softmax layers not found after conversion');
+assert(isa(Ls{idx_mid}, 'SoftmaxLayer') && ~Ls{idx_mid}.IsFinalLayer, ...
+    'mid-network MATLAB softmax must convert to a non-final (sound) SoftmaxLayer, got %s', class(Ls{idx_mid}));
+assert(isa(Ls{idx_out}, 'PlaceholderLayer'), ...
+    'final MATLAB softmax should remain an identity placeholder, got %s', class(Ls{idx_out}));
+fprintf('Test 9 PASSED (matlab2nnv: mid softmax sound, final softmax identity)\n');
+
 %% Test 6: BatchNorm reach is sound (MC-containment), ImageStar path
 rng(0); H = 2; W = 2; C = 3;
 mean_  = reshape([0.5 -0.2 1.0], 1, 1, C);

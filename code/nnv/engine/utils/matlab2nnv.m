@@ -41,8 +41,23 @@ for i=1:n
     end
     
 
+    % SOUNDNESS: a MID-NETWORK softmax must NOT become an identity placeholder
+    % (identity is only sound for a FINAL softmax under argmax-on-logits specs).
+    % "Final" = every subsequent layer has no effect on reachability; erring
+    % toward non-final is sound (the [0,1] bounds are merely looser).
+    if isa(L, 'nnet.cnn.layer.SoftmaxLayer') && ~is_final_softmax(Layers, i)
+        Li = SoftmaxLayer(L.Name);
+        Li.IsFinalLayer = false;   % sound interval bounds (see SoftmaxLayer.reach)
+
+    elseif contains(class(L), "LogSoftmax") && ~is_final_softmax(Layers, i)
+        % Log-softmax outputs lie in (-inf, 0] -- neither identity nor the
+        % softmax [0,1] bounds is sound for it mid-network. Refuse loudly.
+        error('matlab2nnv:midNetworkLogSoftmax', ...
+            ['Mid-network LogSoftmax layer ''%s'' is not supported soundly ' ...
+             '(identity passthrough would be unsound).'], L.Name);
+
     % Layers with no effect on the reachability analysis
-    if isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') ...
+    elseif isa(L, 'nnet.cnn.layer.DropoutLayer') || isa(L, 'nnet.cnn.layer.SoftmaxLayer') || isa(L, 'nnet.cnn.layer.ClassificationOutputLayer') ...
             || isa(L,"nnet.onnx.layer.VerifyBatchSizeLayer") || isa(L, "nnet.cnn.layer.RegressionOutputLayer") ...
             || customLayer_no_NLP == 1 || isa(L, "nnet.onnx.layer.CustomOutputLayer") || contains(class(L), "LogSoftmax")
         Li = PlaceholderLayer.parse(L);
@@ -369,6 +384,24 @@ function status = check_layer_parameters(L)
             end
         end
         status = 1;
+    end
+end
+
+% A softmax is "final" (identity placeholder is sound for argmax-on-logits
+% specs) only if every layer after it has no effect on reachability. Erring
+% toward non-final is SOUND (bounds get looser, never wrong); only treating a
+% genuinely mid-network softmax as final would be unsound.
+function tf = is_final_softmax(Layers, idx)
+    tf = true;
+    for k = idx+1:numel(Layers)
+        Lk = Layers(k);
+        if ~(isa(Lk, 'nnet.cnn.layer.ClassificationOutputLayer') || ...
+             isa(Lk, 'nnet.cnn.layer.RegressionOutputLayer') || ...
+             isa(Lk, 'nnet.cnn.layer.DropoutLayer') || ...
+             isa(Lk, "nnet.onnx.layer.CustomOutputLayer") || ...
+             isa(Lk, "nnet.onnx.layer.VerifyBatchSizeLayer"))
+            tf = false; return;
+        end
     end
 end
 

@@ -105,15 +105,21 @@ CI. Decide whether to commit/convert the SLM ones.
   - **Not caused by this session's changes**: `matlab2nnv`, `LayerNormalizationLayer`, and the
     `ImageStar` path are untouched; the multi-token guard provably didn't alter flow (it didn't
     fire — see next point).
-  - **Why the multi-token guard missed it**: weight extraction failed, so `compute_mha_bounds`
-    took the `isempty(W_Q)` branch and set `EmbedDim = n`; the guard's `n > EmbedDim` test is then
-    false, so a genuinely multi-token ViT looks single-token and the unsound bounds flowed on. The
-    guard is therefore **best-effort** (catches multi-token only when dims are correctly set).
-  - **Root causes to fix (for review):** (1) `MultiHeadAttentionLayer.parse` weight extraction for
-    real ViT / ImageStar models; (2) the empty-ImageStar produced upstream of LayerNorm (likely
-    the MHA ImageStar reach, possibly compounded by the `single`-precision conversion warning);
-    (3) the sound multi-token attention bound (item A above). Until then, **real-attention ViT
-    verification should not be trusted** — use the FC-simulated path.
+  - **VERIFIED root cause (MCP, R2026a):** weight extraction actually SUCCEEDS — `matlab2nnv` on
+    `mnist_vit_attention_model.mat` yields the MHA with `W_Q` = [512×512] (non-empty, no warning).
+    The bug is **`EmbedDim=0`, `HeadDim=0`**: `MultiHeadAttentionLayer.parse` (lines 623-627) reads
+    `EmbedDim` from `NumChannels`/`NumKeyValueChannels`, but R2026a `selfAttentionLayer` exposes
+    `InputSize`/`NumQueryChannels`/`NumKeyChannels`/`NumValueChannels`/`OutputSize` — so neither
+    `isprop` matches and `EmbedDim` stays 0. Then in `compute_mha_bounds` the per-head loop uses
+    `idx_start=(h-1)*HeadDim+1`, `idx_end=h*HeadDim` with `HeadDim=0` → range `1:0` = **empty** →
+    empty head bounds → empty output set → the empty ImageStar LayerNorm chokes on. `EmbedDim=0`
+    is also exactly why the multi-token guard didn't fire (`obj.EmbedDim > 0` is false).
+  - **Minimal SOUND fix:** in `parse`, derive dims from the extracted weights (version-independent):
+    `L.EmbedDim = size(L.W_Q, 1)` (and `L.HeadDim = L.EmbedDim / L.NumHeads`) after the weight
+    block, with the property-name reads as a fallback. Then: a single-token model computes bounds;
+    a genuinely multi-token ViT (input = seq_len·EmbedDim) trips the guard and **fails loud**
+    (sound) — which is correct until the sound multi-token bound (item A) is implemented. Until
+    then, **real-attention ViT verification should not be trusted** — use the FC-simulated path.
 
 ## Corrected attribution
 

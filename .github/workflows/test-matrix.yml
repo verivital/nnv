@@ -99,7 +99,7 @@ jobs:
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
       - name: Run shard ${{ matrix.shard }} of ${{ needs.prepare.outputs.n }}
         uses: matlab-actions/run-command@v2
-        timeout-minutes: 20
+        timeout-minutes: 15
         continue-on-error: true   # on timeout, fail the step but let the job upload its
                                   # progress trace (so the report can name the hanging test)
         with:

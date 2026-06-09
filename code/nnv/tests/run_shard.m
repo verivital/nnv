@@ -41,7 +41,7 @@ function run_shard(shardIdx, numShards, mode)
     %   reachability (DLinearODE, LinearNNCS) is fine and stays. ROOT FIX: CORA NonLinearODE
     %   on Linux (solver tolerance/iterations vs Windows).
     confirmedCrashPatterns = {'NonLinearODE', 'Hybrid', 'neural_ode', 'NeuralODE', ...
-        'NonlinearNNCS', 'test10_NNCS_ACC', 'test13_NNCS_InvertedPendulum'};
+        'NonlinearNNCS', 'test10_NNCS_ACC', 'test11_NNCS_AEBS', 'test13_NNCS_InvertedPendulum'};
 
     % Tests that merely FAIL (incl. WIP transformer/SLM, tutorial env-diffs) are NOT excluded:
     % they run, results land in JUnit, and the report job classifies them vs

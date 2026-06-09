@@ -2,9 +2,11 @@ classdef ElementwiseDivisionLayer < handle
     % Element-wise division layer (a ./ b).
     % Used for ONNX Div ops on dynamic tensors.
     %
-    % Soundness note: reach uses an interval over-approximation. Division
-    % by an interval that straddles zero is not finite — those cases are
-    % flagged with a warning and the output is passed through.
+    % Soundness note: reach uses an interval over-approximation (sound: for a
+    % divisor interval not containing 0, 1/b is monotone, so the four corner
+    % quotients bound the quotient). Division by an interval that STRADDLES
+    % zero has no finite sound over-approximation -- reach ERRORS in that case
+    % rather than returning an unsound passthrough.
 
     properties
         Name = 'DivLayer';
@@ -38,26 +40,26 @@ classdef ElementwiseDivisionLayer < handle
         end
 
         function out = reach_single_input(~, inputs)
+            % SOUNDNESS: never silently pass an operand through as "the
+            % reachable set" -- a wrong set corrupts every downstream verdict.
+            % All failure modes raise instead.
             if ~iscell(inputs) || length(inputs) ~= 2
-                out = inputs;
-                return;
+                error('ElementwiseDivisionLayer:badInputs', ...
+                    'reach requires {numerator_set, divisor_set} (2-element cell); got %s', class(inputs));
             end
-            try
-                [a_lb, a_ub] = inputs{1}.getRanges();
-                [b_lb, b_ub] = inputs{2}.getRanges();
-                if any(b_lb <= 0 & b_ub >= 0)
-                    warning('ElementwiseDivisionLayer: divisor straddles zero, reach unsound');
-                    out = inputs{1};
-                    return;
-                end
-                a_lb = a_lb(:); a_ub = a_ub(:); b_lb = b_lb(:); b_ub = b_ub(:);
-                c = [a_lb./b_lb, a_lb./b_ub, a_ub./b_lb, a_ub./b_ub];
-                lb = min(c, [], 2);
-                ub = max(c, [], 2);
-                out = Star(lb, ub);
-            catch
-                out = inputs{1};
+            [a_lb, a_ub] = inputs{1}.getRanges();
+            [b_lb, b_ub] = inputs{2}.getRanges();
+            if any(b_lb(:) <= 0 & b_ub(:) >= 0)
+                error('ElementwiseDivisionLayer:divisorStraddlesZero', ...
+                    ['divisor interval straddles zero: the quotient is unbounded, so no ' ...
+                     'finite sound over-approximation exists. Refusing to return an ' ...
+                     'unsound passthrough.']);
             end
+            a_lb = a_lb(:); a_ub = a_ub(:); b_lb = b_lb(:); b_ub = b_ub(:);
+            c = [a_lb./b_lb, a_lb./b_ub, a_ub./b_lb, a_ub./b_ub];
+            lb = min(c, [], 2);
+            ub = max(c, [], 2);
+            out = Star(lb, ub);
         end
 
         function IS = reach(varargin)

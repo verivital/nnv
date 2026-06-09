@@ -90,18 +90,108 @@ classdef PlaceholderLayer < handle
         
         % reachability analysis with multiple inputs
         function IS = reach(varargin)
-            % return input set as output set
-            % Regardless of options, input to layer corresponds to varargin{2}
-            in_images = varargin{2}; 
-            IS = in_images;
+            % For INERT placeholders (dropout, output layers, final softmax,
+            % ...) identity is correct. For ACTIVE placeholders -- ones whose
+            % evaluate() actually transforms the input (Constant, Perm/
+            % Transpose, or an element-wise op Type) -- identity reach is
+            % UNSOUND: evaluate and reach would disagree, corrupting every
+            % downstream verdict. Compute a sound over-approximation where
+            % possible, refuse loudly where not.
+            obj = varargin{1};
+            in_images = varargin{2};
+            if ~obj.isActiveOp()
+                IS = in_images;   % inert: identity is correct
+                return;
+            end
+            IS = obj.reach_active(in_images);
         end
 
         % reachability analysis with multiple inputs
         function IS = reachSequence(varargin)
-            % return input set as output set
-            % Regardless of options, input to layer corresponds to varargin{2}
-            in_seqs = varargin{2}; 
-            IS = in_seqs;
+            % Same soundness rule as reach (sequence path).
+            obj = varargin{1};
+            in_seqs = varargin{2};
+            if ~obj.isActiveOp()
+                IS = in_seqs;
+                return;
+            end
+            IS = obj.reach_active(in_seqs);
+        end
+
+        function tf = isActiveOp(obj)
+            % True when evaluate() is NOT the identity: constant-producing,
+            % permuting, or an element-wise op handled in evaluate's switch.
+            activeTypes = {'Sign','Abs','Floor','Ceil','Round','Sin','Cos', ...
+                           'Tan','Exp','Log','Sqrt'};
+            nonIdentityPerm = ~isempty(obj.Perm) && ~isequal(obj.Perm(:).', 1:numel(obj.Perm));
+            tf = ~isempty(obj.Constant) || nonIdentityPerm || any(strcmp(obj.Type, activeTypes));
+        end
+
+        function OS = reach_active(obj, IS)
+            % Sound reach for an ACTIVE placeholder.
+            %  - Constant: the output is the stored tensor regardless of input
+            %    -> the EXACT reachable set is the point {c}.
+            %  - Monotone elementwise ops: per-coordinate box [f(lb), f(ub)]
+            %    is a sound (and box-exact) over-approximation.
+            %  - Abs: standard interval abs. Sin/Cos: [-1,1] (sound, loose).
+            %  - Tan (unbounded across asymptotes) and Transpose (permuting a
+            %    flattened set needs the tensor shape, which the layer does
+            %    not have): REFUSE rather than return a wrong set.
+            if ~isempty(obj.Constant)
+                c = double(obj.Constant(:));
+                OS = Star(c, c);   % exact point set
+                return;
+            end
+            if ~isempty(obj.Perm) && ~isequal(obj.Perm(:).', 1:numel(obj.Perm))
+                error('PlaceholderLayer:transposeReachNeedsShape', ...
+                    ['Transpose placeholder ''%s'': permuting a flattened set ' ...
+                     'requires the tensor shape, which this layer does not carry. ' ...
+                     'Refusing to return an (unsound) identity set.'], obj.Name);
+            end
+            if isa(IS, 'Star') || isa(IS, 'ImageStar')
+                [lb, ub] = IS.getRanges();
+            else
+                error('PlaceholderLayer:reachUnsupportedSet', ...
+                    'Active op ''%s'' reach not implemented for set type %s.', obj.Type, class(IS));
+            end
+            lb = double(lb(:)); ub = double(ub(:));
+            switch obj.Type
+                case {'Floor','Ceil','Round','Exp','Sign'}   % monotone non-decreasing
+                    f = str2func(lower(obj.Type));
+                    olb = f(lb); oub = f(ub);
+                case 'Sqrt'
+                    if any(lb < 0)
+                        error('PlaceholderLayer:domain', ...
+                            'Sqrt placeholder ''%s'': input lower bound < 0.', obj.Name);
+                    end
+                    olb = sqrt(lb); oub = sqrt(ub);
+                case 'Log'
+                    if any(lb <= 0)
+                        error('PlaceholderLayer:domain', ...
+                            'Log placeholder ''%s'': input lower bound <= 0.', obj.Name);
+                    end
+                    olb = log(lb); oub = log(ub);
+                case 'Abs'
+                    olb = max(0, max(lb, -ub));     % 0 iff the interval straddles 0
+                    oub = max(abs(lb), abs(ub));
+                case {'Sin','Cos'}
+                    % Always-sound (loose) bound: the codomain [-1, 1].
+                    olb = -ones(size(lb)); oub = ones(size(ub));
+                case 'Tan'
+                    error('PlaceholderLayer:tanUnbounded', ...
+                        ['Tan placeholder ''%s'': tan is unbounded across its ' ...
+                         'asymptotes; no finite sound box exists in general. ' ...
+                         'Refusing to return an unsound set.'], obj.Name);
+                otherwise
+                    error('PlaceholderLayer:activeOpNoReach', ...
+                        'Active op ''%s'' has no sound reach implementation.', obj.Type);
+            end
+            if isa(IS, 'ImageStar')
+                OS = ImageStar(reshape(olb, IS.height, IS.width, IS.numChannel), ...
+                               reshape(oub, IS.height, IS.width, IS.numChannel));
+            else
+                OS = Star(olb, oub);
+            end
         end
 
     end

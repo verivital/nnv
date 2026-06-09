@@ -47,35 +47,31 @@ classdef ElementwiseProductLayer < handle
         end
 
         function out = reach_single_input(~, inputs)
-            % Best-effort interval over-approximation. For a Star input
-            % `S` with bounds [lb, ub] and a constant scale `c`, S * c is
-            % linear and exact (use ElementwiseAffineLayer). For two
-            % dynamic Stars, take elementwise interval product and form a
-            % Box, then convert back to Star. Loose but sound.
-            if ~iscell(inputs)
-                out = inputs;
-                return;
+            % Interval over-approximation of the elementwise product (sound:
+            % the four corner products bound a bilinear term over a box).
+            % For a constant scale use ElementwiseAffineLayer (linear, exact).
+            %
+            % SOUNDNESS: never silently pass an operand through as "the
+            % reachable set" -- all failure modes raise instead (the previous
+            % catch->passthrough was explicitly unsound).
+            if ~iscell(inputs) || length(inputs) < 2
+                error('ElementwiseProductLayer:badInputs', ...
+                    'reach requires a cell of >= 2 input sets; got %s', class(inputs));
             end
-            try
-                lb = []; ub = [];
-                for k = 1:length(inputs)
-                    [lk, uk] = inputs{k}.getRanges();
-                    lk = lk(:); uk = uk(:);
-                    if isempty(lb)
-                        lb = lk; ub = uk;
-                    else
-                        % element-wise interval product
-                        c = [lb.*lk, lb.*uk, ub.*lk, ub.*uk];
-                        lb = min(c, [], 2);
-                        ub = max(c, [], 2);
-                    end
+            lb = []; ub = [];
+            for k = 1:length(inputs)
+                [lk, uk] = inputs{k}.getRanges();
+                lk = lk(:); uk = uk(:);
+                if isempty(lb)
+                    lb = lk; ub = uk;
+                else
+                    % element-wise interval product
+                    c = [lb.*lk, lb.*uk, ub.*lk, ub.*uk];
+                    lb = min(c, [], 2);
+                    ub = max(c, [], 2);
                 end
-                out = Star(lb, ub);
-            catch
-                % Fall back to passthrough of first operand (unsound but
-                % does not crash).
-                out = inputs{1};
             end
+            out = Star(lb, ub);
         end
 
         function S = reach_multipleInputs(obj, inputs, option)

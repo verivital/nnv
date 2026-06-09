@@ -460,4 +460,123 @@ assert(max(abs(oub - exp_ub)) < 1e-6, 'Test 26 failed: ub mismatch');
 fprintf('Test 26 PASSED (ElementwiseAffineLayer reach with ND offset)\n');
 
 
+%% Test 27: ElementwiseProductLayer reach is SOUND (MC-containment, signed ranges)
+rng(27);
+L27 = ElementwiseProductLayer('mul27', 2, 1, {'in1','in2'}, {'out'});
+d = 4;
+a_lo = randn(d,1) - 0.5; a_hi = a_lo + rand(d,1) + 0.2;   % straddles 0
+b_lo = randn(d,1) - 0.5; b_hi = b_lo + rand(d,1) + 0.2;
+S27 = L27.reach({Star(a_lo, a_hi), Star(b_lo, b_hi)}, 'approx-star');
+[lb27, ub27] = S27.getRanges(); lb27 = lb27(:); ub27 = ub27(:);
+viol = 0;
+for k = 1:1000
+    xa = a_lo + (a_hi - a_lo).*rand(d,1);
+    xb = b_lo + (b_hi - b_lo).*rand(d,1);
+    y = xa .* xb;
+    if any(y < lb27 - 1e-9) || any(y > ub27 + 1e-9), viol = viol + 1; end
+end
+assert(viol == 0, 'Test 27 failed: product reach UNSOUND (%d/1000 MC violations)', viol);
+% wrong arity must error, not silently pass an operand through
+errored = false;
+try, L27.reach(Star(a_lo, a_hi), 'approx-star'); catch, errored = true; end
+assert(errored, 'Test 27 failed: non-cell input must error');
+fprintf('Test 27 PASSED (ElementwiseProductLayer MC-sound + fail-loud arity)\n');
+
+%% Test 28: ElementwiseDivisionLayer reach SOUND (MC) + divisor-straddling-zero ERRORS
+rng(28);
+L28 = ElementwiseDivisionLayer('div28', 2, 1, {'in1','in2'}, {'out'});
+d = 4;
+a_lo = randn(d,1); a_hi = a_lo + rand(d,1) + 0.2;          % numerator: any sign
+b_lo = -2 - rand(d,1); b_hi = b_lo + rand(d,1);            % divisor strictly NEGATIVE
+S28 = L28.reach({Star(a_lo, a_hi), Star(b_lo, b_hi)}, 'approx-star');
+[lb28, ub28] = S28.getRanges(); lb28 = lb28(:); ub28 = ub28(:);
+viol = 0;
+for k = 1:1000
+    xa = a_lo + (a_hi - a_lo).*rand(d,1);
+    xb = b_lo + (b_hi - b_lo).*rand(d,1);
+    y = xa ./ xb;
+    if any(y < lb28 - 1e-9) || any(y > ub28 + 1e-9), viol = viol + 1; end
+end
+assert(viol == 0, 'Test 28 failed: division reach UNSOUND (%d/1000 MC violations)', viol);
+% divisor interval straddling zero: quotient unbounded -> MUST error (the old
+% behavior warned "reach unsound" and passed the numerator through!)
+errored = false;
+try
+    L28.reach({Star(a_lo, a_hi), Star(-ones(d,1), ones(d,1))}, 'approx-star');
+catch ME28
+    errored = strcmp(ME28.identifier, 'ElementwiseDivisionLayer:divisorStraddlesZero');
+end
+assert(errored, 'Test 28 failed: straddle-zero divisor must raise divisorStraddlesZero');
+fprintf('Test 28 PASSED (ElementwiseDivisionLayer MC-sound + straddle-zero fail-loud)\n');
+
+%% Test 29: DynamicMatmulLayer reach ERRORS (no sound bound implemented); evaluate exact
+% The previous reach took ELEMENT-WISE interval products of the flattened
+% operands -- not a sound bound for a matrix product (out(i,j) sums k bilinear
+% terms and the output shape differs). It must refuse rather than mislead.
+L29 = DynamicMatmulLayer('mm29', 2, 1, {'in1','in2'}, {'out'});
+errored = false;
+try
+    L29.reach({Star(zeros(4,1), ones(4,1)), Star(zeros(4,1), ones(4,1))}, 'approx-star');
+catch ME29
+    errored = strcmp(ME29.identifier, 'DynamicMatmulLayer:reachNotImplemented');
+end
+assert(errored, 'Test 29 failed: DynamicMatmul reach must raise reachNotImplemented');
+A29 = rand(3,4,'single'); B29 = rand(4,2,'single');
+assert(max(abs(double(L29.evaluate({A29,B29}) - A29*B29)), [], 'all') < 1e-5, ...
+    'Test 29 failed: evaluate must stay exact');
+fprintf('Test 29 PASSED (DynamicMatmulLayer reach fail-loud; evaluate exact)\n');
+
+%% Test 30: PlaceholderLayer ACTIVE ops reach soundly or refuse (identity was unsound)
+% evaluate() computes Sign/Abs/Exp/... and Constant/Transpose, but reach() was
+% an unconditional identity -> evaluate and reach disagreed (silent unsoundness).
+rng(30);
+d = 5; lo = randn(d,1) - 0.5; hi = lo + rand(d,1) + 0.3;   % straddles 0
+S30 = Star(lo, hi);
+% (a) Exp: monotone box, MC-containment
+Lx = PlaceholderLayer('ph_exp30', 'Exp');
+Sx = Lx.reach(S30, 'approx-star');
+[xl, xu] = Sx.getRanges(); xl = xl(:); xu = xu(:);
+viol = 0;
+for k = 1:500
+    x = lo + (hi - lo).*rand(d,1); y = exp(x);
+    if any(y < xl - 1e-9) || any(y > xu + 1e-9), viol = viol + 1; end
+end
+assert(viol == 0, 'Test 30a failed: Exp reach unsound (%d/500)', viol);
+% (b) Abs: interval abs, MC-containment
+La = PlaceholderLayer('ph_abs30', 'Abs');
+Sa30 = La.reach(S30, 'approx-star');
+[al, au] = Sa30.getRanges(); al = al(:); au = au(:);
+viol = 0;
+for k = 1:500
+    x = lo + (hi - lo).*rand(d,1); y = abs(x);
+    if any(y < al - 1e-9) || any(y > au + 1e-9), viol = viol + 1; end
+end
+assert(viol == 0, 'Test 30b failed: Abs reach unsound (%d/500)', viol);
+% (c) Sin: sound codomain box [-1,1]
+Ls = PlaceholderLayer('ph_sin30', 'Sin');
+Ss30 = Ls.reach(S30, 'approx-star');
+[sl, su] = Ss30.getRanges();
+assert(all(sl(:) <= -1 + 1e-9) && all(su(:) >= 1 - 1e-9), 'Test 30c failed: Sin box');
+% (d) Constant: exact point set
+Lc = PlaceholderLayer('ph_const30', 'Constant');
+Lc.Constant = single([1; -2; 3]);
+Sc30 = Lc.reach(S30, 'approx-star');
+[cl, cu] = Sc30.getRanges();
+assert(max(abs(cl(:) - [1; -2; 3])) < 1e-6 && max(abs(cu(:) - [1; -2; 3])) < 1e-6, ...
+    'Test 30d failed: Constant point set');
+% (e) Tan and non-identity Transpose must REFUSE
+Lt = PlaceholderLayer('ph_tan30', 'Tan');
+errored = false; try, Lt.reach(S30, 'approx-star'); catch, errored = true; end
+assert(errored, 'Test 30e failed: Tan reach must error');
+Lp = PlaceholderLayer('ph_perm30', 'Transpose'); Lp.Perm = [2 1];
+errored = false; try, Lp.reach(S30, 'approx-star'); catch, errored = true; end
+assert(errored, 'Test 30e failed: non-identity Transpose reach must error');
+% (f) inert placeholder stays identity
+Ld = PlaceholderLayer('ph_drop30', 'nnet.cnn.layer.DropoutLayer');
+Sout = Ld.reach(S30, 'approx-star');
+[il, iu] = Sout.getRanges();
+assert(max(abs(il(:) - lo)) < 1e-9 && max(abs(iu(:) - hi)) < 1e-9, ...
+    'Test 30f failed: inert placeholder must stay identity');
+fprintf('Test 30 PASSED (PlaceholderLayer active ops: sound reach or refuse; inert identity)\n');
+
 fprintf('\n=== All V04/V05/V06/V07/V08/V09/V10 NNV regression tests PASSED ===\n');

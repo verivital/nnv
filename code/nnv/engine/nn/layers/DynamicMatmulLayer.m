@@ -4,9 +4,12 @@ classdef DynamicMatmulLayer < handle
     % (e.g. attention Q*K^T and attn_weights*V in transformers).
     %
     % evaluate is exact (matrix multiplication).
-    % reach uses an interval over-approximation of the bilinear product.
-    % Sound but loose; tighter Star-set bounds would require a custom
-    % bilinear abstract transformer (TODO).
+    % reach is NOT implemented soundly and therefore ERRORS: the layer has no
+    % operand-shape metadata, and the previous element-wise interval
+    % approximation was NOT a sound bound for a matrix product
+    % (out(i,j) = sum_k A(i,k)*B(k,j) sums k bilinear terms and changes
+    % shape). A sound interval matmul needs the [m x k], [k x n] shapes --
+    % wire them through the importer manifest before enabling reach (TODO).
 
     properties
         Name = 'DynamicMatmulLayer';
@@ -71,34 +74,21 @@ classdef DynamicMatmulLayer < handle
             out = reshape(out_flat, [lead, k_a, k_b_in]);
         end
 
-        function out = reach_single_input(~, inputs)
-            % Interval over-approximation of A * B.
-            % Treat A as [m × k], B as [k × n]; out is [m × n] with each
-            % element a sum over k bilinear products.
-            if ~iscell(inputs) || length(inputs) ~= 2
-                out = inputs;
-                return;
-            end
-            try
-                [a_lb, a_ub] = inputs{1}.getRanges();
-                [b_lb, b_ub] = inputs{2}.getRanges();
-                a_lb = a_lb(:); a_ub = a_ub(:);
-                b_lb = b_lb(:); b_ub = b_ub(:);
-                % Sound but very coarse: assume scalar product per element
-                % (treats inputs as flat vectors with element-wise interval mul).
-                % This is correct only if shapes match; otherwise mark unsound.
-                if numel(a_lb) ~= numel(b_lb)
-                    warning('DynamicMatmulLayer: bound shapes differ; reach passthrough.');
-                    out = inputs{1};
-                    return;
-                end
-                c = [a_lb.*b_lb, a_lb.*b_ub, a_ub.*b_lb, a_ub.*b_ub];
-                lb = min(c, [], 2);
-                ub = max(c, [], 2);
-                out = Star(lb, ub);
-            catch
-                out = inputs{1};
-            end
+        function out = reach_single_input(~, inputs) %#ok<INUSD,STOUT>
+            % SOUNDNESS: refuse rather than approximate wrongly. The previous
+            % implementation took element-wise interval products of the two
+            % flattened operands -- that is NOT a sound bound for a matrix
+            % product (each out(i,j) sums k bilinear terms and the output
+            % shape differs from either input), and its fallbacks silently
+            % passed an operand through as "the reachable set". Without the
+            % operand shapes a sound interval matmul cannot be computed here.
+            % evaluate() remains exact.
+            error('DynamicMatmulLayer:reachNotImplemented', ...
+                ['no SOUND reachability is implemented for dynamic MatMul ' ...
+                 '(needs operand shapes for a per-element sum-of-bilinear-terms ' ...
+                 'interval bound). Refusing to return an unsound set; use a ' ...
+                 'sampling-based method (e.g. cp-star) for networks with ' ...
+                 'dynamic MatMul, or wire shapes through the importer.']);
         end
 
         function IS = reach(varargin)

@@ -59,6 +59,28 @@ try, L.reach(Star(zeros(8,1), ones(8,1)), 'approx-star'); catch, errMulti = true
 assert(errMulti, 'multi-token MHA reach must error (single-token V-bounds would be unsound)');
 fprintf('Test 5 PASSED (MHA multi-token fail-loud)\n');
 
+%% Test 7: MHA with weights set but UNRESOLVED dims (EmbedDim=0) must still
+%% fail loud on multi-token input -- EmbedDim=0 previously DISARMED the guard
+%% (the real-attention ViT bug: R2026a selfAttentionLayer property names don't
+%% match parse's reads, so EmbedDim stayed 0, HeadDim=0 gave an empty per-head
+%% index range, and the output set came back EMPTY -> garbage downstream).
+L = MultiHeadAttentionLayer();
+L.NumHeads = 2; L.EmbedDim = 0; L.HeadDim = 0;   % simulate failed property read
+L.W_Q = eye(4); L.W_K = eye(4); L.W_V = eye(4); L.W_O = eye(4);
+errored = false;
+try, L.reach(Star(zeros(8,1), ones(8,1)), 'approx-star'); catch, errored = true; end
+assert(errored, 'dims-unset MHA on multi-token input must error, not return an empty/garbage set');
+fprintf('Test 7 PASSED (MHA derives dims from weights; multi-token still fail-loud)\n');
+
+%% Test 8: parse derives EmbedDim/HeadDim from weights on R2026a selfAttentionLayer
+%% (whose property names are InputSize/NumQueryChannels, not NumChannels).
+dln = dlnetwork([sequenceInputLayer(8) selfAttentionLayer(2, 8, 'Name', 'sa')]);
+L = MultiHeadAttentionLayer.parse(dln.Layers(2));
+assert(~isempty(L.W_Q) && isequal(size(L.W_Q), [8 8]), 'parse failed to extract weights');
+assert(L.EmbedDim == 8 && L.HeadDim == 4, ...
+    'parse failed to derive dims from weights (EmbedDim=%g, HeadDim=%g)', L.EmbedDim, L.HeadDim);
+fprintf('Test 8 PASSED (parse derives EmbedDim/HeadDim from extracted weights)\n');
+
 %% Test 6: BatchNorm reach is sound (MC-containment), ImageStar path
 rng(0); H = 2; W = 2; C = 3;
 mean_  = reshape([0.5 -0.2 1.0], 1, 1, C);

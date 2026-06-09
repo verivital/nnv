@@ -397,6 +397,18 @@ classdef MultiHeadAttentionLayer < handle
                 obj.HeadDim = n / obj.NumHeads;
             end
 
+            % Defense-in-depth (mirrors parse): if weights ARE set but dims were
+            % never resolved (a parse from a MATLAB release whose property names
+            % didn't match leaves EmbedDim=0), derive them from the weights NOW,
+            % BEFORE the multi-token guard below -- otherwise EmbedDim=0 disarms
+            % the guard and HeadDim=0 silently yields an EMPTY output set.
+            if (isempty(obj.EmbedDim) || obj.EmbedDim <= 0) && ~isempty(obj.W_Q)
+                obj.EmbedDim = size(obj.W_Q, 1);
+            end
+            if obj.NumHeads > 0 && obj.EmbedDim > 0 && (isempty(obj.HeadDim) || obj.HeadDim <= 0)
+                obj.HeadDim = obj.EmbedDim / obj.NumHeads;
+            end
+
             % SOUNDNESS GUARD: the per-head bounds path (compute_attention_bounds_
             % single_head) returns each head's V bounds, exact ONLY for a single
             % token (seq_len = 1). For seq_len > 1 the output mixes value vectors
@@ -471,6 +483,16 @@ classdef MultiHeadAttentionLayer < handle
             head_ub = zeros(n, 1);
 
             head_size = obj.HeadDim;
+            % HeadDim must be a positive integer or the per-head index range
+            % (idx_start:idx_end) is empty/garbled and the output set comes back
+            % EMPTY -- which downstream layers consume as garbage. Fail loud.
+            if isempty(head_size) || head_size <= 0 || mod(head_size, 1) ~= 0
+                error('MultiHeadAttentionLayer:invalidDims', ...
+                    ['HeadDim=%g (EmbedDim=%g, NumHeads=%g) is not a positive ' ...
+                     'integer; refusing to compute attention bounds that would ' ...
+                     'produce an empty (unsound-to-consume) output set.'], ...
+                    head_size, obj.EmbedDim, obj.NumHeads);
+            end
             for h = 1:obj.NumHeads
                 idx_start = (h-1) * head_size + 1;
                 idx_end = h * head_size;
@@ -671,6 +693,22 @@ classdef MultiHeadAttentionLayer < handle
                         L.W_O = reshape(w(3*d*d+1:4*d*d), [d, d]);
                     end
                 end
+            end
+
+            % Derive dimensions from the extracted weights when the release's
+            % property names didn't match (e.g. R2026a selfAttentionLayer has
+            % InputSize/NumQueryChannels/NumKeyChannels, NOT NumChannels /
+            % NumKeyValueChannels read above). EmbedDim=0 is NOT benign: it
+            % gives HeadDim=0, the per-head index range 1:0 (empty), an EMPTY
+            % output set, and garbage downstream -- and it also disarms the
+            % multi-token soundness guard in compute_mha_bounds. W_Q is stored
+            % transposed as [InputSize x OutputSize], so size(W_Q,1) is the
+            % per-token input (embedding) dimension.
+            if (isempty(L.EmbedDim) || L.EmbedDim <= 0) && ~isempty(L.W_Q)
+                L.EmbedDim = size(L.W_Q, 1);
+            end
+            if L.NumHeads > 0 && L.EmbedDim > 0 && (isempty(L.HeadDim) || L.HeadDim <= 0)
+                L.HeadDim = L.EmbedDim / L.NumHeads;
             end
 
             % Warning if weights not found (layer will use identity)

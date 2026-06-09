@@ -397,6 +397,21 @@ classdef MultiHeadAttentionLayer < handle
                 obj.HeadDim = n / obj.NumHeads;
             end
 
+            % SOUNDNESS GUARD: the per-head bounds path (compute_attention_bounds_
+            % single_head) returns each head's V bounds, exact ONLY for a single
+            % token (seq_len = 1). For seq_len > 1 the output mixes value vectors
+            % across tokens (convex combination) and can leave any single token's
+            % range -> returning V's bounds would be UNSOUND. If configured with a
+            % per-token EmbedDim and the input is an exact multiple of it (>1
+            % tokens), refuse rather than silently produce an unsound set.
+            if ~isempty(obj.EmbedDim) && obj.EmbedDim > 0 && ...
+                    n > obj.EmbedDim && mod(n, obj.EmbedDim) == 0
+                error('MultiHeadAttentionLayer:multiTokenUnsound', ...
+                    ['Multi-token MHA reach (seq_len=%d) is not implemented; the ' ...
+                     'single-token bounds path would be UNSOUND. Use a per-token model.'], ...
+                    n / obj.EmbedDim);
+            end
+
             % Check for near-zero Q/K weights (uniform attention case)
             % When Q*K^T ≈ 0 for all positions, softmax gives uniform 1/n weights
             q_weight_mag = max(abs(obj.W_Q(:)));

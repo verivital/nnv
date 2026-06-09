@@ -177,6 +177,22 @@ classdef ScaledDotProductAttentionLayer < handle
             n_k = K_set.dim;
             n_v = V_set.dim;
 
+            % SOUNDNESS GUARD: compute_attention_bounds returns V's bounds, which
+            % is exact ONLY for single-token attention (seq_len = 1, where softmax
+            % over one score == 1 so output == V). For seq_len > 1 the output is a
+            % convex combination ACROSS tokens that can leave any single token's
+            % value range, so returning V's bounds would be UNSOUND. If the layer
+            % is configured with a per-token ValueDim and the input is an exact
+            % multiple of it (>1 tokens), refuse rather than silently degrade.
+            if ~isempty(obj.ValueDim) && obj.ValueDim > 0 && ...
+                    n_v > obj.ValueDim && mod(n_v, obj.ValueDim) == 0
+                error('ScaledDotProductAttentionLayer:multiTokenUnsound', ...
+                    ['Multi-token attention reach (seq_len=%d) is not implemented; the ' ...
+                     'single-token bounds path would be UNSOUND. Use a per-token model, ' ...
+                     'or implement the per-coordinate cross-token softmax bound ' ...
+                     '(see Softmax.compute_softmax_bounds).'], n_v / obj.ValueDim);
+            end
+
             % Get bounds on inputs
             Q_lb = zeros(n_q, 1);
             Q_ub = zeros(n_q, 1);

@@ -1525,11 +1525,20 @@ classdef NN < handle
                     obj.input_sets{dest_indx} = outSet;
                 end
             end
-            % Check if last layer is executed (default is last layer is not executed, but in the 
+            % Check if last layer is executed (default is last layer is not executed, but in the
             % case of the PixelClassificationLayer this is necessary)
             % Assume last layer in array is the output layer
             if isempty(obj.reachSet{end})
-                inSet = obj.reachSet{end-1};
+                % SOUNDNESS: a final layer is never a connection SOURCE, so the
+                % loop above never executes it. For a MULTI-INPUT final layer
+                % (e.g. a final Concatenation) its gathered inputs live in
+                % input_sets{numLayers}; using reachSet{end-1} would silently
+                % drop all inputs but one and produce a wrong (wrong-dim) set.
+                if numel(obj.input_sets) >= obj.numLayers && ~isempty(obj.input_sets{obj.numLayers})
+                    inSet = obj.input_sets{obj.numLayers};
+                else
+                    inSet = obj.reachSet{end-1};
+                end
                 if strcmp(reachType, 'sequence')
                     outSet = obj.Layers{end}.reachSequence(inSet, obj.reachMethod, obj.reachOption, obj.relaxFactor, obj.dis_opt, obj.lp_solver);
                 else

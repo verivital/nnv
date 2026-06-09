@@ -350,7 +350,9 @@ function nnvL = build_layer(type_str, name_str, attrs, wkeys, weights, L) %#ok<I
             try
                 nnvL = Resize2DLayer(name_str);
             catch
-                nnvL = PlaceholderLayer(name_str, 'Resize');
+                % Resize changes values -- an identity placeholder would be a
+                % silently WRONG network. Mark active-unsupported (fail-loud).
+                nnvL = PlaceholderLayer(name_str, 'UnsupportedOp:Resize');
             end
 
         case 'SignLayer'
@@ -366,7 +368,14 @@ function nnvL = build_layer(type_str, name_str, attrs, wkeys, weights, L) %#ok<I
         case 'PlaceholderLayer'
             % If the placeholder represents an element-wise op we can
             % evaluate (Sign/Abs/etc.), tag it so PlaceholderLayer.evaluate
-            % can dispatch on it. Otherwise it's a true no-op.
+            % can dispatch on it. Ops that are genuinely value-preserving
+            % (Identity/Cast/Dropout and the importer's proven no-op tags)
+            % stay inert. ANY OTHER op is ACTIVE-BUT-UNSUPPORTED (Expand,
+            % Where, ScatterND, ArgMax, Gather, dynamic Reshape/MatMul,
+            % Div_zero, Pow, ReduceMean, ...): tag it 'UnsupportedOp:<op>'
+            % so PlaceholderLayer refuses to evaluate/reach it -- treating
+            % it as identity silently computes a WRONG network (this is
+            % exactly what made cctsdb_yolo/collins xval fail with NaN).
             tag = 'Identity';
             if isfield(attrs, 'OriginalOp')
                 op = char(string(attrs.OriginalOp));
@@ -374,6 +383,18 @@ function nnvL = build_layer(type_str, name_str, attrs, wkeys, weights, L) %#ok<I
                                    'Floor','Ceil','Round', ...
                                    'Sin','Cos','Tan','Exp','Log','Sqrt'}))
                     tag = op;
+                elseif any(strcmp(op, {'Identity','Cast','Dropout', ...
+                                       'extra_graph_input', ...
+                                       'Transpose_2D_no_op_vector', ...
+                                       'Transpose_BCHW_to_BHWC', ...
+                                       'Transpose_BHWC_to_BCHW'}))
+                    % Identity BY CONVENTION: NNV keeps images as HWC arrays,
+                    % so ONNX's BCHW<->BHWC layout transposes are no-ops here
+                    % (the importer emits them as such deliberately; biases/
+                    % weights are already converted to the HWC convention).
+                    tag = 'Identity';   % proven value-preserving
+                else
+                    tag = ['UnsupportedOp:' op];
                 end
             end
             nnvL = PlaceholderLayer(name_str, tag);

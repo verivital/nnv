@@ -96,15 +96,26 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
     
                 IS = create_input_set(lb, ub, inputSize, needReshape);
 
-                % Compute reachability
-                if ~strcmp(reachOptions.reachMethod, "cp-star")
-                    if ~is_nnvnet_valid(nnvnet)
-                        % matlab2nnv conversion failed earlier; report unknown
-                        status = 2; break;
+                % Compute reachability. Reach may FAIL LOUD by design (layers
+                % refuse to return unsound sets); an error is mapped to
+                % "unknown" for this method and we try the next one -- that is
+                % sound (claims nothing), unlike swallowing a wrong set.
+                try
+                    if ~strcmp(reachOptions.reachMethod, "cp-star")
+                        if ~is_nnvnet_valid(nnvnet)
+                            % matlab2nnv conversion failed earlier; report unknown
+                            status = 2; break;
+                        end
+                        ySet = nnvnet.reach(IS, reachOptions);
+                    else
+                        ySet = Prob_reach(net, IS, reachOptions);
                     end
-                    ySet = nnvnet.reach(IS, reachOptions);
-                else
-                    ySet = Prob_reach(net, IS, reachOptions);
+                catch ME
+                    fprintf('reach (%s) errored: %s -> unknown\n', ...
+                        reachOptions.reachMethod, ME.message);
+                    status = 2;
+                    reachOptionsList = reachOptionsList(2:end);
+                    continue;
                 end
 
                 % Verify property
@@ -320,6 +331,12 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
         lb = permute(lb, [2 1 3 4]);
         ub = reshape(ub, newSize);
         ub = permute(ub, [2 1 3 4]);
+    elseif needReshape == 3
+        % ONNX row-major NHWC flat (C fastest, then W, then H): the reshape
+        % above already produced [C W H] (inputSize must be given as
+        % [C W H]); permute to NNV's [H W C] array convention.
+        lb = permute(lb, [3 2 1]);
+        ub = permute(ub, [3 2 1]);
     end
 
     % Create input set
@@ -525,24 +542,17 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         end
 
     elseif contains(category, "lsnc_relu")
-        % LCNS_ReLU: onnx to matlab:
-        % net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
-        % try 
-        %     nnvnet = matlab2nnv(net);
-        % catch
-        %     nnvnet = "";
-        % end
-        %     reachOptions = struct;
-        %     reachOptions.train_epochs = 100;
-        %     reachOptions.train_lr = 0.001;
-        %     reachOptions.coverage = 0.999;
-        %     reachOptions.confidence = 0.999;
-        %     reachOptions.train_mode = 'Linear';
-        %     reachOptions.surrogate_dim = [];
-        %     reachOptions.threshold_normal = 1e-5;
-        %     reachOptions.reachMethod = "cp-star";
-        %     reachOptionsList{1} = reachOptions;
-        error("IR and opset not yet supported in MATLAB")
+        % lsnc_relu: MATLAB's importNetworkFromONNX cannot parse this model
+        % (IR/opset), so load via the Python-importer manifest
+        % (tools/onnx2nnv_python/onnx2nnv.py writes <model>.nnv.mat alongside
+        % the ONNX). Cross-validated against onnxruntime: max diff 9.2e-07
+        % over random inputs (2026-06-09). Flat [6] feature input, [8] output.
+        nnvnet = load_manifest_net(onnx);
+        net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+        inputSize = 6;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "malbeware")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS");
@@ -720,20 +730,22 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "traffic")
-        % error("TODO: add support")
-        % net = importNetworkFromONNX(onnx, "InputDataFormats", "BSSC", 'OutputDataFormats',"BC");
-        % try
-        %     nnvnet = matlab2nnv(net);
-        % catch
-        %     nnvnet = "";
-        % end
-        % % needReshape = 1; % 1 is wrong
-        % reachOptions = struct;
-        % % inputFormat = "BSSC";
-        % reachOptions.inputFormat = inputFormat;
-        % reachOptions.reachMethod = 'cp-star';
-        % reachOptionsList{1} = reachOptions;
-        error("IR and opset not yet supported in MATLAB")
+        % traffic_signs_recognition: MATLAB's importNetworkFromONNX cannot
+        % parse this binarized (Sign) model, so load via the Python-importer
+        % manifest. Cross-validated against onnxruntime: max diff 4.3e-19,
+        % argmax 8/8 over random inputs (2026-06-09; required the regenerated
+        % manifest -- SignLayer + proper transpose handling -- plus the
+        % BCHW<->BHWC identity-by-convention placeholders).
+        % Input is ONNX [1,30,30,3] (NHWC); vnnlib X order is ONNX row-major
+        % (C fastest), so unflatten via needReshape=3:
+        %   img = permute(reshape(x, [3 30 30]), [3 2 1])  -> [30 30 3] HWC
+        nnvnet = load_manifest_net(onnx);
+        net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+        inputSize = [3 30 30];   % reshape size BEFORE the [3 2 1] permute
+        needReshape = 3;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "vggnet")
         % error("TODO: add support")
@@ -843,6 +855,11 @@ function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,
             newSize = [inputSize(2) inputSize(1) inputSize(3:end)];
             xRand = reshape(xRand, [newSize nR]);
             xRand = permute(xRand, [2 1 3 4]);
+        elseif needReshape == 3
+            % ONNX row-major NHWC flat with inputSize = [C W H]:
+            % unflatten then permute to NNV's [H W C] arrays.
+            xRand = reshape(xRand, [inputSize nR]);
+            xRand = permute(xRand, [3 2 1 4]);
         else
             xRand = reshape(xRand, [inputSize nR]);
             xRand = permute(xRand, [2 1 3 4]);
@@ -909,6 +926,20 @@ function write_counterexample(outputfile, counterEx)
 
 end
 
+% Load an NNV net from the Python-importer manifest written alongside the ONNX
+% (tools/onnx2nnv_python/onnx2nnv.py). Used for models MATLAB's
+% importNetworkFromONNX cannot parse (lsnc_relu, traffic_signs_recognition).
+function nnvnet = load_manifest_net(onnx)
+    manifest = regexprep(char(onnx), '\.onnx$', '.nnv.mat');
+    if ~isfile(manifest)
+        error('run_vnncomp_instance:noManifest', ...
+            ['NNV manifest not found: %s\nGenerate it with:\n' ...
+             '  python tools/onnx2nnv_python/onnx2nnv.py "%s" --vnnlib <spec.vnnlib>'], ...
+            manifest, char(onnx));
+    end
+    nnvnet = load_nnv_from_mat(manifest);
+end
+
 % Falsification function (random simulation looking for counterexamples)
 function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape, inputFormat)
     counterEx = nan;
@@ -919,7 +950,11 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
     for i=1:s(n)
         x = get_example(xRand, i);
         try
-            yPred = predict(net, x);
+            if isa(net, 'NN')   % NNV net (Python-importer manifest path)
+                yPred = net.evaluate(x);
+            else
+                yPred = predict(net, x);
+            end
             if isa(x, 'dlarray') % if net is a dlnetwork
                 x = extractdata(x);
                 yPred = extractdata(yPred);

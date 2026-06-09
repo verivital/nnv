@@ -15,6 +15,17 @@ change** (the `EmbedDim` fix below, which closes B3+B4 together). Every known un
 genuinely broken end-to-end path (real-attention ViT) is fenced off by guards + documentation, not
 shipped as a working-but-wrong feature.
 
+> **STATUS UPDATE (2026-06-09): ALL MERGE BLOCKERS RESOLVED.** Executed in commits
+> `a39473719` (B3+B4 EmbedDim fix + Tests 7/8), `e7cf0eb84` (B5 matlab2nnv mid-softmax + Test 9),
+> `f16ac9e59` (importer-layer fail-loud + MC Tests 27-30), `9f30edf42` (VNN-COMP wiring + the
+> multi-input final-layer reach engine fix). Suites on R2026a: transformer_soundness **16/16**,
+> vnncomp25 **32/32**, comprehensive_network **8/8**, FC-ViT 4/5 unchanged. Two additional
+> silent-unsound classes found and fixed beyond the original plan: (i) `PlaceholderLayer` active
+> ops (Constant/Transpose/Sign/Exp/... evaluated actively but reached as identity) — now sound
+> boxes or refusal; (ii) `NN.reach`'s final-layer fallback silently dropped all but one input of
+> a multi-input final layer (wrong-dim set) — now uses the gathered inputs. See §2 for the final
+> VNN-COMP per-benchmark status.
+
 ---
 
 ## 1) MERGE BLOCKERS (fix-or-gate before merge)
@@ -90,15 +101,27 @@ Legend: **MC-containment** = N random samples of the concrete layer, assert ever
 - **Audit `PlaceholderLayer` routing for unknown ops** — an *active* (non-identity) op silently dropped to
   identity is the same unsoundness class as B5. Unknown ops must **error at import**, never load a partial net.
 
-**Coverage-incomplete (defer; document as "partial VNN-COMP'25 support"):**
-- The 3 categories blocked by MATLAB's `importNetworkFromONNX` (ONNX IR/opset): `cctsdb_yolo` (gather
-  forward-prop), `lsnc_relu`, `traffic_signs_recognition`. The Python-importer path
-  (`onnx2nnv.py → load_nnv_from_mat`) is the route to finish them, but it needs the model files + iteration
-  — **post-merge (F4)**. `collins aerospace` produced "invalid SAT instances" — flag as a **correctness**
-  concern to investigate, not just coverage.
-- 26/29 categories load; `test_vnncomp25_regression` is 28/28. Benchmark breadth is a follow-up.
+**FINAL per-benchmark status (2026-06-09, after the Python-importer pass):**
 
-**Rule:** importer merges once the dynamic-layer MC tests are green. Breadth is post-merge.
+| category | status | evidence |
+|---|---|---|
+| 21 previously-working categories | unchanged, working | `test_vnncomp25_regression` 32/32; xval sweep |
+| **lsnc_relu** | **NOW WORKS end-to-end** (was error-stub) | manifest xval **9.2e-07** vs onnxruntime; reach MC-containment **0/500**; runner verdict in 2.3s |
+| **traffic_signs_recognition** | **NOW WORKS end-to-end** (was error-stub; old manifest xval-diff=1!) | regenerated manifest xvals **4.3e-19**, argmax 8/8; `needReshape=3` layout verified elementwise; falsification correct; star reach refuses soundly at a mid-net Perm transpose → unknown |
+| ml4acopf (Python path) | **fixed** (was NaN) | regenerated manifest xvals **8.0e-06** (Floor/Sin/Cos handlers); MATLAB-import path unchanged |
+| **cctsdb_yolo** | **can't handle (documented)** | graph embeds YOLO post-processing: data-`Slice`, `Expand`, `Equal/Where`, `ScatterND`, `ArgMax`, dynamic `Reshape` — 16 active ops with no NNV semantics. Now **fails loud** instead of evaluating a wrong net |
+| **collins_aerospace** | **can't handle (documented)** | blocked on `Split` (importer selector-size guard at 640×640) + `Pow`. The historic "invalid SAT instances" are explained: falsification ran a semantically-wrong local net (identity placeholders) → counterexamples the real ONNX rejects. **Impossible now** (fail-loud evaluate) |
+| **vit_2023** | **can't handle (ties to F1/F2)** | imports structurally; evaluate fails at rank-3 DynamicMatmul shape-flow (multi-token attention); star reach refuses soundly |
+
+**Packaging note:** the Python importer lives at workspace `tools/onnx2nnv_python/{onnx2nnv.py, xvalidate.py}`
+— **outside the nnv repo**. For a self-contained PR, copy it to `code/nnv/tools/onnx2nnv_python/`
+(`load_nnv_from_mat.m`'s header already references that path). Manifests (`<model>.nnv.mat`) are
+generated artifacts living next to the benchmark ONNX files (not in the repo); `load_manifest_net`
+errors with regeneration instructions when one is missing.
+
+**Rule:** importer merges once the dynamic-layer MC tests are green (done — Tests 27-30). Remaining
+breadth (cctsdb/collins/vit) requires new op semantics (Slice/Expand/Where/ScatterND/ArgMax/large-Split/
+Pow) or the sound multi-token attention bound — post-merge.
 
 ---
 

@@ -173,7 +173,10 @@ in the GitHub Actions cache. Measured on this repo (2026-06-08):
   `matlab-cache-linux-x64-<MATLABversion>-<products-hash>`; it **fits under GitHub's 10 GB
   limit** (it saved successfully). The key auto-changes (→ a one-time cold rebuild) whenever you
   edit `release` or the `products` list.
-- Combined with N≈18 shards (now cheap since setup is ~1 min), warm wall-clock targets ~4–5 min.
+- Shard count auto-scales to **~11 (cap 16)**: over-sharding to ~18 REGRESSED (more concurrent
+  jobs drew GitHub's slow-runner tail — per-test time ~4× worse, wall 1349s vs warm-N11 611s),
+  so ~11 is the empirical sweet spot (~10 min warm). `run_shard` packs by (per-test overhead
+  ~3s + recorded JUnit time) since fixed fixture/JIT overhead dominates the sub-second tests.
 
 ### Rebuilding the cache on demand
 The cache auto-rebuilds when `release`/`products` change. To FORCE a rebuild *without* a config

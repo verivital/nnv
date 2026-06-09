@@ -46,6 +46,19 @@ function net = load_nnv_from_mat(mat_path)
         nnv_layers{i} = build_layer(type_str, name_str, attrs, wkeys, weights, L);
     end
 
+    % Mark non-final SoftmaxLayers so reach() uses SOUND interval bounds instead
+    % of the (unsound) identity passthrough for mid-network softmax -- e.g. inside
+    % ONNX-decomposed attention (MatMul -> Softmax -> MatMul). The final softmax
+    % (last in topological order) keeps identity, which is sound for argmax-style
+    % robustness specs stated on the logits. Erring toward non-final is safe: the
+    % bounds are sound (just looser); only a mislabeled *non-final* softmax left
+    % as identity would be unsound, and this prevents that.
+    for i = 1:n
+        if isa(nnv_layers{i}, 'SoftmaxLayer')
+            nnv_layers{i}.IsFinalLayer = (i == n);
+        end
+    end
+
     % Build connections from inputs/outputs maps
     Connections = build_connections_table(layer_cells, layer_names);
 

@@ -120,57 +120,56 @@ classdef SoftmaxLayer < handle
         
         % reachability with imagestar
         function OS = reach(varargin)
-            % Sound softmax reach.
-            % - For final-layer softmax (output is class scores → probabilities),
-            %   identity passthrough is the historic NNV behavior because
-            %   robustness specs are typically stated in terms of pre-softmax
-            %   logits anyway (argmax preserves under monotonic transforms).
-            % - For intermediate softmax (transformer attention), identity is
-            %   UNSOUND. Here we delegate to nn/funcs/Softmax.m's interval
-            %   bounds when caller passes a nontrivial reach method.
+            % Softmax reachability.
             %
-            % Backwards compat: many callers pass (obj, IS, method, opt, relax)
-            % with method irrelevant. Default to identity if we don't have a
-            % method or if the input set is one-dim flat (final-layer case).
+            % Two regimes, selected by obj.IsFinalLayer:
+            %  - FINAL-layer softmax (default): identity passthrough. SOUND only
+            %    for argmax-style robustness specs stated on the pre-softmax
+            %    logits, because softmax is per-coordinate monotone so
+            %    argmax(softmax(x)) == argmax(x). NOT valid for specs on the
+            %    softmax *probabilities* (e.g. P(class) > 0.9) -- use a
+            %    non-final softmax (IsFinalLayer=false) for those.
+            %  - INTERMEDIATE softmax (IsFinalLayer=false, e.g. inside
+            %    attention): identity is UNSOUND, so compute a sound interval
+            %    over-approximation (nn/funcs/Softmax.m). We deliberately DO NOT
+            %    silently fall back to identity on failure -- that would hide
+            %    unsoundness; an unsupported set type raises an error instead.
+            %
+            % NOTE: the previous implementation routed through
+            % Softmax.reach_star_approx(IS, method) with method='' (no method
+            % passed by most callers); that dispatch errored on the empty
+            % method and a silent catch returned the UNSOUND identity. We now
+            % call the bounds directly so intermediate softmax is actually sound.
             obj = varargin{1};
-            IS = varargin{2};
-            method = '';
-            if nargin >= 3, method = varargin{3}; end
+            IS  = varargin{2};
 
             if isempty(IS)
                 OS = IS; return;
             end
 
-            % Heuristic: if the upstream of this softmax is the final layer
-            % producing logits for argmax, identity is correct for verify.
-            % Marker: obj.IsFinalLayer (settable from loader). Default true
-            % to preserve legacy behavior; intermediate softmaxes (e.g.
-            % attention) should set IsFinalLayer=false.
             is_final = true;
             if isprop(obj, 'IsFinalLayer') && ~obj.IsFinalLayer
                 is_final = false;
             end
 
             if is_final
-                OS = IS;
+                OS = IS;   % sound for argmax-on-logits specs (see note above)
                 return;
             end
 
-            % Sound bounds via Softmax.reach_star_approx (if available).
-            try
-                if isa(IS, 'Star')
-                    OS = Softmax.reach_star_approx(IS, method);
-                elseif isa(IS, 'ImageStar')
-                    S = IS.toStar();
-                    Sout = Softmax.reach_star_approx(S, method);
-                    OS = Sout.toImageStar(IS.height, IS.width, IS.numChannel);
-                else
-                    OS = IS;
-                end
-            catch
-                % If sound reach not implemented for this set type,
-                % fall back to identity (legacy behavior). Logged once.
-                OS = IS;
+            % Intermediate softmax: sound bounds, NO silent identity fallback.
+            if isa(IS, 'Star')
+                OS = Softmax.reach_star_approx_bounds(IS);
+            elseif isa(IS, 'ImageStar')
+                S = IS.toStar();
+                Sout = Softmax.reach_star_approx_bounds(S);
+                OS = Sout.toImageStar(IS.height, IS.width, IS.numChannel);
+            elseif isa(IS, 'Zono')
+                OS = Softmax.reach_zono_approx(IS);
+            else
+                error('SoftmaxLayer:reach', ...
+                    ['Sound intermediate-softmax reach is not implemented for set type ''%s''. ' ...
+                     'Refusing to return an unsound identity passthrough.'], class(IS));
             end
         end
         

@@ -98,10 +98,18 @@ jobs:
             Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
       - name: Run shard ${{ matrix.shard }} of ${{ needs.prepare.outputs.n }}
+        id: shard_run
         uses: matlab-actions/run-command@v2
         timeout-minutes: 15
-        continue-on-error: true   # on timeout, fail the step but let the job upload its
-                                  # progress trace (so the report can name the hanging test)
+        continue-on-error: true   # on timeout/crash, fail the step but let the job upload
+                                  # its progress trace (so the report can name the test)
+        with:
+          command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(${{ matrix.shard }}, ${{ needs.prepare.outputs.n }}, 'standard');
+      - name: Retry shard (transient infra failure, e.g. MATLAB startup exit 255)
+        if: steps.shard_run.outcome == 'failure'
+        uses: matlab-actions/run-command@v2
+        timeout-minutes: 15
+        continue-on-error: true
         with:
           command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(${{ matrix.shard }}, ${{ needs.prepare.outputs.n }}, 'standard');
       - name: Upload shard results

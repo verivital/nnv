@@ -84,10 +84,18 @@ function run_shard(shardIdx, numShards, mode)
         dmap = containers.Map('KeyType','char','ValueType','double');
         for i = 1:height(DT), dmap(char(DT.Name(i))) = DT.Duration(i); end
         defDur = 1.0;   % default seconds for new/unknown tests
+        % Pack by (per-test fixed overhead + recorded time). The CSV holds JUnit
+        % per-test seconds (test body only), but each test also pays a roughly
+        % constant fixture/JIT overhead that DOMINATES -- most tests are sub-second,
+        % so a shard's wall time tracks its test COUNT more than the recorded times.
+        % Packing by recorded time alone balances time but not count (a shard full of
+        % many cheap tests runs long); adding the overhead term balances both and
+        % stays robust as the suite grows.
+        perTestOverhead = 3.0;
         durs = zeros(1, numel(selNames));
         for i = 1:numel(selNames)
             k = char(selNames(i));
-            if isKey(dmap, k), durs(i) = dmap(k); else, durs(i) = defDur; end
+            if isKey(dmap, k), durs(i) = perTestOverhead + dmap(k); else, durs(i) = perTestOverhead + defDur; end
         end
         [~, order] = sort(durs, 'descend');   % stable on ties -> deterministic
         binTot = zeros(1, numShards); binOf = zeros(1, numel(durs));

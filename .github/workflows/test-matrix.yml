@@ -42,11 +42,11 @@ env:
 
 jobs:
   # Decide the shard count and build the index list [1..N]. Uses the workflow_dispatch
-  # input if given, else AUTO-SCALES from test_durations.csv. We deliberately OVER-shard
-  # (~75s of recorded test time per shard -> ~18 now, clamped [8,20]): the CSV holds JUnit
-  # per-test seconds, which under-count actual run time ~2.4x (no fixture/JIT/MATLAB-start
-  # overhead), so a small divisor keeps the slowest shard near the single-longest-test floor.
-  # Cheap now that cache:true makes per-shard setup ~1 min; cap 20 ~= free-tier concurrency.
+  # input if given, else AUTO-SCALES from test_durations.csv (~11 shards now, clamped [8,16]).
+  # NOTE: more shards is NOT always faster here -- bumping to ~18 REGRESSED (running more
+  # concurrent jobs drew slower GitHub runners; per-test time was ~4x worse). N~11 with
+  # cache:true (~1 min warm setup) is the empirical sweet spot (~10 min warm wall). Per-test
+  # fixed overhead dominates the recorded JUnit times, so run_shard packs by (overhead + time).
   prepare:
     runs-on: ubuntu-latest
     permissions:
@@ -82,9 +82,9 @@ jobs:
             else
               TOTAL=1600
             fi
-            N=$(( (TOTAL + 74) / 75 ))    # ~18 shards now; auto-grows as the suite grows
-            [ "$N" -lt 8 ] && N=8
-            [ "$N" -gt 20 ] && N=20        # cap near free-tier concurrency (~20 concurrent jobs)
+            N=$(( (TOTAL + 119) / 120 ))   # ~11 shards (empirical sweet spot). Over-sharding to
+            [ "$N" -lt 8 ] && N=8           # ~18 REGRESSED: more concurrent jobs hit GitHub's
+            [ "$N" -gt 16 ] && N=16         # slow-runner tail (per-test time ~4x worse). Cap 16.
           fi
           echo "Using N=$N shards"
           echo "n=$N" >> "$GITHUB_OUTPUT"

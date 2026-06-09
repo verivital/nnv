@@ -22,6 +22,10 @@ on:
         description: "Also run high-memory tests (needs a big-RAM/self-hosted runner)"
         type: boolean
         default: false
+      rebuild_cache:
+        description: "Force-rebuild the MATLAB install cache (delete it, then this run repopulates it)"
+        type: boolean
+        default: false
   pull_request:
     branches: [ "master" ]
     paths-ignore: [ "**/*.md" ]
@@ -39,16 +43,33 @@ env:
 jobs:
   # Decide the shard count and build the index list [1..N]. Uses the workflow_dispatch
   # input if given, else AUTO-SCALES from test_durations.csv. We deliberately OVER-shard
-  # (~2 min of *local* test time per shard, clamped [8,24]): local Windows durations are
-  # only an estimate of Linux-CI time, so smaller shards keep an under-estimated test from
-  # overloading a shard, and the per-shard step timeout bounds any remaining surprise.
+  # (~75s of recorded test time per shard -> ~18 now, clamped [8,20]): the CSV holds JUnit
+  # per-test seconds, which under-count actual run time ~2.4x (no fixture/JIT/MATLAB-start
+  # overhead), so a small divisor keeps the slowest shard near the single-longest-test floor.
+  # Cheap now that cache:true makes per-shard setup ~1 min; cap 20 ~= free-tier concurrency.
   prepare:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write      # needed for `gh cache delete` when rebuild_cache=true
+      contents: read
     outputs:
       shards: ${{ steps.gen.outputs.shards }}
       n: ${{ steps.gen.outputs.n }}
     steps:
       - uses: actions/checkout@v4
+      - name: Force-rebuild MATLAB cache (delete existing entries; the matrix below repopulates)
+        if: ${{ github.event.inputs.rebuild_cache == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "rebuild_cache=true -> deleting matlab-cache-* so setup-matlab re-downloads a fresh install."
+          ids=$(gh cache list --repo "${{ github.repository }}" --limit 100 --json id,key \
+                --jq '.[]|select(.key|startswith("matlab-cache-"))|.id')
+          if [ -z "$ids" ]; then echo "(no matlab-cache-* entries found)"; fi
+          for id in $ids; do
+            echo "deleting cache id $id"
+            gh cache delete "$id" --repo "${{ github.repository }}" || true
+          done
       - id: gen
         run: |
           IN="${{ github.event.inputs.num_shards }}"
@@ -61,9 +82,9 @@ jobs:
             else
               TOTAL=1600
             fi
-            N=$(( (TOTAL + 119) / 120 ))
+            N=$(( (TOTAL + 74) / 75 ))    # ~18 shards now; auto-grows as the suite grows
             [ "$N" -lt 8 ] && N=8
-            [ "$N" -gt 24 ] && N=24
+            [ "$N" -gt 20 ] && N=20        # cap near free-tier concurrency (~20 concurrent jobs)
           fi
           echo "Using N=$N shards"
           echo "n=$N" >> "$GITHUB_OUTPUT"

@@ -161,3 +161,42 @@ free-runner infra flakiness**, NOT NNV:
    ```
    The last `Running test_…` before the kill = the offender. If deterministic, add it to
    `confirmedCrashPatterns` in `run_shard.m`; if it only flakes, leave it (infra).
+
+### Caching the MATLAB install (the real fix for setup cost + flakiness)
+`setup-matlab@v3` with `cache: true` (on all 3 setup steps) stores MATLAB + the 11 toolboxes
+in the GitHub Actions cache. Measured on this repo (2026-06-08):
+- **Cold run** (cache miss — e.g. first run, or after changing `release`/`products`): downloads
+  from MathWorks **and** saves the cache. Wall ~1134s (~19 min), shard mean 787s.
+- **Warm run** (cache hit): restores the install in **~55s** instead of the ~5 min download.
+  Wall **~611s (~10 min)**, shard mean 382s — **~46% faster**, and with no MathWorks round-trip
+  the download flake is gone on warm runs. Cache key:
+  `matlab-cache-linux-x64-<MATLABversion>-<products-hash>`; it **fits under GitHub's 10 GB
+  limit** (it saved successfully). The key auto-changes (→ a one-time cold rebuild) whenever you
+  edit `release` or the `products` list.
+- Combined with N≈18 shards (now cheap since setup is ~1 min), warm wall-clock targets ~4–5 min.
+
+### Rebuilding the cache on demand
+The cache auto-rebuilds when `release`/`products` change. To FORCE a rebuild *without* a config
+change (cache corruption, a MATLAB point-release that reuses the version string, periodic
+refresh):
+- **One-click (recommended):** run the workflow via `workflow_dispatch` with **`rebuild_cache:
+  true`** — the `prepare` job deletes every `matlab-cache-*` entry, then the matrix run
+  repopulates them:
+  `gh workflow run test-matrix.yml --repo ttj/nnv --ref transformer -f rebuild_cache=true`
+  (or the "Run workflow" button in the Actions UI, with "Force-rebuild…" checked).
+- **Manual (no run):** `gh cache list --repo ttj/nnv` → `gh cache delete <id> --repo ttj/nnv`
+  (needs `actions: write`); the next run then repopulates.
+- The first run after any rebuild is a cold run; the setup + run-command retries cover a
+  transient download flake during it.
+
+### Alternatives considered (and why cache:true won)
+- **`cache: true` (CHOSEN):** one-line, keeps the free public-repo auto-licensing, ~46% faster
+  warm runs, fits the 10 GB cache. Best effort/payoff.
+- **Prebuilt Docker image (MATLAB + toolboxes baked in):** fastest possible startup, but the
+  free public-repo auto-license is a `setup-matlab` feature — a bare `mathworks/matlab` image
+  needs its own batch-token/network license (the friction point from `CLOUD_COMPUTE_OPTIONS.md`)
+  plus image build/maintenance. Reserve as the fallback **only if** the cache ever stops fitting
+  the 10 GB limit (e.g. many more toolboxes).
+- **Self-hosted runner with MATLAB preinstalled:** zero per-run setup, but leaves the free
+  GitHub-hosted pool and needs campus-license/runner upkeep — that's the high-mem fallback lane,
+  not the default.

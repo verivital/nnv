@@ -24,8 +24,10 @@ on:
         default: false
   pull_request:
     branches: [ "master" ]
+    paths-ignore: [ "**/*.md" ]
   push:
     branches: [ "transformer" ]
+    paths-ignore: [ "**/*.md" ]   # doc-only changes shouldn't burn a full CI run
 
 concurrency:
   group: ci-matrix-${{ github.ref }}
@@ -83,12 +85,15 @@ jobs:
           submodules: recursive
       - name: Setup MATLAB
         id: setup_matlab
-        continue-on-error: true   # setup-matlab downloads MATLAB + 11 toolboxes (~5 min) and
-                                  # occasionally flakes on a transient mirror/network error.
-                                  # With ~11 shards that reds ~half of all runs, so retry once.
-        uses: matlab-actions/setup-matlab@v2
+        continue-on-error: true   # cache: true restores MATLAB from the GitHub Actions cache on
+                                  # warm runs (~1-2 min, reliable) instead of downloading from
+                                  # MathWorks (~5 min, the flake source). The cold run (cache
+                                  # miss, e.g. after changing release/products) still downloads
+                                  # and can flake, so keep the retry below as a backstop.
+        uses: matlab-actions/setup-matlab@v3
         with:
           release: ${{ env.MATLAB_RELEASE }}
+          cache: true
           products: >
             Computer_Vision_Toolbox
             Control_System_Toolbox
@@ -103,9 +108,10 @@ jobs:
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
       - name: Setup MATLAB (retry on transient download failure)
         if: steps.setup_matlab.outcome == 'failure'
-        uses: matlab-actions/setup-matlab@v2
+        uses: matlab-actions/setup-matlab@v3
         with:
           release: ${{ env.MATLAB_RELEASE }}
+          cache: true
           products: >
             Computer_Vision_Toolbox
             Control_System_Toolbox
@@ -170,9 +176,10 @@ jobs:
         with:
           submodules: recursive
       - name: Setup MATLAB
-        uses: matlab-actions/setup-matlab@v2
+        uses: matlab-actions/setup-matlab@v3
         with:
           release: ${{ env.MATLAB_RELEASE }}
+          cache: true
           products: >
             Computer_Vision_Toolbox
             Control_System_Toolbox

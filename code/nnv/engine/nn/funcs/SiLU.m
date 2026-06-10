@@ -216,35 +216,38 @@ classdef SiLU
                     % Add new predicate variable for approximation error
                     new_V(i, I.nVar + 1 + i) = 1;
 
-                    % Compute the approximation error bounds
-                    % Sample points to get tight bounds on the error
+                    % SOUND bound on the linearization error
+                    %   e(x) = SiLU(x) - (y_center + dy_center*(x - x_center))
+                    % over [l,u]. Sampling ALONE is UNSOUND: the true extrema can
+                    % fall BETWEEN samples. e is C^2 with |e''| = |SiLU''| <= M
+                    % (proven global max 0.5, attained at x=0), so on a subinterval
+                    % of width h, e deviates from the chord of its two endpoint
+                    % samples by at most M*h^2/8. Taking the per-segment chord
+                    % range +/- that correction over all adjacent breakpoints is a
+                    % GUARANTEED enclosure. Endpoints + the SiLU minimum + the
+                    % linearization point are included as breakpoints for tightness.
+                    M_silu2 = 0.5;   % proven global max |SiLU''|
                     n_samples = 20;
                     x_samples = linspace(l, u, n_samples);
-
-                    % IMPORTANT: Include the SiLU minimum point if it falls
-                    % within the interval [l, u]. The SiLU minimum is a
-                    % critical point that must be sampled for soundness.
                     [x_min_silu, ~] = SiLU.get_minimum();
                     if l <= x_min_silu && x_min_silu <= u
                         x_samples = [x_samples, x_min_silu];
                     end
-
-                    error_lb = inf;
-                    error_ub = -inf;
-
-                    for j = 1:length(x_samples)
-                        x_j = x_samples(j);
-                        y_exact = SiLU.evaluate(x_j);
-                        y_approx = y_center + dy_center * (x_j - x_center);
-                        error_j = y_exact - y_approx;
-                        error_lb = min(error_lb, error_j);
-                        error_ub = max(error_ub, error_j);
+                    if l < x_center && x_center < u
+                        x_samples = [x_samples, x_center];
                     end
-
-                    % Add small tolerance for numerical robustness
-                    tol = 1e-6;
-                    error_lb = error_lb - tol;
-                    error_ub = error_ub + tol;
+                    x_samples = unique(sort(x_samples(:).'));   % sorted breakpoints
+                    e_samples = (x_samples .* (1 ./ (1 + exp(-x_samples)))) ...
+                                - (y_center + dy_center * (x_samples - x_center));
+                    error_lb = inf; error_ub = -inf;
+                    for j = 1:numel(x_samples) - 1
+                        h = x_samples(j+1) - x_samples(j);
+                        corr = M_silu2 * h^2 / 8;                  % sound chord-deviation correction
+                        error_lb = min(error_lb, min(e_samples(j), e_samples(j+1)) - corr);
+                        error_ub = max(error_ub, max(e_samples(j), e_samples(j+1)) + corr);
+                    end
+                    error_lb = error_lb - 1e-9;   % floating-point guard only
+                    error_ub = error_ub + 1e-9;
 
                     new_pred_lb(I.nVar + i) = error_lb;
                     new_pred_ub(I.nVar + i) = error_ub;

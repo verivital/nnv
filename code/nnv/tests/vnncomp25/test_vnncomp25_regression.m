@@ -842,6 +842,10 @@ contained44 = @(y) all(y >= alb-1e-5) && all(y <= aub+1e-5);
 assert(contained44(yc44) && contained44(ylo44) && contained44(yhi44), ...
     'Test 44 failed: LayerNorm non-sequence ImageStar reach excludes evaluate');
 fprintf('Test 44 PASSED (LayerNorm non-sequence ImageStar reach sound, multi-position)\n');
+% NOTE: the ElementwiseAffine row-vector-vs-column "outer product" regression
+% (broadcastable helper, [10]) is covered end-to-end by
+% test_regression_acasxu_vnnlib (Test6) and test_matlab2nnv (Test5/Test7), which
+% exercise ACAS-Xu per-feature input normalization through NN.evaluate.
 
 %% Summary
 % (A trivial trailing section: MATLAB's script-based test runner mis-accounts

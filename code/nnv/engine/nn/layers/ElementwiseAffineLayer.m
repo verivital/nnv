@@ -432,14 +432,20 @@ out = padshape_left(arr, numel(x_shape));
 end
 
 function tf = elementwiseaffine_broadcastable(sz_p, sz_x)
-% True when a parameter of size sz_p already broadcasts against an input of
-% size sz_x via MATLAB implicit expansion AND has the same dimensionality -- so
-% it applies as-is, without length-based re-alignment that could land its
-% non-singleton dim on the wrong axis when two input dims share a size
+% True when a parameter of size sz_p applies element-wise to an input of size
+% sz_x WITHOUT changing x's size -- i.e. every parameter dim either equals the
+% input dim or is a singleton that broadcasts over it. Same dimensionality is
+% required so it applies as-is, without length-based re-alignment that could
+% land its non-singleton dim on the wrong axis when two input dims share a size
 % (e.g. a [1,1,C] channel bias on an [H,W,C] map with H==C). A flat/lower-rank
 % parameter (e.g. [1,1,1,N] vs an [N,1] vector) has differing ndims -> false ->
 % the caller falls back to align_to_input.
+%
+% CRITICAL: do NOT allow sz_x==1 with sz_p>1 -- that is broadcast-compatible in
+% the MATLAB sense but EXPANDS x (e.g. a [1,5] row param on a [5,1] column input
+% yields a [5,5] OUTER PRODUCT, not a [5,1] element-wise scale), which corrupts
+% the downstream shape (the ACAS-Xu per-feature input-normalisation regression).
     if numel(sz_p) ~= numel(sz_x), tf = false; return; end
-    tf = all(sz_p == sz_x | sz_p == 1 | sz_x == 1);
+    tf = all(sz_p == sz_x | sz_p == 1);
 end
 

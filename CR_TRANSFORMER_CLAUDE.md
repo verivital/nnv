@@ -6,7 +6,17 @@ Review target: `verivital/nnv#290`, base `master` @ `16d23d457`. Sources merged 
 3. **Claude multi-agent full-PR sweep** — 48 findings (43 CONFIRMED, 22 high-confidence) across all 100 files / +18.6k lines.
 4. **Direct MCP verification on R2026a** of the highest-severity items.
 
-## Verdict: DO NOT MERGE as "sound transformer support" yet
+## Verdict: ~~DO NOT MERGE~~ → MERGEABLE as fail-loud single-token utilities (2026-06-09 update)
+
+> **2026-06-09 update:** all reach-UNSOUNDNESS findings below are now RESOLVED (see RESOLUTION
+> STATUS). The CI gate is real, evaluate is correct, and the comprehensive checkpoint is 115/116.
+> The PR is now safe to merge **scoped as "single-token / FC-simulated transformer utilities +
+> fail-loud multi-token guards + real CI gate"** once the maintainer resolves [42] (reject or
+> relabel `exact-star`). **General sound multi-token ViT verification is NOT yet provided** (it is
+> fail-loud); that is the follow-up in plan v02 §B1. The original (pre-fix) verdict and analysis
+> are preserved below for the record.
+
+## Original verdict: DO NOT MERGE as "sound transformer support" yet
 
 The PR moves many dangerous paths to fail-loud and adds real CI infrastructure — genuinely good work — but the full sweep found **~15 HIGH-severity silent-unsoundness or wrong-result defects, several on production paths that existing (non-transformer) networks already use** (SiLU, ElementwiseAffine, Addition, exact-star labeling, LayerNorm). It also found that **the CI gate itself does not actually enforce soundness** (soundness MC tests are allow-listed / skipped-counted-as-pass), so "CI green" was not a true soundness signal. Real multi-token attention remains unimplemented (fail-loud), which is fine *if the PR is scoped+titled as "single-token / FC-simulated transformer utilities + fail-loud guards"* — not as general sound ViT support.
 
@@ -47,17 +57,23 @@ Two blockers are **fixed in this session** (below); the rest must be fixed or co
 | [19] | SiLU crashes on 3-arg Star | **FIXED (sound box fallback)** | `5ac745050` | vnncomp Test 40 |
 | [20] | Softmax check_soundness empty-sample crash | **FIXED (skip)** | `5ac745050` | — |
 | [21] | SiLU getLinearBounds unsound coeffs | **FIXED (sound constants)** | `5ac745050` | inline |
+| [28] | runner needReshape==3 witness order | **FIXED (inverse permute)** | `f2c4325f8` | — |
+| [29] | runner multi-spec no try/catch | **FIXED** | `f2c4325f8` | — |
+| [36] | softmax test tolerance 0.1 (10%) | **FIXED (1e-6)** | `584c988ce` | test_Softmax |
+| [38] | tests write PNGs into repo tree | **FIXED (gitignore)** | `584c988ce` | — |
+| [3] | MHA evaluate softmax wrong axis | **FIXED (row-wise)** | `edbd7332b` | MHA convention |
+| [4] | MHA evaluate strided head split | **FIXED (contiguous)** | `edbd7332b` | MHA convention |
+| [6] | DynamicMatmul evaluate broadcast | **FIXED (fail-loud)** | `5a1a77353` | vnncomp Test 19/29 |
 | [35] | assumeFail masks attention failures | **PARTIAL** (test_parse_basic done) | `68d95d635` | — |
 
-**Still OPEN (not reach-unsoundness; tracked in plan v02):**
-- **[3][4] MHA `evaluate` softmax-axis / head-split wrong for multi-token** — HIGH, but currently MASKED: multi-token reach fails loud, so no verdict is produced from a wrong oracle. These are prerequisites for sound multi-token attention (item below), not independent live unsoundness.
-- **[8] sound multi-token attention** — still fail-loud (SOUND placeholder). This is the remaining CAPABILITY gap for ViT VNN-COMP support. See plan v02 for the value-hull → softmax-aware approach.
-- **[42] exact-star mislabeling** — needs a maintainer API decision (reject `exact-star`, or label approx). Deferred, not fixed unilaterally.
-- **[6] DynamicMatmul evaluate broadcasting** — evaluate-only (reach already fails loud, vnncomp Test 29).
-- **[16][17] NN engine topology/whitelist** — tied to wiring multi-token attention into the DAG engine.
-- **[28][29] VNN-COMP runner** counterexample order / multi-spec try-catch — submission correctness.
-- **[36][38] CI hygiene** — softmax test tolerance 0.1; tests write PNGs into the repo tree.
-- **[23] selfAttention AttentionMask/causal ignored**; Copilot lows.
+Final checkpoint after all fixes: **115/116** (1 = `test_toGPU` filtered, no GPU; 0 failures).
+
+**Still OPEN (none are live reach-unsoundness; tracked in plan v02):**
+- **[8] sound multi-token attention** — still fail-loud (SOUND placeholder). The remaining CAPABILITY gap for ViT VNN-COMP support. `evaluate` is now correct ([3][4] done), so MC-validation of a future bound is meaningful. See plan v02 §B1 (value-hull → softmax-aware).
+- **[42] exact-star mislabeling** — needs a maintainer API decision (reject `exact-star`, or label approx). Deferred, not changed unilaterally.
+- **[16][17] NN engine topology/whitelist** — tied to wiring multi-token attention into the DAG engine (part of B1).
+- **[35] remaining `assumeFail`** in some attention tests → `verifyError`/containment (one done).
+- **[23] selfAttention AttentionMask/causal ignored** by parse; Copilot lows (verify_mnist_vit fallback vars, plots/ dir, Reshape −1 divisibility, TransposedConv bias validation, stale BN comment).
 
 ---
 

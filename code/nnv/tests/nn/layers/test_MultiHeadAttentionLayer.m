@@ -244,17 +244,22 @@ classdef test_MultiHeadAttentionLayer < matlab.unittest.TestCase
         %% Parse Tests
 
         function test_parse_basic(testCase)
-            % Test parse with mock layer
-            mock_layer = struct();
-            mock_layer.Name = 'parsed_mha';
-            mock_layer.NumHeads = 4;
-
-            try
-                layer = MultiHeadAttentionLayer.parse(mock_layer);
-                testCase.verifyClass(layer, 'MultiHeadAttentionLayer');
-            catch ME
-                testCase.assumeFail(['Parse not implemented: ' ME.message]);
-            end
+            % REAL assertion (was assumeFail-masked, finding [35]): parse a
+            % genuine initialized selfAttentionLayer and require it to extract
+            % weights AND derive EmbedDim/HeadDim from them (regression for the
+            % EmbedDim=0 bug). Then require a WEIGHTLESS layer to be REFUSED
+            % (no silent identity-projection fallback, finding [1][24]).
+            dln = dlnetwork([sequenceInputLayer(8) selfAttentionLayer(2, 8, 'Name', 'sa')]);
+            layer = MultiHeadAttentionLayer.parse(dln.Layers(2));
+            testCase.verifyClass(layer, 'MultiHeadAttentionLayer');
+            testCase.verifyNotEmpty(layer.W_Q);
+            testCase.verifyEqual(size(layer.W_Q, 1), 8);   % EmbedDim derived from weights
+            testCase.verifyEqual(layer.EmbedDim, 8);
+            testCase.verifyEqual(layer.HeadDim, 4);
+            % weightless mock must be refused, not silently identity
+            mock_layer = struct('Name', 'parsed_mha', 'NumHeads', 4);
+            testCase.verifyError(@() MultiHeadAttentionLayer.parse(mock_layer), ...
+                'NNV:MultiHeadAttentionLayer:NoWeights');
         end
 
         %% ImageStar Reachability Tests (Critical for NN integration)

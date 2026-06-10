@@ -597,4 +597,32 @@ try, Lu.reachSequence(Star(zeros(3,1), ones(3,1)), 'approx-star'); catch, errSeq
 assert(errSeq, 'Test 31 failed: UnsupportedOp reachSequence must error');
 fprintf('Test 31 PASSED (PlaceholderLayer UnsupportedOp refuses in evaluate + reach + reachSequence)\n');
 
+%% Test 32: ElementwiseAffineLayer [1,1,C] channel param when H==C (axis ambiguity)
+% [10]: a per-channel [1,1,C] scale/offset over an [H,W,C] map must broadcast on
+% the CHANNEL axis. The old code selected the axis by the param's LENGTH and
+% snapped it onto the first V dim of that size -- so when H==C it landed on the
+% ROWS (evaluate) and additionally shifted every basis column (reach), inflating
+% the reachable set ~|sum(a_i)|x. Pin both paths: evaluate matches a per-channel
+% reference, and reach is sound AND tight (equals the exact affine envelope).
+H=3; W=4; C=3;                       % H==C triggers the ambiguity
+off = reshape([10 20 30], 1,1,C); sc = reshape([2 3 5], 1,1,C);
+L32 = ElementwiseAffineLayer('ea32', single(sc), single(off), true, true);
+% evaluate: per-channel reference
+x32 = ones(H,W,C,'single'); y32 = L32.evaluate(x32);
+ref32 = ones(H,W,C); for c=1:C, ref32(:,:,c) = sc(1,1,c)*1 + off(1,1,c); end
+assert(max(abs(double(y32(:))-ref32(:))) < 1e-5, ...
+    'Test 32 failed: evaluate mis-applied [1,1,C] param to rows when H==C');
+% reach: must equal the exact affine envelope (layer is affine & coordinate-
+% monotone over the box, so corner evaluations give the exact min/max). Equality
+% to the envelope proves BOTH soundness (envelope is contained) AND tightness
+% (no over-approximation) in one check -- the old path was ~10x+ wider here.
+xc = reshape(linspace(-1,1,H*W*C), H,W,C); lb32 = xc-0.3; ub32 = xc+0.3;
+OS32 = L32.reach(ImageStar(lb32,ub32), 'approx-star', 'single');
+[a32,b32] = OS32.getRanges; a32 = a32(:); b32 = b32(:);
+yl = L32.evaluate(lb32); yu = L32.evaluate(ub32);
+elo = min(yl(:),yu(:)); ehi = max(yu(:),yl(:));
+assert(max(abs(a32-elo)) < 1e-4 && max(abs(b32-ehi)) < 1e-4, ...
+    'Test 32 failed: reach not the exact affine envelope (axis mis-selected or basis columns shifted)');
+fprintf('Test 32 PASSED (ElementwiseAffineLayer [1,1,C] H==C: evaluate + tight sound reach)\n');
+
 fprintf('\n=== All V04/V05/V06/V07/V08/V09/V10 NNV regression tests PASSED ===\n');

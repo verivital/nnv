@@ -47,15 +47,27 @@ classdef ElementwiseAffineLayer < handle
         
         function y = evaluate(obj, x)
             % evaluate elementwise affine layer
+            %
+            % [10] FIX: a parameter whose ND SHAPE already broadcasts against x
+            % (e.g. a [1,1,C] per-channel offset over an [H,W,C] feature map) must
+            % use MATLAB implicit expansion -- align_to_input only looks at the
+            % parameter's LENGTH and snaps its non-singleton dim onto the FIRST
+            % input dim of that size, which mis-applies the [1,1,C] offset to the
+            % rows when H==C. Only re-align genuinely flat/mismatched shapes
+            % (e.g. a [1,1,1,N] param vs an [N,1] feature vector -- Test 21).
             y = x;
             if obj.DoScale
                 s = obj.Scale;
-                if ~isscalar(s), s = align_to_input(s, size(x)); end
+                if ~isscalar(s) && ~elementwiseaffine_broadcastable(size(s), size(x))
+                    s = align_to_input(s, size(x));
+                end
                 y = y .* s;
             end
             if obj.DoOffset
                 o = obj.Offset;
-                if ~isscalar(o), o = align_to_input(o, size(x)); end
+                if ~isscalar(o) && ~elementwiseaffine_broadcastable(size(o), size(x))
+                    o = align_to_input(o, size(x));
+                end
                 y = y + o;
             end
         end
@@ -76,77 +88,45 @@ classdef ElementwiseAffineLayer < handle
             if isa(in_image, "ImageStar")
                 V = in_image.V; % Initialize value dimensions
     %             n = in_image.numPred;
-                % Process scaling first
+                % Process scaling first.
+                % [10] FIX: select the broadcast axis from the parameter's
+                % SHAPE (as evaluate does), NOT its length. Length-matching the
+                % non-singleton dim onto the first V dim of that size mis-places
+                % a [1,1,C] channel scale onto the rows when H==C (two spatial
+                % dims share a size). Scale is linear, so it multiplies the
+                % center AND every basis column -- implicit expansion across the
+                % trailing predicate dim handles that automatically.
                 if obj.DoScale
                     if isscalar(obj.Scale)
                         V = double(obj.Scale)*in_image.V;
-                    elseif length(size(obj.Scale)) == length(size(in_image.V)) && size(obj.Scale) == size(in_image.V)
-                        V = double(obj.Scale).*in_image;
-                    elseif length(obj.Scale) == size(in_image.V,1)
-                        for k=1:length(obj.Scale)
-                            V(k, : , : , :) = V(k, : , : , :) * obj.Scale(k);
-                        end
-                    elseif length(obj.Scale) == size(in_image.V,2)
-                        for k=1:length(obj.Scale)
-                            V(:, k , : , :) = V(:, k , : , :) * obj.Scale(k);
-                        end
-                    elseif length(obj.Scale) == size(in_image.V,3)
-                        for k=1:length(obj.Scale)
-                            V(:, : , k , :) = V(:, : , k , :) * obj.Scale(k);
-                        end
-                    elseif length(obj.Scale) == size(in_image.V,4)
-                        for k=1:length(obj.Scale)
-                            V(:, : , : , k) = V(:, : , : , k) * obj.Scale(k);
-                        end
                     else
-                        % Fallback: try broadcast-shape align like evaluate.
-                        % numel-aware reshape that lands the non-singleton dims
-                        % of Scale onto matching V spatial dims.
-                        sz_v = size(V);
-                        sz_v(end) = 1;   % treat the last (predicate) dim as 1
-                        try
-                            s_aligned = align_to_input(obj.Scale, sz_v);
-                            V = V .* s_aligned;
-                        catch
-                            error('TODO: add support for other tensor shapes (Scale)')
+                        spatial = size(V); spatial(end) = [];   % [H,W,C]; drop predicate dim
+                        s = double(obj.Scale);
+                        if ~elementwiseaffine_broadcastable(size(s), spatial)
+                            % flat/lower-rank param (e.g. [C,1]) -> reuse the
+                            % same alignment evaluate falls back to.
+                            s = align_to_input(s, spatial);
                         end
+                        V = V .* s;
                     end
                 end
-    
-                % Process offset last
+
+                % Process offset last.
+                % [10] FIX: same shape-based axis selection as scale. A constant
+                % bias is added ONLY to the center column V(:,:,:,1); shifting
+                % the basis columns would corrupt predicate semantics and inflate
+                % the set (the old dim-1/2/4 branches did exactly that, blowing
+                % the reachable set up by ~|sum(a_i)| when H==C).
                 if obj.DoOffset
-                    % offset = squeeze(obj.Offset);
-    %                 a = size(offset);
                     if isscalar(obj.Offset)
-                        V = V + obj.Offset;
-                    elseif length(obj.Offset) == size(in_image.V,1)
-                        for k=1:length(obj.Offset)
-                            V(k, : , : , :) = V(k, : , : , :) + obj.Offset(k);
-                        end
-                    elseif length(obj.Offset) == size(in_image.V,2)
-                        for k=1:length(obj.Offset)
-                            V(:, k , : , :) = V(:, k , : , :) + obj.Offset(k);
-                        end
-                    elseif length(obj.Offset) == size(in_image.V,3)
-                        for k=1:length(obj.Offset)
-                            V(:, : , k , 1) = V(:, : , k , 1) + obj.Offset(k); % bias only added to first column
-                        end
-                    elseif length(obj.Offset) == size(in_image.V,4)
-                        for k=1:length(obj.Offset)
-                            V(:, : , : , k) = V(:, : , : , k) + obj.Offset(k);
-                        end
+                        V(:,:,:,1) = V(:,:,:,1) + obj.Offset;
                     else
-                        % Fallback: align bias shape to V's spatial dims via
-                        % align_to_input. ONLY add the bias to V(:,:,:,1) (the
-                        % center column) — basis vectors should not get
-                        % shifted, otherwise predicate semantics are wrong.
-                        sz_v_spatial = size(V); sz_v_spatial = sz_v_spatial(1:max(1, ndims(V)-1));
-                        try
-                            o_aligned = align_to_input(obj.Offset, sz_v_spatial);
-                            V(:,:,:,1) = V(:,:,:,1) + o_aligned;
-                        catch
-                            error('TODO: add support for other tensor shapes (Offset).')
+                        center = V(:,:,:,1);          % [H,W,C]
+                        o = double(obj.Offset);
+                        if ~elementwiseaffine_broadcastable(size(o), size(center))
+                            o = align_to_input(o, size(center));
                         end
+                        V(:,:,:,1) = center + o;
                     end
                 end
     
@@ -421,5 +401,17 @@ end
 
 % Last resort: keep arr's shape, padshape_left handles dim mismatch
 out = padshape_left(arr, numel(x_shape));
+end
+
+function tf = elementwiseaffine_broadcastable(sz_p, sz_x)
+% True when a parameter of size sz_p already broadcasts against an input of
+% size sz_x via MATLAB implicit expansion AND has the same dimensionality -- so
+% it applies as-is, without length-based re-alignment that could land its
+% non-singleton dim on the wrong axis when two input dims share a size
+% (e.g. a [1,1,C] channel bias on an [H,W,C] map with H==C). A flat/lower-rank
+% parameter (e.g. [1,1,1,N] vs an [N,1] vector) has differing ndims -> false ->
+% the caller falls back to align_to_input.
+    if numel(sz_p) ~= numel(sz_x), tf = false; return; end
+    tf = all(sz_p == sz_x | sz_p == 1 | sz_x == 1);
 end
 

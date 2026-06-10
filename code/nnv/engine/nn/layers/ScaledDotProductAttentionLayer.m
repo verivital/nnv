@@ -176,22 +176,9 @@ classdef ScaledDotProductAttentionLayer < handle
             n_q = Q_set.dim;
             n_k = K_set.dim;
             n_v = V_set.dim;
-
-            % SOUNDNESS GUARD: compute_attention_bounds returns V's bounds, which
-            % is exact ONLY for single-token attention (seq_len = 1, where softmax
-            % over one score == 1 so output == V). For seq_len > 1 the output is a
-            % convex combination ACROSS tokens that can leave any single token's
-            % value range, so returning V's bounds would be UNSOUND. If the layer
-            % is configured with a per-token ValueDim and the input is an exact
-            % multiple of it (>1 tokens), refuse rather than silently degrade.
-            if ~isempty(obj.ValueDim) && obj.ValueDim > 0 && ...
-                    n_v > obj.ValueDim && mod(n_v, obj.ValueDim) == 0
-                error('ScaledDotProductAttentionLayer:multiTokenUnsound', ...
-                    ['Multi-token attention reach (seq_len=%d) is not implemented; the ' ...
-                     'single-token bounds path would be UNSOUND. Use a per-token model, ' ...
-                     'or implement the per-coordinate cross-token softmax bound ' ...
-                     '(see Softmax.compute_softmax_bounds).'], n_v / obj.ValueDim);
-            end
+            % NOTE: the multi-token soundness guard now lives in
+            % compute_attention_bounds (the single chokepoint shared by the star
+            % AND zono reach paths) so the zono path can no longer bypass it.
 
             % Get bounds on inputs
             Q_lb = zeros(n_q, 1);
@@ -241,23 +228,34 @@ classdef ScaledDotProductAttentionLayer < handle
             Z = Zono(center, generators);
         end
 
-        function [out_lb, out_ub] = compute_attention_bounds(~, ~, ~, ~, ~, V_lb, V_ub)
+        function [out_lb, out_ub] = compute_attention_bounds(obj, ~, ~, ~, ~, V_lb, V_ub)
             % Compute bounds on attention output for the SINGLE-TOKEN case.
             %
             % The reach_*_approx routines flatten Q, K, V into vector Stars
             % (treating each as a single-token query/key/value vector). For
             % seq_len = 1 the softmax is taken over a single key, so
-            % attn_weights == 1 identically, and Attention(Q,K,V) = V.
+            % attn_weights == 1 identically, and Attention(Q,K,V) = V, so
+            % returning V's bounds is exact (sound and tight). Q and K unused.
             %
-            % Returning V's bounds as the output is therefore exact (sound and
-            % tight) for this case. Q and K bounds are unused.
-            %
-            % NOTE: this implementation does NOT generalize to seq_len > 1.
-            % For multi-token attention, the reach() API needs to be extended
-            % to take per-token Star sets and call Softmax.compute_softmax_bounds
-            % on the score row before mixing with V. Until then, callers that
-            % want to verify multi-token attention should construct an
-            % equivalent per-token model.
+            % SOUNDNESS GUARD (here, not in reach_star_approx, so BOTH the star
+            % and zono reach paths are protected -- the zono path used to bypass
+            % it, finding [0]): for seq_len > 1 the output is a cross-token convex
+            % combination that can leave any single token's value range, so
+            % returning V's bounds would be UNSOUND. If the layer carries a
+            % per-token ValueDim and the input is an exact multiple of it (>1
+            % tokens), refuse. When ValueDim is 0/unset the layer operates under
+            % its documented single-token contract (the whole flattened input is
+            % ONE token, V-passthrough exact); set ValueDim to arm this guard for
+            % multi-token misuse. A sound multi-token bound is future work.
+            n_v = numel(V_lb);
+            if ~isempty(obj.ValueDim) && obj.ValueDim > 0 && ...
+                    n_v > obj.ValueDim && mod(n_v, obj.ValueDim) == 0
+                error('ScaledDotProductAttentionLayer:multiTokenUnsound', ...
+                    ['Multi-token attention reach (seq_len=%d) is not implemented; the ' ...
+                     'single-token bounds path would be UNSOUND. Use a per-token model, ' ...
+                     'or implement the per-coordinate cross-token softmax bound ' ...
+                     '(see Softmax.compute_softmax_bounds).'], n_v / obj.ValueDim);
+            end
             out_lb = V_lb;
             out_ub = V_ub;
         end

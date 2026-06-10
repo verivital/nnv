@@ -711,22 +711,32 @@ classdef MultiHeadAttentionLayer < handle
                 L.HeadDim = L.EmbedDim / L.NumHeads;
             end
 
-            % Warning if weights not found (layer will use identity)
+            % SOUNDNESS: a PARSED (imported) attention layer with no extractable
+            % weights is a converter FAILURE, not an identity-attention model.
+            % Silently using identity projections (eye(n)) verifies a DIFFERENT
+            % network ([1][24]). Refuse. (The constructor can still build a
+            % weightless layer for testing/identity-attention if explicitly wanted.)
             if isempty(L.W_Q)
-                warning('NNV:MultiHeadAttentionLayer:NoWeights', ...
-                    'Could not extract attention weights. Using identity projections.');
+                error('NNV:MultiHeadAttentionLayer:NoWeights', ...
+                    ['Could not extract attention weights from the MATLAB layer ' ...
+                     '(release-dependent property names). Refusing to fall back to ' ...
+                     'identity projections -- that would verify a different network. ' ...
+                     'Update parse() for this release''s weight property names.']);
             end
         end
 
         %% Soundness Check
-        function [is_sound, results] = check_soundness(Q_set, K_set, V_set, S_out, num_samples)
-            % Check soundness of reachability computation
-
-            if nargin < 5
+        function [is_sound, results] = check_soundness(layer, Q_set, K_set, V_set, S_out, num_samples)
+            % Check soundness of reachability computation.
+            % FIX [45]: this MUST validate the SAME (weighted) layer whose reach
+            % produced S_out -- the old Static version built a fresh default
+            % MultiHeadAttentionLayer() (empty weights -> identity projections),
+            % so the MC diagnostic checked a DIFFERENT network. Now the caller
+            % passes the layer instance.
+            if nargin < 6
                 num_samples = 100;
             end
 
-            layer = MultiHeadAttentionLayer();
             is_sound = true;
             results = struct('samples', {}, 'outputs', {}, 'contained', {});
 

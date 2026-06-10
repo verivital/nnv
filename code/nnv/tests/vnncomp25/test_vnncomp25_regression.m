@@ -70,12 +70,20 @@ assert(out.dim == S.dim, 'Test 2 failed: dim changed');
 fprintf('Test 2 PASSED (FlattenLayer Star passthrough)\n');
 
 
-%% Test 3: AdditionLayer.reach_single_input handles non-cell Star
+%% Test 3: AdditionLayer.reach_single_input REFUSES a dropped addend [11]
+% A 2-input AdditionLayer must add 2 operands; a bare non-cell set means an
+% addend was dropped upstream. The old code returned it unchanged (silent
+% identity = a different, wrong network). It must now fail loud. A proper
+% 2-element cell still Minkowski-sums correctly.
 L = AdditionLayer('add', 2, 1, {'in1','in2'}, {'out'});
 S = Star(zeros(4,1), ones(4,1));
-out = L.reach_single_input(S);  % non-cell input — should not crash
-assert(isa(out, 'Star'), 'Test 3 failed: expected Star out');
-fprintf('Test 3 PASSED (AdditionLayer single Star non-cell)\n');
+errDrop = false;
+try, L.reach_single_input(S); catch ME3, errDrop = strcmp(ME3.identifier,'AdditionLayer:missingAddend'); end
+assert(errDrop, 'Test 3 failed: non-cell single set must error (dropped addend), not return identity');
+% sanity: a correct 2-operand cell still works
+out = L.reach_single_input({S, S});
+assert(isa(out, 'Star') && out.dim == 4, 'Test 3 failed: 2-operand Minkowski sum broke');
+fprintf('Test 3 PASSED (AdditionLayer refuses dropped addend; 2-operand sum OK)\n');
 
 
 %% Test 4: ConcatenationLayer 6-arg constructor (axis pass-through)
@@ -625,4 +633,30 @@ assert(max(abs(a32-elo)) < 1e-4 && max(abs(b32-ehi)) < 1e-4, ...
     'Test 32 failed: reach not the exact affine envelope (axis mis-selected or basis columns shifted)');
 fprintf('Test 32 PASSED (ElementwiseAffineLayer [1,1,C] H==C: evaluate + tight sound reach)\n');
 
+%% Test 33: ElementwiseAffineLayer Star-path bias must fail loud on bad dim [13]
+% The Star reach path used to pad-with-zeros / truncate any incompatible bias
+% length into a [dim,1] vector -- silently fabricating a WRONG bias. It must now
+% refuse when the offset length is neither equal to, a multiple of, nor a
+% divisor of the Star dim; and refuse a tiled bias whose tiles disagree.
+Sdim = 5; Sb = Star(zeros(Sdim,1), ones(Sdim,1));
+% (a) incompatible length (7 vs 5): refuse
+La = ElementwiseAffineLayer('eaA', 1, (1:7)', false, true);
+errA = false;
+try, La.reach_star_single_input(Sb); catch MEa, errA = strcmp(MEa.identifier,'ElementwiseAffineLayer:biasDimMismatch'); end
+assert(errA, 'Test 33 failed: incompatible bias length must refuse, not pad/truncate');
+% (b) clean multiple but mismatched tiles (10 = 2x5, tiles differ): refuse
+Lb = ElementwiseAffineLayer('eaB', 1, [ones(5,1); 2*ones(5,1)], false, true);
+errB = false;
+try, Lb.reach_star_single_input(Sb); catch MEb, errB = strcmp(MEb.identifier,'ElementwiseAffineLayer:biasTileMismatch'); end
+assert(errB, 'Test 33 failed: mismatched tiles must refuse, not slice the first tile');
+% (c) legitimate identical tiles (10 = 2x5, all tiles equal): reduce and apply
+Lc = ElementwiseAffineLayer('eaC', 1, [3*ones(5,1); 3*ones(5,1)], false, true);
+outC = Lc.reach_star_single_input(Sb);
+assert(isa(outC,'Star') && outC.dim == Sdim, 'Test 33 failed: identical-tile bias should apply');
+fprintf('Test 33 PASSED (ElementwiseAffineLayer Star-path bias fail-loud on bad dim/tiles)\n');
+
+%% Summary
+% (A trivial trailing section: MATLAB's script-based test runner mis-accounts
+% line ranges for a TERMINAL section that ends on multiple try/catch one-liners
+% -- "LineNumberBeyondFileEnd". Keeping the summary in its own section avoids it.)
 fprintf('\n=== All V04/V05/V06/V07/V08/V09/V10 NNV regression tests PASSED ===\n');

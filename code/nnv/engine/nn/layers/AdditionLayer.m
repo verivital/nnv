@@ -90,16 +90,29 @@ classdef AdditionLayer < handle
         end
  
         % reach
-        function outputs = reach_single_input(~, inputs)
-            % @in_image: input cell array of sets to add (Star/ImageStar/...)
-            % @image: output set
-            % AdditionLayer reach Minkowski-sums all input sets. The caller
-            % must provide a cell array of length >= 1; if a single Star
-            % slips through (callers like NN.reach_withConns sometimes pass
-            % the dest_indx's stored input directly), wrap it.
+        function outputs = reach_single_input(obj, inputs)
+            % @inputs: a cell array of sets to add (Star/ImageStar/...)
+            % @outputs: output set = Minkowski sum of all inputs
+            %
+            % SOUNDNESS [11]: an AdditionLayer adds N>=2 operands (the
+            % constructor forbids NumInputs<2). The NN engine always gathers
+            % those operands into a CELL (input_sets{dest}{input_num}). A bare
+            % non-cell set therefore means an addend was DROPPED upstream --
+            % returning it unchanged would silently compute identity instead of
+            % a sum (a different, wrong network). Refuse loudly rather than mask
+            % the missing operand. (Reachable e.g. for a FINAL AdditionLayer
+            % that falls back to reachSet{end-1} when input_sets is unpopulated.)
             if ~iscell(inputs)
-                outputs = inputs;
-                return;
+                error('AdditionLayer:missingAddend', ...
+                    ['AdditionLayer ''%s'' reach received a single non-cell set, but ' ...
+                     'an addition needs >=2 operands. An addend was dropped upstream; ' ...
+                     'returning identity would verify a different network. Ensure the ' ...
+                     'engine assembled all inputs into a cell.'], obj.Name);
+            end
+            if numel(inputs) < 2
+                error('AdditionLayer:missingAddend', ...
+                    ['AdditionLayer ''%s'' reach received %d operand(s); an addition ' ...
+                     'needs >=2. An addend was dropped upstream.'], obj.Name, numel(inputs));
             end
             outputs = inputs{1};
             for k = 2 : length(inputs)

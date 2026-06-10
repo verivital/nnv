@@ -160,22 +160,34 @@ classdef ElementwiseAffineLayer < handle
                         o = double(o(:));   % flatten ND bias to [dim,1]
                     elseif numel(o) > image.dim && mod(numel(o), image.dim) == 0
                         % Replicated bias: e.g. tile(thresholds, k) where the
-                        % flatten produced k*dim elements but the layer only
-                        % takes the first dim slice. Take first dim entries.
+                        % flatten produced k*dim copies. Taking the first dim
+                        % slice is only correct if every tile is IDENTICAL --
+                        % otherwise we'd silently use a wrong bias [13]. Verify
+                        % the tiles match; refuse if they don't.
                         flat = double(o(:));
-                        o = flat(1:image.dim);
+                        tiles = reshape(flat, image.dim, []);
+                        if max(abs(tiles - tiles(:,1)), [], 'all') > 1e-9
+                            error('ElementwiseAffineLayer:biasTileMismatch', ...
+                                ['Offset has %d elements (%dx the Star dim %d) but the ' ...
+                                 'tiles are not identical -- cannot safely reduce to a ' ...
+                                 '[%d,1] bias without silently using a wrong value.'], ...
+                                numel(o), numel(o)/image.dim, image.dim, image.dim);
+                        end
+                        o = tiles(:,1);
                     elseif numel(o) < image.dim && mod(image.dim, numel(o)) == 0
                         % Bias is a per-channel constant that should tile to
                         % fill image.dim. Repeat to match.
                         flat = double(o(:));
                         o = repmat(flat, image.dim / numel(flat), 1);
                     else
-                        % Last-resort: pad with zeros or truncate
-                        flat = double(o(:));
-                        if numel(flat) < image.dim
-                            flat = [flat; zeros(image.dim - numel(flat), 1)];
-                        end
-                        o = flat(1:image.dim);
+                        % numel(o) is neither the Star dim, a clean multiple, nor
+                        % a clean divisor: padding with zeros or truncating would
+                        % silently fabricate a wrong bias (unsound) [13]. Refuse.
+                        error('ElementwiseAffineLayer:biasDimMismatch', ...
+                            ['Offset length %d is incompatible with Star dim %d ' ...
+                             '(not equal, multiple, or divisor). Refusing to pad/truncate ' ...
+                             'into a wrong bias -- check the ONNX bias shape / flatten order.'], ...
+                            numel(o), image.dim);
                     end
                     image = image.affineMap(diag(ones(1,image.dim)), o); % x + b
                 end

@@ -88,6 +88,13 @@ classdef ElementwiseAffineLayer < handle
             if isa(in_image, "ImageStar")
                 V = in_image.V; % Initialize value dimensions
     %             n = in_image.numPred;
+                % Unambiguous spatial size [H,W,C]. Do NOT derive it from
+                % size(V) by dropping the last dim: a ZERO-predicate (single
+                % point) ImageStar has V of shape [H,W,C] (no 4th dim), so
+                % size(V); spatial(end)=[] would drop the CHANNEL axis -> a
+                % per-channel scale lands on the wrong dim (silent-wrong when
+                % H==C, or a hard size-mismatch when H~=C).
+                img_spatial = [in_image.height, in_image.width, in_image.numChannel];
                 % Process scaling first.
                 % [10] FIX: select the broadcast axis from the parameter's
                 % SHAPE (as evaluate does), NOT its length. Length-matching the
@@ -100,12 +107,11 @@ classdef ElementwiseAffineLayer < handle
                     if isscalar(obj.Scale)
                         V = double(obj.Scale)*in_image.V;
                     else
-                        spatial = size(V); spatial(end) = [];   % [H,W,C]; drop predicate dim
                         s = double(obj.Scale);
-                        if ~elementwiseaffine_broadcastable(size(s), spatial)
+                        if ~elementwiseaffine_broadcastable(size(s), img_spatial)
                             % flat/lower-rank param (e.g. [C,1]) -> reuse the
                             % same alignment evaluate falls back to.
-                            s = align_to_input(s, spatial);
+                            s = align_to_input(s, img_spatial);
                         end
                         V = V .* s;
                     end
@@ -121,12 +127,11 @@ classdef ElementwiseAffineLayer < handle
                     if isscalar(obj.Offset)
                         V(:,:,:,1) = V(:,:,:,1) + obj.Offset;
                     else
-                        center = V(:,:,:,1);          % [H,W,C]
                         o = double(obj.Offset);
-                        if ~elementwiseaffine_broadcastable(size(o), size(center))
-                            o = align_to_input(o, size(center));
+                        if ~elementwiseaffine_broadcastable(size(o), img_spatial)
+                            o = align_to_input(o, img_spatial);
                         end
-                        V(:,:,:,1) = center + o;
+                        V(:,:,:,1) = V(:,:,:,1) + o;   % reshape(o) broadcasts over [H,W,C]
                     end
                 end
     

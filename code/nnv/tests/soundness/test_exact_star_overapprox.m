@@ -51,8 +51,11 @@ classdef test_exact_star_overapprox < matlab.unittest.TestCase
         end
 
         function test_warns_once_on_degraded_exact_star(testCase)
-            % One warning (NNV:exactStarOverapprox) is raised when exact-star is
-            % requested but cannot be honoured.
+            % A warning (NNV:exactStarOverapprox) is raised when exact-star is
+            % requested but cannot be honoured. Force the warning enabled so the
+            % check is independent of state left by other tests.
+            ws = warning('on', 'NNV:exactStarOverapprox');
+            cleanup = onCleanup(@() warning(ws)); %#ok<NASGU>
             net = NN({FullyConnectedLayer('fc', eye(2), [0;0]), GeluLayer('g')}, []);
             IS  = Star([-1;-1], [1;1]);
             ro  = struct; ro.reachMethod = 'exact-star';
@@ -67,6 +70,33 @@ classdef test_exact_star_overapprox < matlab.unittest.TestCase
             ro  = struct; ro.reachMethod = 'approx-star';
             net.reach(IS, ro);
             testCase.verifyFalse(net.exactReach);
+        end
+
+        function test_set_combining_layers_are_inexact(testCase)
+            % REGRESSION: AdditionLayer / ConcatenationLayer / DepthConcatenation
+            % combine two operands via blkdiag of their predicate constraints,
+            % which OVER-APPROXIMATES when the operands share an input but have
+            % diverged constraints (a residual/branch-merge ReLU net under
+            % exact-star). They must NOT be classified exact, else the gate would
+            % promote unknown->not-robust on an over-approximation (false unsafe).
+            net = NN({ReluLayer('r')}, []);
+            testCase.verifyFalse(net.layer_reach_is_exact( ...
+                AdditionLayer('a', 2, 1, {'in1','in2'}, {'out'})), 'AdditionLayer must be inexact');
+            testCase.verifyFalse(net.layer_reach_is_exact( ...
+                ConcatenationLayer('c', 2, 1, {'in1','in2'}, {'out'}, 1)), 'ConcatenationLayer must be inexact');
+            testCase.verifyFalse(net.layer_reach_is_exact( ...
+                DepthConcatenationLayer('dc', 2, 1, {'in1','in2'}, {'out'})), 'DepthConcatenationLayer must be inexact');
+            % A residual-style net (contains AdditionLayer) under exact-star must
+            % therefore be flagged over-approximate (exactReach = false).
+            warnState = warning('off', 'NNV:exactStarOverapprox');
+            cleanup = onCleanup(@() warning(warnState)); %#ok<NASGU>
+            resnet = NN({FullyConnectedLayer('fc', eye(2), [0;0]), ...
+                         AdditionLayer('add', 2, 1, {'in1','in2'}, {'out'})}, []);
+            resnet.reachMethod = 'exact-star';   % compute_exact_reach_flag reads this
+            % The soundness property under test is purely the exactness flag,
+            % which compute_exact_reach_flag derives from the layer list.
+            testCase.verifyFalse(resnet.compute_exact_reach_flag(), ...
+                'a net containing AdditionLayer must not be exact under exact-star');
         end
 
         function test_layer_exactness_classification(testCase)

@@ -777,6 +777,29 @@ assert(max(abs(a40(:)-exp_lo(:))) < 1e-6 && max(abs(b40(:)-exp_hi(:))) < 1e-6, .
     'Test 40 failed: SiLU box-fallback bounds != analytic SiLU envelope');
 fprintf('Test 40 PASSED (SiLU 3-arg Star reach: sound box fallback, no crash)\n');
 
+%% Test 41: ElementwiseAffine reach on a ZERO-predicate ImageStar [10 follow-up]
+pad41 = []; %#ok<NASGU>  % leading simple stmt (runner section quirk)
+% A single-point (numPred==0) ImageStar has V of shape [H,W,C] with no 4th dim.
+% The reach scale path must derive the spatial size from the ImageStar's
+% [height,width,numChannel], NOT from size(V) minus the last dim (which would
+% drop the CHANNEL axis -> a per-channel scale on the wrong dim: silent-wrong
+% when H==C, or a crash when H~=C).
+sc41 = reshape([2 3 5], 1,1,3); off41 = reshape([10 20 30], 1,1,3);
+L41 = ElementwiseAffineLayer('ea41', single(sc41), single(off41), true, true);
+% H==C: reach point must equal evaluate (sound, exact for a point)
+x41a = reshape(single(1:36), 3,4,3);
+O41a = L41.reach(ImageStar(x41a, x41a), 'approx-star', 'single');
+e41a = L41.evaluate(x41a);
+assert(max(abs(double(reshape(O41a.V(:,:,:,1),[],1)) - double(e41a(:)))) < 1e-4, ...
+    'Test 41 failed: zero-pred ImageStar scale wrong when H==C (channel axis dropped)');
+% H~=C: must not crash and must match evaluate
+x41b = reshape(single(1:60), 5,4,3);
+O41b = L41.reach(ImageStar(x41b, x41b), 'approx-star', 'single');
+e41b = L41.evaluate(x41b);
+assert(max(abs(double(reshape(O41b.V(:,:,:,1),[],1)) - double(e41b(:)))) < 1e-4, ...
+    'Test 41 failed: zero-pred ImageStar scale crashed/wrong when H~=C');
+fprintf('Test 41 PASSED (ElementwiseAffine zero-predicate ImageStar scale: sound, no crash)\n');
+
 %% Summary
 % (A trivial trailing section: MATLAB's script-based test runner mis-accounts
 % line ranges for a TERMINAL section that ends on multiple try/catch one-liners

@@ -329,10 +329,22 @@ classdef BatchNormalizationLayer < handle
                 end
                 
             elseif isa(image, 'Star')
-                l = obj.Scale ./ sqrt(obj.TrainedVariance + obj.Epsilon);
-                for i=1:size(image.V, 2)
-                    image.V(:, i) = ((image.V(:, i) - obj.TrainedMean) .* l + obj.Offset);
-                end
+                % BN is AFFINE: y = (x - mean)./sqrt(var+eps).*scale + offset
+                %             = x.*l + b,  l = scale./sqrt(var+eps), b = offset - mean.*l.
+                % On a Star x = c + sum_i a_i v_i, the LINEAR map (.*l) applies to
+                % EVERY column (center AND generators); the constant bias b applies
+                % ONLY to the center (column 1). The old loop applied
+                % (V(:,i)-mean).*l+offset to every column, adding the constant
+                % (offset - mean.*l) to each GENERATOR too -- a sound but LOOSE
+                % over-approximation (reach env off by |sum(a_i)|*|b|), and, since
+                % BatchNormalizationLayer is whitelisted EXACT by the exact-star
+                % gate, a precision-to-soundness hole (a not-robust verdict could
+                % be certified on the loose set). Apply the affine correctly so the
+                % reach is EXACT.
+                l = obj.Scale(:) ./ sqrt(obj.TrainedVariance(:) + obj.Epsilon);
+                b = obj.Offset(:) - obj.TrainedMean(:) .* l;
+                image.V = image.V .* l;
+                image.V(:, 1) = image.V(:, 1) + b;
             end
             
         end

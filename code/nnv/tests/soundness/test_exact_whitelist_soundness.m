@@ -113,5 +113,70 @@ classdef test_exact_whitelist_soundness < matlab.unittest.TestCase
             end
         end
 
+        function test_whitelisted_affine_layers_are_exact(testCase)
+            % The AFFINE whitelisted layers must have an exact-star reach that
+            % EQUALS the true per-coordinate range (affine maps are exact). This
+            % pins them so a future loosening fails CI -- it directly catches the
+            % BatchNorm Star-generator bug this review found (the old code added a
+            % constant to every basis generator -> a sound but LOOSE reach that
+            % was nonetheless whitelisted as exact, a gate hole).
+            bn = BatchNormalizationLayer('TrainedMean',[1;-2;3],'TrainedVariance',[2;1;0.5], ...
+                'Epsilon',1e-3,'Scale',[2;-1;0.5],'Offset',[1;0;-1]); bn.NumChannels = 3;
+            testCase.verifyAffineExact(bn, Star([-1;-1;-1],[1;2;0.5]));
+            ea = ElementwiseAffineLayer('ea',[2;-1;0.5],[1;0;-1],true,true);
+            testCase.verifyAffineExact(ea, Star([-1;-1;-1],[1;2;0.5]));
+            fc = FullyConnectedLayer('fc',[1 2 0; 0 1 3],[1;-1]);
+            testCase.verifyAffineExact(fc, Star([-1;-1;-1],[1;2;0.5]));
+        end
+
+        function test_eaffine_evaluate_preserves_shape(testCase)
+            % [10] direct (no-ONNX) pin: a [1,N] row Scale on an [N,1] column
+            % input must scale element-wise to [N,1], NOT form an [N,N] outer
+            % product (the ACAS-Xu input-normalization regression).
+            L = ElementwiseAffineLayer('ea', (1:5), 0, true, false);   % Scale [1,5]
+            y = L.evaluate((1:5)');
+            testCase.verifyEqual(size(y), [5 1], 'row Scale on column input must stay [N,1]');
+            testCase.verifyEqual(double(y(:)), ((1:5).*(1:5))', 'AbsTol', 1e-9);
+        end
+
+        function test_softmax_estimateRanges_branch_sound(testCase)
+            % cf0608f76 added an estimateRanges fallback for intermediate-softmax
+            % ImageStar reach when im_lb/im_ub are EMPTY (the segmentation case).
+            % Every other softmax test uses box-constructed ImageStars (cached
+            % bounds), so this branch was uncovered. Pin its MC soundness on an
+            % ImageStar with a real predicate and empty cached bounds.
+            H=2; W=2; C=3;
+            V = cat(4, randn(H,W,C), 0.3*randn(H,W,C), 0.2*randn(H,W,C));
+            IS = ImageStar(V, [1 0;0 1;-1 0;0 -1], [1;1;1;1], [-1;-1], [1;1]);
+            testCase.assertTrue(isempty(IS.im_lb), 'precond: ImageStar must have empty cached bounds');
+            L = SoftmaxLayer('sm'); L.IsFinalLayer = false;
+            OS = L.reach(IS); [a,b] = OS.getRanges; a = a(:); b = b(:);
+            viol = 0;
+            for k = 1:4000
+                al = IS.pred_lb + (IS.pred_ub - IS.pred_lb).*rand(2,1);
+                x = IS.V(:,:,:,1) + IS.V(:,:,:,2)*al(1) + IS.V(:,:,:,3)*al(2);
+                y = double(reshape(L.evaluate(single(x)), [], 1));
+                if any(y < a-1e-6) || any(y > b+1e-6), viol = viol + 1; end
+            end
+            testCase.verifyEqual(viol, 0, 'estimateRanges-branch softmax reach is UNSOUND');
+        end
+
+    end
+
+    methods (Access = private)
+        function verifyAffineExact(testCase, L, X)
+            % X: a box Star. The single-input reach envelope must EQUAL the true
+            % per-coordinate affine range [min(f(lb),f(ub)), max(f(lb),f(ub))]
+            % (sound AND tight -> exact). Uses reach_star_single_input (the exact
+            % affine map for these layers).
+            R = L.reach_star_single_input(X);
+            [a, b] = R.getRanges; a = a(:); b = b(:);
+            [lb, ub] = X.getRanges; ylb = L.evaluate(lb); yub = L.evaluate(ub);
+            tlo = min(ylb(:), yub(:)); thi = max(ylb(:), yub(:));
+            testCase.verifyTrue(all(a <= tlo + 1e-6) && all(b >= thi - 1e-6), ...
+                sprintf('%s exact-star reach is UNSOUND (excludes true range)', class(L)));
+            testCase.verifyTrue(max(abs(a - tlo)) < 1e-5 && max(abs(b - thi)) < 1e-5, ...
+                sprintf('%s exact-star reach is NOT EXACT (over-approximates)', class(L)));
+        end
     end
 end

@@ -172,7 +172,17 @@ classdef SoftmaxLayer < handle
                 % and decreasing in x_{j~=i}, so
                 %   ub_i = e^{ub_i}/(e^{ub_i} + sum_{j~=i} e^{lb_j})
                 %   lb_i = e^{lb_i}/(e^{lb_i} + sum_{j~=i} e^{ub_j}).
-                [lb, ub] = IS.getRanges;          % [H,W,C]
+                % SCALABILITY: the bound only needs SOUND input ranges, not the
+                % LP-tight ones. Reuse cached interval bounds when present, else
+                % estimateRanges (fast interval propagation) -- getRanges does a
+                % per-pixel LP, which is prohibitively slow on large multi-class
+                % images (e.g. segmentation). estimateRanges is sound (an
+                % over-approximation), so the softmax output stays sound.
+                if ~isempty(IS.im_lb) && ~isempty(IS.im_ub)
+                    lb = IS.im_lb; ub = IS.im_ub;
+                else
+                    [lb, ub] = IS.estimateRanges;     % [H,W,C], sound, no LP
+                end
                 m = max(ub, [], 3);               % per-pixel shift (softmax is
                 elb = exp(lb - m); eub = exp(ub - m);  % shift-invariant) for stability
                 SE_lb = sum(elb, 3); SE_ub = sum(eub, 3);   % [H,W,1], broadcast over C

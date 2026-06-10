@@ -23,8 +23,13 @@ verify;
 verify_fc;
 
 %% 9) NN: Segmentation
+% TABLED in CI: full M2NIST segmentation verification is too large/slow for the
+% per-command CI budget (segmentation reach does per-pixel LP over a big
+% multi-class image). Runs locally only, like the ACAS Xu / load_models sections.
 cd ../Segmentation;
-verify_m2nist;
+if ~is_github_actions()
+    verify_m2nist;
+end
 
 %% 10) NNCS: ACC
 cd ../../NNCS/ACC/Verification;

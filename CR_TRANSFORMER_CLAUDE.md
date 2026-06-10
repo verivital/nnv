@@ -76,6 +76,13 @@ Final checkpoint after all fixes: **115/116** (1 = `test_toGPU` filtered, no GPU
 - **[35] remaining `assumeFail`** in some attention tests → `verifyError`/containment (one done).
 - **[23] selfAttention AttentionMask/causal ignored** by parse; Copilot lows (verify_mnist_vit fallback vars, plots/ dir, Reshape −1 divisibility, TransposedConv bias validation, stale BN comment).
 
+### Additional PRE-EXISTING soundness findings (surfaced by the exact-star review; OUT of this PR's transformer scope — flagged for the maintainer)
+These are NOT introduced by this PR and live in unrelated subsystems; recorded here so they are not lost. They are the same *class* of bug the [42] gate addresses, and all violate the principle "an over-approximation must never certify unsafe."
+- **`SignLayer.reach` ('exact-star') is UNSOUND** (`engine/nn/funcs/Sign.m`): for input `[-1,1]²` it returns the single point `[1,1]`, excluding the `-1` branch (MC 3776/5000 containment violations). Any verification of a net containing a `SignLayer` (e.g. binarized nets) can miss real outputs. *(This PR only stopped the exact-star gate from trusting it; the underlying reach bug remains.)*
+- **`LinearNNCS.verify` / `DLinearNNCS.verify`** (`engine/nncs/*.m`) declare `safe='UNSAFE'` from an over-approximate reach∩unsafe intersection gated ONLY on `strcmp(obj.method,'exact-star')` — the exact NNCS analogue of [42]. If the controller reach is not actually exact (e.g. a smooth-activation controller), this is a false-unsafe.
+- **`LinearNNCS.falsify` / `DLinearNNCS.falsify`** evaluate `U.contains(simTrace(:,j))` but **discard the boolean** (no `if`), then unconditionally append every trace to `falsifyTraces` → `safe='UNSAFE'` whenever any trace exists, regardless of whether it actually violates. A definite-unsafe-from-nothing bug.
+- **`NN.verify_safety` parfor branch** (`numCores>1`) references an undefined `method` (the serial branch correctly uses `reachOptions.reachMethod`) — latent error on the parallel path.
+
 ---
 
 ## FIXED this session (committed to `ttj/transformer`)

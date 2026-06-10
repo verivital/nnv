@@ -398,11 +398,16 @@ function nnvL = build_layer(type_str, name_str, attrs, wkeys, weights, L) %#ok<I
                 end
             end
             nnvL = PlaceholderLayer(name_str, tag);
-            % If this is a Constant placeholder, attach the value.
-            if strcmp(tag, 'Constant') && ~isempty(wkeys)
-                vkey = wkeys{1};
-                if isfield(weights, vkey)
-                    nnvL.Constant = double(weights.(vkey));
+            % If this is a Constant placeholder, attach the value. A Constant op
+            % whose value we CANNOT recover must not degrade to a silent identity
+            % (PlaceholderLayer treats a 'Constant'-tagged layer with an empty
+            % Constant as identity in both evaluate and reach -> a WRONG network)
+            % [26]. Re-tag it 'UnsupportedOp:Constant' so it fails loud instead.
+            if strcmp(tag, 'Constant')
+                if ~isempty(wkeys) && isfield(weights, wkeys{1})
+                    nnvL.Constant = double(weights.(wkeys{1}));
+                else
+                    nnvL = PlaceholderLayer(name_str, 'UnsupportedOp:Constant');
                 end
             end
 

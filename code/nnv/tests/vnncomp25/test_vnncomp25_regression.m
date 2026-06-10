@@ -655,6 +655,36 @@ outC = Lc.reach_star_single_input(Sb);
 assert(isa(outC,'Star') && outC.dim == Sdim, 'Test 33 failed: identical-tile bias should apply');
 fprintf('Test 33 PASSED (ElementwiseAffineLayer Star-path bias fail-loud on bad dim/tiles)\n');
 
+%% Test 34: EmbeddingLayer.parse refuses to fabricate random embeddings [5]
+% An embedding's outputs ARE its trained weight rows. The old parse fell back to
+% randn(NumWords,EmbeddingDimension)*0.02 for a dims-only layer -- silently
+% verifying a DIFFERENT network. parse must now error when real weights are
+% unavailable, and succeed when they are present.
+Lemb = EmbeddingLayer.parse(struct('Weights', randn(12,5), 'Name', 'emb'));
+assert(isequal(size(Lemb.E), [12 5]), 'Test 34 failed: real weights not used');
+err34a = false;
+try, EmbeddingLayer.parse(struct('EmbeddingDimension',5,'NumWords',12,'Name','b')); ...
+catch ME34a, err34a = strcmp(ME34a.identifier,'EmbeddingLayer:noWeights'); end
+assert(err34a, 'Test 34 failed: dims-only layer must error, not fabricate random embeddings');
+err34b = false;
+try, EmbeddingLayer.parse(struct('Weights',[],'Name','e')); ...
+catch ME34b, err34b = strcmp(ME34b.identifier,'EmbeddingLayer:emptyWeights'); end
+assert(err34b, 'Test 34 failed: empty Weights must error');
+fprintf('Test 34 PASSED (EmbeddingLayer parse refuses random/empty embeddings)\n');
+
+%% Test 35: Constant placeholder with no recoverable value fails loud [26]
+% load_nnv_from_mat tags a Constant op 'UnsupportedOp:Constant' when its value
+% cannot be attached, so PlaceholderLayer refuses rather than degrading to a
+% silent identity (a wrong network). A Constant WITH a value still evaluates.
+Lc = PlaceholderLayer('cst', 'UnsupportedOp:Constant');
+err35e = false; try, Lc.evaluate(single([1;2;3])); catch ME35e, err35e = strcmp(ME35e.identifier,'PlaceholderLayer:unsupportedOp'); end
+err35r = false; try, Lc.reach(Star(zeros(3,1),ones(3,1)),'approx-star'); catch ME35r, err35r = strcmp(ME35r.identifier,'PlaceholderLayer:unsupportedOp'); end
+assert(err35e && err35r, 'Test 35 failed: valueless Constant must refuse evaluate AND reach');
+Lk = PlaceholderLayer('k','Constant'); Lk.Constant = [7;8;9];
+vk = Lk.evaluate([]);
+assert(isequal(vk(:),[7;8;9]), 'Test 35 failed: Constant-with-value must still evaluate');
+fprintf('Test 35 PASSED (valueless Constant refuses; valued Constant evaluates)\n');
+
 %% Summary
 % (A trivial trailing section: MATLAB's script-based test runner mis-accounts
 % line ranges for a TERMINAL section that ends on multiple try/catch one-liners

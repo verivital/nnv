@@ -174,21 +174,37 @@ classdef EmbeddingLayer < handle
     methods(Static)
 
         function L = parse(layer)
-            % Parse MATLAB/ONNX embedding layer
+            % Parse MATLAB/ONNX embedding layer.
+            %
+            % SOUNDNESS [5]: an embedding's outputs ARE its trained weight rows.
+            % If the real weights cannot be extracted we must NOT fabricate them
+            % (the old code fell back to randn(NumWords, EmbeddingDimension)*0.02
+            % whenever a dimensions-only layer was seen) -- that silently builds
+            % a DIFFERENT network, so every downstream verdict is meaningless.
+            % Refuse instead.
+            % Accept both a MATLAB/ONNX layer OBJECT (isprop) and a struct
+            % manifest entry (isfield).
+            has = @(p) (isobject(layer) && isprop(layer, p)) || ...
+                       (isstruct(layer) && isfield(layer, p));
 
-            if isprop(layer, 'Weights')
-                E = layer.Weights;
-            elseif isprop(layer, 'EmbeddingDimension') && isprop(layer, 'NumWords')
-                % Create from dimensions
-                E = randn(layer.NumWords, layer.EmbeddingDimension) * 0.02;
-            else
-                error('Cannot parse embedding layer');
-            end
-
-            if isprop(layer, 'Name')
-                name = layer.Name;
+            if has('Name') && ~isempty(layer.Name)
+                name = char(string(layer.Name));
             else
                 name = 'embedding';
+            end
+
+            if has('Weights') && ~isempty(layer.Weights)
+                E = layer.Weights;
+            elseif has('Weights')
+                error('EmbeddingLayer:emptyWeights', ...
+                    ['Embedding layer ''%s'' has an empty Weights property ' ...
+                     '(untrained / not materialized). Refusing to verify a ' ...
+                     'network with unknown embeddings.'], name);
+            else
+                error('EmbeddingLayer:noWeights', ...
+                    ['Cannot extract trained embeddings from layer ''%s'' (no ' ...
+                     'Weights property). Fabricating random embeddings would ' ...
+                     'verify a different network; refusing.'], name);
             end
 
             L = EmbeddingLayer(E, name);

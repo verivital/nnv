@@ -15,6 +15,13 @@ classdef GeluLayer < handle
         InputNames = {'in'};
         NumOutputs = 1;
         OutputNames = {'out'};
+        % Which GELU formula this layer models. MATLAB's geluLayer / the ONNX
+        % Gelu op default to the EXACT erf form ('none'); NNV historically used
+        % the tanh approximation. evaluate() AND the reach bounds must use the
+        % SAME formula as the source network, else the bounds (computed for one
+        % form) need not contain the true outputs of the other -- the two forms
+        % differ by up to ~4.7e-4 [2][25]. parse() syncs this to the source.
+        Approximation = 'tanh';   % 'tanh' (approx) or 'none' (exact erf-GELU)
     end
 
     methods
@@ -45,12 +52,24 @@ classdef GeluLayer < handle
         end
 
         %% Evaluation
-        function y = evaluate(~, input)
-            % Evaluate GELU activation
-            % Using the approximation: GELU(x) ≈ 0.5 * x * (1 + tanh(√(2/π) * (x + 0.044715 * x³)))
+        function y = evaluate(obj, input)
+            % Evaluate GELU activation using the layer's configured formula
+            % (exact erf-GELU when Approximation='none', tanh approximation
+            % otherwise). gelu_apply is the single source of truth shared with
+            % the reach bounds so reach is sound w.r.t. evaluate.
+            y = obj.gelu_apply(input);
+        end
 
-            sqrt_2_pi = sqrt(2/pi);
-            y = 0.5 * input .* (1 + tanh(sqrt_2_pi * (input + 0.044715 * input.^3)));
+        function y = gelu_apply(obj, x)
+            % The actual GELU formula, selected by obj.Approximation. Used by
+            % both evaluate() and the reach bound endpoints (gelu_scalar) so the
+            % two can never diverge.
+            if strcmpi(obj.Approximation, 'none')
+                y = 0.5 .* x .* (1 + erf(x ./ sqrt(2)));            % exact GELU
+            else
+                s2p = sqrt(2/pi);
+                y = 0.5 .* x .* (1 + tanh(s2p .* (x + 0.044715 .* x.^3)));  % tanh approx
+            end
         end
 
         function y = evaluateSequence(obj, input)
@@ -137,40 +156,46 @@ classdef GeluLayer < handle
             out_lb = zeros(size(lb));
             out_ub = zeros(size(ub));
 
+            % Sound bracket around the single GELU minimum. The argmin differs
+            % by variant -- erf ~ -0.75179, tanh ~ -0.75246 -- so a single split
+            % point would mis-classify the monotone branch and miss the true min
+            % for the other variant. Outside [x_min_lo, x_min_hi] BOTH variants
+            % are strictly monotone (verified numerically): decreasing to the
+            % left, increasing to the right. gelu_min is a conservative lower
+            % bound below both true minima (-0.16997 / -0.17004).
+            x_min_lo = -0.78;
+            x_min_hi = -0.72;
+            gelu_min = -0.1701;
+
             for i = 1:numel(lb)
                 l = lb(i);
                 u = ub(i);
 
-                % GELU values at bounds
+                % GELU values at bounds (using THIS layer's variant)
                 gelu_l = obj.gelu_scalar(l);
                 gelu_u = obj.gelu_scalar(u);
 
-                % GELU has a minimum around x ≈ -0.7522 with value ≈ -0.17009
-                % It's decreasing for x < -0.7522 and increasing for x > -0.7522
-                % Use conservative value to ensure soundness
-                x_min = -0.7522;
-                gelu_min = -0.1701;  % Conservative (actual ≈ -0.17009)
-
-                if u <= x_min
-                    % Both bounds below minimum point - GELU is decreasing
+                if u <= x_min_lo
+                    % Entirely on the decreasing branch
                     out_lb(i) = gelu_u;
                     out_ub(i) = gelu_l;
-                elseif l >= x_min
-                    % Both bounds above minimum point - GELU is increasing
+                elseif l >= x_min_hi
+                    % Entirely on the increasing branch
                     out_lb(i) = gelu_l;
                     out_ub(i) = gelu_u;
                 else
-                    % Interval straddles minimum point
+                    % Interval may contain the minimum: min is the global min,
+                    % max is at an endpoint (min is interior to the bracket)
                     out_lb(i) = gelu_min;
                     out_ub(i) = max(gelu_l, gelu_u);
                 end
             end
         end
 
-        function y = gelu_scalar(~, x)
-            % Compute GELU for scalar x
-            sqrt_2_pi = sqrt(2/pi);
-            y = 0.5 * x * (1 + tanh(sqrt_2_pi * (x + 0.044715 * x^3)));
+        function y = gelu_scalar(obj, x)
+            % GELU at scalar/array x, using this layer's configured variant so
+            % the reach bounds match evaluate().
+            y = obj.gelu_apply(x);
         end
 
         %% Multiple inputs handling
@@ -298,6 +323,21 @@ classdef GeluLayer < handle
 
             L = GeluLayer(layer.Name, layer.NumInputs, layer.InputNames, ...
                           layer.NumOutputs, layer.OutputNames);
+
+            % Sync the GELU formula to the source layer so evaluate/reach model
+            % the ACTUAL network [2][25]. MATLAB's geluLayer exposes
+            % Approximation in {"none" (exact erf, the default), "tanh"}.
+            if isprop(layer, 'Approximation') && ~isempty(layer.Approximation)
+                ap = lower(char(string(layer.Approximation)));
+                if strcmp(ap, 'none')
+                    L.Approximation = 'none';   % exact erf-GELU
+                else
+                    L.Approximation = 'tanh';
+                end
+            else
+                % Property absent: MATLAB's geluLayer default is exact erf.
+                L.Approximation = 'none';
+            end
         end
 
     end

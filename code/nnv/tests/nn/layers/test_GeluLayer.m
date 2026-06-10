@@ -309,6 +309,62 @@ classdef test_GeluLayer < matlab.unittest.TestCase
             testCase.verifyClass(layer_single, 'GeluLayer');
         end
 
+        %% Soundness Tests (variant-aware) [2][25]
+
+        function test_parse_syncs_approximation(testCase)
+            % parse() must record the source layer's GELU variant so evaluate/
+            % reach model the ACTUAL network. MATLAB's geluLayer defaults to the
+            % exact erf form ('none').
+            if ~exist('geluLayer', 'file')
+                testCase.assumeFail('geluLayer not available in this MATLAB version');
+            end
+            L_def  = GeluLayer.parse(geluLayer('Name','g_def'));
+            testCase.verifyEqual(L_def.Approximation, 'none', ...
+                'parse must default to exact erf-GELU (MATLAB geluLayer default)');
+            % If the source explicitly uses the tanh approximation, follow it.
+            try
+                ml_tanh = geluLayer('Name','g_tanh','Approximation','tanh');
+                L_tanh = GeluLayer.parse(ml_tanh);
+                testCase.verifyEqual(L_tanh.Approximation, 'tanh');
+            catch
+                % older geluLayer without the Approximation N-V: skip that half
+            end
+        end
+
+        function test_reach_sound_both_variants(testCase)
+            % The reach box must contain every concrete output of THIS layer's
+            % variant, especially on intervals straddling the minimum (~-0.752)
+            % where the erf/tanh argmin differs. Property-based MC containment.
+            variants = {'tanh','none'};
+            for vi = 1:numel(variants)
+                L = GeluLayer('g'); L.Approximation = variants{vi};
+                nbad = 0;
+                for t = 1:150
+                    c = -3 + 6*rand; r = 0.05 + 2.5*rand;     % many straddle the min
+                    lb = c - r; ub = c + r;
+                    OS = L.reach_star_single_input(Star(lb, ub), 'approx-star');
+                    [a, b] = OS.getRanges;
+                    for k = 1:120
+                        ys = L.evaluate(lb + (ub-lb)*rand);
+                        if ys < a - 1e-9 || ys > b + 1e-9, nbad = nbad + 1; end
+                    end
+                end
+                testCase.verifyEqual(nbad, 0, ...
+                    sprintf('GELU reach unsound for variant ''%s'' (%d MC violations)', variants{vi}, nbad));
+            end
+        end
+
+        function test_exact_vs_tanh_differ(testCase)
+            % Guard against a silent regression to a single hard-coded formula:
+            % the two variants must actually differ near the inflection.
+            La = GeluLayer('a'); La.Approximation = 'none';
+            Lb = GeluLayer('b'); Lb.Approximation = 'tanh';
+            x = (-3:0.01:3)';
+            d = max(abs(La.evaluate(x) - Lb.evaluate(x)));
+            testCase.verifyGreaterThan(d, 1e-4, 'erf and tanh GELU should differ by ~5e-4');
+            testCase.verifyLessThan(d, 1e-2, 'difference should be small (~5e-4), not huge');
+        end
+
     end
 
 end

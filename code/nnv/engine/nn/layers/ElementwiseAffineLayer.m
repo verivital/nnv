@@ -180,10 +180,21 @@ classdef ElementwiseAffineLayer < handle
                         end
                         o = tiles(:,1);
                     elseif numel(o) < image.dim && mod(image.dim, numel(o)) == 0
-                        % Bias is a per-channel constant that should tile to
-                        % fill image.dim. Repeat to match.
-                        flat = double(o(:));
-                        o = repmat(flat, image.dim / numel(flat), 1);
+                        % A bias shorter than the Star dim that divides it is
+                        % AMBIGUOUS [13/165]: repmat assumes a channel-fastest
+                        % flat layout ([o;o;...]), but a position-fastest flatten
+                        % needs repelem -- the layer has no tensor shape to decide.
+                        % evaluate() itself errors on this flat case (a [C] bias
+                        % cannot broadcast against a [dim] vector), so silently
+                        % guessing a tiling makes reach disagree with evaluate.
+                        % Refuse rather than guess (a per-channel bias on a spatial
+                        % set goes through the shape-aware ImageStar branch above).
+                        error('ElementwiseAffineLayer:biasLayoutAmbiguous', ...
+                            ['Offset length %d divides Star dim %d but the tiling ' ...
+                             'layout (channel- vs position-fastest) is ambiguous and ' ...
+                             'evaluate() cannot broadcast it on a flat vector. Refusing ' ...
+                             'to guess; supply a [dim,1] bias or use a shaped ImageStar.'], ...
+                            numel(o), image.dim);
                     else
                         % numel(o) is neither the Star dim, a clean multiple, nor
                         % a clean divisor: padding with zeros or truncating would

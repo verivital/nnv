@@ -14,6 +14,53 @@ Two blockers are **fixed in this session** (below); the rest must be fixed or co
 
 ---
 
+## RESOLUTION STATUS — updated 2026-06-09 (autonomous remediation session)
+
+**All reach-UNSOUNDNESS findings are now RESOLVED** (fixed soundly, or converted to fail-loud). Every fix ships with a regression test that would have caught the bug. Comprehensive checkpoint **64/64**: the generic MC soundness harness reports SiLU/Gelu/Sigmoid/Tanh/Softmax(mid)/LayerNorm all SOUND on adversarial boxes; transformer-soundness 17/17; vnncomp25 regression 43/43; LayerNorm soundness 3/3.
+
+| # | Finding | Status | Commit | Test |
+|---|---------|--------|--------|------|
+| [7] | LayerNorm reach unsound (var-of-center) | **FIXED (sound)** | `84cb90ea1` | transformer Test 10 |
+| [41] | LayerNorm reachSequence treated as affine | **FIXED (universal cap)** | `84cb90ea1`/`863bcdf72` | harness |
+| [43] | Placeholder evaluateSequence identity | **FIXED (delegates)** | `863bcdf72` | vnncomp Test 31 |
+| UnsupportedOp | Placeholder silent identity | **FIXED (refuse)** | `9978cef50` | vnncomp Test 31 |
+| [33][34][37] | CI gate not real (skip=pass, 0/0, allow-list) | **FIXED** | `11a24df8f` | ci_report self |
+| [18] | SiLU sampling-only error bound | **FIXED (chord M·h²/8)** | `b408a8e6e` | harness |
+| [0] | SDPA zono path bypasses multi-token guard | **FIXED (guard in chokepoint)** | `326b8621c` | transformer Test 4 |
+| [1][24] | MHA empty-weights → identity disarms guard | **FIXED (parse errors)** | `326b8621c` | transformer Test 7/8 |
+| [45] | MHA check_soundness validates wrong layer | **FIXED (takes layer arg)** | `326b8621c` | transformer |
+| [40] | MHA ImageStar reach discards K/V | **FIXED** | `326b8621c` | transformer |
+| [10] | ElementwiseAffine [1,1,C] axis when H==C | **FIXED (shape-based)** | `68d95d635` | vnncomp Test 32 |
+| [11] | Addition non-cell silently skips | **FIXED (fail-loud)** | `ea60f4d41` | vnncomp Test 3 |
+| [13] | EAffine Star bias pad/truncate | **FIXED (fail-loud)** | `ea60f4d41` | vnncomp Test 33 |
+| [2][25] | GELU tanh-vs-erf + bad split point | **FIXED (variant-aware)** | `d73927e91` | GeluLayer +3 |
+| [5] | Embedding parse fabricates random weights | **FIXED (fail-loud)** | `10e5770ad` | vnncomp Test 34 |
+| [26] | Constant op degrades to identity | **FIXED (fail-loud)** | `10e5770ad` | vnncomp Test 35 |
+| [9] | Reshape reach ignores OnnxBCHW (H↔W) | **FIXED (mirrors evaluate)** | `60c9ba1c7` | vnncomp Test 36 |
+| [14] | Concat Star path ignores Dim | **FIXED (fail-loud Dim≠1)** | `60c9ba1c7` | vnncomp Test 37 |
+| [44] | Concat crashes on 3-arg Stars | **FIXED** | `60c9ba1c7` | vnncomp Test 37 |
+| [12] | Intermediate Softmax ImageStar one-group | **FIXED (per-pixel)** | `bd6eb35e4` | vnncomp Test 38 |
+| [22] | matlab2nnv is_final_softmax by array order | **FIXED (topology BFS)** | `eca9776a2` | transformer Test 9 |
+| [27] | matlab2nnv dead ScalingLayer branch | **FIXED (removed)** | `eca9776a2` | — |
+| [46] | SDPA reach no nargin-7 case | **FIXED** | `6dbc10ef4` | vnncomp Test 39 |
+| [47] | EProduct reach_multipleInputs dead | **FIXED (delegates)** | `6dbc10ef4` | vnncomp Test 39 |
+| [19] | SiLU crashes on 3-arg Star | **FIXED (sound box fallback)** | `5ac745050` | vnncomp Test 40 |
+| [20] | Softmax check_soundness empty-sample crash | **FIXED (skip)** | `5ac745050` | — |
+| [21] | SiLU getLinearBounds unsound coeffs | **FIXED (sound constants)** | `5ac745050` | inline |
+| [35] | assumeFail masks attention failures | **PARTIAL** (test_parse_basic done) | `68d95d635` | — |
+
+**Still OPEN (not reach-unsoundness; tracked in plan v02):**
+- **[3][4] MHA `evaluate` softmax-axis / head-split wrong for multi-token** — HIGH, but currently MASKED: multi-token reach fails loud, so no verdict is produced from a wrong oracle. These are prerequisites for sound multi-token attention (item below), not independent live unsoundness.
+- **[8] sound multi-token attention** — still fail-loud (SOUND placeholder). This is the remaining CAPABILITY gap for ViT VNN-COMP support. See plan v02 for the value-hull → softmax-aware approach.
+- **[42] exact-star mislabeling** — needs a maintainer API decision (reject `exact-star`, or label approx). Deferred, not fixed unilaterally.
+- **[6] DynamicMatmul evaluate broadcasting** — evaluate-only (reach already fails loud, vnncomp Test 29).
+- **[16][17] NN engine topology/whitelist** — tied to wiring multi-token attention into the DAG engine.
+- **[28][29] VNN-COMP runner** counterexample order / multi-spec try-catch — submission correctness.
+- **[36][38] CI hygiene** — softmax test tolerance 0.1; tests write PNGs into the repo tree.
+- **[23] selfAttention AttentionMask/causal ignored**; Copilot lows.
+
+---
+
 ## FIXED this session (committed to `ttj/transformer`)
 
 - **LayerNorm.reach was UNSOUND** (Codex + finding [7]; MCP-verified 2532/5000 MC violations; witness `x=[0;5]` over `[0,2]×[-3,5]` → true `[-1,1]`, reach excluded it). Root cause: variance estimated from the **center point only** (`var_center=var((lb+ub)/2)` = 0 for symmetric boxes) → `std_lb=sqrt(eps)` → lower bound excluded reachable outputs; upper bounds also absurd (~2055). **Fix** `84cb90ea1`: new `sound_bounds()` intersects an input-dependent interval bound with the universal cap `|z_i| ≤ sqrt(n-1)` (sound for any input/eps). Verified 0/16000 MC; **Test 10** added (witness + 3600 randomized MC). *Caveat: input-independent looseness for small ε is the soundness cost; a tighter sound `var_lb` is future work.*

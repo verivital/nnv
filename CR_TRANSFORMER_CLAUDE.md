@@ -64,13 +64,14 @@ Two blockers are **fixed in this session** (below); the rest must be fixed or co
 | [3] | MHA evaluate softmax wrong axis | **FIXED (row-wise)** | `edbd7332b` | MHA convention |
 | [4] | MHA evaluate strided head split | **FIXED (contiguous)** | `edbd7332b` | MHA convention |
 | [6] | DynamicMatmul evaluate broadcast | **FIXED (fail-loud)** | `5a1a77353` | vnncomp Test 19/29 |
+| [42] | exact-star over-approx → false not-robust | **FIXED (Option B + 1 warning)** | `91e4dd3ee` | test_exact_star_overapprox |
 | [35] | assumeFail masks attention failures | **PARTIAL** (test_parse_basic done) | `68d95d635` | — |
 
 Final checkpoint after all fixes: **115/116** (1 = `test_toGPU` filtered, no GPU; 0 failures).
 
 **Still OPEN (none are live reach-unsoundness; tracked in plan v02):**
 - **[8] sound multi-token attention** — still fail-loud (SOUND placeholder). The remaining CAPABILITY gap for ViT VNN-COMP support. `evaluate` is now correct ([3][4] done), so MC-validation of a future bound is meaningful. See plan v02 §B1 (value-hull → softmax-aware).
-- **[42] exact-star mislabeling** — needs a maintainer API decision (reject `exact-star`, or label approx). Deferred, not changed unilaterally.
+- ~~**[42] exact-star mislabeling**~~ — **RESOLVED** (`91e4dd3ee`, Option B): an over-approximate reach can prove robust/safe but a not-robust/unsafe verdict is now downgraded to `unknown` (with one `NNV:exactStarOverapprox` warning) unless the whole reach is provably exact.
 - **[16][17] NN engine topology/whitelist** — tied to wiring multi-token attention into the DAG engine (part of B1).
 - **[35] remaining `assumeFail`** in some attention tests → `verifyError`/containment (one done).
 - **[23] selfAttention AttentionMask/causal ignored** by parse; Copilot lows (verify_mnist_vit fallback vars, plots/ dir, Reshape −1 divisibility, TransposedConv bias validation, stale BN comment).

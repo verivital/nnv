@@ -144,12 +144,17 @@ classdef test_Softmax < matlab.unittest.TestCase
                 % Compute softmax
                 y = Softmax.evaluate(x);
 
-                % Check containment (approximately)
+                % [36] Containment: reach_star_approx is a SOUND over-
+                % approximation, so every concrete output MUST lie within
+                % [lb, ub] to float/LP tolerance. The old 0.1 slack was 10% of
+                % the softmax codomain -- it would pass even a grossly unsound
+                % box. Use a tight tolerance instead.
+                tol = 1e-6;
                 [lb, ub] = S_out.getRanges();
-                testCase.verifyTrue(all(y >= lb - 0.1), ...
-                    sprintf('Sample %d should be within output bounds', i));
-                testCase.verifyTrue(all(y <= ub + 0.1), ...
-                    sprintf('Sample %d should be within output bounds', i));
+                testCase.verifyTrue(all(y >= lb - tol), ...
+                    sprintf('Sample %d below output lower bound (unsound)', i));
+                testCase.verifyTrue(all(y <= ub + tol), ...
+                    sprintf('Sample %d above output upper bound (unsound)', i));
             end
         end
 

@@ -58,3 +58,9 @@ Formal_Methods_2026__FM_2026____NNV___TOOL_PAPER___3_0*.zip
 
 # CI matrix shard results (JUnit XML; uploaded as Actions artifacts, not committed)
 code/nnv/test-results-ci/
+
+# [38] Test-generated visual-soundness figures (save_test_figure ->
+# nnvroot()/results/tests/figures). These are run artifacts, never source --
+# they must not pollute the repo tree. Matches the dir at any depth.
+**/results/tests/figures/
+**/*_soundness_containment_*.png

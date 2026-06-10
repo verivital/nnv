@@ -242,12 +242,43 @@ classdef ConcatenationLayer < handle
         % we vertically stack the V matrices (with independent predicates
         % via block-diagonal C) and union the constraints.
         function out = reach_concat_star(obj, inputs)
+            % [14] SOUNDNESS: a column-vector Star carries NO tensor shape, so
+            % the only concatenation we can realize as a flat vertical stack
+            % ([A(:);B(:)]) is along the single feature axis (Dim==1). For any
+            % other Dim, evaluate's cat(obj.Dim,...) on the ORIGINAL tensor
+            % interleaves elements in column-major order (e.g. concatenating
+            % [T,D] tensors along Dim=1 gives [A(:,1);B(:,1);A(:,2);B(:,2);...]),
+            % which the flat stack does NOT reproduce -- a silent permutation of
+            % the output set. Refuse rather than return a permuted (unsound) set;
+            % shape-aware concatenation must go through the ImageStar path.
+            if ~isempty(obj.Dim) && obj.Dim ~= 1
+                error('ConcatenationLayer:starConcatDim', ...
+                    ['Star (column-vector) concatenation is only sound along the ' ...
+                     'feature axis Dim==1; got Dim=%d. The flat stack would permute ' ...
+                     'the output set relative to evaluate''s cat(%d,...). Use an ' ...
+                     'ImageStar (shape-aware) input for multi-axis concatenation.'], ...
+                    obj.Dim, obj.Dim);
+            end
+
             n = length(inputs);
             nVars = zeros(n, 1);
             for i = 1:n
                 nVars(i) = inputs{i}.nVar;
             end
             totalVars = sum(nVars);
+
+            % [44] A Star built with the 3-arg Star(V,C,d) constructor has EMPTY
+            % predicate_lb/ub. Concatenating those empty vectors yields a bounds
+            % vector shorter than totalVars, which the 5-arg Star constructor
+            % rejects. Only pass explicit predicate bounds when EVERY operand
+            % provides them; otherwise omit them (the C*a<=d constraints fully
+            % define the set, so this stays sound -- only estimation is looser).
+            haveBounds = true;
+            for i = 1:n
+                if isempty(inputs{i}.predicate_lb) || isempty(inputs{i}.predicate_ub)
+                    haveBounds = false; break;
+                end
+            end
 
             new_V = [];
             new_C = [];
@@ -274,15 +305,21 @@ classdef ConcatenationLayer < handle
                     end
                     new_d = [new_d; inputs{i}.d];
                 end
-                new_pred_lb = [new_pred_lb; inputs{i}.predicate_lb];
-                new_pred_ub = [new_pred_ub; inputs{i}.predicate_ub];
+                if haveBounds
+                    new_pred_lb = [new_pred_lb; inputs{i}.predicate_lb];
+                    new_pred_ub = [new_pred_ub; inputs{i}.predicate_ub];
+                end
                 varOffset = varOffset + nVars(i);
             end
             if isempty(new_C)
                 new_C = zeros(0, totalVars);
                 new_d = zeros(0, 1);
             end
-            out = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
+            if haveBounds
+                out = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);
+            else
+                out = Star(new_V, new_C, new_d);
+            end
         end
 
         % handle multiple inputs

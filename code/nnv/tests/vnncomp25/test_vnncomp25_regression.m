@@ -685,6 +685,45 @@ vk = Lk.evaluate([]);
 assert(isequal(vk(:),[7;8;9]), 'Test 35 failed: Constant-with-value must still evaluate');
 fprintf('Test 35 PASSED (valueless Constant refuses; valued Constant evaluates)\n');
 
+%% Test 36: ReshapeLayer OnnxBCHW reach matches evaluate for H~=W [9]
+% The Star reach path ignored OnnxBCHW and used a plain column-major
+% toImageStar(H,W,C), laying the flat vector out H<->W transposed vs evaluate
+% (reshape([W,H,C]) then permute). For non-square images every downstream Conv
+% then convolves the transposed image -> reach need not contain evaluate(x).
+H36=4; W36=3; C36=2; n36=H36*W36*C36;     % H~=W exposes the transpose
+L36 = ReshapeLayer('rs36',[H36 W36 C36]); L36.OnnxBCHW = true;
+S36 = Star((1:n36)'-0.5, (1:n36)'+0.5);
+OS36 = L36.reach_single_input(S36);
+% A reshape is a pure coordinate permutation, so reach is EXACT iff EVERY
+% column of the output V equals evaluate's BCHW layout of that column. Build the
+% expected full basis deterministically (no MC loop needed -- column equality
+% proves both soundness and tightness): reshape([W,H,C,m]) then permute([2 1 3 4]).
+expV = permute(reshape(S36.V, [W36, H36, C36, size(S36.V,2)]), [2 1 3 4]);
+assert(isequal(size(OS36.V), size(expV)) && max(abs(OS36.V(:)-expV(:))) < 1e-9, ...
+    'Test 36 failed: OnnxBCHW reach basis does not match evaluate''s BCHW layout');
+% Cross-check the center column against an actual evaluate() call.
+assert(max(abs(reshape(OS36.V(:,:,:,1),[],1) - reshape(L36.evaluate((1:n36)'),[],1))) < 1e-9, ...
+    'Test 36 failed: reach center != evaluate(center)');
+fprintf('Test 36 PASSED (ReshapeLayer OnnxBCHW reach matches evaluate, H~=W)\n');
+
+%% Test 37: ConcatenationLayer Star path -- Dim guard [14] + empty pred-bounds [44]
+% Dim==1 feature concat vertically stacks (sound, matches evaluate). Dim~=1 would
+% silently permute the flat set -> must refuse. 3-arg Stars (empty predicate
+% bounds) must not crash the 5-arg Star constructor.
+Lc1 = ConcatenationLayer('cc1', 2, 1, {'in1','in2'}, {'out'}, 1);
+A = Star([0;0;0],[1;1;1]); B = Star([5;5],[6;6]);
+O = Lc1.reach_concat_star({A,B});
+assert(O.dim==5 && isequal(O.V(:,1), [A.V(:,1); B.V(:,1)]), 'Test 37 failed: Dim=1 stack/center wrong');
+Lc2 = ConcatenationLayer('cc2', 2, 1, {'in1','in2'}, {'out'}, 2);
+err37 = false;
+try, Lc2.reach_concat_star({A,B}); catch ME37, err37 = strcmp(ME37.identifier,'ConcatenationLayer:starConcatDim'); end
+assert(err37, 'Test 37 failed: Dim~=1 Star concat must refuse (silent permutation)');
+A3 = Star(A.V, A.C, A.d); B3 = Star(B.V, B.C, B.d);   % strip predicate bounds
+assert(isempty(A3.predicate_lb), 'Test 37 precond: A3 should have empty pred bounds');
+O3 = Lc1.reach_concat_star({A3, B3});
+assert(O3.dim==5, 'Test 37 failed: 3-arg Star concat crashed/empty');
+fprintf('Test 37 PASSED (Concat Star Dim guard + 3-arg empty pred-bounds)\n');
+
 %% Summary
 % (A trivial trailing section: MATLAB's script-based test runner mis-accounts
 % line ranges for a TERMINAL section that ends on multiple try/catch one-liners

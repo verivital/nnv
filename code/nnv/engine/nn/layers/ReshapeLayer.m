@@ -139,6 +139,23 @@ classdef ReshapeLayer < handle
                 td = obj.targetDim;
                 if numel(td) >= 3 && prod(td(end-2:end)) == in_image.dim
                     H = td(end-2); W = td(end-1); C = td(end);
+                    if obj.OnnxBCHW && numel(td) == 3
+                        % [9] SOUNDNESS: evaluate() with OnnxBCHW lays the flat
+                        % vector out as reshape([W,H,C]) then permute([2 1 3]).
+                        % A plain column-major toImageStar(H,W,C) would lay it out
+                        % H<->W transposed, so reach and evaluate would model
+                        % images that are spatial transposes of each other --
+                        % every downstream Conv then convolves the wrong image and
+                        % the reach set need not contain evaluate(x). Mirror
+                        % evaluate exactly: column-major into [W,H,C], then permute
+                        % the spatial dims. The predicate constraints are unchanged
+                        % by a spatial permute.
+                        IS_tmp = in_image.toImageStar(W, H, C);
+                        Vp = permute(IS_tmp.V, [2 1 3 4]);   % [W,H,C,m] -> [H,W,C,m]
+                        image = ImageStar(Vp, IS_tmp.C, IS_tmp.d, ...
+                                          IS_tmp.pred_lb, IS_tmp.pred_ub);
+                        return;
+                    end
                     image = in_image.toImageStar(H, W, C);
                     return;
                 end

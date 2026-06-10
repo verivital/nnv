@@ -45,11 +45,11 @@ for i=1:n
     % (identity is only sound for a FINAL softmax under argmax-on-logits specs).
     % "Final" = every subsequent layer has no effect on reachability; erring
     % toward non-final is sound (the [0,1] bounds are merely looser).
-    if isa(L, 'nnet.cnn.layer.SoftmaxLayer') && ~is_final_softmax(Layers, i)
+    if isa(L, 'nnet.cnn.layer.SoftmaxLayer') && ~is_final_softmax(Layers, i, conns)
         Li = SoftmaxLayer(L.Name);
         Li.IsFinalLayer = false;   % sound interval bounds (see SoftmaxLayer.reach)
 
-    elseif contains(class(L), "LogSoftmax") && ~is_final_softmax(Layers, i)
+    elseif contains(class(L), "LogSoftmax") && ~is_final_softmax(Layers, i, conns)
         % Log-softmax outputs lie in (-inf, 0] -- neither identity nor the
         % softmax [0,1] bounds is sound for it mid-network. Refuse loudly.
         error('matlab2nnv:midNetworkLogSoftmax', ...
@@ -177,20 +177,14 @@ for i=1:n
     % "ONNX Add, Mul, Sub, Neg, Div imported as scalingLayer"). Both route to
     % the same parse() -- ElementwiseAffineLayer.parse now accepts either class.
     elseif isa(L, 'nnet.onnx.layer.ElementwiseAffineLayer') || isa(L, 'nnet.cnn.layer.ScalingLayer')
+        % Both R2024b- ElementwiseAffineLayer and R2025a+ ScalingLayer route to
+        % the single parse() (Y = Scale.*X + Offset). [27]: the previous code
+        % had a SECOND, unreachable ScalingLayer branch below this one (this
+        % branch already matches nnet.cnn.layer.ScalingLayer) whose hand-rolled
+        % logic diverged from parse() -- forcing DoScale/DoOffset both true and
+        % substituting a zero offset. Removed to keep one code path.
         Li = ElementwiseAffineLayer.parse(L);
 
-    % Scaling Layer (built-in MATLAB Deep Learning Toolbox layer used by
-    % some ONNX imports for input normalization). Equivalent to elementwise
-    % affine with Scale and Bias.
-    elseif isa(L, 'nnet.onnx.layer.ScalingLayer') || isa(L, 'nnet.cnn.layer.ScalingLayer')
-        scaleVal  = L.Scale;
-        if isprop(L, 'Bias') && ~isempty(L.Bias)
-            offsetVal = L.Bias;
-        else
-            offsetVal = zeros(size(scaleVal), 'like', scaleVal);
-        end
-        Li = ElementwiseAffineLayer(L.Name, scaleVal, offsetVal, true, true);
-    
     % Feature input layer
     elseif isa(L, 'nnet.cnn.layer.FeatureInputLayer') || isa(L, 'nnet.onnx.layer.FeatureInputLayer')
         Li = FeatureInputLayer.parse(L); 
@@ -388,21 +382,76 @@ function status = check_layer_parameters(L)
 end
 
 % A softmax is "final" (identity placeholder is sound for argmax-on-logits
-% specs) only if every layer after it has no effect on reachability. Erring
+% specs) only if every GRAPH SUCCESSOR has no effect on reachability. Erring
 % toward non-final is SOUND (bounds get looser, never wrong); only treating a
 % genuinely mid-network softmax as final would be unsound.
-function tf = is_final_softmax(Layers, idx)
+%
+% [22]: decide by Connections topology, not array order. The Layers array is not
+% guaranteed to be topologically sorted, so walking Layers(idx+1:end) by array
+% position could call a softmax 'final' when a real layer follows it in the
+% GRAPH but precedes it in the array. When a usable Connections table is
+% available we BFS the actual successors; otherwise we fall back to the array
+% walk (sound for the usual topologically-ordered arrays).
+function tf = is_final_softmax(Layers, idx, conns)
+    if nargin >= 3 && istable(conns) && ~isempty(conns) && ...
+            all(ismember({'Source','Destination'}, conns.Properties.VariableNames))
+        tf = is_final_softmax_topo(Layers, idx, conns);
+        return;
+    end
     tf = true;
     for k = idx+1:numel(Layers)
-        Lk = Layers(k);
-        if ~(isa(Lk, 'nnet.cnn.layer.ClassificationOutputLayer') || ...
-             isa(Lk, 'nnet.cnn.layer.RegressionOutputLayer') || ...
-             isa(Lk, 'nnet.cnn.layer.DropoutLayer') || ...
-             isa(Lk, "nnet.onnx.layer.CustomOutputLayer") || ...
-             isa(Lk, "nnet.onnx.layer.VerifyBatchSizeLayer"))
+        if ~softmax_successor_inert(Layers(k))
             tf = false; return;
         end
     end
+end
+
+% True iff a successor layer has no effect on reachability (so a softmax feeding
+% only such layers is "final").
+function tf = softmax_successor_inert(Lk)
+    tf = isa(Lk, 'nnet.cnn.layer.ClassificationOutputLayer') || ...
+         isa(Lk, 'nnet.cnn.layer.RegressionOutputLayer') || ...
+         isa(Lk, 'nnet.cnn.layer.DropoutLayer') || ...
+         isa(Lk, "nnet.onnx.layer.CustomOutputLayer") || ...
+         isa(Lk, "nnet.onnx.layer.VerifyBatchSizeLayer");
+end
+
+% Topology-aware finality: BFS the softmax's graph successors via Connections.
+% Final iff EVERY reachable successor layer is inert. Layer names in the conns
+% table may carry '/port' suffixes -- strip them to match Layers(k).Name.
+function tf = is_final_softmax_topo(Layers, idx, conns)
+    names = strings(numel(Layers), 1);
+    for k = 1:numel(Layers)
+        names(k) = string(Layers(k).Name);
+    end
+    src = strip_port(string(conns.Source));
+    dst = strip_port(string(conns.Destination));
+    start = string(Layers(idx).Name);
+
+    tf = true;
+    visited = false(numel(Layers), 1);
+    frontier = start;
+    while ~isempty(frontier)
+        nextNodes = strings(0,1);
+        for f = 1:numel(frontier)
+            succ = dst(src == frontier(f));   % direct graph successors
+            for s = 1:numel(succ)
+                li = find(names == succ(s), 1);
+                if isempty(li) || visited(li), continue; end
+                visited(li) = true;
+                if ~softmax_successor_inert(Layers(li))
+                    tf = false; return;       % a real layer follows -> not final
+                end
+                nextNodes(end+1,1) = succ(s); %#ok<AGROW>
+            end
+        end
+        frontier = nextNodes;
+    end
+end
+
+function s = strip_port(s)
+    % 'layerName/out1' -> 'layerName'
+    s = extractBefore(s + "/", "/");
 end
 
 % Get output size of the network

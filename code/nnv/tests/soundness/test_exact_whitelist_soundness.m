@@ -96,6 +96,21 @@ classdef test_exact_whitelist_soundness < matlab.unittest.TestCase
             end
             sm = SoftmaxLayer('sm'); sm.IsFinalLayer = false;     % intermediate softmax = over-approx
             testCase.verifyFalse(net.layer_reach_is_exact(sm), 'intermediate Softmax must be excluded');
+            % Conv1DLayer (box over-approx branch from cached im_lb/im_ub, no
+            % plain reach()) and PixelClassificationLayer (estimateRanges
+            % over-approx, numeric output) must also be excluded. Both need
+            % constructor args; build defensively and skip if unavailable (the
+            % exclusion is enforced by the whitelist regardless).
+            try, c1 = Conv1DLayer(ones(2,1,1), zeros(1,1)); catch, c1 = []; end
+            if ~isempty(c1)
+                testCase.verifyFalse(net.layer_reach_is_exact(c1), ...
+                    'Conv1DLayer must be excluded (box over-approximation branch)');
+            end
+            try, pc = PixelClassificationLayer('pc', categorical({'a';'b'}), [1 1 2]); catch, pc = []; end
+            if ~isempty(pc)
+                testCase.verifyFalse(net.layer_reach_is_exact(pc), ...
+                    'PixelClassificationLayer must be excluded (estimateRanges over-approx)');
+            end
         end
 
     end

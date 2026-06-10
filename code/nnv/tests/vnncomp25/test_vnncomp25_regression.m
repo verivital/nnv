@@ -800,6 +800,49 @@ assert(max(abs(double(reshape(O41b.V(:,:,:,1),[],1)) - double(e41b(:)))) < 1e-4,
     'Test 41 failed: zero-pred ImageStar scale crashed/wrong when H~=C');
 fprintf('Test 41 PASSED (ElementwiseAffine zero-predicate ImageStar scale: sound, no crash)\n');
 
+%% Test 42: ReshapeLayer.reach must NOT mutate obj.targetDim [132]
+pad42 = []; %#ok<NASGU>  % leading simple stmt (runner section quirk)
+% reach() resolved the ONNX -1 sentinel by writing obj.targetDim(idx)=1, a
+% PERMANENT mutation of the handle layer. evaluate() resolves -1 dynamically and
+% the MC/falsification oracle calls evaluate() on the SAME object AFTER reach --
+% the mutation then corrupted it (evaluate errored / wrong shape).
+L42 = ReshapeLayer('r42', [-1 2 3]); x42 = (1:24)';
+sz42 = size(L42.evaluate(x42));
+L42.reach_single_input(Star(x42-0.1, x42+0.1));
+assert(isequal(L42.targetDim, [-1 2 3]), 'Test 42 failed: reach mutated obj.targetDim');
+y42 = L42.evaluate(x42);   % must not error nor change shape
+assert(isequal(size(y42), sz42), 'Test 42 failed: evaluate corrupted after reach');
+fprintf('Test 42 PASSED (ReshapeLayer.reach does not mutate the layer)\n');
+
+%% Test 43: ReshapeLayer ImageStar + OnnxBCHW reach matches evaluate [166]
+% The Star branch honored OnnxBCHW but the ImageStar branch (reshapeImagestar)
+% ignored it -> reach used a different spatial layout than evaluate (reach !=
+% evaluate). Now mirrored.
+H43=4; W43=3; C43=2; n43=H43*W43*C43; v43=(1:n43)';
+L43 = ReshapeLayer('r43',[H43 W43 C43]); L43.OnnxBCHW = true;
+IS43 = ImageStar(reshape(single(v43),n43,1,1), reshape(single(v43),n43,1,1));
+OS43 = L43.reach_single_input(IS43);
+rc43 = reshape(double(OS43.V(:,:,:,1)),[],1); ev43 = reshape(double(L43.evaluate(v43)),[],1);
+assert(max(abs(rc43-ev43)) < 1e-6, 'Test 43 failed: ImageStar OnnxBCHW reach != evaluate');
+fprintf('Test 43 PASSED (ReshapeLayer ImageStar OnnxBCHW reach matches evaluate)\n');
+
+%% Test 44: LayerNorm non-sequence ImageStar reach is sound, multi-position [8 coverage]
+% Coverage gap: prior LayerNorm tests only exercised the Star/vector path with
+% n==NumChannels. Pin the non-sequence ImageStar (H>1/C>1) path: the reach must
+% contain evaluate at the center and the box corners.
+Xln = zeros(1,2,2,'single'); Xln(1,1,1)=0; Xln(1,2,1)=2; Xln(1,1,2)=10; Xln(1,2,2)=10;
+Lln = LayerNormalizationLayer('Name','ln44','NumChannels',2,'Epsilon',1e-5, ...
+    'Scale',single([1 1]),'Offset',single([0 0]));
+rad44 = 0.2; ISln = ImageStar(Xln-rad44, Xln+rad44);
+OSln = Lln.reach_star_single_input(ISln); [alb,aub] = OSln.getRanges; alb=alb(:); aub=aub(:);
+yc44  = double(reshape(Lln.evaluate(Xln), [], 1));
+ylo44 = double(reshape(Lln.evaluate(Xln-rad44), [], 1));
+yhi44 = double(reshape(Lln.evaluate(Xln+rad44), [], 1));
+contained44 = @(y) all(y >= alb-1e-5) && all(y <= aub+1e-5);
+assert(contained44(yc44) && contained44(ylo44) && contained44(yhi44), ...
+    'Test 44 failed: LayerNorm non-sequence ImageStar reach excludes evaluate');
+fprintf('Test 44 PASSED (LayerNorm non-sequence ImageStar reach sound, multi-position)\n');
+
 %% Summary
 % (A trivial trailing section: MATLAB's script-based test runner mis-accounts
 % line ranges for a TERMINAL section that ends on multiple try/catch one-liners

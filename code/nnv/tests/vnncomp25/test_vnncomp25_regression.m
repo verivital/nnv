@@ -579,4 +579,22 @@ assert(max(abs(il(:) - lo)) < 1e-9 && max(abs(iu(:) - hi)) < 1e-9, ...
     'Test 30f failed: inert placeholder must stay identity');
 fprintf('Test 30 PASSED (PlaceholderLayer active ops: sound reach or refuse; inert identity)\n');
 
+%% Test 31: PlaceholderLayer 'UnsupportedOp:<op>' REFUSES in evaluate AND reach
+% The loader tags active ops it can't represent (Where/ScatterND/ArgMax/Expand/
+% dynamic Reshape/...) as 'UnsupportedOp:<op>'. Treating them as identity would
+% silently evaluate/verify a DIFFERENT network (the cctsdb_yolo / collins class).
+% Both paths must error -- regression so the tag can never silently pass through.
+Lu = PlaceholderLayer('ph_unsup', 'UnsupportedOp:Where');
+errEval = false;
+try, Lu.evaluate(single([1; 2; 3])); catch ME31a, errEval = strcmp(ME31a.identifier,'PlaceholderLayer:unsupportedOp'); end
+assert(errEval, 'Test 31 failed: UnsupportedOp evaluate must error (identity would be a wrong network)');
+errReach = false;
+try, Lu.reach(Star(zeros(3,1), ones(3,1)), 'approx-star'); catch ME31b, errReach = strcmp(ME31b.identifier,'PlaceholderLayer:unsupportedOp'); end
+assert(errReach, 'Test 31 failed: UnsupportedOp reach must error');
+% reachSequence path must refuse too
+errSeq = false;
+try, Lu.reachSequence(Star(zeros(3,1), ones(3,1)), 'approx-star'); catch, errSeq = true; end
+assert(errSeq, 'Test 31 failed: UnsupportedOp reachSequence must error');
+fprintf('Test 31 PASSED (PlaceholderLayer UnsupportedOp refuses in evaluate + reach + reachSequence)\n');
+
 fprintf('\n=== All V04/V05/V06/V07/V08/V09/V10 NNV regression tests PASSED ===\n');

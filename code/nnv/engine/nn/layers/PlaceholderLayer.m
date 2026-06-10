@@ -34,6 +34,16 @@ classdef PlaceholderLayer < handle
 
         % evaluate
         function out_im = evaluate(obj, inputs)
+            % An ACTIVE-but-UNSUPPORTED op (tagged 'UnsupportedOp:<op>' by the
+            % loader: Expand/Where/ScatterND/ArgMax/Gather/dynamic-Reshape/...)
+            % transforms its input; returning the input unchanged silently
+            % computes a WRONG network. Refuse loudly instead.
+            if startsWith(obj.Type, 'UnsupportedOp:')
+                error('PlaceholderLayer:unsupportedOp', ...
+                    ['Layer ''%s'' wraps unsupported ONNX op ''%s'' -- identity ' ...
+                     'evaluation would compute a different network. Refusing.'], ...
+                    obj.Name, extractAfter(obj.Type, 'UnsupportedOp:'));
+            end
             % If this is a constant-producing placeholder (e.g. a CLS-token
             % initializer fed to Concat), return the stored value.
             if ~isempty(obj.Constant)
@@ -120,11 +130,13 @@ classdef PlaceholderLayer < handle
 
         function tf = isActiveOp(obj)
             % True when evaluate() is NOT the identity: constant-producing,
-            % permuting, or an element-wise op handled in evaluate's switch.
+            % permuting, an element-wise op handled in evaluate's switch, or
+            % an active-but-unsupported op tagged by the loader.
             activeTypes = {'Sign','Abs','Floor','Ceil','Round','Sin','Cos', ...
                            'Tan','Exp','Log','Sqrt'};
             nonIdentityPerm = ~isempty(obj.Perm) && ~isequal(obj.Perm(:).', 1:numel(obj.Perm));
-            tf = ~isempty(obj.Constant) || nonIdentityPerm || any(strcmp(obj.Type, activeTypes));
+            tf = ~isempty(obj.Constant) || nonIdentityPerm || any(strcmp(obj.Type, activeTypes)) ...
+                 || startsWith(obj.Type, 'UnsupportedOp:');
         end
 
         function OS = reach_active(obj, IS)
@@ -137,6 +149,12 @@ classdef PlaceholderLayer < handle
             %  - Tan (unbounded across asymptotes) and Transpose (permuting a
             %    flattened set needs the tensor shape, which the layer does
             %    not have): REFUSE rather than return a wrong set.
+            if startsWith(obj.Type, 'UnsupportedOp:')
+                error('PlaceholderLayer:unsupportedOp', ...
+                    ['Layer ''%s'' wraps unsupported ONNX op ''%s'' -- no sound ' ...
+                     'reachability exists for it. Refusing to return an unsound set.'], ...
+                    obj.Name, extractAfter(obj.Type, 'UnsupportedOp:'));
+            end
             if ~isempty(obj.Constant)
                 c = double(obj.Constant(:));
                 OS = Star(c, c);   % exact point set

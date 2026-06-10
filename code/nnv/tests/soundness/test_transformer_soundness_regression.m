@@ -123,3 +123,31 @@ for k = 1:1000
 end
 assert(viol == 0, 'BatchNorm reach UNSOUND: %d/1000 MC violations', viol);
 fprintf('Test 6 PASSED (BatchNorm ImageStar sound)\n');
+
+%% Test 10: LayerNorm reach is SOUND -- regression for the unsound var-of-center bug
+% The old code estimated variance from the CENTER point only (var_center*0.5 /
+% max(.)^2/4), giving std_lb=sqrt(eps) and a lower bound that EXCLUDED reachable
+% outputs (2532/5000 MC violations). Concrete witness below + randomized MC.
+% (a) the exact Codex counterexample: x in [0,2]x[-3,5], witness x=[0;5]->[-1,1].
+L = LayerNormalizationLayer('Name','ln','NumChannels',2,'Epsilon',1e-5,'Scale',[1 1],'Offset',[0 0]);
+S = Star([0; -3], [2; 5]);
+OS = L.reach(S, 'approx-star');
+[olb, oub] = OS.getRanges; olb = olb(:); oub = oub(:);
+yw = L.evaluate([0; 5]); yw = yw(:);
+assert(all(yw >= olb - 1e-6) && all(yw <= oub + 1e-6), ...
+    'Test 10a failed: LayerNorm reach excludes the witness x=[0;5] (lb(1)=%.3f, y(1)=%.3f)', olb(1), yw(1));
+% (b) randomized MC over varied n / centers / radii / scale-signs / eps
+rng(10); totalViol = 0; cases = 0;
+for t = 1:120
+    n = randi([1 6]); c = randn(n,1)*3; r = rand(n,1)*4 + 0.05; lb = c - r; ub = c + r;
+    sc = randn(n,1); of = randn(n,1); ep = 10^(-randi([1 6]));
+    Lr = LayerNormalizationLayer('Name','l','NumChannels',n,'Epsilon',ep,'Scale',sc,'Offset',of);
+    Or = Lr.reach(Star(lb, ub), 'approx-star'); [a, b] = Or.getRanges; a = a(:); b = b(:);
+    for k = 1:30
+        x = lb + (ub - lb).*rand(n,1); y = Lr.evaluate(x); y = y(:);
+        if any(y < a - 1e-6) || any(y > b + 1e-6), totalViol = totalViol + 1; end
+        cases = cases + 1;
+    end
+end
+assert(totalViol == 0, 'Test 10b failed: LayerNorm reach UNSOUND (%d/%d MC violations)', totalViol, cases);
+fprintf('Test 10 PASSED (LayerNorm reach sound: witness + %d randomized MC)\n', cases);

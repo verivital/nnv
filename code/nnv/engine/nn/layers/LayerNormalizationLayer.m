@@ -163,54 +163,14 @@ classdef LayerNormalizationLayer < handle
                 ub_flat = ub(:);
                 n = length(lb_flat);
 
-                % Compute bounds on mean: mean is in [mean(lb), mean(ub)]
-                % but more precisely, mean(x) where x_i in [lb_i, ub_i]
-                mean_lb = mean(lb_flat);
-                mean_ub = mean(ub_flat);
-
-                % Compute bounds on variance (conservative)
-                % Variance is always >= 0
-                center = (lb_flat + ub_flat) / 2;
-                var_center = var(center, 1);  % variance of center point
-                var_lb = max(0, var_center * 0.5);  % conservative lower bound
-                var_ub = var_center + max((ub_flat - lb_flat).^2) / 4;  % conservative upper bound
-
-                % Compute normalization factor bounds
-                std_lb = sqrt(var_lb + eps);
-                std_ub = sqrt(var_ub + eps);
-
-                % Compute output bounds
-                % y = (x - mean) / std * scale + offset
-                % For each element, compute worst-case bounds
-                out_lb = zeros(size(lb));
-                out_ub = zeros(size(ub));
-
-                for i = 1:numel(lb)
-                    % Worst case for (x - mean):
-                    x_minus_mean_lb = lb(i) - mean_ub;
-                    x_minus_mean_ub = ub(i) - mean_lb;
-
-                    % Get scale for this element
-                    if i <= length(scale)
-                        s = scale(i);
-                        o = offset(i);
-                    else
-                        s = scale(mod(i-1, length(scale)) + 1);
-                        o = offset(mod(i-1, length(offset)) + 1);
-                    end
-
-                    % Normalize and apply scale/offset
-                    if s >= 0
-                        out_lb(i) = x_minus_mean_lb / std_ub * s + o;
-                        out_ub(i) = x_minus_mean_ub / std_lb * s + o;
-                    else
-                        out_lb(i) = x_minus_mean_ub / std_lb * s + o;
-                        out_ub(i) = x_minus_mean_lb / std_ub * s + o;
-                    end
-                end
-
-                % Create output ImageStar from bounds
-                image = ImageStar(out_lb, out_ub);
+                % SOUND output bounds. The previous code used var_center*0.5 /
+                % max(.)^2/4 -- UNSOUND: it took the variance of the CENTER
+                % point (0 even when the true variance is large), giving
+                % std_lb=sqrt(eps) and a lower bound that EXCLUDED reachable
+                % outputs (2532/5000 MC violations; counterexample x=[0;5] over
+                % [0,2]x[-3,5]). See sound_bounds + LayerNorm soundness test.
+                [olb, oub] = obj.sound_bounds(lb_flat, ub_flat, scale, offset, eps);
+                image = ImageStar(reshape(olb, size(lb)), reshape(oub, size(ub)));
 
             elseif isa(in_image, 'Star')
                 % For Star: use bounds-based approximation
@@ -224,47 +184,10 @@ classdef LayerNormalizationLayer < handle
                     ub(i) = in_image.getMax(i, 'linprog');
                 end
 
-                % Compute mean bounds
-                mean_lb = mean(lb);
-                mean_ub = mean(ub);
-
-                % Compute variance bounds (conservative)
-                center = (lb + ub) / 2;
-                var_center = var(center, 1);
-                var_lb = max(0, var_center * 0.5);
-                var_ub = var_center + max((ub - lb).^2) / 4;
-
-                % Normalization factor bounds
-                std_lb = sqrt(var_lb + eps);
-                std_ub = sqrt(var_ub + eps);
-
-                % Compute output bounds
-                out_lb = zeros(n, 1);
-                out_ub = zeros(n, 1);
-
-                for i = 1:n
-                    x_minus_mean_lb = lb(i) - mean_ub;
-                    x_minus_mean_ub = ub(i) - mean_lb;
-
-                    if i <= length(scale)
-                        s = scale(i);
-                        o = offset(i);
-                    else
-                        s = scale(mod(i-1, length(scale)) + 1);
-                        o = offset(mod(i-1, length(offset)) + 1);
-                    end
-
-                    if s >= 0
-                        out_lb(i) = x_minus_mean_lb / std_ub * s + o;
-                        out_ub(i) = x_minus_mean_ub / std_lb * s + o;
-                    else
-                        out_lb(i) = x_minus_mean_ub / std_lb * s + o;
-                        out_ub(i) = x_minus_mean_lb / std_ub * s + o;
-                    end
-                end
-
-                % Create output Star from bounds
-                image = Star(out_lb, out_ub);
+                % SOUND output bounds (see sound_bounds; the old var_center
+                % formulas were unsound -- same bug as the ImageStar path).
+                [olb, oub] = obj.sound_bounds(lb, ub, scale, offset, eps);
+                image = Star(olb, oub);
             end
 
         end
@@ -294,50 +217,64 @@ classdef LayerNormalizationLayer < handle
             lb_flat = lb(:);
             ub_flat = ub(:);
 
-            % Compute bounds on mean
-            mean_lb = mean(lb_flat);
-            mean_ub = mean(ub_flat);
-
-            % Compute bounds on variance (conservative)
-            center = (lb_flat + ub_flat) / 2;
-            var_center = var(center, 1);
-            var_lb = max(0, var_center * 0.5);
-            var_ub = var_center + max((ub_flat - lb_flat).^2) / 4;
-
-            % Normalization factor bounds
-            std_lb = sqrt(var_lb + eps);
-            std_ub = sqrt(var_ub + eps);
-
-            % Compute output bounds
-            out_lb = zeros(size(lb));
-            out_ub = zeros(size(ub));
-
-            for i = 1:numel(lb)
-                x_minus_mean_lb = lb(i) - mean_ub;
-                x_minus_mean_ub = ub(i) - mean_lb;
-
-                if i <= length(scale)
-                    s = scale(i);
-                    o = offset(i);
-                else
-                    s = scale(mod(i-1, length(scale)) + 1);
-                    o = offset(mod(i-1, length(offset)) + 1);
-                end
-
-                if s >= 0
-                    out_lb(i) = x_minus_mean_lb / std_ub * s + o;
-                    out_ub(i) = x_minus_mean_ub / std_lb * s + o;
-                else
-                    out_lb(i) = x_minus_mean_ub / std_lb * s + o;
-                    out_ub(i) = x_minus_mean_lb / std_ub * s + o;
-                end
-            end
-
-            % Create output ImageZono from bounds
-            image = ImageZono(out_lb, out_ub);
+            % SOUND output bounds (same sound bound as the Star path; the old
+            % var_center formula was unsound here too).
+            [olb, oub] = obj.sound_bounds(lb_flat, ub_flat, scale, offset, eps);
+            image = ImageZono(reshape(olb, size(lb)), reshape(oub, size(ub)));
 
         end
-        
+
+        function [out_lb, out_ub] = sound_bounds(~, lb, ub, scale, offset, eps)
+            % SOUND interval over-approximation of LayerNorm output bounds.
+            %   y_i = scale_i * (x_i - mean)/sqrt(var + eps) + offset_i,
+            %   mean = (1/n) sum_j x_j,  var = (1/n) sum_j (x_j - mean)^2.
+            % Combines two sound over-approximations of the normalized z_i and
+            % intersects them:
+            %  (1) Input-dependent interval: mean in [mean(lb),mean(ub)]; a sound
+            %      UPPER bound on var via the per-coordinate worst-case squared
+            %      deviation; var lower bound 0 (=> std_lo = sqrt(eps)); then
+            %      z_i = (x_i-mean)/std by interval division with num and std
+            %      taken independently (a sound SUPERSET of the coupled range).
+            %  (2) Universal cap: sum_j z_j = 0 and sum_j z_j^2 <= n imply
+            %      |z_i| <= sqrt(n-1) for ANY input and any eps >= 0.
+            % (1) can blow up (std_lo ~ sqrt(eps)); intersecting with (2) keeps
+            % the result both SOUND and finite. n=1 -> zcap=0 -> output=offset.
+            lb = double(lb(:)); ub = double(ub(:));
+            n = numel(lb);
+            scale = scale(:); offset = offset(:);
+            if numel(scale)  ~= n, scale  = scale(mod((0:n-1), numel(scale))  + 1); end
+            if numel(offset) ~= n, offset = offset(mod((0:n-1), numel(offset)) + 1); end
+
+            mean_lb = mean(lb); mean_ub = mean(ub);
+            d_lo = lb - mean_ub; d_hi = ub - mean_lb;       % x_j - mean range
+            var_ub = mean(max(d_lo.^2, d_hi.^2));            % sound upper bound on var
+            std_lo = sqrt(eps);                              % var_lb = 0 (sound)
+            std_hi = sqrt(var_ub + eps);
+            zcap = sqrt(max(n - 1, 0));                      % universal |z_i| bound
+
+            num_lo = lb - mean_ub; num_hi = ub - mean_lb;    % x_i - mean
+            z_lo = zeros(n,1); z_hi = zeros(n,1);
+            for i = 1:n
+                a = num_lo(i); b = num_hi(i);
+                if a >= 0
+                    z_lo(i) = a / std_hi;  z_hi(i) = b / std_lo;
+                elseif b <= 0
+                    z_lo(i) = a / std_lo;  z_hi(i) = b / std_hi;
+                else
+                    z_lo(i) = a / std_lo;  z_hi(i) = b / std_lo;
+                end
+            end
+            z_lo = max(z_lo, -zcap);                         % intersect with cap
+            z_hi = min(z_hi,  zcap);
+
+            out_lb = zeros(n,1); out_ub = zeros(n,1);
+            pos = scale >= 0;
+            out_lb(pos)  = scale(pos).*z_lo(pos)   + offset(pos);
+            out_ub(pos)  = scale(pos).*z_hi(pos)   + offset(pos);
+            out_lb(~pos) = scale(~pos).*z_hi(~pos) + offset(~pos);
+            out_ub(~pos) = scale(~pos).*z_lo(~pos) + offset(~pos);
+        end
+
         function images = reach_star_multipleInputs(obj, in_images, option)
             % @in_images: an array of ImageStars input set
             % @option: = 'parallel' or 'single' or empty

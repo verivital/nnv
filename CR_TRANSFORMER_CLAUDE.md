@@ -83,6 +83,14 @@ These are NOT introduced by this PR and live in unrelated subsystems; recorded h
 - **`LinearNNCS.falsify` / `DLinearNNCS.falsify`** evaluate `U.contains(simTrace(:,j))` but **discard the boolean** (no `if`), then unconditionally append every trace to `falsifyTraces` → `safe='UNSAFE'` whenever any trace exists, regardless of whether it actually violates. A definite-unsafe-from-nothing bug.
 - **`NN.verify_safety` parfor branch** (`numCores>1`) references an undefined `method` (the serial branch correctly uses `reachOptions.reachMethod`) — latent error on the parallel path.
 
+### Review round 3 (find-only deep review of reach-bound math + this session's fixes, 2026-06-10)
+5 code-reasoning finder agents → 17 candidates; each verified serially against the live engine. **2 REFUTED** (verified sound), **3 CONFIRMED+FIXED**, the rest misuse-only/latent (hardened or documented).
+- **REFUTED (sound):** SiLU `reach_zono_approx` error generator (claimed to drop the slope term) — 0 exceedance over 200 intervals × 300 samples; LayerNorm non-sequence ImageStar grouping (claimed global-vs-per-axis mismatch) — 0/3000 MC violations (the universal cap is sound regardless of grouping; the finder mis-modeled evaluate's grouping).
+- **CONFIRMED + FIXED `f8accc670`:** `ReshapeLayer.reach` permanently **mutated `obj.targetDim`** (handle property) resolving the ONNX −1 sentinel → a post-reach `evaluate()` on the same object errored/wrong-shaped, corrupting the MC/falsification oracle (now resolves into a LOCAL td). `ReshapeLayer` ImageStar branch **ignored OnnxBCHW** → reach≠evaluate (maxdiff 8); now mirrors evaluate. Also dropped `Conv1DLayer` (box over-approx branch, no plain `reach()`) and `PixelClassificationLayer` (estimateRanges over-approx) from the exact whitelist.
+- **HARDENED `4ebe22d6a`:** EAffine Star-path now fails loud on an ambiguous sub-dim bias tiling (was a silent channel-fastest `repmat` guess; evaluate errors on that flat input anyway) [165].
+- **Misuse-only (documented, real parsed nets are armed):** SDPA `ValueDim==0` / MHA empty-weights disarm the multi-token guard [263][429] — but `parse` errors on empty MHA weights and sets `ValueDim` for real selfAttention layers, so only a HAND-BUILT multi-token weightless layer (not a parsed network) can hit it. Documented as a construction contract.
+- **New auto-detection test** `test_exact_whitelist_soundness` mechanically verifies every whitelisted layer's exact-star reach is MC-sound AND tight, and that over-approx/unsound layers (Sign/Gelu/SiLU/EProduct/Addition/Concat/Conv1D/PixelClassification/mid-Softmax) are excluded — so a future mis-whitelisting fails CI.
+
 ---
 
 ## FIXED this session (committed to `ttj/transformer`)

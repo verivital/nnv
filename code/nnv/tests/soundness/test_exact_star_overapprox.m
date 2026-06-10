@@ -112,6 +112,13 @@ classdef test_exact_star_overapprox < matlab.unittest.TestCase
             sm = SoftmaxLayer('sm'); sm.IsFinalLayer = false;
             testCase.verifyTrue(net.layer_reach_is_exact(sf));
             testCase.verifyFalse(net.layer_reach_is_exact(sm));
+            % VERIFIED-exact piecewise-linear layers stay whitelisted.
+            testCase.verifyTrue(net.layer_reach_is_exact(LeakyReluLayer('lr',1,{'in'},1,{'out'},0.1)));
+            testCase.verifyTrue(net.layer_reach_is_exact(MaxPooling2DLayer([2 2],[2 2],[0 0 0 0])));
+            % SignLayer's exact-star reach is UNSOUND (returns a single +1 point,
+            % excluding the -1 branch) -> must NOT be treated as exact, else the
+            % gate could certify a false not-robust.
+            testCase.verifyFalse(net.layer_reach_is_exact(SignLayer()));
         end
 
     end

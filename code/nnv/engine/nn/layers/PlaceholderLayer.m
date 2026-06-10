@@ -94,8 +94,13 @@ classdef PlaceholderLayer < handle
             end
         end
 
-        function out_sq = evaluateSequence(~, inputs)
-            out_sq = inputs;
+        function out_sq = evaluateSequence(obj, inputs)
+            % Parity with evaluate(): an ACTIVE placeholder (Constant/Perm/
+            % elementwise) or an 'UnsupportedOp:*' tag must NOT be a silent
+            % identity on sequence networks (the elementwise ops/Constant/refusal
+            % apply identically to sequence data). Delegate to evaluate so the
+            % UnsupportedOp refusal and active-op transforms hold on this path too.
+            out_sq = obj.evaluate(inputs);
         end
         
         % reachability analysis with multiple inputs

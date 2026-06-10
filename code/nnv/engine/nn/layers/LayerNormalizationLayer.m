@@ -339,25 +339,31 @@ classdef LayerNormalizationLayer < handle
                 error('The input is not an ImageStar object');
             end
             
-            % compute output sets
-            
-            if isempty(in_image.im_lb) && isempty(in_image.im_ub)
-                c = obj.evaluateSequence(in_image.V(:,:,:,1));
-                layer = obj;
-                layer.Offset = zeros(obj.NumChannels,1);
-                parfor i = 2: size(in_image.V,4)
-                    V(:,:,:,i) = layer.evaluateSequence(in_image.V(:,:,:,i));
-                end
-                V(:,:,:,1) = c;
-                image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+            % SOUND output set. The previous code was UNSOUND: it applied the
+            % NONLINEAR LayerNorm to im_lb/im_ub (or to each basis vector V(:,:,:,i))
+            % independently, as if LayerNorm were affine/monotone -- but LayerNorm
+            % couples elements and is non-monotone, so f(lb)/f(ub) and the
+            % per-generator image do NOT bound the true reachable set.
+            % LayerNorm normalizes over the channel dim, so the normalized value
+            % z_i = (x_i - mean)/sqrt(var + eps) obeys the UNIVERSAL bound
+            % |z_i| <= sqrt(C-1) (C = NumChannels = group size) for ANY input and
+            % any position -> y_i in offset_i +/- |scale_i|*sqrt(C-1). Sound (input-
+            % independent; loose). A tighter input-dependent per-group bound is
+            % future work (see sound_bounds + the LayerNorm grouping note).
+            C = obj.NumChannels;
+            zcap = sqrt(max(C - 1, 0));
+            scale = obj.Scale(:); offset = obj.Offset(:);
+            if ~isempty(in_image.im_lb)
+                sz = size(in_image.im_lb);
             else
-                im_lb = in_image.im_lb;
-                im_ub = in_image.im_ub;
-                lb = obj.evaluateSequence(im_lb);
-                ub = obj.evaluateSequence(im_ub);
-    
-                image = ImageStar(lb,ub);
-            end 
+                sz = size(in_image.V(:,:,:,1));
+            end
+            ne = prod(sz);
+            sc = scale(mod((0:ne-1).', numel(scale))  + 1);
+            of = offset(mod((0:ne-1).', numel(offset)) + 1);
+            lo = of - abs(sc) * zcap;
+            hi = of + abs(sc) * zcap;
+            image = ImageStar(reshape(lo, sz), reshape(hi, sz));
         end
         
 

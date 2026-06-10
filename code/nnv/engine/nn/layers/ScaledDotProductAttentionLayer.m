@@ -136,6 +136,18 @@ classdef ScaledDotProductAttentionLayer < handle
                     V_set = varargin{4};
                     method = varargin{5};
                     lp_solver = 'linprog';
+                case {6, 7, 8}
+                    % [46] Accept the 6/7/8-arg shapes (Q,K,V,method,option,
+                    % relaxFactor[,dis_opt][,lp_solver]) so an SDPA layer placed
+                    % in a composed network does not hit the 'otherwise' error on
+                    % every reach call. Only method is consumed (the trailing
+                    % reach options are unused by the bounds path); lp_solver
+                    % stays at its default.
+                    Q_set = varargin{2};
+                    K_set = varargin{3};
+                    V_set = varargin{4};
+                    method = varargin{5};
+                    lp_solver = 'linprog';
                 case 9
                     Q_set = varargin{2};
                     K_set = varargin{3};

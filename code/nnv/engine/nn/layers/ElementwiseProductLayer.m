@@ -74,24 +74,15 @@ classdef ElementwiseProductLayer < handle
             out = Star(lb, ub);
         end
 
-        function S = reach_multipleInputs(obj, inputs, option)
-            n = length(inputs);
-            if isa(inputs(1), 'ImageStar')
-                S(n) = ImageStar;
-            elseif isa(inputs(1), 'Star')
-                S(n) = Star;
-            else
-                error('Unknown input set type');
-            end
-            if strcmp(option, 'parallel')
-                parfor i = 1:n
-                    S(i) = obj.reach_single_input(inputs(i));
-                end
-            else
-                for i = 1:n
-                    S(i) = obj.reach_single_input(inputs(i));
-                end
-            end
+        function S = reach_multipleInputs(obj, inputs, ~)
+            % ElementwiseProduct multiplies its operands TOGETHER (it is a
+            % binary/N-ary op, NOT a per-element batch), so "multiple inputs"
+            % means the cell of operands -- exactly what reach_single_input
+            % consumes. [47]: the previous body forwarded inputs(i) (a single
+            % non-cell set) into reach_single_input, whose >=2-element-cell guard
+            % made EVERY call error -- a dead path that also dropped all operands
+            % but the indexed one. Delegate to the operand handler instead.
+            S = obj.reach_single_input(inputs);
         end
 
         function IS = reach(varargin)

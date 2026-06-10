@@ -750,6 +750,16 @@ assert(all(slb(:) <= 1 + 1e-9) && all(sub(:) >= 1 - 1e-9), ...
     'Test 38 failed: per-pixel channel mass does not bracket 1');
 fprintf('Test 38 PASSED (intermediate Softmax ImageStar per-pixel channel groups)\n');
 
+%% Test 39: layer dispatch -- SDPA nargin 7 [46] + EProduct multipleInputs [47]
+disp42 = []; %#ok<NASGU>  % (placeholder; avoids a bare-statement parser edge)
+Sdpa39 = ScaledDotProductAttentionLayer('sdpa', 4);
+Qs39 = Star(zeros(4,1),ones(4,1));
+O46 = Sdpa39.reach(Qs39, Qs39, Qs39, 'approx-star', 'single', 0, disp42);   % obj + 6 = nargin 7
+assert(isa(O46,'Star') && O46.dim==4, 'Test 39 failed: SDPA 7-arg reach must succeed [46]');
+O47 = ElementwiseProductLayer('ep').reach_multipleInputs({Star([1;2],[2;3]), Star([0;1],[1;2])}, 'single');
+assert(isa(O47,'Star') && O47.dim==2, 'Test 39 failed: EProduct reach_multipleInputs delegate [47]');
+fprintf('Test 39 PASSED (SDPA nargin-7 reach + EProduct multipleInputs delegate)\n');
+
 %% Summary
 % (A trivial trailing section: MATLAB's script-based test runner mis-accounts
 % line ranges for a TERMINAL section that ends on multiple try/catch one-liners

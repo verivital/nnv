@@ -13,20 +13,12 @@ test_all_tutorial/test13_NNCS_InvertedPendulum
 test_all_tutorial/test15_Other_SetRepresentations
 test_all_tutorial/test7_NN_MNIST_verify_
 
-# --- SLM / transformer soundness (WIP). Broken under runtests (share variables across
-#     %% sections, which runtests runs in separate workspaces) + genuine in-progress
-#     transformer verification. Kept visible, non-blocking. (Names confirmed from CI run.)
-test_SLM_layers_soundness/test_____1_GeluLayer_____
-test_SLM_layers_soundness/test_____2_ScaledDotProductAttentionLayer_single_tokenVectorInterpretation______
-test_SLM_layers_soundness/test_____3_MultiHeadAttentionLayer_self_attention_Single_token______
-test_SLM_layers_soundness/test_____4_RotaryPositionalEmbedding_deterministicRotationPerPosition______
-test_SLM_layers_soundness/test_____5_SinusoidalPositionalEncoding_additive_Deterministic______
-test_SLM_layers_soundness/test_____6_LearnedPositionalEmbedding_additive______
-test_SLM_layers_soundness/test_____7_EmbeddingLayer_epsilonPerturbationAroundAToken_sEmbedding______
-test_SLM_layers_soundness/test_____SummaryTable_____
-test_SoftmaxLayer_reach_soundness/TestA_Mid_networkSoftmax_Unsound_ShowReach__InputPassthrough_
-test_SoftmaxLayer_reach_soundness/TestB_Last_layerSoftmax_Argmax_preservingCheck
-test_SoftmaxLayer_reach_soundness/SaveResults
-test_SLM_layers_soundness/Helpers
-test_SLM_layers_soundness/MC_containmentSoundnessTestsForSLM_relevantLayersWithoutDedicatedSoundnessSuites
-test_SoftmaxLayer_reach_soundness/SoundnessMC_containmentTestForSoftmaxLayer_reach__
+# --- SOUNDNESS TESTS MUST NOT BE ALLOW-LISTED (CR finding [37]) ---
+# A soundness / MC-containment test that does not red the build is not a gate.
+# The former test_SLM_layers_soundness/* and test_SoftmaxLayer_reach_soundness/*
+# entries were REMOVED: those are untracked DEMONSTRATION scripts (they
+# intentionally *show* unsoundness and break under runtests' per-%%-section
+# workspaces). Do NOT commit them. The gating soundness coverage is the
+# self-contained suites tests/soundness/test_transformer_soundness_regression.m
+# and tests/vnncomp25/test_vnncomp25_regression.m -- NOT listed here, so they gate.
+# RULE: never add a *soundness* test name to this file.

@@ -40,10 +40,16 @@ def parse_junit(d):
             name = (tc.get('classname', '') or '') + '/' + (tc.get('name', '') or '')
             fe = tc.find('failure')
             er = tc.find('error')
+            sk = tc.find('skipped')
             if fe is not None:
                 results.append((name, 'fail', (fe.get('message') or fe.text or '').strip()[:500]))
             elif er is not None:
                 results.append((name, 'error', (er.get('message') or er.text or '').strip()[:500]))
+            elif sk is not None:
+                # A <skipped> testcase (MATLAB assumption failure / filtered) is
+                # NOT a pass. Counting it as pass let a reachability test that
+                # assumeFail'd masquerade as green (a soundness-gate hole).
+                results.append((name, 'skip', (sk.get('message') or sk.text or '').strip()[:500]))
             else:
                 results.append((name, 'pass', ''))
     return results
@@ -98,14 +104,28 @@ def main():
     total = len(res)
     npass = sum(1 for _, s, _ in res if s == 'pass')
     fails = [(n, s, m) for n, s, m in res if s in ('fail', 'error')]
+    skips = [(n, s, m) for n, s, m in res if s == 'skip']
     new = sorted(x for x in fails if x[0] not in allowed)
     known = sorted(x for x in fails if x[0] in allowed)
+    # A skipped soundness/reach test is a gate hole (assumeFail masking a real
+    # error). Surface these loudly; they should be verifyError/containment, not
+    # assumptions. Not auto-red (legitimate GPU/toolbox skips exist), but visible.
+    susp_skips = sorted(n for n, _, _ in skips
+                        if any(k in n.lower() for k in ('sound', 'reach', 'containment', 'attention')))
 
     out = ["## NNV matrix-CI report", ""]
-    out.append(f"- **{npass}/{total}** passed across recorded shards")
+    out.append(f"- **{npass}/{total}** passed, **{len(skips)}** skipped across recorded shards")
     out.append(f"- **{len(fails)}** failed/errored — {len(new)} NEW, {len(known)} known-allowed")
     out.append(f"- **{len(crashes)}** shard crash(es), **{len(missing)}** missing shard(s)")
     out.append("")
+    if total == 0:
+        out.append("### ⛔ NO test results recorded — the gate is meaningless; failing the build.")
+        out.append("")
+    if susp_skips:
+        out.append("### ⚠️ SKIPPED soundness/reach tests (assumeFail masking? should be verifyError/containment)")
+        for n in susp_skips:
+            out.append(f"- {n}")
+        out.append("")
     if missing:
         out.append("### ⛔ MISSING shards — produced no results (hang/crash whose upload was skipped)")
         out.append(f"- shard(s): {', '.join(map(str, missing))}. Their tests did not run/report; "
@@ -133,7 +153,9 @@ def main():
         with open(gs, 'a', encoding='utf-8') as fh:
             fh.write(report + "\n")
 
-    sys.exit(1 if (new or crashes or missing) else 0)
+    # total==0 means no shard reported anything (all wiped out / all skipped) ->
+    # the gate would otherwise pass "0/0" green. Treat as failure.
+    sys.exit(1 if (new or crashes or missing or total == 0) else 0)
 
 
 if __name__ == '__main__':

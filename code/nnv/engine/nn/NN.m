@@ -30,6 +30,14 @@ classdef NN < handle
         
         % properties for reach set  and evaluation computation
         reachMethod = 'approx-star';    % reachable set computation scheme, default - 'approx-star'
+        % SOUNDNESS [42]: true only when the last reach() was provably EXACT --
+        % i.e. 'exact-star' was requested AND every layer's reach is exact
+        % (affine / piecewise-linear / inert). An OVER-APPROXIMATE reach can
+        % prove a property SAFE/robust definitively, but can NEVER certify it
+        % UNSAFE/not-robust (the offending region may exist only in the
+        % over-approximation). Only an exactReach run may promote unknown->
+        % not-robust; see verify_robustness / verify_vnnlib / verify_safety.
+        exactReach = false;
         relaxFactor = 0; % default - solve 100% LP optimization for finding bounds in 'approx-star' method
         reachOption = []; % parallel option, default - non-parallel computing
         numCores = 1; % number of cores (workers) using in computation
@@ -237,7 +245,13 @@ classdef NN < handle
                     obj.lp_solver = reachOptions.lp_solver;
                 end
             end
-            
+
+            % SOUNDNESS [42]: determine whether this reach is provably EXACT, and
+            % warn ONCE if 'exact-star' was requested but the network contains a
+            % layer that can only be over-approximated. The flag gates the
+            % unknown->not-robust promotion in verify_robustness/_vnnlib/_safety.
+            obj.exactReach = obj.compute_exact_reach_flag();
+
             % Parallel computation or single core?
             if  obj.numCores > 1
                 obj.start_pool;
@@ -419,7 +433,13 @@ classdef NN < handle
                     obj.lp_solver = reachOptions.lp_solver;
                 end
             end
-            
+
+            % SOUNDNESS [42]: determine whether this reach is provably EXACT, and
+            % warn ONCE if 'exact-star' was requested but the network contains a
+            % layer that can only be over-approximated. The flag gates the
+            % unknown->not-robust promotion in verify_robustness/_vnnlib/_safety.
+            obj.exactReach = obj.compute_exact_reach_flag();
+
             % Parallel computation or single core?
             if  obj.numCores > 1
                 obj.start_pool;
@@ -495,15 +515,74 @@ classdef NN < handle
             Y = obj.reach(X, reachOptions); % Seems to be working
             result = verify_specification(Y, property.prop); 
 
-            % Modify in case of unknown and exact
+            % Modify in case of unknown and exact.
+            % SOUNDNESS [42]: only a provably-EXACT reach may promote unknown ->
+            % not-robust. If the network forced an over-approximation under
+            % exact-star (obj.exactReach == false), keep the verdict UNKNOWN --
+            % an over-approximation can prove safety but cannot certify a
+            % counterexample.
             if result == 2
-                if contains(obj.reachMethod, "exact")
+                if obj.exactReach
                     result = 0;
                 end
             end
     
         end
         
+        % SOUNDNESS [42]: is the just-configured reach provably EXACT?  True iff
+        % 'exact-star' was requested AND every layer's reach is exact. Emits ONE
+        % warning when exact-star is requested but cannot be honoured.
+        function tf = compute_exact_reach_flag(obj)
+            if ~contains(obj.reachMethod, "exact")
+                tf = false;            % approx/zono never claim exactness
+                return;
+            end
+            inexact = {};
+            for i = 1:numel(obj.Layers)
+                if ~obj.layer_reach_is_exact(obj.Layers{i})
+                    inexact{end+1} = class(obj.Layers{i}); %#ok<AGROW>
+                end
+            end
+            tf = isempty(inexact);
+            if ~tf
+                u = unique(inexact);
+                warning('NNV:exactStarOverapprox', ...
+                    ['exact-star requested but the network contains layer(s) with ' ...
+                     'no exact reachability (%s); the reachable set is a SOUND ' ...
+                     'OVER-APPROXIMATION. Robustness/safety CAN be proven, but a ' ...
+                     '''not robust''/''unsafe'' result is reported as ''unknown'' ' ...
+                     '(an over-approximation cannot certify a counterexample).'], ...
+                    strjoin(u, ', '));
+            end
+        end
+
+        % True iff layer L's reach is EXACT (not an over-approximation) under
+        % exact-star: affine maps, piecewise-linear activations, and inert/
+        % identity passthroughs. Every smooth-nonlinear / interval-bound layer
+        % (Gelu, SiLU, Sigmoid, Tanh, intermediate Softmax, LayerNorm,
+        % ElementwiseProduct/Division, DynamicMatmul, attention, ...) returns a
+        % sound OVER-APPROXIMATION and is intentionally absent -- erring toward
+        % "inexact" is sound (it only downgrades a not-robust verdict to unknown).
+        function tf = layer_reach_is_exact(~, L)
+            exactAffinePWL = { ...
+                'FullyConnectedLayer','Conv2DLayer','Conv1DLayer','Conv3DLayer', ...
+                'TransposedConv2DLayer','BatchNormalizationLayer','ElementwiseAffineLayer', ...
+                'AveragePooling2DLayer','GlobalAveragePooling2DLayer','MaxPooling2DLayer', ...
+                'MaxUnpooling2DLayer','FlattenLayer','ReshapeLayer','ConcatenationLayer', ...
+                'DepthConcatenationLayer','AdditionLayer','ReluLayer','LeakyReluLayer', ...
+                'SignLayer','ImageInputLayer','FeatureInputLayer','SequenceInputLayer', ...
+                'Image3DInputLayer','PixelClassificationLayer'};
+            if any(strcmp(class(L), exactAffinePWL))
+                tf = true;
+            elseif isa(L, 'PlaceholderLayer')
+                tf = ~L.isActiveOp();                       % inert (dropout/identity) is exact
+            elseif isa(L, 'SoftmaxLayer')
+                tf = isprop(L, 'IsFinalLayer') && L.IsFinalLayer;  % final softmax = identity
+            else
+                tf = false;                                % unknown / nonlinear -> over-approx (sound)
+            end
+        end
+
         % Check robustness of output set given a target label
         function rb = checkRobust(obj, outputSet, target)
             % rb = checkRobust(~, outputSet, target)
@@ -544,9 +623,14 @@ classdef NN < handle
             R = obj.reach(inputSet, reachOptions);
             % Check robustness
             result = obj.checkRobust(R, target);
-            % Modify in case of unknown and exact
+            % Modify in case of unknown and exact.
+            % SOUNDNESS [42]: only a provably-EXACT reach may promote unknown ->
+            % not-robust. If the network forced an over-approximation under
+            % exact-star (obj.exactReach == false), keep the verdict UNKNOWN --
+            % an over-approximation can prove safety but cannot certify a
+            % counterexample.
             if result == 2
-                if contains(obj.reachMethod, "exact")
+                if obj.exactReach
                     result = 0;
                 end
             end
@@ -784,11 +868,17 @@ classdef NN < handle
             
             % Generate counter examples of approx method, otherwise return unsafe input regions
             if isempty(violate_inputs)
-                result = 1;  
-                counter_inputs = []; 
+                result = 1;
+                counter_inputs = [];
             else
-                if strcmp(reachOptions.reachMethod, 'exact-star')
-                    result = 0;  
+                % SOUNDNESS [42]: a definitive 'unsafe' (result 0) from the
+                % reach set itself is valid ONLY when the reach was provably
+                % EXACT. If exact-star was degraded to an over-approximation,
+                % fall through to falsification -- a sampled concrete
+                % counterexample is still a sound 'unsafe', but the
+                % over-approximate intersection alone is not.
+                if strcmp(reachOptions.reachMethod, 'exact-star') && obj.exactReach
+                    result = 0;
                     counter_inputs = violate_inputs; % exact-method return complete counter input set
                 else
                     if n_samples == 0

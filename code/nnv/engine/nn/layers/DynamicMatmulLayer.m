@@ -59,7 +59,23 @@ classdef DynamicMatmulLayer < handle
             % then matmul slice-by-slice.
             lead_a = sa(1:end-2);
             lead_b = sb(1:end-2);
-            lead = lead_a;  % assume already broadcast-compatible / equal
+            % [6] The slice-by-slice loop below pairs A's i-th leading slice with
+            % B's i-th -- correct ONLY when the leading/batch dims are identical.
+            % The old code assumed that without checking (`lead = lead_a`), so for
+            % e.g. A [2,3,m,k] and B [3,2,k,n] (prod leads equal but ORDER
+            % different) it silently multiplied mismatched slices, and for a
+            % genuine ONNX leading-dim broadcast (e.g. B [3,k,n] vs A [2,3,m,k])
+            % the B reshape just crashed. Require equal leading dims; refuse
+            % otherwise rather than return a silently-wrong product. (Full
+            % numpy-style leading-dim broadcasting is future work.)
+            if ~isequal(lead_a, lead_b)
+                error('DynamicMatmulLayer:leadingDimsDiffer', ...
+                    ['leading/batch dims differ (%s vs %s); only equal leading ' ...
+                     'dims are supported. ONNX-style leading-dim broadcasting is ' ...
+                     'not implemented -- refusing to pair mismatched slices.'], ...
+                    mat2str(lead_a), mat2str(lead_b));
+            end
+            lead = lead_a;
             n_lead = max(prod(lead), 1);
             A_flat = reshape(A, [n_lead, k_a, k_a_in]);
             B_flat = reshape(B, [n_lead, k_b, k_b_in]);

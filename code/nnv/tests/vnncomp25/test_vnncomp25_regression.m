@@ -724,6 +724,32 @@ O3 = Lc1.reach_concat_star({A3, B3});
 assert(O3.dim==5, 'Test 37 failed: 3-arg Star concat crashed/empty');
 fprintf('Test 37 PASSED (Concat Star Dim guard + 3-arg empty pred-bounds)\n');
 
+%% Test 38: intermediate SoftmaxLayer ImageStar uses per-pixel channel groups [12]
+% evaluate applies softmax over the CHANNEL axis per spatial location (each
+% pixel's C channels sum to 1). The old reach flattened H*W*C into ONE softmax
+% group (outputs sum to 1 over the whole tensor), which for H*W>1 provably
+% excludes evaluate's outputs (total mass H*W). The per-pixel bound must contain
+% evaluate at the box corners and keep each pixel's channel mass near 1.
+H38=2; W38=2; C38=3;                   % H*W = 4 > 1
+Lsm = SoftmaxLayer('sm38'); Lsm.IsFinalLayer = false;
+rng_xc = reshape(linspace(-1.5,1.5,H38*W38*C38), H38,W38,C38);
+lb38 = rng_xc - 0.4; ub38 = rng_xc + 0.4;
+OS38 = Lsm.reach(ImageStar(lb38, ub38));
+[a38, b38] = OS38.getRanges; a38 = a38(:); b38 = b38(:);
+% (i) all probabilities in [0,1]
+assert(all(a38 >= -1e-9) && all(b38 <= 1+1e-9), 'Test 38 failed: softmax bounds escape [0,1]');
+% (ii) reach contains evaluate at the box corners (the bound-driving points)
+contains38 = @(x) all(reshape(double(Lsm.evaluate(single(x))),[],1) >= a38 - 1e-7) && ...
+                  all(reshape(double(Lsm.evaluate(single(x))),[],1) <= b38 + 1e-7);
+assert(contains38(rng_xc), 'Test 38 failed: reach excludes evaluate(center)');
+assert(contains38(lb38),   'Test 38 failed: reach excludes evaluate(lb)');
+assert(contains38(ub38),   'Test 38 failed: reach excludes evaluate(ub)');
+% (iii) per-pixel channel mass brackets 1 (a single global group could not)
+slb = sum(reshape(a38, H38, W38, C38), 3); sub = sum(reshape(b38, H38, W38, C38), 3);
+assert(all(slb(:) <= 1 + 1e-9) && all(sub(:) >= 1 - 1e-9), ...
+    'Test 38 failed: per-pixel channel mass does not bracket 1');
+fprintf('Test 38 PASSED (intermediate Softmax ImageStar per-pixel channel groups)\n');
+
 %% Summary
 % (A trivial trailing section: MATLAB's script-based test runner mis-accounts
 % line ranges for a TERMINAL section that ends on multiple try/catch one-liners

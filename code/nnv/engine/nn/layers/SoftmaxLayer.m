@@ -161,9 +161,24 @@ classdef SoftmaxLayer < handle
             if isa(IS, 'Star')
                 OS = Softmax.reach_star_approx_bounds(IS);
             elseif isa(IS, 'ImageStar')
-                S = IS.toStar();
-                Sout = Softmax.reach_star_approx_bounds(S);
-                OS = Sout.toImageStar(IS.height, IS.width, IS.numChannel);
+                % [12] SOUNDNESS: evaluate() applies softmax over the CHANNEL
+                % axis per spatial location (`softmax(dlarray(im,'SSC'))` -- each
+                % pixel's C channels sum to 1, total mass H*W). Flattening the
+                % whole H*W*C set into ONE softmax group (toStar ->
+                % reach_star_approx_bounds) instead constrains all H*W*C outputs
+                % to a single distribution summing to 1, which for H*W>1 provably
+                % EXCLUDES the true outputs. Compute the sound per-pixel
+                % channel-softmax interval bound: softmax_i is increasing in x_i
+                % and decreasing in x_{j~=i}, so
+                %   ub_i = e^{ub_i}/(e^{ub_i} + sum_{j~=i} e^{lb_j})
+                %   lb_i = e^{lb_i}/(e^{lb_i} + sum_{j~=i} e^{ub_j}).
+                [lb, ub] = IS.getRanges;          % [H,W,C]
+                m = max(ub, [], 3);               % per-pixel shift (softmax is
+                elb = exp(lb - m); eub = exp(ub - m);  % shift-invariant) for stability
+                SE_lb = sum(elb, 3); SE_ub = sum(eub, 3);   % [H,W,1], broadcast over C
+                out_ub = eub ./ (eub + (SE_lb - elb));
+                out_lb = elb ./ (elb + (SE_ub - eub));
+                OS = ImageStar(out_lb, out_ub);
             elseif isa(IS, 'Zono')
                 OS = Softmax.reach_zono_approx(IS);
             else

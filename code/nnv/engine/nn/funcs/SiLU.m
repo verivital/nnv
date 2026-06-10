@@ -164,6 +164,34 @@ classdef SiLU
             % Compute bounds more precisely using LP if needed
             [lb_precise, ub_precise] = I.getRanges;
 
+            % [19] CRASH FIX: the precise predicate-augmenting path below assumes
+            % the input carries explicit predicate bounds of length nVar. A Star
+            % built with the 3-arg Star(V,C,d) (halfspace intersections, some
+            % NNCS/set ops) has EMPTY predicate_lb/ub, so [I.predicate_lb;
+            % zeros(n,1)] would be length n (not nVar+n) and the 5-arg Star
+            % constructor would error mid-network. Fall back to a SOUND
+            % per-coordinate interval (box) over-approximation from the resolved
+            % output ranges -- looser (drops input correlations) but correct, and
+            % only taken on this uncommon input class. SiLU has a single minimum
+            % (x ~ -1.278); it is decreasing left of it and increasing right.
+            if isempty(I.predicate_lb) || isempty(I.predicate_ub)
+                lo = lb_precise(:); hi = ub_precise(:);
+                [xm, ym] = SiLU.get_minimum();
+                sl = SiLU.evaluate(lo); su = SiLU.evaluate(hi);
+                olb = zeros(n, 1); oub = zeros(n, 1);
+                for i = 1:n
+                    if hi(i) <= xm
+                        olb(i) = su(i); oub(i) = sl(i);          % decreasing branch
+                    elseif lo(i) >= xm
+                        olb(i) = sl(i); oub(i) = su(i);          % increasing branch
+                    else
+                        olb(i) = ym; oub(i) = max(sl(i), su(i)); % straddles the minimum
+                    end
+                end
+                S = Star(olb, oub);
+                return;
+            end
+
             % Initialize output
             new_V = zeros(n, I.nVar + n + 1);
             new_C = zeros(0, I.nVar + n);
@@ -282,37 +310,23 @@ classdef SiLU
             end
 
             % Upper bound is always at one of the endpoints for this range
+            % (SiLU's only interior extremum on [l,u] is its minimum).
             y_u = max(y_l_endpoint, y_u_endpoint);
 
-            % Compute derivatives at endpoints
-            dy_l = SiLU.gradient(l);
-            dy_u = SiLU.gradient(u);
-
-            % Secant line coefficients (for lower/upper bounds)
-            slope = (y_u_endpoint - y_l_endpoint) / (u - l);
-
-            % Lower bound tangent: use the smaller derivative endpoint
-            if dy_l <= dy_u
-                alpha_l = dy_l;
-                beta_l = y_l_endpoint - dy_l * l;
-            else
-                alpha_l = dy_u;
-                beta_l = y_u_endpoint - dy_u * u;
-            end
-
-            % Upper bound: use secant line
-            alpha_u = slope;
-            beta_u = y_l_endpoint - slope * l;
-
-            % Handle the case where the function is concave in [l, u]
-            % or need to adjust bounds based on convexity
-
-            % For robustness, ensure bounds are valid
-            if alpha_l > alpha_u
-                % Use secant for both
-                alpha_l = slope;
-                beta_l = y_l_endpoint - slope * l;
-            end
+            % [21] SOUNDNESS: SiLU is NON-CONVEX (inflections near +/-2.4). A
+            % tangent line is NOT a valid global lower bound on an interval
+            % containing the dip, and the secant is an upper bound only on convex
+            % sub-intervals (on concave parts it lies below the function). The old
+            % code returned tangent/secant coefficients as "global" linear bounds
+            % -- a silent-unsoundness trap for any caller that trusts the
+            % documented contract (the current consumer, multiStepSiLU_NoSplit,
+            % uses only y_l/y_u). Return SOUND -- if loose -- CONSTANT linear
+            % bounds instead: y_l <= SiLU(x) <= y_u holds for all x in [l,u], so
+            %   y >= 0*x + y_l   and   y <= 0*x + y_u
+            % are valid global bounds. A future caller wanting a tighter sound
+            % relaxation should split at the inflection/minimum first.
+            alpha_l = 0; beta_l = y_l;
+            alpha_u = 0; beta_u = y_u;
         end
 
         %% Zonotope Reachability

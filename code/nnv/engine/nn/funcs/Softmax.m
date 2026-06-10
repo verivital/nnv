@@ -364,9 +364,18 @@ classdef Softmax
             for i = 1:num_samples
                 % Sample from input set
                 x = I.sample(1);
+                % [20] Star.sample is rejection sampling: for thin / heavily
+                % constrained stars it can legitimately return EMPTY (or, if it
+                % returns several columns, only the first is one sample). Skip a
+                % missing sample rather than crash in evaluate/contains -- this
+                % is a diagnostic, so a skipped draw must not abort the audit.
+                if isempty(x)
+                    continue;
+                end
+                x = x(:, 1);
                 samples{i} = x;
 
-                % Compute softmax output
+                % Compute softmax output (single column -> elementwise normalize)
                 y = Softmax.evaluate(x);
                 outputs{i} = y;
 

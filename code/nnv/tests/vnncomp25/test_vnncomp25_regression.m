@@ -760,6 +760,23 @@ O47 = ElementwiseProductLayer('ep').reach_multipleInputs({Star([1;2],[2;3]), Sta
 assert(isa(O47,'Star') && O47.dim==2, 'Test 39 failed: EProduct reach_multipleInputs delegate [47]');
 fprintf('Test 39 PASSED (SDPA nargin-7 reach + EProduct multipleInputs delegate)\n');
 
+%% Test 40: SiLU reach on a 3-arg Star (empty predicate bounds) [19]
+pad40 = []; %#ok<NASGU>  % (leading simple stmt; see Test 39 note re: runner quirk)
+V40 = [0.5 1 0; 0.5 0 1];                       % 2 dims, 2 predicates
+I40 = Star(V40, [1 0;-1 0;0 1;0 -1], [1;1;1;1]);   % 3-arg ctor -> empty pred bounds
+assert(isempty(I40.predicate_lb), 'Test 40 precond: 3-arg Star should have empty pred bounds');
+O40 = SiLU.reach_star_approx(I40);              % must not crash
+assert(isa(O40,'Star') && O40.dim==2, 'Test 40 failed: SiLU reach on 3-arg Star crashed [19]');
+% the box fallback must equal the analytic SiLU envelope of the input ranges
+[lo40, hi40] = I40.getRanges; [a40, b40] = O40.getRanges;
+[xm40, ym40] = SiLU.get_minimum();
+straddle = (lo40 <= xm40) & (hi40 >= xm40);
+exp_lo = min(SiLU.evaluate(lo40), SiLU.evaluate(hi40)); exp_lo(straddle) = ym40;
+exp_hi = max(SiLU.evaluate(lo40), SiLU.evaluate(hi40));
+assert(max(abs(a40(:)-exp_lo(:))) < 1e-6 && max(abs(b40(:)-exp_hi(:))) < 1e-6, ...
+    'Test 40 failed: SiLU box-fallback bounds != analytic SiLU envelope');
+fprintf('Test 40 PASSED (SiLU 3-arg Star reach: sound box fallback, no crash)\n');
+
 %% Summary
 % (A trivial trailing section: MATLAB's script-based test runner mis-accounts
 % line ranges for a TERMINAL section that ends on multiple try/catch one-liners

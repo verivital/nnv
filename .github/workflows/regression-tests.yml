@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: 'true'
 
@@ -63,6 +63,19 @@ jobs:
           pip install --upgrade pip
           pip install -r requirement.txt
         continue-on-error: true
+
+      # Cache the tbxmanager toolboxes (MPT/glpk/sedumi/etc.) install.m downloads from the
+      # ETH/tbxmanager server. OS/arch-keyed, MATLAB-release-independent; shared with the
+      # matrix + legacy CI. startup_nnv's `tbxmanager restorepath` re-adds them, so a warm
+      # cache turns install.m's downloads into no-ops. Force-refresh: run "CI (matrix-sharded)"
+      # with rebuild_cache=true (deletes the repo-wide nnv-tbxmanager-* cache).
+      - name: Cache NNV tbxmanager toolboxes
+        uses: actions/cache@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+          restore-keys: |
+            nnv-tbxmanager-${{ runner.os }}-
 
       - name: Run regression tests
         uses: matlab-actions/run-command@v2

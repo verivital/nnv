@@ -27,8 +27,8 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
-        with: 
+      - uses: actions/checkout@v4
+        with:
           submodules: 'true'
       # Sets up MATLAB on the GitHub Actions runner
       - name: Setup MATLAB
@@ -62,6 +62,19 @@ jobs:
           pip install --upgrade pip
           pip install -r requirement.txt
         continue-on-error: true
+      # Cache the tbxmanager toolboxes (MPT/glpk/sedumi/etc.) install.m downloads from the
+      # ETH/tbxmanager server. OS/arch-keyed (glnxa64), MATLAB-release-independent, so this
+      # cache is shared with the R2026a matrix CI. startup_nnv's `tbxmanager restorepath`
+      # re-adds them from this dir -> install.m's downloads become no-ops on a warm cache.
+      # Force-refresh by running the "CI (matrix-sharded)" workflow with rebuild_cache=true
+      # (it deletes the repo-wide nnv-tbxmanager-* cache).
+      - name: Cache NNV tbxmanager toolboxes
+        uses: actions/cache@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+          restore-keys: |
+            nnv-tbxmanager-${{ runner.os }}-
       # Runs a set of commands using the runners shell
       - name: Run all tests
         uses: matlab-actions/run-command@v2

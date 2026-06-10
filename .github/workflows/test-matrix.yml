@@ -23,7 +23,7 @@ on:
         type: boolean
         default: false
       rebuild_cache:
-        description: "Force-rebuild the MATLAB install cache (delete it, then this run repopulates it)"
+        description: "Force-rebuild the MATLAB + NNV-toolbox (tbxmanager/MPT) install caches (delete them; this run repopulates)"
         type: boolean
         default: false
   pull_request:
@@ -57,15 +57,18 @@ jobs:
       n: ${{ steps.gen.outputs.n }}
     steps:
       - uses: actions/checkout@v4
-      - name: Force-rebuild MATLAB cache (delete existing entries; the matrix below repopulates)
+      - name: Force-rebuild install caches (delete existing entries; the matrix below repopulates)
         if: ${{ github.event.inputs.rebuild_cache == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "rebuild_cache=true -> deleting matlab-cache-* so setup-matlab re-downloads a fresh install."
+          echo "rebuild_cache=true -> deleting matlab-cache-* (MATLAB) and nnv-tbxmanager-* (MPT/glpk/etc.)"
+          echo "so setup-matlab re-downloads MATLAB and install.m re-downloads the tbxmanager toolboxes."
+          # nnv-tbxmanager-* is repo-scoped, so clearing it here also forces the legacy
+          # ci.yml / regression-tests.yml workflows to rebuild their toolbox cache next run.
           ids=$(gh cache list --repo "${{ github.repository }}" --limit 100 --json id,key \
-                --jq '.[]|select(.key|startswith("matlab-cache-"))|.id')
-          if [ -z "$ids" ]; then echo "(no matlab-cache-* entries found)"; fi
+                --jq '.[]|select(.key|startswith("matlab-cache-") or (.key|startswith("nnv-tbxmanager-")))|.id')
+          if [ -z "$ids" ]; then echo "(no matlab-cache-* / nnv-tbxmanager-* entries found)"; fi
           for id in $ids; do
             echo "deleting cache id $id"
             gh cache delete "$id" --repo "${{ github.repository }}" || true
@@ -145,6 +148,19 @@ jobs:
             System_Identification_Toolbox
             Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+      - name: Cache NNV tbxmanager toolboxes (MPT/glpk/sedumi/etc. from install.m)
+        # install.m downloads these from the tbxmanager/ETH server every run (~slow, the
+        # flake source). They are OS/arch-keyed (glnxa64 MEX + m-files), independent of the
+        # MATLAB release, so one Linux cache is shared across all shards AND the legacy
+        # R2024b workflows. startup_nnv's `tbxmanager restorepath` re-adds them from this dir,
+        # so a restored cache turns install.m's downloads into no-ops. Key busts when
+        # install.m changes (toolbox list); force-refresh via the rebuild_cache input above.
+        uses: actions/cache@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+          restore-keys: |
+            nnv-tbxmanager-${{ runner.os }}-
       - name: Run shard ${{ matrix.shard }} of ${{ needs.prepare.outputs.n }}
         id: shard_run
         uses: matlab-actions/run-command@v2
@@ -213,6 +229,13 @@ jobs:
             System_Identification_Toolbox
             Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+      - name: Cache NNV tbxmanager toolboxes (MPT/glpk/sedumi/etc. from install.m)
+        uses: actions/cache@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+          restore-keys: |
+            nnv-tbxmanager-${{ runner.os }}-
       - name: Run high-memory tests
         uses: matlab-actions/run-command@v2
         timeout-minutes: 60

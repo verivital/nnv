@@ -160,19 +160,29 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                         if ~is_nnvnet_valid(nnvnet)
                             tempStatus = 2; break;
                         end
-                        ySet = nnvnet.reach(IS, reachOptions);
-                    else
-                        ySet = Prob_reach(net, IS, reachOptions);
                     end
+                    % [29] Layers are now fail-loud by design (a sound refusal,
+                    % not a crash). An uncaught reach error here would abort the
+                    % whole instance/parfor; instead record UNKNOWN for this reach
+                    % option and fall through to the next one.
+                    try
+                        if ~strcmp(reachOptions.reachMethod, "cp-star")
+                            ySet = nnvnet.reach(IS, reachOptions);
+                        else
+                            ySet = Prob_reach(net, IS, reachOptions);
+                        end
 
-                    % Verify property
-                    if isempty(ySet.C)
-                        dd = ySet.V; DD = ySet.V;
-                        ySet = Star(dd,DD);
+                        % Verify property
+                        if isempty(ySet.C)
+                            dd = ySet.V; DD = ySet.V;
+                            ySet = Star(dd,DD);
+                        end
+
+                        % Add verification status
+                        tempStatus = verify_specification(ySet, prop(spc));
+                    catch
+                        tempStatus = 2;   % unknown; try the next reach option
                     end
-
-                    % Add verification status
-                    tempStatus = verify_specification(ySet, prop(spc));
 
                     if tempStatus ~= 2 % verified, then stop (or falsified)
                         break
@@ -224,13 +234,20 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                         if ~is_nnvnet_valid(nnvnet)
                             tempStatus = 2; break;
                         end
-                        ySet = nnvnet.reach(IS, reachOptions);
-                    else
-                        ySet = Prob_reach(net, IS, reachOptions);
                     end
+                    % [29] fail-loud reach must not abort the parfor (see above).
+                    try
+                        if ~strcmp(reachOptions.reachMethod, "cp-star")
+                            ySet = nnvnet.reach(IS, reachOptions);
+                        else
+                            ySet = Prob_reach(net, IS, reachOptions);
+                        end
 
-                    % Add verification status
-                    tempStatus = verify_specification(ySet, prop(spc));
+                        % Add verification status
+                        tempStatus = verify_specification(ySet, prop(spc));
+                    catch
+                        tempStatus = 2;   % unknown; try the next reach option
+                    end
 
                     if tempStatus ~= 2 % verified, then stop (or falsified)
                         break
@@ -972,6 +989,17 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
                     elseif needReshape == 1
                         if ndims(x) == 3 % RGB  image
                             x = permute(x, [2 1 3]);
+                        end
+                    elseif needReshape == 3
+                        % [28] create_random_examples built x via
+                        % reshape([C W H]) then permute([3 2 1 4]) -> [H W C].
+                        % Invert that permute so write_counterexample flattens the
+                        % witness back in the ORIGINAL ONNX NHWC flat order
+                        % (C fastest); otherwise the SAT counterexample is written
+                        % H-fastest -> invalid / competition penalty. permute([3 2 1])
+                        % is its own inverse. (Was missing: only 1/2 were handled.)
+                        if ndims(x) == 3
+                            x = permute(x, [3 2 1]);
                         end
                     end
                     counterEx = {x; yPred}; % save input/output of countex-example

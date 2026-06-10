@@ -139,30 +139,40 @@ classdef MultiHeadAttentionLayer < handle
                 V_proj = V_proj + obj.b_V';
             end
 
-            % Reshape for multi-head: [seq_len x num_heads x head_dim]
-            Q_heads = reshape(Q_proj, [seq_len, obj.NumHeads, obj.HeadDim]);
-            K_heads = reshape(K_proj, [seq_len, obj.NumHeads, obj.HeadDim]);
-            V_heads = reshape(V_proj, [seq_len, obj.NumHeads, obj.HeadDim]);
+            % Reshape for multi-head with CONTIGUOUS head blocks
+            % [seq_len x head_dim x num_heads]. [4] FIX: reshaping the
+            % [seq_len, embed_dim] projection to [seq_len, NumHeads, HeadDim]
+            % (column-major) assigns head h the STRIDED columns {h, h+NumHeads,
+            % ...} instead of the transformer-convention contiguous block
+            % {(h-1)*HeadDim+1 ... h*HeadDim}. Reshaping to [seq_len, HeadDim,
+            % NumHeads] places head h in columns (h-1)*HeadDim+(1:HeadDim).
+            Q_heads = reshape(Q_proj, [seq_len, obj.HeadDim, obj.NumHeads]);
+            K_heads = reshape(K_proj, [seq_len, obj.HeadDim, obj.NumHeads]);
+            V_heads = reshape(V_proj, [seq_len, obj.HeadDim, obj.NumHeads]);
 
             % Compute attention for each head
-            head_outputs = zeros(seq_len, obj.NumHeads, obj.HeadDim);
+            head_outputs = zeros(seq_len, obj.HeadDim, obj.NumHeads);
 
             for h = 1:obj.NumHeads
-                % Use reshape (not squeeze) so seq_len = 1 doesn't collapse the
-                % sequence axis along with the head axis — the previous squeeze
-                % returned a head_dim-vector for seq_len = 1, breaking attention.
-                Q_h = reshape(Q_heads(:, h, :), seq_len, obj.HeadDim);
-                K_h = reshape(K_heads(:, h, :), seq_len, obj.HeadDim);
-                V_h = reshape(V_heads(:, h, :), seq_len, obj.HeadDim);
+                % reshape (not squeeze) so seq_len = 1 keeps the sequence axis.
+                Q_h = reshape(Q_heads(:, :, h), seq_len, obj.HeadDim);
+                K_h = reshape(K_heads(:, :, h), seq_len, obj.HeadDim);
+                V_h = reshape(V_heads(:, :, h), seq_len, obj.HeadDim);
 
                 % Scaled dot-product attention
                 d_k = obj.HeadDim;
                 scores = (Q_h * K_h') / sqrt(d_k);  % [seq_len x seq_len]
-                attn_weights = softmax(scores, 2);  % Softmax over keys
-                head_outputs(:, h, :) = attn_weights * V_h;
+                % [3] FIX: softmax over the KEY axis -- each query's weights sum
+                % to 1 (row-wise). The builtin softmax(scores,2) dispatches to the
+                % shallow-net transfer function, which normalizes COLUMNS and
+                % ignores the dim arg -> wrong attention. Compute it explicitly.
+                scores = scores - max(scores, [], 2);          % numerical stability
+                e = exp(scores);
+                attn_weights = e ./ sum(e, 2);                 % rows sum to 1
+                head_outputs(:, :, h) = attn_weights * V_h;
             end
 
-            % Concatenate heads: [seq_len x embed_dim]
+            % Concatenate heads (contiguous): [seq_len x embed_dim]
             concat_output = reshape(head_outputs, [seq_len, obj.EmbedDim]);
 
             % Output projection

@@ -123,6 +123,34 @@ classdef test_MultiHeadAttentionLayer < matlab.unittest.TestCase
             testCase.verifySize(y, [4, 8], 'Output with identity weights');
         end
 
+        function test_evaluate_multihead_convention(testCase)
+            % [3][4]: evaluate must use the STANDARD transformer convention --
+            % CONTIGUOUS head blocks {(h-1)*HeadDim+1 ... h*HeadDim} (not the
+            % strided columns a [seq,NumHeads,HeadDim] reshape gives), and a
+            % ROW-WISE softmax over keys (each query's weights sum to 1, not the
+            % column-wise normalization the builtin softmax(scores,2) applies).
+            % Compare against an independent reference computed block-by-block.
+            L = MultiHeadAttentionLayer('mha');
+            L.NumHeads = 2; L.HeadDim = 3; L.EmbedDim = 6;
+            L.W_Q = randn(6); L.W_K = randn(6); L.W_V = randn(6); L.W_O = randn(6);
+            seq = 4; X = randn(seq, 6);
+            y = L.evaluate(X, X, X);
+
+            Qp = X*L.W_Q; Kp = X*L.W_K; Vp = X*L.W_V;
+            ref = zeros(seq, 6);
+            for h = 1:L.NumHeads
+                cols = (h-1)*L.HeadDim + (1:L.HeadDim);     % contiguous block
+                s = (Qp(:,cols)*Kp(:,cols)') / sqrt(L.HeadDim);
+                s = s - max(s, [], 2); e = exp(s); aw = e ./ sum(e, 2);  % row-softmax
+                testCase.verifyEqual(sum(aw, 2), ones(seq,1), 'AbsTol', 1e-12, ...
+                    'attention weights must sum to 1 over keys (each row)');
+                ref(:, cols) = aw * Vp(:, cols);
+            end
+            ref = ref * L.W_O;
+            testCase.verifyEqual(y, ref, 'AbsTol', 1e-9, ...
+                'MHA.evaluate must match the contiguous-block, row-softmax convention');
+        end
+
         %% Reachability Tests
 
         function test_reach_basic(testCase)

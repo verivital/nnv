@@ -6,16 +6,16 @@ name: VNN-COMP sweep (cloud)
 # optional epsilon-shrink + folder filter), and uploads the results CSV/MD.
 #
 # This is the cloud counterpart to the local sweep documented in VNNCOMP2025_STATUS.md.
-# NOTE: set `benchmarks_repo` to the official VNN-COMP 2025 benchmark repository URL
-# (confirm the exact org/repo); the default below is a placeholder.
+# Defaults to the official VNN-COMP 2025 benchmark repo (github.com/VNN-COMP/vnncomp2025_benchmarks,
+# branch main); point benchmarks_repo/ref at vnncomp2026_benchmarks for the 2026 set.
 
 on:
   workflow_dispatch:
     inputs:
       benchmarks_repo:
-        description: "Git URL of the VNN-COMP 2025 benchmarks repo (CONFIRM THIS)"
+        description: "Git URL of the VNN-COMP benchmarks repo"
         type: string
-        default: "https://github.com/ChristopherBrix/vnncomp2025_benchmarks.git"
+        default: "https://github.com/VNN-COMP/vnncomp2025_benchmarks.git"
       benchmarks_ref:
         description: "Branch/tag/sha of the benchmarks repo"
         type: string

@@ -148,14 +148,17 @@ jobs:
             System_Identification_Toolbox
             Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
-      - name: Cache NNV tbxmanager toolboxes (MPT/glpk/sedumi/etc. from install.m)
+      - name: Restore NNV tbxmanager toolboxes (MPT/glpk/sedumi/etc. from install.m)
         # install.m downloads these from the tbxmanager/ETH server every run (~slow, the
-        # flake source). They are OS/arch-keyed (glnxa64 MEX + m-files), independent of the
-        # MATLAB release, so one Linux cache is shared across all shards AND the legacy
-        # R2024b workflows. startup_nnv's `tbxmanager restorepath` re-adds them from this dir,
-        # so a restored cache turns install.m's downloads into no-ops. Key busts when
-        # install.m changes (toolbox list); force-refresh via the rebuild_cache input above.
-        uses: actions/cache@v4
+        # flake source: people.ee.ethz.ch connection timeouts). They are OS/arch-keyed
+        # (glnxa64 MEX + m-files), independent of the MATLAB release, so one Linux cache is
+        # shared across all shards AND the legacy R2024b workflows. startup_nnv's
+        # `tbxmanager restorepath` re-adds them from this dir, so a restored cache turns
+        # install.m's downloads into no-ops. Key busts when install.m changes (toolbox list);
+        # force-refresh via the rebuild_cache input above. Save is split out below so we
+        # only ever persist a COMPLETE install (never a partial dir from a flaky download).
+        id: tbxcache
+        uses: actions/cache/restore@v4
         with:
           path: code/nnv/tbxmanager
           key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
@@ -176,6 +179,16 @@ jobs:
         continue-on-error: true
         with:
           command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(${{ matrix.shard }}, ${{ needs.prepare.outputs.n }}, 'standard');
+      - name: Save NNV tbxmanager cache (only a COMPLETE install, only on a miss)
+        # Guard against poisoning the shared cache with a partial tbxmanager/ from a flaky
+        # ETH download: only save when the restore missed AND the LAST toolbox install.m
+        # fetches (sedumi) is present -> the whole toolbox list downloaded successfully.
+        # `always()` so this runs despite the shard steps' continue-on-error.
+        if: always() && steps.tbxcache.outputs.cache-hit != 'true' && hashFiles('code/nnv/tbxmanager/toolboxes/sedumi/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
       - name: Upload shard results
         if: always()
         uses: actions/upload-artifact@v4
@@ -229,8 +242,9 @@ jobs:
             System_Identification_Toolbox
             Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
             Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
-      - name: Cache NNV tbxmanager toolboxes (MPT/glpk/sedumi/etc. from install.m)
-        uses: actions/cache@v4
+      - name: Restore NNV tbxmanager toolboxes (MPT/glpk/sedumi/etc. from install.m)
+        id: tbxcache
+        uses: actions/cache/restore@v4
         with:
           path: code/nnv/tbxmanager
           key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
@@ -241,6 +255,12 @@ jobs:
         timeout-minutes: 60
         with:
           command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(1, 1, 'highmem');
+      - name: Save NNV tbxmanager cache (only a COMPLETE install, only on a miss)
+        if: always() && steps.tbxcache.outputs.cache-hit != 'true' && hashFiles('code/nnv/tbxmanager/toolboxes/sedumi/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
       - name: Upload high-memory results
         if: always()
         uses: actions/upload-artifact@v4

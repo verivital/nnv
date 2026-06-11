@@ -67,10 +67,13 @@ jobs:
       # Cache the tbxmanager toolboxes (MPT/glpk/sedumi/etc.) install.m downloads from the
       # ETH/tbxmanager server. OS/arch-keyed, MATLAB-release-independent; shared with the
       # matrix + legacy CI. startup_nnv's `tbxmanager restorepath` re-adds them, so a warm
-      # cache turns install.m's downloads into no-ops. Force-refresh: run "CI (matrix-sharded)"
-      # with rebuild_cache=true (deletes the repo-wide nnv-tbxmanager-* cache).
-      - name: Cache NNV tbxmanager toolboxes
-        uses: actions/cache@v4
+      # cache turns install.m's downloads into no-ops. Restore/save split so we only persist a
+      # COMPLETE install (gated on the last toolbox, sedumi), never a partial flaky download.
+      # Force-refresh: run "CI (matrix-sharded)" with rebuild_cache=true (deletes
+      # the repo-wide nnv-tbxmanager-* cache).
+      - name: Restore NNV tbxmanager toolboxes
+        id: tbxcache
+        uses: actions/cache/restore@v4
         with:
           path: code/nnv/tbxmanager
           key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
@@ -113,6 +116,13 @@ jobs:
                 disp(['Error: ' ME.message]);
                 rethrow(ME);
             end
+
+      - name: Save NNV tbxmanager cache (only a COMPLETE install, only on a miss)
+        if: always() && steps.tbxcache.outputs.cache-hit != 'true' && hashFiles('code/nnv/tbxmanager/toolboxes/sedumi/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
 
       - name: Upload test results
         if: always()

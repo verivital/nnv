@@ -39,6 +39,9 @@ concurrency:
 
 env:
   MATLAB_RELEASE: ${{ github.event.inputs.release || 'R2026a' }}
+  # Opt JS actions into Node 24 ahead of GitHub's forced 2026-06-16 default flip (Node 20
+  # EOL on the runners), so any incompatibility surfaces in CI now rather than mid-competition.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   # Decide the shard count and build the index list [1..N]. Uses the workflow_dispatch

@@ -998,16 +998,16 @@ end
 % Falsification function (random simulation looking for counterexamples)
 function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape, inputFormat)
     counterEx = nan;
-    % Gradient-directed falsification FIRST for flat feature inputs (needReshape==0),
-    % where the input vector maps directly to the network input (no permute risk).
-    % PGD/FGSM finds counterexamples far more reliably than random sampling (NNV
-    % found 354 SAT vs ~1000 for the field in 2025). Gated to dlnetwork + needReshape==0,
+    % Gradient-directed falsification FIRST (FGSM warm-start + PGD). pgd_falsify maps
+    % the flat input to the network-input layout with the SAME reshape+permute the
+    % runner uses (needReshape), so it works for image/permuted inputs too. NNV found
+    % 354 SAT vs ~1000 for the field in 2025; this targets that gap. Gated to dlnetwork,
     % wrapped in try/catch, and VALIDATED before acceptance, so it can only ADD a sound
     % SAT or fall through to the existing random sampling. [VNNCOMP2026_STRATEGY Pillar 1/2]
-    if needReshape == 0 && isa(net, 'dlnetwork')
+    if isa(net, 'dlnetwork')
         try
-            [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, struct('seed', 0));
-            if found && validate_witness(net, cex{1}, lb, ub, Hs, inputSize, inputFormat)
+            [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, needReshape, struct('seed', 0, 'max_time', 5));
+            if found && validate_witness(net, cex{1}, lb, ub, Hs, inputSize, inputFormat, needReshape)
                 counterEx = cex; return;
             end
         catch

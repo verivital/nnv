@@ -110,6 +110,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Reclaim runner disk space
+        # MATLAB + the 11 toolboxes need ~5.4 GB; ubuntu-latest ships only ~14 GB free, and the
+        # Setup MATLAB download can exhaust it -> the runner worker crashes with "No space left
+        # on device" before any test runs (intermittent; hit shards 6/8/9/11 on run 27359826401).
+        # Removing preinstalled tooling this job never uses frees ~20-30 GB and makes it reliable.
+        run: |
+          echo "Disk before reclaim:"; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/lib/android \
+                      /usr/share/swift /usr/local/share/powershell \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/chromium /usr/local/share/boost || true
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          echo "Disk after reclaim:"; df -h /
       - name: Setup MATLAB
         id: setup_matlab
         continue-on-error: true   # cache: true restores MATLAB from the GitHub Actions cache on
@@ -228,6 +240,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Reclaim runner disk space
+        # See the standard job: free ~20-30 GB so the MATLAB toolbox download can't exhaust
+        # the runner disk ("No space left on device").
+        run: |
+          echo "Disk before reclaim:"; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/lib/android \
+                      /usr/share/swift /usr/local/share/powershell \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/chromium /usr/local/share/boost || true
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          echo "Disk after reclaim:"; df -h /
       - name: Setup MATLAB
         uses: matlab-actions/setup-matlab@v3
         with:

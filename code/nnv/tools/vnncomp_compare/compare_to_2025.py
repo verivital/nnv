@@ -110,43 +110,66 @@ def main():
           f"(sat {tot_2025['sat']} / unsat {tot_2025['unsat']}). Official 2025: 1082 solved, 697.3 pts, 6th/7.\n")
 
     # --- per-instance disagreement check (the soundness gate) ---
-    print("## Soundness check: NNV-NEW verdicts vs the cross-tool reference\n")
+    # Reference verdict = MAJORITY VOTE of the other tools' definitive (sat/unsat) results
+    # (per the soundness strategy: when tools disagree, trust the majority). We also report
+    # where the field itself splits sat-vs-unsat (a likely soundness issue in SOME tool).
+    print("## Soundness check: NNV-NEW verdicts vs the cross-tool MAJORITY\n")
     benches = sorted(new_by_bench)
     ref_cache = {b: {t: load_tool_bench(rd, t, b) for t in TOOLS} for b in benches}
-    false_sat, false_unsat, agree, no_ref = [], [], 0, 0
+    false_sat, false_unsat, agree, no_ref, contested = [], [], 0, 0, []
     for (b, onnx, vl), v in new_inst.items():
         if v not in DEFINITIVE:
             continue
         per_tool = ref_cache.get(b, {})
-        ref = per_tool.get(REF_TOOL, {}).get((onnx, vl))
-        if ref not in DEFINITIVE:
-            votes = Counter(per_tool[t].get((onnx, vl)) for t in TOOLS
-                            if per_tool[t].get((onnx, vl)) in DEFINITIVE)
-            ref = votes.most_common(1)[0][0] if votes else None
-        if ref is None:
+        votes = Counter(per_tool[t].get((onnx, vl)) for t in TOOLS
+                        if per_tool[t].get((onnx, vl)) in DEFINITIVE)
+        if not votes:
             no_ref += 1
-        elif ref == v:
+            continue
+        ref = votes.most_common(1)[0][0]          # majority verdict
+        if 'sat' in votes and 'unsat' in votes:   # the field itself disagrees
+            contested.append((b, onnx, vl, dict(votes), v))
+        if ref == v:
             agree += 1
         elif v == 'sat':
-            false_sat.append((b, onnx, vl, ref))
+            false_sat.append((b, onnx, vl, dict(votes)))
         else:
-            false_unsat.append((b, onnx, vl, ref))
+            false_unsat.append((b, onnx, vl, dict(votes)))
 
-    print(f"- NNV-NEW definitive verdicts: {agree + len(false_sat) + len(false_unsat) + no_ref}")
-    print(f"- **AGREE with reference:** {agree}")
-    print(f"- **NO reference** (no tool gave a definitive verdict): {no_ref}")
-    print(f"- !! **NNV sat but reference unsat (probable FALSE SAT, -150 risk):** {len(false_sat)}")
-    print(f"- !! **NNV unsat but reference sat (probable unsound proof):** {len(false_unsat)}\n")
+    print(f"- NNV-NEW definitive verdicts checked: {agree + len(false_sat) + len(false_unsat) + no_ref}")
+    print(f"- **AGREE with majority:** {agree}")
+    print(f"- **NO reference** (no other tool gave a definitive verdict): {no_ref}")
+    print(f"- !! **NNV sat but majority unsat (probable FALSE SAT, -150 risk):** {len(false_sat)}")
+    print(f"- !! **NNV unsat but majority sat (probable unsound proof):** {len(false_unsat)}")
+    print(f"- (field split sat-vs-unsat on {len(contested)} instance(s) NNV also decided -- tool soundness issues)\n")
     for tag, lst in (('FALSE-SAT', false_sat), ('FALSE-UNSAT', false_unsat)):
         if lst:
-            print(f"### {tag} (NNV vs reference)\n")
-            for b, onnx, vl, ref in lst[:60]:
-                print(f"- `{b}` {onnx} / {vl}: NNV={'sat' if tag=='FALSE-SAT' else 'unsat'} vs reference={ref}")
-            if len(lst) > 60:
-                print(f"- ... and {len(lst)-60} more")
+            print(f"### {tag}: NNV={'sat' if tag=='FALSE-SAT' else 'unsat'} vs the majority\n")
+            for b, onnx, vl, votes in lst[:80]:
+                print(f"- `{b}` {onnx} / {vl}: tool votes {dict(votes)}")
+            if len(lst) > 80:
+                print(f"- ... and {len(lst)-80} more")
             print()
     if not false_sat and not false_unsat:
-        print("OK: No NNV-NEW verdict disagreed with the cross-tool reference -- sound on the checked instances.")
+        print("OK: No NNV-NEW verdict disagreed with the cross-tool majority -- sound on the checked instances.\n")
+
+    # --- coverage / opportunity: where the FIELD solves but NNV does not ---
+    print("## Coverage gap: instances the FIELD solved but NNV did not (minimize these)\n")
+    print("| benchmark | field-solved & NNV-unknown/to/err | NNV-solved |")
+    print("|---|--:|--:|")
+    for b in benches:
+        per_tool = ref_cache.get(b, {})
+        keys = set().union(*[set(per_tool[t].keys()) for t in TOOLS]) if per_tool else set()
+        gap = 0
+        nnv_solved = sum(1 for (bb, o, vv), x in new_inst.items()
+                         if bb == b and x in DEFINITIVE)
+        for (o, vl) in keys:
+            votes = Counter(per_tool[t].get((o, vl)) for t in TOOLS
+                            if per_tool[t].get((o, vl)) in DEFINITIVE)
+            if votes and new_inst.get((b, o, vl)) not in DEFINITIVE:
+                gap += 1
+        if gap or nnv_solved:
+            print(f"| {b} | {gap} | {nnv_solved} |")
     return 0
 
 

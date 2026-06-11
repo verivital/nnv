@@ -24,9 +24,14 @@ function test_missing_onnx_returns_false(tc)
 end
 
 function test_empty_halfspace_array_returns_false(tc)
-    % No unsafe region -> nothing to violate -> false (and no crash).
-    bogus = fullfile(tempdir, 'definitely_not_a_real_model_xyz.onnx');
-    ok = validate_witness_onnx(bogus, [0; 0], HalfSpace.empty);
+    % A VALID (existing) model path but an EMPTY unsafe region: the Hs loop never
+    % iterates, so the wrapper returns false WITHOUT invoking Python. This exercises
+    % the empty-region path itself (the missing-file guard is covered by the test
+    % above). A stub file suffices -- no ONNX is parsed when there are zero HalfSpaces.
+    f = [tempname '.onnx'];
+    fid = fopen(f, 'w'); fwrite(fid, 'stub'); fclose(fid);
+    c = onCleanup(@() delete(f));  %#ok<NASGU>
+    ok = validate_witness_onnx(f, [1; 1], HalfSpace.empty);
     verifyFalse(tc, ok);
 end
 
@@ -57,9 +62,22 @@ end
 
 function assumeOnnxruntime(tc)
     % Skip (not fail) the replay tests when onnxruntime is not importable, so CI
-    % machines without it stay green -- the fallback contract is still exercised.
-    [st, ~] = system('python -c "import onnxruntime"');
+    % machines without it stay green. Resolve the interpreter the SAME way
+    % validate_witness_onnx's python_exe() does (prefer MATLAB's configured pyenv,
+    % else PATH 'python') so this gate matches the python the wrapper actually calls.
+    [st, ~] = system([resolve_python() ' -c "import onnxruntime"']);
     assumeEqual(tc, st, 0, 'python/onnxruntime unavailable -- skipping replay tests');
+end
+
+function py = resolve_python()
+    py = 'python';
+    try
+        pe = pyenv;
+        if ~isempty(pe.Executable) && isfile(pe.Executable)
+            py = ['"' char(pe.Executable) '"'];
+        end
+    catch
+    end
 end
 
 function [onnxPath, cleanup] = exportTinyLinearOnnx()

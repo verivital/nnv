@@ -19,13 +19,23 @@ if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
 end
 
-% Decide the reach input-set type from the NET's input layer (not the input SHAPE):
-% ImageInputLayer/Image3DInputLayer -> ImageStar; flat feature / NN-manifest -> Star.
-% Fixes acasxu (imported as a [1 5 1] ImageInputLayer): the shape heuristic built a
-% Star and every acasxu reach errored ("Input is not an ImageStar").
-useImageStar = isa(net, 'dlnetwork') && ~isempty(net.Layers) && ...
-    (isa(net.Layers(1), 'nnet.cnn.layer.ImageInputLayer') || ...
-     isa(net.Layers(1), 'nnet.cnn.layer.Image3DInputLayer'));
+% Decide the reach input-set type from the NET's input-layer TYPE (not the input
+% SHAPE) whenever the net exposes Layers -- dlnetwork AND SeriesNetwork/DAGNetwork:
+% ImageInputLayer/Image3DInputLayer -> ImageStar; FeatureInputLayer -> Star. Leave
+% [] (unknown) otherwise (e.g. NNV NN manifest nets, sequence inputs) so
+% create_input_set falls back to its shape heuristic. Fixes acasxu (a [1 5 1]
+% ImageInputLayer): the shape heuristic built a Star and every acasxu reach errored
+% ("Input is not an ImageStar"). Using [] for the unknown case (not false) avoids
+% forcing a Star on a non-dlnetwork image net (which would reintroduce that bug).
+useImageStar = [];
+if isprop(net, 'Layers') && ~isempty(net.Layers)
+    L1 = net.Layers(1);
+    if isa(L1, 'nnet.cnn.layer.ImageInputLayer') || isa(L1, 'nnet.cnn.layer.Image3DInputLayer')
+        useImageStar = true;
+    elseif isa(L1, 'nnet.cnn.layer.FeatureInputLayer') || isa(L1, 'nnet.onnx.layer.FeatureInputLayer')
+        useImageStar = false;
+    end
+end
 
 % Load property to verify
 property = load_vnnlib(vnnlib);

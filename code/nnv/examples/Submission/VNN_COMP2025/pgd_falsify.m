@@ -37,6 +37,8 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
     n_steps    = getfielddef(opts, 'n_steps',    40);
     lr         = getfielddef(opts, 'lr',         0.1);
     use_fgsm   = getfielddef(opts, 'fgsm',       true);
+    max_time   = getfielddef(opts, 'max_time',   inf);   % seconds; bound so PGD never
+    t0 = tic;                                            % eats the per-instance budget
     if isfield(opts,'seed') && ~isempty(opts.seed), rng(opts.seed); end
 
     lb = double(lb(:)); ub = double(ub(:));
@@ -57,6 +59,7 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
 
     nH = numel(Hs);
     for r = 1:n_restarts
+        if toc(t0) > max_time, return; end    % time budget exhausted -> let reach run
         h = mod(r-1, nH) + 1;                 % steer toward one unsafe set per restart
         [G, g] = halfspace_Gg(Hs(h));
         xn = flat_to_net_arr(seeds{r}, inputSize, needReshape);   % optimize in net space

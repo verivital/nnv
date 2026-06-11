@@ -1006,7 +1006,7 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
     % SAT or fall through to the existing random sampling. [VNNCOMP2026_STRATEGY Pillar 1/2]
     if isa(net, 'dlnetwork')
         try
-            [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, needReshape, struct('seed', 0));
+            [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, needReshape, struct('seed', 0, 'max_time', 5));
             if found && validate_witness(net, cex{1}, lb, ub, Hs, inputSize, inputFormat, needReshape)
                 counterEx = cex; return;
             end

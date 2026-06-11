@@ -19,8 +19,9 @@ function test_missing_onnx_returns_false(tc)
     % A non-existent model path must yield false (safe), not an error.
     bogus = fullfile(tempdir, 'definitely_not_a_real_model_xyz.onnx');
     if isfile(bogus), delete(bogus); end
-    ok = validate_witness_onnx(bogus, [0; 0], HalfSpace([1 0], 0));
+    [ok, available] = validate_witness_onnx(bogus, [0; 0], HalfSpace([1 0], 0));
     verifyFalse(tc, ok);
+    verifyFalse(tc, available, 'missing model -> unavailable, so the runner trusts validate_witness (keeps sat)');
 end
 
 function test_empty_halfspace_array_returns_false(tc)
@@ -42,12 +43,16 @@ function test_violated_true_and_impossible_false(tc)
     [onnx, cleanup] = exportTinyLinearOnnx();  %#ok<ASGLU> keep cleanup alive
     % Net is y = 1*x1 + 2*x2 (single output). For x=[1;1], y=3.
     x = [1; 1];
-    % Unsafe set {y : y <= 10} -> 3 <= 10 -> VIOLATED -> true.
-    ok_v = validate_witness_onnx(onnx, x, HalfSpace(1, 10));
+    % Unsafe set {y : y <= 10} -> 3 <= 10 -> VIOLATED -> ok=true, available=true.
+    [ok_v, av_v] = validate_witness_onnx(onnx, x, HalfSpace(1, 10));
     verifyTrue(tc, ok_v, 'witness y=3 should violate {y <= 10}');
-    % Unsafe set {y : y <= -10} -> impossible for y=3 -> OK -> false.
-    ok_i = validate_witness_onnx(onnx, x, HalfSpace(1, -10));
+    verifyTrue(tc, av_v, 'a clean VIOLATED verdict is available');
+    % Unsafe set {y : y <= -10} -> impossible for y=3 -> OK -> ok=false, available=TRUE.
+    % available=true + ok=false is the DOWNGRADE case: onnxruntime definitively says the
+    % witness violates nothing, so the runner emits `unknown` instead of a wrong `sat`.
+    [ok_i, av_i] = validate_witness_onnx(onnx, x, HalfSpace(1, -10));
     verifyFalse(tc, ok_i, 'witness y=3 must NOT be accepted for {y <= -10}');
+    verifyTrue(tc, av_i, 'a clean OK (non-violation) verdict is available -> caller downgrades');
 end
 
 function test_multi_halfspace_any_violates(tc)

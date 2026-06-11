@@ -206,24 +206,32 @@ classdef ConcatenationLayer < handle
                 varOffset = varOffset + nVarI;
             end
 
-            % Build block-diagonal constraint matrix and concatenate d, bounds
-            % Use blkdiag for constraints
+            % Build the combined constraint matrix. Each input's constraints
+            % involve ONLY its own predicates, so input i's C must occupy the
+            % totalVars-wide column block at (varOffset_i+1 .. varOffset_i+nVars_i)
+            % -- matching where its generators live in new_V. A plain blkdiag of the
+            % non-empty C's was WRONG when an EARLIER input had empty C: it skipped
+            % that input's columns, leaving new_C too narrow / mis-aligned, which the
+            % ImageStar constructor then rejected ("Inconsistency between basic matrix
+            % and constraint matrix") -- so a box+constrained concat ERRORED instead
+            % of producing the valid set. Pad each C to totalVars and vstack (this is
+            % identical to blkdiag when ALL inputs are constrained). [Copilot #290]
             new_C = [];
             new_d = [];
             new_pred_lb = [];
             new_pred_ub = [];
 
+            vOff = 0;
             for i = 1:n
                 if ~isempty(inputs{i}.C)
-                    if isempty(new_C)
-                        new_C = inputs{i}.C;
-                    else
-                        new_C = blkdiag(new_C, inputs{i}.C);
-                    end
+                    Ci = zeros(size(inputs{i}.C, 1), totalVars, 'like', inputs{i}.C);
+                    Ci(:, vOff + (1:nVars(i))) = inputs{i}.C;
+                    new_C = [new_C; Ci];
                     new_d = [new_d; inputs{i}.d];
                 end
                 new_pred_lb = [new_pred_lb; inputs{i}.pred_lb];
                 new_pred_ub = [new_pred_ub; inputs{i}.pred_ub];
+                vOff = vOff + nVars(i);
             end
 
             % Handle empty constraints case
@@ -298,11 +306,15 @@ classdef ConcatenationLayer < handle
                 new_V = [new_V; Vi_padded];
 
                 if ~isempty(inputs{i}.C)
-                    if isempty(new_C)
-                        new_C = inputs{i}.C;
-                    else
-                        new_C = blkdiag(new_C, inputs{i}.C);
-                    end
+                    % Pad input i's C to totalVars columns at its predicate block
+                    % (varOffset). Plain blkdiag was wrong when an EARLIER input had
+                    % empty C -> too-narrow / mis-aligned new_C -> Star ctor rejection
+                    % ("Inconsistency between basic matrix and constraint matrix"), so a
+                    % box+constrained concat ERRORED instead of producing the set. This
+                    % equals blkdiag when all inputs are constrained. [Copilot #290]
+                    Ci = zeros(size(inputs{i}.C, 1), totalVars, 'like', inputs{i}.C);
+                    Ci(:, varOffset + (1:nVars(i))) = inputs{i}.C;
+                    new_C = [new_C; Ci];
                     new_d = [new_d; inputs{i}.d];
                 end
                 if haveBounds

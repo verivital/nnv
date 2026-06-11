@@ -218,9 +218,13 @@ def static_input_shape(model, batch_size=1):
 
 def preprocess_onnx(model, batch_size=1, target_opset=17):
     """Static shape, version convert, simplify, optimize."""
-    # Static input shape
+    # Static input shape. Use the ACTUAL data input (find_data_input) for BOTH the
+    # shape and the name: some PyTorch exports list every initializer in graph.input,
+    # so graph.input[0] can be a weight, not the data input. Pairing in_shape (from
+    # find_data_input) with a graph.input[0] name would apply the shape to the wrong
+    # tensor in onnxsim.simplify(overwrite_input_shapes=...). (Copilot #290 finding.)
     in_shape = static_input_shape(model, batch_size)
-    in_name  = model.graph.input[0].name
+    in_name  = find_data_input(model).name
 
     # Version convert if needed
     cur_opset = model.opset_import[0].version if model.opset_import else 9

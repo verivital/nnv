@@ -25,6 +25,25 @@ lb = property.lb; % input lower bounds
 ub = property.ub; % input upper bounds
 prop = property.prop; % output spec to verify
 
+% Optional smoke-test epsilon shrink (env NNV_EPS_SHRINK = fraction in (0,1)):
+% tighten the input perturbation box toward its center so a compute-bound net can
+% reach a verdict at all on an easier property -- a smoke test of tractability, not
+% a competition run. Default (unset/empty) is a NO-OP; the property is untouched.
+eps_shrink = str2double(getenv('NNV_EPS_SHRINK'));
+if ~isnan(eps_shrink) && eps_shrink > 0 && eps_shrink < 1
+    if iscell(lb)
+        for ii = 1:numel(lb)
+            c = (lb{ii} + ub{ii})/2;
+            lb{ii} = c - eps_shrink*(c - lb{ii});
+            ub{ii} = c + eps_shrink*(ub{ii} - c);
+        end
+    else
+        c = (lb + ub)/2;
+        lb = c - eps_shrink*(c - lb);
+        ub = c + eps_shrink*(ub - c);
+    end
+end
+
 % fid = fopen(outputfile, 'w');
 % fprintf(fid, 'unknown \n');
 % fclose(fid);

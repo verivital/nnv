@@ -120,8 +120,19 @@ function property = load_vnnlib(propertyFile)
                     last_ast = property.prop{n2};
                     if length(last_ast) > 1 % means previous ast was an "or"
                         property.prop{n2+1} = ast;
-                    elseif contains(propertyFile, "quadrotor2d_state") % quick fix for lsnc_relu
-                        last_ast.Hg = [last_ast.Hg; ast.Hg];
+                    elseif numel(last_ast.Hg) > 1
+                        % The running unsafe region is an OR (Hg is an array of disjunct
+                        % HalfSpaces). A standalone assertion that follows the (or ...) is
+                        % a CONJUNCT and must be AND-ed into EVERY disjunct (append its
+                        % rows to each), so the unsafe region stays (d1 AND c) OR
+                        % (d2 AND c) OR ...  The old `% quick fix for quadrotor2d_state`
+                        % instead APPENDED it as a new OR term ([Hg; ast.Hg]), dropping
+                        % the conjunction -> witnesses that satisfy a disjunct but violate
+                        % the conjunct were accepted as SAT (false counterexamples, -150).
+                        for di = 1:numel(last_ast.Hg)
+                            last_ast.Hg(di).G = [last_ast.Hg(di).G; ast.Hg.G];
+                            last_ast.Hg(di).g = [last_ast.Hg(di).g; ast.Hg.g];
+                        end
                         property.prop{n2} = last_ast;
                     else
                         last_ast.Hg.G = [last_ast.Hg.G; ast.Hg.G];

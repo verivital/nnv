@@ -17,25 +17,35 @@ nets.
 
 ## Pillar status
 
+*(2026-06-11 implementation push: PRs #306–#311 all merged/merging to `verivital/nnv:master`.)*
+
 | Pillar | Item | Status |
 |---|---|---|
 | **1 — Falsification (SAT)** | Gradient PGD/FGSM falsifier (feature inputs) | ✅ merged (#305) |
-| | needReshape-aware PGD (image/permuted inputs) | 🟢 #306 (auto-merging) |
-| | Format-from-layer fix + PGD time-budget (no budget starvation) | 🟢 #306 |
-| | Per-category falsification config (nRand, restarts/steps, ε) | ⬜ next |
-| | falsify ∥ reach race (parfeval), CW fallback for hard cases | ⬜ |
+| | needReshape-aware PGD (image/permuted inputs) + format-from-layer + time-budget | ✅ merged (#306) |
+| | >3-D (Image3D) permute robustness in flat↔net mapping (Copilot) | ✅ merged (#306) |
+| | **Per-category falsification config** (PGD restarts/steps/max_time + nRand table) | ✅ merged (#309) |
+| | nRand tuned DOWN from measured ~15 ms/sample (acasxu falsify 21.7→8.6 s) | ✅ merged (#309) |
+| | **PGD on the NN-manifest path** (numerical grad: finite-diff + SPSA) | 🟢 #311 (lsnc_relu unknown→**SAT**) |
+| | falsify ∥ reach race (parfeval), CW fallback for hard cases | ⬜ (future) |
 | **2 — Validity (no −150)** | `validate_witness` re-evaluates every SAT before emitting | ✅ merged (#305) |
-| | needReshape-correct witness replay | 🟢 #306 |
-| | >3-D (Image3D) permute robustness in flat↔net mapping (Copilot) | 🟢 #306 (1e9717b5e) |
-| | **onnxruntime witness guard** (`validate_witness_onnx` + `onnx_replay_check.py`) | ✅ built + tested, awaiting runner wiring |
+| | needReshape-correct witness replay + >3-D robustness | ✅ merged (#306) |
+| | **onnxruntime witness guard** (`validate_witness_onnx` + `onnx_replay_check.py`) | ✅ merged (#307); runner-wiring DEFERRED (see below) |
 | **3 — Imprecise + refine + speed** | fast-method ladder (zono→abs-dom, no exact-star for big nets) | ✅ (earlier) |
-| | adaptive `relaxFactor` per benchmark | ⬜ next |
-| | CEGAR ReLU/input splitting refinement (`NN_reach_refinement`) | ⬜ |
-| | bandit method selection + bounds caching | ⬜ |
-| | GPU bound propagation / PGD-on-GPU | ⬜ (stretch) |
-| **Submission** | `install/prepare/run_instance.sh` (R2026a) | ✅ merged (#305, VNN_COMP2026/) |
+| | **Fix 4 `reachOptionsList{1}`-overwrite bugs** (dist_shift, linearize, cora, malbeware) | ✅ merged (#309) |
+| | **acasxu reach recovered** (ImageStar by input-layer type, not shape) | ✅ merged (#310) |
+| | per-category `relaxFactor` (set in the #309 reach ladders) | ✅ merged (#309) |
+| | CEGAR ReLU/input splitting refinement; bandit method selection; GPU | ⬜ (future) |
+| **CI reliability** | Disk-reclaim before Setup MATLAB (fix "No space left on device" flake) | ✅ merged (#306 test-matrix, #308 ci+regression) |
+| **Submission** | `install/prepare/run_instance.sh` (R2026a) | ✅ merged (#305) |
 | | TUM repeatability dry-run | ⬜ (needs the eval site) |
 | **VNN-LIB 2.0 (extended track)** | Python `vnnlib`-pip → `.mat` bridge | ⬜ (regular track needs none) |
+
+### Deferred / next (judgment calls made this session)
+- **onnxruntime guard runner-wiring**: built + merged as a standalone tool (#307), but NOT wired into the SAT path. Wiring it naively would emit `unknown` for a valid `sat` whenever the eval machine lacks onnxruntime (suppressing real SAT points). Needs a fallback that trusts `validate_witness` when onnxruntime is unavailable. Tracked.
+- **importer ReshapeLayer `.Vars`** (cgan, soundnessbench ERROR): new-style `importONNXNetwork` reshape layers store the shape in `.Vars` (+ permutes), not `.ONNXParams`; `ReshapeLayer.parse` only handles the old style. Coverage work — strategy deprioritizes it.
+- **acasxu exact-star scalability**: now that acasxu reach RUNS (#310), exact-star can blow up on its 6×50 ReLU net; competition timeout bounds it (easy instances solved, hard ones time out as before). A bounded/relax fallback could help.
+- **Full validation sweep** with all of #306–311 to quantify the cumulative scorecard lift.
 
 ## Measured results
 

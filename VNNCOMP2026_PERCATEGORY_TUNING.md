@@ -15,7 +15,7 @@ follow-ups.*
 
 # VNN-COMP 2026 Per-Category Tuning Spec for NNV
 
-> **Scope.** This document is the per-category falsification + reachability tuning plan for NNV's VNN-COMP 2026 entry, derived from the 25-row strategy sweep. It is implementation-ready against `code/nnv/examples/Submission/VNN_COMP2025/run_vnncomp_instance.m` (the runner), `pgd_falsify.m`, `falsify_single`, and `load_vnncomp_network`. **Gating note (corrected):** PR #306 ("needReshape-aware gradient falsification") is **NOT yet merged** as of 2026-06-11 -- it is in CI with a conditional auto-merge armed -- it already edited `run_vnncomp_instance.m`, `pgd_falsify.m`, `validate_witness.m`, and `test_pgd_falsify.m`. The runner now contains the `falsify_single -> pgd_falsify(... struct('seed',0,'max_time',5))` path described below, so the gate is **cleared** and this tuning can land on top of it. Rebase onto post-#306 `main`.
+> **Scope.** This document is the per-category falsification + reachability tuning plan for NNV's VNN-COMP 2026 entry, derived from the 25-row strategy sweep. It is implementation-ready against `code/nnv/examples/Submission/VNN_COMP2025/run_vnncomp_instance.m` (the runner), `pgd_falsify.m`, `falsify_single`, and `load_vnncomp_network`. **Dependency:** this tuning builds on PR #306 ("needReshape-aware gradient falsification"), which added the `falsify_single -> pgd_falsify(...)` path the per-category `falsifyOpts` thread plugs into. If #306 is not present in your tree, apply/rebase onto it first. (See the intro above for current implementation status.)
 
 ---
 

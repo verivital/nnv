@@ -603,6 +603,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
     elseif contains(category, "malbeware")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS");
         nnvnet = matlab2nnv(net);
+        reachOptions = struct;                    % initialize before field assignment
         reachOptions.reachMethod = 'approx-star'; % cheap sound method first
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;

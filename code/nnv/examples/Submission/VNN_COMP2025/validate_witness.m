@@ -84,15 +84,27 @@ end
 
 function arr = flat_to_net_arr(v, inputSize, needReshape)
     % flat ONNX-order vector -> network-input array (mirrors create_random_examples).
+    % permute_pad extends the leading-dim swap with identity on any higher dims, so
+    % >3-D inputs (e.g. Image3D) do not error in permute() (matches <=3-D exactly).
     v = double(v(:));
     switch needReshape
         case 2
-            arr = permute(reshape(v, [inputSize(2) inputSize(1) inputSize(3:end)]), [2 1 3]);
+            arr = permute_pad(reshape(v, [inputSize(2) inputSize(1) inputSize(3:end)]), [2 1]);
         case 3
-            arr = permute(reshape(v, inputSize), [3 2 1]);
+            arr = permute_pad(reshape(v, inputSize), [3 2 1]);
         case 1
-            arr = permute(reshape(v, inputSize), [2 1 3]);
+            arr = permute_pad(reshape(v, inputSize), [2 1]);
         otherwise
             if isscalar(inputSize), arr = reshape(v, [inputSize 1]); else, arr = reshape(v, inputSize); end
     end
+end
+
+function y = permute_pad(x, base)
+    % Permute x by `base` over its leading dims, leaving any higher dims in place.
+    % For an array with more dims than numel(base), the trailing dims map to identity
+    % (so a 4-D Image3D input no longer throws); for <=numel(base) dims it reduces to
+    % plain permute(x, base) -- identical to the original hard-coded vectors.
+    nd = max(numel(base), ndims(x));
+    p  = [base, (numel(base) + 1):nd];
+    y  = permute(x, p);
 end

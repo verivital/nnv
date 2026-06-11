@@ -134,21 +134,23 @@ end
 function ns = net_input_shape(inputSize, needReshape)
     switch needReshape
         case 1, ns = [inputSize(2) inputSize(1) inputSize(3:end)];
-        case 3, ns = [inputSize(3) inputSize(2) inputSize(1)];
+        case 3, ns = [inputSize(3) inputSize(2) inputSize(1) inputSize(4:end)];
         otherwise                                  % 0 and 2 -> inputSize
             if isscalar(inputSize), ns = [inputSize 1]; else, ns = inputSize; end
     end
 end
 
 function arr = flat_to_net_arr(v, inputSize, needReshape)
+    % permute_pad keeps any dims beyond the swapped leading ones in place, so >3-D
+    % (e.g. Image3D) inputs do not error in permute() and <=3-D is unchanged.
     v = double(v(:));
     switch needReshape
         case 2
-            arr = permute(reshape(v, [inputSize(2) inputSize(1) inputSize(3:end)]), [2 1 3]);
+            arr = permute_pad(reshape(v, [inputSize(2) inputSize(1) inputSize(3:end)]), [2 1]);
         case 3
-            arr = permute(reshape(v, inputSize), [3 2 1]);
+            arr = permute_pad(reshape(v, inputSize), [3 2 1]);
         case 1
-            arr = permute(reshape(v, inputSize), [2 1 3]);
+            arr = permute_pad(reshape(v, inputSize), [2 1]);
         otherwise
             if isscalar(inputSize), arr = reshape(v, [inputSize 1]); else, arr = reshape(v, inputSize); end
     end
@@ -157,9 +159,18 @@ end
 function v = net_arr_to_flat(arr, inputSize, needReshape)
     arr = reshape(arr, net_input_shape(inputSize, needReshape));   % drop padded dims
     switch needReshape
-        case 2, arr = permute(arr, [2 1 3]);
-        case 3, arr = permute(arr, [3 2 1]);
-        case 1, arr = permute(arr, [2 1 3]);
+        case 2, arr = permute_pad(arr, [2 1]);
+        case 3, arr = permute_pad(arr, [3 2 1]);
+        case 1, arr = permute_pad(arr, [2 1]);
     end
     v = reshape(arr, [], 1);
+end
+
+function y = permute_pad(x, base)
+    % Permute x by `base` over its leading dims, leaving any higher dims in place.
+    % For more dims than numel(base), trailing dims map to identity (>3-D no longer
+    % throws); for <=numel(base) dims it reduces to plain permute(x, base).
+    nd = max(numel(base), ndims(x));
+    p  = [base, (numel(base) + 1):nd];
+    y  = permute(x, p);
 end

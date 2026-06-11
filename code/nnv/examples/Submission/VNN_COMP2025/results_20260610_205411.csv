@@ -1,0 +1,7 @@
+subfolder,category,onnx,vnnlib,status,status_str,time_s,error_message
+cifar100_2024,cifar100,onnx/CIFAR100_resnet_medium.onnx,vnnlib/CIFAR100_resnet_medium_prop_idx_7641_sidx_1041_eps_0.0039.vnnlib,-1,timeout,300.11,"exceeded 300 s"
+cora_2024,cora,onnx/mnist-point.onnx,vnnlib/mnist-img0.vnnlib,-1,timeout,300.16,"exceeded 300 s"
+safenlp_2024,safenlp,onnx/medical/perturbations_0.onnx,vnnlib/medical/hyperrectangle_418.vnnlib,2,unknown,18.68,""
+sat_relu,sat_relu,onnx/sat_v30_c38.onnx,vnnlib/sat_v30_c38.vnnlib,2,unknown,11.51,""
+tinyimagenet_2024,tinyimagenet,onnx/TinyImageNet_resnet_medium.onnx,vnnlib/TinyImageNet_resnet_medium_prop_idx_1126_sidx_4974_eps_0.0039.vnnlib,-1,timeout,300.09,"exceeded 300 s"
+vggnet16_2022,vggnet,onnx/vgg16-7.onnx,vnnlib/spec0_suit.vnnlib,-1,timeout,300.01,"exceeded 300 s"

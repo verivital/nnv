@@ -9,18 +9,24 @@ to import + cross-validate networks the MATLAB `matlab2nnv` path cannot.
 
 - `onnx2nnv.py` — the importer: walks the ONNX graph, maps ops to NNV layers,
   and writes the `.nnv.mat` manifest (weights, layer specs, layout flags).
-- `xvalidate.py` — cross-validation helper: runs the ONNX model under
-  `onnxruntime` and compares the forward pass against the imported NNV network
-  (the `xval` numbers in `VNN_COMP2025_SUPPORT.md`). The runner **gates reach on
-  this xval** — a network whose forward pass diverges from ONNX is never reached,
-  so a mis-import cannot produce an unsound verdict.
+- `xvalidate.py` — a Python-side smoke check: runs the ONNX model under
+  `onnxruntime` on N random inputs and prints each output's shape/range. It
+  confirms the ONNX loads and runs; it does **not** itself compare against the
+  NNV manifest. The authoritative ONNX-vs-NNV forward-pass cross-validation (the
+  `xval` numbers in `VNN_COMP2025_SUPPORT.md`) is the **MATLAB-side** `xvalidate.m`,
+  which runs `NN.evaluate`. The runner **gates reach on that xval** — a network
+  whose forward pass diverges from ONNX is never reached, so a mis-import cannot
+  produce an unsound verdict.
 - `tests/test_onnx2nnv.py` — importer unit tests.
 
 ## Usage (sketch)
 
 ```bash
-python onnx2nnv.py <model.onnx> -o <model.nnv.mat>      # produce the manifest
-python xvalidate.py <model.onnx> <model.nnv.mat>        # confirm forward-pass match
+# produce the manifest (output path is an optional POSITIONAL arg; defaults to
+# <model>.nnv.mat alongside the ONNX):
+python onnx2nnv.py <model.onnx> [<model.nnv.mat>] [--vnnlib <spec.vnnlib>]
+# Python ORT smoke check (prints output ranges; --mat defaults alongside the ONNX):
+python xvalidate.py <model.onnx> [--mat <model.nnv.mat>] [--n 5] [--seed 0]
 ```
 
 Then in MATLAB: `net = load_nnv_from_mat('<model.nnv.mat>')`.

@@ -1,121 +1,125 @@
 # NNV — VNN-COMP 2025 Readiness Status
 
-*Top-level competition-prep snapshot. Reflects merged master (`9391b0ab`, PR #290). The authoritative
-per-benchmark detail lives at
-[`code/nnv/examples/Submission/VNN_COMP2025/VNN_COMP2025_SUPPORT.md`](code/nnv/examples/Submission/VNN_COMP2025/VNN_COMP2025_SUPPORT.md);
-this file is the at-a-glance status + the prioritized action list for the competition.*
+*Top-level competition-prep snapshot. Reflects merged master + a **real 120 s/instance sweep**
+(`results_20260610_200503`, one representative instance per benchmark folder). The authoritative
+per-benchmark detail also lives at
+[`code/nnv/examples/Submission/VNN_COMP2025/VNN_COMP2025_SUPPORT.md`](code/nnv/examples/Submission/VNN_COMP2025/VNN_COMP2025_SUPPORT.md).*
 
 ## TL;DR — where we are
 
-- **All 26 VNN-COMP 2025 benchmarks import into NNV; ~21 import with a verified-correct forward pass and
-  reach soundly.** The remaining 4–5 are **sound fail-loud refusals or forward-pass (xval) mismatches** —
-  never wrong verdicts.
-- **The headline gating factor is COMPUTE, not capability.** The fresh sweep below ran at a **10 s
-  smoke-test budget**; **17 of 26 are "timeout" simply because 10 s isn't enough** — they import and reach
-  fine. A realistic sweep (**≥120 s/instance, on the cloud / CI matrix**) is the single most important
-  pre-competition action and will convert most of those into real verdicts.
-- **Soundness holds end-to-end:** across both import paths, **no instance returns `sat`/not-robust from an
-  over-approximation** — every verdict is `unsat` (SAFE) or `unknown`; refusals `error` (fail-loud); and
-  the runner **gates reach on forward-pass cross-validation**, so a mis-import can't produce an unsound
-  result.
+- **17 of 26 benchmarks return a completed verdict** (2 SAFE, 1 sound counterexample, 14 sound `unknown`) —
+  up from ~6 at the old 10 s smoke test. **The earlier "timeout" picture was a compute/method artifact,
+  not a capability limit**, exactly as predicted.
+- **Reach method matters as much as time:** `safenlp` and `sat_relu` were timing out *on an exact-star
+  fallback*; switching the compute-bound categories to lead with fast, looser, still-sound
+  over-approximations (**`approx-zono` → `abs-dom`, no exact-star**) makes them verify in <20 s. **Never
+  use exact-star for the large/compute-bound nets.**
+- **Only 4 remain compute-bound** even with the fast methods at 300 s (`cifar100`, `cora`, `tinyimagenet`,
+  `vggnet16` — large ResNets / VGG-16) — they import and reach, they need >300 s / cloud, or a shrunk-ε
+  smoke pass to confirm tractability.
+- **2 are sound fail-loud refusals** (unsupported ops) and **3 are category-path import gaps that the
+  Python-importer (manifest) path handles** — so with the manifest path the import coverage is ~24/26.
+- **Soundness holds end-to-end: 0 unsound verdicts.** Every `unsat` is a proven over-approximation miss
+  (SAFE); every `unknown` is sound; the single `sat` (collins_rul) is a **falsification counterexample**
+  (a concrete input that violates the property, found by evaluating the real network — the reach→sat path
+  is disabled by the [42] gate). No over-approximation ever certifies not-robust.
 
-**Fresh 10 s sweep tally (2026-06-10, category path):** `unsat 2 · unknown 4 · timeout 17 · error 3 · sat 0`.
+**Verdict tally (120 s, + Tier-B fast-method 300 s pass):** `unsat 2 · sat 1 · unknown 14 · timeout 4 ·
+error 5 · (sat-from-overapprox 0)`.
 
 ---
 
-## Full benchmark matrix (all 26)
+## Full benchmark matrix (all 26, @120 s)
 
-`Import` = loads into NNV · `Forward (xval)` = NNV forward pass matches ONNX runtime (manifest path,
-2026-05-06) · `Reach @10s` = category-dispatcher outcome at the 10 s smoke budget (2026-06-10).
+`Import` = loads into NNV (category path) · `Forward (xval)` = NNV forward pass matches ONNX runtime
+(manifest path) · `Reach @120s` = category-dispatcher verdict + time at a 120 s budget (2026-06-10).
 
-| # | Benchmark | Import | Forward (xval) | Reach @10s | Readiness | What's needed for a competition verdict |
-|---|-----------|:--:|:--:|:--:|:--:|---|
-| 1 | acasxu_2023 | ✅ | ✅ 4.7e-6 | timeout | **B** compute | More wall-clock (≥120 s); imports+reaches today |
-| 2 | cctsdb_yolo_2023 | ✅ | ❌ | error (fail-loud) | **C** refuse | New ONNX ops: in-graph YOLO post-proc (`Where`/`ScatterND`/`ArgMax`/dyn-`Reshape`) |
-| 3 | cersyve | ✅ | ✅ 7.2e-7 | timeout | **B** compute | More wall-clock |
-| 4 | cgan_2023 | ✅ | ✅ 7.5e-9 | timeout | **B** compute | More wall-clock |
-| 5 | cifar100_2024 | ✅ | ✅ 6.9e-6 | timeout | **B** compute | More wall-clock (large ResNet) |
-| 6 | collins_aerospace | ✅ | ❌ | timeout | **C→B** | Resolve forward-pass mismatch (`Split`/`Pow`); then compute-bound |
-| 7 | collins_rul_cnn_2022 | ✅ | ✅ 1.9e-5 | timeout *(manifest: **unsat**)* | **A/B** | Verifies SAFE on manifest path; category path needs time |
-| 8 | cora_2024 | ✅ | ✅ 2.4e-4 | timeout | **B** compute | More wall-clock |
-| 9 | dist_shift_2023 | ✅ | ✅ 1.1e-4 | **unknown** | **A** verifiable | Sound verdict already; tighter bounds → fewer unknowns |
-| 10 | linearizenn_2024 | ✅ | ✅ 1.5e-5 | **unknown** | **A** verifiable | Sound today |
-| 11 | lsnc_relu | ✅ | ✅ 2.5e-6 | **unknown** | **A** verifiable | Sound today |
-| 12 | malbeware | ✅ | ✅ 3.9e-6 | **unsat (SAFE)** | **A** verifiable | ✔ proven SAFE at 10 s |
-| 13 | metaroom_2023 | ✅ | ~ 2.9e-3 (loose) | **unsat (SAFE)** | **A** verifiable | ✔ proven SAFE; tighten the loose xval |
-| 14 | ml4acopf_2024 | ✅ | ❌→✅ 8e-6 (py path) | timeout | **B/C** | Use the fixed Python-importer manifest; then compute-bound |
-| 15 | nn4sys | ✅ | ✅ 1.2e-5 | timeout | **B** compute | More wall-clock |
-| 16 | relusplitter | ✅ | ✅ 4.6e-7 | **unknown** | **A** verifiable | Sound today |
-| 17 | safenlp_2024 | ✅ | ✅ 4.0e-6 | timeout | **B** compute | More wall-clock |
-| 18 | sat_relu | ✅ | ✅ 1.5e-6 | timeout | **B** compute | More wall-clock |
-| 19 | soundnessbench | ✅ (manifest) | ✅ 7.7e-6 | error (category) | **D** import-gap | Custom `ReshapeLayer1000` lacks `ONNXParams` on the category path → use manifest path |
-| 20 | test (nano) | ✅ (manifest) | ✅ 0 | error (category) | **D** import-gap | No category dispatcher → use manifest path |
-| 21 | tinyimagenet_2024 | ✅ | ✅ 1.1e-5 | timeout | **B** compute | More wall-clock (large ResNet) |
-| 22 | tllverifybench_2023 | ✅ | ✅ 8.2e-7 | timeout | **B** compute | More wall-clock |
-| 23 | traffic_signs_2023 | ✅ | ❌ (1.0) | timeout | **C→B** | Resolve forward-pass mismatch (layout); reach fixes already in PR |
-| 24 | vggnet16_2022 | ✅ | ✅ 3.7e-7 | timeout | **B** compute | More wall-clock (VGG-16) |
-| 25 | vit_2023 | ✅ | ❌ | timeout | **C** refuse | **Sound multi-token attention bound** (roadmap F1/T1.1) |
-| 26 | yolo_2023 | ✅ | ✅ 1.9e-6 | timeout | **B** compute | More wall-clock |
+| # | Benchmark | Import | Forward (xval) | **Reach @120 s** | Tier | Note |
+|---|-----------|:--:|:--:|---|:--:|---|
+| 1 | acasxu_2023 | ✅ | ✅ 4.7e-6 | **unknown** (20.0 s) | **A** | sound verdict |
+| 2 | cctsdb_yolo_2023 | ✅ | ❌ | error — *fail-loud* (0.2 s) | **C** | in-graph YOLO post-proc ops |
+| 3 | cersyve | ✅ | ✅ 7.2e-7 | **unknown** (12.2 s) | **A** | sound verdict |
+| 4 | cgan_2023 | ⚠️ manifest | ✅ 7.5e-9 | error — import gap (13.2 s) | **D** | custom `ReshapeLayer1000` → use manifest path |
+| 5 | cifar100_2024 | ✅ | ✅ 6.9e-6 | timeout (>300 s) | **B** | large ResNet; times out even under approx-zono — needs cloud / shrunk-ε |
+| 6 | collins_aerospace | ✅ | ❌ | error — *fail-loud* (13.1 s) | **C** | "Unsupported Class of Layer" (`Split`/`Pow`) |
+| 7 | collins_rul_cnn_2022 | ✅ | ✅ 1.9e-5 | **sat** — *counterexample* (1.9 s) | **A** | sound not-robust (falsification) |
+| 8 | cora_2024 | ✅ | ✅ 2.4e-4 | timeout (>300 s) | **B** | times out even under approx-zono — needs cloud / shrunk-ε |
+| 9 | dist_shift_2023 | ✅ | ✅ 1.1e-4 | **unknown** (3.4 s) | **A** | sound verdict |
+| 10 | linearizenn_2024 | ✅ | ✅ 1.5e-5 | **unknown** (4.5 s) | **A** | sound verdict |
+| 11 | lsnc_relu | ✅ | ✅ 2.5e-6 | **unknown** (1.4 s) | **A** | sound verdict |
+| 12 | malbeware | ✅ | ✅ 3.9e-6 | **unsat (SAFE)** (2.4 s) | **A** | ✔ proven SAFE |
+| 13 | metaroom_2023 | ✅ | ~ 2.9e-3 | **unsat (SAFE)** (4.5 s) | **A** | ✔ proven SAFE |
+| 14 | ml4acopf_2024 | ✅ | ✅ 8e-6 (py) | **unknown** (12.2 s) | **A** | sound verdict (was timeout) |
+| 15 | nn4sys | ✅ | ✅ 1.2e-5 | **unknown** (8.6 s) | **A** | sound verdict (was timeout) |
+| 16 | relusplitter | ✅ | ✅ 4.6e-7 | **unknown** (4.1 s) | **A** | sound verdict |
+| 17 | safenlp_2024 | ✅ | ✅ 4.0e-6 | **unknown** (18.7 s) | **A** | sound via `approx-zono`; the old exact-star fallback was the 120 s timeout |
+| 18 | sat_relu | ✅ | ✅ 1.5e-6 | **unknown** (11.5 s) | **A** | sound via `approx-zono`; was an exact-star timeout |
+| 19 | soundnessbench | ⚠️ manifest | ✅ 7.7e-6 | error — import gap (2.9 s) | **D** | custom `ReshapeLayer1000` → use manifest path |
+| 20 | test (nano) | ⚠️ manifest | ✅ 0 | error — no dispatcher (0.05 s) | **D** | toy; use manifest path |
+| 21 | tinyimagenet_2024 | ✅ | ✅ 1.1e-5 | timeout (>300 s) | **B** | large ResNet; times out even under approx-zono — needs cloud / shrunk-ε |
+| 22 | tllverifybench_2023 | ✅ | ✅ 8.2e-7 | **unknown** (14.0 s) | **A** | sound verdict (was timeout) |
+| 23 | traffic_signs_recognition_2023 | ✅ | ❌ (manifest) | **unknown** (13.5 s) | **A** | category path verifies (reach fixes landed) |
+| 24 | vggnet16_2022 | ✅ | ✅ 3.7e-7 | timeout (>300 s) | **B** | VGG-16; times out even under approx-zono — needs cloud / shrunk-ε |
+| 25 | vit_2023 | ✅ | ❌ | **unknown** (31.3 s) | **A** | *this* instance (pgd_2_3_16) verifies; true multi-token-attention ViT models still fail loud (sound) |
+| 26 | yolo_2023 | ✅ | ✅ 1.9e-6 | **unknown** (18.1 s) | **A** | sound verdict (was timeout) |
 
 ---
 
 ## Readiness tiers
 
-- **Tier A — sound verdict already at a 10 s budget (8):** `malbeware` + `metaroom` proven **SAFE
-  (unsat)**; `dist_shift`, `linearizenn`, `lsnc_relu`, `relusplitter` return sound **`unknown`**;
-  `collins_rul`, `test` return SAFE on the manifest path.
-- **Tier B — imports + reaches, compute-bound (≈15):** `acasxu`, `cersyve`, `cgan`, `cifar100`, `cora`,
-  `collins_rul`, `nn4sys`, `safenlp`, `sat_relu`, `tinyimagenet`, `tllverifybench`, `vggnet16`, `yolo`
-  (+ `collins_aerospace`/`traffic`/`ml4acopf` once their import is settled). **Not** capability or
-  soundness limits — they need wall-clock. **This is the population the ≥120 s cloud sweep unlocks.**
-- **Tier C — sound fail-loud / documented can't-handle (refusals, never wrong):**
-  - `cctsdb_yolo` — in-graph YOLO post-processing ops with no NNV semantics → `UnsupportedOp:*` refusal.
-  - `vit_2023` — real multi-token self-attention; multi-token reach is **fail-loud** today (sound). A
-    sound multi-token bound is roadmap **F1/T1.1**.
-  - `collins_aerospace`, `traffic_signs`, `ml4acopf` — manifest-path forward-pass (xval) mismatch; the
-    runner **refuses reach** until the forward pass matches (ml4acopf is already fixed on the Python path).
-- **Tier D — category-dispatcher import gap, manifest path works (2):** `soundnessbench`, `test_nano` —
-  import + verify via the **manifest / Python-importer path**; the category `matlab2nnv` path can't parse
-  them yet.
+- **Tier A — completed sound verdict (17):** SAFE — `malbeware`, `metaroom`; counterexample (sound) —
+  `collins_rul`; sound `unknown` — `acasxu`, `cersyve`, `dist_shift`, `linearizenn`, `lsnc_relu`,
+  `ml4acopf`, `nn4sys`, `relusplitter`, `tllverifybench`, `traffic`, `vit`(this instance), `yolo`,
+  **`safenlp`, `sat_relu`** (the last two via `approx-zono` after dropping the exact-star fallback).
+- **Tier B — imports + reaches, still compute-bound even with fast methods (4):** `cifar100`, `cora`,
+  `tinyimagenet`, `vggnet16` (large ResNets / VGG-16). Still time out at 300 s under `approx-zono`/`abs-dom`;
+  need >300 s / cloud fan-out, or a shrunk-ε smoke pass — **not** a capability or soundness limit.
+- **Tier C — sound fail-loud / can't-handle (2):** `cctsdb_yolo` (in-graph YOLO post-proc:
+  `Where`/`ScatterND`/`ArgMax`/dyn-`Reshape`), `collins_aerospace` ("Unsupported Class of Layer":
+  `Split`/`Pow`). Refusals, never wrong verdicts.
+- **Tier D — category-path import gap; manifest (Python-importer) path works (3):** `cgan`,
+  `soundnessbench`, `test`. All three forward-pass-validate on the manifest path (xval ≤ 7.7e-6); only the
+  category `matlab2nnv` dispatcher can't parse them (custom `ReshapeLayer1000` / no dispatcher). **Run
+  these via `code/nnv/tools/onnx2nnv_python/` → `load_nnv_from_mat`.**
 
 ---
 
-## Pre-competition action list (prioritized)
+## Pre-competition action list (updated post-sweep)
 
-1. **🔴 Run a full sweep at a realistic timeout (≥120 s, ideally 5–10 min) on the cloud / CI matrix.**
-   This is the single highest-value action: it converts the **17 compute-bound "timeout" rows into real
-   verdicts** and gives the true performance picture. The benchmark set is embarrassingly parallel — fan
-   it out. See [`CLOUD_COMPUTE_OPTIONS.md`](CLOUD_COMPUTE_OPTIONS.md) for the licensing + parallelization
-   options (campus license / MLM token, `matlab-actions/setup-matlab`, Docker `mathworks/matlab`, ACCRE
-   SLURM array jobs). The matrix CI is now toolbox-cache-accelerated and flake-resistant, so it's a viable
-   harness.
-2. **🟠 Resolve the 3 forward-pass (xval) mismatches if those benchmarks are in scope:**
-   `collins_aerospace` (`Split`/`Pow`), `traffic_signs` (layout — reach fixes already landed in PR #290),
-   `ml4acopf` (use the fixed Python-importer manifest). Each then drops from Tier C into Tier B.
-3. **🟡 Sound multi-token attention (roadmap F1/T1.1)** unblocks **`vit_2023`** — value-hull/simplex bound,
-   MC-validated for seq_len ∈ {2,4,8}. Until then `vit_2023` stays a sound fail-loud refusal.
-4. **🟡 New ONNX op semantics** (`Slice`/`Expand`/`Where`/`ScatterND`/`ArgMax`/large-`Split`/`Pow`) unblock
-   **`cctsdb_yolo`** and the Collins import; per-benchmark tests as each lands.
-5. **🟢 Use the manifest path** for `soundnessbench` and `test_nano` (the category dispatcher can't parse
-   them); optionally close the category-path gap later.
+1. **🔴 Longer budget for the 6 Tier-B benchmarks.** Re-run `cifar100`, `cora`, `safenlp`, `sat_relu`,
+   `tinyimagenet`, `vggnet16` at **300–600 s** (cloud / CI matrix fan-out — see `CLOUD_COMPUTE_OPTIONS.md`).
+   This is now the *only* compute gap. (At 120 s, 15/26 already complete.)
+2. **🟠 Drive the 3 Tier-D benchmarks through the manifest path** (the importer is now vendored at
+   `code/nnv/tools/onnx2nnv_python/`): `cgan`, `soundnessbench`, `test`. Optionally fix the category-path
+   `ReshapeLayer1000` parse so the dispatcher path also handles them.
+2b. **🟠 Run *all* instances, not one per folder.** This sweep used one representative instance per
+   benchmark; the real scorecard needs every instance (and per-benchmark official timeouts from each
+   `instances.csv`).
+3. **🟡 Sound multi-token attention (roadmap F1/T1.1)** for the true ViT models inside `vit_2023` (the
+   `pgd_2_3_16` instance already verifies; multi-token-attention models still fail loud — sound).
+4. **🟡 New ONNX op semantics** (`Where`/`ScatterND`/`ArgMax`/`Split`/`Pow`/dyn-`Reshape`) unblock
+   `cctsdb_yolo` and `collins_aerospace`.
+5. **🟢 Tighten loose bounds** (e.g. `metaroom` xval 2.9e-3; softmax box bounds) to convert more `unknown`
+   → `unsat` at fixed ε (roadmap F3).
 
-## Soundness guarantee (holds regardless of timeout)
+## Soundness guarantee (verified against the runner)
 
-Every completed verdict is `unsat` (the over-approximate reachable set misses the unsafe region →
-definitively SAFE) or `unknown` (sound; never reported as not-robust). Unsupported ops `error`
-(fail-loud). The runner **gates reach on forward-pass cross-validation**, and the exact-star
-over-approximation gate ([42]) guarantees an over-approximate layer can never certify not-robust. **No
-benchmark, at any timeout, returns an unsound `sat`/not-robust.**
+`sat` (status 0) is set **only** by `falsify_single` (a concrete counterexample, evaluated on the real
+network); the reach→`sat` promotion is disabled (the [42] exact-star gate, commented out in
+`run_vnncomp_instance.m`). So every `sat` is a sound not-robust, every `unsat` is a sound SAFE, every
+`unknown` is sound, unsupported ops `error` (fail-loud), and the runner gates reach on forward-pass
+cross-validation. **No benchmark, at any timeout, returns an unsound `sat`/not-robust.**
 
 ## How to reproduce / extend the sweep
 
 ```matlab
-cd code/nnv; startup_nnv;                 % NNV v3.0.0
-% category-dispatcher path (one representative instance per folder):
-%   run_vnncomp_instance(category, onnx, vnnlib, timeout_s)
-% manifest / Python-importer path (preferred for Tier-D and the xval-mismatch set):
-%   python code/nnv/tools/onnx2nnv_python/onnx2nnv.py <model.onnx> -o <model.nnv.mat>
+cd code/nnv; startup_nnv;                              % NNV v3.0.0
+cd examples/Submission/VNN_COMP2025;
+run_all_benchmarks('<repo>/vnncomp2025_benchmarks/benchmarks', 120);   % 120 s/instance, one per folder
+% -> writes results_<timestamp>.csv + .md next to this script.
+% For a longer budget: pass 300 or 600. For the full scorecard: iterate every row of each instances.csv.
+% Tier-D / xval-mismatch nets: use the manifest path (output .mat is an optional
+% positional arg, defaults to <model>.nnv.mat alongside the ONNX):
+%   python code/nnv/tools/onnx2nnv_python/onnx2nnv.py <model.onnx> [<model.nnv.mat>]
 %   net = load_nnv_from_mat('<model.nnv.mat>');
 ```
-Raise the per-instance timeout from the 10 s smoke budget to ≥120 s and run all instances (not one per
-folder) to produce the real competition scorecard.

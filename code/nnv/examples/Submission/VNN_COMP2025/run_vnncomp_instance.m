@@ -859,6 +859,25 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList = [sound_opts, reachOptionsList];
     end
 
+    % Compute-bound categories (large CNNs / NLP / a SAT-encoding) time out under
+    % exact-star -- and even approx-star -- within a realistic per-instance budget.
+    % Lead with fast, looser, but STILL-SOUND over-approximations (zonotope, then
+    % abstract-domain) and DROP exact-star, so they at least produce a sound verdict
+    % instead of timing out; the tighter per-category methods stay as fallbacks.
+    % (Per the timeout-model guidance: never exact-star for these.)
+    slow_cats = ["cifar100","cora","safenlp","sat_relu","tinyimagenet","vggnet"];
+    if any(contains(category, slow_cats)) && is_nnvnet_valid(nnvnet)
+        kept = {};
+        for k = 1:numel(reachOptionsList)
+            if ~strcmp(reachOptionsList{k}.reachMethod, 'exact-star')
+                kept{end+1} = reachOptionsList{k}; %#ok<AGROW>
+            end
+        end
+        zo = struct(); zo.reachMethod = 'approx-zono';
+        ad = struct(); ad.reachMethod = 'abs-dom';
+        reachOptionsList = [{zo, ad}, kept];
+    end
+
 end
 
 % Create an array of random examples from input set and reshape if necessary

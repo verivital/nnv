@@ -71,8 +71,9 @@ def load_tool_bench(results_dir, tool, bench):
         return out
     with open(p, newline='', errors='replace') as f:
         for row in csv.reader(f):
-            if len(row) >= 5:
-                out[(base(row[1]), base(row[2]))] = norm(row[4])
+            if len(row) < 5 or row[0].strip().lower() == 'category':
+                continue                       # skip blank rows and the header line
+            out[(base(row[1]), base(row[2]))] = norm(row[4])
     return out
 
 
@@ -116,19 +117,29 @@ def main():
     print("## Soundness check: NNV-NEW verdicts vs the cross-tool MAJORITY\n")
     benches = sorted(new_by_bench)
     ref_cache = {b: {t: load_tool_bench(rd, t, b) for t in TOOLS} for b in benches}
-    false_sat, false_unsat, agree, no_ref, contested = [], [], 0, 0, []
+    false_sat, false_unsat, agree, no_ref = [], [], 0, 0
+    contested, ties, gold_disagree = [], [], []
     for (b, onnx, vl), v in new_inst.items():
         if v not in DEFINITIVE:
             continue
         per_tool = ref_cache.get(b, {})
         votes = Counter(per_tool[t].get((onnx, vl)) for t in TOOLS
                         if per_tool[t].get((onnx, vl)) in DEFINITIVE)
-        if not votes:
+        n_sat, n_unsat = votes.get('sat', 0), votes.get('unsat', 0)
+        # alpha-beta-CROWN was sound+complete with 0 incorrect verdicts in 2025: a
+        # disagreement with it is high-signal even when there's no clear majority.
+        gold = per_tool.get(REF_TOOL, {}).get((onnx, vl))
+        if gold in DEFINITIVE and gold != v:
+            gold_disagree.append((b, onnx, vl, v, gold, dict(votes)))
+        if n_sat and n_unsat:                      # the field itself disagrees sat-vs-unsat
+            contested.append((b, onnx, vl, dict(votes), v))
+        if n_sat == 0 and n_unsat == 0:
             no_ref += 1
             continue
-        ref = votes.most_common(1)[0][0]          # majority verdict
-        if 'sat' in votes and 'unsat' in votes:   # the field itself disagrees
-            contested.append((b, onnx, vl, dict(votes), v))
+        if n_sat == n_unsat:                       # a tie is NOT a majority -- don't hard-flag
+            ties.append((b, onnx, vl, dict(votes), v))
+            continue
+        ref = 'sat' if n_sat > n_unsat else 'unsat'   # strict majority
         if ref == v:
             agree += 1
         elif v == 'sat':
@@ -136,12 +147,13 @@ def main():
         else:
             false_unsat.append((b, onnx, vl, dict(votes)))
 
-    print(f"- NNV-NEW definitive verdicts checked: {agree + len(false_sat) + len(false_unsat) + no_ref}")
+    print(f"- NNV-NEW definitive verdicts checked: {agree + len(false_sat) + len(false_unsat) + len(ties) + no_ref}")
     print(f"- **AGREE with majority:** {agree}")
     print(f"- **NO reference** (no other tool gave a definitive verdict): {no_ref}")
+    print(f"- **NO majority** (tools tied sat-vs-unsat): {len(ties)} -- see contested list, not hard-flagged")
     print(f"- !! **NNV sat but majority unsat (probable FALSE SAT, -150 risk):** {len(false_sat)}")
     print(f"- !! **NNV unsat but majority sat (probable unsound proof):** {len(false_unsat)}")
-    print(f"- (field split sat-vs-unsat on {len(contested)} instance(s) NNV also decided -- tool soundness issues)\n")
+    print(f"- !! **NNV disagrees with alpha-beta-CROWN (gold standard):** {len(gold_disagree)}\n")
     for tag, lst in (('FALSE-SAT', false_sat), ('FALSE-UNSAT', false_unsat)):
         if lst:
             print(f"### {tag}: NNV={'sat' if tag=='FALSE-SAT' else 'unsat'} vs the majority\n")
@@ -150,8 +162,16 @@ def main():
             if len(lst) > 80:
                 print(f"- ... and {len(lst)-80} more")
             print()
-    if not false_sat and not false_unsat:
-        print("OK: No NNV-NEW verdict disagreed with the cross-tool majority -- sound on the checked instances.\n")
+    if gold_disagree:
+        print("### NNV disagrees with alpha-beta-CROWN (review first -- gold standard)\n")
+        for b, onnx, vl, nv, g, votes in gold_disagree[:80]:
+            print(f"- `{b}` {onnx} / {vl}: NNV={nv} vs a-b-CROWN={g} (all votes {dict(votes)})")
+        if len(gold_disagree) > 80:
+            print(f"- ... and {len(gold_disagree)-80} more")
+        print()
+    if not false_sat and not false_unsat and not gold_disagree:
+        print("OK: No NNV-NEW verdict disagreed with the majority or with alpha-beta-CROWN -- "
+              "sound on the checked instances.\n")
 
     # --- coverage / opportunity: where the FIELD solves but NNV does not ---
     print("## Coverage gap: instances the FIELD solved but NNV did not (minimize these)\n")

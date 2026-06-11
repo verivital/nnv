@@ -163,6 +163,7 @@ for i = 1:n
             ternary(~isempty(err), [': ' err(1:min(120,end))], ''));
         row = {sub, cat, pr.onnx_rel, pr.vnnlib_rel, status, status_str, time_s, err};
         results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
+        if exist(out_file, 'file'), delete(out_file); end   % avoid leaving 1000s of temp .txt
     end
 end
 
@@ -256,7 +257,7 @@ for i = 1:n
     s = matlab.lang.makeValidName(char(results{i,6}));
     if isfield(counts, s), counts.(s) = counts.(s)+1; else, counts.other = counts.other+1; end
 end
-fprintf(fid, '## Tally (one representative instance per benchmark folder)\n\n');
+fprintf(fid, '## Tally (per recorded instance)\n\n');
 fprintf(fid, '| outcome | count |\n|---|---|\n');
 flds = fieldnames(counts);
 for i = 1:numel(flds)

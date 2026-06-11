@@ -8,8 +8,8 @@ Input CSV columns (from run_all_benchmarks.m):
 VNN-COMP scoring (per the rules): a correct sat/unsat = +10, an INCORRECT verdict =
 -150, and timeout/unknown/error = 0. We do NOT have ground truth here, so this reports
 SOLVED counts (sat+unsat) and an OPTIMISTIC score (assumes every emitted sat/unsat is
-correct -- the real score needs the official checker / 2025 ground truth, which
-compare_to_2025.py cross-checks). Use this for a quick directional read.
+correct -- the real score needs the official checker / 2025 ground truth; compare_to_2025.py
+reports this NNV scorecard against the 2025 results for context). Quick directional read.
 
 Usage:  python3 summarize_sweep.py results_all.csv [> summary.md]
 """
@@ -37,7 +37,9 @@ def main():
         by_cat[cat][st] += 1
         overall[st] += 1
         try:
-            times.append(float(r.get('time_s') or 0))
+            t = float(r.get('time_s') or 0)
+            if t > 0:                      # skip 0-time rows (missing/no-instance) -> no skew
+                times.append(t)
         except ValueError:
             pass
 

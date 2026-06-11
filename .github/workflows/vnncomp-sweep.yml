@@ -135,7 +135,7 @@ jobs:
           restore-keys: |
             nnv-tbxmanager-${{ runner.os }}-
 
-      - name: Run sweep for ${{ matrix.folder }} (all instances)
+      - name: Run sweep for ${{ matrix.folder }} (run_which=${{ github.event.inputs.run_which }})
         uses: matlab-actions/run-command@v2
         timeout-minutes: 330
         with:

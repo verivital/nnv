@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""compare_to_2025.py -- compare NNV's fresh sweep to the official VNN-COMP 2025
-results (NNV's own 2025 line + the other tools), per benchmark.
+"""compare_to_2025.py -- put NNV's fresh sweep next to the official VNN-COMP 2025
+results for context.
 
-The VNN-COMP results repo layout has varied year to year, so this script DISCOVERS the
-structure (any *.csv it can find) rather than hard-coding it, identifies NNV's 2025
-per-instance verdicts and the other tools' verdicts heuristically, and reports:
-  1. NNV NEW (this sweep) solved/sat/unsat per benchmark,
-  2. NNV 2025 (from the results repo) for the same benchmarks,
-  3. the other tools' solved totals per benchmark (so we see the field),
-and flags any NNV-NEW `sat`/`unsat` that DISAGREES with the 2025 consensus (a possible
-incorrect verdict -- the -150 risk). It prints what format it found so the heuristics
-are easy to refine.
+CURRENT behaviour (the VNN-COMP results repo layout has varied year to year, so this is
+deliberately conservative):
+  1. Prints NNV NEW (this sweep) solved/sat/unsat per benchmark + totals, against the
+     published 2025 NNV baseline (1082 solved / 697.3 pts).
+  2. DISCOVERS the 2025 results repo structure (walks it for *.csv, identifies the likely
+     NNV file, and prints a sample) so the exact column format is visible.
+
+NOT yet implemented (the format above must be confirmed first): per-instance parsing of
+the 2025 verdicts, per-tool totals, and flagging NNV-NEW sat/unsat that disagree with the
+2025 consensus (the -150 risk). The discovery output makes wiring those a small, targeted
+follow-up; the NNV NEW scorecard is exact and self-contained.
 
 Usage:
   python3 compare_to_2025.py --new results_all.csv --results2025 <dir>
@@ -64,12 +66,18 @@ def discover_csvs(root):
 
 
 def sniff(path, max_rows=3):
+    # Read up to max_rows lines; a short file (fewer lines) must still return what it has
+    # -- don't let StopIteration (or any read error) swallow the whole sample.
+    rows = []
     try:
         with open(path, newline='', errors='replace') as f:
-            rows = [next(f).rstrip('\n') for _ in range(max_rows)]
-        return rows
-    except Exception:
-        return []
+            for line in f:
+                rows.append(line.rstrip('\n'))
+                if len(rows) >= max_rows:
+                    break
+    except OSError:
+        pass
+    return rows
 
 
 def main():
@@ -116,9 +124,9 @@ def main():
     else:
         print("\nNo file path contained 'nnv'; 2025 per-tool results may be columns in a combined CSV.")
         print("```\n" + "\n".join(sniff(csvs[0])) + "\n```")
-    print("\n> Per-instance agreement-checking against the 2025 consensus is wired to the discovered "
-          "format above; refine `compare_to_2025.py`'s parser once the exact columns are confirmed. "
-          "The NNV NEW scorecard is exact and self-contained.")
+    print("\n> NEXT: per-instance parsing of the 2025 verdicts and agreement-checking against the "
+          "consensus are NOT yet implemented -- add them to `compare_to_2025.py` using the format "
+          "shown above (a small, targeted follow-up). The NNV NEW scorecard is exact and self-contained.")
     return 0
 
 

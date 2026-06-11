@@ -21,6 +21,11 @@ classdef test_pgd_falsify < matlab.unittest.TestCase
                        fullyConnectedLayer(1, 'Name', 'fc', 'Weights', [1 10], 'Bias', 0) ];
             net = dlnetwork(layers);
         end
+        function net = sum64_net()                   % y = sum(x), 64 inputs (>60 -> SPSA)
+            layers = [ featureInputLayer(64, 'Name', 'in')
+                       fullyConnectedLayer(1, 'Name', 'fc', 'Weights', ones(1,64), 'Bias', 0) ];
+            net = dlnetwork(layers);
+        end
     end
 
     methods (Test)
@@ -81,6 +86,39 @@ classdef test_pgd_falsify < matlab.unittest.TestCase
             Hs = HalfSpace(-1, -1.5);
             [~, found] = pgd_falsify("not a dlnetwork", [0;0], [1;1], Hs, 2, 'CB', 0, struct());
             testCase.verifyFalse(found);
+        end
+
+        % ---- NN-manifest path: numerical-gradient PGD (no autodiff) ----
+
+        function test_pgd_nn_finds_ce(testCase)
+            % matlab2nnv -> NNV NN (the manifest path's net type); pgd_falsify must use
+            % the finite-difference numerical gradient (nIn=2 <= 60) to find the CE.
+            net = matlab2nnv(test_pgd_falsify.linsum_net());   % y = x1 + x2 as an NNV NN
+            lb = [0;0]; ub = [1;1]; Hs = HalfSpace(-1, -1.5);  % unsafe y >= 1.5
+            opts = struct('seed', 0, 'n_restarts', 12, 'n_steps', 30, 'lr', 0.2);
+            [cex, found] = pgd_falsify(net, lb, ub, Hs, 2, 'default', 0, opts);
+            testCase.verifyTrue(found, 'numerical PGD should find a CE for y>=1.5 on an NN net');
+            testCase.verifyTrue(validate_witness(net, cex{1}, lb, ub, Hs, 2, 'default', 0), ...
+                'NN-found witness must validate');
+        end
+
+        function test_pgd_nn_no_ce(testCase)
+            net = matlab2nnv(test_pgd_falsify.linsum_net());
+            lb = [0;0]; ub = [1;1]; Hs = HalfSpace(-1, -100);  % unsafe y >= 100: impossible
+            opts = struct('seed', 0, 'n_restarts', 8, 'n_steps', 30);
+            [~, found] = pgd_falsify(net, lb, ub, Hs, 2, 'default', 0, opts);
+            testCase.verifyFalse(found, 'no CE exists for y>=100 on [0,1]^2');
+        end
+
+        function test_pgd_nn_spsa_highdim(testCase)
+            % >60 inputs triggers the SPSA estimator (2 evals/step). y = sum(x); unsafe
+            % y >= 50 on [0,1]^64 is satisfiable (x=1 -> y=64), so SPSA must climb to it.
+            net = matlab2nnv(test_pgd_falsify.sum64_net());
+            lb = zeros(64,1); ub = ones(64,1); Hs = HalfSpace(-1, -50);
+            opts = struct('seed', 0, 'n_restarts', 6, 'n_steps', 60, 'lr', 0.3);
+            [cex, found] = pgd_falsify(net, lb, ub, Hs, 64, 'default', 0, opts);
+            testCase.verifyTrue(found, 'SPSA numerical PGD should find a CE for sum(x)>=50 on [0,1]^64');
+            testCase.verifyTrue(validate_witness(net, cex{1}, lb, ub, Hs, 64, 'default', 0));
         end
 
     end

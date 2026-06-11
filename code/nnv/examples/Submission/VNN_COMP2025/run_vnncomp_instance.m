@@ -1092,10 +1092,13 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
     % Gradient-directed falsification FIRST (FGSM warm-start + PGD). pgd_falsify maps
     % the flat input to the network-input layout with the SAME reshape+permute the
     % runner uses (needReshape), so it works for image/permuted inputs too. NNV found
-    % 354 SAT vs ~1000 for the field in 2025; this targets that gap. Gated to dlnetwork,
-    % wrapped in try/catch, and VALIDATED before acceptance, so it can only ADD a sound
-    % SAT or fall through to the existing random sampling. [VNNCOMP2026_STRATEGY Pillar 1/2]
-    if isa(net, 'dlnetwork')
+    % 354 SAT vs ~1000 for the field in 2025; this targets that gap. dlnetwork nets use
+    % autodiff; NNV NN nets (the Python-importer manifest path, e.g. traffic_signs --
+    % all-SAT in 2025 -- and lsnc_relu) use a numerical gradient inside pgd_falsify, so
+    % they too get gradient falsification instead of random sampling alone. Wrapped in
+    % try/catch and VALIDATED before acceptance, so it can only ADD a sound SAT or fall
+    % through to the existing random sampling. [VNNCOMP2026_STRATEGY Pillar 1/2]
+    if isa(net, 'dlnetwork') || isa(net, 'NN')
         try
             [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, needReshape, opts);
             if found && validate_witness(net, cex{1}, lb, ub, Hs, inputSize, inputFormat, needReshape)

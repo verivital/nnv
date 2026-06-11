@@ -67,6 +67,13 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
         h = mod(r-1, nH) + 1;                 % steer toward one unsafe set per restart
         [G, g] = halfspace_Gg(Hs(h));
         xn = flat_to_net_arr(seeds{r}, inputSize, needReshape);   % optimize in net space
+        y = forward_eval(net, xn, fmt, is_nn);     % the seed itself may already be a CE
+        for hh = 1:nH                              % (e.g. the ub corner / a random seed);
+            if Hs(hh).contains(y)                  % catch it BEFORE a noisy FGSM/SPSA first
+                cex = {net_arr_to_flat(xn, inputSize, needReshape); y};  % step moves away
+                found = true; return;
+            end
+        end
         for it = 1:n_steps
             if is_nn
                 gnArr = nn_margin_grad(net, xn, G, g, SPn, use_spsa);   % numerical grad

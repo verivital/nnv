@@ -13,7 +13,7 @@ status = 2; % unknown (to start with)
 
 % Load networks
 
-[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand] = load_vnncomp_network(category, onnx, vnnlib);
+[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib);
 
 if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
@@ -59,17 +59,17 @@ end
 
 % Choose how to falsify based on vnnlib file
 if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
-    counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg, needReshape, inputFormat);
+    counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg, needReshape, inputFormat, falsifyOpts);
 elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
     for spc = 1:length(lb) % try parfeval, parfor does not work for early return
-        counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg, needReshape, inputFormat);
+        counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg, needReshape, inputFormat, falsifyOpts);
         if iscell(counterEx)
             break
         end
     end
 elseif isa(lb, "cell") && length(prop) == 1 % can violate the output property from any of the input sets
     for arr = 1:length(lb) % try parfeval, parfor does not work for early return
-        counterEx = falsify_single(net, lb{arr}, ub{arr}, inputSize, nRand, prop{1}.Hg, needReshape, inputFormat);
+        counterEx = falsify_single(net, lb{arr}, ub{arr}, inputSize, nRand, prop{1}.Hg, needReshape, inputFormat, falsifyOpts);
         if iscell(counterEx)
             break
         end
@@ -401,7 +401,7 @@ function ok = is_nnvnet_valid(nnvnet)
     ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
 end
 
-function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] = load_vnncomp_network(category, onnx, vnnlib)
+function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2025 benchmark NNs 
 % Not yet supported:
 % - cctsdb (some errrors when forward propagating)
@@ -417,6 +417,11 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
     inputSize = [];
     inputFormat = "default"; % no need to change for most of them, but needed for some ("UU")
     nRand = 100; % default from previous competitions
+    % Per-category falsification budget (VNNCOMP2026 tuning). Default preserves the old
+    % hardcoded struct('seed',0,'max_time',5); the ftab at the END of this function
+    % overrides n_restarts/n_steps/max_time and nRand per category.
+    falsifyOpts = struct('n_restarts',20, 'n_steps',40, 'lr',0.1, 'fgsm',true, ...
+                         'max_time',5, 'seed',0);
 
     if contains(category, "acasxu")
         % acasxu: onnx to nnv
@@ -532,12 +537,11 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
             reachOptions.reachMethod = 'approx-star'; % default parameters
             reachOptionsList{2} = reachOptions;
         else
+            % Was a 0.9-then-0.7 double-write to {1} (only 0.7 ever ran). Keep the
+            % single sound relax-star-area@0.9; slow_cats prepends approx-zono+abs-dom.
             reachOptions = struct;
             reachOptions.reachMethod = 'relax-star-area';
             reachOptions.relaxFactor = 0.9;
-            reachOptionsList{1} = reachOptions;
-            reachOptions.reachMethod = 'relax-star-area';
-            reachOptions.relaxFactor = 0.7;
             reachOptionsList{1} = reachOptions;
         end
         nRand = 500;
@@ -550,26 +554,32 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         catch
             nnvnet = "";
         end
+        % Cheap-to-precise SOUND ladder: approx-star first, looser relax-star fallback.
+        % (Was approx-star at {1} then exact-star OVERWRITING {1}, so only the
+        % exponential exact-star ran and stalled to 'unknown'. Drop exact-star: it
+        % blows up on these nets and never finished in the per-instance budget.)
         reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptions.reachMethod = 'approx-star';
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
-        reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-        reachOptionsList{1} = reachOptions;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.7;
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "linearize")
         % 
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
         try 
             nnvnet = matlab2nnv(net);
+            % Sound approx-star -> looser relax-star fallback (was approx-star at {1}
+            % then exact-star OVERWRITING {1}; only the exponential exact-star ran).
             reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star'; % default parameters
+            reachOptions.reachMethod = 'approx-star';
             reachOptionsList{1} = reachOptions;
             reachOptions = struct;
-            reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-            reachOptionsList{1} = reachOptions;
+            reachOptions.reachMethod = 'relax-star-area';
+            reachOptions.relaxFactor = 0.7;
+            reachOptionsList{2} = reachOptions;
         catch
             nnvnet = "";
             reachOptions = struct;
@@ -593,12 +603,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
     elseif contains(category, "malbeware")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS");
         nnvnet = matlab2nnv(net);
-        reachOptions.reachMethod = 'approx-star'; % default parameters
+        reachOptions = struct;                    % initialize before field assignment
+        reachOptions.reachMethod = 'approx-star'; % cheap sound method first
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
-        reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-        reachOptionsList{1} = reachOptions;
+        reachOptions.reachMethod = 'exact-star';   % exact UNSAT fallback (was
+        reachOptions.numCores = 1;                 % overwriting {1} so approx never ran)
+        reachOptionsList{2} = reachOptions;
         needReshape = 2;
 
     elseif contains(category, "metaroom")
@@ -897,6 +908,56 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList = [{zo, ad}, kept];
     end
 
+    % ---- Per-category PGD/falsification budget (VNNCOMP2026 tuning) ----------------
+    % Applied LAST so it is the single source of truth for falsification effort,
+    % overriding any per-category nRand set above. rows: {key, n_restarts, n_steps,
+    % max_time_s, nRand}. `contains` is a substring test, so the MOST SPECIFIC key
+    % must come first when one key is a substring of another: cctsdb_yolo BEFORE yolo.
+    % (collins_aerospace vs collins_rul are disjoint; "vggnet" matches vggnet16.)
+    %
+    % nRand sizing: gradient PGD is the PRIMARY falsifier, so the random sampling is
+    % only a light fallback for the dlnetwork categories -- measured ~15 ms/sample
+    % (one-at-a-time predict), so nRand=1000 cost ~15 s/instance for ~zero marginal
+    % SAT over PGD. Keep it small there. The two MANIFEST categories that get NO PGD
+    % (pgd_falsify is dlnetwork-gated): lsnc_relu and traffic_signs -- rely on random
+    % sampling, so keep their nRand higher until PGD reaches the NN path (a follow-up).
+    ftab = {
+        "acasxu",            40, 60, 5,   200
+        "sat_relu",          50, 80, 5,   200
+        "cersyve",           30, 50, 4,   150
+        "lsnc_relu",         50, 80, 4,   500   % manifest: no PGD -> random is primary
+        "relusplitter",      30, 50, 3,   150
+        "dist_shift",        30, 60, 4,   150
+        "linearize",         30, 60, 4,   150
+        "tllverifybench",    40, 80, 5,   200
+        "collins_rul",       30, 60, 4,   150
+        "collins_aerospace", 20, 40, 3,   150
+        "nn4sys",            25, 50, 3,   150
+        "safenlp",           30, 60, 4,   200
+        "malbeware",         20, 40, 3,   150
+        "ml4acopf",          25, 50, 3,   200
+        "cora",              30, 60, 4,   200
+        "metaroom",          15, 30, 2,   100
+        "cifar100",          5,  15, 2,   30
+        "tinyimagenet",      5,  15, 2,   30
+        "vggnet",            4,  12, 1.5, 20
+        "traffic_signs",     20, 40, 5,   400   % manifest: no PGD -> random is primary
+        "cctsdb_yolo",       30, 50, 5,   150
+        "yolo",              20, 40, 3,   100
+        "vit",               10, 25, 3,   50
+        "cgan",              20, 40, 3,   100
+        "soundnessbench",    30, 50, 4,   100
+    };
+    for r = 1:size(ftab,1)
+        if contains(category, ftab{r,1})
+            falsifyOpts.n_restarts = ftab{r,2};
+            falsifyOpts.n_steps    = ftab{r,3};
+            falsifyOpts.max_time   = ftab{r,4};
+            nRand                  = ftab{r,5};
+            break
+        end
+    end
+
 end
 
 % Create an array of random examples from input set and reshape if necessary
@@ -996,8 +1057,13 @@ function nnvnet = load_manifest_net(onnx)
 end
 
 % Falsification function (random simulation looking for counterexamples)
-function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape, inputFormat)
+function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape, inputFormat, opts)
     counterEx = nan;
+    % Per-category PGD budget (load_vnncomp_network's falsifyOpts). Default preserves
+    % the previous hardcoded seed/max_time so any other caller keeps working unchanged.
+    if nargin < 9 || isempty(opts), opts = struct('seed', 0, 'max_time', 5); end
+    if ~isfield(opts, 'seed'),     opts.seed = 0;     end
+    if ~isfield(opts, 'max_time'), opts.max_time = 5; end
     % Gradient-directed falsification FIRST (FGSM warm-start + PGD). pgd_falsify maps
     % the flat input to the network-input layout with the SAME reshape+permute the
     % runner uses (needReshape), so it works for image/permuted inputs too. NNV found
@@ -1006,7 +1072,7 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
     % SAT or fall through to the existing random sampling. [VNNCOMP2026_STRATEGY Pillar 1/2]
     if isa(net, 'dlnetwork')
         try
-            [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, needReshape, struct('seed', 0, 'max_time', 5));
+            [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, needReshape, opts);
             if found && validate_witness(net, cex{1}, lb, ub, Hs, inputSize, inputFormat, needReshape)
                 counterEx = cex; return;
             end

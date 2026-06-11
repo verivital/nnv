@@ -40,6 +40,14 @@ if nargin >= 3 && ~isempty(varargin{3})
 else
     only_folders = {};
 end
+% Optional 4th arg: 'first' (one representative instance per folder, default) or
+% 'all' (every resolvable instance in instances.csv -- the full competition set,
+% needed for a true per-instance comparison to the VNN-COMP 2025 results).
+if nargin >= 4 && ~isempty(varargin{4})
+    run_which = lower(char(string(varargin{4})));
+else
+    run_which = 'first';
+end
 
 if ~isfolder(bench_root)
     error('Benchmark root not found: %s', bench_root);
@@ -95,7 +103,7 @@ md_path  = fullfile(script_dir, sprintf('results_%s.md', ts));
 fid = fopen(csv_path, 'w');
 fprintf(fid, 'subfolder,category,onnx,vnnlib,status,status_str,time_s,error_message\n');
 
-results = cell(n, 8);
+results = cell(0, 8);   % grows per instance (all-instances mode -> count unknown up front)
 
 % --- Use Processes pool with 1 worker for clean timeouts and real error msgs ---
 existing_pool = gcp('nocreate');
@@ -112,54 +120,50 @@ for i = 1:n
     end
     fprintf('\n[%2d/%d] %s -> dispatcher category "%s"\n', i, n, sub, cat);
 
-    % Pick first instance from instances.csv
     inst_csv = fullfile(bench_root, sub, 'instances.csv');
     if ~isfile(inst_csv)
-        results(i,:) = {sub, cat, '', '', -2, 'no_instances_csv', 0, ''};
+        row = {sub, cat, '', '', -2, 'no_instances_csv', 0, ''};
+        results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
         fprintf('  -> no instances.csv\n');
-        write_row(fid, results(i,:));
         continue;
     end
-    pair = pick_first_instance(inst_csv, bench_root, sub);
-    if isempty(pair)
-        results(i,:) = {sub, cat, '', '', -2, 'no_resolvable_instance', 0, ''};
+    pairs = pick_instances(inst_csv, bench_root, sub, run_which);
+    if isempty(pairs)
+        row = {sub, cat, '', '', -2, 'no_resolvable_instance', 0, ''};
+        results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
         fprintf('  -> no resolvable instance in CSV\n');
-        write_row(fid, results(i,:));
         continue;
     end
-    onnx_rel   = pair.onnx_rel;
-    vnnlib_rel = pair.vnnlib_rel;
-    onnx       = pair.onnx;
-    vnnlib     = pair.vnnlib;
-    fprintf('  onnx:   %s\n  vnnlib: %s\n', onnx, vnnlib);
-
-    out_file = [tempname '.txt'];
-    t0 = tic;
-    f = parfeval(pool, @run_vnncomp_instance, 2, cat, onnx, vnnlib, out_file);
-    ok = wait(f, 'finished', timeout_s);
-    if ok
-        if isempty(f.Error)
-            try
-                [status, ~] = fetchOutputs(f);
-                status_str = status_to_str(status);
-                err = '';
-            catch ME
-                status = -1; status_str = 'error'; err = ME.message;
+    fprintf('  %d instance(s) [%s]\n', numel(pairs), run_which);
+    for k = 1:numel(pairs)
+        pr = pairs{k};
+        out_file = [tempname '.txt'];
+        t0 = tic;
+        f = parfeval(pool, @run_vnncomp_instance, 2, cat, pr.onnx, pr.vnnlib, out_file);
+        ok = wait(f, 'finished', timeout_s);
+        if ok
+            if isempty(f.Error)
+                try
+                    [status, ~] = fetchOutputs(f);
+                    status_str = status_to_str(status);
+                    err = '';
+                catch ME
+                    status = -1; status_str = 'error'; err = ME.message;
+                end
+            else
+                status = -1; status_str = 'error'; err = f.Error.message;
             end
         else
-            status = -1; status_str = 'error'; err = f.Error.message;
+            cancel(f);
+            status = -1; status_str = 'timeout';
+            err = sprintf('exceeded %d s', timeout_s);
         end
-    else
-        cancel(f);
-        status = -1; status_str = 'timeout';
-        err = sprintf('exceeded %d s', timeout_s);
+        time_s = toc(t0);
+        fprintf('  [%d/%d] %s -> %s (%.1f s)%s\n', k, numel(pairs), pr.onnx_rel, status_str, time_s, ...
+            ternary(~isempty(err), [': ' err(1:min(120,end))], ''));
+        row = {sub, cat, pr.onnx_rel, pr.vnnlib_rel, status, status_str, time_s, err};
+        results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
     end
-    time_s = toc(t0);
-    fprintf('  -> %s (%.1f s)%s\n', status_str, time_s, ...
-        ternary(~isempty(err), [': ' err(1:min(160,end))], ''));
-
-    results(i,:) = {sub, cat, onnx_rel, vnnlib_rel, status, status_str, time_s, err};
-    write_row(fid, results(i,:));
 end
 
 fclose(fid);
@@ -174,24 +178,23 @@ end
 
 %% --- Helpers ---
 
-function pair = pick_first_instance(inst_csv, bench_root, sub)
-% Read instances.csv (3 cols: onnx_rel, vnnlib_rel, timeout_s),
-% find the first row whose ONNX and VNNLIB resolve (decompressing .gz on
-% demand). Returns struct with onnx_rel, vnnlib_rel, onnx, vnnlib.
-pair = [];
+function pairs = pick_instances(inst_csv, bench_root, sub, run_which)
+% Read instances.csv (3 cols: onnx_rel, vnnlib_rel, timeout_s) and return a cell
+% array of resolvable {onnx_rel, vnnlib_rel, onnx, vnnlib} structs (decompressing
+% .gz on demand). run_which='first' returns the first resolvable instance; 'all'
+% returns EVERY resolvable instance (the full competition set for that benchmark).
+pairs = {};
 T = readtable(inst_csv, 'Delimiter', ',', 'ReadVariableNames', false, ...
     'TextType', 'string', 'Format', '%s%s%s');
 for r = 1:height(T)
     onnx_rel   = strrep(strtrim(char(T{r,1})), './', '');
     vnnlib_rel = strrep(strtrim(char(T{r,2})), './', '');
-    onnx_p   = fullfile(bench_root, sub, onnx_rel);
-    vnnlib_p = fullfile(bench_root, sub, vnnlib_rel);
-    onnx_p   = ensure_decompressed(onnx_p);
-    vnnlib_p = ensure_decompressed(vnnlib_p);
+    onnx_p   = ensure_decompressed(fullfile(bench_root, sub, onnx_rel));
+    vnnlib_p = ensure_decompressed(fullfile(bench_root, sub, vnnlib_rel));
     if ~isempty(onnx_p) && ~isempty(vnnlib_p)
-        pair = struct('onnx_rel', onnx_rel, 'vnnlib_rel', vnnlib_rel, ...
-            'onnx', onnx_p, 'vnnlib', vnnlib_p);
-        return;
+        pairs{end+1} = struct('onnx_rel', onnx_rel, 'vnnlib_rel', vnnlib_rel, ...
+            'onnx', onnx_p, 'vnnlib', vnnlib_p); %#ok<AGROW>
+        if strcmp(run_which, 'first'), return; end
     end
 end
 end

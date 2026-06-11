@@ -1,0 +1,287 @@
+%% Master VNN-COMP 2025 runner
+%
+% For each benchmark folder under <bench_root>, reads its `instances.csv`
+% to obtain a real (onnx, vnnlib) pair, decompresses the .gz copies on
+% demand, then runs `run_vnncomp_instance` with a per-instance wall-clock
+% timeout. Captures real error messages, writes a CSV log + markdown
+% summary.
+%
+% Usage:
+%
+%   % default benchmark root: <repo>/vnncomp2025_benchmarks/benchmarks
+%   run_all_benchmarks
+%
+%   % or explicit
+%   run_all_benchmarks('C:\path\to\benchmarks', 120)
+%
+% Status codes:
+%    0 = sat                    1 = unsat              2 = unknown
+%   -1 = error / timeout       -2 = file missing      -3 = decompress failed
+
+function run_all_benchmarks(varargin)
+
+% --- Parse args ---
+script_dir = fileparts(mfilename('fullpath'));
+default_root = fullfile(script_dir, '..', '..', '..', '..', '..', '..', 'vnncomp2025_benchmarks', 'benchmarks');
+if nargin >= 1 && ~isempty(varargin{1})
+    bench_root = char(varargin{1});
+else
+    bench_root = char(default_root);
+end
+if nargin >= 2 && ~isempty(varargin{2})
+    timeout_s = varargin{2};
+else
+    timeout_s = 120;
+end
+% Optional 3rd arg: cell array / string array of folder names to include
+% (e.g. {'cifar100_2024','vggnet16_2022'}); empty = all folders.
+if nargin >= 3 && ~isempty(varargin{3})
+    only_folders = cellstr(string(varargin{3}));
+else
+    only_folders = {};
+end
+
+if ~isfolder(bench_root)
+    error('Benchmark root not found: %s', bench_root);
+end
+fprintf('Benchmark root: %s\n', bench_root);
+fprintf('Per-instance timeout: %d s\n\n', timeout_s);
+
+addpath(script_dir);
+
+% --- Map subfolder name -> NNV category string used by run_vnncomp_instance ---
+% (the dispatcher matches via `contains`, so partial matches are OK)
+subfolder_to_category = containers.Map();
+subfolder_to_category('acasxu_2023')                       = 'acasxu';
+subfolder_to_category('cctsdb_yolo_2023')                  = 'cctsdb_yolo';
+subfolder_to_category('cersyve')                           = 'cersyve';
+subfolder_to_category('cgan_2023')                         = 'cgan';
+subfolder_to_category('cifar100_2024')                     = 'cifar100';
+subfolder_to_category('collins_aerospace_benchmark')       = 'collins_aerospace_benchmark';
+subfolder_to_category('collins_rul_cnn_2022')              = 'collins_rul';
+subfolder_to_category('cora_2024')                         = 'cora';
+subfolder_to_category('dist_shift_2023')                   = 'dist_shift';
+subfolder_to_category('linearizenn_2024')                  = 'linearizenn';
+subfolder_to_category('lsnc_relu')                         = 'lsnc_relu';
+subfolder_to_category('malbeware')                         = 'malbeware';
+subfolder_to_category('metaroom_2023')                     = 'metaroom';
+subfolder_to_category('ml4acopf_2024')                     = 'ml4acopf';
+subfolder_to_category('nn4sys')                            = 'nn4sys';
+subfolder_to_category('relusplitter')                      = 'relusplitter';
+subfolder_to_category('safenlp_2024')                      = 'safenlp';
+subfolder_to_category('sat_relu')                          = 'sat_relu';
+subfolder_to_category('soundnessbench')                    = 'soundness';
+subfolder_to_category('test')                              = 'test';   % no NNV dispatch; will error
+subfolder_to_category('tinyimagenet_2024')                 = 'tinyimagenet';
+subfolder_to_category('tllverifybench_2023')               = 'tllverifybench';
+subfolder_to_category('traffic_signs_recognition_2023')    = 'traffic';
+subfolder_to_category('vggnet16_2022')                     = 'vggnet';
+subfolder_to_category('vit_2023')                          = 'vit';
+subfolder_to_category('yolo_2023')                         = 'yolo';
+
+% --- Discover benchmark folders ---
+sub_dirs = dir(bench_root);
+sub_dirs = sub_dirs([sub_dirs.isdir] & ~startsWith({sub_dirs.name}, '.'));
+folders = {sub_dirs.name};
+if ~isempty(only_folders)
+    folders = folders(ismember(folders, only_folders));
+end
+n = numel(folders);
+
+% --- Set up output ---
+ts = datestr(now, 'yyyymmdd_HHMMSS');
+csv_path = fullfile(script_dir, sprintf('results_%s.csv', ts));
+md_path  = fullfile(script_dir, sprintf('results_%s.md', ts));
+fid = fopen(csv_path, 'w');
+fprintf(fid, 'subfolder,category,onnx,vnnlib,status,status_str,time_s,error_message\n');
+
+results = cell(n, 8);
+
+% --- Use Processes pool with 1 worker for clean timeouts and real error msgs ---
+existing_pool = gcp('nocreate');
+if ~isempty(existing_pool), delete(existing_pool); end
+pool = parpool('Processes', 1);   % 1 worker avoids the 16-vs-N config error
+
+% --- Iterate ---
+for i = 1:n
+    sub = folders{i};
+    if ~isKey(subfolder_to_category, sub)
+        cat = '?';
+    else
+        cat = subfolder_to_category(sub);
+    end
+    fprintf('\n[%2d/%d] %s -> dispatcher category "%s"\n', i, n, sub, cat);
+
+    % Pick first instance from instances.csv
+    inst_csv = fullfile(bench_root, sub, 'instances.csv');
+    if ~isfile(inst_csv)
+        results(i,:) = {sub, cat, '', '', -2, 'no_instances_csv', 0, ''};
+        fprintf('  -> no instances.csv\n');
+        write_row(fid, results(i,:));
+        continue;
+    end
+    pair = pick_first_instance(inst_csv, bench_root, sub);
+    if isempty(pair)
+        results(i,:) = {sub, cat, '', '', -2, 'no_resolvable_instance', 0, ''};
+        fprintf('  -> no resolvable instance in CSV\n');
+        write_row(fid, results(i,:));
+        continue;
+    end
+    onnx_rel   = pair.onnx_rel;
+    vnnlib_rel = pair.vnnlib_rel;
+    onnx       = pair.onnx;
+    vnnlib     = pair.vnnlib;
+    fprintf('  onnx:   %s\n  vnnlib: %s\n', onnx, vnnlib);
+
+    out_file = [tempname '.txt'];
+    t0 = tic;
+    f = parfeval(pool, @run_vnncomp_instance, 2, cat, onnx, vnnlib, out_file);
+    ok = wait(f, 'finished', timeout_s);
+    if ok
+        if isempty(f.Error)
+            try
+                [status, ~] = fetchOutputs(f);
+                status_str = status_to_str(status);
+                err = '';
+            catch ME
+                status = -1; status_str = 'error'; err = ME.message;
+            end
+        else
+            status = -1; status_str = 'error'; err = f.Error.message;
+        end
+    else
+        cancel(f);
+        status = -1; status_str = 'timeout';
+        err = sprintf('exceeded %d s', timeout_s);
+    end
+    time_s = toc(t0);
+    fprintf('  -> %s (%.1f s)%s\n', status_str, time_s, ...
+        ternary(~isempty(err), [': ' err(1:min(160,end))], ''));
+
+    results(i,:) = {sub, cat, onnx_rel, vnnlib_rel, status, status_str, time_s, err};
+    write_row(fid, results(i,:));
+end
+
+fclose(fid);
+delete(pool);
+fprintf('\nCSV written: %s\n', csv_path);
+
+% --- Generate summary markdown ---
+write_summary_md(md_path, results, bench_root, timeout_s);
+fprintf('Summary written: %s\n', md_path);
+
+end
+
+%% --- Helpers ---
+
+function pair = pick_first_instance(inst_csv, bench_root, sub)
+% Read instances.csv (3 cols: onnx_rel, vnnlib_rel, timeout_s),
+% find the first row whose ONNX and VNNLIB resolve (decompressing .gz on
+% demand). Returns struct with onnx_rel, vnnlib_rel, onnx, vnnlib.
+pair = [];
+T = readtable(inst_csv, 'Delimiter', ',', 'ReadVariableNames', false, ...
+    'TextType', 'string', 'Format', '%s%s%s');
+for r = 1:height(T)
+    onnx_rel   = strrep(strtrim(char(T{r,1})), './', '');
+    vnnlib_rel = strrep(strtrim(char(T{r,2})), './', '');
+    onnx_p   = fullfile(bench_root, sub, onnx_rel);
+    vnnlib_p = fullfile(bench_root, sub, vnnlib_rel);
+    onnx_p   = ensure_decompressed(onnx_p);
+    vnnlib_p = ensure_decompressed(vnnlib_p);
+    if ~isempty(onnx_p) && ~isempty(vnnlib_p)
+        pair = struct('onnx_rel', onnx_rel, 'vnnlib_rel', vnnlib_rel, ...
+            'onnx', onnx_p, 'vnnlib', vnnlib_p);
+        return;
+    end
+end
+end
+
+function p = ensure_decompressed(p)
+% Returns a path to a decompressed file, decompressing the .gz form if
+% needed. Returns '' if neither exists.
+if isfile(p), return; end
+gz = [p '.gz'];
+if isfile(gz)
+    try
+        gunzip(gz);
+    catch
+        p = '';
+        return;
+    end
+    if isfile(p), return; end
+end
+p = '';
+end
+
+function s = status_to_str(code)
+switch code
+    case 0,  s = 'sat';
+    case 1,  s = 'unsat';
+    case 2,  s = 'unknown';
+    case -1, s = 'error';
+    case -2, s = 'missing';
+    case -3, s = 'decompress_failed';
+    otherwise, s = sprintf('code_%d', code);
+end
+end
+
+function r = ternary(c, a, b), if c, r = a; else, r = b; end, end
+
+function write_row(fid, row)
+% row = {sub, cat, onnx_rel, vnnlib_rel, status, status_str, time_s, err}
+err_csv = strrep(row{8}, ',', ';');
+err_csv = strrep(err_csv, sprintf('\n'), ' | ');
+err_csv = strrep(err_csv, '"', '''');
+fprintf(fid, '%s,%s,%s,%s,%d,%s,%.2f,"%s"\n', ...
+    row{1}, row{2}, row{3}, row{4}, row{5}, row{6}, row{7}, err_csv);
+end
+
+function write_summary_md(path, results, bench_root, timeout_s)
+n = size(results, 1);
+fid = fopen(path, 'w');
+fprintf(fid, '# VNN-COMP 2025 sweep results\n\n');
+% Sanitize the bench root so committed result summaries don't leak a local
+% home/Dropbox absolute path (show it repo-relative from vnncomp2025_benchmarks).
+bench_root_disp = regexprep(strrep(bench_root,'\','/'), '.*/(vnncomp2025_benchmarks/.*)$', '<repo>/$1');
+fprintf(fid, 'Bench root: `%s`  \n', bench_root_disp);
+fprintf(fid, 'Per-instance timeout: %d s  \n', timeout_s);
+fprintf(fid, 'Run at: %s  \n\n', datestr(now,'yyyy-mm-dd HH:MM:SS'));
+
+% Tally
+counts = struct('sat',0,'unsat',0,'unknown',0,'error',0,'missing',0,'timeout',0,'decompress_failed',0,'no_instances_csv',0,'no_resolvable_instance',0,'other',0);
+for i = 1:n
+    s = matlab.lang.makeValidName(char(results{i,6}));
+    if isfield(counts, s), counts.(s) = counts.(s)+1; else, counts.other = counts.other+1; end
+end
+fprintf(fid, '## Tally (one representative instance per benchmark folder)\n\n');
+fprintf(fid, '| outcome | count |\n|---|---|\n');
+flds = fieldnames(counts);
+for i = 1:numel(flds)
+    if counts.(flds{i}) > 0
+        fprintf(fid, '| %s | %d |\n', flds{i}, counts.(flds{i}));
+    end
+end
+
+fprintf(fid, '\n## Per-folder result\n\n');
+fprintf(fid, '| folder | category | status | time (s) | error |\n|---|---|---|---|---|\n');
+for i = 1:n
+    sub = results{i,1}; cat = results{i,2}; ss = results{i,6}; t = results{i,7}; err = results{i,8};
+    err_md = strrep(err, '|', '\\|');
+    err_md = strrep(err_md, sprintf('\n'), ' ');
+    if numel(err_md) > 120, err_md = [err_md(1:120) '...']; end
+    fprintf(fid, '| %s | %s | %s | %.1f | %s |\n', sub, cat, ss, t, err_md);
+end
+
+fprintf(fid, '\n## Folders grouped by outcome\n\n');
+groups = struct();
+for i = 1:n
+    s = matlab.lang.makeValidName(char(results{i,6}));
+    if ~isfield(groups, s), groups.(s) = {}; end
+    groups.(s){end+1} = results{i,1};
+end
+flds = fieldnames(groups);
+for i = 1:numel(flds)
+    fprintf(fid, '- **%s** (%d): %s\n', flds{i}, numel(groups.(flds{i})), strjoin(groups.(flds{i}), ', '));
+end
+fclose(fid);
+end

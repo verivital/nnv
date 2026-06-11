@@ -52,7 +52,7 @@ per-benchmark detail also lives at
 | 20 | test (nano) | ⚠️ manifest | ✅ 0 | error — no dispatcher (0.05 s) | **D** | toy; use manifest path |
 | 21 | tinyimagenet_2024 | ✅ | ✅ 1.1e-5 | timeout (120 s) | **B** | large ResNet; needs >120 s |
 | 22 | tllverifybench_2023 | ✅ | ✅ 8.2e-7 | **unknown** (14.0 s) | **A** | sound verdict (was timeout) |
-| 23 | traffic_signs_2023 | ✅ | ❌ (manifest) | **unknown** (13.5 s) | **A** | category path verifies (reach fixes landed) |
+| 23 | traffic_signs_recognition_2023 | ✅ | ❌ (manifest) | **unknown** (13.5 s) | **A** | category path verifies (reach fixes landed) |
 | 24 | vggnet16_2022 | ✅ | ✅ 3.7e-7 | timeout (120 s) | **B** | VGG-16; needs >120 s |
 | 25 | vit_2023 | ✅ | ❌ | **unknown** (31.3 s) | **A** | *this* instance (pgd_2_3_16) verifies; true multi-token-attention ViT models still fail loud (sound) |
 | 26 | yolo_2023 | ✅ | ✅ 1.9e-6 | **unknown** (18.1 s) | **A** | sound verdict (was timeout) |
@@ -111,7 +111,8 @@ cd examples/Submission/VNN_COMP2025;
 run_all_benchmarks('<repo>/vnncomp2025_benchmarks/benchmarks', 120);   % 120 s/instance, one per folder
 % -> writes results_<timestamp>.csv + .md next to this script.
 % For a longer budget: pass 300 or 600. For the full scorecard: iterate every row of each instances.csv.
-% Tier-D / xval-mismatch nets: use the manifest path
-%   python code/nnv/tools/onnx2nnv_python/onnx2nnv.py <model.onnx> -o <model.nnv.mat>
+% Tier-D / xval-mismatch nets: use the manifest path (output .mat is an optional
+% positional arg, defaults to <model>.nnv.mat alongside the ONNX):
+%   python code/nnv/tools/onnx2nnv_python/onnx2nnv.py <model.onnx> [<model.nnv.mat>]
 %   net = load_nnv_from_mat('<model.nnv.mat>');
 ```

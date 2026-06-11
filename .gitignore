@@ -4,6 +4,8 @@ code/nnv/tbxmanager/
 code/nnv/tests/io/models/*.caffemodel
 .venv
 *.asv
+**/__pycache__/
+**/*.pyc
 
 
 data/vgg16_cache.mat
@@ -114,15 +116,12 @@ STATUS_TEST.md
 TEST_REPORT.md
 MAINTENANCE_REPORT.md
 CR_TRANSFORMER_CODEX.md
-CLOUD_COMPUTE_OPTIONS.md
 code/nnv/VERSION
 code/nnv/PLAN_soundness_tests.md
 code/nnv/examples/SLM/
 code/nnv/examples/Transformer/MNIST/analyze_bound_looseness.m
 code/nnv/examples/Transformer/MNIST/debug_soundness.m
 code/nnv/examples/Transformer/MNIST/diagnose_attention_mismatch.m
-code/nnv/examples/Submission/VNN_COMP2025/run_all_benchmarks.m
-code/nnv/examples/Submission/VNN_COMP2025/reach_with_timeout.m
 code/nnv/examples/Submission/VNN_COMP2025/smoke_matlab_crown.m
 code/nnv/examples/Tutorial/NN/GTSRB/verify_stop_with_mc.m
 code/nnv/tests/run_slm_tests.m

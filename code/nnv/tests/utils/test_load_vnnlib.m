@@ -128,3 +128,30 @@ for i = 1:min(3, length(props))
     assert(length(property.lb) == 5, sprintf('Property %d should have 5 inputs', i));
 end
 
+%% Test: a constraint after an (or ...) is CONJOINED into each disjunct
+% Regression for the load_vnnlib bug where a standalone assertion that follows an
+% (or ...) was APPENDED as a new OR disjunct instead of AND-ed into every disjunct.
+% That dropped the conjunction, so a witness satisfying one disjunct but violating the
+% conjunct was wrongly accepted as SAT (a false counterexample -> -150). Real-world
+% case: lsnc_relu / quadrotor2d_state, where the unsafe region is (OR of Y conditions)
+% AND (Y_1 in a narrow box).
+rng(42);
+tf = [tempname '.vnnlib'];
+fid = fopen(tf, 'w');
+fprintf(fid, '(declare-const X_0 Real)\n(declare-const Y_0 Real)\n(declare-const Y_1 Real)\n');
+fprintf(fid, '(assert (<= X_0 1.0))\n(assert (>= X_0 -1.0))\n');
+fprintf(fid, '(assert (or (and (>= Y_0 1.0)) (and (<= Y_1 -1.0))))\n');
+fprintf(fid, '(assert (<= Y_0 5.0))\n');
+fclose(fid);
+property = load_vnnlib(tf);
+delete(tf);
+Hg = property.prop{1}.Hg;
+assert(numel(Hg) == 2, 'two OR disjuncts should yield two HalfSpaces');
+assert(size(Hg(1).G, 1) == 2, 'disjunct 1 must conjoin the trailing Y_0<=5 constraint (2 rows)');
+assert(size(Hg(2).G, 1) == 2, 'disjunct 2 must conjoin the trailing Y_0<=5 constraint (2 rows)');
+assert(any(Hg(1).G(:, 1) ~= 0), 'the Y_0 conjunct must be present in disjunct 1');
+assert(any(Hg(2).G(:, 1) ~= 0), 'the Y_0 conjunct must be present in disjunct 2');
+
+%% Summary
+disp('test_load_vnnlib: all sections passed');
+

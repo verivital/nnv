@@ -6,7 +6,9 @@ function [ok, available] = validate_witness_onnx(onnx_path, x_flat, Hs, out_tol)
 %   actual check, so unlike validate_witness (which replays through NNV's own
 %   forward) it also catches a SYSTEMATIC import/encoding mismatch -- the likely
 %   source of several of NNV's 19 incorrect/missing-CE (-150) penalties in 2025.
-%   Use it as the final gate before emitting `sat`; emit `unknown` if it returns false.
+%   Use it as the final gate before emitting `sat`: downgrade to `unknown` ONLY when
+%   `~ok && available` (onnxruntime ran and definitively found no violation); if
+%   `~available` (onnxruntime unavailable / replay error), trust validate_witness.
 %   See VNNCOMP2026_STRATEGY.md / VNNCOMP2026_PROGRESS.md (Pillar 2).
 %
 %   onnx_path : path to the ORIGINAL .onnx model.
@@ -15,12 +17,12 @@ function [ok, available] = validate_witness_onnx(onnx_path, x_flat, Hs, out_tol)
 %   out_tol   : output-constraint slack (default 1e-4).
 %
 %   ok        : true only if onnxruntime confirms the witness violates some Hs(h).
-%   available : true only if onnxruntime actually RAN and returned a clean verdict
-%               (VIOLATED/OK) for EVERY Hs. So `ok=false & available=true` means
-%               onnxruntime definitively says the witness violates NOTHING (the caller
-%               may downgrade `sat`->`unknown`). `available=false` means we could not
-%               check (Python/onnxruntime/model missing, or a replay ERROR) -> the
-%               caller must TRUST validate_witness and NOT suppress the sat.
+%   available : true means the `ok` result is DEFINITIVE -- either a VIOLATED was found
+%               (early return, ok=true), or EVERY Hs returned a clean OK (ok=false). So
+%               `~ok && available` means onnxruntime definitively says the witness
+%               violates NOTHING (the caller downgrades `sat`->`unknown`). available=false
+%               means we could not check (Python/onnxruntime/model missing, or a replay
+%               ERROR) -> the caller must TRUST validate_witness and NOT suppress the sat.
 
     if nargin < 4 || isempty(out_tol), out_tol = 1e-4; end
     ok = false; available = false;

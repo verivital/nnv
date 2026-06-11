@@ -113,8 +113,12 @@ if iscell(counterEx)
     % is AVAILABLE and definitively says the witness violates NOTHING, downgrade to
     % `unknown` rather than risk a -150. If onnxruntime is UNAVAILABLE (not installed, or
     % a replay error), TRUST validate_witness and keep `sat` -- never suppress a SAT we
-    % cannot disprove. Single-output spec only (prop{1}.Hg is the region the witness hit).
-    if ~isa(lb, "cell") && length(prop) == 1
+    % cannot disprove. Single-output-spec instances only (length(prop)==1) -- covers
+    % BOTH the non-cell and the cell-lb (multiple input sets, single output spec) SAT
+    % search paths above, which both falsify against prop{1}.Hg, the region the witness
+    % hit. (Multi-output-spec instances aren't gated: which spec the witness hit isn't
+    % tracked here; they still pass validate_witness.)
+    if length(prop) == 1
         try
             [orVio, orAvail] = validate_witness_onnx(onnx, counterEx{1}, prop{1}.Hg);
             if orAvail && ~orVio

@@ -59,17 +59,26 @@ nets.
 - **Errors worth a follow-up fix** (from the same sweep): `cgan_2023` and `soundnessbench` both fail with
   `Unrecognized ... 'ONNXParams' for class '...ReshapeLayer1000'` — an importer gap in the ONNX Reshape
   path; `collins_aerospace` "Unsupported Class of Layer"; `cctsdb_yolo` known-WIP.
+- **Post-implementation validation sweep (2026-06-11, all of #306–#311 on `master`):** focused
+  correct-pairing sweep (via each benchmark's `instances.csv`) of the changed benchmarks →
+  **4 sat** (lsnc_relu, cora, linearizenn, collins_rul), 4 unknown, **0 errors / 0 regressions**.
+  lsnc_relu is the #311 win (unknown→SAT via numerical-gradient PGD); cora + linearizenn confirm the
+  #309 reach-overwrite fixes did NOT regress (both still find SAT). (Naive onnx/vnnlib pairing — NOT using
+  instances.csv — produces spurious dimension-mismatch errors; always pair via instances.csv.)
 
 ## Immediate next actions (deadline-ordered)
 
-1. **Land #306** (needReshape PGD + time-budget) → gradient falsification covers image benchmarks.
-2. **Per-category falsification + `relaxFactor` tuning** — raise `nRand`/PGD effort for the SAT-likely
-   classes; set `relaxFactor` high for the large CNNs (speed). Small, safe, testable.
-3. **Run the full cloud sweep** (`.github/workflows/vnncomp-sweep.yml`, official 2025 repo) at a realistic
-   timeout to get the true regular-track scorecard with the new falsifier.
-4. **Submission dry-run** on the TUM site to surface install/witness-format issues early.
-5. **`relaxFactor`/bandit + (stretch) CEGAR refinement** for the UNSAT closer; **vnnlib2 bridge** for the
-   4 extended-track 2.0 benchmarks if time allows.
+The 2026-06-11 push (**#306–#311, all merged**) landed the SAT/validity/speed core: gradient PGD
+(feature + image + NN-manifest), per-category falsification config + measured `nRand` tuning, the four
+`reachOptionsList{1}`-overwrite reach fixes, acasxu reach recovery, the onnxruntime witness guard, and CI
+disk-reclaim across all workflows. Remaining, deadline-ordered:
+
+1. **Run the full cloud sweep** (`.github/workflows/vnncomp-sweep.yml`, official 2025 repo, correct
+   instances.csv pairing) at a realistic timeout to get the true regular-track scorecard with everything landed.
+2. **Submission dry-run** on the TUM site to surface install/witness-format issues early.
+3. **onnxruntime-guard runner-wiring with a fallback** (see below) — the definitive −150 closer.
+4. **(stretch)** CEGAR refinement / bandit method selection for the UNSAT closer; **importer ReshapeLayer
+   `.Vars`** for cgan/soundnessbench; **vnnlib2 bridge** for the 4 extended-track 2.0 benchmarks if time allows.
 
 ## Key hardening (Pillar 2): onnxruntime witness guard — BUILT + TESTED ✅
 
@@ -88,10 +97,11 @@ witness by replaying it through **onnxruntime on the original ONNX model**.
   `G.csv`/`g.csv` into one file (g clobbered G) — renamed to `Gmat.csv`/`gvec.csv`; (b) the Python loader
   now reshapes G against the model's *known* output dim instead of trusting the CSV's parsed rank.
 
-**Remaining:** wire `validate_witness_onnx` into `run_vnncomp_instance.m`'s SAT path as the final gate before
-emitting `sat` (emit `unknown` if the ONNX replay doesn't violate). Deferred until #306 merges — #306 also
-edits `run_vnncomp_instance.m`, so wiring now would conflict. These three files sit on a separate branch off
-master (not in #306).
+**Remaining:** the guard is **MERGED as a standalone tool (#307)** but NOT wired into the runner's SAT path.
+Wiring it naively would emit `unknown` for a valid `sat` whenever the eval machine lacks onnxruntime
+(suppressing real SAT points — a net loss). The wiring needs a 3-state result (violated / not-violated /
+onnxruntime-unavailable) so it DOWNGRADES to `unknown` only on a confirmed non-violation and otherwise trusts
+`validate_witness`. Tracked as the next Pillar-2 item.
 
 ## What NOT to spend time on
 

@@ -104,6 +104,31 @@ cEX_time = toc(t);
 % Check if property was violated earlier
 if iscell(counterEx)
     status = 0;
+
+    % Pillar-2 final gate: replay the SAT witness through onnxruntime on the ORIGINAL
+    % ONNX model (the competition's own checker) before committing to `sat`. A witness
+    % that NNV's self-consistent validate_witness accepts could still fail the
+    % competition if NNV's import permutes the input differently than the ONNX expects
+    % (the suspected source of several of the 19 -150 penalties in 2025). If onnxruntime
+    % is AVAILABLE and definitively says the witness violates NOTHING, downgrade to
+    % `unknown` rather than risk a -150. If onnxruntime is UNAVAILABLE (not installed, or
+    % a replay error), TRUST validate_witness and keep `sat` -- never suppress a SAT we
+    % cannot disprove. Single-output-spec instances only (length(prop)==1) -- covers
+    % BOTH the non-cell and the cell-lb (multiple input sets, single output spec) SAT
+    % search paths above, which both falsify against prop{1}.Hg, the region the witness
+    % hit. (Multi-output-spec instances aren't gated: which spec the witness hit isn't
+    % tracked here; they still pass validate_witness.)
+    if length(prop) == 1
+        try
+            [orVio, orAvail] = validate_witness_onnx(onnx, counterEx{1}, prop{1}.Hg);
+            if orAvail && ~orVio
+                fprintf('onnxruntime replay rejected the SAT witness -> unknown\n');
+                status = 2; counterEx = nan;
+            end
+        catch
+            % onnx guard could not run -> trust validate_witness, keep sat
+        end
+    end
 end
 
 vT = tic;

@@ -5,13 +5,18 @@
 per-benchmark detail also lives at
 [`code/nnv/examples/Submission/VNN_COMP2025/VNN_COMP2025_SUPPORT.md`](code/nnv/examples/Submission/VNN_COMP2025/VNN_COMP2025_SUPPORT.md).*
 
-## TL;DR — where we are (at a realistic 120 s budget)
+## TL;DR — where we are
 
-- **15 of 26 benchmarks return a completed verdict** at 120 s/instance (2 SAFE, 1 sound counterexample,
-  12 sound `unknown`) — up from ~6 at the old 10 s smoke test. **The earlier "timeout" picture was a
-  compute artifact, not a capability limit**, exactly as predicted.
-- **6 are still compute-bound** at 120 s (large ResNets / VGG-16 / NLP / a SAT-encoding) — they import and
-  reach, they just need a bigger budget (300–600 s / cloud).
+- **17 of 26 benchmarks return a completed verdict** (2 SAFE, 1 sound counterexample, 14 sound `unknown`) —
+  up from ~6 at the old 10 s smoke test. **The earlier "timeout" picture was a compute/method artifact,
+  not a capability limit**, exactly as predicted.
+- **Reach method matters as much as time:** `safenlp` and `sat_relu` were timing out *on an exact-star
+  fallback*; switching the compute-bound categories to lead with fast, looser, still-sound
+  over-approximations (**`approx-zono` → `abs-dom`, no exact-star**) makes them verify in <20 s. **Never
+  use exact-star for the large/compute-bound nets.**
+- **Only 4 remain compute-bound** even with the fast methods at 300 s (`cifar100`, `cora`, `tinyimagenet`,
+  `vggnet16` — large ResNets / VGG-16) — they import and reach, they need >300 s / cloud, or a shrunk-ε
+  smoke pass to confirm tractability.
 - **2 are sound fail-loud refusals** (unsupported ops) and **3 are category-path import gaps that the
   Python-importer (manifest) path handles** — so with the manifest path the import coverage is ~24/26.
 - **Soundness holds end-to-end: 0 unsound verdicts.** Every `unsat` is a proven over-approximation miss
@@ -19,7 +24,8 @@ per-benchmark detail also lives at
   (a concrete input that violates the property, found by evaluating the real network — the reach→sat path
   is disabled by the [42] gate). No over-approximation ever certifies not-robust.
 
-**120 s sweep tally:** `unsat 2 · sat 1 · unknown 12 · timeout 6 · error 5 · (sat-from-overapprox 0)`.
+**Verdict tally (120 s, + Tier-B fast-method 300 s pass):** `unsat 2 · sat 1 · unknown 14 · timeout 4 ·
+error 5 · (sat-from-overapprox 0)`.
 
 ---
 
@@ -34,10 +40,10 @@ per-benchmark detail also lives at
 | 2 | cctsdb_yolo_2023 | ✅ | ❌ | error — *fail-loud* (0.2 s) | **C** | in-graph YOLO post-proc ops |
 | 3 | cersyve | ✅ | ✅ 7.2e-7 | **unknown** (12.2 s) | **A** | sound verdict |
 | 4 | cgan_2023 | ⚠️ manifest | ✅ 7.5e-9 | error — import gap (13.2 s) | **D** | custom `ReshapeLayer1000` → use manifest path |
-| 5 | cifar100_2024 | ✅ | ✅ 6.9e-6 | timeout (120 s) | **B** | large ResNet; needs >120 s |
+| 5 | cifar100_2024 | ✅ | ✅ 6.9e-6 | timeout (>300 s) | **B** | large ResNet; times out even under approx-zono — needs cloud / shrunk-ε |
 | 6 | collins_aerospace | ✅ | ❌ | error — *fail-loud* (13.1 s) | **C** | "Unsupported Class of Layer" (`Split`/`Pow`) |
 | 7 | collins_rul_cnn_2022 | ✅ | ✅ 1.9e-5 | **sat** — *counterexample* (1.9 s) | **A** | sound not-robust (falsification) |
-| 8 | cora_2024 | ✅ | ✅ 2.4e-4 | timeout (120 s) | **B** | needs >120 s |
+| 8 | cora_2024 | ✅ | ✅ 2.4e-4 | timeout (>300 s) | **B** | times out even under approx-zono — needs cloud / shrunk-ε |
 | 9 | dist_shift_2023 | ✅ | ✅ 1.1e-4 | **unknown** (3.4 s) | **A** | sound verdict |
 | 10 | linearizenn_2024 | ✅ | ✅ 1.5e-5 | **unknown** (4.5 s) | **A** | sound verdict |
 | 11 | lsnc_relu | ✅ | ✅ 2.5e-6 | **unknown** (1.4 s) | **A** | sound verdict |
@@ -46,27 +52,28 @@ per-benchmark detail also lives at
 | 14 | ml4acopf_2024 | ✅ | ✅ 8e-6 (py) | **unknown** (12.2 s) | **A** | sound verdict (was timeout) |
 | 15 | nn4sys | ✅ | ✅ 1.2e-5 | **unknown** (8.6 s) | **A** | sound verdict (was timeout) |
 | 16 | relusplitter | ✅ | ✅ 4.6e-7 | **unknown** (4.1 s) | **A** | sound verdict |
-| 17 | safenlp_2024 | ✅ | ✅ 4.0e-6 | timeout (120 s) | **B** | NLP; needs >120 s |
-| 18 | sat_relu | ✅ | ✅ 1.5e-6 | timeout (120 s) | **B** | SAT-encoding (combinatorially hard) |
+| 17 | safenlp_2024 | ✅ | ✅ 4.0e-6 | **unknown** (18.7 s) | **A** | sound via `approx-zono`; the old exact-star fallback was the 120 s timeout |
+| 18 | sat_relu | ✅ | ✅ 1.5e-6 | **unknown** (11.5 s) | **A** | sound via `approx-zono`; was an exact-star timeout |
 | 19 | soundnessbench | ⚠️ manifest | ✅ 7.7e-6 | error — import gap (2.9 s) | **D** | custom `ReshapeLayer1000` → use manifest path |
 | 20 | test (nano) | ⚠️ manifest | ✅ 0 | error — no dispatcher (0.05 s) | **D** | toy; use manifest path |
-| 21 | tinyimagenet_2024 | ✅ | ✅ 1.1e-5 | timeout (120 s) | **B** | large ResNet; needs >120 s |
+| 21 | tinyimagenet_2024 | ✅ | ✅ 1.1e-5 | timeout (>300 s) | **B** | large ResNet; times out even under approx-zono — needs cloud / shrunk-ε |
 | 22 | tllverifybench_2023 | ✅ | ✅ 8.2e-7 | **unknown** (14.0 s) | **A** | sound verdict (was timeout) |
 | 23 | traffic_signs_recognition_2023 | ✅ | ❌ (manifest) | **unknown** (13.5 s) | **A** | category path verifies (reach fixes landed) |
-| 24 | vggnet16_2022 | ✅ | ✅ 3.7e-7 | timeout (120 s) | **B** | VGG-16; needs >120 s |
+| 24 | vggnet16_2022 | ✅ | ✅ 3.7e-7 | timeout (>300 s) | **B** | VGG-16; times out even under approx-zono — needs cloud / shrunk-ε |
 | 25 | vit_2023 | ✅ | ❌ | **unknown** (31.3 s) | **A** | *this* instance (pgd_2_3_16) verifies; true multi-token-attention ViT models still fail loud (sound) |
 | 26 | yolo_2023 | ✅ | ✅ 1.9e-6 | **unknown** (18.1 s) | **A** | sound verdict (was timeout) |
 
 ---
 
-## Readiness tiers (@120 s)
+## Readiness tiers
 
-- **Tier A — completed sound verdict (15):** SAFE — `malbeware`, `metaroom`; counterexample (sound) —
+- **Tier A — completed sound verdict (17):** SAFE — `malbeware`, `metaroom`; counterexample (sound) —
   `collins_rul`; sound `unknown` — `acasxu`, `cersyve`, `dist_shift`, `linearizenn`, `lsnc_relu`,
-  `ml4acopf`, `nn4sys`, `relusplitter`, `tllverifybench`, `traffic`, `vit`(this instance), `yolo`.
-- **Tier B — imports + reaches, still compute-bound at 120 s (6):** `cifar100`, `cora`, `safenlp`,
-  `sat_relu`, `tinyimagenet`, `vggnet16`. Need a larger budget (300–600 s) and/or cloud fan-out — **not**
-  a capability or soundness limit.
+  `ml4acopf`, `nn4sys`, `relusplitter`, `tllverifybench`, `traffic`, `vit`(this instance), `yolo`,
+  **`safenlp`, `sat_relu`** (the last two via `approx-zono` after dropping the exact-star fallback).
+- **Tier B — imports + reaches, still compute-bound even with fast methods (4):** `cifar100`, `cora`,
+  `tinyimagenet`, `vggnet16` (large ResNets / VGG-16). Still time out at 300 s under `approx-zono`/`abs-dom`;
+  need >300 s / cloud fan-out, or a shrunk-ε smoke pass — **not** a capability or soundness limit.
 - **Tier C — sound fail-loud / can't-handle (2):** `cctsdb_yolo` (in-graph YOLO post-proc:
   `Where`/`ScatterND`/`ArgMax`/dyn-`Reshape`), `collins_aerospace` ("Unsupported Class of Layer":
   `Split`/`Pow`). Refusals, never wrong verdicts.

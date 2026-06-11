@@ -37,6 +37,17 @@ jobs:
         with:
           submodules: 'true'
 
+      - name: Reclaim runner disk space
+        # Free ~20-30 GB of preinstalled tooling so the ~5 GB MATLAB toolbox download
+        # can't exhaust the runner disk ("No space left on device"). See test-matrix.yml.
+        run: |
+          echo "Disk before reclaim:"; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/lib/android \
+                      /usr/share/swift /usr/local/share/powershell \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/chromium /usr/local/share/boost || true
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          echo "Disk after reclaim:"; df -h /
+
       - name: Setup MATLAB
         uses: matlab-actions/setup-matlab@v3
         with:

@@ -35,6 +35,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+      - name: Reclaim runner disk space
+        # MATLAB + toolboxes are ~5 GB; ubuntu-latest ships ~14 GB free, which the
+        # Setup MATLAB download can exhaust -> the runner crashes with "No space left
+        # on device" before any test runs. Free ~20-30 GB of preinstalled tooling we
+        # never use so the download is reliable (mirrors test-matrix.yml).
+        run: |
+          echo "Disk before reclaim:"; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/lib/android \
+                      /usr/share/swift /usr/local/share/powershell \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/chromium /usr/local/share/boost || true
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          echo "Disk after reclaim:"; df -h /
       # Sets up MATLAB on the GitHub Actions runner
       - name: Setup MATLAB
         uses: matlab-actions/setup-matlab@v3

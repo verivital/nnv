@@ -18,7 +18,8 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
 %   still validate it with validate_witness() before emitting `sat`.
 %
 %   Inputs:
-%     net          dlnetwork (required for autodiff). Non-dlnetwork -> found=false.
+%     net          dlnetwork (autodiff PGD) OR an NNV NN (numerical-gradient PGD, for
+%                  the Python-importer manifest path). Any other type -> found=false.
 %     lb, ub       input bounds, flat ONNX-order column vectors.
 %     Hs           array of HalfSpace (unsafe region; CE satisfies some Hs(h)).
 %     inputSize    network input size (e.g. [1 784] or [32 32 3]).
@@ -30,7 +31,8 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
 %   Outputs: cex = {x; y} (flat x, output y) on success else {}; found logical.
 
     cex = {}; found = false;
-    if ~isa(net, 'dlnetwork'); return; end
+    is_nn = isa(net, 'NN');                  % NNV NN (manifest path): no autodiff, so
+    if ~(isa(net, 'dlnetwork') || is_nn); return; end  % use numerical-gradient PGD below
     if nargin < 7 || isempty(needReshape), needReshape = 0; end
     if nargin < 8 || isempty(opts), opts = struct(); end
     n_restarts = getfielddef(opts, 'n_restarts', 20);
@@ -44,7 +46,9 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
     lb = double(lb(:)); ub = double(ub(:));
     nIn = numel(lb);
     nsz = net_input_shape(inputSize, needReshape);   % net-input array shape (unpadded)
-    fmt = net_format(net, inputFormat, nsz);         % from the net's input layer
+    if is_nn, fmt = ''; else, fmt = net_format(net, inputFormat, nsz); end  % NN: no dlarray
+    use_spsa = nIn > 60;   % finite-diff costs nIn evals/step; SPSA costs 2 -> use SPSA
+                           % for high-dim image manifest nets, finite-diff for small ones
 
     % Box in the network-input layout (element-wise, since flat->net is a permutation).
     LBn = flat_to_net_arr(lb, inputSize, needReshape);
@@ -64,9 +68,13 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
         [G, g] = halfspace_Gg(Hs(h));
         xn = flat_to_net_arr(seeds{r}, inputSize, needReshape);   % optimize in net space
         for it = 1:n_steps
-            dlx = to_dlarray(xn, fmt);
-            [~, grad] = dlfeval(@loss_and_grad, net, dlx, G, g);
-            gnArr = reshape(double(extractdata(grad)), nsz);      % drop padded batch dim
+            if is_nn
+                gnArr = nn_margin_grad(net, xn, G, g, SPn, use_spsa);   % numerical grad
+            else
+                dlx = to_dlarray(xn, fmt);
+                [~, grad] = dlfeval(@loss_and_grad, net, dlx, G, g);
+                gnArr = reshape(double(extractdata(grad)), nsz);      % drop padded batch dim
+            end
             if use_fgsm && it == 1
                 upd = sign(gnArr);                                % FGSM warm-start
             else
@@ -75,10 +83,10 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
             end
             xn = xn - lr .* SPn .* upd;                           % descend the margin
             xn = min(max(xn, LBn), UBn);                          % project into the box
-            y = extractdata(predict(net, to_dlarray(xn, fmt)));
+            y = forward_eval(net, xn, fmt, is_nn);
             for hh = 1:nH
-                if Hs(hh).contains(double(y(:)))
-                    cex = {net_arr_to_flat(xn, inputSize, needReshape); double(y(:))};
+                if Hs(hh).contains(y)
+                    cex = {net_arr_to_flat(xn, inputSize, needReshape); y};
                     found = true; return;
                 end
             end
@@ -127,6 +135,47 @@ end
 
 function [G, g] = halfspace_Gg(H)
     G = H.G; g = H.g;               % NNV HalfSpace: G*x <= g
+end
+
+% ---- NNV NN (manifest-path) forward + numerical gradient (no autodiff) ----
+
+function y = forward_eval(net, xn, fmt, is_nn)
+    if is_nn
+        y = net.evaluate(xn);                              % NNV NN forward
+    else
+        y = extractdata(predict(net, to_dlarray(xn, fmt)));
+    end
+    y = double(y(:));
+end
+
+function gnArr = nn_margin_grad(net, xn, G, g, SPn, use_spsa)
+    % Numerical gradient of the violation margin max(G*evaluate(xn) - g) w.r.t. the
+    % net-input array xn, for NNV NN nets (which have no autodiff). Two estimators:
+    %  - finite difference (nIn forward evals): exact-ish, used for small inputs.
+    %  - SPSA (2 forward evals): a single random +-1 direction, used for high-dim
+    %    image nets so cost stays O(1) per step instead of O(nIn).
+    % Perturbation sizes scale with the per-dim box width SPn (fixed dims, SPn=0, get
+    % a tiny floor; their gradient is never applied since the update multiplies by SPn).
+    if use_spsa
+        delta = sign(rand(size(xn)) - 0.5); delta(delta == 0) = 1;
+        c = max(1e-5, 1e-2 .* SPn);
+        mp = nn_margin(net, xn + c .* delta, G, g);
+        mm = nn_margin(net, xn - c .* delta, G, g);
+        gnArr = ((mp - mm) / 2) .* (delta ./ c);
+    else
+        m0 = nn_margin(net, xn, G, g);
+        gnArr = zeros(size(xn));
+        hstep = max(1e-6, 1e-3 .* SPn);
+        for d = 1:numel(xn)
+            xp = xn; xp(d) = xn(d) + hstep(d);
+            gnArr(d) = (nn_margin(net, xp, G, g) - m0) / hstep(d);
+        end
+    end
+end
+
+function m = nn_margin(net, xn, G, g)
+    y = double(reshape(net.evaluate(xn), [], 1));
+    m = max(G * y - g(:));          % unsafe set {y : G*y <= g}; minimize the worst margin
 end
 
 % ---- flat-ONNX <-> network-input layout (mirrors run_vnncomp_instance) ----

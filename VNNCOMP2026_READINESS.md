@@ -15,7 +15,7 @@ status in [`VNNCOMP2025_STATUS.md`](VNNCOMP2025_STATUS.md).*
   `smart_turn_multimodal_2026`). 2.0 adds `declare-network` (multi-net), `declare-hidden` (intermediate-
   tensor constraints), multi-input/output, `X[i,j]` tensor indexing, a type system, `equal-to`/
   `isomorphic-to`, nested `and`/`or` (DNF query trees), a `(vnnlib-version 2.0)` header, and `.vnnlib.gz`
-  compression. Spec: arXiv:2605.07451 (released 2025-12-15); Python `vnnlib` pip v1.0.2 parses it.
+  compression. Spec: vnnlib.org + arXiv:2605.07451; Python `vnnlib` pip v1.0.2 parses 2.0 (incl. `.vnnlib.gz`).
 - **Scoring** (issue #2 / rules.md): correct = +10, **incorrect = −150** (so an unsound verdict is
   catastrophic — NNV's sound-by-refusal posture is exactly right), timeout/error/unknown = 0. SAT needs a
   witness (line 2: `((VAR val) …)`) replayable through onnxruntime within 1e-3 rel / 1e-4 abs.
@@ -35,7 +35,7 @@ status in [`VNNCOMP2025_STATUS.md`](VNNCOMP2025_STATUS.md).*
   integrator/lane-keep/pendulum/pointmass), `challenging_certified_training_2026`, `isomorphic_acasxu_2026`
   (2.0, network-equivalence), `monotonic_acasxu_2026` (2.0), `smart_turn_multimodal_2026` (2.0, vision+control).
 - Known repo issues to watch (vnncomp2026_benchmarks): #5 1.0 files in 2.0 folders, #4 wrong ONNX paths in
-  `monotonic_acasxu` instances.csv, #2 cgan_2026 version ambiguity.
+  `monotonic_acasxu` instances.csv, #2 `cgan2026` version ambiguity (repo folder may appear as `cgan_2026`).
 
 ## VNN-LIB 2.0 — what `load_vnnlib.m` needs (for the extended track)
 

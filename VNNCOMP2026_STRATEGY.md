@@ -59,7 +59,7 @@ NNV's `falsify_single` does only ~100–500 *random* samples, no gradients. Add 
 - **Per-benchmark-class tuning** (`NNV_NRAND_FALSIFY` + PGD steps): small FC (ACAS/safenlp) — few samples,
   fast PGD; large images (cifar100/tinyimagenet/vgg) — many samples, more PGD steps.
 - **Run falsification FIRST and in parallel with reach**, not just as a 0.5 s pre-pass.
-- *Expected:* the literature + the 354-vs-1000 gap suggest PGD roughly 2–3×'s SAT yield — the biggest single
+- *Expected:* the literature + the 354-vs-1000 gap suggest PGD roughly 2–3× the SAT yield — the biggest single
   point gain available, at modest effort.
 
 ## Pillar 2 — Validity & soundness (drive the 19 penalties → 0)

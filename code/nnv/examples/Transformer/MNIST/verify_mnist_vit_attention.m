@@ -1,12 +1,25 @@
-%% Verify MNIST ViT with Real Self-Attention using NNV
+%% [EXPERIMENTAL — KNOWN NOT TO WORK YET] Verify MNIST ViT with Real Self-Attention
 % This script performs robustness verification on the ViT model
-% that uses real MultiHeadAttentionLayer
+% that uses real MultiHeadAttentionLayer.
+%
+% STATUS (2026-06-09): EXPERIMENTAL / NOT TRUSTWORTHY. Multi-token (seq_len>1)
+% attention reachability is not implemented soundly yet; with the EmbedDim fix
+% the MultiHeadAttentionLayer now FAILS LOUD (multiTokenUnsound) instead of
+% silently returning garbage bounds, so this script is expected to ERROR at the
+% reach step. That is the sound behavior. For a working transformer demo use
+% verify_mnist_vit.m (FC-simulated attention, 4/5 verified at eps=0.5).
+% Roadmap: PR_MERGE_READINESS_PLAN.md items F1/F2 (sound multi-token bound).
 %
 % Author: NNV Team
 % Date: December 2025
 
 %% Load the trained model
-fprintf('=== Verifying MNIST ViT with Real Attention ===\n\n');
+fprintf('=== [EXPERIMENTAL] Verifying MNIST ViT with Real Attention ===\n');
+warning('NNV:experimental', ...
+    ['verify_mnist_vit_attention is EXPERIMENTAL: multi-token attention reach is ' ...
+     'not implemented soundly; expect a multiTokenUnsound error at the reach step. ' ...
+     'Use verify_mnist_vit.m for the supported demo.']);
+fprintf('\n');
 
 model_file = 'mnist_vit_attention_model.mat';
 if ~isfile(model_file)

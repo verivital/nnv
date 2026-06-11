@@ -1,0 +1,270 @@
+name: CI (matrix-sharded)
+
+# Fast, fan-out CI for NNV. Splits the test suite into N DURATION-BALANCED parallel shards
+# on free GitHub-hosted runners (public repo -> matlab-actions auto-licenses all toolboxes,
+# no token needed). Standard shards exclude only GPU tests (no GPU) and tests confirmed to
+# crash the runner; everything else runs (failures incl. WIP stay visible). The `report`
+# job aggregates all shard results, classifies known-WIP vs new regressions, flags crashes,
+# and gates the build. The shard count auto-scales with the suite. (See CLOUD_COMPUTE_OPTIONS.md.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "MATLAB release (e.g. R2026a, R2024b)"
+        type: string
+        default: "R2026a"
+      num_shards:
+        description: "Number of parallel shards (blank = auto-scale from suite size)"
+        type: string
+        default: ""
+      run_highmem:
+        description: "Also run high-memory tests (needs a big-RAM/self-hosted runner)"
+        type: boolean
+        default: false
+      rebuild_cache:
+        description: "Force-rebuild the MATLAB + NNV-toolbox (tbxmanager/MPT) install caches (delete them; this run repopulates)"
+        type: boolean
+        default: false
+  pull_request:
+    branches: [ "master" ]
+    paths-ignore: [ "**/*.md" ]
+  push:
+    branches: [ "transformer" ]
+    paths-ignore: [ "**/*.md" ]   # doc-only changes shouldn't burn a full CI run
+
+concurrency:
+  group: ci-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MATLAB_RELEASE: ${{ github.event.inputs.release || 'R2026a' }}
+
+jobs:
+  # Decide the shard count and build the index list [1..N]. Uses the workflow_dispatch
+  # input if given, else AUTO-SCALES from test_durations.csv (~11 shards now, clamped [8,16]).
+  # NOTE: more shards is NOT always faster here -- bumping to ~18 REGRESSED (running more
+  # concurrent jobs drew slower GitHub runners; per-test time was ~4x worse). N~11 with
+  # cache:true (~1 min warm setup) is the empirical sweet spot (~10 min warm wall). Per-test
+  # fixed overhead dominates the recorded JUnit times, so run_shard packs by (overhead + time).
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write      # needed for `gh cache delete` when rebuild_cache=true
+      contents: read
+    outputs:
+      shards: ${{ steps.gen.outputs.shards }}
+      n: ${{ steps.gen.outputs.n }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Force-rebuild install caches (delete existing entries; the matrix below repopulates)
+        if: ${{ github.event.inputs.rebuild_cache == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "rebuild_cache=true -> deleting matlab-cache-* (MATLAB) and nnv-tbxmanager-* (MPT/glpk/etc.)"
+          echo "so setup-matlab re-downloads MATLAB and install.m re-downloads the tbxmanager toolboxes."
+          # nnv-tbxmanager-* is repo-scoped, so clearing it here also forces the legacy
+          # ci.yml / regression-tests.yml workflows to rebuild their toolbox cache next run.
+          ids=$(gh cache list --repo "${{ github.repository }}" --limit 100 --json id,key \
+                --jq '.[]|select(.key|startswith("matlab-cache-") or (.key|startswith("nnv-tbxmanager-")))|.id')
+          if [ -z "$ids" ]; then echo "(no matlab-cache-* / nnv-tbxmanager-* entries found)"; fi
+          for id in $ids; do
+            echo "deleting cache id $id"
+            gh cache delete "$id" --repo "${{ github.repository }}" || true
+          done
+      - id: gen
+        run: |
+          IN="${{ github.event.inputs.num_shards }}"
+          if [ -n "$IN" ]; then
+            N="$IN"
+          else
+            CSV=code/nnv/tests/test_durations.csv
+            if [ -f "$CSV" ]; then
+              TOTAL=$(awk -F, 'NR>1{s+=$NF} END{printf "%d", s+0}' "$CSV")
+            else
+              TOTAL=1600
+            fi
+            N=$(( (TOTAL + 119) / 120 ))   # ~11 shards (empirical sweet spot). Over-sharding to
+            [ "$N" -lt 8 ] && N=8           # ~18 REGRESSED: more concurrent jobs hit GitHub's
+            [ "$N" -gt 16 ] && N=16         # slow-runner tail (per-test time ~4x worse). Cap 16.
+          fi
+          echo "Using N=$N shards"
+          echo "n=$N" >> "$GITHUB_OUTPUT"
+          echo "shards=$(seq 1 "$N" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+  # Duration-balanced standard shards on free ~16 GB ubuntu-latest runners.
+  # Failures are recorded (not hard-failed here); the report job gates the build.
+  standard:
+    needs: prepare
+    name: tests ${{ matrix.shard }}/${{ needs.prepare.outputs.n }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup MATLAB
+        id: setup_matlab
+        continue-on-error: true   # cache: true restores MATLAB from the GitHub Actions cache on
+                                  # warm runs (~1-2 min, reliable) instead of downloading from
+                                  # MathWorks (~5 min, the flake source). The cold run (cache
+                                  # miss, e.g. after changing release/products) still downloads
+                                  # and can flake, so keep the retry below as a backstop.
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: ${{ env.MATLAB_RELEASE }}
+          cache: true
+          products: >
+            Computer_Vision_Toolbox
+            Control_System_Toolbox
+            Deep_Learning_Toolbox
+            Image_Processing_Toolbox
+            Optimization_Toolbox
+            Parallel_Computing_Toolbox
+            Statistics_and_Machine_Learning_Toolbox
+            Symbolic_Math_Toolbox
+            System_Identification_Toolbox
+            Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
+            Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+      - name: Setup MATLAB (retry on transient download failure)
+        if: steps.setup_matlab.outcome == 'failure'
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: ${{ env.MATLAB_RELEASE }}
+          cache: true
+          products: >
+            Computer_Vision_Toolbox
+            Control_System_Toolbox
+            Deep_Learning_Toolbox
+            Image_Processing_Toolbox
+            Optimization_Toolbox
+            Parallel_Computing_Toolbox
+            Statistics_and_Machine_Learning_Toolbox
+            Symbolic_Math_Toolbox
+            System_Identification_Toolbox
+            Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
+            Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+      - name: Restore NNV tbxmanager toolboxes (MPT/glpk/sedumi/etc. from install.m)
+        # install.m downloads these from the tbxmanager/ETH server every run (~slow, the
+        # flake source: people.ee.ethz.ch connection timeouts). They are OS/arch-keyed
+        # (glnxa64 MEX + m-files), independent of the MATLAB release, so one Linux cache is
+        # shared across all shards AND the legacy R2024b workflows. startup_nnv's
+        # `tbxmanager restorepath` re-adds them from this dir, so a restored cache turns
+        # install.m's downloads into no-ops. Key busts when install.m changes (toolbox list);
+        # force-refresh via the rebuild_cache input above. Save is split out below so we
+        # only ever persist a COMPLETE install (never a partial dir from a flaky download).
+        id: tbxcache
+        uses: actions/cache/restore@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+          restore-keys: |
+            nnv-tbxmanager-${{ runner.os }}-
+      - name: Run shard ${{ matrix.shard }} of ${{ needs.prepare.outputs.n }}
+        id: shard_run
+        uses: matlab-actions/run-command@v2
+        timeout-minutes: 15
+        continue-on-error: true   # on timeout/crash, fail the step but let the job upload
+                                  # its progress trace (so the report can name the test)
+        with:
+          command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(${{ matrix.shard }}, ${{ needs.prepare.outputs.n }}, 'standard');
+      - name: Retry shard (transient infra failure, e.g. MATLAB startup exit 255)
+        if: steps.shard_run.outcome == 'failure'
+        uses: matlab-actions/run-command@v2
+        timeout-minutes: 15
+        continue-on-error: true
+        with:
+          command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(${{ matrix.shard }}, ${{ needs.prepare.outputs.n }}, 'standard');
+      - name: Save NNV tbxmanager cache (only a COMPLETE install, only on a miss)
+        # Guard against poisoning the shared cache with a partial tbxmanager/ from a flaky
+        # ETH download: only save when the restore missed AND the LAST toolbox install.m
+        # fetches (sedumi) is present -> the whole toolbox list downloaded successfully.
+        # `always()` so this runs despite the shard steps' continue-on-error.
+        if: always() && steps.tbxcache.outputs.cache-hit != 'true' && hashFiles('code/nnv/tbxmanager/toolboxes/sedumi/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+      - name: Upload shard results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-standard-shard-${{ matrix.shard }}
+          path: code/nnv/test-results-ci/*
+          if-no-files-found: ignore
+
+  # Aggregate all shard results into one report: preserves failure logs, classifies
+  # known-WIP (ci_allowed_failures.txt) vs new regressions, flags crashes; GATES the build
+  # (red only on new failures or crashes). Always runs, even if shards crashed.
+  report:
+    needs: standard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: ci-artifacts
+          pattern: results-standard-shard-*
+          merge-multiple: true
+      - name: Aggregate shard results
+        run: python3 code/nnv/tests/ci_report.py ci-artifacts --allowed code/nnv/tests/ci_allowed_failures.txt
+
+  # High-memory tests. OPT-IN (run_highmem=true). Point this at a big-RAM runner via the
+  # NNV_HIGHMEM_RUNNER repo variable (a self-hosted runner label, e.g. 'nnv-highmem');
+  # defaults to ubuntu-latest if unset. Use for tests confirmed to crash the standard runner.
+  highmem:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_highmem == 'true' }}
+    name: high-memory tests
+    runs-on: ${{ vars.NNV_HIGHMEM_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup MATLAB
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: ${{ env.MATLAB_RELEASE }}
+          cache: true
+          products: >
+            Computer_Vision_Toolbox
+            Control_System_Toolbox
+            Deep_Learning_Toolbox
+            Image_Processing_Toolbox
+            Optimization_Toolbox
+            Parallel_Computing_Toolbox
+            Statistics_and_Machine_Learning_Toolbox
+            Symbolic_Math_Toolbox
+            System_Identification_Toolbox
+            Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
+            Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+      - name: Restore NNV tbxmanager toolboxes (MPT/glpk/sedumi/etc. from install.m)
+        id: tbxcache
+        uses: actions/cache/restore@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+          restore-keys: |
+            nnv-tbxmanager-${{ runner.os }}-
+      - name: Run high-memory tests
+        uses: matlab-actions/run-command@v2
+        timeout-minutes: 60
+        with:
+          command: cd('code/nnv'); install; addpath(genpath(fullfile(pwd,'tests'))); run_shard(1, 1, 'highmem');
+      - name: Save NNV tbxmanager cache (only a COMPLETE install, only on a miss)
+        if: always() && steps.tbxcache.outputs.cache-hit != 'true' && hashFiles('code/nnv/tbxmanager/toolboxes/sedumi/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+      - name: Upload high-memory results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-highmem
+          path: code/nnv/test-results-ci/*
+          if-no-files-found: ignore

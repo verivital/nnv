@@ -9,6 +9,8 @@ classdef SoftmaxLayer < handle
         InputNames = {'in'}; % default
         NumOutputs = 1; % default
         OutputNames = {'out'}; % default
+        IsFinalLayer = true;  % when true, reach is identity (sound for argmax-style specs).
+                              % Set false for intermediate (e.g. attention) softmax.
     end
     
     methods
@@ -117,21 +119,83 @@ classdef SoftmaxLayer < handle
         end
         
         % reachability with imagestar
-        function OS = reach(~, IS, ~, ~, ~)
-            % @IS: imageStar input set
-            % @seg_im: segmentation image
-            % @method: reachability method
-            % @reachOption: 'parallel' or 'single'
-            % @relaxFactor: relaxation factor for reachability
-            % @OS: imageStar output set = IS
-            % we don't care method and reach option for softmax
-            
-            % author: Dung Tran
-            % date: 4/14/2020
-            
-            % neglect softmax in reachability analysis 
-            OS = IS; 
-            
+        function OS = reach(varargin)
+            % Softmax reachability.
+            %
+            % Two regimes, selected by obj.IsFinalLayer:
+            %  - FINAL-layer softmax (default): identity passthrough. SOUND only
+            %    for argmax-style robustness specs stated on the pre-softmax
+            %    logits, because softmax is per-coordinate monotone so
+            %    argmax(softmax(x)) == argmax(x). NOT valid for specs on the
+            %    softmax *probabilities* (e.g. P(class) > 0.9) -- use a
+            %    non-final softmax (IsFinalLayer=false) for those.
+            %  - INTERMEDIATE softmax (IsFinalLayer=false, e.g. inside
+            %    attention): identity is UNSOUND, so compute a sound interval
+            %    over-approximation (nn/funcs/Softmax.m). We deliberately DO NOT
+            %    silently fall back to identity on failure -- that would hide
+            %    unsoundness; an unsupported set type raises an error instead.
+            %
+            % NOTE: the previous implementation routed through
+            % Softmax.reach_star_approx(IS, method) with method='' (no method
+            % passed by most callers); that dispatch errored on the empty
+            % method and a silent catch returned the UNSOUND identity. We now
+            % call the bounds directly so intermediate softmax is actually sound.
+            obj = varargin{1};
+            IS  = varargin{2};
+
+            if isempty(IS)
+                OS = IS; return;
+            end
+
+            is_final = true;
+            if isprop(obj, 'IsFinalLayer') && ~obj.IsFinalLayer
+                is_final = false;
+            end
+
+            if is_final
+                OS = IS;   % sound for argmax-on-logits specs (see note above)
+                return;
+            end
+
+            % Intermediate softmax: sound bounds, NO silent identity fallback.
+            if isa(IS, 'Star')
+                OS = Softmax.reach_star_approx_bounds(IS);
+            elseif isa(IS, 'ImageStar')
+                % [12] SOUNDNESS: evaluate() applies softmax over the CHANNEL
+                % axis per spatial location (`softmax(dlarray(im,'SSC'))` -- each
+                % pixel's C channels sum to 1, total mass H*W). Flattening the
+                % whole H*W*C set into ONE softmax group (toStar ->
+                % reach_star_approx_bounds) instead constrains all H*W*C outputs
+                % to a single distribution summing to 1, which for H*W>1 provably
+                % EXCLUDES the true outputs. Compute the sound per-pixel
+                % channel-softmax interval bound: softmax_i is increasing in x_i
+                % and decreasing in x_{j~=i}, so
+                %   ub_i = e^{ub_i}/(e^{ub_i} + sum_{j~=i} e^{lb_j})
+                %   lb_i = e^{lb_i}/(e^{lb_i} + sum_{j~=i} e^{ub_j}).
+                % SCALABILITY: the bound only needs SOUND input ranges, not the
+                % LP-tight ones. Reuse cached interval bounds when present, else
+                % estimateRanges (fast interval propagation) -- getRanges does a
+                % per-pixel LP, which is prohibitively slow on large multi-class
+                % images (e.g. segmentation). estimateRanges is sound (an
+                % over-approximation), so the softmax output stays sound.
+                if ~isempty(IS.im_lb) && ~isempty(IS.im_ub)
+                    lb = IS.im_lb; ub = IS.im_ub;
+                else
+                    [lb, ub] = IS.estimateRanges;     % [H,W,C], sound, no LP
+                end
+                m = max(ub, [], 3);               % per-pixel shift (softmax is
+                elb = exp(lb - m); eub = exp(ub - m);  % shift-invariant) for stability
+                SE_lb = sum(elb, 3); SE_ub = sum(eub, 3);   % [H,W,1], broadcast over C
+                out_ub = eub ./ (eub + (SE_lb - elb));
+                out_lb = elb ./ (elb + (SE_ub - eub));
+                OS = ImageStar(out_lb, out_ub);
+            elseif isa(IS, 'Zono')
+                OS = Softmax.reach_zono_approx(IS);
+            else
+                error('SoftmaxLayer:reach', ...
+                    ['Sound intermediate-softmax reach is not implemented for set type ''%s''. ' ...
+                     'Refusing to return an unsound identity passthrough.'], class(IS));
+            end
         end
         
     end

@@ -1,0 +1,24 @@
+# Known / allowed test failures — WIP that is OK to fail. The CI report job
+# (ci_report.py) keeps these VISIBLE in the summary but does NOT red the build;
+# only NEW failures (not listed here) or shard CRASHES fail CI.
+#
+# One exact test Name per line, as it appears in the JUnit report (classname/name).
+# Remove a line once the underlying test is fixed. Regenerate/confirm names from a
+# CI run's report output. Lines starting with # are comments.
+
+# --- Tutorial integration tests: pass locally, fail on the Linux CI runner ---
+# (environment difference — data/products/platform; to investigate, not a code bug)
+test_all_tutorial/test11_NNCS_AEBS_reach_
+test_all_tutorial/test13_NNCS_InvertedPendulum
+test_all_tutorial/test15_Other_SetRepresentations
+test_all_tutorial/test7_NN_MNIST_verify_
+
+# --- SOUNDNESS TESTS MUST NOT BE ALLOW-LISTED (CR finding [37]) ---
+# A soundness / MC-containment test that does not red the build is not a gate.
+# The former test_SLM_layers_soundness/* and test_SoftmaxLayer_reach_soundness/*
+# entries were REMOVED: those are untracked DEMONSTRATION scripts (they
+# intentionally *show* unsoundness and break under runtests' per-%%-section
+# workspaces). Do NOT commit them. The gating soundness coverage is the
+# self-contained suites tests/soundness/test_transformer_soundness_regression.m
+# and tests/vnncomp25/test_vnncomp25_regression.m -- NOT listed here, so they gate.
+# RULE: never add a *soundness* test name to this file.

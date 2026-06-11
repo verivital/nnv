@@ -105,13 +105,17 @@ classdef TransposedConv2DLayer < handle
                         error('Invalid weight matrix');
                     end
                     
-                    if ndims(filter_bias) < 3
+                    if ndims(filter_bias) < 2
                         error('Invalid biases array (must be 3D: [1, 1, NumFilters])');
                     else
                         obj.Bias = filter_bias;
                     end
 
-                    if length(w) == 4 && w(3) ~= b(3)
+                    % Use size(...,k) which returns 1 for missing trailing
+                    % dims; ndims() strips trailing singletons so length(b)
+                    % can wrongly be 2 when filter_bias is [1,1,1].
+                    bias_F = size(filter_bias, 3);
+                    if length(w) == 4 && w(3) ~= bias_F
                         error('Inconsistency between filter weights and filter biases');
                     end
 
@@ -155,19 +159,14 @@ classdef TransposedConv2DLayer < handle
                         error('Invalid weight matrix');
                     end
 
-                    % Validate bias: should be [1, 1, NumFilters] but MATLAB drops
-                    % trailing singletons, so [1,1,1] becomes [1,1]
-                    % Accept 2D [1,1] for single filter case (NumFilters=1)
-                    if ndims(filter_bias) == 2 && isequal(size(filter_bias), [1, 1])
-                        % Single filter case - 2D [1,1] is acceptable
-                        obj.Bias = filter_bias;
-                    elseif ndims(filter_bias) >= 3
-                        obj.Bias = filter_bias;
-                    else
+                    if ndims(filter_bias) < 2
                         error('Invalid biases array (must be 3D: [1, 1, NumFilters])');
+                    else
+                        obj.Bias = filter_bias;
                     end
 
-                    if length(w) == 4 && w(3) ~= b(3)
+                    bias_F = size(filter_bias, 3);
+                    if length(w) == 4 && w(3) ~= bias_F
                         error('Inconsistency between filter weights and filter biases');
                     end
 
@@ -209,11 +208,10 @@ classdef TransposedConv2DLayer < handle
                         error('Invalid weight matrix');
                     end
 
-                    % Accept 2D [1,1] bias for single filter case
-                    % MATLAB drops trailing singletons, so [1,1,1] becomes [1,1]
                     obj.Bias = filter_bias;
 
-                    if length(w) == 4 && w(3) ~= b(3)
+                    bias_F = size(filter_bias, 3);
+                    if length(w) == 4 && w(3) ~= bias_F
                         error('Inconsistency between filter weights and filter biases');
                     end
 

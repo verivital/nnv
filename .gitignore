@@ -55,3 +55,81 @@ CLAUDE.md
 # Paper draft (local only, not tracked)
 paper_draft/
 Formal_Methods_2026__FM_2026____NNV___TOOL_PAPER___3_0*.zip
+
+# CI matrix shard results (JUnit XML; uploaded as Actions artifacts, not committed)
+code/nnv/test-results-ci/
+
+# [38] Test-generated visual-soundness figures (save_test_figure ->
+# nnvroot()/results/tests/figures). These are run artifacts, never source --
+# they must not pollute the repo tree. Matches the dir at any depth.
+**/results/tests/figures/
+**/*_soundness_containment_*.png
+
+# =====================================================================
+# PR #290 hygiene: datasets, benchmark/run artifacts, and local scratch.
+# All entries below are non-source run outputs or local notes. (gitignore
+# never untracks already-committed files, so the one deliberately-tracked
+# VNN-COMP results snapshot, results_20260610_130007.{csv,md}, stays in the
+# PR while the older scratch result tables are hidden.)
+# =====================================================================
+
+# --- Datasets (large blobs; fetched/extracted locally, never committed) ---
+data/FashionMNIST/
+data/PTSD/
+data/PTSD.txt
+data/PTSD_Recognition/
+data/WeizmannHorse/
+data/testset_CSV.csv
+code/nnv/examples/Transformer/SST2/SST-2/
+code/nnv/examples/Tutorial/NN/FashionMNIST/
+code/nnv/examples/Tutorial/NN/PersianTrafficSigns/
+code/nnv/examples/Tutorial/NN/WeizmannHorse/
+
+# --- VNN-COMP benchmark run outputs (timestamped result tables + the
+#     importer-generated +package workspaces); regenerated, not source. ---
+code/nnv/examples/Submission/VNN_COMP2025/results_*.csv
+code/nnv/examples/Submission/VNN_COMP2025/results_*.md
+code/nnv/examples/Submission/VNN_COMP2025/+*/
+code/nnv/tests/nn/layers/+pgd_2_3_16/
+code/nnv/tests/utils/+ACASXU_run2a_1_1_batch_2000/
+code/nnv/tests/utils/+cartpole/
+code/nnv/tests/utils/+controller_single_pendulum/
+
+# --- Verification/result artifacts (.mat/.png/.pdf from example + test runs) ---
+**/verification_results_*.mat
+code/nnv/tests/soundness/*_results.mat
+code/nnv/examples/Transformer/MNIST/plots/
+code/nnv/examples/Transformer/SST2/*_results.png
+code/nnv/examples/Submission/ARCH-COMP2023/benchmarks/ACC/acc.mat
+code/nnv/examples/Submission/ARCH-COMP2023/benchmarks/ACC/acc.pdf
+results/tests/regression-*.mat
+
+# --- Local scratch (planning notes, debug scripts, transient logs) ---
+TODO_*.md
+TODO_SLM-orig
+git_commands.txt
+git_status.txt
+prompt-*.txt
+STATUS_TEST.md
+TEST_REPORT.md
+MAINTENANCE_REPORT.md
+CR_TRANSFORMER_CODEX.md
+CLOUD_COMPUTE_OPTIONS.md
+code/nnv/VERSION
+code/nnv/PLAN_soundness_tests.md
+code/nnv/examples/SLM/
+code/nnv/examples/Transformer/MNIST/analyze_bound_looseness.m
+code/nnv/examples/Transformer/MNIST/debug_soundness.m
+code/nnv/examples/Transformer/MNIST/diagnose_attention_mismatch.m
+code/nnv/examples/Submission/VNN_COMP2025/run_all_benchmarks.m
+code/nnv/examples/Submission/VNN_COMP2025/reach_with_timeout.m
+code/nnv/examples/Submission/VNN_COMP2025/smoke_matlab_crown.m
+code/nnv/examples/Tutorial/NN/GTSRB/verify_stop_with_mc.m
+code/nnv/tests/run_slm_tests.m
+code/nnv/tests/regression/test_SLM_layer_outputs.m
+code/nnv/tests/soundness/test_SLM_layers_soundness.m
+code/nnv/tests/soundness/test_SLM_layers_soundness_results.mat
+code/nnv/tests/soundness/test_SoftmaxLayer_reach_soundness.m
+code/nnv/tests/soundness/SOUNDNESS_TEST_REPORT.md
+code/nnv/tests/soundness/TODO_TESTING.md
+code/nnv/tests/nn/layers/ConcatenationLayer/SOUNDNESS_ISSUE.md

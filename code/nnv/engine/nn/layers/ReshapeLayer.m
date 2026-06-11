@@ -13,6 +13,10 @@ classdef ReshapeLayer < handle
         NumOutputs = 1;         % default
         OutputNames = {'out'};  % default
         targetDim = [];         % default
+        OnnxBCHW = false;       % when true and targetDim is [H W C],
+                                % evaluate does ONNX C-order reshape
+                                % (flat -> [W,H,C]) followed by a permute
+                                % to [H,W,C], matching ONNX BCHW->HWC.
     end
     
     methods
@@ -85,11 +89,36 @@ classdef ReshapeLayer < handle
         function reshaped = evaluate(obj,image)
             %@image: an multi-channels image
             %@flatten_im: flatten image
-            
-            idx = find(obj.targetDim < 0);
-            obj.targetDim(idx) = 1;
-            reshaped = reshape(image, obj.targetDim);
-                
+
+            % Resolve -1 sentinel: ONNX semantics — exactly one dim may be
+            % -1 and is computed as numel(image) / prod(known_dims).
+            tgt = obj.targetDim;
+            neg = find(tgt < 0);
+            if numel(neg) > 1
+                error('ReshapeLayer: more than one -1 sentinel in targetDim');
+            elseif numel(neg) == 1
+                known = tgt; known(neg) = 1;
+                rest = prod(known);
+                if rest > 0
+                    tgt(neg) = numel(image) / rest;
+                else
+                    tgt(neg) = 1;
+                end
+            end
+
+            if obj.OnnxBCHW && numel(tgt) == 3
+                % Source is flat (or trailing-flat) BCHW data; ONNX
+                % C-order semantics differ from MATLAB column-major
+                % reshape. Reshape to [W, H, C] then permute to [H, W, C].
+                H = tgt(1);
+                W = tgt(2);
+                C = tgt(3);
+                tmp = reshape(image, [W, H, C]);
+                reshaped = permute(tmp, [2 1 3]);
+            else
+                reshaped = reshape(image, tgt);
+            end
+
         end
     end
     
@@ -99,10 +128,78 @@ classdef ReshapeLayer < handle
             % @in_image: input imagestar
             % @image: output set
 
-            idx = find(obj.targetDim < 0);
-            obj.targetDim(idx) = 1;
+            % [132] Resolve the ONNX -1 sentinel into a LOCAL td. NEVER mutate
+            % obj.targetDim (a handle property): evaluate() resolves -1
+            % dynamically each call, and the MC/falsification oracle calls
+            % evaluate() on the SAME layer object AFTER reach(). The old
+            % obj.targetDim(idx)=1 permanently corrupted the layer, so a
+            % post-reach evaluate() errored or produced a wrong-shaped tensor.
+            td = obj.targetDim;
+            neg = find(td < 0);
+            if ~isempty(neg)
+                if isa(in_image, 'Star')
+                    ntot = in_image.dim;
+                elseif isa(in_image, 'ImageStar') || isa(in_image, 'ImageZono')
+                    ntot = in_image.height * in_image.width * in_image.numChannel;
+                else
+                    ntot = numel(in_image);
+                end
+                known = td; known(neg) = 1; rest = prod(known);
+                if isscalar(neg) && rest > 0 && mod(ntot, rest) == 0
+                    td(neg) = ntot / rest;          % proper ONNX -1 semantics
+                else
+                    td(neg) = 1;                    % fallback (matches old behavior)
+                end
+            end
 
-            image = in_image.reshapeImagestar(obj.targetDim);
+            % Star path: if targetDim is image-shaped (rank 3) AND total
+            % numel matches, convert Star → ImageStar so downstream Conv
+            % layers see the right type. Otherwise pass through (Star is
+            % already a flat column vector).
+            if isa(in_image, 'Star')
+                if numel(td) >= 3 && prod(td(end-2:end)) == in_image.dim
+                    H = td(end-2); W = td(end-1); C = td(end);
+                    if obj.OnnxBCHW && numel(td) == 3
+                        % [9] SOUNDNESS: evaluate() with OnnxBCHW lays the flat
+                        % vector out as reshape([W,H,C]) then permute([2 1 3]).
+                        % A plain column-major toImageStar(H,W,C) would lay it out
+                        % H<->W transposed, so reach and evaluate would model
+                        % images that are spatial transposes of each other --
+                        % every downstream Conv then convolves the wrong image and
+                        % the reach set need not contain evaluate(x). Mirror
+                        % evaluate exactly: column-major into [W,H,C], then permute
+                        % the spatial dims. The predicate constraints are unchanged
+                        % by a spatial permute.
+                        IS_tmp = in_image.toImageStar(W, H, C);
+                        Vp = permute(IS_tmp.V, [2 1 3 4]);   % [W,H,C,m] -> [H,W,C,m]
+                        image = ImageStar(Vp, IS_tmp.C, IS_tmp.d, ...
+                                          IS_tmp.pred_lb, IS_tmp.pred_ub);
+                        return;
+                    end
+                    image = in_image.toImageStar(H, W, C);
+                    return;
+                end
+                image = in_image;
+                return;
+            end
+
+            % ImageStar input. [166] SOUNDNESS: honor OnnxBCHW here too -- the
+            % old reshapeImagestar(obj.targetDim) ignored the flag, so for an
+            % OnnxBCHW reshape of an ImageStar the reach used a different spatial
+            % layout than evaluate (reach != evaluate, maxdiff up to 8) -- the
+            % same H<->W transpose hazard the Star branch fixes. Mirror evaluate:
+            % column-major flatten then the BCHW layout (reshape([W,H,C]) then
+            % permute([2 1 3])).
+            if obj.OnnxBCHW && numel(td) == 3 && ...
+                    prod(td) == in_image.height * in_image.width * in_image.numChannel
+                Hb = td(1); Wb = td(2); Cb = td(3);
+                Sflat = in_image.toStar();                 % column-major flatten
+                IS_tmp = Sflat.toImageStar(Wb, Hb, Cb);
+                Vp = permute(IS_tmp.V, [2 1 3 4]);
+                image = ImageStar(Vp, IS_tmp.C, IS_tmp.d, IS_tmp.pred_lb, IS_tmp.pred_ub);
+                return;
+            end
+            image = in_image.reshapeImagestar(td);
 
         end
         
@@ -113,24 +210,33 @@ classdef ReshapeLayer < handle
             % @S: output ImageStar
             
             n = length(inputs);
-            if isa(inputs(1), 'ImageStar')
-                S(n) = ImageStar;
-            elseif isa(inputs(1), 'ImageZono')
-                S(n) = ImageZono;
-            else
-                error('Unknown input data set');
-            end
-          
+            % Compute outputs first, then assemble — the per-element type
+            % may change (Star → ImageStar) when the reshape promotes a
+            % flat vector to image shape.
+            tmp = cell(1, n);
             if strcmp(option, 'parallel')
                 parfor i=1:n
-                    S(i) = obj.reach_single_input(inputs(i));
+                    tmp{i} = obj.reach_single_input(inputs(i));
                 end
             elseif strcmp(option, 'single') || isempty(option)
                 for i=1:n
-                    S(i) = obj.reach_single_input(inputs(i));
+                    tmp{i} = obj.reach_single_input(inputs(i));
                 end
             else
                 error('Unknown computation option, should be parallel or single');
+            end
+            % Determine output array type from first element
+            if isa(tmp{1}, 'ImageStar')
+                S(n) = ImageStar;
+            elseif isa(tmp{1}, 'ImageZono')
+                S(n) = ImageZono;
+            elseif isa(tmp{1}, 'Star')
+                S(n) = Star;
+            else
+                error('Unknown output data set');
+            end
+            for i = 1:n
+                S(i) = tmp{i};
             end
             
         end

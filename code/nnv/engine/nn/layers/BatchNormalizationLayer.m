@@ -158,6 +158,31 @@ classdef BatchNormalizationLayer < handle
                 obj.NumChannels = 1;
             end
 
+            % Channel-axis-aware fast path: works for any input rank as long
+            % as exactly one input dim equals NumChannels. Reshape per-channel
+            % stats to align with the channel axis and use implicit broadcast.
+            % Triggers for transformer rank-3 [B, C, T] (ViT-style) where
+            % channels can be in any of dims 1..ndims(input).
+            try_axis_aware = obj.NumChannels > 1 && ~isempty(obj.Scale);
+            if try_axis_aware
+                sz_in = size(input);
+                ch_dims = find(sz_in == obj.NumChannels);
+                if numel(ch_dims) == 1 && ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset)
+                    ax = ch_dims(1);
+                    % Build a target shape with NumChannels on axis ax, ones elsewhere
+                    tgt = ones(1, max(2, numel(sz_in)));
+                    tgt(ax) = obj.NumChannels;
+                    m = reshape(obj.TrainedMean(:), tgt);
+                    v = reshape(obj.TrainedVariance(:), tgt);
+                    s = reshape(obj.Scale(:), tgt);
+                    o = reshape(obj.Offset(:), tgt);
+                    eps_v = obj.Epsilon;
+                    if ~isscalar(eps_v), eps_v = reshape(eps_v(:), tgt); end
+                    y = ((input - m) ./ sqrt(v + eps_v)) .* s + o;
+                    return;
+                end
+            end
+
             % input -> 3d image / volume
             if length(size(input)) == 4 || (length(size(input)) == 3 && obj.NumChannels == 1)
                 if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
@@ -304,10 +329,22 @@ classdef BatchNormalizationLayer < handle
                 end
                 
             elseif isa(image, 'Star')
-                l = obj.Scale ./ sqrt(obj.TrainedVariance + obj.Epsilon);
-                for i=1:size(image.V, 2)
-                    image.V(:, i) = ((image.V(:, i) - obj.TrainedMean) .* l + obj.Offset);
-                end
+                % BN is AFFINE: y = (x - mean)./sqrt(var+eps).*scale + offset
+                %             = x.*l + b,  l = scale./sqrt(var+eps), b = offset - mean.*l.
+                % On a Star x = c + sum_i a_i v_i, the LINEAR map (.*l) applies to
+                % EVERY column (center AND generators); the constant bias b applies
+                % ONLY to the center (column 1). The old loop applied
+                % (V(:,i)-mean).*l+offset to every column, adding the constant
+                % (offset - mean.*l) to each GENERATOR too -- a sound but LOOSE
+                % over-approximation (reach env off by |sum(a_i)|*|b|), and, since
+                % BatchNormalizationLayer is whitelisted EXACT by the exact-star
+                % gate, a precision-to-soundness hole (a not-robust verdict could
+                % be certified on the loose set). Apply the affine correctly so the
+                % reach is EXACT.
+                l = obj.Scale(:) ./ sqrt(obj.TrainedVariance(:) + obj.Epsilon);
+                b = obj.Offset(:) - obj.TrainedMean(:) .* l;
+                image.V = image.V .* l;
+                image.V(:, 1) = image.V(:, 1) + b;
             end
             
         end

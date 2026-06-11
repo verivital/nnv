@@ -95,23 +95,38 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                 reachOptions = reachOptionsList{1};
     
                 IS = create_input_set(lb, ub, inputSize, needReshape);
-            
-                % Compute reachability
-                if ~strcmp(reachOptions.reachMethod, "cp-star")
-                    ySet = nnvnet.reach(IS, reachOptions);
-                else
-                    ySet = Prob_reach(net, IS, reachOptions);
+
+                % Compute reachability. Reach may FAIL LOUD by design (layers
+                % refuse to return unsound sets); an error is mapped to
+                % "unknown" for this method and we try the next one -- that is
+                % sound (claims nothing), unlike swallowing a wrong set.
+                try
+                    if ~strcmp(reachOptions.reachMethod, "cp-star")
+                        if ~is_nnvnet_valid(nnvnet)
+                            % matlab2nnv conversion failed earlier; report unknown
+                            status = 2; break;
+                        end
+                        ySet = nnvnet.reach(IS, reachOptions);
+                    else
+                        ySet = Prob_reach(net, IS, reachOptions);
+                    end
+                catch ME
+                    fprintf('reach (%s) errored: %s -> unknown\n', ...
+                        reachOptions.reachMethod, ME.message);
+                    status = 2;
+                    reachOptionsList = reachOptionsList(2:end);
+                    continue;
                 end
-    
+
                 % Verify property
                 status = verify_specification(ySet, prop);
-    
+
                 if status == 1 % verified, then stop
                     break
                 else
                     reachOptionsList = reachOptionsList(2:end);
                 end
-    
+
             end
 
         end
@@ -133,34 +148,48 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                 reachOptPar = reachOptionsList;
                 
+                tempStatus = 2;
                 while ~isempty(reachOptPar)
-    
+
                     reachOptions = reachOptPar{1};
-                
+
                     IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
-            
+
                     % Compute reachability
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
-                        ySet = nnvnet.reach(IS, reachOptions);
-                    else
-                        ySet = Prob_reach(net, IS, reachOptions);
+                        if ~is_nnvnet_valid(nnvnet)
+                            tempStatus = 2; break;
+                        end
                     end
-            
-                    % Verify property
-                    if isempty(ySet.C)
-                        dd = ySet.V; DD = ySet.V;
-                        ySet = Star(dd,DD);
+                    % [29] Layers are now fail-loud by design (a sound refusal,
+                    % not a crash). An uncaught reach error here would abort the
+                    % whole instance/parfor; instead record UNKNOWN for this reach
+                    % option and fall through to the next one.
+                    try
+                        if ~strcmp(reachOptions.reachMethod, "cp-star")
+                            ySet = nnvnet.reach(IS, reachOptions);
+                        else
+                            ySet = Prob_reach(net, IS, reachOptions);
+                        end
+
+                        % Verify property
+                        if isempty(ySet.C)
+                            dd = ySet.V; DD = ySet.V;
+                            ySet = Star(dd,DD);
+                        end
+
+                        % Add verification status
+                        tempStatus = verify_specification(ySet, prop(spc));
+                    catch
+                        tempStatus = 2;   % unknown; try the next reach option
                     end
-        
-                    % Add verification status
-                    tempStatus = verify_specification(ySet, prop(spc));
-    
+
                     if tempStatus ~= 2 % verified, then stop (or falsified)
                         break
                     else
                         reachOptPar = reachOptPar(2:end);
                     end
-    
+
                 end
 
                 local_status(spc) = tempStatus;
@@ -192,32 +221,44 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                 local_status(spc) = 1; % verified, since we already tested this earlier
                 
             else
-            
+
+                tempStatus = 2;
                 while ~isempty(reachOptPar)
-    
+
                     reachOptions = reachOptPar{1};
-                
+
                     IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
-            
+
                     % Compute reachability
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
-                        ySet = nnvnet.reach(IS, reachOptions);
-                    else
-                        ySet = Prob_reach(net, IS, reachOptions);
+                        if ~is_nnvnet_valid(nnvnet)
+                            tempStatus = 2; break;
+                        end
                     end
-        
-                    % Add verification status
-                    tempStatus = verify_specification(ySet, prop(spc));
-    
+                    % [29] fail-loud reach must not abort the parfor (see above).
+                    try
+                        if ~strcmp(reachOptions.reachMethod, "cp-star")
+                            ySet = nnvnet.reach(IS, reachOptions);
+                        else
+                            ySet = Prob_reach(net, IS, reachOptions);
+                        end
+
+                        % Add verification status
+                        tempStatus = verify_specification(ySet, prop(spc));
+                    catch
+                        tempStatus = 2;   % unknown; try the next reach option
+                    end
+
                     if tempStatus ~= 2 % verified, then stop (or falsified)
                         break
                     else
                         reachOptPar = reachOptPar(2:end);
                     end
-    
+
                     local_status(spc) = tempStatus;
-    
+
                 end
+                local_status(spc) = tempStatus;
 
             end
 
@@ -280,7 +321,18 @@ end
 
 function IS = create_input_set(lb, ub, inputSize, needReshape)
 
-    % Get input bounds
+    % If the network has a flat feature input (scalar inputSize, or
+    % singleton-with-channels), build a Star instead of an ImageStar.
+    % Some downstream NNV layer reach() implementations read Set.dim,
+    % which Star has but ImageStar does not.
+    is_feature_input = isscalar(inputSize) || ...
+        (numel(inputSize) <= 3 && nnz(inputSize > 1) <= 1);
+    if is_feature_input
+        IS = Star(double(lb(:)), double(ub(:)));
+        return;
+    end
+
+    % Image input: original behavior
     if ~isscalar(inputSize)
         lb = reshape(lb, inputSize);
         ub = reshape(ub, inputSize);
@@ -296,10 +348,16 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
         lb = permute(lb, [2 1 3 4]);
         ub = reshape(ub, newSize);
         ub = permute(ub, [2 1 3 4]);
+    elseif needReshape == 3
+        % ONNX row-major NHWC flat (C fastest, then W, then H): the reshape
+        % above already produced [C W H] (inputSize must be given as
+        % [C W H]); permute to NNV's [H W C] array convention.
+        lb = permute(lb, [3 2 1]);
+        ub = permute(ub, [3 2 1]);
     end
 
     % Create input set
-    IS = ImageStar(lb, ub); 
+    IS = ImageStar(lb, ub);
 
     % Delete constraints for non-interval dimensions
     try
@@ -315,6 +373,13 @@ function IS = create_input_set(lb, ub, inputSize, needReshape)
         end
     end
 
+end
+
+function ok = is_nnvnet_valid(nnvnet)
+% Sanity-check that nnvnet was built (some dispatchers set it to "" when
+% matlab2nnv conversion fails inside a try/catch). We need an NN object,
+% not a string sentinel.
+    ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
 end
 
 function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] = load_vnncomp_network(category, onnx, vnnlib)
@@ -340,7 +405,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         nnvnet = matlab2nnv(net);
         if ~contains(vnnlib, "prop_3.") && ~contains(vnnlib, "prop_4.")
             reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = numCores;
+            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
             reachOptionsList{1} = reachOptions;
             nRand = 500;
         else
@@ -348,7 +413,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
             reachOptions.reachMethod = 'approx-star'; % default parameters
             reachOptionsList{1} = reachOptions;
             reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = numCores;
+            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
             reachOptionsList{2} = reachOptions;
         end
         
@@ -471,7 +536,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = numCores;
+        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
         reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "linearize")
@@ -484,7 +549,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
             reachOptionsList{1} = reachOptions;
             reachOptions = struct;
             reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = numCores;
+            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
             reachOptionsList{1} = reachOptions;
         catch
             nnvnet = "";
@@ -494,24 +559,17 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         end
 
     elseif contains(category, "lsnc_relu")
-        % LCNS_ReLU: onnx to matlab:
-        % net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
-        % try 
-        %     nnvnet = matlab2nnv(net);
-        % catch
-        %     nnvnet = "";
-        % end
-        %     reachOptions = struct;
-        %     reachOptions.train_epochs = 100;
-        %     reachOptions.train_lr = 0.001;
-        %     reachOptions.coverage = 0.999;
-        %     reachOptions.confidence = 0.999;
-        %     reachOptions.train_mode = 'Linear';
-        %     reachOptions.surrogate_dim = [];
-        %     reachOptions.threshold_normal = 1e-5;
-        %     reachOptions.reachMethod = "cp-star";
-        %     reachOptionsList{1} = reachOptions;
-        error("IR and opset not yet supported in MATLAB")
+        % lsnc_relu: MATLAB's importNetworkFromONNX cannot parse this model
+        % (IR/opset), so load via the Python-importer manifest
+        % (tools/onnx2nnv_python/onnx2nnv.py writes <model>.nnv.mat alongside
+        % the ONNX). Cross-validated against onnxruntime: max diff 9.2e-07
+        % over random inputs (2026-06-09). Flat [6] feature input, [8] output.
+        nnvnet = load_manifest_net(onnx);
+        net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+        inputSize = 6;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "malbeware")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS");
@@ -520,7 +578,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = numCores;
+        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
         reachOptionsList{1} = reachOptions;
         needReshape = 2;
 
@@ -629,7 +687,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star'; % default parameters
-        reachOptions.numCores = numCores;
+        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
         reachOptionsList{2} = reachOptions;
         nRand = 500;
 
@@ -641,7 +699,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
         reachOptions = struct;
         reachOptions.reachMethod = 'exact-star'; % default parameters
-        reachOptions.numCores = numCores;
+        reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "soundness")
@@ -689,20 +747,22 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "traffic")
-        % error("TODO: add support")
-        % net = importNetworkFromONNX(onnx, "InputDataFormats", "BSSC", 'OutputDataFormats',"BC");
-        % try
-        %     nnvnet = matlab2nnv(net);
-        % catch
-        %     nnvnet = "";
-        % end
-        % % needReshape = 1; % 1 is wrong
-        % reachOptions = struct;
-        % % inputFormat = "BSSC";
-        % reachOptions.inputFormat = inputFormat;
-        % reachOptions.reachMethod = 'cp-star';
-        % reachOptionsList{1} = reachOptions;
-        error("IR and opset not yet supported in MATLAB")
+        % traffic_signs_recognition: MATLAB's importNetworkFromONNX cannot
+        % parse this binarized (Sign) model, so load via the Python-importer
+        % manifest. Cross-validated against onnxruntime: max diff 4.3e-19,
+        % argmax 8/8 over random inputs (2026-06-09; required the regenerated
+        % manifest -- SignLayer + proper transpose handling -- plus the
+        % BCHW<->BHWC identity-by-convention placeholders).
+        % Input is ONNX [1,30,30,3] (NHWC); vnnlib X order is ONNX row-major
+        % (C fastest), so unflatten via needReshape=3:
+        %   img = permute(reshape(x, [3 30 30]), [3 2 1])  -> [30 30 3] HWC
+        nnvnet = load_manifest_net(onnx);
+        net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+        inputSize = [3 30 30];   % reshape size BEFORE the [3 2 1] permute
+        needReshape = 3;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "vggnet")
         % error("TODO: add support")
@@ -725,24 +785,40 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         reachOptionsList{1} = reachOptions;
     
     elseif contains(category, "vit")
-        % vit: onnx to matlab
+        % vit: onnx to matlab. Try sound Star-set reach first (approx-star
+        % then relax-star fallback), since cp-star is probabilistic and
+        % doesn't exercise the actual reach() chain through attention layers.
+        % If matlab2nnv conversion fails (e.g., unsupported layer in the ONNX
+        % import), fall back to cp-star to get *some* result.
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
         try
             nnvnet = matlab2nnv(net);
+            needReshape = 1;
+            reachOptionsList = {};
+            % First: approx-star (tightest sound bound NNV offers without LP)
+            reachOpts1 = struct;
+            reachOpts1.reachMethod = 'approx-star';
+            reachOptionsList{end+1} = reachOpts1;
+            % Second: relax-star (faster fallback for deeper nets)
+            reachOpts2 = struct;
+            reachOpts2.reachMethod = 'relax-star-area';
+            reachOpts2.relaxFactor = 0.5;
+            reachOptionsList{end+1} = reachOpts2;
         catch
             nnvnet = "";
+            % cp-star fallback ONLY when sound conversion failed
+            reachOpts = struct;
+            reachOpts.train_epochs = 100;
+            reachOpts.train_lr = 0.001;
+            reachOpts.coverage = 0.999;
+            reachOpts.confidence = 0.999;
+            reachOpts.train_mode = 'Linear';
+            reachOpts.surrogate_dim = [-1,-1];
+            reachOpts.threshold_normal = 1e-5;
+            reachOpts.reachMethod = 'cp-star';
+            reachOptionsList = {reachOpts};
+            needReshape = 1;
         end
-        needReshape= 1; % 1 is correct
-        reachOptions = struct;
-        reachOptions.train_epochs = 100;
-        reachOptions.train_lr = 0.001;
-        reachOptions.coverage = 0.999;
-        reachOptions.confidence = 0.999;
-        reachOptions.train_mode = 'Linear';
-        reachOptions.surrogate_dim = [-1,-1];
-        reachOptions.threshold_normal = 1e-5;
-        reachOptions.reachMethod = 'cp-star';
-        reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "yolo")
         % yolo: onnx to nnv
@@ -768,13 +844,20 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand] =
         error("ONNX model not supported")
     end
 
-    % if reachOptionsList{1}.reachMethod ~= "cp-star"
-    %     reachOptionsList = {};
-    %     reachOptions = struct;
-    %     reachOptions.reachMethod = 'relax-star-area';
-    %     reachOptions.relaxFactor = 1;
-    %     reachOptionsList{1} = reachOptions;
-    % end
+    % Phase 1.5 (TODO_VNNCOMP25_V01): for any category whose first reach
+    % method is "cp-star" (probabilistic, requires GPU on this machine),
+    % prepend sound CPU-only methods so the dispatcher tries them first.
+    % cp-star remains as fallback when the sound methods can't decide.
+    if ~isempty(reachOptionsList) && isfield(reachOptionsList{1}, 'reachMethod') ...
+            && strcmp(reachOptionsList{1}.reachMethod, 'cp-star') ...
+            && is_nnvnet_valid(nnvnet)
+        sound_opts = cell(1,2);
+        o1 = struct(); o1.reachMethod = 'approx-star';
+        sound_opts{1} = o1;
+        o2 = struct(); o2.reachMethod = 'relax-star-area'; o2.relaxFactor = 0.5;
+        sound_opts{2} = o2;
+        reachOptionsList = [sound_opts, reachOptionsList];
+    end
 
 end
 
@@ -789,6 +872,11 @@ function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,
             newSize = [inputSize(2) inputSize(1) inputSize(3:end)];
             xRand = reshape(xRand, [newSize nR]);
             xRand = permute(xRand, [2 1 3 4]);
+        elseif needReshape == 3
+            % ONNX row-major NHWC flat with inputSize = [C W H]:
+            % unflatten then permute to NNV's [H W C] arrays.
+            xRand = reshape(xRand, [inputSize nR]);
+            xRand = permute(xRand, [3 2 1 4]);
         else
             xRand = reshape(xRand, [inputSize nR]);
             xRand = permute(xRand, [2 1 3 4]);
@@ -855,6 +943,20 @@ function write_counterexample(outputfile, counterEx)
 
 end
 
+% Load an NNV net from the Python-importer manifest written alongside the ONNX
+% (tools/onnx2nnv_python/onnx2nnv.py). Used for models MATLAB's
+% importNetworkFromONNX cannot parse (lsnc_relu, traffic_signs_recognition).
+function nnvnet = load_manifest_net(onnx)
+    manifest = regexprep(char(onnx), '\.onnx$', '.nnv.mat');
+    if ~isfile(manifest)
+        error('run_vnncomp_instance:noManifest', ...
+            ['NNV manifest not found: %s\nGenerate it with:\n' ...
+             '  python tools/onnx2nnv_python/onnx2nnv.py "%s" --vnnlib <spec.vnnlib>'], ...
+            manifest, char(onnx));
+    end
+    nnvnet = load_nnv_from_mat(manifest);
+end
+
 % Falsification function (random simulation looking for counterexamples)
 function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape, inputFormat)
     counterEx = nan;
@@ -865,7 +967,11 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
     for i=1:s(n)
         x = get_example(xRand, i);
         try
-            yPred = predict(net, x);
+            if isa(net, 'NN')   % NNV net (Python-importer manifest path)
+                yPred = net.evaluate(x);
+            else
+                yPred = predict(net, x);
+            end
             if isa(x, 'dlarray') % if net is a dlnetwork
                 x = extractdata(x);
                 yPred = extractdata(yPred);
@@ -883,6 +989,17 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
                     elseif needReshape == 1
                         if ndims(x) == 3 % RGB  image
                             x = permute(x, [2 1 3]);
+                        end
+                    elseif needReshape == 3
+                        % [28] create_random_examples built x via
+                        % reshape([C W H]) then permute([3 2 1 4]) -> [H W C].
+                        % Invert that permute so write_counterexample flattens the
+                        % witness back in the ORIGINAL ONNX NHWC flat order
+                        % (C fastest); otherwise the SAT counterexample is written
+                        % H-fastest -> invalid / competition penalty. permute([3 2 1])
+                        % is its own inverse. (Was missing: only 1/2 were handled.)
+                        if ndims(x) == 3
+                            x = permute(x, [3 2 1]);
                         end
                     end
                     counterEx = {x; yPred}; % save input/output of countex-example

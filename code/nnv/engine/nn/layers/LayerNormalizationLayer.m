@@ -108,6 +108,12 @@ classdef LayerNormalizationLayer < handle
             y = extractdata(y);
         end
 
+        function y = evaluate(obj, input)
+            % Evaluate layer normalization on input
+            % Supports various input formats
+            y = obj.evaluateSequence(input);
+        end
+
     end
     
     
@@ -115,122 +121,160 @@ classdef LayerNormalizationLayer < handle
     % exact reachability analysis using ImageStar or ImageZono
     methods
         
-        function image = reach_star_single_input_old(obj, in_image)
-            % @in_image: an input imagestar
-            % @image: output set
-            
-            % author:Neelanjana Pal
-            % date: 1/7/2020
-            
-            if ~isa(in_image, 'ImageStar')
-                error('Input is not an ImageStar');
-            end
-            
-            if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
-                error('Layer Normalization Layer does not have enough parameters');
-            end
-            
-            var = obj.TrainedVariance;
-            eps = obj.Epsilon;
-            mean = obj.TrainedMean;
-            scale = obj.Scale; 
-            offset = obj.Offset;
-            l(1,1, obj.NumChannels) = 0;
-            for i=1:obj.NumChannels
-                l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
-            end
-            
-            x = in_image.affineMap(l, -l.*mean);
-            image = x.affineMap(scale, offset);
-            
-        end
+        % NOTE: reach_star_single_input_old was removed - it incorrectly
+        % referenced TrainedMean/TrainedVariance which don't exist in LayerNorm.
+        % Layer Normalization computes mean/variance from input, not stored stats.
         
         function image = reach_star_single_input(obj, in_image)
-            % @in_image: an input imagestar
+            % @in_image: an input ImageStar or Star
             % @image: output set
-            
-            % author: Mykhailo Ivashchenko
+            %
+            % Layer Normalization normalizes across features (not batch).
+            % Unlike BatchNorm, it does NOT use pre-computed statistics.
+            % Instead, mean and variance are computed from the input itself.
+            %
+            % For reachability, we use a bounds-based approximation:
+            % Given input bounds, we over-approximate the output bounds.
+            %
+            % author: Mykhailo Ivashchenko (original)
             % date: 9/17/2022
-            
-            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star') % CHANGED
+            % modified: NNV Team, December 2025 - fixed for proper LayerNorm semantics
+
+            if ~isa(in_image, 'ImageStar') && ~isa(in_image, 'Star')
                 error('Input is not a Star or ImageStar');
             end
-                       
-            var = obj.TrainedVariance;
+
             eps = obj.Epsilon;
-            mean = obj.TrainedMean;
-            scale = obj.Scale; 
-            offset = obj.Offset;
-                        
-            image = in_image;
-            
-            if isa(image, 'ImageStar')
-                if(length(size(obj.TrainedMean)) == 2) && size(image.V, 1) == 1 && size(image.V, 2) == 1 && length(size(image.V)) == 4
-                    obj.TrainedMean = reshape(obj.TrainedMean, [1 1 size(obj.TrainedMean, 1)]);
-                    obj.TrainedVariance = reshape(obj.TrainedVariance, [1 1 size(obj.TrainedVariance, 1)]);
-                    obj.Epsilon = reshape(obj.Epsilon, [1 1 size(obj.Epsilon, 1)]);
-                    
-                    if length(size(obj.Offset)) ~= 3
-                        obj.Offset = reshape(obj.Offset, [1 1 size(obj.Offset, 1)]);
-                    end
-                    
-                    if length(size(obj.Scale)) ~= 3
-                        obj.Scale = reshape(obj.Scale, [1 1 size(obj.Scale, 1)]);
-                    end
-                    obj.NumChannels = 1;
+            scale = obj.Scale(:);
+            offset = obj.Offset(:);
+
+            if isa(in_image, 'ImageStar')
+                % For ImageStar: use bounds-based approximation
+                % Get input bounds
+                if ~isempty(in_image.im_lb) && ~isempty(in_image.im_ub)
+                    lb = in_image.im_lb;
+                    ub = in_image.im_ub;
+                else
+                    [lb, ub] = in_image.estimateRanges();
                 end
-                
-                x = in_image;
-                
-                if ~isempty(obj.TrainedMean) && ~isempty(obj.TrainedVariance) && ~isempty(obj.Epsilon) && ~isempty(obj.Offset) && ~isempty(obj.Scale)
-                    l(1,1, obj.NumChannels) = 0;
-                    for i=1:obj.NumChannels
-                        l(1,1,i) = 1/sqrt(obj.TrainedVariance(1,1,i) + obj.Epsilon);
-                    end
-                    x = x.affineMap(l, -l.*obj.TrainedMean);
-                end   
-                
-                image = x.affineMap(obj.Scale, obj.Offset);
-            elseif isa(image, 'Star')
-                l = scale ./ sqrt(var + eps);
-                
-                for i=1:size(image.V, 2)
-                    image.V(:, i) = ((image.V(:, i) - mean) .* l + offset);
+
+                % Flatten for LayerNorm computation
+                lb_flat = lb(:);
+                ub_flat = ub(:);
+                n = length(lb_flat);
+
+                % SOUND output bounds. The previous code used var_center*0.5 /
+                % max(.)^2/4 -- UNSOUND: it took the variance of the CENTER
+                % point (0 even when the true variance is large), giving
+                % std_lb=sqrt(eps) and a lower bound that EXCLUDED reachable
+                % outputs (2532/5000 MC violations; counterexample x=[0;5] over
+                % [0,2]x[-3,5]). See sound_bounds + LayerNorm soundness test.
+                [olb, oub] = obj.sound_bounds(lb_flat, ub_flat, scale, offset, eps);
+                image = ImageStar(reshape(olb, size(lb)), reshape(oub, size(ub)));
+
+            elseif isa(in_image, 'Star')
+                % For Star: use bounds-based approximation
+                n = in_image.dim;
+
+                % Get bounds
+                lb = zeros(n, 1);
+                ub = zeros(n, 1);
+                for i = 1:n
+                    lb(i) = in_image.getMin(i, 'linprog');
+                    ub(i) = in_image.getMax(i, 'linprog');
                 end
+
+                % SOUND output bounds (see sound_bounds; the old var_center
+                % formulas were unsound -- same bug as the ImageStar path).
+                [olb, oub] = obj.sound_bounds(lb, ub, scale, offset, eps);
+                image = Star(olb, oub);
             end
-            
+
         end
         
         function image = reach_zono(obj, in_image)
             % @in_image: an input ImageZono
             % @image: output set
-            
-            % author:Neelanjana Pal
-            %  date: 1/7/2020
-            
+            %
+            % Layer Normalization for ImageZono using bounds-based approximation.
+            %
+            % author: Neelanjana Pal (original)
+            % date: 1/7/2020
+            % modified: NNV Team, December 2025 - fixed for proper LayerNorm semantics
+
             if ~isa(in_image, 'ImageZono')
                 error('Input is not an ImageZono');
             end
-            
-            if isempty(obj.TrainedMean) || isempty(obj.TrainedVariance) || isempty(obj.Epsilon) || isempty(obj.Offset) || isempty(obj.Scale)
-                error('Layer Normalization Layer does not have enough parameters');
-            end
-            
-            var = obj.TrainedVariance;
+
             eps = obj.Epsilon;
-            mean = obj.TrainedMean;
-            scale = obj.Scale; 
-            offset = obj.Offset;
-            l(1,1, obj.NumChannels) = 0;
-            for i=1:obj.NumChannels
-                l(1,1,i) = 1/sqrt(var(1,1,i) + eps);
-            end
-            
-            x = in_image.affineMap(l, -l.*mean);
-            image = x.affineMap(scale, offset);
-            
+            scale = obj.Scale(:);
+            offset = obj.Offset(:);
+
+            % Get bounds from zonotope
+            [lb, ub] = in_image.getBounds();
+
+            % Flatten for LayerNorm computation
+            lb_flat = lb(:);
+            ub_flat = ub(:);
+
+            % SOUND output bounds (same sound bound as the Star path; the old
+            % var_center formula was unsound here too).
+            [olb, oub] = obj.sound_bounds(lb_flat, ub_flat, scale, offset, eps);
+            image = ImageZono(reshape(olb, size(lb)), reshape(oub, size(ub)));
+
         end
-        
+
+        function [out_lb, out_ub] = sound_bounds(~, lb, ub, scale, offset, eps)
+            % SOUND interval over-approximation of LayerNorm output bounds.
+            %   y_i = scale_i * (x_i - mean)/sqrt(var + eps) + offset_i,
+            %   mean = (1/n) sum_j x_j,  var = (1/n) sum_j (x_j - mean)^2.
+            % Combines two sound over-approximations of the normalized z_i and
+            % intersects them:
+            %  (1) Input-dependent interval: mean in [mean(lb),mean(ub)]; a sound
+            %      UPPER bound on var via the per-coordinate worst-case squared
+            %      deviation; var lower bound 0 (=> std_lo = sqrt(eps)); then
+            %      z_i = (x_i-mean)/std by interval division with num and std
+            %      taken independently (a sound SUPERSET of the coupled range).
+            %  (2) Universal cap: sum_j z_j = 0 and sum_j z_j^2 <= n imply
+            %      |z_i| <= sqrt(n-1) for ANY input and any eps >= 0.
+            % (1) can blow up (std_lo ~ sqrt(eps)); intersecting with (2) keeps
+            % the result both SOUND and finite. n=1 -> zcap=0 -> output=offset.
+            lb = double(lb(:)); ub = double(ub(:));
+            n = numel(lb);
+            scale = scale(:); offset = offset(:);
+            if numel(scale)  ~= n, scale  = scale(mod((0:n-1), numel(scale))  + 1); end
+            if numel(offset) ~= n, offset = offset(mod((0:n-1), numel(offset)) + 1); end
+
+            mean_lb = mean(lb); mean_ub = mean(ub);
+            d_lo = lb - mean_ub; d_hi = ub - mean_lb;       % x_j - mean range
+            var_ub = mean(max(d_lo.^2, d_hi.^2));            % sound upper bound on var
+            std_lo = sqrt(eps);                              % var_lb = 0 (sound)
+            std_hi = sqrt(var_ub + eps);
+            zcap = sqrt(max(n - 1, 0));                      % universal |z_i| bound
+
+            num_lo = lb - mean_ub; num_hi = ub - mean_lb;    % x_i - mean
+            z_lo = zeros(n,1); z_hi = zeros(n,1);
+            for i = 1:n
+                a = num_lo(i); b = num_hi(i);
+                if a >= 0
+                    z_lo(i) = a / std_hi;  z_hi(i) = b / std_lo;
+                elseif b <= 0
+                    z_lo(i) = a / std_lo;  z_hi(i) = b / std_hi;
+                else
+                    z_lo(i) = a / std_lo;  z_hi(i) = b / std_lo;
+                end
+            end
+            z_lo = max(z_lo, -zcap);                         % intersect with cap
+            z_hi = min(z_hi,  zcap);
+
+            out_lb = zeros(n,1); out_ub = zeros(n,1);
+            pos = scale >= 0;
+            out_lb(pos)  = scale(pos).*z_lo(pos)   + offset(pos);
+            out_ub(pos)  = scale(pos).*z_hi(pos)   + offset(pos);
+            out_lb(~pos) = scale(~pos).*z_hi(~pos) + offset(~pos);
+            out_ub(~pos) = scale(~pos).*z_lo(~pos) + offset(~pos);
+        end
+
         function images = reach_star_multipleInputs(obj, in_images, option)
             % @in_images: an array of ImageStars input set
             % @option: = 'parallel' or 'single' or empty
@@ -295,25 +339,31 @@ classdef LayerNormalizationLayer < handle
                 error('The input is not an ImageStar object');
             end
             
-            % compute output sets
-            
-            if isempty(in_image.im_lb) && isempty(in_image.im_ub)
-                c = obj.evaluateSequence(in_image.V(:,:,:,1));
-                layer = obj;
-                layer.Offset = zeros(obj.NumChannels,1);
-                parfor i = 2: size(in_image.V,4)
-                    V(:,:,:,i) = layer.evaluateSequence(in_image.V(:,:,:,i));
-                end
-                V(:,:,:,1) = c;
-                image = ImageStar(V, in_image.C, in_image.d, in_image.pred_lb, in_image.pred_ub);
+            % SOUND output set. The previous code was UNSOUND: it applied the
+            % NONLINEAR LayerNorm to im_lb/im_ub (or to each basis vector V(:,:,:,i))
+            % independently, as if LayerNorm were affine/monotone -- but LayerNorm
+            % couples elements and is non-monotone, so f(lb)/f(ub) and the
+            % per-generator image do NOT bound the true reachable set.
+            % LayerNorm normalizes over the channel dim, so the normalized value
+            % z_i = (x_i - mean)/sqrt(var + eps) obeys the UNIVERSAL bound
+            % |z_i| <= sqrt(C-1) (C = NumChannels = group size) for ANY input and
+            % any position -> y_i in offset_i +/- |scale_i|*sqrt(C-1). Sound (input-
+            % independent; loose). A tighter input-dependent per-group bound is
+            % future work (see sound_bounds + the LayerNorm grouping note).
+            C = obj.NumChannels;
+            zcap = sqrt(max(C - 1, 0));
+            scale = obj.Scale(:); offset = obj.Offset(:);
+            if ~isempty(in_image.im_lb)
+                sz = size(in_image.im_lb);
             else
-                im_lb = in_image.im_lb;
-                im_ub = in_image.im_ub;
-                lb = obj.evaluateSequence(im_lb);
-                ub = obj.evaluateSequence(im_ub);
-    
-                image = ImageStar(lb,ub);
-            end 
+                sz = size(in_image.V(:,:,:,1));
+            end
+            ne = prod(sz);
+            sc = scale(mod((0:ne-1).', numel(scale))  + 1);
+            of = offset(mod((0:ne-1).', numel(offset)) + 1);
+            lo = of - abs(sc) * zcap;
+            hi = of + abs(sc) * zcap;
+            image = ImageStar(reshape(lo, sz), reshape(hi, sz));
         end
         
 

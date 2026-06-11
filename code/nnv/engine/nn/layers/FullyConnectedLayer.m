@@ -100,14 +100,28 @@ classdef FullyConnectedLayer < handle
         function y = evaluate(obj, x)
             % @input: input
             % @y: output
-            
+
             % author: Dung Tran
             % date: 6/26/2019
-            % 
+            %
             % update: add support for sequence evaluation (neuralode, RNN)
             %   -date: 03/17/2023 (Diego Manzanas)
-            
+
             n = size(x);
+            % Transformer batched-FC fast path: when input has rank > 2 and
+            % its LAST dim matches the FC's input size, apply FC to each
+            % token position. Returns same-rank output with last dim swapped
+            % from in_features to out_features.
+            in_feats = size(obj.Weights, 2);
+            if numel(n) >= 3 && n(end) == in_feats && prod(n(1:end-1)) > 1
+                lead = n(1:end-1);
+                x_flat = reshape(x, [], in_feats);   % [N, in_feats]
+                y_flat = (obj.Weights * x_flat')';    % [N, out_feats]
+                y_flat = y_flat + obj.Bias.';        % broadcast bias on rows
+                y = reshape(y_flat, [lead, size(obj.Weights, 1)]);
+                return;
+            end
+
             if length(n) == 2
                 x = reshape(x, [n(1)*n(2) 1]);
             elseif length(n) == 3

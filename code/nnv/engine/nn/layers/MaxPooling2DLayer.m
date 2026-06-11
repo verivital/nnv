@@ -275,10 +275,25 @@ classdef MaxPooling2DLayer < handle
             % update: set evaluation as previous "segnet" option as default
                 
             dlX = dlarray(input, 'SSC'); % convert the numeric array to dlarray
-            [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Padding', obj.PaddingSize);
+            % MATLAB's maxpool only supports 3-output (with indices) when
+            % every Stride dim is >= the corresponding PoolSize dim
+            % (non-overlapping pooling). For overlapping pooling (e.g.
+            % YOLO's spatial pyramid kernel=5 stride=1), fall back to the
+            % 1-output form.
+            ps = obj.PoolSize;
+            st = obj.Stride;
+            if numel(st) == 1, st = [st st]; end
+            if numel(ps) == 1, ps = [ps ps]; end
+            if all(st >= ps)
+                [dlY, indx, inputSize] = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Padding', obj.PaddingSize);
+                obj.MaxIndx = indx;
+                obj.InputSize = inputSize;
+            else
+                dlY = maxpool(dlX, obj.PoolSize, 'Stride', obj.Stride, 'Padding', obj.PaddingSize);
+                obj.MaxIndx = [];
+                obj.InputSize = size(input);
+            end
             y = extractdata(dlY);
-            obj.MaxIndx = indx;
-            obj.InputSize = inputSize;
             
         end
         

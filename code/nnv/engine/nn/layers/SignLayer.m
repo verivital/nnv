@@ -5,10 +5,15 @@ classdef SignLayer < handle
     % date: 09/052021
     
     properties
+        Name = 'sign_layer';      % NNV layer name (DAG bookkeeping)
+        NumInputs = 1;
+        InputNames = {'in'};
+        NumOutputs = 1;
+        OutputNames = {'out'};
         f = 'sign'; % activation function;
         gamma = 0; % used only for leakyReLU layer
         mode = ""; % used for sign application mode
-        
+
         option = []; % parallel option, 'parallel' or []
         dis_opt = []; % display option, 'display' or []
         lp_solver = 'linprog'; % lp solver option, 'linprog' or 'glpk'

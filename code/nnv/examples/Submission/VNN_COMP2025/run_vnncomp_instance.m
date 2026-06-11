@@ -19,6 +19,14 @@ if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
 end
 
+% Decide the reach input-set type from the NET's input layer (not the input SHAPE):
+% ImageInputLayer/Image3DInputLayer -> ImageStar; flat feature / NN-manifest -> Star.
+% Fixes acasxu (imported as a [1 5 1] ImageInputLayer): the shape heuristic built a
+% Star and every acasxu reach errored ("Input is not an ImageStar").
+useImageStar = isa(net, 'dlnetwork') && ~isempty(net.Layers) && ...
+    (isa(net.Layers(1), 'nnet.cnn.layer.ImageInputLayer') || ...
+     isa(net.Layers(1), 'nnet.cnn.layer.Image3DInputLayer'));
+
 % Load property to verify
 property = load_vnnlib(vnnlib);
 lb = property.lb; % input lower bounds
@@ -113,7 +121,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                 
                 reachOptions = reachOptionsList{1};
     
-                IS = create_input_set(lb, ub, inputSize, needReshape);
+                IS = create_input_set(lb, ub, inputSize, needReshape, useImageStar);
 
                 % Compute reachability. Reach may FAIL LOUD by design (layers
                 % refuse to return unsound sets); an error is mapped to
@@ -172,7 +180,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                     reachOptions = reachOptPar{1};
 
-                    IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
+                    IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape, useImageStar);
 
                     % Compute reachability
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
@@ -246,7 +254,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                     reachOptions = reachOptPar{1};
 
-                    IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape);
+                    IS = create_input_set(lb_spc, ub_spc, inputSize, needReshape, useImageStar);
 
                     % Compute reachability
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
@@ -338,14 +346,21 @@ end
 
 %% Helper functions
 
-function IS = create_input_set(lb, ub, inputSize, needReshape)
+function IS = create_input_set(lb, ub, inputSize, needReshape, useImageStar)
 
-    % If the network has a flat feature input (scalar inputSize, or
-    % singleton-with-channels), build a Star instead of an ImageStar.
-    % Some downstream NNV layer reach() implementations read Set.dim,
-    % which Star has but ImageStar does not.
-    is_feature_input = isscalar(inputSize) || ...
-        (numel(inputSize) <= 3 && nnz(inputSize > 1) <= 1);
+    % Choose the set type from the NET's input-layer TYPE when the caller knows it
+    % (useImageStar), not from the input SHAPE. A net imported as an ImageInputLayer
+    % (e.g. acasxu, inputSize [1 5 1]) needs an ImageStar even though its spatial dims
+    % are singleton; the old shape-only heuristic built a Star and EVERY acasxu reach
+    % errored ("Input is not an ImageStar"), losing all robust/UNSAT acasxu verdicts.
+    % Star is still used for flat feature / NN-manifest inputs, because some downstream
+    % NNV layer reach() implementations read Set.dim, which Star has but ImageStar lacks.
+    if nargin >= 5 && ~isempty(useImageStar)
+        is_feature_input = ~useImageStar;
+    else
+        is_feature_input = isscalar(inputSize) || ...
+            (numel(inputSize) <= 3 && nnz(inputSize > 1) <= 1);
+    end
     if is_feature_input
         IS = Star(double(lb(:)), double(ub(:)));
         return;

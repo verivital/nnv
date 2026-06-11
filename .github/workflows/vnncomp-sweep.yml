@@ -1,0 +1,127 @@
+name: VNN-COMP sweep (cloud)
+
+# On-demand cloud sweep of the VNN-COMP 2025 benchmarks on a free GitHub-hosted
+# runner (public repo -> matlab-actions auto-licenses all toolboxes). Clones the
+# benchmark repo, runs run_all_benchmarks at a chosen per-instance timeout (with
+# optional epsilon-shrink + folder filter), and uploads the results CSV/MD.
+#
+# This is the cloud counterpart to the local sweep documented in VNNCOMP2025_STATUS.md.
+# Defaults to the official VNN-COMP 2025 benchmark repo (github.com/VNN-COMP/vnncomp2025_benchmarks,
+# branch main); point benchmarks_repo/ref at vnncomp2026_benchmarks for the 2026 set.
+
+on:
+  workflow_dispatch:
+    inputs:
+      benchmarks_repo:
+        description: "Git URL of the VNN-COMP benchmarks repo"
+        type: string
+        default: "https://github.com/VNN-COMP/vnncomp2025_benchmarks.git"
+      benchmarks_ref:
+        description: "Branch/tag/sha of the benchmarks repo"
+        type: string
+        default: "main"
+      benchmarks_subdir:
+        description: "Path to the benchmarks folder inside that repo"
+        type: string
+        default: "benchmarks"
+      timeout_s:
+        description: "Per-instance wall-clock timeout (s)"
+        type: string
+        default: "120"
+      eps_shrink:
+        description: "Optional epsilon shrink fraction in (0,1) for a tractability smoke test (blank = full epsilon)"
+        type: string
+        default: ""
+      folders:
+        description: "Optional comma-separated benchmark folder filter (blank = all)"
+        type: string
+        default: ""
+      release:
+        description: "MATLAB release"
+        type: string
+        default: "R2026a"
+
+concurrency:
+  group: vnncomp-sweep-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Opt JS actions into Node 24 ahead of GitHub's 2026-06-16 forced flip.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout NNV
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Clone VNN-COMP benchmarks (shallow)
+        run: |
+          git clone --depth 1 --branch "${{ github.event.inputs.benchmarks_ref }}" \
+            "${{ github.event.inputs.benchmarks_repo }}" vnncomp2025_benchmarks
+          echo "Benchmarks at: $(pwd)/vnncomp2025_benchmarks/${{ github.event.inputs.benchmarks_subdir }}"
+          ls -1 "vnncomp2025_benchmarks/${{ github.event.inputs.benchmarks_subdir }}" | head -40
+
+      - name: Setup MATLAB
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: ${{ github.event.inputs.release }}
+          cache: true
+          products: >
+            Computer_Vision_Toolbox
+            Control_System_Toolbox
+            Deep_Learning_Toolbox
+            Image_Processing_Toolbox
+            Optimization_Toolbox
+            Parallel_Computing_Toolbox
+            Statistics_and_Machine_Learning_Toolbox
+            Symbolic_Math_Toolbox
+            System_Identification_Toolbox
+            Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format
+            Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format
+
+      - name: Restore NNV tbxmanager toolboxes (shared cache)
+        id: tbxcache
+        uses: actions/cache/restore@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+          restore-keys: |
+            nnv-tbxmanager-${{ runner.os }}-
+
+      - name: Run VNN-COMP sweep
+        uses: matlab-actions/run-command@v2
+        timeout-minutes: 330
+        with:
+          command: |
+            cd('code/nnv'); install;
+            cd(fullfile('examples','Submission','VNN_COMP2025'));
+            bench = fullfile(getenv('GITHUB_WORKSPACE'), 'vnncomp2025_benchmarks', '${{ github.event.inputs.benchmarks_subdir }}');
+            to = str2double('${{ github.event.inputs.timeout_s }}'); if isnan(to), to = 120; end
+            es = '${{ github.event.inputs.eps_shrink }}'; if ~isempty(es), setenv('NNV_EPS_SHRINK', es); end
+            ff = '${{ github.event.inputs.folders }}';
+            if isempty(strtrim(ff))
+                run_all_benchmarks(bench, to);
+            else
+                only = strtrim(split(string(ff), ','));
+                run_all_benchmarks(bench, to, cellstr(only));
+            end
+
+      - name: Save NNV tbxmanager cache (only a COMPLETE install, only on a miss)
+        if: always() && steps.tbxcache.outputs.cache-hit != 'true' && hashFiles('code/nnv/tbxmanager/toolboxes/sedumi/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: code/nnv/tbxmanager
+          key: nnv-tbxmanager-${{ runner.os }}-${{ hashFiles('code/nnv/install.m') }}
+
+      - name: Upload sweep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vnncomp-sweep-results
+          path: code/nnv/examples/Submission/VNN_COMP2025/results_*.{csv,md}
+          if-no-files-found: warn

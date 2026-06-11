@@ -126,9 +126,10 @@ fprintf('Training: [%d, %d], Validation: [%d, %d]\n', vocab_size, n_train, vocab
 %% 5) Build Network
 fprintf('\n[5/6] Building network...\n');
 
-% NOTE: BatchNormalization layers removed due to known soundness issues
-% in NNV's BatchNormalizationLayer.reach() method.
-% See TODO_TRANSFORMER.md "Known Issues" section for details.
+% NOTE: this small model simply omits BatchNormalization. (Historical note: an
+% earlier BatchNormalizationLayer.reach() looseness was FIXED in PR #290 and is
+% now pinned MC-sound + exact by test_exact_whitelist_soundness -- BatchNorm is
+% safe to use and is NOT excluded for soundness reasons.)
 layers = [
     imageInputLayer([vocab_size 1 1], 'Name', 'input', 'Normalization', 'none')
     flattenLayer('Name', 'flatten')

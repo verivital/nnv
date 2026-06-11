@@ -80,7 +80,28 @@ error 5 · (sat-from-overapprox 0)`.
 - **Tier D — category-path import gap; manifest (Python-importer) path works (3):** `cgan`,
   `soundnessbench`, `test`. All three forward-pass-validate on the manifest path (xval ≤ 7.7e-6); only the
   category `matlab2nnv` dispatcher can't parse them (custom `ReshapeLayer1000` / no dispatcher). **Run
-  these via `code/nnv/tools/onnx2nnv_python/` → `load_nnv_from_mat`.**
+  these via `code/nnv/tools/onnx2nnv_python/` → `load_nnv_from_mat`.** (Confirmed: `cgan` loads from its
+  `.nnv.mat` manifest, forward-passes, and reaches a sound `unknown` via `approx-star` — see
+  `run_tierD_manifest.m`.)
+
+---
+
+## Refinements (this session)
+
+- **ε-shrink diagnostic for the 4 Tier-B nets (`NNV_EPS_SHRINK=0.05`, fast methods, 300 s):** separates
+  *compute-bound* from *scalability-bound*:
+  - **`cora` is tractable** — `unsat` (SAFE) in 14 s at 5 % ε; the full-ε perturbation was the timeout, so a
+    larger budget / cloud should verify it. **→ effectively ~18/26 are reachable verdicts.**
+  - **`cifar100`, `tinyimagenet`, `vggnet16` time out even at 5 % ε** — a genuine **NNV set-reach
+    scalability limit** on those large ResNets / VGG-16, not just a time budget. These need a fundamentally
+    cheaper abstract domain (or are out of scope for exact/star reach at this size).
+- **Cloud sweep harness:** `.github/workflows/vnncomp-sweep.yml` — an on-demand GitHub-runner sweep
+  (clone benchmarks → `run_all_benchmarks` at a chosen timeout, optional ε-shrink + folder filter → upload
+  results), reusing the tbxmanager cache. Set its `benchmarks_repo` input to the official VNN-COMP 2025
+  benchmark repo.
+- **Reach-method policy:** the 6 compute-bound categories now **lead with `approx-zono` → `abs-dom` and
+  never use `exact-star`** (which is exponential); this is what converted `safenlp`/`sat_relu` from timeout
+  to a sub-20 s verdict.
 
 ---
 

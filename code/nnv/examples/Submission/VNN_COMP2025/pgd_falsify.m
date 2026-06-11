@@ -90,9 +90,8 @@ end
 
 function fmt = resolve_format(inputFormat, inputSize)
     if nargin >= 1 && ~isempty(inputFormat) && ~strcmp(inputFormat, "default")
-        fmt = char(inputFormat);
-        if ~endsWith(fmt, 'B'), fmt = [fmt 'B']; end   % ensure a batch dim
-        return;
+        fmt = char(inputFormat);   % trust the caller's dims label as-is; do NOT
+        return;                    % append 'B' (that corrupts labels like 'BC'/'BCT')
     end
     % default: flat feature input -> CB; image (3D) -> SSCB.
     if isscalar(inputSize) || (numel(inputSize) <= 3 && nnz(inputSize > 1) <= 1)
@@ -107,6 +106,11 @@ function dlx = to_dlarray(x, inputSize, fmt)
         xr = reshape(x, [inputSize, 1]);
     else
         xr = reshape(x, inputSize);
+    end
+    % Pad trailing singleton dims so the array rank matches the format label rank
+    % (e.g. an [H W C] image with an 'SSCB' label needs a trailing batch dim).
+    if ndims(xr) < numel(fmt)
+        xr = reshape(xr, [size(xr), ones(1, numel(fmt) - ndims(xr))]);
     end
     dlx = dlarray(single(xr), fmt);
 end

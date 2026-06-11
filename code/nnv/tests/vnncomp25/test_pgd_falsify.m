@@ -13,9 +13,28 @@ classdef test_pgd_falsify < matlab.unittest.TestCase
                        fullyConnectedLayer(1, 'Name', 'fc', 'Weights', [1 1], 'Bias', 0) ];
             net = dlnetwork(layers);
         end
+        function net = img_sum_net()
+            % 1x1x2 "image" -> y = sum of the 2 channels (exercises the SSCB /
+            % multi-dim format + rank-padding path).
+            layers = [ imageInputLayer([1 1 2], 'Name', 'in', 'Normalization', 'none')
+                       fullyConnectedLayer(1, 'Name', 'fc', 'Weights', [1 1], 'Bias', 0) ];
+            net = dlnetwork(layers);
+        end
     end
 
     methods (Test)
+
+        function test_pgd_image_format_sscb(testCase)
+            % multi-dim input (inputSize=[1 1 2], format 'SSCB'): the format/reshape
+            % path must produce a valid forward pass, find the CE, and validate it.
+            net = test_pgd_falsify.img_sum_net();
+            lb = [0;0]; ub = [1;1]; Hs = HalfSpace(-1, -1.5);
+            opts = struct('seed', 0, 'n_restarts', 12, 'n_steps', 30, 'lr', 0.2);
+            [cex, found] = pgd_falsify(net, lb, ub, Hs, [1 1 2], 'SSCB', opts);
+            testCase.verifyTrue(found, 'PGD should find a CE on the 1x1x2 image net');
+            testCase.verifyTrue(validate_witness(net, cex{1}, lb, ub, Hs, [1 1 2], 'SSCB'), ...
+                'image-format witness must validate');
+        end
 
         function test_pgd_finds_counterexample(testCase)
             net = test_pgd_falsify.linsum_net();

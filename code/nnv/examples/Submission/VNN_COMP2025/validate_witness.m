@@ -66,13 +66,16 @@ function y = eval_net(net, x, inputSize, inputFormat)
         xr = reshape(x, inputSize);
     end
     fmt = resolve_format(inputFormat, inputSize);
+    % Pad trailing singleton dims so the array rank matches the format label rank.
+    if ndims(xr) < numel(fmt)
+        xr = reshape(xr, [size(xr), ones(1, numel(fmt) - ndims(xr))]);
+    end
     y = extractdata(predict(net, dlarray(single(xr), fmt)));
 end
 
 function fmt = resolve_format(inputFormat, inputSize)
     if nargin >= 1 && ~isempty(inputFormat) && ~strcmp(inputFormat, "default")
-        fmt = char(inputFormat);
-        if ~endsWith(fmt, 'B'), fmt = [fmt 'B']; end
+        fmt = char(inputFormat);   % trust the caller's dims label as-is (no 'B' append)
         return;
     end
     if isscalar(inputSize) || (numel(inputSize) <= 3 && nnz(inputSize > 1) <= 1)

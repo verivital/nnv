@@ -1,5 +1,10 @@
 # VNN-COMP 2025 — Benchmark Support Status (PR #290, `ttj/transformer`)
 
+> **⤴ CURRENT STATUS:** this doc's per-benchmark table below is the 10 s smoke-test sweep. For the
+> **real 120 s/instance results** (15/26 completed verdicts) and the up-to-date readiness tiers, see the
+> top-level [`VNNCOMP2025_STATUS.md`](../../../../../VNNCOMP2025_STATUS.md) (raw data:
+> `results_20260610_200503.csv`).
+
 **Purpose:** authoritative, merge-facing summary of which VNN-COMP 2025 benchmarks the
 PR's importer + reachability supports, and the soundness guarantee. Generated from two
 sweeps of all 26 benchmark folders (one representative instance each):

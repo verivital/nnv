@@ -22,6 +22,11 @@ on:
         required: false
         default: false
 
+env:
+  # Opt JS actions into Node 24 ahead of GitHub's forced 2026-06-16 default flip (Node 20
+  # EOL on the runners), so any incompatibility surfaces in CI now rather than mid-competition.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   regression-test:
     runs-on: ubuntu-latest
@@ -33,7 +38,7 @@ jobs:
           submodules: 'true'
 
       - name: Setup MATLAB
-        uses: matlab-actions/setup-matlab@v2
+        uses: matlab-actions/setup-matlab@v3
         with:
           release: R2024b
           products: >
@@ -136,7 +141,7 @@ jobs:
 
       - name: Update baselines (manual trigger only)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.update_baselines == 'true'
-        uses: matlab-actions/run-command@v1
+        uses: matlab-actions/run-command@v2
         with:
           command: |
             cd("code/nnv");

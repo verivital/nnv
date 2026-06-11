@@ -998,6 +998,22 @@ end
 % Falsification function (random simulation looking for counterexamples)
 function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needReshape, inputFormat)
     counterEx = nan;
+    % Gradient-directed falsification FIRST for flat feature inputs (needReshape==0),
+    % where the input vector maps directly to the network input (no permute risk).
+    % PGD/FGSM finds counterexamples far more reliably than random sampling (NNV
+    % found 354 SAT vs ~1000 for the field in 2025). Gated to dlnetwork + needReshape==0,
+    % wrapped in try/catch, and VALIDATED before acceptance, so it can only ADD a sound
+    % SAT or fall through to the existing random sampling. [VNNCOMP2026_STRATEGY Pillar 1/2]
+    if needReshape == 0 && isa(net, 'dlnetwork')
+        try
+            [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, struct('seed', 0));
+            if found && validate_witness(net, cex{1}, lb, ub, Hs, inputSize, inputFormat)
+                counterEx = cex; return;
+            end
+        catch
+            % fall through to random sampling
+        end
+    end
     xRand = create_random_examples(net, lb, ub, nRand, inputSize, needReshape, inputFormat);
     s = size(xRand);
     n = length(s);

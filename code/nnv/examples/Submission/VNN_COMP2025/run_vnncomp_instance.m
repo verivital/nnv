@@ -588,6 +588,24 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptions.reachMethod = 'cp-star';
         reachOptionsList{1} = reachOptions;
 
+    elseif contains(category, "challenging")
+        % challenging_certified_training_2026: cifar10 CNNs (Conv/BN/ReLU/FC),
+        % same BCSS image import + CHW-flat vnnlib order as cifar100 -> same
+        % needReshape. Center-image output cross-checked vs onnxruntime
+        % (2026-06-12, max|diff| < 1e-5) so the input-box orientation is right.
+        % Deterministic sound ladder (NOT probabilistic cp-star): approx-star
+        % first, looser relax-star fallback; anything unresolved -> unknown.
+        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS", "OutputDataFormats","BC");
+        nnvnet = matlab2nnv(net);
+        needReshape = 1;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.7;
+        reachOptionsList{2} = reachOptions;
+
     elseif contains(category, 'collins_aerospace_benchmark')
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);

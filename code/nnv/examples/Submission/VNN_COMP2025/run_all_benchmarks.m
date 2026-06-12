@@ -78,7 +78,7 @@ subfolder_to_category('nn4sys')                            = 'nn4sys';
 subfolder_to_category('relusplitter')                      = 'relusplitter';
 subfolder_to_category('safenlp_2024')                      = 'safenlp';
 subfolder_to_category('sat_relu')                          = 'sat_relu';
-subfolder_to_category('soundnessbench')                    = 'soundness';
+subfolder_to_category('soundnessbench')                    = 'soundnessbench';
 subfolder_to_category('test')                              = 'test';   % no NNV dispatch; will error
 subfolder_to_category('tinyimagenet_2024')                 = 'tinyimagenet';
 subfolder_to_category('tllverifybench_2023')               = 'tllverifybench';
@@ -114,7 +114,13 @@ pool = parpool('Processes', 1);   % 1 worker avoids the 16-vs-N config error
 for i = 1:n
     sub = folders{i};
     if ~isKey(subfolder_to_category, sub)
-        cat = '?';
+        % Default the category to the FOLDER NAME -- this mirrors the competition
+        % harness (which passes the benchmark folder name as the category) and
+        % run_vnncomp_instance routes via contains(category, "<key>"), so e.g.
+        % "cgan2026"->"cgan", "soundnessbench_2026"->"soundnessbench",
+        % "relusplitter_2026"->"relusplitter" all dispatch correctly. Using '?'
+        % (the old default) left every new 2026 folder unrouted -> forced error.
+        cat = sub;
     else
         cat = subfolder_to_category(sub);
     end

@@ -207,14 +207,22 @@ classdef LstmLayer < handle
                     error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
-            if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
+            if strcmp(method, 'exact-star')
+                % the LSTM star path composes over-approximations
+                % (per-step input boxing, approx-star activations,
+                % McCormick product envelopes), so an exact star set is
+                % not computable; fail closed rather than return an
+                % over-approximation labeled exact, which NN.verify
+                % would treat as a complete result
+                error("LstmLayer does not support 'exact-star' reachability: the LSTM star set is an over-approximation. Use 'approx-star'.");
+            elseif strcmp(method, 'approx-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
                 IS = obj.reach_zono_multipleInputs(in_images, option);
             else
                 error('Unknown reachability method');
             end
-            
+
         end
         
         function IS = reachSequence(varargin)
@@ -288,9 +296,9 @@ classdef LstmLayer < handle
             end
             
             if isa(in_image, 'ImageStar')
-                % reach using ImageStar
-                N = size(in_image.im_lb);
-                if N(1,1) ~= obj.InputSize
+                % reach using ImageStar (im_lb may be empty, e.g. for
+                % sets produced by other layers, so check the height)
+                if in_image.height ~= obj.InputSize
                     error('Inconsistency between the size of the input image and the InputSize of the network');
                 end
                 if ~all(obj.hiddenState == 0)
@@ -344,6 +352,37 @@ classdef LstmLayer < handle
             
         end
         
+        % handle multiple inputs
+        function S = reach_star_multipleInputs(obj, inputs, option)
+            % @inputs: an array of ImageStars
+            % @option: = 'parallel' or 'single'
+            % @S: output ImageStar
+
+            % The star-method branch of reach() dispatches here; the
+            % method was previously missing, so reach() errored for
+            % every star-based method.
+
+            n = length(inputs);
+            if isa(inputs, "ImageStar")
+                S(n) = ImageStar;
+            else
+                error("Input must be ImageStar");
+            end
+
+            if strcmp(option, 'parallel')
+                parfor i=1:n
+                    S(i) = obj.reach_star_single_input(inputs(i));
+                end
+            elseif strcmp(option, 'single') || isempty(option)
+                for i=1:n
+                    S(i) = obj.reach_star_single_input(inputs(i));
+                end
+            else
+                error('Unknown computation option, should be parallel or single');
+            end
+
+        end
+
         % handle multiple inputs
         function S = reach_star_multipleInputs_Sequence(obj, inputs, option)
             % @inputs: an array of ImageStars

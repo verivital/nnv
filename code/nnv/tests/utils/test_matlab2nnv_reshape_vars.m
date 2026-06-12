@@ -39,6 +39,12 @@ function test_mnist_concat_converts_and_is_faithful(tc)
     % conversion fidelity: NNV evaluate must match dlnetwork predict (this is
     % what makes downstream approx-star UNSAT proofs trustworthy)
     rng(7);
+    % dlarray label note: "InputDataFormats","BC" describes the ONNX tensor layout
+    % (batch x channel); the imported dlnetwork has a featureInputLayer(792), and a
+    % MATLAB column vector x [792x1] is labeled per-DIMENSION as 'CB' (C=792
+    % features, B=1 batch). This orientation is empirically pinned: the same
+    % forward pass matches onnxruntime on the original ONNX to ~2e-6 relative
+    % (2026-06-12 xval) -- a transposed feed could not reproduce that.
     maxAbs = 0; maxMag = 0;
     for k = 1:5
         x = randn(792, 1, 'single');

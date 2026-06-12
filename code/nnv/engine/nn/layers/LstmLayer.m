@@ -272,6 +272,17 @@ classdef LstmLayer < handle
                     error('Invalid number of input arguments (should be 2, 3, 4, 5, or 6)');
             end
             
+            if strcmp(method, 'exact-star')
+                % kept accepted for backward compatibility with existing
+                % scripts, but the LSTM star set composes
+                % over-approximations (per-step boxing, approx-star
+                % activations, McCormick product envelopes), so results
+                % must not be interpreted with exact-star (complete)
+                % semantics
+                warning('NNV:LstmLayer:approximateReach', ...
+                    "LstmLayer sequence star reachability is an over-approximation; 'exact-star' results are computed with approx-star semantics.");
+            end
+
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs_Sequence(in_images, option);
             elseif strcmp(method, 'approx-zono')
@@ -412,26 +423,22 @@ classdef LstmLayer < handle
             
         end
         
-        function S = reach_star_single_input_Sequence(obj, inputs, option)
+        function S = reach_star_single_input_Sequence(obj, inputs)
+            % @inputs: input ImageStar (features x time steps)
+            % @S: output set
+            %
+            % Symbolic star-set propagation through every time step.
+            % The previous implementation evaluated the network
+            % concretely: either at the im_lb/im_ub bound images, or by
+            % mapping each basis vector of V through the nonlinear
+            % network. Neither encloses the output of a non-monotone
+            % map, so concrete trajectories sampled from inside the
+            % input set routinely left the returned set.
 
             if ~isa(inputs, 'ImageStar')
                 error('The input is not an ImageStar object');
             end
-            if isempty(inputs.im_lb) && isempty(inputs.im_ub)
-                c = obj.evaluateSequence(inputs.V(:,:,:,1));
-                parfor i = 2:size(inputs.V,4)
-                    V(:,:,:,i) = obj.evaluateSequence(inputs.V(:,:,:,i));
-                end
-                V(:,:,:,1)=c;
-                S = ImageStar(V,inputs.C,inputs.d,inputs.pred_lb,inputs.pred_ub);
-            else
-                im_lb = inputs.im_lb;
-                im_ub = inputs.im_ub;
-                lb = obj.evaluateSequence(im_lb);
-                ub = obj.evaluateSequence(im_ub);
-    
-                S = ImageStar(lb,ub);
-            end 
+            S = obj.reach_star_single_input(inputs);
         end
 
         %(reachability analysis using imagezono)

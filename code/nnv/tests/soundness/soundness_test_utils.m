@@ -11,7 +11,7 @@ classdef soundness_test_utils
             % Input:
             %   S - Star set
             %   point - column vector to check
-            %   tol - tolerance for numerical comparisons (default: 1e-6)
+            %   tol - tolerance for numerical comparisons (treated as abstol, floored at 1e-4; a 1e-3 relative band is also applied)
             %
             % Output:
             %   contained - true if point is in S, false otherwise
@@ -50,7 +50,7 @@ classdef soundness_test_utils
             % Input:
             %   IS - ImageStar set
             %   image - image array to check (same dimensions as IS center)
-            %   tol - tolerance (default: 1e-6)
+            %   tol - tolerance (treated as abstol, floored at 1e-4; a 1e-3 relative band is also applied)
             %
             % Output:
             %   contained - true if image is in IS, false otherwise
@@ -92,6 +92,10 @@ classdef soundness_test_utils
             % INTERIOR to the feasible region and the LP converges regardless of algorithm
             % (an exact Aeq, or constrained lsqlin, is what made earlier attempts brittle on
             % vertices). Box bounds plb <= alpha <= pub are always passed.
+            % Note: linprog is already a hard NNV dependency (lpsolver wraps linprog/glpk
+            % throughout engine/), so this adds no new requirement; the small per-check LP is
+            % fine for the test suite. There is no correct toolbox-free shortcut here -- the old
+            % backslash/pinv fast path was precisely the bug (it dropped the box bounds).
             n = size(V, 2);
             band_r = abstol + reltol*abs(r);
             A = [V; -V];
@@ -715,7 +719,7 @@ classdef soundness_test_utils
             % Input:
             %   point - vector to check
             %   lb, ub - lower/upper bounds
-            %   tol - tolerance (default: 1e-6)
+            %   tol - tolerance (treated as abstol, floored at 1e-4; a 1e-3 relative band is also applied)
             %
             % Output:
             %   in_bounds - true if point is within [lb-tol, ub+tol]

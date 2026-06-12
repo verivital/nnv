@@ -41,7 +41,7 @@ end
 property = load_vnnlib(vnnlib);
 
 % VNN-LIB 2.0 gate: load_vnnlib2 (dispatched for 2.0 files) flags any construct NNV
-% cannot soundly verify -- multi-network (equal-to/isomorphic-to), nonlinear/arithmetic
+% cannot soundly verify -- 3+ networks / isomorphic-to, nonlinear/arithmetic
 % output, multimodal (>1 input tensor), declare-hidden, mixed input/output disjunction.
 % Emit `unknown` (0 points) rather than parse it unsoundly and risk a -150 wrong
 % verdict. (1.0 properties never set this field, so this is a no-op for them.)
@@ -49,6 +49,22 @@ if isfield(property, 'unsupported') && property.unsupported
     if isfield(property, 'reason') && ~isempty(property.reason)
         fprintf('vnnlib 2.0 unsupported -> unknown: %s\n', property.reason);
     end
+    status = 2;
+    tTime = toc(t);
+    fid = fopen(outputfile, 'w');
+    fprintf(fid, 'unknown \n');
+    fclose(fid);
+    return;
+end
+
+% Phase 2 guard: a clean multi-network `equal-to` pair parses into
+% property.multinet (unsupported = false) with the single-network fields
+% lb/ub/prop intentionally EMPTY. The runner plumbing for it (python-tuple onnx
+% list in instances.csv, product-net dispatch -- plan Phase 3c) is not wired
+% yet, so emit `unknown` rather than fall through to the single-network path.
+% Verification entry point for these properties: engine/utils/verify_multinet.m.
+if isfield(property, 'multinet')
+    fprintf('vnnlib 2.0 multi-network (equal-to) property parsed -> unknown: runner wiring is Phase 3c (see verify_multinet.m)\n');
     status = 2;
     tTime = toc(t);
     fid = fopen(outputfile, 'w');

@@ -37,12 +37,17 @@ if isfile(p), return; end
 gz = [p '.gz'];
 if isfile(gz)
     try
-        gunzip(gz);
+        names = gunzip(gz);   % returns the cellstr of extracted file path(s)
     catch
         p = '';
         return;
     end
     if isfile(p), return; end
+    % gunzip may resolve to a different path than [p without .gz]; trust its return.
+    if ~isempty(names) && isfile(names{1})
+        p = names{1};
+        return;
+    end
 end
 p = '';
 end

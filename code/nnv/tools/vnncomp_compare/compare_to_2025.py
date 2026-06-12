@@ -206,10 +206,10 @@ def _solved_counts(inst_map):
     return sat, unsat
 
 
-def _votes(ref_cache, bench, onnx, vl):
+def _votes(ref_cache, bench, onnx, vl, tools):
     """{tool: verdict} for the tools that gave a definitive verdict on this instance."""
     out = {}
-    for t in TOOLS:
+    for t in tools:
         v = ref_cache.get((t, bench), {}).get((onnx, vl))
         if v in ('sat', 'unsat'):
             out[t] = v
@@ -266,7 +266,7 @@ def main():
             return
         print(f"### {title}\n")
         for (b, onnx, vl) in keys[:80]:
-            print(f"- `{b}` {onnx} / {vl}: NNV={new_inst[(b, onnx, vl)]}, tool votes {_votes(ref_cache, b, onnx, vl)}")
+            print(f"- `{b}` {onnx} / {vl}: NNV={new_inst[(b, onnx, vl)]}, tool votes {_votes(ref_cache, b, onnx, vl, TOOLS)}")
         if len(keys) > 80:
             print(f"- ... and {len(keys)-80} more")
         print()

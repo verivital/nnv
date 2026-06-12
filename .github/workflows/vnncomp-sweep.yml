@@ -161,7 +161,7 @@ jobs:
         if: ${{ contains(matrix.folder, 'lsnc_relu') || contains(matrix.folder, 'traffic_signs') || contains(matrix.folder, 'cgan') || contains(matrix.folder, 'soundnessbench') }}
         shell: bash
         run: |
-          python3 -m pip install --quiet onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
+          python3 -m pip install --quiet onnx==1.20.0 onnxruntime==1.23.1 numpy scipy onnxsim onnxoptimizer
           BENCH="$GITHUB_WORKSPACE/vnncomp2025_benchmarks/${{ github.event.inputs.benchmarks_subdir }}/${{ matrix.folder }}"
           shopt -s nullglob
           # The 2026 benchmark set ships ONNX GZIPPED (<model>.onnx.gz). The manifest glob

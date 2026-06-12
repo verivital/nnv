@@ -64,7 +64,15 @@ function test_linear_combination_unsupported(testCase)
     c = onCleanup(@() delete(tf));
 
     % Pin: this currently ERRORS (does not produce a well-formed HalfSpace).
-    verifyError(testCase, @() load_vnnlib(tf), '', ...
+    % (Any error identifier is acceptable -- the point is it does not silently
+    % mis-parse; today it throws MATLAB:badsubscript in process_constraint.)
+    threw = false;
+    try
+        load_vnnlib(tf);
+    catch
+        threw = true;
+    end
+    verifyTrue(testCase, threw, ...
         'linear-combination output constraint should currently error (not silently mis-parse)');
 end
 

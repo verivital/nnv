@@ -155,12 +155,21 @@ for i = 1:n
         continue;
     end
     fprintf('  %d instance(s) [%s]\n', numel(pairs), run_which);
+    % A FRESH Processes worker pays a large one-time cost on its first instance
+    % (worker init + ONNX-importer custom-layer codegen): measured ~100 s even for
+    % a model that solves in 9 s warm. Grant that first instance a one-time grace
+    % so cold-start cannot masquerade as a solver timeout. Applies to the job's
+    % first instance and to the first instance after every timeout-triggered pool
+    % restart. The recorded time_s is still the true wall time.
+    cold_grace_s = 120;
+    pool_is_cold = true;
     for k = 1:numel(pairs)
         pr = pairs{k};
         out_file = [tempname '.txt'];
         t0 = tic;
         f = parfeval(pool, @run_vnncomp_instance, 2, cat, pr.onnx, pr.vnnlib, out_file);
-        ok = wait(f, 'finished', timeout_s);
+        ok = wait(f, 'finished', timeout_s + cold_grace_s*pool_is_cold);
+        pool_is_cold = false;
         if ok
             if isempty(f.Error)
                 try
@@ -177,6 +186,20 @@ for i = 1:n
             cancel(f);
             status = -1; status_str = 'timeout';
             err = sprintf('exceeded %d s', timeout_s);
+            % cancel() CANNOT interrupt a BUSY worker (it only de-schedules queued
+            % futures): the zombie keeps grinding the timed-out reach while the next
+            % parfeval queues BEHIND it -- cascading false timeouts plus unbounded
+            % CPU/memory growth. This is what killed the malbeware sweep runners
+            % (~50 scaled_16 instances need ~370 s each vs the 120 s cap; both sweep
+            % runs died with NO logs and NO rows = runner-level death). Restarting
+            % the pool is the only reliable way to kill a busy MATLAB worker; the
+            % ~15 s restart cost applies only on timeouts.
+            try
+                delete(pool);
+            catch
+            end
+            pool = parpool('Processes', 1);
+            pool_is_cold = true;   % next instance gets the one-time cold-start grace
         end
         time_s = toc(t0);
         fprintf('  [%d/%d] %s -> %s (%.1f s)%s\n', k, numel(pairs), pr.onnx_rel, status_str, time_s, ...

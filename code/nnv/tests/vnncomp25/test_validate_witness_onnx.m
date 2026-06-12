@@ -13,6 +13,26 @@ function tests = test_validate_witness_onnx
     tests = functiontests(localfunctions);
 end
 
+function setupOnce(tc)
+    % validate_witness_onnx lives in examples/Submission/VNN_COMP2025. The matrix CI splits
+    % tests into shards and nothing guarantees that dir is on the path, so add it here to be
+    % self-sufficient -- otherwise these tests intermittently error 'Undefined function
+    % validate_witness_onnx' depending on which other tests share the shard.
+    here = fileparts(mfilename('fullpath'));
+    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2025');
+    tc.TestData.addedPath = '';
+    if isfolder(sub) && ~contains(path, sub)
+        addpath(sub);
+        tc.TestData.addedPath = sub;
+    end
+end
+
+function teardownOnce(tc)
+    if isfield(tc.TestData, 'addedPath') && ~isempty(tc.TestData.addedPath)
+        rmpath(tc.TestData.addedPath);
+    end
+end
+
 % ---------- fallback contract (environment-independent) ----------
 
 function test_missing_onnx_returns_false(tc)

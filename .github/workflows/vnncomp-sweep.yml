@@ -14,7 +14,7 @@ on:
       benchmarks_repo:
         description: "Git URL of the VNN-COMP benchmarks repo"
         type: string
-        default: "https://github.com/VNN-COMP/vnncomp2025_benchmarks.git"
+        default: "https://github.com/VNN-COMP/vnncomp2026_benchmarks.git"
       benchmarks_ref:
         description: "Branch/tag/sha of the benchmarks repo"
         type: string
@@ -58,26 +58,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The VNN-COMP 2026 benchmark set (github.com/VNN-COMP/vnncomp2026_benchmarks,
+        # 34 folders minus the `test` scaffold). Carried-over 2025 benchmarks plus the new
+        # 2026 entries (cgan2026, soundnessbench_2026, relusplitter_2026, and the four
+        # extended/VNN-LIB-2.0 ones: adaptive_cruise_control_non_linear_2026,
+        # isomorphic_acasxu_2026, monotonic_acasxu_2026, smart_turn_multimodal_2026 --
+        # these will error/unknown until the 2.0 bridge lands; included for visibility).
         folder:
           - acasxu_2023
+          - adaptive_cruise_control_non_linear_2026
           - cctsdb_yolo_2023
           - cersyve
+          - cgan2026
           - cgan_2023
+          - challenging_certified_training_2026
           - cifar100_2024
           - collins_aerospace_benchmark
           - collins_rul_cnn_2022
           - cora_2024
           - dist_shift_2023
+          - isomorphic_acasxu_2026
           - linearizenn_2024
           - lsnc_relu
           - malbeware
           - metaroom_2023
           - ml4acopf_2024
+          - monotonic_acasxu_2026
           - nn4sys
           - relusplitter
+          - relusplitter_2026
           - safenlp_2024
           - sat_relu
+          - smart_turn_multimodal_2026
           - soundnessbench
+          - soundnessbench_2026
           - tinyimagenet_2024
           - tllverifybench_2023
           - traffic_signs_recognition_2023
@@ -138,6 +152,24 @@ jobs:
       - name: Clear committed results CSVs from the checkout (avoid polluting the artifact)
         shell: bash
         run: rm -f code/nnv/examples/Submission/VNN_COMP2025/results_*.csv
+
+      # Manifest categories: MATLAB's importNetworkFromONNX cannot parse these, so NNV
+      # imports them via the Python importer (onnx2nnv.py -> <model>.nnv.mat). Mirrors the
+      # submission prepare_instance.sh; cheap (~1-3 s/model). Matches both the 2025 and 2026
+      # folder names (cgan_2023/cgan2026, soundnessbench/soundnessbench_2026, etc.).
+      - name: Generate NNV manifests for manifest categories (Python importer)
+        if: ${{ contains(matrix.folder, 'lsnc_relu') || contains(matrix.folder, 'traffic_signs') || contains(matrix.folder, 'cgan') || contains(matrix.folder, 'soundnessbench') }}
+        shell: bash
+        run: |
+          python3 -m pip install --quiet onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
+          BENCH="$GITHUB_WORKSPACE/vnncomp2025_benchmarks/${{ github.event.inputs.benchmarks_subdir }}/${{ matrix.folder }}"
+          shopt -s nullglob
+          # 2025 layout is <folder>/onnx/; 2026 splits by VNN-LIB version <folder>/1.0/onnx/.
+          for onnx in "$BENCH"/onnx/*.onnx "$BENCH"/1.0/onnx/*.onnx; do
+            echo "manifest: $(basename "$onnx")"
+            python3 code/nnv/tools/onnx2nnv_python/onnx2nnv.py "$onnx" "${onnx%.onnx}.nnv.mat" \
+              || echo "WARN: manifest generation failed for $onnx"
+          done
 
       - name: Run sweep for ${{ matrix.folder }} (run_which=${{ github.event.inputs.run_which }})
         uses: matlab-actions/run-command@v2

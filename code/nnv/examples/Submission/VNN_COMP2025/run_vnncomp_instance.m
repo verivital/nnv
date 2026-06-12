@@ -516,16 +516,18 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptionsList{1} = reachOptions;
 
     elseif contains(category, "cgan")
-        % cgan: onnx to nnv
+        % cgan: route through the Python-importer manifest. MATLAB's matlab2nnv fails on
+        % the custom ReshapeLayer (shape in .Vars, no ONNXParams). The manifest forward
+        % pass is cross-validated vs onnxruntime (2026-06-11: 6/7 variants xval < 5e-7).
+        % The _upsample variant uses an unsupported ONNX Resize op, so the importer REFUSES
+        % identity evaluation -> that instance errors -> unknown (never unsound). FeatureInput [5].
         if ~contains(onnx, 'transformer')
-            net = importNetworkFromONNX(onnx,"InputDataFormats","BC","OutputDataFormats","BC");
-            nnvnet = matlab2nnv(net);
-            reachOptions.reachMethod = 'relax-star-area';
-            reachOptions.relaxFactor = 0.8;
-            reachOptionsList{1} = reachOptions;
+            nnvnet = load_manifest_net(onnx);
+            net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+            inputSize = nnvnet.Layers{1}.InputSize;
             reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star'; % default parameters
-            reachOptionsList{2} = reachOptions;
+            reachOptions.reachMethod = 'approx-star';
+            reachOptionsList{1} = reachOptions;
         else
             net = importNetworkFromONNX(onnx,"InputDataFormats","BC");
             nnvnet = "";
@@ -542,7 +544,22 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             reachOptions.reachMethod = "cp-star";
             reachOptionsList{1} = reachOptions;
         end
-        
+
+
+    elseif contains(category, "soundnessbench")
+        % soundnessbench: MATLAB's importer produces a CustomInputLayerMultiOutput that NNV
+        % cannot handle; route through the Python-importer manifest instead. Forward pass
+        % cross-validated vs onnxruntime (2026-06-11: xval 7.7e-6). FeatureInput [128].
+        % This benchmark is purpose-built to catch UNSOUND verifiers: NNV's sound
+        % over-approximate reach yields unknown-or-correct, never an unsound verdict, and
+        % any SAT witness is replayed through onnxruntime before being emitted.
+        nnvnet = load_manifest_net(onnx);
+        net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+        inputSize = nnvnet.Layers{1}.InputSize;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
+
 
     elseif contains(category, "cifar100")
         % cifar100: onnx to nnv

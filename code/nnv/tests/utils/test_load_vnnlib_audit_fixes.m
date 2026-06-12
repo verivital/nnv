@@ -85,3 +85,36 @@ function test_multiinput_no_bound_leak(testCase)
     verifyEqual(testCase, double(P.lb{2}(1)), 4.0, 'AbsTol', 1e-6, 'region 2 X_0 lb as specified');
     verifyEqual(testCase, double(P.ub{2}(1)), 5.0, 'AbsTol', 1e-6, 'region 2 X_0 ub as specified');
 end
+
+% ---------------------------------------------------------------------------
+% Finding 1b: the SAME no-leak rule for the COMBINED input/output (or ...) form
+% [load_vnnlib "option 3", process_combined_input_output]. Each disjunct pairs an
+% input region with an output halfspace; its input box must start from the GLOBAL
+% declared bounds, not inherit the previous disjunct's. Pre-fix:
+% process_combined_input_output never reset lb_input/ub_input between disjuncts, so
+% an X dimension constrained in disjunct 1 LEAKED into disjunct 2 -> wrong (too
+% narrow) box -> false sat/unsat (-150). Mirrors the process_multiple_inputs fix.
+% ---------------------------------------------------------------------------
+function test_combined_input_output_no_bound_leak(testCase)
+    tf = [tempname '.vnnlib']; c = onCleanup(@() delete(tf));
+    fid = fopen(tf, 'w');
+    fprintf(fid, '(declare-const X_0 Real)\n(declare-const X_1 Real)\n(declare-const Y_0 Real)\n');
+    fprintf(fid, '(assert (<= X_0 10.0))\n(assert (>= X_0 -10.0))\n');   % global box
+    fprintf(fid, '(assert (<= X_1 10.0))\n(assert (>= X_1 -10.0))\n');
+    % disjunct 1 constrains X_0 (+ a Y -> option 3); disjunct 2 constrains ONLY X_1.
+    fprintf(fid, ['(assert (or (and (>= X_0 1.0) (<= X_0 2.0) (>= Y_0 0.0)) ' ...
+                  '(and (>= X_1 3.0) (<= X_1 4.0) (>= Y_0 0.0))))\n']);
+    fclose(fid);
+    P = load_vnnlib(tf);
+    verifyTrue(testCase, iscell(P.lb) && numel(P.lb) == 2, 'two input regions (option 3)');
+    % disjunct 1: X_0 in [1,2] as specified
+    verifyEqual(testCase, double(P.lb{1}(1)), 1.0, 'AbsTol', 1e-6, 'disjunct1 X_0 lb');
+    verifyEqual(testCase, double(P.ub{1}(1)), 2.0, 'AbsTol', 1e-6, 'disjunct1 X_0 ub');
+    % disjunct 2: X_0 must NOT have leaked [1,2]; it stays at the GLOBAL [-10,10].
+    verifyEqual(testCase, double(P.lb{2}(1)), -10.0, 'AbsTol', 1e-6, ...
+        'disjunct2 X_0 must NOT inherit disjunct1''s lower bound (no leak)');
+    verifyEqual(testCase, double(P.ub{2}(1)), 10.0, 'AbsTol', 1e-6, ...
+        'disjunct2 X_0 must NOT inherit disjunct1''s upper bound (no leak)');
+    verifyEqual(testCase, double(P.lb{2}(2)), 3.0, 'AbsTol', 1e-6, 'disjunct2 X_1 lb as specified');
+    verifyEqual(testCase, double(P.ub{2}(2)), 4.0, 'AbsTol', 1e-6, 'disjunct2 X_1 ub as specified');
+end

@@ -164,7 +164,8 @@ jobs:
           python3 -m pip install --quiet onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
           BENCH="$GITHUB_WORKSPACE/vnncomp2025_benchmarks/${{ github.event.inputs.benchmarks_subdir }}/${{ matrix.folder }}"
           shopt -s nullglob
-          for onnx in "$BENCH"/onnx/*.onnx; do
+          # 2025 layout is <folder>/onnx/; 2026 splits by VNN-LIB version <folder>/1.0/onnx/.
+          for onnx in "$BENCH"/onnx/*.onnx "$BENCH"/1.0/onnx/*.onnx; do
             echo "manifest: $(basename "$onnx")"
             python3 code/nnv/tools/onnx2nnv_python/onnx2nnv.py "$onnx" "${onnx%.onnx}.nnv.mat" \
               || echo "WARN: manifest generation failed for $onnx"

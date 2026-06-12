@@ -122,6 +122,12 @@ for i = 1:n
 
     inst_csv = fullfile(bench_root, sub, 'instances.csv');
     if ~isfile(inst_csv)
+        % VNN-COMP 2026 splits each benchmark by VNN-LIB version: <sub>/1.0/instances.csv
+        % (regular track) + <sub>/2.0/ (extended/VNN-LIB-2.0 track, unsupported). Prefer 1.0.
+        alt = fullfile(bench_root, sub, '1.0', 'instances.csv');
+        if isfile(alt), inst_csv = alt; end
+    end
+    if ~isfile(inst_csv)
         row = {sub, cat, '', '', -2, 'no_instances_csv', 0, ''};
         results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
         fprintf('  -> no instances.csv\n');
@@ -185,13 +191,16 @@ function pairs = pick_instances(inst_csv, bench_root, sub, run_which)
 % .gz on demand). run_which='first' returns the first resolvable instance; 'all'
 % returns EVERY resolvable instance (the full competition set for that benchmark).
 pairs = {};
+% Resolve onnx/vnnlib relative to the instances.csv's OWN directory so both the 2025
+% layout (<sub>/) and the 2026 version layout (<sub>/1.0/) work (bench_root/sub then unused).
+bench_dir = fileparts(inst_csv);
 T = readtable(inst_csv, 'Delimiter', ',', 'ReadVariableNames', false, ...
     'TextType', 'string', 'Format', '%s%s%s');
 for r = 1:height(T)
     onnx_rel   = strrep(strtrim(char(T{r,1})), './', '');
     vnnlib_rel = strrep(strtrim(char(T{r,2})), './', '');
-    onnx_p   = ensure_decompressed(fullfile(bench_root, sub, onnx_rel));
-    vnnlib_p = ensure_decompressed(fullfile(bench_root, sub, vnnlib_rel));
+    onnx_p   = ensure_decompressed(fullfile(bench_dir, onnx_rel));
+    vnnlib_p = ensure_decompressed(fullfile(bench_dir, vnnlib_rel));
     if ~isempty(onnx_p) && ~isempty(vnnlib_p)
         pairs{end+1} = struct('onnx_rel', onnx_rel, 'vnnlib_rel', vnnlib_rel, ...
             'onnx', onnx_p, 'vnnlib', vnnlib_p); %#ok<AGROW>

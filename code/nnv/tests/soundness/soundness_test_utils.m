@@ -16,70 +16,32 @@ classdef soundness_test_utils
             % Output:
             %   contained - true if point is in S, false otherwise
 
-            if nargin < 3
-                tol = 1e-6;
+            % tol is treated as the ABSOLUTE band (floored at 1e-4); a relative band of 1e-3
+            % is added. These match VNN-COMP 2026's own equality tolerances (1e-4 abs / 1e-3
+            % rel), so the check is no stricter than the standard the verifier is judged by.
+            if nargin < 3 || isempty(tol)
+                tol = 1e-4;
             end
+            abstol = max(tol, 1e-4);
+            reltol = 1e-3;
 
-            % Star representation: x = c + V*alpha where C*alpha <= d
+            % Star: x = c + V_basis*alpha, with S.C*alpha <= S.d and the predicate box bounds.
             c = S.V(:, 1);
             V_basis = S.V(:, 2:end);
-
             n_pred = size(V_basis, 2);
-            n_out = length(c);
 
             if n_pred == 0
-                % No predicate variables - just check if point equals center
-                contained = norm(point - c) < tol;
+                contained = norm(point - c) <= abstol + reltol*norm(c);
                 return;
             end
 
-            % Solve: find alpha such that V_basis * alpha = point - c
-            %        subject to C * alpha <= d
-            residual = point - c;
-
-            % For under-determined systems (n_pred > n_out), use LP to find
-            % a feasible alpha that satisfies both equality and inequality constraints
-            if n_pred > n_out && ~isempty(S.C)
-                % Solve feasibility LP
-                f = zeros(n_pred, 1);  % No objective
-                Aeq = V_basis;
-                beq = residual;
-                A = S.C;
-                b = S.d;
-                lb = S.predicate_lb;
-                ub = S.predicate_ub;
-
-                options = optimoptions('linprog', 'Display', 'off', 'Algorithm', 'dual-simplex');
-                [alpha_solve, ~, exitflag] = linprog(f, A, b, Aeq, beq, lb, ub, options);
-
-                if exitflag == 1
-                    reconstruction_error = norm(V_basis * alpha_solve - residual);
-                    contained = reconstruction_error < tol;
-                else
-                    contained = false;
-                end
-            else
-                % Standard case: solve linear system
-                if rank(V_basis) < n_pred
-                    alpha_solve = pinv(V_basis) * residual;
-                else
-                    alpha_solve = V_basis \ residual;
-                end
-
-                % Check reconstruction error
-                reconstruction_error = norm(V_basis * alpha_solve - residual);
-                if reconstruction_error > tol
-                    contained = false;
-                    return;
-                end
-
-                % Check constraint satisfaction
-                if isempty(S.C)
-                    contained = true;
-                else
-                    contained = all(S.C * alpha_solve <= S.d + tol);
-                end
-            end
+            % Contained iff SOME alpha reconstructs the point within the band AND lies in the
+            % predicate region (S.C*alpha <= S.d and predicate_lb <= alpha <= predicate_ub).
+            % The old "standard path" used unconstrained least-squares (V\residual) that
+            % NEVER enforced the box bounds and tripped a too-tight 1e-6 on boundary corners,
+            % giving flaky false "not contained" (see SOUNDNESS_TEST_ROBUSTNESS_PLAN.md).
+            contained = soundness_test_utils.feasible_alpha(V_basis, point - c, ...
+                S.C, S.d, S.predicate_lb, S.predicate_ub, abstol, reltol);
         end
 
         function contained = verify_imagestar_containment(IS, image, tol)
@@ -93,89 +55,54 @@ classdef soundness_test_utils
             % Output:
             %   contained - true if image is in IS, false otherwise
 
-            if nargin < 3
-                tol = 1e-6;
+            if nargin < 3 || isempty(tol)
+                tol = 1e-4;
             end
+            abstol = max(tol, 1e-4);   % VNN-COMP-grounded band (>= 1e-4 abs / 1e-3 rel)
+            reltol = 1e-3;
 
-            % Direct check without toStar conversion
             n_pred = IS.numPred;
-
-            if n_pred == 0
-                % No predicate variables - check if image equals center
-                contained = norm(image(:) - IS.V(:,:,:,1)) < tol;
-                return;
-            end
-
-            % Flatten everything for linear algebra
             center = reshape(IS.V(:,:,:,1), [], 1);
             point = reshape(image, [], 1);
+
+            if n_pred == 0
+                contained = norm(point - center) <= abstol + reltol*norm(center);
+                return;
+            end
 
             V_basis = zeros(length(center), n_pred);
             for k = 1:n_pred
                 V_basis(:, k) = reshape(IS.V(:,:,:,k+1), [], 1);
             end
 
-            % Solve: V_basis * alpha = point - center
-            residual = point - center;
-            n_out = length(center);
+            % Banded feasibility containment with the predicate box bounds ALWAYS enforced
+            % (the old standard path used unconstrained least-squares and dropped the bounds).
+            % See verify_star_containment + SOUNDNESS_TEST_ROBUSTNESS_PLAN.md.
+            contained = soundness_test_utils.feasible_alpha(V_basis, point - center, ...
+                IS.C, IS.d, IS.pred_lb, IS.pred_ub, abstol, reltol);
+        end
 
-            % For under-determined systems (n_pred > n_out), use LP to find
-            % a feasible alpha that satisfies both equality and inequality constraints
-            if n_pred > n_out && ~isempty(IS.C)
-                % Solve feasibility LP:
-                % min 0 subject to:
-                %   V_basis * alpha = residual (equality)
-                %   C * alpha <= d (inequality)
-                %   pred_lb <= alpha <= pred_ub (bounds)
-
-                f = zeros(n_pred, 1);  % No objective
-
-                % Equality constraints: V_basis * alpha = residual
-                Aeq = V_basis;
-                beq = residual;
-
-                % Inequality constraints: C * alpha <= d
-                A = IS.C;
-                b = IS.d;
-
-                % Bounds
-                lb = IS.pred_lb;
-                ub = IS.pred_ub;
-
-                % Solve LP
-                options = optimoptions('linprog', 'Display', 'off', 'Algorithm', 'dual-simplex');
-                [alpha_solve, ~, exitflag] = linprog(f, A, b, Aeq, beq, lb, ub, options);
-
-                if exitflag == 1
-                    % Found feasible solution - verify reconstruction
-                    reconstruction_error = norm(V_basis * alpha_solve - residual);
-                    contained = reconstruction_error < tol;
-                else
-                    % No feasible solution exists
-                    contained = false;
-                end
-            else
-                % Standard case: solve linear system
-                if rank(V_basis) < n_pred
-                    alpha_solve = pinv(V_basis) * residual;
-                else
-                    alpha_solve = V_basis \ residual;
-                end
-
-                % Check reconstruction error
-                reconstruction_error = norm(V_basis * alpha_solve - residual);
-                if reconstruction_error > tol
-                    contained = false;
-                    return;
-                end
-
-                % Check constraint satisfaction
-                if isempty(IS.C)
-                    contained = true;
-                else
-                    contained = all(IS.C * alpha_solve <= IS.d + tol);
-                end
+        function ok = feasible_alpha(V, r, C, d, plb, pub, abstol, reltol)
+            % FEASIBLE_ALPHA  True iff some predicate assignment reconstructs the point within
+            % a tolerance band AND lies in the predicate region. This is the CORRECT
+            % containment test (the hand-rolled least-squares path ignored the box bounds and
+            % evaluated the constraints at the wrong alpha). Formulated as a single linprog
+            % FEASIBILITY LP with the equality expressed as TWO banded inequality blocks
+            % (|V*alpha - r| <= band) -- never an exact Aeq -- so a boundary/vertex point is
+            % INTERIOR to the feasible region and the LP converges regardless of algorithm
+            % (an exact Aeq, or constrained lsqlin, is what made earlier attempts brittle on
+            % vertices). Box bounds plb <= alpha <= pub are always passed.
+            n = size(V, 2);
+            band_r = abstol + reltol*abs(r);
+            A = [V; -V];
+            b = [r + band_r; -(r - band_r)];
+            if ~isempty(C)
+                A = [A; C];
+                b = [b; d + abstol + reltol*abs(d)];
             end
+            options = optimoptions('linprog', 'Display', 'off');
+            [~, ~, exitflag] = linprog(zeros(n, 1), A, b, [], [], plb, pub, options);
+            ok = (exitflag == 1);
         end
 
         function samples = sample_star(S, n)

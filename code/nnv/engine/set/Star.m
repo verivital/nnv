@@ -464,7 +464,7 @@ classdef Star
             z_lb = min(corners, [], 2);
             z_ub = max(corners, [], 2);
 
-            if ~isempty(obj.predicate_lb) && ~isempty(X.predicate_lb)
+            if ~isempty(obj.predicate_lb) && ~isempty(obj.predicate_ub) && ~isempty(X.predicate_lb) && ~isempty(X.predicate_ub)
                 new_pred_lb = [obj.predicate_lb; X.predicate_lb; z_lb];
                 new_pred_ub = [obj.predicate_ub; X.predicate_ub; z_ub];
                 S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);

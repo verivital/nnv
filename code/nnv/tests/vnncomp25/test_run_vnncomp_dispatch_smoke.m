@@ -74,14 +74,28 @@ function test_supported_categories_reach_import(testCase)
 end
 
 % --------------------------------------------------------------------------
-% Known-unsupported-at-dispatch categories: they deliberately error in the
-% if/elseif BEFORE importing. Pin the stable messages so a future change that
-% silently starts/stops handling them is caught.
+% cctsdb_yolo: no longer errors at dispatch ("Working on supporting this one").
+% It now routes to the complete-enumeration python path (cctsdb_enumerate.py)
+% BEFORE load_vnncomp_network. With bogus inputs the script (or a missing
+% python) yields UNKNOWN, so the runner must return WITHOUT error and write
+% 'unknown' -- a sound degradation, never a crash.
 % --------------------------------------------------------------------------
-function test_cctsdb_yolo_errors_at_dispatch(testCase)
-    msg = dispatch_error_message(testCase, 'cctsdb_yolo');
-    verifyTrue(testCase, contains(msg, 'Working on supporting this one'), ...
-        sprintf('cctsdb_yolo should error at dispatch; got: %s', msg));
+function test_cctsdb_yolo_routes_to_enumeration(testCase)
+    onnx = [tempname '.onnx'];          % does not exist
+    vnnlib = [tempname '.vnnlib'];      % does not exist
+    outf = [tempname '.txt'];
+    c = onCleanup(@() cleanup_file(outf));
+    try
+        run_vnncomp_instance('cctsdb_yolo', onnx, vnnlib, outf);
+    catch ME
+        verifyFail(testCase, sprintf( ...
+            'cctsdb_yolo must not error at dispatch anymore; got: %s', ME.message));
+        return
+    end
+    verifyTrue(testCase, isfile(outf), 'runner must write the output file');
+    txt = strtrim(fileread(outf));
+    verifyEqual(testCase, txt, 'unknown', ...
+        'bogus inputs must degrade to a sound ''unknown''');
 end
 
 function test_unknown_category_is_rejected(testCase)

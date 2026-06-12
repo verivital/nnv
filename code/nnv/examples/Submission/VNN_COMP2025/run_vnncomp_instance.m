@@ -7,7 +7,38 @@ status = 2; % unknown (to start with)
 
 % disp("We are running...")
 
-
+%% 0) cctsdb_yolo: complete-enumeration path (bypasses net import + reach)
+%
+% Every cctsdb_yolo_2023 spec fixes ALL inputs (lb == ub) except the two patch
+% position coordinates X_12288/X_12289 in [0,62], and the ONNX graph consumes
+% those two ONLY through Cast(int64) truncation (Gather(12288/12289) -> Cast),
+% so the network output is PIECEWISE CONSTANT on unit cells and enumerating the
+% <= 3969 integer points is SOUND AND COMPLETE. cctsdb_enumerate.py re-verifies
+% all of that structurally per instance (any deviation -> unknown), runs the
+% enumeration through onnxruntime, and returns SAT-with-witness / UNSAT /
+% UNKNOWN. MATLAB's importNetworkFromONNX cannot handle this model (the old
+% stub errored "Working on supporting this one"), so this branch must route
+% AROUND load_vnncomp_network / falsify / reach entirely and write the result
+% file in the same format as section 4 below.
+if contains(category, "cctsdb_yolo")
+    [status, counterEx] = verify_cctsdb_enumeration(onnx, vnnlib);
+    tTime = toc(t);
+    disp("Verification result: " + string(status));
+    disp("Total Time: " + string(tTime));
+    fid = fopen(outputfile, 'w');
+    if status == 0
+        fprintf(fid, 'sat \n');
+        fclose(fid);
+        write_counterexample(outputfile, counterEx);
+    elseif status == 1
+        fprintf(fid, 'unsat \n');
+        fclose(fid);
+    else
+        fprintf(fid, 'unknown \n');
+        fclose(fid);
+    end
+    return;
+end
 
 %% 1) Load components
 
@@ -470,12 +501,11 @@ function ok = is_nnvnet_valid(nnvnet)
 end
 
 function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib)
-% load participating vnncomp 2025 benchmark NNs 
+% load participating vnncomp 2025 benchmark NNs
 % Not yet supported:
-% - cctsdb (some errrors when forward propagating)
-% - lsnc_relu
-% - traffic_signs_recognition (last year all instances were sat, maybe we are not wrong?)
 % - collins aerospace (unsure of what is wrong, but we get invalid SAT instances)
+% Handled OUTSIDE this dispatcher:
+% - cctsdb_yolo (complete-enumeration path at the top of run_vnncomp_instance)
 
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
@@ -511,17 +541,12 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         
 
     elseif contains(category, "cctsdb_yolo")
-        % net = importNetworkFromONNX(onnx);
-        % nnvnet = "";
-        % inputSize = [12296, 1];
-        % inputFormat = "UU";
-        % X = dlarray(rand(12296, 1), inputFormat);
-        % net = initialize(net, X);
-        % reachOptions = struct;
-        % reachOptions.reachMethod = 'cp-star';
-        % reachOptions.inputFormat = inputFormat;
-        % reachOptionsList{1} = reachOptions;
-        error("Working on supporting this one");
+        % Handled by the complete-enumeration path at the TOP of
+        % run_vnncomp_instance (verify_cctsdb_enumeration -> cctsdb_enumerate.py);
+        % control never reaches this dispatcher for cctsdb_yolo. Fail loud if it
+        % somehow does: MATLAB's importer mis-handles this model (Cast/Gather
+        % truncation on a flat 12296 input).
+        error("cctsdb_yolo is handled by the enumeration path in run_vnncomp_instance; load_vnncomp_network should not be reached for it");
 
     elseif contains(category, "cersyve")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
@@ -1125,6 +1150,76 @@ function write_counterexample(outputfile, counterEx)
     % close and save file
     fclose(fid);
 
+end
+
+% cctsdb_yolo complete-enumeration verifier: shell out to cctsdb_enumerate.py
+% (same folder as this runner). The script is sound-or-unknown by construction:
+% it structurally re-verifies, per instance, that (a) the only free inputs are
+% X_12288/X_12289, (b) the ONNX consumes them only through Cast(int64)
+% truncation (=> output piecewise-constant on unit cells), (c) the output spec
+% is a single half-space on Y_0 -- and enumerates all <= 3969 cells through
+% onnxruntime. Exit protocol: 10 = SAT (witness CSV written + "SAT p q y" on
+% stdout), 11 = UNSAT, anything else = unknown. ANY parse/replay irregularity
+% on the MATLAB side also degrades to unknown -- never an unsound verdict.
+function [status, counterEx] = verify_cctsdb_enumeration(onnx, vnnlib)
+    status = 2; counterEx = nan;
+    here = fileparts(mfilename('fullpath'));
+    script = fullfile(here, 'cctsdb_enumerate.py');
+    if ~isfile(script)
+        fprintf('cctsdb_enumerate.py not found next to the runner -> unknown\n');
+        return;
+    end
+    witness_csv = [tempname '.csv'];
+    cleanup = onCleanup(@() delete_if_exists(witness_csv)); %#ok<NASGU>
+    py = python_exe();
+    % The script self-limits via --timeout: 300 s leaves margin inside the 350 s
+    % per-instance benchmark budget (the enumeration itself measures 2-25 s).
+    cmd = sprintf('%s "%s" "%s" "%s" "%s" --timeout 300', ...
+        py, script, char(onnx), char(vnnlib), witness_csv);
+    [st, out] = system(cmd);
+    disp(strtrim(out));
+    if st == 10                  % SAT with witness
+        % stdout carries "SAT p q y"; the CSV carries the FULL input vector in
+        % FLAT vnnlib order X_0..X_{N-1} (one value per line).
+        tok = regexp(out, '\<SAT\s+(-?\d+)\s+(-?\d+)\s+([-+0-9.eE]+)', 'tokens', 'once');
+        try
+            x = readmatrix(witness_csv);
+        catch
+            x = [];
+        end
+        if isempty(tok) || isempty(x) || ~all(isfinite(x(:)))
+            fprintf('malformed SAT report from cctsdb_enumerate.py -> unknown\n');
+            return;
+        end
+        y = str2double(tok{3});
+        if ~isfinite(y)
+            fprintf('non-finite witness output from cctsdb_enumerate.py -> unknown\n');
+            return;
+        end
+        % {flat input; output} -- the exact cell write_counterexample expects
+        % (same shape falsify_single produces).
+        counterEx = {reshape(x, [], 1); y};
+        status = 0;
+    elseif st == 11              % UNSAT: complete enumeration, all cells safe
+        status = 1;
+    end                          % anything else: guard violation/timeout -> unknown
+end
+
+function delete_if_exists(f)
+    if exist(f, 'file'), delete(f); end
+end
+
+% Resolve the Python interpreter the SAME way validate_witness_onnx does:
+% prefer MATLAB's configured pyenv executable, else fall back to PATH 'python'.
+function py = python_exe()
+    py = 'python';
+    try
+        pe = pyenv;
+        if ~isempty(pe.Executable) && isfile(pe.Executable)
+            py = ['"' char(pe.Executable) '"'];
+        end
+    catch
+    end
 end
 
 % Load an NNV net from the Python-importer manifest written alongside the ONNX

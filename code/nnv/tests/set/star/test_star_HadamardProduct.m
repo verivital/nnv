@@ -1,4 +1,4 @@
-function test_star_HadamardProduct()
+function tests = test_star_HadamardProduct
     % TEST_STAR_HADAMARDPRODUCT - Test Star.HadamardProduct() method
     %
     % Tests that:
@@ -10,7 +10,14 @@ function test_star_HadamardProduct()
     %   2. The product is sound: for sampled x in S1, y in S2, the point
     %      x .* y is contained in S1.HadamardProduct(S2)
     %   3. Output star dimensions are consistent
+    %
+    % Function-based test so runtests/CI actually COLLECTS it (a plain
+    % `function test_star_HadamardProduct()` with %%-comment sections is not a
+    % valid test file and is silently skipped by the suite scanner).
+    tests = functiontests(localfunctions);
+end
 
+function test_hadamard_product_sound_enclosure(testCase) %#ok<INUSD>
     tol = 1e-6;
 
     %% 1a) Regression witness: product of [1,2] with itself

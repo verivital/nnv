@@ -137,6 +137,10 @@ function [onnx, vnnlib] = locate_instance(tc, model, spec)
         root = fullfile(here, '..', '..', '..', '..', '..', ...
             'vnncomp2026_benchmarks', 'benchmarks');
     end
+    % accept the env var pointing at either the repo root or its benchmarks/ dir
+    if ~isfolder(fullfile(root, 'cctsdb_yolo_2023')) && isfolder(fullfile(root, 'benchmarks', 'cctsdb_yolo_2023'))
+        root = fullfile(root, 'benchmarks');
+    end
     bench = fullfile(root, 'cctsdb_yolo_2023', '1.0');
     onnx = fullfile(bench, 'onnx', [model '.onnx.gz']);
     vnnlib = fullfile(bench, 'vnnlib', [spec '.vnnlib.gz']);

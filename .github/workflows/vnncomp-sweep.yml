@@ -135,6 +135,10 @@ jobs:
           restore-keys: |
             nnv-tbxmanager-${{ runner.os }}-
 
+      - name: Clear committed results CSVs from the checkout (avoid polluting the artifact)
+        shell: bash
+        run: rm -f code/nnv/examples/Submission/VNN_COMP2025/results_*.csv
+
       - name: Run sweep for ${{ matrix.folder }} (run_which=${{ github.event.inputs.run_which }})
         uses: matlab-actions/run-command@v2
         timeout-minutes: 330

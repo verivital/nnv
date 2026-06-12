@@ -370,16 +370,25 @@ classdef Star
             else
                 V3 = horzcat(V1, V2);
                 new_c = obj.V(:, 1) + X.V(:, 1);
-                new_V = horzcat(new_c, V3);        
-                new_C = blkdiag(obj.C, X.C);        
+                new_V = horzcat(new_c, V3);
+                new_C = blkdiag(obj.C, X.C);
                 new_d = vertcat(obj.d, X.d);
-                new_pred_lb = [obj.predicate_lb; X.predicate_lb];
-                new_pred_ub = [obj.predicate_ub; X.predicate_ub];
-                S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub); % new Star has more number of basic vectors
+                % concatenating bounds is only valid when each operand's
+                % bounds cover all of its predicate variables (a
+                % 0-predicate star with 0x1 bounds counts as covered);
+                % otherwise the constructor would reject the short vector
+                if size(obj.predicate_lb, 1) == obj.nVar && size(obj.predicate_ub, 1) == obj.nVar ...
+                        && size(X.predicate_lb, 1) == X.nVar && size(X.predicate_ub, 1) == X.nVar
+                    new_pred_lb = [obj.predicate_lb; X.predicate_lb];
+                    new_pred_ub = [obj.predicate_ub; X.predicate_ub];
+                    S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub); % new Star has more number of basic vectors
+                else
+                    S = Star(new_V, new_C, new_d);
+                end
             end
-                
+
         end
-        
+
         function S = HadamardProduct(obj, X)
             % HadamardProduct - sound over-approximation of the elementwise
             % product of two stars, z = x .* y for x in obj, y in X.
@@ -418,14 +427,17 @@ classdef Star
             Wx = obj.V(:, 2:n1+1);
             Wy = X.V(:, 2:n2+1);
 
-            % bounds of each factor (estimateRanges if predicate bounds are
-            % known, otherwise exact ranges via LP)
-            if ~isempty(obj.predicate_lb) && ~isempty(obj.predicate_ub)
+            % bounds of each factor (estimateRanges if predicate bounds
+            % cover all predicate variables, otherwise exact ranges via
+            % LP; a 0-predicate star with 0x1 bounds counts as covered)
+            obj_has_bounds = size(obj.predicate_lb, 1) == n1 && size(obj.predicate_ub, 1) == n1;
+            X_has_bounds = size(X.predicate_lb, 1) == n2 && size(X.predicate_ub, 1) == n2;
+            if obj_has_bounds
                 [lx, ux] = obj.estimateRanges;
             else
                 [lx, ux] = obj.getRanges;
             end
-            if ~isempty(X.predicate_lb) && ~isempty(X.predicate_ub)
+            if X_has_bounds
                 [ly, uy] = X.estimateRanges;
             else
                 [ly, uy] = X.getRanges;
@@ -464,7 +476,7 @@ classdef Star
             z_lb = min(corners, [], 2);
             z_ub = max(corners, [], 2);
 
-            if ~isempty(obj.predicate_lb) && ~isempty(obj.predicate_ub) && ~isempty(X.predicate_lb) && ~isempty(X.predicate_ub)
+            if obj_has_bounds && X_has_bounds
                 new_pred_lb = [obj.predicate_lb; X.predicate_lb; z_lb];
                 new_pred_ub = [obj.predicate_ub; X.predicate_ub; z_ub];
                 S = Star(new_V, new_C, new_d, new_pred_lb, new_pred_ub);

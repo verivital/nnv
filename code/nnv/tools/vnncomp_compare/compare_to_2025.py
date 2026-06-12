@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-"""compare_to_2025.py -- compare NNV's fresh sweep to the official VNN-COMP 2025
-results, per benchmark AND per instance, and FLAG disagreements (the soundness check).
+"""compare_to_2025.py -- soundness gate + scorecard for an NNV sweep against the official
+VNN-COMP 2025 results.
 
-The 2025 results repo (github.com/VNN-COMP/vnncomp2025_results) stores, per tool, one
-CSV per benchmark: <tool>/2025_<benchmark>/results.csv with rows
-    category, onnx_path, vnnlib_path, prepare_time, result, run_time
-where result is sat / unsat / timeout / error_*. Tools: alpha_beta_crown, neuralsat,
-nnenum, pyrat, cora, rover, sobolbox, nnv.
+Reads `<results2025>/<tool>/2025_<bench>/results.csv` for each reference tool and, for every
+NNV definitive (sat/unsat) verdict, compares against the cross-tool result:
+  1. Per-benchmark NNV-NEW vs NNV-2025 solved (sat/unsat) + the NNV-new unknown/timeout/error
+     split, against the published 2025 NNV baseline (1082 solved / 697.3 pts).
+  2. Soundness check (classify_instances): reference = STRICT majority of the other tools'
+     definitive verdicts. NNV sat vs majority unsat -> FALSE-SAT (-150 risk); NNV unsat vs
+     majority sat -> FALSE-UNSAT. A sat-vs-unsat TIE is reported as "no majority" (NOT
+     hard-flagged). Plus a separate "disagrees with alpha-beta-CROWN (gold standard)" list
+     (a-b-CROWN was 0-incorrect in 2025), high-signal even on a tie.
+  3. Coverage gap: instances the field solved but NNV left unknown/timeout/error.
 
-This script:
-  1. Reports NNV NEW (this sweep) vs NNV 2025 solved/sat/unsat per benchmark.
-  2. Builds a per-instance REFERENCE verdict: alpha-beta-CROWN's verdict when definitive
-     (it won 2025 with 0 incorrect; sound + complete), else the majority definitive
-     verdict among the other tools.
-  3. FLAGS every NNV-NEW sat/unsat that DISAGREES with the reference -- a NNV `sat` where
-     the reference is `unsat` is a probable FALSE counterexample (-150 in competition);
-     a NNV `unsat` where the reference is `sat` is a probable unsound proof. This is the
-     check that surfaced the load_vnnlib (or ...)-conjunction bug.
+The per-instance classification lives in the pure function `classify_instances` (unit-tested
+in test_compare.py); main() only formats its output.
 
 Usage:
   python3 compare_to_2025.py --new results_all.csv --results2025 <dir>
@@ -27,53 +25,194 @@ import os
 import sys
 from collections import defaultdict, Counter
 
-REF_TOOL = 'alpha_beta_crown'
-TOOLS = ['alpha_beta_crown', 'neuralsat', 'nnenum', 'pyrat', 'cora', 'rover', 'sobolbox']
-DEFINITIVE = {'sat', 'unsat'}
+VERDICTS = {'sat', 'unsat', 'unknown', 'timeout', 'error', 'holds', 'violated',
+            'sat ', 'unsat ', 'true', 'false'}
+NORM = {'holds': 'unsat', 'violated': 'sat', 'true': 'unsat', 'false': 'sat'}
+
+
+def norm_verdict(v):
+    v = (v or '').strip().lower()
+    return NORM.get(v, v)
 
 
 def base(name):
+    """basename without dir / extension / .gz, for matching instances across formats."""
     n = os.path.basename(str(name).strip())
-    for ext in ('.gz', '.onnx', '.vnnlib'):
+    for ext in ('.gz', '.onnx', '.vnnlib', '.csv'):
         if n.endswith(ext):
             n = n[: -len(ext)]
     return n
 
 
 def norm(v):
-    v = (v or '').strip().lower()
-    if v.startswith('error') or v in ('exception', 'crash'):
-        return 'error'
-    if v in ('holds',):
-        return 'unsat'
-    if v in ('violated',):
-        return 'sat'
-    return v
+    """Alias of norm_verdict (verdict-string normalizer)."""
+    return norm_verdict(v)
+
+
+def load_tool_bench(root, tool, bench):
+    """Load one tool's per-benchmark results.
+
+    Expects:  <root>/<tool>/2025_<bench>/results.csv
+    with the VNN-COMP per-tool column layout:
+        category,onnx_path,vnnlib_path,prepare_time,result,run_time
+    Returns {(onnx_base, vnnlib_base): normalized_verdict}. The HEADER row is
+    skipped (so the literal ('onnx_path','vnnlib_path') key never appears); only
+    data rows are keyed. Missing file -> {}.
+    """
+    path = os.path.join(root, tool, '2025_%s' % bench, 'results.csv')
+    out = {}
+    if not os.path.isfile(path):
+        return out
+    with open(path, newline='') as f:
+        for r in csv.reader(f):
+            if len(r) < 6:
+                continue
+            onnx_col, vnnlib_col, verdict_col = r[1], r[2], r[4]
+            # skip the header row (literal column names), not a real instance
+            if onnx_col.strip() == 'onnx_path' and vnnlib_col.strip() == 'vnnlib_path':
+                continue
+            out[(base(onnx_col), base(vnnlib_col))] = norm_verdict(verdict_col)
+    return out
+
+
+def _majority(verdicts):
+    """Given an iterable of solved (sat/unsat) verdicts, return ('sat'|'unsat', strict)
+    where strict is True iff there is a UNIQUE majority. A tie (equal sat/unsat) ->
+    (None, False): there is no majority, so NNV must NOT be hard-flagged against it.
+    Verdicts that are neither sat nor unsat are ignored.
+    """
+    c = Counter(v for v in verdicts if v in ('sat', 'unsat'))
+    sat = c.get('sat', 0)
+    unsat = c.get('unsat', 0)
+    if sat == 0 and unsat == 0:
+        return None, False
+    if sat == unsat:
+        return None, False           # tie -> no majority
+    return ('sat' if sat > unsat else 'unsat'), True
+
+
+def classify_instances(new_inst, ref_cache, tools, ref_tool='alpha_beta_crown'):
+    """Pure soundness classifier for an NNV sweep against reference-tool verdicts.
+
+    Args:
+      new_inst   : {(bench, onnx_base, vnnlib_base): nnv_verdict}  (from load_new)
+      ref_cache  : {(tool, bench): {(onnx_base, vnnlib_base): verdict}}  (load_tool_bench)
+      tools      : list of reference tool names to form the majority over.
+      ref_tool   : the gold-standard tool (default alpha_beta_crown). NNV verdicts that
+                   DISAGREE with this tool specifically are collected separately, even
+                   on a majority tie.
+
+    Returns a dict of lists of keys:
+      agree        : NNV solved verdict == majority.
+      false_sat    : NNV says sat, strict majority says unsat (HARD false flag, -150 risk).
+      false_unsat  : NNV says unsat, strict majority says sat (HARD false flag).
+      ties         : NNV solved but reference is a sat/unsat TIE -> NO majority, NOT a
+                     hard false-flag (counted separately).
+      no_ref       : no reference solved verdict available for the instance.
+      contested    : the reference tools THEMSELVES disagree (both sat and unsat appear
+                     among them) -> the instance is contested in the field, independent of
+                     what NNV said. (A superset of `ties`: a tie is the special case of
+                     an even split; an odd split is contested with a strict majority.)
+      gold_disagree: NNV's solved verdict disagrees specifically with ref_tool's solved
+                     verdict (the gold standard), regardless of majority/tie.
+      coverage_gap : the field (majority) SOLVED the instance but NNV did NOT (unknown/
+                     timeout/error/missing) -> a coverage gap, not a soundness error.
+    """
+    res = {
+        'agree': [], 'false_sat': [], 'false_unsat': [], 'ties': [],
+        'no_ref': [], 'contested': [], 'gold_disagree': [], 'coverage_gap': [],
+    }
+    for key, nnv_v in new_inst.items():
+        bench, onnx_b, vnnlib_b = key
+        ikey = (onnx_b, vnnlib_b)
+
+        # gather reference verdicts for this instance across the requested tools
+        ref_verdicts = []
+        for t in tools:
+            d = ref_cache.get((t, bench))
+            if d and ikey in d:
+                ref_verdicts.append(d[ikey])
+
+        # gold-standard (ref_tool) verdict, if present
+        gold = None
+        gd = ref_cache.get((ref_tool, bench))
+        if gd and ikey in gd:
+            gold = gd[ikey]
+
+        nnv_solved = nnv_v in ('sat', 'unsat')
+        maj, strict = _majority(ref_verdicts)
+        solved_ref = [v for v in ref_verdicts if v in ('sat', 'unsat')]
+
+        # reference tools themselves split (both polarities present) -> contested instance
+        if 'sat' in solved_ref and 'unsat' in solved_ref:
+            res['contested'].append(key)
+
+        # gold-standard disagreement: both sides solved and differ (independent of majority)
+        if nnv_solved and gold in ('sat', 'unsat') and gold != nnv_v:
+            res['gold_disagree'].append(key)
+
+        if not solved_ref:
+            res['no_ref'].append(key)
+            continue
+
+        # coverage gap: field solved it, NNV did not
+        if strict and not nnv_solved:
+            res['coverage_gap'].append(key)
+            continue
+
+        if not nnv_solved:
+            # NNV unknown and no strict field majority either -> nothing to flag
+            continue
+
+        if not strict:
+            # reference is a sat/unsat tie -> no majority -> NOT a hard false-flag
+            res['ties'].append(key)
+            continue
+
+        if maj == nnv_v:
+            res['agree'].append(key)
+        elif nnv_v == 'sat':           # NNV sat vs majority unsat
+            res['false_sat'].append(key)
+        else:                          # NNV unsat vs majority sat
+            res['false_unsat'].append(key)
+
+    return res
 
 
 def load_new(path):
+    """NNV's fresh sweep -> {benchmark: Counter(verdicts)} and per-instance verdict map."""
     by_bench = defaultdict(Counter)
     inst = {}
     with open(path, newline='') as f:
         for r in csv.DictReader(f):
             b = (r.get('subfolder') or r.get('category') or '?').strip()
-            v = norm(r.get('status_str'))
+            v = norm_verdict(r.get('status_str'))
             by_bench[b][v] += 1
-            inst[(b, base(r.get('onnx')), base(r.get('vnnlib')))] = v
+            key = (b, base(r.get('onnx')), base(r.get('vnnlib')))
+            inst[key] = v
     return by_bench, inst
 
 
-def load_tool_bench(results_dir, tool, bench):
-    """{(onnx_base, vnnlib_base): verdict} from <tool>/2025_<bench>/results.csv (or {})."""
-    p = os.path.join(results_dir, tool, '2025_' + bench, 'results.csv')
+# The reference tools whose verdicts form the cross-tool majority (alpha-beta-CROWN first
+# -- it was sound+complete with 0 incorrect verdicts in 2025, so it is also the gold standard).
+TOOLS = ['alpha_beta_crown', 'neuralsat', 'nnenum', 'pyrat', 'cora', 'rover', 'sobolbox']
+REF_TOOL = 'alpha_beta_crown'
+
+
+def _solved_counts(inst_map):
+    """(#sat, #unsat) over a {key: verdict} map."""
+    sat = sum(1 for v in inst_map.values() if v == 'sat')
+    unsat = sum(1 for v in inst_map.values() if v == 'unsat')
+    return sat, unsat
+
+
+def _votes(ref_cache, bench, onnx, vl, tools):
+    """{tool: verdict} for the tools that gave a definitive verdict on this instance."""
     out = {}
-    if not os.path.isfile(p):
-        return out
-    with open(p, newline='', errors='replace') as f:
-        for row in csv.reader(f):
-            if len(row) < 5 or row[0].strip().lower() == 'category':
-                continue                       # skip blank rows and the header line
-            out[(base(row[1]), base(row[2]))] = norm(row[4])
+    for t in tools:
+        v = ref_cache.get((t, bench), {}).get((onnx, vl))
+        if v in ('sat', 'unsat'):
+            out[t] = v
     return out
 
 
@@ -85,111 +224,68 @@ def main():
 
     new_by_bench, new_inst = load_new(args.new)
     rd = args.results2025
+    benches = sorted(new_by_bench)
 
     print("# NNV sweep vs VNN-COMP 2025\n")
 
-    # --- per-benchmark NNV-new vs NNV-2025 ---
+    # --- per-benchmark: NNV NEW vs NNV 2025 ---
     print("## Per-benchmark: NNV NEW vs NNV 2025\n")
     print("| benchmark | NNV-new solved (sat/unsat) | NNV-2025 solved (sat/unsat) | NNV-new unk/to/err |")
     print("|---|---|---|---|")
     tot_new = Counter()
-    tot_2025 = Counter()
-    for b in sorted(new_by_bench):
+    for b in benches:
         c = new_by_bench[b]
         nsat, nunsat = c.get('sat', 0), c.get('unsat', 0)
-        nsolved = nsat + nunsat
-        nerr = sum(v for k, v in c.items() if k not in ('sat', 'unsat', 'unknown', 'timeout'))
-        nnv2025 = load_tool_bench(rd, 'nnv', b)
-        s25 = sum(1 for v in nnv2025.values() if v == 'sat')
-        u25 = sum(1 for v in nnv2025.values() if v == 'unsat')
-        tot_new['sat'] += nsat; tot_new['unsat'] += nunsat; tot_new['solved'] += nsolved
-        tot_2025['sat'] += s25; tot_2025['unsat'] += u25; tot_2025['solved'] += s25 + u25
-        print(f"| {b} | {nsolved} ({nsat}/{nunsat}) | {s25+u25} ({s25}/{u25}) | "
-              f"{c.get('unknown',0)}/{c.get('timeout',0)}/{nerr} |")
-    print(f"\n**Totals -- NNV NEW:** solved {tot_new['solved']} (sat {tot_new['sat']} / unsat {tot_new['unsat']})")
-    print(f"**Totals -- NNV 2025 (this results repo):** solved {tot_2025['solved']} "
-          f"(sat {tot_2025['sat']} / unsat {tot_2025['unsat']}). Official 2025: 1082 solved, 697.3 pts, 6th/7.\n")
+        err = sum(v for k, v in c.items() if k in ('error', 'missing', 'decompress_failed',
+                                                   'no_instances_csv', 'no_resolvable_instance'))
+        osat, ounsat = _solved_counts(load_tool_bench(rd, 'nnv', b))
+        tot_new['sat'] += nsat
+        tot_new['unsat'] += nunsat
+        print(f"| {b} | {nsat+nunsat} ({nsat}/{nunsat}) | {osat+ounsat} ({osat}/{ounsat}) | "
+              f"{c.get('unknown',0)}/{c.get('timeout',0)}/{err} |")
+    print(f"\n**Totals -- NNV NEW:** solved {tot_new['sat']+tot_new['unsat']} "
+          f"(sat {tot_new['sat']} / unsat {tot_new['unsat']}).")
+    print("Baseline (2025 official): NNV solved 1082 (354 sat / 728 unsat), 6th/7, 697.3 pts.\n")
 
-    # --- per-instance disagreement check (the soundness gate) ---
-    # Reference verdict = MAJORITY VOTE of the other tools' definitive (sat/unsat) results
-    # (per the soundness strategy: when tools disagree, trust the majority). We also report
-    # where the field itself splits sat-vs-unsat (a likely soundness issue in SOME tool).
+    # --- soundness check: NNV verdicts vs the cross-tool MAJORITY (and gold standard) ---
+    ref_cache = {(t, b): load_tool_bench(rd, t, b) for t in TOOLS for b in benches}
+    res = classify_instances(new_inst, ref_cache, TOOLS, REF_TOOL)
+    nchecked = (len(res['agree']) + len(res['false_sat']) + len(res['false_unsat'])
+                + len(res['ties']) + len(res['no_ref']))
     print("## Soundness check: NNV-NEW verdicts vs the cross-tool MAJORITY\n")
-    benches = sorted(new_by_bench)
-    ref_cache = {b: {t: load_tool_bench(rd, t, b) for t in TOOLS} for b in benches}
-    false_sat, false_unsat, agree, no_ref = [], [], 0, 0
-    contested, ties, gold_disagree = [], [], []
-    for (b, onnx, vl), v in new_inst.items():
-        if v not in DEFINITIVE:
-            continue
-        per_tool = ref_cache.get(b, {})
-        votes = Counter(per_tool[t].get((onnx, vl)) for t in TOOLS
-                        if per_tool[t].get((onnx, vl)) in DEFINITIVE)
-        n_sat, n_unsat = votes.get('sat', 0), votes.get('unsat', 0)
-        # alpha-beta-CROWN was sound+complete with 0 incorrect verdicts in 2025: a
-        # disagreement with it is high-signal even when there's no clear majority.
-        gold = per_tool.get(REF_TOOL, {}).get((onnx, vl))
-        if gold in DEFINITIVE and gold != v:
-            gold_disagree.append((b, onnx, vl, v, gold, dict(votes)))
-        if n_sat and n_unsat:                      # the field itself disagrees sat-vs-unsat
-            contested.append((b, onnx, vl, dict(votes), v))
-        if n_sat == 0 and n_unsat == 0:
-            no_ref += 1
-            continue
-        if n_sat == n_unsat:                       # a tie is NOT a majority -- don't hard-flag
-            ties.append((b, onnx, vl, dict(votes), v))
-            continue
-        ref = 'sat' if n_sat > n_unsat else 'unsat'   # strict majority
-        if ref == v:
-            agree += 1
-        elif v == 'sat':
-            false_sat.append((b, onnx, vl, dict(votes)))
-        else:
-            false_unsat.append((b, onnx, vl, dict(votes)))
+    print(f"- NNV-NEW definitive verdicts checked: {nchecked}")
+    print(f"- **AGREE with majority:** {len(res['agree'])}")
+    print(f"- **NO reference** (no other tool gave a definitive verdict): {len(res['no_ref'])}")
+    print(f"- **NO majority** (tools tied sat-vs-unsat): {len(res['ties'])} -- contested, not hard-flagged")
+    print(f"- !! **NNV sat but majority unsat (probable FALSE SAT, -150 risk):** {len(res['false_sat'])}")
+    print(f"- !! **NNV unsat but majority sat (probable unsound proof):** {len(res['false_unsat'])}")
+    print(f"- !! **NNV disagrees with alpha-beta-CROWN (gold standard):** {len(res['gold_disagree'])}\n")
 
-    print(f"- NNV-NEW definitive verdicts checked: {agree + len(false_sat) + len(false_unsat) + len(ties) + no_ref}")
-    print(f"- **AGREE with majority:** {agree}")
-    print(f"- **NO reference** (no other tool gave a definitive verdict): {no_ref}")
-    print(f"- **NO majority** (tools tied sat-vs-unsat): {len(ties)} -- see contested list, not hard-flagged")
-    print(f"- !! **NNV sat but majority unsat (probable FALSE SAT, -150 risk):** {len(false_sat)}")
-    print(f"- !! **NNV unsat but majority sat (probable unsound proof):** {len(false_unsat)}")
-    print(f"- !! **NNV disagrees with alpha-beta-CROWN (gold standard):** {len(gold_disagree)}\n")
-    for tag, lst in (('FALSE-SAT', false_sat), ('FALSE-UNSAT', false_unsat)):
-        if lst:
-            print(f"### {tag}: NNV={'sat' if tag=='FALSE-SAT' else 'unsat'} vs the majority\n")
-            for b, onnx, vl, votes in lst[:80]:
-                print(f"- `{b}` {onnx} / {vl}: tool votes {dict(votes)}")
-            if len(lst) > 80:
-                print(f"- ... and {len(lst)-80} more")
-            print()
-    if gold_disagree:
-        print("### NNV disagrees with alpha-beta-CROWN (review first -- gold standard)\n")
-        for b, onnx, vl, nv, g, votes in gold_disagree[:80]:
-            print(f"- `{b}` {onnx} / {vl}: NNV={nv} vs a-b-CROWN={g} (all votes {dict(votes)})")
-        if len(gold_disagree) > 80:
-            print(f"- ... and {len(gold_disagree)-80} more")
+    def show(title, keys):
+        if not keys:
+            return
+        print(f"### {title}\n")
+        for (b, onnx, vl) in keys[:80]:
+            print(f"- `{b}` {onnx} / {vl}: NNV={new_inst[(b, onnx, vl)]}, tool votes {_votes(ref_cache, b, onnx, vl, TOOLS)}")
+        if len(keys) > 80:
+            print(f"- ... and {len(keys)-80} more")
         print()
-    if not false_sat and not false_unsat and not gold_disagree:
+    show("FALSE-SAT: NNV=sat vs the majority", res['false_sat'])
+    show("FALSE-UNSAT: NNV=unsat vs the majority", res['false_unsat'])
+    show("NNV disagrees with alpha-beta-CROWN (review first -- gold standard)", res['gold_disagree'])
+    if not res['false_sat'] and not res['false_unsat'] and not res['gold_disagree']:
         print("OK: No NNV-NEW verdict disagreed with the majority or with alpha-beta-CROWN -- "
               "sound on the checked instances.\n")
 
-    # --- coverage / opportunity: where the FIELD solves but NNV does not ---
+    # --- coverage gap: the field solved it but NNV did not (minimize these) ---
     print("## Coverage gap: instances the FIELD solved but NNV did not (minimize these)\n")
+    gap_by_bench = Counter(b for (b, o, vl) in res['coverage_gap'])
+    solved_by_bench = Counter(b for (b, o, vl), v in new_inst.items() if v in ('sat', 'unsat'))
     print("| benchmark | field-solved & NNV-unknown/to/err | NNV-solved |")
     print("|---|--:|--:|")
     for b in benches:
-        per_tool = ref_cache.get(b, {})
-        keys = set().union(*[set(per_tool[t].keys()) for t in TOOLS]) if per_tool else set()
-        gap = 0
-        nnv_solved = sum(1 for (bb, o, vv), x in new_inst.items()
-                         if bb == b and x in DEFINITIVE)
-        for (o, vl) in keys:
-            votes = Counter(per_tool[t].get((o, vl)) for t in TOOLS
-                            if per_tool[t].get((o, vl)) in DEFINITIVE)
-            if votes and new_inst.get((b, o, vl)) not in DEFINITIVE:
-                gap += 1
-        if gap or nnv_solved:
-            print(f"| {b} | {gap} | {nnv_solved} |")
+        if gap_by_bench[b] or solved_by_bench[b]:
+            print(f"| {b} | {gap_by_bench[b]} | {solved_by_bench[b]} |")
     return 0
 
 

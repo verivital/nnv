@@ -16,9 +16,10 @@ function property = load_vnnlib2(propertyFile)
     % parser returns
     %     property.unsupported = true
     %     property.reason      = '<why>'
-    % and (when possible) still fills a sound INPUT box so the caller can fall back
-    % to falsification/PGD (a concrete counterexample is always a valid `sat`). The
-    % runner treats `unsupported` as `unknown` for the reach verdict. Gated cases:
+    % and (when possible) still records a sound INPUT box in property.lb/ub. NOTE: the
+    % current run_vnncomp_instance.m emits `unknown` for ANY unsupported property; the
+    % recorded box is reserved for a FUTURE falsification/PGD fallback (plan Phase 3b)
+    % that could still find a concrete `sat` for a gated-but-linear-input case. Gated:
     % multiple networks (equal-to/isomorphic-to), declare-hidden, >1 input or output
     % tensor (multimodal), `!=`, nonlinear/arithmetic (`*`,`+`,`-` over variables),
     % partial indexing, and mixed input/output disjunctions.

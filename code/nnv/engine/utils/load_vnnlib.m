@@ -183,9 +183,12 @@ end % end function
 
 %% Helper Functions
 
-% Sniff whether a file is VNN-LIB 2.0 (first non-comment, non-blank line is a
-% `(vnnlib-version <2.0>)` header). 1.0 files -- and the 1.0-syntax files some 2026
-% benchmarks place under a 2.0/ folder -- have no such header and return false.
+% Sniff whether a file is VNN-LIB 2.0: its first non-comment, non-blank line is a
+% `(vnnlib-version ...)` header (the 2.0 grammar requires this header first). 1.0
+% files -- and the 1.0-syntax files some 2026 benchmarks place under a 2.0/ folder --
+% have no such header and return false, so they take the unchanged 1.0 path. We key
+% ONLY on the version header (not `declare-network`) to keep dispatch exactly the
+% documented contract and never misroute a file that merely mentions the token.
 function tf = is_vnnlib2(propertyFile)
     tf = false;
     fid = fopen(propertyFile, 'r');
@@ -196,7 +199,7 @@ function tf = is_vnnlib2(propertyFile)
         if ~ischar(ln), return; end
         ln = strtrim(ln);
         if isempty(ln) || startsWith(ln, ';'), continue; end
-        tf = startsWith(ln, '(vnnlib-version') || contains(ln, 'declare-network');
+        tf = startsWith(ln, '(vnnlib-version');
         return;   % first meaningful line decides
     end
 end

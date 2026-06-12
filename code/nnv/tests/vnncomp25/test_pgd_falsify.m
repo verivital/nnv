@@ -3,6 +3,33 @@ classdef test_pgd_falsify < matlab.unittest.TestCase
     % validator (validate_witness) -- VNN-COMP 2026 strategy Pillars 1 & 2 -- across
     % feature, non-permuted image, and PERMUTED image (needReshape) inputs.
 
+    properties (Access = private)
+        AddedPath = ''   % runner dir added by TestClassSetup (removed in teardown)
+    end
+
+    methods (TestClassSetup)
+        function addRunnerPath(tc)
+            % pgd_falsify/validate_witness live in examples/Submission/VNN_COMP2025.
+            % The matrix CI splits tests into shards and nothing guarantees that dir
+            % is on the path (same latent flake test_validate_witness_onnx had), so
+            % add it here to be self-sufficient.
+            here = fileparts(mfilename('fullpath'));
+            sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2025');
+            if isfolder(sub) && ~contains(path, sub)
+                addpath(sub);
+                tc.AddedPath = sub;
+            end
+        end
+    end
+
+    methods (TestClassTeardown)
+        function removeRunnerPath(tc)
+            if ~isempty(tc.AddedPath)
+                rmpath(tc.AddedPath);
+            end
+        end
+    end
+
     methods (Static)
         function net = linsum_net()                  % y = x1 + x2 (feature, 2->1)
             layers = [ featureInputLayer(2, 'Name', 'in')

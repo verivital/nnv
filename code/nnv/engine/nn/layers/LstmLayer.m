@@ -157,9 +157,14 @@ classdef LstmLayer < handle
                 % only the final hidden state was returned regardless of
                 % OutputMode (see GitHub issue #325)
                 y = extractdata(Y);
-            else
-                % OutputMode='last': final hidden state (numHiddenUnits x 1)
+            elseif isempty(obj.outputMode) || strcmp(obj.outputMode, 'last')
+                % OutputMode='last' (or unset): final hidden state (numHiddenUnits x 1)
                 y = extractdata(hiddenState);
+            else
+                % fail loud on an invalid OutputMode rather than silently
+                % treating it as 'last' (consistent with the reach path)
+                error('NNV:LstmLayer:invalidOutputMode', ...
+                    'Invalid OutputMode ''%s''; expected ''last'' or ''sequence''.', string(obj.outputMode));
             end
         end 
         
@@ -477,7 +482,7 @@ classdef LstmLayer < handle
                 'LstmLayer approx-zono reachability is not supported; use approx-star');
         end
 
-        % handle mulitples inputs - NOT SUPPORTED (see GitHub issue #326)
+        % handle multiple inputs - NOT SUPPORTED (see GitHub issue #326)
         function S = reach_zono_multipleInputs(obj, inputs, option) %#ok<STOUT,INUSD>
             error('NNV:LstmLayer:zonoUnsupported', ...
                 'LstmLayer approx-zono reachability is not supported; use approx-star');

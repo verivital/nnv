@@ -333,7 +333,7 @@ classdef LstmLayer < handle
                 elseif obj.outputMode == "sequence"
                     lb = [];
                     ub = [];
-                    for i = length(ht)
+                    for i = 1:length(ht)
                         [l, u] = ht(i).getRanges;
                         lb = [lb,l];
                         ub = [ub,u];

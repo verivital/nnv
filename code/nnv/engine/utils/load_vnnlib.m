@@ -418,7 +418,14 @@ function [lb_array, ub_array, prop_array] = process_combined_input_output(tline,
     lb_array = cell(n,1);
     ub_array = cell(n,1);
     prop_array = cell(n,1);
+    lb_global = lb_input;   % the globally-declared input box; each disjunct of the OR
+    ub_global = ub_input;   % starts fresh from it so an input bound set in one disjunct
+                            % cannot LEAK into the next (mirrors the process_multiple_inputs
+                            % fix). Without this reset, disjunct i accumulates every prior
+                            % disjunct's X bounds -> wrong (too-narrow) box -> -150 risk.
     for i = 1:length(all_cons)
+        lb_input = lb_global;
+        ub_input = ub_global;
         combo = all_cons{i};
         combo = combo + ")";
         single_cons = extractBetween(combo, "(", ")");

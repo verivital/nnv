@@ -44,6 +44,18 @@ matlab -batch "cd('${TOOLKIT}'); install" || \
 apt-get install -y python3 python3-pip
 pip3 install --no-cache-dir onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
 
+# MATLAB Engine API for Python: execute.py (the run_instance.sh bridge) does
+# `import matlab.engine`; without it EVERY instance fails instantly (caught in
+# the 2026-06-12 AWS dry run on the MathWorks R2026a AMI). Install from the
+# MATLAB tree -- guaranteed version match with the installed release; the PyPI
+# matlabengine wheel can fail to build and may mismatch the MATLAB version.
+MATLAB_BIN="$(command -v matlab || echo /usr/local/matlab/bin/matlab)"
+MATLAB_ROOT_RESOLVED="$(dirname "$(dirname "$(readlink -f "$MATLAB_BIN")")")"
+pip3 install --no-cache-dir "${MATLAB_ROOT_RESOLVED}/extern/engines/python" || \
+    pip3 install --no-cache-dir matlabengine || \
+    echo "WARN: matlab.engine install failed; run_instance.sh will not work"
+python3 -c "import matlab.engine" || echo "WARN: matlab.engine import check failed"
+
 # Optional: Gurobi for a faster LP backend (uncomment + set license).
 # cd ~ && wget -q https://packages.gurobi.com/12.0/gurobi12.0.0_linux64.tar.gz && tar xfz gurobi*.tar.gz
 echo "Install complete."

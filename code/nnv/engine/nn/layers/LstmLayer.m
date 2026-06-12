@@ -147,8 +147,20 @@ classdef LstmLayer < handle
             % initial cell state
             c0 = dlarray(obj.cellState);
             
-            [~,hiddenState,~] = lstm(x,h0,c0,obj.inputWeights,obj.recurrentWeights,obj.bias,"DataFormat","ST");
-            y = extractdata(hiddenState);
+            [Y,hiddenState,~] = lstm(x,h0,c0,obj.inputWeights,obj.recurrentWeights,obj.bias,"DataFormat","ST");
+            if strcmp(obj.outputMode, 'sequence')
+                % full hidden-state sequence (numHiddenUnits x seqLength),
+                % matching MATLAB's lstmLayer OutputMode='sequence'
+                % semantics and the star reachability path
+                % (reach_star_single_input, outputMode == "sequence");
+                % previously the first output of lstm() was discarded and
+                % only the final hidden state was returned regardless of
+                % OutputMode (see GitHub issue #325)
+                y = extractdata(Y);
+            else
+                % OutputMode='last': final hidden state (numHiddenUnits x 1)
+                y = extractdata(hiddenState);
+            end
         end 
         
         function y = evaluateSequence(obj, input)
@@ -218,7 +230,11 @@ classdef LstmLayer < handle
             elseif strcmp(method, 'approx-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs(in_images, option);
             elseif strcmp(method, 'approx-zono')
-                IS = obj.reach_zono_multipleInputs(in_images, option);
+                % the zonotope path (reach_zono) was non-functional and
+                % had no sound semantics (see GitHub issue #326); fail
+                % closed rather than risk returning a wrong set
+                error('NNV:LstmLayer:zonoUnsupported', ...
+                    'LstmLayer approx-zono reachability is not supported; use approx-star');
             else
                 error('Unknown reachability method');
             end
@@ -286,7 +302,11 @@ classdef LstmLayer < handle
             if strcmp(method, 'approx-star') || strcmp(method, 'exact-star') || strcmp(method, 'abs-dom') || contains(method, "relax-star")
                 IS = obj.reach_star_multipleInputs_Sequence(in_images, option);
             elseif strcmp(method, 'approx-zono')
-                IS = obj.reach_zono_multipleInputs(in_images, option);
+                % the zonotope path (reach_zono) was non-functional and
+                % had no sound semantics (see GitHub issue #326); fail
+                % closed rather than risk returning a wrong set
+                error('NNV:LstmLayer:zonoUnsupported', ...
+                    'LstmLayer approx-zono reachability is not supported; use approx-star');
             else
                 error('Unknown reachability method');
             end
@@ -441,68 +461,26 @@ classdef LstmLayer < handle
             S = obj.reach_star_single_input(inputs);
         end
 
-        %(reachability analysis using imagezono)
-        function image = reach_zono(obj, in_image)
-            % @in_image: input imagezono
-            % @image: output set
-            
-            if ~isa(in_image, 'ImageZono') && ~isa(in_image, 'Zono')
-                error('Input set is not an ImageZono or Zono');
-            end
-
-            if isa(in_image, 'ImageZono')
-            
-                N = in_image.height*in_image.width*in_image.numChannels;
-                if N~= obj.InputSize
-                    error('Inconsistency between the size of the input image and the InputSize of the network');
-                end
-                           
-                n = in_image.numPreds;
-                V(1, 1, :, in_image.numPreds + 1) = zeros(obj.OutputSize, 1);        
-                for i=1:n+1
-                    I = in_image.V(:,:,:,i);
-                    I = reshape(I,N,1);
-                    if i==1
-                        V(1, 1,:,i) = double(obj.Weights)*I + double(obj.Bias);
-                    else
-                        V(1, 1,:,i) = double(obj.Weights)*I;
-                    end
-                end
-                
-                image = ImageZono(V);
-            else
-                image = in_image.affineMap(obj.Weights, obj.Bias);
-            end
-            
+        % (reachability analysis using imagezono) - NOT SUPPORTED
+        % The previous reach_zono implementation was non-functional (see
+        % GitHub issue #326): it referenced properties that do not exist
+        % on LstmLayer (obj.Weights, obj.Bias, obj.OutputSize - the body
+        % was copied from a fully-connected layer), its input-size check
+        % flattened the whole sequence and compared against InputSize
+        % (features per step), and even with the plumbing fixed a single
+        % affine map cannot soundly enclose an LSTM. The dead code has
+        % been removed and the method fails closed; a sound zonotope LSTM
+        % step would need affine gate maps on zonotopes, sigmoid/tanh
+        % abstractions, and a sound bilinear product enclosure.
+        function image = reach_zono(obj, in_image) %#ok<STOUT,INUSD>
+            error('NNV:LstmLayer:zonoUnsupported', ...
+                'LstmLayer approx-zono reachability is not supported; use approx-star');
         end
-        
-        % handle mulitples inputs
-        function S = reach_zono_multipleInputs(obj, inputs, option)
-            % @inputs: an array of ImageZonos
-            % @option: = 'parallel' or 'single'
-            % @S: output ImageZono
-            
-            n = length(inputs);
-            if isa(inputs, 'ImageZono')
-                S(n) = ImageZono;
-            elseif isa(inputs, 'Zono')
-                S(n) = Zono;
-            else
-                error('Wrong input set. It must be ImageZono or Zono')
-            end
 
-            if strcmp(option, 'parallel')
-                parfor i=1:n
-                    S(i) = obj.reach_zono(inputs(i));
-                end
-            elseif strcmp(option, 'single') || isempty(option)
-                for i=1:n
-                    S(i) = obj.reach_zono(inputs(i));
-                end
-            else
-                error('Unknown computation option, should be parallel or single');
-            end
-            
+        % handle mulitples inputs - NOT SUPPORTED (see GitHub issue #326)
+        function S = reach_zono_multipleInputs(obj, inputs, option) %#ok<STOUT,INUSD>
+            error('NNV:LstmLayer:zonoUnsupported', ...
+                'LstmLayer approx-zono reachability is not supported; use approx-star');
         end
         
     end

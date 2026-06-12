@@ -129,9 +129,17 @@ for i = 1:n
     inst_csv = fullfile(bench_root, sub, 'instances.csv');
     if ~isfile(inst_csv)
         % VNN-COMP 2026 splits each benchmark by VNN-LIB version: <sub>/1.0/instances.csv
-        % (regular track) + <sub>/2.0/ (extended/VNN-LIB-2.0 track, unsupported). Prefer 1.0.
+        % (regular track) + <sub>/2.0/ (extended/VNN-LIB-2.0 track). Prefer 1.0; fall back
+        % to 2.0 so the extended-ONLY benchmarks (adaptive_cruise/isomorphic/monotonic/
+        % smart_turn -- which ship 2.0/ only) are run too. The 2.0 specs dispatch through
+        % load_vnnlib2 (sound-or-unknown: multi-net/nonlinear/multimodal -> unknown).
         alt = fullfile(bench_root, sub, '1.0', 'instances.csv');
-        if isfile(alt), inst_csv = alt; end
+        if isfile(alt)
+            inst_csv = alt;
+        else
+            alt2 = fullfile(bench_root, sub, '2.0', 'instances.csv');
+            if isfile(alt2), inst_csv = alt2; end
+        end
     end
     if ~isfile(inst_csv)
         row = {sub, cat, '', '', -2, 'no_instances_csv', 0, ''};

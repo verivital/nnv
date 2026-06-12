@@ -23,7 +23,7 @@ pkill -f -q matlab 2>/dev/null
 # being emitted, so a mis-import degrades to error/unknown, never an unsound verdict.
 case "$2" in
     *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*)
-        NNV_ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"   # .../code/nnv
+        NNV_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # VNN_COMP2026 -> .../code/nnv
         MANIFEST="${3%.onnx}.nnv.mat"
         if [ ! -f "${MANIFEST}" ]; then
             echo "Generating NNV manifest: ${MANIFEST}"

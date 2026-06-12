@@ -52,8 +52,9 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     eng = matlab.engine.start_matlab()
 
     eng.addpath(os.getcwd())
-    # NNV root: prefer $NNV_ROOT (set by install_tool.sh), else derive it relative to this
-    # file (code/nnv/examples/Submission/VNN_COMP2025/execute.py -> code/nnv is 3 dirs up).
+    # NNV root: prefer $NNV_ROOT if it is exported in the environment (an optional override
+    # the eval host may set), else derive it relative to this file
+    # (code/nnv/examples/Submission/VNN_COMP2025/execute.py -> code/nnv is 3 dirs up).
     # The old hardcoded '/home/ubuntu/toolkit/code/nnv/' broke whenever the eval VM cloned
     # the toolkit anywhere else, silently dropping NNV from the path -> every run errored.
     nnv_root = os.environ.get('NNV_ROOT')

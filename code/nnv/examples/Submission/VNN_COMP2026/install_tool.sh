@@ -33,7 +33,7 @@ chmod +x mpm
 
 # One-time NNV toolbox install (tbxmanager: mpt/glpk/sedumi/...). Doing it here (not
 # per-instance) keeps prepare/run overhead minimal. Adjust TOOLKIT if the image differs.
-TOOLKIT="$(cd "$(dirname "$0")/../../../.." && pwd)"   # .../code/nnv
+TOOLKIT="$(cd "$(dirname "$0")/../../.." && pwd)"   # VNN_COMP2026 -> .../code/nnv (has install.m)
 matlab -batch "cd('${TOOLKIT}'); install" || \
     echo "WARN: NNV install step failed here; run_instance will run startup_nnv as a fallback."
 

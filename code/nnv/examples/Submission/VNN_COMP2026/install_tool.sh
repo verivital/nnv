@@ -37,6 +37,13 @@ TOOLKIT="$(cd "$(dirname "$0")/../../../.." && pwd)"   # .../code/nnv
 matlab -batch "cd('${TOOLKIT}'); install" || \
     echo "WARN: NNV install step failed here; run_instance will run startup_nnv as a fallback."
 
+# Python importer + onnxruntime. onnx2nnv.py (tools/onnx2nnv_python) converts the models
+# MATLAB's importer cannot parse (lsnc_relu, traffic_signs, cgan, soundnessbench) into NNV
+# manifests in prepare_instance.sh; onnxruntime also backs the SAT-witness replay gate that
+# prevents false-SAT (-150) verdicts. Pin a known-good set.
+apt-get install -y python3 python3-pip
+pip3 install --no-cache-dir onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
+
 # Optional: Gurobi for a faster LP backend (uncomment + set license).
 # cd ~ && wget -q https://packages.gurobi.com/12.0/gurobi12.0.0_linux64.tar.gz && tar xfz gurobi*.tar.gz
 echo "Install complete."

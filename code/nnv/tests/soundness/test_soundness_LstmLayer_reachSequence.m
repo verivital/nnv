@@ -166,6 +166,9 @@ for k = 1:10
     xs = (x - ep) + 2*ep.*rand(inputSize, seqLength);
     for t = 1:seqLength
         ht = L.evaluateSequence(xs(:, 1:t));
+        ht = ht(:, end);   % #325 fix: 'sequence' mode now returns H x t; the final
+                           % hidden state of the prefix is the LAST column (under the
+                           % old H x 1 semantics this indexing is a no-op)
         assert(all(ht(:) >= lb(:, t) - tol) && all(ht(:) <= ub(:, t) + tol), ...
             sprintf('sample %d, step %d must be enclosed by column %d', k, t, t));
     end

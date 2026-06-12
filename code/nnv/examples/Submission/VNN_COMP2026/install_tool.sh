@@ -43,6 +43,10 @@ matlab -batch "cd('${TOOLKIT}'); install" || \
 # prevents false-SAT (-150) verdicts. Pin a known-good set.
 apt-get install -y python3 python3-pip
 pip3 install --no-cache-dir onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
+# onnx2nnv.py (the manifest importer for lsnc_relu/traffic_signs/cgan/soundnessbench)
+# hard-requires the simplifier stack; without these prepare_instance.sh fails to
+# generate manifests and every manifest-category instance errors (2026-06-12 dry run).
+pip3 install --no-cache-dir onnxsim onnxoptimizer
 
 # MATLAB Engine API for Python: execute.py (the run_instance.sh bridge) does
 # `import matlab.engine`; without it EVERY instance fails instantly (caught in

@@ -14,7 +14,7 @@ on:
       benchmarks_repo:
         description: "Git URL of the VNN-COMP benchmarks repo"
         type: string
-        default: "https://github.com/VNN-COMP/vnncomp2025_benchmarks.git"
+        default: "https://github.com/VNN-COMP/vnncomp2026_benchmarks.git"
       benchmarks_ref:
         description: "Branch/tag/sha of the benchmarks repo"
         type: string
@@ -58,26 +58,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The VNN-COMP 2026 benchmark set (github.com/VNN-COMP/vnncomp2026_benchmarks,
+        # 34 folders minus the `test` scaffold). Carried-over 2025 benchmarks plus the new
+        # 2026 entries (cgan2026, soundnessbench_2026, relusplitter_2026, and the four
+        # extended/VNN-LIB-2.0 ones: adaptive_cruise_control_non_linear_2026,
+        # isomorphic_acasxu_2026, monotonic_acasxu_2026, smart_turn_multimodal_2026 --
+        # these will error/unknown until the 2.0 bridge lands; included for visibility).
         folder:
           - acasxu_2023
+          - adaptive_cruise_control_non_linear_2026
           - cctsdb_yolo_2023
           - cersyve
+          - cgan2026
           - cgan_2023
+          - challenging_certified_training_2026
           - cifar100_2024
           - collins_aerospace_benchmark
           - collins_rul_cnn_2022
           - cora_2024
           - dist_shift_2023
+          - isomorphic_acasxu_2026
           - linearizenn_2024
           - lsnc_relu
           - malbeware
           - metaroom_2023
           - ml4acopf_2024
+          - monotonic_acasxu_2026
           - nn4sys
           - relusplitter
+          - relusplitter_2026
           - safenlp_2024
           - sat_relu
+          - smart_turn_multimodal_2026
           - soundnessbench
+          - soundnessbench_2026
           - tinyimagenet_2024
           - tllverifybench_2023
           - traffic_signs_recognition_2023

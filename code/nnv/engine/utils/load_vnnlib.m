@@ -17,6 +17,15 @@ function property = load_vnnlib(propertyFile)
 %
 %    If the vnnlib does not meet these conditions, this function may not work
 
+    % VNN-LIB 2.0 dispatch: 2.0 files start with a `(vnnlib-version <2.0>)` header
+    % and use a different grammar (declare-network, bracket indexing). Route those
+    % to the dedicated 2.0 parser; 1.0 files (no such header, including the handful
+    % of 1.0-syntax files mislabeled into a 2.0/ folder) fall through unchanged.
+    if is_vnnlib2(propertyFile)
+        property = load_vnnlib2(propertyFile);
+        return;
+    end
+
     fileID = fopen(propertyFile,'r'); % open vnnlib file
     tline = fgetl(fileID); % Reading file line-by-line
     phase = "start"; % there are four phases in each file (declare inputs, declare outputs, define inputs, define outputs)
@@ -173,6 +182,27 @@ function property = load_vnnlib(propertyFile)
 end % end function
 
 %% Helper Functions
+
+% Sniff whether a file is VNN-LIB 2.0: its first non-comment, non-blank line is a
+% `(vnnlib-version ...)` header (the 2.0 grammar requires this header first). 1.0
+% files -- and the 1.0-syntax files some 2026 benchmarks place under a 2.0/ folder --
+% have no such header and return false, so they take the unchanged 1.0 path. We key
+% ONLY on the version header (not `declare-network`) to keep dispatch exactly the
+% documented contract and never misroute a file that merely mentions the token.
+function tf = is_vnnlib2(propertyFile)
+    tf = false;
+    fid = fopen(propertyFile, 'r');
+    if fid < 0, return; end
+    cleaner = onCleanup(@() fclose(fid));
+    for it = 1:200   % scan past leading comments/blank lines only
+        ln = fgetl(fid);
+        if ~ischar(ln), return; end
+        ln = strtrim(ln);
+        if isempty(ln) || startsWith(ln, ';'), continue; end
+        tf = startsWith(ln, '(vnnlib-version');
+        return;   % first meaningful line decides
+    end
+end
 
 % combine multiple lines into a single one if they belong to a single statement/assertion
 function tline = merge_lines(tline, fileID)

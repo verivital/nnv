@@ -39,6 +39,24 @@ end
 
 % Load property to verify
 property = load_vnnlib(vnnlib);
+
+% VNN-LIB 2.0 gate: load_vnnlib2 (dispatched for 2.0 files) flags any construct NNV
+% cannot soundly verify -- multi-network (equal-to/isomorphic-to), nonlinear/arithmetic
+% output, multimodal (>1 input tensor), declare-hidden, mixed input/output disjunction.
+% Emit `unknown` (0 points) rather than parse it unsoundly and risk a -150 wrong
+% verdict. (1.0 properties never set this field, so this is a no-op for them.)
+if isfield(property, 'unsupported') && property.unsupported
+    if isfield(property, 'reason') && ~isempty(property.reason)
+        fprintf('vnnlib 2.0 unsupported -> unknown: %s\n', property.reason);
+    end
+    status = 2;
+    tTime = toc(t);
+    fid = fopen(outputfile, 'w');
+    fprintf(fid, 'unknown \n');
+    fclose(fid);
+    return;
+end
+
 lb = property.lb; % input lower bounds
 ub = property.ub; % input upper bounds
 prop = property.prop; % output spec to verify

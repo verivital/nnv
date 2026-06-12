@@ -49,6 +49,62 @@ import onnxoptimizer
 from scipy.io import savemat
 
 
+# ---------- tensor-layout model ----------
+#
+# Every tensor we emit lives in exactly one MATLAB-side layout:
+#
+#   'HWC'  — image tensor. ONNX [B,C,H,W] is stored MATLAB-side as an
+#            [H,W,C] array (NNV's image convention; Conv/Pool/ImageInput
+#            layers all assume it).
+#   'HWCB' — image tensor whose ONNX form is [B,H,W,C] (keras/larq BHWC
+#            graphs around the no-op layout transposes). MATLAB-side it is
+#            the SAME [H,W,C] array as 'HWC'; the tag only records the ONNX
+#            dim order for strict ground-truth comparison.
+#   'FLAT' — feature vector. ONNX [B,F] (or [F]) is stored as a column
+#            [F,1] (or row/[1,1,F] from FlattenLayer); the element SEQUENCE
+#            equals the ONNX C-order flattening.
+#   'RAW'  — everything else (attention/token tensors: [B,T,C], [B,h,T,d],
+#            ...). Stored MATLAB-side with dims IDENTICAL to the ONNX dims,
+#            element-by-element (no permutation). MATLAB trims trailing
+#            singleton dims, which is harmless here (batch leads).
+#
+# The old importer pushed the HWC/flat machinery through transformer
+# pipelines too, silently rotating token tensors relative to what the
+# Transpose perms / DynamicMatmul shapes expect (vit_2023: pos-emb added in
+# the wrong orientation, then 'inner dims mismatch' at attn x V). The walk()
+# below tracks the layout of every tensor and only applies HWC conventions
+# on actual image flows; attention/token tensors stay RAW with explicit
+# C-order reshapes.
+#
+# Key consequences for RAW tensors:
+#   * ONNX Reshape/Flatten must use C-order semantics. MATLAB reshape is
+#     column-major, so we emit the standard decomposition
+#         permute(reverse-dims) -> reshape(flip(target)) -> permute(reverse)
+#     using the existing TransposeLayer/ReshapeLayer (exact, no new MATLAB
+#     machinery).
+#   * ONNX Transpose perms apply literally (TransposeLayer; never the
+#     BHWC/BCHW "no-op" placeholders, which are an HWC-only convention).
+#   * FullyConnectedLayer's batched fast path (last dim == in_features)
+#     evaluates per-token FCs on [1,T,C] without reordering.
+#   * Selector matrices (Split/Slice/Gather/Reduce*) must index the
+#     COLUMN-MAJOR flattening of the RAW array (MATLAB reshape(x,[],1)),
+#     not the ONNX C-order one used for FLAT flows.
+#   * Per-channel biases are emitted trailing-aligned ([1,...,1,C]) so ONNX
+#     broadcasting semantics hold under MATLAB implicit expansion.
+#   * Softmax over the last axis of a rank-3 RAW tensor maps to NNV's
+#     SoftmaxLayer 'SSC' channel softmax; other ranks are wrapped in
+#     reshape-[1,L,N] / softmax / reshape-back (exact: softmax is
+#     per-leading-slice over the last dim).
+
+IMAGE_CONSUMER_OPS = {'Conv', 'ConvTranspose', 'MaxPool', 'AveragePool',
+                      'GlobalAveragePool', 'BatchNormalization', 'Resize',
+                      'Upsample'}
+
+# Ops whose NNV layer always produces an HWC image output.
+IMAGE_PRODUCER_OPS = {'Conv', 'ConvTranspose', 'MaxPool', 'AveragePool',
+                      'GlobalAveragePool', 'Resize', 'Upsample'}
+
+
 # ---------- helpers ----------
 
 def to_array(t):
@@ -65,6 +121,20 @@ def get_attr(node, name, default=None):
             if a.type == onnx.AttributeProto.FLOATS: return list(a.floats)
             if a.type == onnx.AttributeProto.TENSOR: return to_array(a.t)
     return default
+
+def _trailing_align_param(arr, x_shape):
+    """Pad an ONNX broadcast parameter with LEADING singleton dims so its
+    dims line up with the trailing dims of an x of rank len(x_shape) — the
+    ONNX/NumPy broadcasting rule, made explicit for MATLAB implicit
+    expansion (which aligns LEADING dims). Used for RAW-layout consumers."""
+    a = np.asarray(arr)
+    if x_shape is None:
+        return a
+    r = len(x_shape)
+    if a.ndim < r:
+        a = a.reshape((1,) * (r - a.ndim) + a.shape)
+    return a
+
 
 _NAME_HASH_TABLE = {}
 def safe_name(s):
@@ -83,7 +153,7 @@ def safe_name(s):
 # ---------- preprocessing ----------
 
 def _try_emit_reduce(node, nm, value_shapes, initializers, producer,
-                     add_weight, emit, op_name):
+                     add_weight, emit, op_name, raw_order=False):
     """Try to emit a ReduceSum / ReduceMean as a sparse FullyConnectedLayer.
 
     For an input of known shape S = [d_0, ..., d_{n-1}] with axes A and
@@ -94,6 +164,13 @@ def _try_emit_reduce(node, nm, value_shapes, initializers, producer,
     Returns True on successful emit, False on fallback.
 
     op_name: 'sum' or 'mean'. For sum, no division.
+
+    raw_order: when the producer tensor is in 'RAW' layout, the MATLAB-side
+    FullyConnectedLayer flattens it COLUMN-MAJOR (F-order over the ONNX
+    dims), not C-order. Build the selector with F-order strides on both
+    sides, and follow the FC with a ReshapeLayer restoring the RAW output
+    shape (the plain MATLAB column-major reshape inverts the F-order
+    flatten exactly).
     """
     in_name = node.input[0]
     in_sh = value_shapes.get(in_name)
@@ -149,13 +226,23 @@ def _try_emit_reduce(node, nm, value_shapes, initializers, producer,
     import numpy as _np
     W = _np.zeros((flat_out, flat_in), dtype=_np.float32)
 
-    # Input strides (row-major / C-order, matching how we treat NNV's flat layout).
-    in_strides = [1] * n
-    for k in range(n - 2, -1, -1):
-        in_strides[k] = in_strides[k+1] * eff_sh[k+1]
-    out_strides = [1] * len(out_sh)
-    for k in range(len(out_sh) - 2, -1, -1):
-        out_strides[k] = out_strides[k+1] * out_sh[k+1]
+    if raw_order:
+        # F-order (column-major) strides over the RAW dims — matches how
+        # MATLAB's FullyConnectedLayer flattens a RAW [d0,...,dn-1] array.
+        in_strides = [1] * n
+        for k in range(1, n):
+            in_strides[k] = in_strides[k-1] * eff_sh[k-1]
+        out_strides = [1] * len(out_sh)
+        for k in range(1, len(out_sh)):
+            out_strides[k] = out_strides[k-1] * out_sh[k-1]
+    else:
+        # Input strides (row-major / C-order, matching how we treat NNV's flat layout).
+        in_strides = [1] * n
+        for k in range(n - 2, -1, -1):
+            in_strides[k] = in_strides[k+1] * eff_sh[k+1]
+        out_strides = [1] * len(out_sh)
+        for k in range(len(out_sh) - 2, -1, -1):
+            out_strides[k] = out_strides[k+1] * out_sh[k+1]
 
     reduce_vol = 1
     for ax in axes: reduce_vol *= eff_sh[ax]
@@ -179,6 +266,24 @@ def _try_emit_reduce(node, nm, value_shapes, initializers, producer,
         W[out_flat, in_flat] += coeff
 
     b = _np.zeros(flat_out, dtype=_np.float32)
+    if raw_order:
+        # FC emits an F-order flat column; restore the RAW output shape with
+        # a plain (column-major) ReshapeLayer so downstream RAW consumers
+        # (BatchNorm, FC, ...) see the ONNX dims.
+        fc_nm = safe_name(nm + '_red')
+        wkey = add_weight(fc_nm, 'W', W)
+        bkey = add_weight(fc_nm, 'b', b)
+        emit(LayerSpec('FullyConnectedLayer', fc_nm,
+                       attrs={'OutputSize': int(flat_out)},
+                       inputs=[producer[in_name]],
+                       outputs=[fc_nm + '_out'],
+                       weight_keys=[wkey, bkey]))
+        spec = LayerSpec('ReshapeLayer', nm,
+                         attrs={'TargetShape': [int(d) for d in out_sh]},
+                         inputs=[fc_nm],
+                         outputs=[node.output[0]])
+        emit(spec)
+        return True
     wkey = add_weight(nm, 'W', W)
     bkey = add_weight(nm, 'b', b)
     spec = LayerSpec('FullyConnectedLayer', nm,
@@ -389,11 +494,31 @@ def walk(model):
                          attrs={'InputSize': sz}, outputs=[inp_name])
     layers.append(spec)
     producer[inp_name] = 'input'
+
+    # Per-tensor MATLAB-side layout tracking ('HWC' | 'FLAT' | 'RAW') — see
+    # the layout-model comment at the top of this file.
+    layout = {}
+    if spec.type == 'ImageInputLayer':
+        layout[inp_name] = 'HWCB' if bhwc_input else 'HWC'
+    else:
+        layout[inp_name] = 'FLAT'
+
+    def tensor_layout(tname):
+        return layout.get(tname, 'FLAT')
+
+    def node_in_layout(node):
+        """Layout of the first input we know about (dynamic tensors only)."""
+        for x in node.input:
+            if x in layout:
+                return layout[x]
+        return 'FLAT'
+
     # If we detected a BHWC input layout, the leading BHWC->BCHW Transpose
     # is a no-op in NNV's HWC convention. Skip it by mapping its output
     # name to 'input' directly so downstream Conv layers wire correctly.
     if drop_first_transpose:
         producer[drop_first_transpose] = 'input'
+        layout[drop_first_transpose] = 'HWC'   # post-transpose ONNX form is BCHW
         # value_shapes for the transpose's output should match input HWC.
     # Also register any other graph inputs (some ONNX exports have multiple
     # inputs, e.g. multi-input attention models). They map to PlaceholderLayer
@@ -409,6 +534,7 @@ def walk(model):
                             outputs=[extra_inp.name])
         layers.append(ph_spec)
         producer[extra_inp.name] = ph_name
+        layout[extra_inp.name] = 'FLAT'
 
     # Helper: register a layer + its outputs
     def emit(spec):
@@ -446,6 +572,67 @@ def walk(model):
             key = f"{key[:25]}_{_wkey_counter[0]}"
         weights[key] = np.ascontiguousarray(arr.astype(np.float32))
         return key
+
+    def emit_conorder_reshape(nm, src_tensor, tgt_static, out_tensor, pre_perm0):
+        """Emit an EXACT ONNX (C-order) reshape for a RAW-destined tensor as a
+        composition of existing NNV layers:
+
+            [pre-permute] -> reshape(flip(tgt)) -> permute(reverse(tgt-rank))
+
+        MATLAB's reshape is column-major; flattening the REVERSE-permuted
+        array column-major equals the ONNX C-order flattening, and refilling
+        flip(tgt) then reverse-permuting realizes the C-order refill.
+
+        pre_perm0: 0-indexed permutation applied to the MATLAB-side input
+        array so its column-major flatten equals the ONNX C-order flatten of
+        the source tensor: reversed(range(rank)) for RAW inputs, [1,0,2] for
+        HWC image inputs ([H,W,C] -> [W,H,C]), None for FLAT columns (their
+        element sequence is already the C-order one).
+
+        The final layer carries `nm` and `out_tensor` so downstream wiring
+        and debug-name mapping stay 1:1 with the ONNX node.
+        """
+        cur = producer[src_tensor]
+        if pre_perm0 is not None and list(pre_perm0) != list(range(len(pre_perm0))):
+            pre_nm = safe_name(nm + '_cpre')
+            emit(LayerSpec('TransposeLayer', pre_nm,
+                           attrs={'Perm': [int(p) for p in pre_perm0]},
+                           inputs=[cur], outputs=[pre_nm + '_out']))
+            cur = pre_nm
+        rs_nm = safe_name(nm + '_crs')
+        emit(LayerSpec('ReshapeLayer', rs_nm,
+                       attrs={'TargetShape': [int(d) for d in reversed(tgt_static)]},
+                       inputs=[cur], outputs=[rs_nm + '_out']))
+        cur = rs_nm
+        post = list(range(len(tgt_static) - 1, -1, -1))
+        spec = LayerSpec('TransposeLayer', nm, attrs={'Perm': post},
+                         inputs=[cur], outputs=[out_tensor])
+        emit(spec)
+        return spec
+
+    def static_reshape_target(node, tgt):
+        """Resolve an ONNX Reshape target ([-1]/0 sentinels) to a fully
+        static shape, preferring the inferred output shape."""
+        out_sh = value_shapes.get(node.output[0])
+        if out_sh and len(out_sh) == len(tgt) and all(d > 0 for d in out_sh):
+            return [int(d) for d in out_sh]
+        in_sh = value_shapes.get(node.input[0])
+        res = [int(t) for t in tgt]
+        if in_sh and all(d > 0 for d in in_sh):
+            for k, t in enumerate(res):
+                if t == 0:
+                    res[k] = int(in_sh[k]) if k < len(in_sh) else 1
+            if res.count(-1) == 1:
+                known = 1
+                for t in res:
+                    if t != -1:
+                        known *= t
+                tot = int(np.prod(in_sh))
+                if known > 0 and tot % known == 0:
+                    res[res.index(-1)] = tot // known
+            if all(t > 0 for t in res):
+                return res
+        return None
 
     def to_hwc_if_image_bias(arr):
         """Convert ONNX-shape (broadcasting) bias arrays to HWC layout if they
@@ -587,6 +774,14 @@ def walk(model):
         op = node.op_type
         nm = safe_name(node.name) if node.name else f"{op}_{i}"
         node_key = node.name or f"_n_{op}_{i}"
+        # Default layout propagation: image producers emit HWC; everything
+        # else inherits the first known input layout. Handlers that change
+        # representation (Reshape boundary, FC, Flatten, ...) overwrite
+        # these entries below. Assign BEFORE any skip/rewrite so fused
+        # patterns (STE Sign, PWL) still propagate to their consumers.
+        _in_lay = node_in_layout(node)
+        for _o in node.output:
+            layout[_o] = 'HWC' if op in IMAGE_PRODUCER_OPS else _in_lay
         # Larq STE pattern: skip the inner Sign + Add entirely; the outer
         # Sign takes the original x and emits a polar SignLayer.
         if node_key in ste_skip:
@@ -690,6 +885,7 @@ def walk(model):
                                  outputs=[node.output[0]],
                                  weight_keys=[wkey, bkey])
                 emit(spec)
+                layout[node.output[0]] = 'FLAT'
                 continue
 
             if op == 'MatMul':
@@ -740,6 +936,15 @@ def walk(model):
                                  outputs=[node.output[0]],
                                  weight_keys=[wkey, bkey])
                 emit(spec)
+                # Token-batched FC on a RAW [B,T,C] input keeps RAW layout
+                # (MATLAB FC's last-dim fast path); everything else flattens
+                # to a feature column.
+                out_sh_mm = value_shapes.get(node.output[0])
+                if (B is not None and tensor_layout(A_name) == 'RAW'
+                        and out_sh_mm is not None and len(out_sh_mm) >= 3):
+                    layout[node.output[0]] = 'RAW'
+                else:
+                    layout[node.output[0]] = 'FLAT'
                 continue
 
             if op == 'Conv':
@@ -824,6 +1029,48 @@ def walk(model):
 
             if op == 'Softmax':
                 axis = get_attr(node, 'axis', -1)
+                in_sh_sm = value_shapes.get(node.input[0])
+                if tensor_layout(node.input[0]) == 'RAW' and in_sh_sm \
+                        and all(d > 0 for d in in_sh_sm):
+                    # RAW tensor: NNV's SoftmaxLayer computes a channel ('SSC')
+                    # softmax over MATLAB dim 3 for rank-3 inputs and errors on
+                    # other ranks. ONNX last-axis softmax on a rank-3 RAW
+                    # [1,L,N] maps to it directly; for other ranks wrap in
+                    # reshape-[1,L,N] / softmax / reshape-back (exact: softmax
+                    # is per-leading-slice over the last dim, and the plain
+                    # column-major reshape repacks leading dims bijectively
+                    # while preserving the last dim).
+                    r_sm = len(in_sh_sm)
+                    ax_sm = int(axis) % r_sm
+                    if ax_sm == r_sm - 1:
+                        if r_sm == 3:
+                            spec = LayerSpec('SoftmaxLayer', nm,
+                                             attrs={'Axis': int(axis)},
+                                             inputs=[producer[node.input[0]]],
+                                             outputs=[node.output[0]])
+                            emit(spec)
+                        else:
+                            Lp = int(np.prod(in_sh_sm[:-1]))
+                            Nl = int(in_sh_sm[-1])
+                            pre_nm = safe_name(nm + '_smpre')
+                            emit(LayerSpec('ReshapeLayer', pre_nm,
+                                           attrs={'TargetShape': [1, Lp, Nl]},
+                                           inputs=[producer[node.input[0]]],
+                                           outputs=[pre_nm + '_out']))
+                            sm_nm = safe_name(nm + '_smax')
+                            emit(LayerSpec('SoftmaxLayer', sm_nm,
+                                           attrs={'Axis': int(axis)},
+                                           inputs=[pre_nm],
+                                           outputs=[sm_nm + '_out']))
+                            spec = LayerSpec('ReshapeLayer', nm,
+                                             attrs={'TargetShape': [int(d) for d in in_sh_sm]},
+                                             inputs=[sm_nm],
+                                             outputs=[node.output[0]])
+                            emit(spec)
+                        layout[node.output[0]] = 'RAW'
+                        continue
+                    print(f"  [warn] Softmax {nm}: RAW input with non-last axis "
+                          f"{axis}; legacy emission (likely wrong dim)", file=sys.stderr)
                 spec = LayerSpec('SoftmaxLayer', nm, attrs={'Axis': int(axis)},
                                  inputs=[producer[node.input[0]]],
                                  outputs=[node.output[0]])
@@ -837,10 +1084,18 @@ def walk(model):
                 if a_init or b_init:
                     raw_bias = initializers[node.input[1]] if b_init else initializers[node.input[0]]
                     other_in = node.input[0] if b_init else node.input[1]
-                    # Preserve multi-dim shape for broadcasting (e.g. positional
-                    # embedding [1, T, C], CLS bias [1, 1, C]); permute genuine
-                    # image biases via to_hwc_if_image_bias.
-                    bias_arr = to_hwc_if_image_bias(raw_bias)
+                    if tensor_layout(other_in) == 'RAW':
+                        # RAW consumer: store the parameter trailing-aligned
+                        # ([1,...,1,*shape]) so ONNX trailing-dim broadcasting
+                        # holds under MATLAB implicit expansion (e.g. a [T,C]
+                        # pos-emb or a [C] per-channel bias against [1,T,C]).
+                        bias_arr = _trailing_align_param(
+                            raw_bias, value_shapes.get(other_in))
+                    else:
+                        # Preserve multi-dim shape for broadcasting (e.g. positional
+                        # embedding [1, T, C], CLS bias [1, 1, C]); permute genuine
+                        # image biases via to_hwc_if_image_bias.
+                        bias_arr = to_hwc_if_image_bias(raw_bias)
                     bkey = add_weight(nm, 'bias', bias_arr)
                     scale_key = add_weight(nm, 'scale', np.ones(1, dtype=np.float32))
                     spec = LayerSpec('ElementwiseAffineLayer', nm,
@@ -858,7 +1113,12 @@ def walk(model):
             if op == 'Sub':
                 # bias subtract: one operand is initializer -> ElementwiseAffine
                 if node.input[1] in initializers:
-                    bias_arr = to_hwc_if_image_bias(-initializers[node.input[1]])
+                    if tensor_layout(node.input[0]) == 'RAW':
+                        bias_arr = _trailing_align_param(
+                            -initializers[node.input[1]],
+                            value_shapes.get(node.input[0]))
+                    else:
+                        bias_arr = to_hwc_if_image_bias(-initializers[node.input[1]])
                     bkey = add_weight(nm, 'bias', bias_arr)
                     scale_key = add_weight(nm, 'scale', np.ones_like(bias_arr).flatten()[:1])
                     spec = LayerSpec('ElementwiseAffineLayer', nm,
@@ -869,7 +1129,12 @@ def walk(model):
                     emit(spec); continue
                 if node.input[0] in initializers:
                     # const - x  =  -1*x + const
-                    bias_arr = to_hwc_if_image_bias(initializers[node.input[0]])
+                    if tensor_layout(node.input[1]) == 'RAW':
+                        bias_arr = _trailing_align_param(
+                            initializers[node.input[0]],
+                            value_shapes.get(node.input[1]))
+                    else:
+                        bias_arr = to_hwc_if_image_bias(initializers[node.input[0]])
                     bkey = add_weight(nm, 'bias', bias_arr)
                     scale_key = add_weight(nm, 'scale', -np.ones(1, dtype=np.float32))
                     spec = LayerSpec('ElementwiseAffineLayer', nm,
@@ -904,8 +1169,13 @@ def walk(model):
                 if a_init or b_init:
                     scale_arr = initializers[node.input[1]] if b_init else initializers[node.input[0]]
                     other_in = node.input[0] if b_init else node.input[1]
-                    skey = add_weight(nm, 'scale', scale_arr.flatten())
-                    bkey = add_weight(nm, 'bias', np.zeros_like(scale_arr.flatten()))
+                    if tensor_layout(other_in) == 'RAW' and scale_arr.size > 1:
+                        scale_out = _trailing_align_param(
+                            scale_arr, value_shapes.get(other_in))
+                    else:
+                        scale_out = scale_arr.flatten()
+                    skey = add_weight(nm, 'scale', scale_out)
+                    bkey = add_weight(nm, 'bias', np.zeros(1, dtype=np.float32))
                     spec = LayerSpec('ElementwiseAffineLayer', nm,
                                      attrs={'DoScale': True, 'DoOffset': False},
                                      inputs=[producer[other_in]],
@@ -924,9 +1194,32 @@ def walk(model):
 
             if op == 'Flatten':
                 axis = get_attr(node, 'axis', 1)
+                if tensor_layout(node.input[0]) == 'RAW':
+                    # ONNX Flatten(axis) == C-order reshape to
+                    # [prod(d[:axis]), prod(d[axis:])]; the legacy
+                    # FlattenLayer assumes image (HWC) input and flattens ALL
+                    # dims, which is wrong for RAW tensors (e.g. the ViT
+                    # [1,h,T,T] -> [h*T, T] pre-softmax flatten).
+                    in_sh_f = value_shapes.get(node.input[0])
+                    out_sh_f = value_shapes.get(node.output[0])
+                    if in_sh_f and all(d > 0 for d in in_sh_f):
+                        if not (out_sh_f and len(out_sh_f) == 2
+                                and all(d > 0 for d in out_sh_f)):
+                            ax_f = int(axis) % (len(in_sh_f) + 1)
+                            out_sh_f = [int(np.prod(in_sh_f[:ax_f])) if ax_f > 0 else 1,
+                                        int(np.prod(in_sh_f[ax_f:])) if ax_f < len(in_sh_f) else 1]
+                        pre0 = list(range(len(in_sh_f) - 1, -1, -1))
+                        emit_conorder_reshape(nm, node.input[0],
+                                              [int(d) for d in out_sh_f],
+                                              node.output[0], pre0)
+                        layout[node.output[0]] = 'RAW'
+                        continue
+                    print(f"  [warn] Flatten {nm}: RAW input without static shape; "
+                          f"legacy emission (likely wrong)", file=sys.stderr)
                 spec = LayerSpec('FlattenLayer', nm, attrs={'Axis': int(axis)},
                                  inputs=[producer[node.input[0]]],
                                  outputs=[node.output[0]])
+                layout[node.output[0]] = 'FLAT'
                 emit(spec); continue
 
             if op == 'Reshape':
@@ -944,7 +1237,49 @@ def walk(model):
                     continue
                 tgt = [int(x) for x in shape_arr]
 
-                # Heuristic: convert ONNX-style targets to NNV-friendly forms.
+                in_lay = tensor_layout(node.input[0])
+                consumer_ops = {n2.op_type for n2 in model.graph.node
+                                if node.output[0] in n2.input}
+                feeds_image = bool(consumer_ops & IMAGE_CONSUMER_OPS)
+                # Flatten-like rank-2 targets ([B,F] / [-1,F] / [F,1]) stay on
+                # the proven legacy path even when leaving an image flow (the
+                # FlattenLayer's C-style flatten IS the ONNX semantics there,
+                # and a column target is the NNV feature convention already).
+                flatten_like = len(tgt) == 2 and (tgt[0] in (-1, 1) or tgt[1] in (-1, 1))
+
+                # ---- RAW (attention/token) path: exact ONNX C-order reshape.
+                # Taken when the producer is already RAW, or when an HWC/FLAT
+                # producer feeds NON-image consumers with a non-flatten target
+                # (the image<->token boundary, e.g. ViT patch-embed
+                # [1,C,H,W] -> [1,C,T]).
+                want_raw = (in_lay == 'RAW') or \
+                           (bool(consumer_ops) and not feeds_image and not flatten_like)
+                if want_raw:
+                    tgt_static = static_reshape_target(node, tgt)
+                    in_sh = value_shapes.get(node.input[0])
+                    pre0 = None
+                    ok = tgt_static is not None
+                    if ok:
+                        if in_lay == 'HWC':
+                            pre0 = [1, 0, 2]      # [H,W,C] -> [W,H,C]
+                        elif in_lay == 'HWCB':
+                            pre0 = [2, 1, 0]      # [H,W,C] -> [C,W,H] (ONNX BHWC C-order)
+                        elif in_lay == 'RAW':
+                            if in_sh is not None and all(d > 0 for d in in_sh):
+                                pre0 = list(range(len(in_sh) - 1, -1, -1))
+                            else:
+                                ok = False
+                        # FLAT: column-major flatten already equals the ONNX
+                        # C-order sequence; no pre-permute needed.
+                    if ok:
+                        emit_conorder_reshape(nm, node.input[0], tgt_static,
+                                              node.output[0], pre0)
+                        layout[node.output[0]] = 'RAW'
+                        continue
+                    print(f"  [warn] Reshape {nm}: RAW path needs static shapes; "
+                          f"falling back to legacy emission", file=sys.stderr)
+
+                # ---- legacy image/feature-flow paths (behavior unchanged).
                 # Common cases:
                 #   * [-1, F]  or  [B, F]  -> FlattenLayer (rank-2, the typical
                 #     Conv->FC adapter; numel preserved)
@@ -986,16 +1321,20 @@ def walk(model):
                         spec = LayerSpec('FlattenLayer', nm,
                                          inputs=[producer[node.input[0]]],
                                          outputs=[node.output[0]])
+                    layout[node.output[0]] = 'FLAT'
                 elif len(tgt) == 4:
-                    # Drop batch dim, swap from CHW -> HWC for NNV convention.
-                    # OnnxBCHW=1 tells ReshapeLayer to apply ONNX C-order
-                    # semantics (reshape to [W,H,C] then permute to [H,W,C]).
+                    # IMAGE restore ([B,C,H,W] feeding Conv/Pool): drop batch,
+                    # swap from CHW -> HWC for NNV convention. OnnxBCHW=1
+                    # tells ReshapeLayer to apply ONNX C-order semantics
+                    # (reshape to [W,H,C] then permute to [H,W,C]). Non-image
+                    # consumers were already diverted to the RAW path above.
                     _, c, h, w = tgt
                     nnv_shape = [int(h), int(w), int(c)]
                     spec = LayerSpec('ReshapeLayer', nm,
                                      attrs={'TargetShape': nnv_shape, 'OnnxBCHW': 1},
                                      inputs=[producer[node.input[0]]],
                                      outputs=[node.output[0]])
+                    layout[node.output[0]] = 'HWC'
                 else:
                     spec = LayerSpec('ReshapeLayer', nm, attrs={'TargetShape': tgt},
                                      inputs=[producer[node.input[0]]],
@@ -1009,6 +1348,18 @@ def walk(model):
                     continue
                 perm = get_attr(node, 'perm')
                 perm_l = list(map(int, perm)) if perm else []
+                # RAW (attention/token) tensors carry the ONNX dims literally,
+                # so EVERY permutation is a real data movement — never apply
+                # the HWC-convention "no-op" shortcuts below (treating e.g.
+                # the K^T perm [0,2,3,1] as a no-op transposed the key matrix
+                # and broke Q@K^T in vit_2023).
+                if tensor_layout(node.input[0]) == 'RAW':
+                    spec = LayerSpec('TransposeLayer', nm, attrs={'Perm': perm_l},
+                                     inputs=[producer[node.input[0]]],
+                                     outputs=[node.output[0]])
+                    emit(spec)
+                    layout[node.output[0]] = 'RAW'
+                    continue
                 # Common BHWC<->BCHW transposes (perm=[0,2,3,1] or [0,3,1,2])
                 # are no-ops in NNV's HWC convention — *unless* the next op is a
                 # Flatten/Reshape, in which case the ONNX flatten happens on
@@ -1062,6 +1413,9 @@ def walk(model):
                                      attrs={'OriginalOp': tag},
                                      inputs=[producer[node.input[0]]],
                                      outputs=[node.output[0]])
+                    # The MATLAB value stays the same [H,W,C] array; only the
+                    # ONNX-side dim order flips (for strict comparison).
+                    layout[node.output[0]] = 'HWCB' if perm_l == [0, 2, 3, 1] else 'HWC'
                 else:
                     spec = LayerSpec('TransposeLayer', nm, attrs={'Perm': perm_l},
                                      inputs=[producer[node.input[0]]],
@@ -1255,9 +1609,21 @@ def walk(model):
                                     f"slice selector too large "
                                     f"(flat_out={flat_out}, flat_in={flat_in}); "
                                     f"falling back to placeholder")
-                            strides = [1]*n
-                            for k in range(n-2, -1, -1):
-                                strides[k] = strides[k+1] * eff_sh[k+1]
+                            # RAW producers flatten column-major in MATLAB's
+                            # FullyConnectedLayer; FLAT/HWC keep legacy C-order.
+                            raw_in_sl = tensor_layout(in_name) == 'RAW'
+                            if raw_in_sl:
+                                strides = [1]*n
+                                for k in range(1, n):
+                                    strides[k] = strides[k-1] * eff_sh[k-1]
+                                out_strides_sl = [1]*n
+                                for k in range(1, n):
+                                    out_strides_sl[k] = out_strides_sl[k-1] * out_dims[k-1]
+                            else:
+                                strides = [1]*n
+                                for k in range(n-2, -1, -1):
+                                    strides[k] = strides[k+1] * eff_sh[k+1]
+                                out_strides_sl = None
                             from itertools import product
                             ranges = [range(d) for d in out_dims]
                             W_sel = np.zeros((flat_out, flat_in), dtype=np.float32)
@@ -1266,16 +1632,34 @@ def walk(model):
                                 for ax2, idxs2 in indices_per_axis.items():
                                     src[ax2] = idxs2[coord[ax2]]
                                 src_flat = sum(s*st for s, st in zip(src, strides))
+                                if out_strides_sl is not None:
+                                    r = sum(c*st for c, st in zip(coord, out_strides_sl))
                                 W_sel[r, src_flat] = 1.0
                             b_sel = np.zeros(flat_out, dtype=np.float32)
-                            wkey = add_weight(nm, 'W', W_sel)
-                            bkey = add_weight(nm, 'b', b_sel)
-                            spec = LayerSpec('FullyConnectedLayer', nm,
-                                             attrs={'OutputSize': int(flat_out)},
-                                             inputs=[producer[in_name]],
-                                             outputs=[node.output[0]],
-                                             weight_keys=[wkey, bkey])
-                            emit(spec)
+                            if raw_in_sl:
+                                fc_nm = safe_name(nm + '_sel')
+                                wkey = add_weight(fc_nm, 'W', W_sel)
+                                bkey = add_weight(fc_nm, 'b', b_sel)
+                                emit(LayerSpec('FullyConnectedLayer', fc_nm,
+                                               attrs={'OutputSize': int(flat_out)},
+                                               inputs=[producer[in_name]],
+                                               outputs=[fc_nm + '_out'],
+                                               weight_keys=[wkey, bkey]))
+                                spec = LayerSpec('ReshapeLayer', nm,
+                                                 attrs={'TargetShape': list(map(int, out_dims))},
+                                                 inputs=[fc_nm],
+                                                 outputs=[node.output[0]])
+                                emit(spec)
+                                layout[node.output[0]] = 'RAW'
+                            else:
+                                wkey = add_weight(nm, 'W', W_sel)
+                                bkey = add_weight(nm, 'b', b_sel)
+                                spec = LayerSpec('FullyConnectedLayer', nm,
+                                                 attrs={'OutputSize': int(flat_out)},
+                                                 inputs=[producer[in_name]],
+                                                 outputs=[node.output[0]],
+                                                 weight_keys=[wkey, bkey])
+                                emit(spec)
                             emitted = True
                         except Exception as e:
                             print(f"  [warn] Slice {nm}: selector build failed ({e}), falling back to placeholder", file=sys.stderr)
@@ -1336,6 +1720,26 @@ def walk(model):
 
                         if split_sizes and sum(split_sizes) == eff_sh[ax]:
                             try:
+                                # ATOMIC size pre-check: validate EVERY part
+                                # against the memory cap BEFORE emitting any
+                                # layer. Emitting part0 and then bailing on
+                                # part1 used to leave orphaned, mis-wired
+                                # selector FCs alongside the fallback
+                                # placeholder (collins /model.24/Split_2),
+                                # which crash evaluate on both the MATLAB and
+                                # simulator sides.
+                                flat_in_all = int(np.prod(eff_sh))
+                                for ssz in split_sizes:
+                                    od = list(eff_sh); od[ax] = ssz
+                                    fo = int(np.prod(od))
+                                    if (fo > 200000 or flat_in_all > 200000
+                                            or fo * flat_in_all > 64_000_000):
+                                        raise RuntimeError("split selector too large")
+                                # Flat-order of the selector must match how the
+                                # MATLAB FullyConnectedLayer flattens its input:
+                                # column-major (F-order over the ONNX dims) for
+                                # RAW producers; legacy C-order otherwise.
+                                raw_in = tensor_layout(in_name) == 'RAW'
                                 offset = 0
                                 for k, (out_name, ssz) in enumerate(zip(node.output, split_sizes)):
                                     sub_nm = safe_name(f"{nm}_part{k}")
@@ -1351,9 +1755,18 @@ def walk(model):
                                     if (flat_out > 200000 or flat_in > 200000
                                         or flat_out * flat_in > 64_000_000):
                                         raise RuntimeError("split selector too large")
-                                    strides = [1] * n_dims
-                                    for j in range(n_dims - 2, -1, -1):
-                                        strides[j] = strides[j+1] * eff_sh[j+1]
+                                    if raw_in:
+                                        strides = [1] * n_dims
+                                        for j in range(1, n_dims):
+                                            strides[j] = strides[j-1] * eff_sh[j-1]
+                                        out_strides = [1] * n_dims
+                                        for j in range(1, n_dims):
+                                            out_strides[j] = out_strides[j-1] * out_dims[j-1]
+                                    else:
+                                        strides = [1] * n_dims
+                                        for j in range(n_dims - 2, -1, -1):
+                                            strides[j] = strides[j+1] * eff_sh[j+1]
+                                        out_strides = None
                                     W_sel = np.zeros((flat_out, flat_in), dtype=np.float32)
                                     from itertools import product
                                     ranges = [range(d) for d in out_dims]
@@ -1361,6 +1774,8 @@ def walk(model):
                                         src = list(coord)
                                         src[ax] = coord[ax] + offset
                                         src_flat = sum(s*st for s, st in zip(src, strides))
+                                        if out_strides is not None:
+                                            r = sum(c*st for c, st in zip(coord, out_strides))
                                         W_sel[r, src_flat] = 1.0
                                     b_sel = np.zeros(flat_out, dtype=np.float32)
                                     wkey = add_weight(sub_nm, 'W', W_sel)
@@ -1375,12 +1790,17 @@ def walk(model):
                                     # Reshape flat output back to the original
                                     # logical shape so downstream ops with
                                     # rank-3 broadcasting (Add, etc.) see [1, T, C].
+                                    # (For RAW producers the F-order selector
+                                    # output + column-major reshape compose
+                                    # exactly back to the RAW dims.)
                                     rs_nm = safe_name(f"{sub_nm}_rs")
                                     rs_spec = LayerSpec('ReshapeLayer', rs_nm,
                                                         attrs={'TargetShape': list(map(int, out_dims))},
                                                         inputs=[sub_nm],
                                                         outputs=[out_name])
                                     emit(rs_spec)
+                                    if raw_in:
+                                        layout[out_name] = 'RAW'
                                     offset += ssz
                                 emitted_real = True
                             except Exception as e:
@@ -1431,8 +1851,11 @@ def walk(model):
                 continue
 
             if op == 'ReduceMean':
+                _raw_red = tensor_layout(node.input[0]) == 'RAW'
                 if _try_emit_reduce(node, nm, value_shapes, initializers, producer,
-                                    add_weight, emit, op_name='mean'):
+                                    add_weight, emit, op_name='mean',
+                                    raw_order=_raw_red):
+                    layout[node.output[0]] = 'RAW' if _raw_red else 'FLAT'
                     continue
                 axes = get_attr(node, 'axes', None)
                 spec = LayerSpec('PlaceholderLayer', nm, attrs={'OriginalOp':'ReduceMean',
@@ -1500,16 +1923,28 @@ def walk(model):
                             # Build flat row->col map. For each output position
                             # (lex over I_0..ax-1, q_0..q_{r-1}, I_{ax+1}..),
                             # compute the source flat index.
-                            # Strides over eff_sh (C-order matches MATLAB column-major
-                            # of the flat after our reshape convention).
-                            strides = [1]*n
-                            for k in range(n-2, -1, -1):
-                                strides[k] = strides[k+1] * eff_sh[k+1]
+                            # Strides over eff_sh: C-order for legacy FLAT/HWC
+                            # flows; F-order (MATLAB column-major) for RAW.
+                            raw_in_g = tensor_layout(data_name) == 'RAW'
+                            if raw_in_g:
+                                strides = [1]*n
+                                for k in range(1, n):
+                                    strides[k] = strides[k-1] * eff_sh[k-1]
+                            else:
+                                strides = [1]*n
+                                for k in range(n-2, -1, -1):
+                                    strides[k] = strides[k+1] * eff_sh[k+1]
                             # Iterate output coordinates
                             outer_dims = eff_sh[:ax]
                             inner_dims = eff_sh[ax+1:]
                             out_dims_full = list(outer_dims) + [len(idxs)] + list(inner_dims)
                             flat_out = int(np.prod(out_dims_full)) if out_dims_full else 1
+                            if raw_in_g:
+                                out_strides_g = [1]*len(out_dims_full)
+                                for k in range(1, len(out_dims_full)):
+                                    out_strides_g[k] = out_strides_g[k-1] * out_dims_full[k-1]
+                            else:
+                                out_strides_g = None
                             W_sel = np.zeros((flat_out, flat_in), dtype=np.float32)
                             from itertools import product
                             ranges = [range(d) for d in outer_dims] + [range(len(idxs))] + [range(d) for d in inner_dims]
@@ -1518,16 +1953,34 @@ def walk(model):
                                 src = list(coord)
                                 src[ax] = idxs[coord[ax]]
                                 src_flat = sum(s*st for s, st in zip(src, strides))
+                                if out_strides_g is not None:
+                                    r = sum(c*st for c, st in zip(coord, out_strides_g))
                                 W_sel[r, src_flat] = 1.0
                             b_sel = np.zeros(flat_out, dtype=np.float32)
-                            wkey = add_weight(nm, 'W', W_sel)
-                            bkey = add_weight(nm, 'b', b_sel)
-                            spec = LayerSpec('FullyConnectedLayer', nm,
-                                             attrs={'OutputSize': int(flat_out)},
-                                             inputs=[producer[data_name]],
-                                             outputs=[node.output[0]],
-                                             weight_keys=[wkey, bkey])
-                            emit(spec)
+                            if raw_in_g:
+                                fc_nm = safe_name(nm + '_sel')
+                                wkey = add_weight(fc_nm, 'W', W_sel)
+                                bkey = add_weight(fc_nm, 'b', b_sel)
+                                emit(LayerSpec('FullyConnectedLayer', fc_nm,
+                                               attrs={'OutputSize': int(flat_out)},
+                                               inputs=[producer[data_name]],
+                                               outputs=[fc_nm + '_out'],
+                                               weight_keys=[wkey, bkey]))
+                                spec = LayerSpec('ReshapeLayer', nm,
+                                                 attrs={'TargetShape': list(map(int, out_dims_full))},
+                                                 inputs=[fc_nm],
+                                                 outputs=[node.output[0]])
+                                emit(spec)
+                                layout[node.output[0]] = 'RAW'
+                            else:
+                                wkey = add_weight(nm, 'W', W_sel)
+                                bkey = add_weight(nm, 'b', b_sel)
+                                spec = LayerSpec('FullyConnectedLayer', nm,
+                                                 attrs={'OutputSize': int(flat_out)},
+                                                 inputs=[producer[data_name]],
+                                                 outputs=[node.output[0]],
+                                                 weight_keys=[wkey, bkey])
+                                emit(spec)
                             emitted = True
                     except Exception as e:
                         print(f"  [warn] Gather {nm}: selector build failed ({e}), falling back to placeholder", file=sys.stderr)
@@ -1616,8 +2069,11 @@ def walk(model):
                 continue
 
             if op == 'ReduceSum':
+                _raw_red = tensor_layout(node.input[0]) == 'RAW'
                 if _try_emit_reduce(node, nm, value_shapes, initializers, producer,
-                                    add_weight, emit, op_name='sum'):
+                                    add_weight, emit, op_name='sum',
+                                    raw_order=_raw_red):
+                    layout[node.output[0]] = 'RAW' if _raw_red else 'FLAT'
                     continue
                 axes = get_attr(node, 'axes', None)
                 spec = LayerSpec('PlaceholderLayer', nm, attrs={'OriginalOp':'ReduceSum',
@@ -1666,6 +2122,14 @@ def walk(model):
 
     # Output spec
     out_name = model.graph.output[0].name
+
+    # Stamp each layer with the MATLAB-side layout of its (first) output —
+    # metadata only (the MATLAB loader ignores unknown attrs); used by
+    # manifest_sim.py for orientation-STRICT comparison against onnxruntime.
+    for L in layers:
+        if L.outputs:
+            L.attrs = dict(L.attrs) if L.attrs else {}
+            L.attrs.setdefault('MlLayout', layout.get(L.outputs[0], 'FLAT'))
 
     return layers, weights, inp_name, inp_shape, out_name
 

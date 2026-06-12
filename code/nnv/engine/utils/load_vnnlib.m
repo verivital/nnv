@@ -134,6 +134,18 @@ function property = load_vnnlib(propertyFile)
                             last_ast.Hg(di).g = [last_ast.Hg(di).g; ast.Hg.g];
                         end
                         property.prop{n2} = last_ast;
+                    elseif numel(ast.Hg) > 1
+                        % Mirror of the case above, OPPOSITE order: a standalone conjunct c
+                        % was asserted BEFORE this (or ...). The result is still
+                        % (d1 AND c) OR (d2 AND c) OR ..., so AND the running conjunct's
+                        % rows into EVERY disjunct of the new OR and keep the OR.
+                        % (The old code did [last_ast.Hg.G; ast.Hg.G] with a multi-element
+                        % ast.Hg, which errored -> lost the instance.)
+                        for di = 1:numel(ast.Hg)
+                            ast.Hg(di).G = [ast.Hg(di).G; last_ast.Hg.G];
+                            ast.Hg(di).g = [ast.Hg(di).g; last_ast.Hg.g];
+                        end
+                        property.prop{n2} = ast;
                     else
                         last_ast.Hg.G = [last_ast.Hg.G; ast.Hg.G];
                         last_ast.Hg.g = [last_ast.Hg.g; ast.Hg.g];
@@ -361,7 +373,7 @@ function [lb_input, ub_input] =  process_input_constraint(tline, lb_input, ub_in
         dim = str2double(dim{2})+1;
         value = split(t{3},')');
         value = single(str2double(value{1}));
-        if contains(t{1},">=")
+        if contains(t{1},">")        % ">" or ">=" -> lower bound ("<"/"<=" never contain ">")
             lb_input(dim) = value;
         else
             ub_input(dim) = value;
@@ -435,6 +447,8 @@ function [lb_array, ub_array] = process_multiple_inputs(tline, lb_input, ub_inpu
     lb_array = {};
     ub_array = {};
     arr_count = 0;
+    lb_global = lb_input;   % the globally-declared bounds; each disjunct starts fresh from
+    ub_global = ub_input;   % these so a bound set in one disjunct cannot LEAK into the next.
     while ~isempty(tline) > 0 && pars > 0
         tline = strtrim(tline);
         if startsWith(tline,'(<=') || startsWith(tline,'(>=')
@@ -445,14 +459,16 @@ function [lb_array, ub_array] = process_multiple_inputs(tline, lb_input, ub_inpu
             constraint_char = constraint_char{1};
             [lb_input, ub_input] = process_input_constraint(constraint_char, lb_input, ub_input);
             tline = tline(length(constraint_char)+2:end); % update tline, process remainder of assertion
-        
+
         elseif startsWith(tline,'(or')
             error("Currently we do not support an OR statement within and OR statement.")
-    
+
         elseif startsWith(tline,'(and')
             % parse all constraints with the "and" statement
             % if multiple *and* statements, then H -> [# ands, dim], and g a [# ands, 1]
             arr_count = arr_count + 1;
+            lb_input = lb_global;   % reset to the global box for this disjunct (no leak from
+            ub_input = ub_global;   % the previous disjunct's per-dimension constraints)
             tline = tline(5:end);
             pars = pars + 1;
         

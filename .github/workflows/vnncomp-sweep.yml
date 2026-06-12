@@ -164,8 +164,18 @@ jobs:
           python3 -m pip install --quiet onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
           BENCH="$GITHUB_WORKSPACE/vnncomp2025_benchmarks/${{ github.event.inputs.benchmarks_subdir }}/${{ matrix.folder }}"
           shopt -s nullglob
-          # 2025 layout is <folder>/onnx/; 2026 splits by VNN-LIB version <folder>/1.0/onnx/.
-          for onnx in "$BENCH"/onnx/*.onnx "$BENCH"/1.0/onnx/*.onnx; do
+          # The 2026 benchmark set ships ONNX GZIPPED (<model>.onnx.gz). The manifest glob
+          # below matches *.onnx, so without decompressing first it found NOTHING and
+          # generated ZERO manifests -> every manifest-category instance errored
+          # (lsnc_relu/traffic_signs "manifest not found"; cgan/soundnessbench fell back).
+          # Decompress (keep the .gz) so the glob sees <model>.onnx. (2025 layout is already
+          # plain, so the gz loop is a no-op there via nullglob.)
+          for gz in "$BENCH"/onnx/*.onnx.gz "$BENCH"/1.0/onnx/*.onnx.gz "$BENCH"/2.0/onnx/*.onnx.gz; do
+            gunzip -kf "$gz"
+          done
+          # 2025 layout is <folder>/onnx/; 2026 splits by VNN-LIB version <folder>/{1.0,2.0}/onnx/
+          # (2.0 included for extended-track / 2.0-only benchmarks; nullglob no-ops when absent).
+          for onnx in "$BENCH"/onnx/*.onnx "$BENCH"/1.0/onnx/*.onnx "$BENCH"/2.0/onnx/*.onnx; do
             echo "manifest: $(basename "$onnx")"
             python3 code/nnv/tools/onnx2nnv_python/onnx2nnv.py "$onnx" "${onnx%.onnx}.nnv.mat" \
               || echo "WARN: manifest generation failed for $onnx"

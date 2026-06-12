@@ -78,7 +78,7 @@ subfolder_to_category('nn4sys')                            = 'nn4sys';
 subfolder_to_category('relusplitter')                      = 'relusplitter';
 subfolder_to_category('safenlp_2024')                      = 'safenlp';
 subfolder_to_category('sat_relu')                          = 'sat_relu';
-subfolder_to_category('soundnessbench')                    = 'soundness';
+subfolder_to_category('soundnessbench')                    = 'soundnessbench';
 subfolder_to_category('test')                              = 'test';   % no NNV dispatch; will error
 subfolder_to_category('tinyimagenet_2024')                 = 'tinyimagenet';
 subfolder_to_category('tllverifybench_2023')               = 'tllverifybench';
@@ -114,7 +114,13 @@ pool = parpool('Processes', 1);   % 1 worker avoids the 16-vs-N config error
 for i = 1:n
     sub = folders{i};
     if ~isKey(subfolder_to_category, sub)
-        cat = '?';
+        % Default the category to the FOLDER NAME -- this mirrors the competition
+        % harness (which passes the benchmark folder name as the category) and
+        % run_vnncomp_instance routes via contains(category, "<key>"), so e.g.
+        % "cgan2026"->"cgan", "soundnessbench_2026"->"soundnessbench",
+        % "relusplitter_2026"->"relusplitter" all dispatch correctly. Using '?'
+        % (the old default) left every new 2026 folder unrouted -> forced error.
+        cat = sub;
     else
         cat = subfolder_to_category(sub);
     end
@@ -123,9 +129,17 @@ for i = 1:n
     inst_csv = fullfile(bench_root, sub, 'instances.csv');
     if ~isfile(inst_csv)
         % VNN-COMP 2026 splits each benchmark by VNN-LIB version: <sub>/1.0/instances.csv
-        % (regular track) + <sub>/2.0/ (extended/VNN-LIB-2.0 track, unsupported). Prefer 1.0.
+        % (regular track) + <sub>/2.0/ (extended/VNN-LIB-2.0 track). Prefer 1.0; fall back
+        % to 2.0 so the extended-ONLY benchmarks (adaptive_cruise/isomorphic/monotonic/
+        % smart_turn -- which ship 2.0/ only) are run too. The 2.0 specs dispatch through
+        % load_vnnlib2 (sound-or-unknown: multi-net/nonlinear/multimodal -> unknown).
         alt = fullfile(bench_root, sub, '1.0', 'instances.csv');
-        if isfile(alt), inst_csv = alt; end
+        if isfile(alt)
+            inst_csv = alt;
+        else
+            alt2 = fullfile(bench_root, sub, '2.0', 'instances.csv');
+            if isfile(alt2), inst_csv = alt2; end
+        end
     end
     if ~isfile(inst_csv)
         row = {sub, cat, '', '', -2, 'no_instances_csv', 0, ''};

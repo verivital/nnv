@@ -20,9 +20,36 @@ function property = load_vnnlib2(propertyFile)
     % current run_vnncomp_instance.m emits `unknown` for ANY unsupported property; the
     % recorded box is reserved for a FUTURE falsification/PGD fallback (plan Phase 3b)
     % that could still find a concrete `sat` for a gated-but-linear-input case. Gated:
-    % multiple networks (equal-to/isomorphic-to), declare-hidden, >1 input or output
+    % three-or-more networks, isomorphic-to, declare-hidden, >1 input or output
     % tensor (multimodal), `!=`, nonlinear/arithmetic (`*`,`+`,`-` over variables),
     % partial indexing, and mixed input/output disjunctions.
+    %
+    % PHASE 2 (multi-network, `equal-to` ONLY -- plan section 3.1): when the file
+    % declares exactly TWO networks and the second is `(equal-to <first>)` (the
+    % monotonic_acasxu_2026 shape: the SAME onnx evaluated on two coupled inputs),
+    % the file is PARSED instead of gated. The result keeps the single-network
+    % contract fields EMPTY (property.lb/ub = [], property.prop = {}) so legacy
+    % consumers cannot misuse them, and adds
+    %     property.multinet.names     -> {name_f, name_g}            (cell 1x2)
+    %     property.multinet.inShapes  -> {inShape_f, inShape_g}      (must match)
+    %     property.multinet.outShapes -> {outShape_f, outShape_g}    (must match)
+    %     property.multinet.equivKind -> 'equal'
+    %     property.multinet.jointLb   -> box over the STACKED input [X_f; X_g] (2n x 1)
+    %     property.multinet.jointUb      (g-block bounds that only follow from the
+    %                                     coupling rows are closed by sound interval
+    %                                     propagation; see propagate_joint_bounds)
+    %     property.multinet.jointC    -> cross/within-network input coupling rows
+    %     property.multinet.jointd       jointC * x <= jointd over the CONCRETE
+    %                                     stacked input x = [X_f; X_g] (NOT over star
+    %                                     predicates -- verify_multinet maps x to the
+    %                                     Star predicate alpha; `==` couplings are
+    %                                     emitted as two-row inequality pairs)
+    %     property.multinet.crossProp -> HalfSpace array over the STACKED output
+    %                                     [Y_f; Y_g]: G*y <= g is the UNSAFE region,
+    %                                     same polarity convention as .prop{n}.Hg
+    % property.unsupported stays true (the default) unless EVERY assert parsed
+    % cleanly into the joint box / jointC / crossProp AND the joint box closed.
+    % Verification of this structure lives in engine/utils/verify_multinet.m.
     %
     % PERFORMANCE: the file is processed by STREAMING complete S-expression
     % statements (one (declare-network ...) / (assert ...) at a time) so the giant
@@ -107,16 +134,22 @@ function [st, done] = dispatch_statement(stmt, st)
             st.sawVersion = true;
         case 'declare-network'
             if st.sawNetwork
-                st.unsupported = true;
-                st.reason = 'multiple declare-network (multi-network 2.0 not supported)';
-                done = true; return;
-            end
-            st.sawNetwork = true;
-            st = parse_network_header(stmt, st);
-            if st.unsupported
-                done = true; return;   % gate from header alone
+                % Phase 2: a SECOND declare-network is parsed (not gated) iff it
+                % is `(equal-to <first>)` with matching shapes; anything else
+                % (third network, isomorphic-to, multimodal, ...) stays gated.
+                st = parse_second_network(stmt, st);
+                if st.unsupported
+                    done = true; return;
+                end
+            else
+                st.sawNetwork = true;
+                st = parse_network_header(stmt, st);
+                if st.unsupported
+                    done = true; return;   % gate from header alone
+                end
             end
         case 'assert'
+            st.sawAssert = true;
             st = process_assert(stmt, st);
             if st.hardStop, done = true; return; end
         otherwise
@@ -130,6 +163,9 @@ end
 
 function st = parse_network_header(stmt, st)
     node = parse_one_sexpr(stmt);
+    if numel(node) >= 2 && (ischar(node{2}) || isstring(node{2}))
+        st.netName = char(node{2});   % needed to validate `(equal-to <name>)` (Phase 2)
+    end
     inputs = {}; outputs = {}; hasEquiv = false; hasHidden = false;
     for k = 2:numel(node)
         c = node{k};
@@ -166,11 +202,96 @@ function st = parse_network_header(stmt, st)
     st.haveBox = true;
 end
 
+function st = parse_second_network(stmt, st)
+    % Phase 2 (multi-network `equal-to` ONLY, plan section 3.1): accept a SECOND
+    % declare-network iff it is `(equal-to <first-network-name>)` with exactly one
+    % input and one output tensor whose shapes MATCH the first network (the 2.0
+    % standard requires matching element types and shapes for equal-to). On
+    % success the parser switches to multinet mode: subsequent asserts fill the
+    % joint stacked box/coupling rows/cross output property instead of the
+    % single-network fields. EVERY other shape of file stays gated (sound).
+    if st.multinet
+        st.unsupported = true;
+        st.reason = 'more than two declare-network (only an equal-to pair is supported)';
+        return;
+    end
+    if st.sawAssert
+        % The 2.0 grammar puts all asserts AFTER the network declarations. An
+        % assert seen BEFORE the second declare-network was processed (or
+        % silently ignored, if it referenced the then-undeclared network) in
+        % single-network mode, so continuing could DROP constraints -- a sat
+        % witness ignoring a dropped input constraint fails the official
+        % witness replay (-150). Gate instead.
+        st.unsupported = true;
+        st.reason = 'assert appears before the second declare-network';
+        return;
+    end
+    node = parse_one_sexpr(stmt);
+    name2 = '';
+    if numel(node) >= 2 && (ischar(node{2}) || isstring(node{2}))
+        name2 = char(node{2});
+    end
+    inputs = {}; outputs = {}; equivs = {}; hasHidden = false;
+    for k = 2:numel(node)
+        c = node{k};
+        if ~iscell(c) || isempty(c), continue; end
+        h = node_head(c);
+        switch h
+            case 'declare-input',  inputs{end+1}  = c; %#ok<AGROW>
+            case 'declare-output', outputs{end+1} = c; %#ok<AGROW>
+            case 'declare-hidden', hasHidden = true;
+            case {'equal-to','isomorphic-to'}, equivs{end+1} = c; %#ok<AGROW>
+        end
+    end
+    if hasHidden
+        st.unsupported = true; st.reason = 'declare-hidden intermediate constraints not supported'; return;
+    end
+    if numel(equivs) ~= 1
+        st.unsupported = true; st.reason = 'second declare-network must carry exactly one equivalence relation (equal-to)'; return;
+    end
+    eq = equivs{1};
+    if ~strcmp(node_head(eq), 'equal-to')
+        st.unsupported = true; st.reason = 'isomorphic-to (different weights) not supported -- only equal-to'; return;
+    end
+    if numel(eq) < 2 || ~(ischar(eq{2}) || isstring(eq{2})) || isempty(st.netName) || ~strcmp(char(eq{2}), st.netName)
+        st.unsupported = true; st.reason = 'equal-to must reference the first declared network'; return;
+    end
+    if numel(inputs) ~= 1 || numel(outputs) ~= 1
+        st.unsupported = true;
+        st.reason = sprintf('expected 1 input and 1 output tensor per network, found %d/%d (multimodal not supported)', numel(inputs), numel(outputs));
+        return;
+    end
+    [st.inName2, inShape2]   = parse_io_decl(inputs{1});
+    [st.outName2, outShape2] = parse_io_decl(outputs{1});
+    st.inShape2 = inShape2; st.outShape2 = outShape2;
+    if ~isequal(inShape2, st.inShape) || ~isequal(outShape2, st.outShape)
+        st.unsupported = true; st.reason = 'equal-to networks must have identical input/output shapes'; return;
+    end
+    % the four tensor names (and the two net names) must be distinct, otherwise
+    % the raw-string assert classification (ref_present) is ambiguous
+    nm = {st.inName, st.outName, st.inName2, st.outName2};
+    if any(cellfun(@isempty, nm)) || numel(unique(nm)) ~= 4 || isempty(name2) || strcmp(name2, st.netName)
+        st.unsupported = true; st.reason = 'ambiguous / duplicate tensor names across the two networks'; return;
+    end
+    % switch to multinet mode: stacked order is [X_f; X_g] / [Y_f; Y_g]
+    st.multinet = true;
+    st.netName2 = name2;
+    st.jointLb = nan(2*st.inDim, 1, 'single');
+    st.jointUb = nan(2*st.inDim, 1, 'single');
+    st.jointC = zeros(0, 2*st.inDim, 'single');
+    st.jointd = zeros(0, 1, 'single');
+    st.crossCells = {};
+end
+
 % =========================================================================
 % Assert processing
 % =========================================================================
 
 function st = process_assert(stmt, st)
+    if st.multinet
+        st = process_assert_multinet(stmt, st);
+        return;
+    end
     if ~st.sawNetwork || ~st.haveBox
         st.unsupported = true; st.reason = 'assert before declare-network'; st.hardStop = true; return;
     end
@@ -232,6 +353,260 @@ function st = process_assert(stmt, st)
 end
 
 % =========================================================================
+% Assert processing -- multi-network (equal-to) mode (Phase 2)
+% =========================================================================
+
+function st = process_assert_multinet(stmt, st)
+    % Multinet twin of process_assert. Stacked variable order is fixed as
+    % [X_f; X_g] for inputs and [Y_f; Y_g] for outputs (f = first declared
+    % network). Any form that does not map EXACTLY onto
+    %   - a var-const bound on the joint box,
+    %   - a two-term linear coupling row jointC*x <= jointd, or
+    %   - a linear (possibly disjunctive) HalfSpace over [Y_f; Y_g]
+    % gates the whole property (unsupported -> runner says `unknown`).
+    refIn  = ref_present(stmt, st.inName)  || ref_present(stmt, st.inName2);
+    refOut = ref_present(stmt, st.outName) || ref_present(stmt, st.outName2);
+    nonlin = has_unsupported_op_str(stmt);
+
+    if refIn && refOut
+        st.unsupported = true;
+        st.reason = 'mixed input/output assertion in multi-network property not supported';
+        st.hardStop = true; return;
+    end
+
+    if refIn
+        if nonlin
+            st.unsupported = true;
+            st.reason = 'nonlinear / arithmetic multi-network input constraint not soundly representable';
+            st.hardStop = true; return;
+        end
+        e = sexpr_body(parse_one_sexpr(stmt));
+        [st, ok] = apply_mn_input_expr(e, st);
+        if ~ok
+            st.unsupported = true; st.reason = 'unsupported multi-network input constraint form'; st.hardStop = true; return;
+        end
+    elseif refOut
+        if nonlin
+            st.unsupported = true;
+            st.reason = 'nonlinear / arithmetic / != multi-network output property not soundly verifiable by linear reach';
+            st.hardStop = true; return;
+        end
+        e = sexpr_body(parse_one_sexpr(stmt));
+        [ast, ok] = mn_build_output_assertion(e, st);
+        if ~ok
+            st.unsupported = true; st.reason = 'unsupported multi-network output property form'; st.hardStop = true; return;
+        end
+        [st.crossCells, okacc] = accumulate_output(st.crossCells, ast);
+        if ~okacc
+            st.unsupported = true;
+            st.reason = 'multi-network output is a product-of-sums not representable as one disjunctive spec';
+            st.hardStop = true; return;
+        end
+        st.sawCrossOutput = true;
+    else
+        % references neither network's tensors -- ignore (constant tautology)
+    end
+end
+
+function [st, ok] = apply_mn_input_expr(e, st)
+    % Multinet twin of apply_input_expr. Handles
+    %   (and ...)                          recursion
+    %   (op  <inVar> <const>)              joint box bound (strict -> non-strict,
+    %                                      same soundness note as apply_input_expr)
+    %   (op  <inVar> <inVar>)              linear coupling row(s) over the CONCRETE
+    %                                      stacked input x = [X_f; X_g]:
+    %       (<= A B), (< A B)   ->  x(A) - x(B) <= 0      (one row:  +1@A, -1@B)
+    %       (>= A B), (> A B)   -> -x(A) + x(B) <= 0      (one row:  -1@A, +1@B)
+    %       (== A B)            ->  both rows above        (two-row inequality pair)
+    % NOTE: jointC/jointd constrain x DIRECTLY (concrete input space), NOT the
+    % Star predicate alpha. verify_multinet performs the x -> alpha substitution
+    % (x = c + G*alpha) when building the joint input Star; the falsifier checks
+    % jointC*x <= jointd on concrete samples. Parser and verifier MUST stay
+    % consistent on this convention.
+    ok = true;
+    if ~iscell(e) || isempty(e), ok = false; return; end
+    head = char(e{1});
+    if strcmp(head, 'and')
+        for k = 2:numel(e)
+            [st, ok] = apply_mn_input_expr(e{k}, st);
+            if ~ok, return; end
+        end
+        return;
+    end
+    if ~ismember(head, {'<=','>=','<','>','=='}), ok = false; return; end
+    if numel(e) ~= 3, ok = false; return; end
+    lhs = e{2}; rhs = e{3};
+    if ~(ischar(lhs) || isstring(lhs)) || ~(ischar(rhs) || isstring(rhs))
+        ok = false; return;   % nested expression -- not a plain bound/coupling
+    end
+    [li, lok] = mn_input_index(lhs, st);
+    if ~lok, ok = false; return; end   % lhs must be an input ref (mirrors 1-net path)
+    if isempty(var_basename(rhs))
+        % var-const -> joint box (strict <,> treated as <=,>= like apply_input_expr)
+        c = single(str2double(char(rhs)));
+        if isnan(c), ok = false; return; end
+        switch head
+            case {'>=','>'}, st.jointLb(li) = c;
+            case {'<=','<'}, st.jointUb(li) = c;
+            case '==',       st.jointLb(li) = c; st.jointUb(li) = c;
+        end
+    else
+        % var-var -> coupling row(s); both sides must resolve to input dims
+        [ri, rok] = mn_input_index(rhs, st);
+        if ~rok, ok = false; return; end
+        row = zeros(1, 2*st.inDim, 'single');
+        switch head
+            case {'<=','<'}
+                row(li) = row(li) + 1; row(ri) = row(ri) - 1;       % x(li) - x(ri) <= 0
+                st.jointC = [st.jointC; row];
+                st.jointd = [st.jointd; single(0)];
+            case {'>=','>'}
+                row(li) = row(li) - 1; row(ri) = row(ri) + 1;       % x(ri) - x(li) <= 0
+                st.jointC = [st.jointC; row];
+                st.jointd = [st.jointd; single(0)];
+            case '=='
+                row(li) = row(li) + 1; row(ri) = row(ri) - 1;
+                st.jointC = [st.jointC; row; -row];                 % == as two-row pair
+                st.jointd = [st.jointd; single(0); single(0)];
+        end
+    end
+end
+
+function [idx, ok] = mn_input_index(tok, st)
+    % resolve an input variable reference to its 1-based STACKED index in
+    % x = [X_f; X_g] (f-block first, then the g-block offset by inDim)
+    idx = []; ok = false; tok = char(tok);
+    nm = var_basename(tok);
+    if isempty(nm), return; end
+    if strcmp(nm, st.inName)
+        [flat, okf] = flatten_ref(tok, st.inName, st.inShape);
+        if ~okf, return; end
+        idx = flat + 1; ok = true;
+    elseif strcmp(nm, st.inName2)
+        [flat, okf] = flatten_ref(tok, st.inName2, st.inShape2);
+        if ~okf, return; end
+        idx = st.inDim + flat + 1; ok = true;
+    end
+end
+
+function [ast, ok] = mn_build_output_assertion(e, st)
+    % multinet twin of build_output_assertion (same or/and shapes)
+    ast = struct('Hg', HalfSpace.empty); ok = true;
+    if ~iscell(e) || isempty(e), ok = false; return; end
+    head = char(e{1});
+    if strcmp(head, 'or')
+        Hs = HalfSpace.empty;
+        for k = 2:numel(e)
+            [sub, oks] = mn_output_conjunction(e{k}, st);
+            if ~oks, ok = false; return; end
+            Hs(end+1,1) = sub; %#ok<AGROW>
+        end
+        ast.Hg = Hs;
+    else
+        [Hs, oks] = mn_output_conjunction(e, st);
+        if ~oks, ok = false; return; end
+        ast.Hg = Hs;
+    end
+end
+
+function [hs, ok] = mn_output_conjunction(e, st)
+    % multinet twin of output_conjunction
+    ok = true; G = []; g = [];
+    head = node_head(e);
+    if strcmp(head, 'and')
+        for k = 2:numel(e)
+            [Gr, gr, okr] = mn_output_rows(e{k}, st);
+            if ~okr, ok = false; hs = HalfSpace.empty; return; end
+            G = [G; Gr]; g = [g; gr]; %#ok<AGROW>
+        end
+    else
+        [G, g, okr] = mn_output_rows(e, st);
+        if ~okr, ok = false; hs = HalfSpace.empty; return; end
+    end
+    hs = HalfSpace(G, g);
+end
+
+function [G, g, ok] = mn_output_rows(e, st)
+    % multinet twin of output_rows (== expands to a two-row pair)
+    ok = true; G = []; g = [];
+    if ~iscell(e) || numel(e) ~= 3, ok = false; return; end
+    head = char(e{1});
+    if ~ismember(head, {'<=','>=','<','>','=='}), ok = false; return; end
+    [row, gval, okr] = mn_linear_two_terms(head, e{2}, e{3}, st);
+    if ~okr, ok = false; return; end
+    if strcmp(head, '==')
+        G = [row; -row]; g = [gval; -gval];
+    else
+        G = row; g = gval;
+    end
+end
+
+function [row, gval, ok] = mn_linear_two_terms(op, lhs, rhs, st)
+    % Multinet twin of linear_two_terms over the STACKED output y = [Y_f; Y_g]
+    % (width 2*outDim). POLARITY DERIVATION (the -150-critical part), mirroring
+    % linear_two_terms exactly:
+    %
+    %   VNN-LIB asserts encode the SAT/counterexample (= unsafe) region ITSELF:
+    %   a `sat` witness must make every assert TRUE, and the official checker
+    %   REPLAYS the asserts on the witness. So the asserted comparison maps
+    %   DIRECTLY into HalfSpace G*y <= g -- no negation. (Negating here, i.e.
+    %   encoding the complement, would flip sat/unsat: a "witness" would be
+    %   rejected by the replay and a -150 wrong verdict would follow.)
+    %
+    %   (op lhs rhs) is first normalized to  coef*y ? cst  with lhs terms +1,
+    %   rhs terms -1 (constants folded into cst with opposite signs):
+    %     op in {<=,<}:  lhs - rhs <= 0  ->  row =  coef, g =  cst
+    %     op in {>=,>}:  lhs - rhs >= 0  ->  row = -coef, g = -cst
+    %   Strict <,> are relaxed to <=,>= (superset of the true unsafe region:
+    %   sound for the UNSAT proof; the boundary-witness caveat is the same as
+    %   in the single-network parser and is guarded by strict-interior checks
+    %   in verify_multinet's falsifier).
+    %
+    %   Worked example (monotonic_acasxu): assert (< Y_f[3] Y_g[3]) ->
+    %   unsafe = { Y_f[3] - Y_g[3] <= 0 }, i.e. row has +1 at the Y_f[3] column
+    %   (stacked col 4) and -1 at the Y_g[3] column (stacked col outDim+4),
+    %   g = 0. An `unsat` verdict then proves NO coupled input pair reaches
+    %   Y_f[3] <= Y_g[3], hence none reaches the strict Y_f[3] < Y_g[3] either
+    %   (the asserted region is unreachable -> property proved).
+    ok = true; row = zeros(1, 2*st.outDim); gval = 0;
+    [li, lc, okl] = mn_term_value(lhs, st);
+    [ri, rc, okr] = mn_term_value(rhs, st);
+    if ~okl || ~okr, ok = false; return; end
+    coef = zeros(1, 2*st.outDim);
+    cst = 0;
+    if ~isempty(li), coef(li) = coef(li) + 1; else, cst = cst - lc; end
+    if ~isempty(ri), coef(ri) = coef(ri) - 1; else, cst = cst + rc; end
+    if any(strcmp(op, {'<=','<'}))
+        row = coef; gval = single(cst);
+    else
+        row = -coef; gval = single(-cst);
+    end
+end
+
+function [idx, c, ok] = mn_term_value(t, st)
+    % multinet twin of term_value: resolve an output ref into the STACKED
+    % [Y_f; Y_g] order (g-block offset by outDim), or a numeric constant
+    idx = []; c = 0; ok = true; t = char(t);
+    nm = var_basename(t);
+    if isempty(nm)
+        c = single(str2double(t));
+        if isnan(c), ok = false; end
+        return;
+    end
+    if strcmp(nm, st.outName)
+        [flat, okf] = flatten_ref(t, st.outName, st.outShape);
+        if ~okf, ok = false; return; end
+        idx = flat + 1;
+    elseif strcmp(nm, st.outName2)
+        [flat, okf] = flatten_ref(t, st.outName2, st.outShape2);
+        if ~okf, ok = false; return; end
+        idx = st.outDim + flat + 1;
+    else
+        ok = false;
+    end
+end
+
+% =========================================================================
 % Finalization
 % =========================================================================
 
@@ -241,7 +616,9 @@ function property = finalize(st)
     end
     if st.unsupported
         box = [];
-        if st.haveBox && ~st.inputIsOr && ~any(isnan(st.lb)) && ~any(isnan(st.ub))
+        % never record a single-net box for a multinet file: it would describe
+        % only the first network's input and could mislead a future PGD fallback
+        if ~st.multinet && st.haveBox && ~st.inputIsOr && ~any(isnan(st.lb)) && ~any(isnan(st.ub))
             box = struct('lb', st.lb, 'ub', st.ub);
         end
         property = unsupported_property(box, st.reason);
@@ -249,6 +626,10 @@ function property = finalize(st)
     end
     if ~st.sawNetwork
         property = unsupported_property([], 'no declare-network'); return;
+    end
+    if st.multinet
+        property = finalize_multinet(st);
+        return;
     end
 
     if st.inputIsOr
@@ -281,15 +662,120 @@ function st = init_state()
     st = struct();
     st.sawVersion = false;
     st.sawNetwork = false;
+    st.sawAssert = false;
     st.unsupported = false;
     st.reason = '';
     st.hardStop = false;
+    st.netName = '';
     st.inName = ''; st.outName = '';
     st.inShape = []; st.outShape = [];
     st.inDim = []; st.outDim = [];
     st.lb = []; st.ub = []; st.haveBox = false;
     st.lbBoxes = {}; st.ubBoxes = {}; st.inputIsOr = false;
     st.propHs = {}; st.sawOutput = false;
+    % --- Phase 2: multi-network (equal-to) state ---
+    st.multinet = false;
+    st.netName2 = '';
+    st.inName2 = ''; st.outName2 = '';
+    st.inShape2 = []; st.outShape2 = [];
+    st.jointLb = []; st.jointUb = [];
+    st.jointC = []; st.jointd = [];
+    st.crossCells = {}; st.sawCrossOutput = false;
+end
+
+function property = finalize_multinet(st)
+    % Phase 2 finalization. UNSUPPORTED-BY-DEFAULT discipline: every gating
+    % assert already set st.unsupported (handled by the caller before we get
+    % here), so at this point all asserts parsed cleanly; what remains is to
+    % (a) require a cross-network output property,
+    % (b) CLOSE the joint box -- the g-block is typically bounded only THROUGH
+    %     the coupling rows (X_g == X_f componentwise, X_g[0] <= X_f[0], ...),
+    %     so propagate interval bounds through jointC*x <= jointd, and
+    % (c) refuse anything still unbounded / infeasible.
+    if ~st.sawCrossOutput || isempty(st.crossCells)
+        property = unsupported_property([], 'multi-network: no output property assertion found');
+        return;
+    end
+    if numel(st.crossCells) ~= 1
+        % accumulate_output keeps exactly one cell on success; defensive only
+        property = unsupported_property([], 'multi-network: output property is not a single disjunctive spec');
+        return;
+    end
+    [jlb, jub] = propagate_joint_bounds(st.jointLb, st.jointUb, st.jointC, st.jointd);
+    if any(isnan(jlb)) || any(isnan(jub))
+        property = unsupported_property([], 'multi-network: joint input box has an unbounded dimension (under-constrained)');
+        return;
+    end
+    if any(jlb > jub)
+        % constraints are infeasible; technically vacuously unsat, but we gate
+        % conservatively instead of emitting a verdict from an empty region
+        property = unsupported_property([], 'multi-network: joint input constraints are infeasible (empty box)');
+        return;
+    end
+    property = struct();
+    property.lb = [];     % single-network contract fields left EMPTY on purpose:
+    property.ub = [];     % legacy single-net consumers must not see a usable box
+    property.prop = {};
+    mn = struct();
+    mn.names = {st.netName, st.netName2};
+    mn.inShapes = {st.inShape, st.inShape2};
+    mn.outShapes = {st.outShape, st.outShape2};
+    mn.equivKind = 'equal';
+    mn.jointLb = jlb;
+    mn.jointUb = jub;
+    mn.jointC = st.jointC;
+    mn.jointd = st.jointd;
+    mn.crossProp = st.crossCells{1}.Hg;
+    property.multinet = mn;
+    property.unsupported = false;
+    property.reason = '';
+end
+
+function [lb, ub] = propagate_joint_bounds(lb, ub, C, d)
+    % Sound interval tightening of the joint box through the two-term coupling
+    % rows of C*x <= d (the parser only emits rows with exactly two +/-1
+    % entries; the algebra below is generic anyway). For a row
+    %       a_i*x_i + a_j*x_j <= d_r
+    % every feasible point satisfies a_i*x_i <= d_r - a_j*x_j, hence
+    %       a_i*x_i <= d_r - min_{x_j in [lb_j,ub_j]}(a_j*x_j)
+    % with min(a_j*x_j) = a_j*lb_j if a_j>0, else a_j*ub_j. Dividing by a_i:
+    %       a_i > 0  ->  x_i <= (d_r - min(a_j*x_j))/a_i   (an UPPER bound)
+    %       a_i < 0  ->  x_i >= (d_r - min(a_j*x_j))/a_i   (a  LOWER bound)
+    % NaN (unknown) bounds on x_j simply produce no tightening. Every derived
+    % bound is IMPLIED by box+rows, so the result still encloses the true
+    % constrained joint region (this can only shrink the box -- sound). Two-row
+    % `==` pairs propagate both directions, which is what closes the g-block.
+    % Monotone (bounds only shrink), so the fixed point exists; iteration is
+    % capped defensively and an early stop just leaves looser (still sound)
+    % bounds.
+    if isempty(C), return; end
+    maxIter = 8 + 2*size(C, 1);
+    iter = 0;
+    changed = true;
+    while changed && iter < maxIter
+        iter = iter + 1;
+        changed = false;
+        for r = 1:size(C, 1)
+            nz = find(C(r, :));
+            if numel(nz) ~= 2, continue; end   % only two-term rows are propagated
+            for s = 1:2
+                i = nz(s); j = nz(3-s);
+                ai = C(r, i); aj = C(r, j);
+                if aj > 0, mj = aj*lb(j); else, mj = aj*ub(j); end
+                if isnan(mj), continue; end
+                bnd = (d(r) - mj)/ai;
+                if ai > 0
+                    if isnan(ub(i)) || bnd < ub(i)
+                        ub(i) = bnd; changed = true;
+                    end
+                else
+                    if isnan(lb(i)) || bnd > lb(i)
+                        lb(i) = bnd; changed = true;
+                    end
+                end
+            end
+        end
+    end
 end
 
 % =========================================================================

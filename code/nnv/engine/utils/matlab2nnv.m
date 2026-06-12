@@ -32,9 +32,33 @@ for i=1:n
             customLayer_no_NLP = 1;
         elseif contains(class(L), "PadLayer") %&& all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
             customLayer_no_NLP = check_layer_parameters(L);
-        elseif contains(class(L), "Reshape_To_ReshapeLayer") && length(fields(L.ONNXParams.Nonlearnables))==2
-            % future: need to check if the previous layers output size == last reshape layers dimension
-            customLayer_no_NLP = 1;
+        elseif contains(class(L), "Reshape_To_ReshapeLayer")
+            % A fused pure-Reshape chain (the class-name prefix encodes the fused
+            % ops: Reshape_To_ReshapeLayer = Reshape->...->Reshape ONLY, no weights
+            % -- unlike e.g. Gemm_To_ReshapeLayer). A double reshape whose FINAL
+            % target is flat is a data no-op for the flat star pipeline.
+            % future: check previous layer's output size == last reshape target dim
+            if isprop(L, 'ONNXParams') && length(fields(L.ONNXParams.Nonlearnables))==2
+                % pre-R2026a custom-layer form
+                customLayer_no_NLP = 1;
+            elseif isprop(L, 'Vars')
+                % R2026a importNetworkFromONNX custom layers carry the ONNX
+                % initializers in .Vars (no ONNXParams property). Accept the fused
+                % double-reshape as a no-op ONLY when the final reshape target is
+                % flat ([-1 N]): reshape-to-image then flatten-back preserves the
+                % element order, so the layer is the identity on flat data. Any
+                % other shape falls through to ReshapeLayer.parse (which fails
+                % loud -> the runner reports unknown; sound).
+                vf = fieldnames(L.Vars);
+                if numel(vf) == 2
+                    lastShape = L.Vars.(vf{end});
+                    try, lastShape = extractdata(lastShape); catch, end
+                    lastShape = double(lastShape(:)');
+                    if numel(lastShape) == 2 && lastShape(1) == -1
+                        customLayer_no_NLP = 1;
+                    end
+                end
+            end
         end
     catch
         

@@ -183,7 +183,10 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                 try
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
                         if ~is_nnvnet_valid(nnvnet)
-                            % matlab2nnv conversion failed earlier; report unknown
+                            % matlab2nnv conversion failed earlier; report unknown.
+                            % PRINT it: this exact silent skip masked the dist_shift
+                            % regression (50 provable unsats looked like loose bounds).
+                            fprintf('reach skipped: matlab2nnv conversion failed earlier -> unknown\n');
                             status = 2; break;
                         end
                         ySet = nnvnet.reach(IS, reachOptions);

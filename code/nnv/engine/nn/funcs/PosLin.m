@@ -46,11 +46,48 @@ classdef PosLin
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
-            
+
+            % nnenum-style cheap prefilter (CAV 2020 secs. 3.4-3.5; T2.2 of
+            % REACH_PERFORMANCE_STRATEGIES.md): decide the neuron's sign with the
+            % star's FREE outer bounds before paying any LP. Both bounds are SOUND
+            % over-approximations of the star (the predicate-box estimate and the
+            % outer-zonotope I.Z), so est_min >= 0 / est_max <= 0 decisions are
+            % exact; only genuinely ambiguous neurons fall through to the LPs.
+            % In deep layers most neurons are stable, so this removes the bulk of
+            % the ~2-LPs-per-neuron-per-star cost that made NNV ~143x slower per
+            % path than nnenum on acasxu (CAV 2020, Table 1).
+            est_min = -inf; est_max = inf;
+            if ~isempty(I.predicate_lb) && ~isempty(I.predicate_ub)
+                [est_min, est_max] = I.estimateRange(index);
+            end
+            if ~isempty(I.Z)
+                [z_min, z_max] = I.Z.getRange(index);
+                est_min = max(est_min, z_min);   % intersect the two sound outer bounds
+                est_max = min(est_max, z_max);
+            end
+            if est_min >= 0
+                S = I;
+                return;
+            elseif est_max <= 0
+                V1 = I.V;
+                V1(index, :) = 0;
+                if ~isempty(I.Z)
+                    zc = I.Z.c;
+                    zc(index) = 0;
+                    zV = I.Z.V;
+                    zV(index, :) = 0;
+                    new_Z = Zono(zc, zV); % update outer-zono
+                else
+                    new_Z = [];
+                end
+                S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+                return;
+            end
+
             xmin = I.getMin(index, lp_solver);
-                       
+
             if xmin >= 0
-                S = I; 
+                S = I;
             else
                 xmax = I.getMax(index, lp_solver);
                 

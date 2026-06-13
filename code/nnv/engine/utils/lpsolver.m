@@ -78,8 +78,16 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
 
     % Solve using linprog (glpk as backup)
     elseif strcmp(lp_solver, 'linprog')
-        options = optimoptions('linprog', 'Display','none'); 
-        options.OptimalityTolerance = 1e-10; % set tolerance
+        % optimoptions construction is surprisingly expensive (~1-2 ms) and this
+        % function is the hottest path in star reachability (2 LP calls per neuron
+        % per star). Build it ONCE and reuse (T3 of REACH_PERFORMANCE_STRATEGIES.md;
+        % nnenum amortizes its LP setup the same way).
+        persistent linprog_options
+        if isempty(linprog_options)
+            linprog_options = optimoptions('linprog', 'Display', 'none');
+            linprog_options.OptimalityTolerance = 1e-10; % set tolerance
+        end
+        options = linprog_options;
         % first try solving using linprog
         [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);
         % found (1), not feasible point found (-2), infeasible (-5)

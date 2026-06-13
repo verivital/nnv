@@ -218,9 +218,39 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
         else
 
             while ~isempty(reachOptionsList)
-                
+
                 reachOptions = reachOptionsList{1};
-    
+
+                % Input-domain branch-and-bound (T1, REACH_PERFORMANCE_STRATEGIES.md):
+                % bisect the input box + sound approx-star per cell. Used for
+                % low-input-dim categories (acasxu) where exact-star path
+                % enumeration times out but per-cell over-approximation decides
+                % fast. Produces a FINAL status directly (1 = every cell proven
+                % safe; 0 = concrete witness, validated downstream like every
+                % other sat; 2 = unknown -> next ladder rung).
+                if strcmp(reachOptions.reachMethod, "bab-inputsplit")
+                    if ~is_nnvnet_valid(nnvnet)
+                        status = 2; break;
+                    end
+                    babOpts = reachOptions;
+                    babOpts.makeSet = @(l, u) create_input_set(l, u, inputSize, needReshape, useImageStar);
+                    babOpts.evalSample = @(x) eval_flat_sample(nnvnet, x, inputSize, needReshape);
+                    try
+                        [status, babCex] = verify_bab_inputsplit(nnvnet, lb, ub, prop, babOpts);
+                    catch ME
+                        fprintf('bab-inputsplit errored: %s -> unknown\n', ME.message);
+                        status = 2; babCex = [];
+                    end
+                    if status == 0 && iscell(babCex)
+                        counterEx = babCex;   % flows through the same onnxruntime sat-gate
+                    end
+                    if status == 2
+                        reachOptionsList = reachOptionsList(2:end);
+                        continue;   % fall through to the next ladder rung
+                    end
+                    break;
+                end
+
                 IS = create_input_set(lb, ub, inputSize, needReshape, useImageStar);
 
                 % Compute reachability. Reach may FAIL LOUD by design (layers
@@ -446,6 +476,24 @@ end
 
 %% Helper functions
 
+function y = eval_flat_sample(nnvnet, x, inputSize, needReshape)
+    % Evaluate the NNV net on ONE flat (vnnlib-order) sample, applying the same
+    % reshape conventions create_input_set uses for the input SET, so the
+    % bab-inputsplit falsification probe sees exactly the runner's geometry.
+    x = double(x(:));
+    if ~isempty(inputSize) && prod(inputSize) == numel(x)
+        xi = reshape(x, inputSize);
+    else
+        xi = x;
+    end
+    if needReshape == 1
+        xi = permute(xi, [2 1 3]);
+    elseif needReshape ~= 0
+        error('eval_flat_sample: needReshape=%d not supported for bab-inputsplit', needReshape);
+    end
+    y = nnvnet.evaluate(xi);
+end
+
 function IS = create_input_set(lb, ub, inputSize, needReshape, useImageStar)
 
     % Choose the set type from the NET's input-layer TYPE when the caller knows it
@@ -542,9 +590,25 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
         if ~contains(vnnlib, "prop_3.") && ~contains(vnnlib, "prop_4.")
+            % T1 (REACH_PERFORMANCE_STRATEGIES.md): input-domain BaB FIRST --
+            % 5-D bisection + sound approx-star per cell. The field decides
+            % these instances in 1-6 s via input splitting; NNV's exact-star
+            % enumeration pays ~143x more per path (CAV 2020) and timed out on
+            % 75/187 in the 2025 set. Exact-star stays as the fallback rung so
+            % previously-solved instances cannot regress.
+            reachOptions = struct;
+            reachOptions.reachMethod = 'bab-inputsplit';
+            reachOptions.timeout = 60;
+            % per-cell bounds MUST be cheap: approx-star costs ~22 s/cell on
+            % acasxu (600 LPs); relax-star@1 is ~0.09 s/cell (estimate-only,
+            % no LPs) and tightens as cells shrink -- the nnenum zonotope-
+            % prefilter philosophy: cheap loose bounds + splitting do the work.
+            reachOptions.reachOptions = struct('reachMethod', 'relax-star-area', 'relaxFactor', 1);
+            reachOptionsList{1} = reachOptions;
+            reachOptions = struct;
             reachOptions.reachMethod = 'exact-star';
             reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-            reachOptionsList{1} = reachOptions;
+            reachOptionsList{2} = reachOptions;
             nRand = 500;
         else
             reachOptions = struct;

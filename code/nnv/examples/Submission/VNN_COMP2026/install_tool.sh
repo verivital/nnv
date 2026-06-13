@@ -43,6 +43,27 @@ matlab -batch "cd('${TOOLKIT}'); install" || \
 # prevents false-SAT (-150) verdicts. Pin a known-good set.
 apt-get install -y python3 python3-pip
 pip3 install --no-cache-dir onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
+# onnx2nnv.py (the manifest importer for lsnc_relu/traffic_signs/cgan/soundnessbench)
+# hard-requires the simplifier stack; without these prepare_instance.sh fails to
+# generate manifests and every manifest-category instance errors (2026-06-12 dry run).
+pip3 install --no-cache-dir onnxsim onnxoptimizer
+
+# MATLAB Engine API for Python: execute.py (the run_instance.sh bridge) does
+# `import matlab.engine`; without it EVERY instance fails instantly (caught in
+# the 2026-06-12 AWS dry run on the MathWorks R2026a AMI). Install from the
+# MATLAB tree -- guaranteed version match with the installed release; the PyPI
+# matlabengine wheel can fail to build and may mismatch the MATLAB version.
+MATLAB_BIN="$(command -v matlab || echo /usr/local/matlab/bin/matlab)"
+# readlink guarded: under set -e an unresolvable path must not kill the install
+MATLAB_REAL="$(readlink -f "$MATLAB_BIN" 2>/dev/null || echo "$MATLAB_BIN")"
+MATLAB_ROOT_RESOLVED="$(dirname "$(dirname "$MATLAB_REAL")")"
+pip3 install --no-cache-dir "${MATLAB_ROOT_RESOLVED}/extern/engines/python" || \
+    pip3 install --no-cache-dir matlabengine || \
+    echo "WARN: matlab.engine install failed (import check below decides)"
+# Fatal gate: execute.py does `import matlab.engine` on every instance, so a
+# missing engine means zero points. Fail the install loudly rather than let a
+# misleading "Install complete." defer the failure to runtime.
+python3 -c "import matlab.engine" || { echo "ERROR: matlab.engine import failed; fix before running instances" >&2; exit 1; }
 
 # Optional: Gurobi for a faster LP backend (uncomment + set license).
 # cd ~ && wget -q https://packages.gurobi.com/12.0/gurobi12.0.0_linux64.tar.gz && tar xfz gurobi*.tar.gz

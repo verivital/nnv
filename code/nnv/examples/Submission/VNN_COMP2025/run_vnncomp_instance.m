@@ -40,6 +40,19 @@ if contains(category, "cctsdb_yolo")
     return;
 end
 
+% collins_aerospace_benchmark: sound FALSIFICATION-ONLY path, fully outside MATLAB's
+% importer. importNetworkFromONNX dies on the YOLOv5 Detect-head custom layers, the
+% old import+matlab2nnv route produced invalid SAT instances (the vnnlib X order is
+% HWC flat, not CHW -- see collins_falsify.py), and set-based reach at 640x640x3 is
+% infeasible (multi-GB), so UNSAT is out of scope for this category. The Python
+% falsifier validates the HWC mapping with a center-consistency gate, falsifies with
+% finite-difference gradients via onnxruntime, and re-validates any candidate with
+% margin before claiming SAT (exit 10). Anything else -> unknown. NEVER emits unsat.
+if contains(category, 'collins_aerospace_benchmark')
+    [status, tTime] = run_collins_falsifier(onnx, vnnlib, outputfile, t);
+    return;
+end
+
 %% 1) Load components
 
 % Load networks
@@ -453,6 +466,75 @@ end
 
 %% Helper functions
 
+% collins_aerospace_benchmark: delegate the whole instance to collins_falsify.py
+% (sat-or-unknown ONLY; reach/UNSAT is out of scope for this category, see the
+% dispatch comment at the top of run_vnncomp_instance). The script:
+%   * parses the vnnlib (1.0 subset used by these specs) itself -- MATLAB never
+%     touches the 1.2M-variable spec;
+%   * validates the HWC-flat -> CHW input mapping with a center-consistency gate
+%     (a 'violated' box center means the mapping is wrong -> it refuses, exit 2);
+%   * falsifies with finite-difference gradients through onnxruntime and
+%     RE-VALIDATES the exact candidate with >1e-6 margin before claiming SAT.
+% Exit 10 -> sat + witness CSV (flat vnnlib order = HWC, which is exactly the
+% order write_counterexample emits and the official checker replays); anything
+% else -> unknown. NEVER unsat.
+function [status, tTime] = run_collins_falsifier(onnx, vnnlib, outputfile, t)
+    status = 2;
+    script = fullfile(fileparts(mfilename('fullpath')), 'collins_falsify.py');
+    witness = [tempname '.csv'];
+    % Per-instance timeout is 3600s; leave slack for parsing + this wrapper.
+    % NNV_COLLINS_BUDGET (seconds) overrides for tests/smoke runs.
+    budget = str2double(getenv('NNV_COLLINS_BUDGET'));
+    if isnan(budget) || budget <= 0
+        budget = 3300;
+    end
+    cmd = sprintf('%s "%s" "%s" "%s" "%s" %g', python_exe(), script, ...
+        char(onnx), char(vnnlib), witness, budget);
+    [st, out] = system(cmd);
+    disp(out);
+    % Trust the SAT verdict ONLY on the exact contract: exit code 10 AND a witness
+    % file AND the explicit SAT marker (guards against a shell mangling the code).
+    if st == 10 && isfile(witness) && contains(out, 'SAT')
+        v = readmatrix(witness);
+        nx = round(v(1)); ny = round(v(2));
+        if numel(v) == 2 + nx + ny
+            x = v(3:2+nx);          % flat vnnlib order (HWC) -- written as X_i as-is
+            y = v(3+nx:2+nx+ny);    % flat row-major [25200x11] = vnnlib Y order
+            status = 0;
+            fid = fopen(outputfile, 'w');
+            fprintf(fid, 'sat \n');
+            fclose(fid);
+            write_counterexample(outputfile, {x, y});
+        end
+    end
+    if status ~= 0   % anything else (incl. malformed witness) -> unknown, never unsat
+        fid = fopen(outputfile, 'w');
+        fprintf(fid, 'unknown \n');
+        fclose(fid);
+    end
+    if isfile(witness), delete(witness); end
+    tTime = toc(t);
+end
+
+% Interpreter resolution BASED ON validate_witness_onnx.m's idiom (pyenv first),
+% but deliberately DIFFERENT in its PATH fallback: 'python3' on Linux (bare
+% 'python' often does not exist on the competition VM; run_instance.sh itself
+% uses python3), 'python' on Windows dev boxes.
+function py = python_exe()
+    if ispc
+        py = 'python';
+    else
+        py = 'python3';
+    end
+    try
+        pe = pyenv;
+        if ~isempty(pe.Executable) && isfile(pe.Executable)
+            py = ['"' char(pe.Executable) '"'];
+        end
+    catch
+    end
+end
+
 function IS = create_input_set(lb, ub, inputSize, needReshape, useImageStar)
 
     % Choose the set type from the NET's input-layer TYPE when the caller knows it
@@ -526,9 +608,13 @@ end
 function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2025 benchmark NNs
 % Not yet supported:
-% - collins aerospace (unsure of what is wrong, but we get invalid SAT instances)
-% Handled OUTSIDE this dispatcher:
-% - cctsdb_yolo (complete-enumeration path at the top of run_vnncomp_instance)
+% - cctsdb (some errrors when forward propagating)
+% - lsnc_relu
+% - traffic_signs_recognition (last year all instances were sat, maybe we are not wrong?)
+% Handled OUTSIDE this dispatcher (early routes at the top of run_vnncomp_instance):
+% - cctsdb_yolo (complete-enumeration path)
+% - collins aerospace (the invalid SAT instances were a CHW/HWC input-order mix-up;
+%   now routed to collins_falsify.py and never reaches this function)
 
 
     needReshape = 0; % default is to use MATLAB reshape, otherwise use the python reshape
@@ -655,18 +741,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, 'collins_aerospace_benchmark')
-        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
-        nnvnet = matlab2nnv(net);
-        reachOptions.train_epochs = 100;
-        reachOptions.train_lr = 0.001;
-        reachOptions.coverage = 0.999;
-        reachOptions.confidence = 0.999;
-        reachOptions.train_mode = 'Linear';
-        reachOptions.surrogate_dim = [];
-        reachOptions.threshold_normal = 1e-5;
-        reachOptions.reachMethod = 'cp-star';
-        reachOptionsList{1} = reachOptions;
-        needReshape = 1; % 2 and 0 return invalid sat instances
+        % Routed EARLY in run_vnncomp_instance to the sound falsification-only
+        % path (collins_falsify.py): MATLAB's importer cannot handle the YOLOv5
+        % Detect-head custom layers, and the old import+matlab2nnv route emitted
+        % invalid SAT instances (vnnlib X order is HWC flat, not CHW). This branch
+        % is unreachable; fail loud if anything ever re-enters it.
+        error('run_vnncomp_instance:collinsRouted', ...
+            'collins_aerospace_benchmark is handled by the collins_falsify.py path');
 
     elseif contains(category, 'collins_rul')
         net = importNetworkFromONNX(onnx);
@@ -1231,18 +1312,8 @@ function delete_if_exists(f)
     if exist(f, 'file'), delete(f); end
 end
 
-% Resolve the Python interpreter the SAME way validate_witness_onnx does:
-% prefer MATLAB's configured pyenv executable, else fall back to PATH 'python'.
-function py = python_exe()
-    py = 'python';
-    try
-        pe = pyenv;
-        if ~isempty(pe.Executable) && isfile(pe.Executable)
-            py = ['"' char(pe.Executable) '"'];
-        end
-    catch
-    end
-end
+% (python_exe is defined once above -- the Linux-aware version that
+% defaults to python3 on the competition VM.)
 
 % Load an NNV net from the Python-importer manifest written alongside the ONNX
 % (tools/onnx2nnv_python/onnx2nnv.py). Used for models MATLAB's

@@ -680,10 +680,14 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             % cgan models are GENERATORS with SAT-expected specs; approx-star reach
             % NEVER decides them (0 unsat across all 57 sweep instances, and the one
             % instance whose reach completed at 69.5 s returned unknown) -- it only
-            % burns the whole budget timing out. Drop reach: rely on PGD
-            % falsification (where cgan's SAT verdicts actually come from, boosted in
-            % the ftab below) and return unknown in <1 s when no counterexample is
-            % found, instead of a budget-long timeout. Sound: unknown is always safe.
+            % burns the whole per-instance budget timing out. Drop reach so the budget
+            % goes to PGD falsification (where cgan's SAT verdicts actually come from,
+            % boosted in the ftab below): a no-counterexample instance now returns
+            % unknown after the falsification budget (ftab max_time, ~25 s) instead of
+            % a much longer reach timeout. Sound: unknown is always safe.
+            % (The 'transformer' cgan variant in the else-branch is a different model
+            % and method path -- cp-star, not approx-star -- so it is left unchanged
+            % here; the dead-reach finding was specifically the approx-star path.)
             reachOptionsList = {};
         else
             net = importNetworkFromONNX(onnx,"InputDataFormats","BC");

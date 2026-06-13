@@ -278,6 +278,15 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                 % Verify property
                 status = verify_specification(ySet, prop);
+                if status == 1 && strcmp(reachOptions.reachMethod, "cp-star")
+                    % cp-star is PROBABILISTIC (conformal prediction): this 'holds'/unsat
+                    % is NOT a sound proof. It is the primary reach method for some
+                    % categories (cifar100, ml4acopf, ...) and a sound-methods-first last
+                    % resort for others (cersyve). Either way, LOG it so the per-benchmark
+                    % -150 exposure from a probabilistic verdict is tracked (see
+                    % PROGRESS_LOG cp-star policy).
+                    fprintf('VERDICT VIA CP-STAR (probabilistic, not a sound proof): %s\n', onnx);
+                end
 
                 if status == 1 % verified, then stop
                     break
@@ -689,12 +698,20 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
     elseif contains(category, "cersyve")
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
         nnvnet = matlab2nnv(net);
-        % reachOptions = struct;
-        % reachOptions.reachMethod = 'approx-star'; % default parameters
-        % reachOptionsList{1} = reachOptions;
-        reachOptions.reachMethod = 'cp-star';
-        % reachOptions.numCores = numCores;
+        % SOUND-FIRST ladder (was cp-star only). cp-star is probabilistic, so its
+        % 'holds'/unsat is not a proof -> run the SOUND methods first and keep cp-star
+        % as a LOGGED last-resort. approx-star/relax-star soundly decide the 'con'
+        % instances; cp-star fires only if both return unknown.
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
         reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'relax-star-area';
+        reachOptions.relaxFactor = 0.5;
+        reachOptionsList{2} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'cp-star';   % probabilistic last-resort (logged at verify)
+        reachOptionsList{3} = reachOptions;
 
     elseif contains(category, "cgan")
         % cgan: route through the Python-importer manifest. MATLAB's matlab2nnv fails on
@@ -824,10 +841,11 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         catch
             nnvnet = "";
         end
-        % Cheap-to-precise SOUND ladder: approx-star first, looser relax-star fallback.
-        % (Was approx-star at {1} then exact-star OVERWRITING {1}, so only the
-        % exponential exact-star ran and stalled to 'unknown'. Drop exact-star: it
-        % blows up on these nets and never finished in the per-instance budget.)
+        % Cheap-to-precise SOUND ladder: approx-star, looser relax-star, then a GATED
+        % exact-star closer (added below). (Was approx-star at {1} then exact-star
+        % OVERWRITING {1}, so only the exponential exact-star ran and stalled to
+        % 'unknown'. exact-star is re-added as {3} -- now tractable WITH predicate
+        % contraction -- running only after approx/relax both return unknown.)
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star';
         reachOptionsList{1} = reachOptions;
@@ -835,6 +853,15 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptions.reachMethod = 'relax-star-area';
         reachOptions.relaxFactor = 0.7;
         reachOptionsList{2} = reachOptions;
+        % exact-star + predicate contraction (acasxu Step 1+2) as a GATED precise
+        % closer. The earlier exact-star here was removed because it blew up WITHOUT
+        % contraction; WITH contraction it is tractable on these small nets and decides
+        % the approx/relax 'unknown's (validated: dist_shift probe -> sound unsat @120s).
+        % Runs only after approx-star and relax-star both return unknown.
+        reachOptions = struct;
+        reachOptions.reachMethod = 'exact-star';
+        reachOptions.numCores = 1;
+        reachOptionsList{3} = reachOptions;
 
     elseif contains(category, "linearize")
         % 
@@ -889,7 +916,15 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         needReshape = 2;
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star'; % default parameters
-        reachOptionsList{1} = reachOptions;   
+        reachOptionsList{1} = reachOptions;
+        % exact-star + predicate contraction (acasxu Step 1+2) as the precise closer.
+        % metaroom 4cnn/6cnn are tiny; WITH contraction exact-star decides the
+        % approx-star 'unknown's within budget (validated: ~12/14 probe -> sound unsat
+        % @7-26s; master timed out). Runs only after approx-star returns unknown.
+        reachOptions = struct;
+        reachOptions.reachMethod = 'exact-star';
+        reachOptions.numCores = 1;
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "ml4acopf")
         % ml4acopf: onnx to matlab

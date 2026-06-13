@@ -289,8 +289,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
                         if ~is_nnvnet_valid(nnvnet)
                             % same observability as the single-spec path: never skip silently
-                            fprintf('reach skipped: matlab2nnv conversion failed earlier -> unknown
-');
+                            fprintf('reach skipped: matlab2nnv conversion failed earlier -> unknown\n');
                             tempStatus = 2; break;
                         end
                     end
@@ -366,8 +365,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                     if ~strcmp(reachOptions.reachMethod, "cp-star")
                         if ~is_nnvnet_valid(nnvnet)
                             % same observability as the single-spec path: never skip silently
-                            fprintf('reach skipped: matlab2nnv conversion failed earlier -> unknown
-');
+                            fprintf('reach skipped: matlab2nnv conversion failed earlier -> unknown\n');
                             tempStatus = 2; break;
                         end
                     end

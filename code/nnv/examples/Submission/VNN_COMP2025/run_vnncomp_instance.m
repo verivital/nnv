@@ -509,10 +509,10 @@ function [status, tTime] = run_collins_falsifier(onnx, vnnlib, outputfile, t)
     tTime = toc(t);
 end
 
-% Same interpreter-resolution idiom as validate_witness_onnx.m: prefer MATLAB's
-% configured pyenv executable, else fall back to PATH. On Linux (the competition
-% VM) bare 'python' often does not exist -- run_instance.sh itself uses python3 --
-% so default to 'python3' there; 'python' is kept for Windows dev boxes.
+% Interpreter resolution BASED ON validate_witness_onnx.m's idiom (pyenv first),
+% but deliberately DIFFERENT in its PATH fallback: 'python3' on Linux (bare
+% 'python' often does not exist on the competition VM; run_instance.sh itself
+% uses python3), 'python' on Windows dev boxes.
 function py = python_exe()
     if ispc
         py = 'python';

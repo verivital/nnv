@@ -113,8 +113,9 @@ function test_delta01_sat_reproduces_end_to_end(tc)
     % standalone (3 SATs re-validated out-of-process) and by the structural tests.
     tc.assumeTrue(strcmp(getenv('NNV_RUN_LONG_TESTS'), '1'), ...
         'set NNV_RUN_LONG_TESTS=1 to run the long end-to-end falsification test');
+    prevBudget = getenv('NNV_COLLINS_BUDGET');
+    cBudget = onCleanup(@() setenv('NNV_COLLINS_BUDGET', prevBudget));  % restore prior value (Copilot)
     setenv('NNV_COLLINS_BUDGET', '600');
-    cu0 = onCleanup(@() setenv('NNV_COLLINS_BUDGET', ''));
     outf = [tempname '.txt'];
     cu = onCleanup(@() delete_if(outf));
     status = run_vnncomp_instance('collins_aerospace_benchmark', ...

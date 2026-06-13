@@ -12,7 +12,52 @@ end
 if ~exist("tbxmanager.m","file") % not added to the path
     addpath("tbxmanager");
 end
-tbxmanager restorepath
+% Restore toolbox paths. tbxmanager's enabled-toolbox list (tbxenabled.txt) is
+% shared mutable state that is NOT concurrency-safe: parallel startup_nnv calls
+% (e.g. batched/parallel verification jobs, as used when sweeping VNN-COMP
+% benchmarks) or a process killed mid-write can corrupt it, after which
+% 'restorepath' aborts with "Toolbox <name> is not installed". Self-heal by
+% dropping any enabled entry whose toolbox is not actually installed, then retry,
+% so a single corrupted line cannot take down every parallel worker's startup.
+try
+    tbxmanager restorepath
+catch tbx_err
+    warning('NNV:tbxRestore', ...
+        'tbxmanager restorepath failed (%s); repairing tbxenabled.txt and retrying.', ...
+        tbx_err.message);
+    % Best-effort repair. If anything here fails (tbxmanager.m not on path, or a
+    % file op throws), surface the ORIGINAL restorepath error rather than mask it.
+    try
+        tbx_dir = fileparts(which('tbxmanager.m'));
+        if isempty(tbx_dir)
+            rethrow(tbx_err);   % can't locate tbxenabled.txt -> don't guess a cwd path
+        end
+        enabled_file = fullfile(tbx_dir, 'tbxenabled.txt');
+        toolboxes_dir = fullfile(tbx_dir, 'toolboxes');
+        if isfile(enabled_file)
+            raw_lines = strsplit(strtrim(fileread(enabled_file)), newline);
+            kept = {};
+            for tbx_i = 1:numel(raw_lines)
+                entry = strtrim(raw_lines{tbx_i});
+                parts = strsplit(entry, ':');   % name:version:arch
+                if numel(parts) == 3 && isfolder(fullfile(toolboxes_dir, parts{1}, parts{2}, parts{3}))
+                    kept{end+1} = entry; %#ok<AGROW>
+                end
+            end
+            kept = unique(kept, 'stable');      % drop duplicates from a partial write
+            fid = fopen(enabled_file, 'w');
+            if fid > 0
+                if ~isempty(kept)
+                    fprintf(fid, '%s\n', kept{:});
+                end
+                fclose(fid);
+            end
+        end
+    catch
+        rethrow(tbx_err);   % repair failed -> report the real cause, not the repair's
+    end
+    tbxmanager restorepath                  % retry once on the repaired list
+end
 
 fprintf('\nAdding NNV to Matlab path...\n');
 %mydir  = pwd;

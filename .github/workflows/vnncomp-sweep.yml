@@ -158,7 +158,7 @@ jobs:
       # submission prepare_instance.sh; cheap (~1-3 s/model). Matches both the 2025 and 2026
       # folder names (cgan_2023/cgan2026, soundnessbench/soundnessbench_2026, etc.).
       - name: Generate NNV manifests for manifest categories (Python importer)
-        if: ${{ contains(matrix.folder, 'lsnc_relu') || contains(matrix.folder, 'traffic_signs') || contains(matrix.folder, 'cgan') || contains(matrix.folder, 'soundnessbench') }}
+        if: ${{ contains(matrix.folder, 'lsnc_relu') || contains(matrix.folder, 'traffic_signs') || contains(matrix.folder, 'cgan') || contains(matrix.folder, 'soundnessbench') || contains(matrix.folder, 'vit') }}
         shell: bash
         run: |
           python3 -m pip install --quiet onnx==1.20.0 onnxruntime==1.23.1 numpy scipy

@@ -22,7 +22,7 @@ pkill -f -q matlab 2>/dev/null
 # cross-validated vs onnxruntime; any SAT witness is replayed through onnxruntime before
 # being emitted, so a mis-import degrades to error/unknown, never an unsound verdict.
 case "$2" in
-    *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*)
+    *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*|*vit*)
         NNV_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # VNN_COMP2026 -> .../code/nnv
         MANIFEST="${3%.onnx}.nnv.mat"
         if [ ! -f "${MANIFEST}" ]; then

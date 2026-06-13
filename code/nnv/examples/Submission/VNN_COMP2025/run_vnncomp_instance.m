@@ -959,40 +959,21 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptionsList{1} = reachOptions;
     
     elseif contains(category, "vit")
-        % vit: onnx to matlab. Try sound Star-set reach first (approx-star
-        % then relax-star fallback), since cp-star is probabilistic and
-        % doesn't exercise the actual reach() chain through attention layers.
-        % If matlab2nnv conversion fails (e.g., unsupported layer in the ONNX
-        % import), fall back to cp-star to get *some* result.
-        net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
-        try
-            nnvnet = matlab2nnv(net);
-            needReshape = 1;
-            reachOptionsList = {};
-            % First: approx-star (tightest sound bound NNV offers without LP)
-            reachOpts1 = struct;
-            reachOpts1.reachMethod = 'approx-star';
-            reachOptionsList{end+1} = reachOpts1;
-            % Second: relax-star (faster fallback for deeper nets)
-            reachOpts2 = struct;
-            reachOpts2.reachMethod = 'relax-star-area';
-            reachOpts2.relaxFactor = 0.5;
-            reachOptionsList{end+1} = reachOpts2;
-        catch
-            nnvnet = "";
-            % cp-star fallback ONLY when sound conversion failed
-            reachOpts = struct;
-            reachOpts.train_epochs = 100;
-            reachOpts.train_lr = 0.001;
-            reachOpts.coverage = 0.999;
-            reachOpts.confidence = 0.999;
-            reachOpts.train_mode = 'Linear';
-            reachOpts.surrogate_dim = [-1,-1];
-            reachOpts.threshold_normal = 1e-5;
-            reachOpts.reachMethod = 'cp-star';
-            reachOptionsList = {reachOpts};
-            needReshape = 1;
-        end
+        % vit: MATLAB's importer collapses the 133-node ViT into ONE opaque
+        % fused custom layer (Shape_To_ReduceMeanLayer) -> matlab2nnv refuses ->
+        % the old path fell to cp-star (probabilistic + env-dependent) -> 200/200
+        % unknown. Route through the PYTHON manifest instead: the layout-model
+        % fix in onnx2nnv.py makes the manifest evaluate match onnxruntime to
+        % ~5e-7 (MATLAB-validated 2026-06-13), so the NN-net numerical-gradient
+        % PGD falsifier produces REAL sat witnesses (replayed through the
+        % onnxruntime gate before emission). Reach through DynamicMatmulLayer
+        % refuses by design -> unsat is out of scope -> sat-or-unknown only.
+        nnvnet = load_manifest_net(onnx);
+        net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+        inputSize = nnvnet.Layers{1}.InputSize;
+        needReshape = 1;   % CHW-flat vnnlib -> [H,W,C] image, same as cifar-class
+        reachOptionsList = {};   % no sound reach available -> skip to unknown
+        % (legacy MATLAB-import + cp-star path removed; see git history pre-#345)
 
     elseif contains(category, "yolo")
         % yolo: onnx to nnv

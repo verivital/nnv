@@ -59,14 +59,20 @@ classdef ElementwiseAffineLayer < handle
             if obj.DoScale
                 s = obj.Scale;
                 if ~isscalar(s) && ~elementwiseaffine_broadcastable(size(s), size(x))
-                    s = align_to_input(s, size(x));
+                    s = onnx_trailing_align(s, x);
+                    if ~elementwiseaffine_broadcastable(size(s), size(x))
+                        s = align_to_input(s, size(x));
+                    end
                 end
                 y = y .* s;
             end
             if obj.DoOffset
                 o = obj.Offset;
                 if ~isscalar(o) && ~elementwiseaffine_broadcastable(size(o), size(x))
-                    o = align_to_input(o, size(x));
+                    o = onnx_trailing_align(o, x);
+                    if ~elementwiseaffine_broadcastable(size(o), size(x))
+                        o = align_to_input(o, size(x));
+                    end
                 end
                 y = y + o;
             end
@@ -449,3 +455,18 @@ function tf = elementwiseaffine_broadcastable(sz_p, sz_x)
     tf = all(sz_p == sz_x | sz_p == 1);
 end
 
+
+function p = onnx_trailing_align(p, x)
+    % ONNX/NumPy broadcasting aligns shapes from the TRAILING dimension;
+    % MATLAB implicit expansion aligns from the LEADING one. A per-token
+    % parameter like a ViT position embedding [N,C] against an [1,N,C]
+    % activation broadcasts fine in ONNX but fails MATLAB's rule (dim2:
+    % C vs N) -- and previously fell into align_to_input, which silently
+    % mis-applied it (vit_2023: pos-emb added with the wrong orientation,
+    % max err ~7). Pad LEADING singletons so the parameter's dims line up
+    % with x's trailing dims, exactly the ONNX semantics.
+    if ndims(p) < ndims(x)
+        sz = size(p);
+        p = reshape(p, [ones(1, ndims(x) - ndims(p)), sz]);
+    end
+end

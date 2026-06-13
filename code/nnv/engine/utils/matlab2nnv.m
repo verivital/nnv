@@ -410,10 +410,20 @@ end
 % Check if custom layers can be skipped (e.g., pad layer with 0 padding does not change anything in the network)
 function status = check_layer_parameters(L)
     status = 0;
-    if isempty(L.ONNXParams.Nonlearnables)
+    % R2026a importNetworkFromONNX custom layers may carry params on .Vars
+    % instead of .ONNXParams (see ReshapeLayer/UpsampleLayer). Fail closed.
+    if isprop(L, 'ONNXParams')
+        nonlearn = L.ONNXParams.Nonlearnables;
+    elseif isprop(L, 'Vars')
+        nonlearn = L.Vars;
+    else
+        error('matlab2nnv:noParams', ...
+            'Layer ''%s'' has neither ONNXParams nor Vars.', class(L));
+    end
+    if isempty(nonlearn)
         status = 1;
     elseif contains(class(L), 'PadLayer')
-        params = struct2cell(L.ONNXParams.Nonlearnables);
+        params = struct2cell(nonlearn);
         for i=1:length(params)
             tmp = extractdata(params{i});
             if ~all(tmp==0)

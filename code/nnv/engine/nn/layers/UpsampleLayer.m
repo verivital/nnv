@@ -250,7 +250,17 @@ classdef UpsampleLayer < handle
                 error('Input is not a upsample layer');
             end
             
-            params = layer.ONNXParams.Learnables;
+            % Same R2026a importer change as ReshapeLayer: custom layers may
+            % carry their params on .Vars instead of .ONNXParams. Fail closed.
+            if isprop(layer, 'ONNXParams')
+                params = layer.ONNXParams.Learnables;
+            elseif isprop(layer, 'Vars')
+                params = layer.Vars;
+            else
+                error('UpsampleLayer:noParams', ...
+                    ['Custom UpsampleLayer ''%s'' has neither ONNXParams nor ' ...
+                     'Vars; cannot recover the scale.'], layer.Name);
+            end
             par_fields = fields(params);
             if length(par_fields) == 1
                 params = struct2cell(params);

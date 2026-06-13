@@ -325,7 +325,21 @@ classdef ReshapeLayer < handle
                 error('Input is not a reshape layer');
             end
             
-            params = layer.ONNXParams.Nonlearnables;
+            % R2024b- importONNXLayers custom layers expose the reshape target
+            % dim as an ONNXParams.Nonlearnables struct. R2026a
+            % importNetworkFromONNX custom ReshapeLayer classes have NO
+            % ONNXParams property -- the ONNX Constant target shape lives on
+            % .Vars instead (e.g. Vars.x_base_Constant_outp = [-1 3 64 64]).
+            % Try ONNXParams, fall back to .Vars so both importer eras parse.
+            if isprop(layer, 'ONNXParams')
+                params = layer.ONNXParams.Nonlearnables;
+            elseif isprop(layer, 'Vars')
+                params = layer.Vars;
+            else
+                error('ReshapeLayer:noParams', ...
+                    ['Custom ReshapeLayer ''%s'' has neither ONNXParams nor ' ...
+                     'Vars; cannot recover the reshape target dim.'], layer.Name);
+            end
             par_fields = fields(params);
             if length(par_fields) == 1
                 params = struct2cell(params);

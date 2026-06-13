@@ -2095,6 +2095,49 @@ classdef Star
 
     methods(Static) % helper functions
 
+        function [plb, pub] = updatePredicateRanges(a, b, plb, pub)
+            % nnenum-style LP-free predicate-bound contraction (CAV 2020,
+            % "Contract-Simple"). Given a SINGLE new constraint row a*alpha <= b
+            % (one that was just appended to the star's C*alpha<=d during a ReLU
+            % split) and the current per-variable predicate box [plb, pub],
+            % tighten the box by interval-propagating that one constraint.
+            %
+            % @a    : 1 x nVar (or nVar x 1) constraint row
+            % @b    : scalar rhs
+            % @plb,@pub : nVar x 1 predicate lower/upper bounds (contracted in place)
+            %
+            % SOUND: the box is only ever shrunk to the interval implied by a
+            % constraint already present in C*alpha<=d, so no feasible alpha is
+            % removed -- the represented set {V*[1;alpha] : C*alpha<=d} is
+            % unchanged; only its box descriptor tightens. estimateRange over the
+            % smaller box stays a sound over-approximation of the true range.
+            if isempty(plb) || isempty(pub)
+                return;                          % no box to contract against
+            end
+            a = a(:).';                          % force row
+            apos = max(a, 0);  aneg = min(a, 0);
+            Slo = apos*plb + aneg*pub;           % min of a*alpha over the box
+            for j = find(a ~= 0)
+                % remove variable j's contribution from the interval minimum,
+                % then isolate alpha_j against a*alpha <= b.
+                if a(j) > 0
+                    rest_lo = Slo - a(j)*plb(j);
+                    new_ub  = (b - rest_lo) / a(j);   % alpha_j <= new_ub
+                    if new_ub < pub(j), pub(j) = max(new_ub, plb(j)); end
+                else % a(j) < 0  (dividing flips the inequality sense)
+                    rest_lo = Slo - a(j)*pub(j);
+                    new_lb  = (b - rest_lo) / a(j);   % alpha_j >= new_lb
+                    if new_lb > plb(j), plb(j) = min(new_lb, pub(j)); end
+                end
+            end
+            % numerical safety: keep plb <= pub (clip to midpoint, never widen).
+            bad = plb > pub;
+            if any(bad)
+                mid = 0.5*(plb(bad) + pub(bad));
+                plb(bad) = mid;  pub(bad) = mid;
+            end
+        end
+
         % generate random star set
         function S = rand(dim)
             % @dim: dimension of the random star set

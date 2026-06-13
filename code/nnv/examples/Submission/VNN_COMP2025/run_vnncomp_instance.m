@@ -280,10 +280,12 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                 status = verify_specification(ySet, prop);
                 if status == 1 && strcmp(reachOptions.reachMethod, "cp-star")
                     % cp-star is PROBABILISTIC (conformal prediction): this 'holds'/unsat
-                    % is NOT a sound proof. Kept as a last-resort verdict (it runs only
-                    % after the sound methods returned unknown) but LOGGED so the
-                    % per-benchmark -150 exposure is tracked. See PROGRESS_LOG cp-star policy.
-                    fprintf('VERDICT VIA CP-STAR (probabilistic last-resort, not a sound proof): %s\n', onnx);
+                    % is NOT a sound proof. It is the primary reach method for some
+                    % categories (cifar100, ml4acopf, ...) and a sound-methods-first last
+                    % resort for others (cersyve). Either way, LOG it so the per-benchmark
+                    % -150 exposure from a probabilistic verdict is tracked (see
+                    % PROGRESS_LOG cp-star policy).
+                    fprintf('VERDICT VIA CP-STAR (probabilistic, not a sound proof): %s\n', onnx);
                 end
 
                 if status == 1 % verified, then stop
@@ -839,10 +841,11 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         catch
             nnvnet = "";
         end
-        % Cheap-to-precise SOUND ladder: approx-star first, looser relax-star fallback.
-        % (Was approx-star at {1} then exact-star OVERWRITING {1}, so only the
-        % exponential exact-star ran and stalled to 'unknown'. Drop exact-star: it
-        % blows up on these nets and never finished in the per-instance budget.)
+        % Cheap-to-precise SOUND ladder: approx-star, looser relax-star, then a GATED
+        % exact-star closer (added below). (Was approx-star at {1} then exact-star
+        % OVERWRITING {1}, so only the exponential exact-star ran and stalled to
+        % 'unknown'. exact-star is re-added as {3} -- now tractable WITH predicate
+        % contraction -- running only after approx/relax both return unknown.)
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star';
         reachOptionsList{1} = reachOptions;

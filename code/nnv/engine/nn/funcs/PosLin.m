@@ -46,9 +46,36 @@ classdef PosLin
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
-            
+
+            % --- nnenum-style estimate-first sign decision (CAV 2020, Step 2) ---
+            % estimateRange is a SOUND interval over-approximation of x[index] over
+            % the (Step-1-contracted) predicate box: true range subset of [emin,emax].
+            % A one-sided estimate therefore decides the neuron with ZERO LPs and the
+            % deterministic assignment is exactly what the getMin/getMax LPs would
+            % return, so exactness/completeness is untouched. Only the genuinely
+            % two-sided case falls through to the LPs below. Compounds with predicate
+            % contraction: contraction creates one-sided neurons, this cashes them in.
+            [emin, emax] = I.estimateRange(index);
+            if emin >= 0
+                S = I;                  % provably active: identity, no LP
+                return;
+            end
+            if emax <= 0                % provably inactive: zero the row, no LP
+                V1 = I.V;
+                V1(index, :) = 0;
+                if ~isempty(I.Z)        % outer-zono update mirrors the xmax<=0 branch
+                    zc = I.Z.c; zc(index) = 0;
+                    zV = I.Z.V; zV(index, :) = 0;
+                    new_Z = Zono(zc, zV);
+                else
+                    new_Z = [];
+                end
+                S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+                return;
+            end
+
             xmin = I.getMin(index, lp_solver);
-                       
+
             if xmin >= 0
                 S = I; 
             else

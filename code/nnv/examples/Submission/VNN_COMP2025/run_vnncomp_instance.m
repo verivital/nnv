@@ -706,9 +706,18 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             nnvnet = load_manifest_net(onnx);
             net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
             inputSize = nnvnet.Layers{1}.InputSize;
-            reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star';
-            reachOptionsList{1} = reachOptions;
+            % cgan models are GENERATORS with SAT-expected specs; approx-star reach
+            % NEVER decides them (0 unsat across all 57 sweep instances, and the one
+            % instance whose reach completed at 69.5 s returned unknown) -- it only
+            % burns the whole per-instance budget timing out. Drop reach so the budget
+            % goes to PGD falsification (where cgan's SAT verdicts actually come from,
+            % boosted in the ftab below): a no-counterexample instance now returns
+            % unknown after the falsification budget (ftab max_time, ~25 s) instead of
+            % a much longer reach timeout. Sound: unknown is always safe.
+            % (The 'transformer' cgan variant in the else-branch is a different model
+            % and method path -- cp-star, not approx-star -- so it is left unchanged
+            % here; the dead-reach finding was specifically the approx-star path.)
+            reachOptionsList = {};
         else
             net = importNetworkFromONNX(onnx,"InputDataFormats","BC");
             nnvnet = "";
@@ -1191,7 +1200,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         "cctsdb_yolo",       30, 50, 5,   150
         "yolo",              20, 40, 3,   100
         "vit",               10, 25, 3,   50
-        "cgan",              20, 40, 3,   100
+        "cgan",              60, 80, 25,  2000   % reach dropped for cgan -> spend the whole budget on PGD (5-dim input, cheap)
         "soundnessbench",    30, 50, 4,   100
     };
     for r = 1:size(ftab,1)

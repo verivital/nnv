@@ -32,9 +32,52 @@ for i=1:n
             customLayer_no_NLP = 1;
         elseif contains(class(L), "PadLayer") %&& all(extractdata(struct2array(L.ONNXParams.Nonlearnables))==0)
             customLayer_no_NLP = check_layer_parameters(L);
-        elseif contains(class(L), "Reshape_To_ReshapeLayer") && length(fields(L.ONNXParams.Nonlearnables))==2
-            % future: need to check if the previous layers output size == last reshape layers dimension
-            customLayer_no_NLP = 1;
+        elseif contains(class(L), "Reshape_To_ReshapeLayer")
+            % A fused pure-Reshape chain (the class-name prefix encodes the fused
+            % ops: Reshape_To_ReshapeLayer = Reshape->...->Reshape ONLY, no weights
+            % -- unlike e.g. Gemm_To_ReshapeLayer). A double reshape whose FINAL
+            % target is flat is a data no-op for the flat star pipeline.
+            % future: check previous layer's output size == last reshape target dim
+            if isprop(L, 'ONNXParams') && length(fields(L.ONNXParams.Nonlearnables))==2
+                % pre-R2026a custom-layer form
+                customLayer_no_NLP = 1;
+            elseif isprop(L, 'Vars')
+                % R2026a importNetworkFromONNX custom layers carry the ONNX
+                % initializers in .Vars (no ONNXParams property). Accept the fused
+                % double-reshape as a no-op ONLY when, ORDER-INDEPENDENTLY (the
+                % fieldnames order of .Vars is not guaranteed to match execution
+                % order), one target is flat ([-1 N]) and the other's element
+                % count equals that same N. Reshapes never change element order,
+                % so such a pair composes to the identity on flat data regardless
+                % of which executes first. Anything else falls through to
+                % ReshapeLayer.parse (fails loud -> the runner reports unknown).
+                vf = fieldnames(L.Vars);
+                if numel(vf) == 2
+                    shp = cell(1, 2);
+                    for vi = 1:2
+                        sv = L.Vars.(vf{vi});
+                        try, sv = extractdata(sv); catch, end
+                        shp{vi} = double(sv(:)');
+                    end
+                    isflat = cellfun(@(v) numel(v) == 2 && v(1) == -1 && v(2) > 0, shp);
+                    if all(isflat)
+                        % both targets flat: identity iff the same N
+                        if shp{1}(2) == shp{2}(2)
+                            customLayer_no_NLP = 1;
+                        end
+                    elseif any(isflat)
+                        flatN = shp{find(isflat, 1)};
+                        flatN = flatN(2);
+                        other = shp{find(~isflat, 1)};
+                        % element count of the non-batch dims must equal the flat N
+                        % (the -1, if present, is the batch dim)
+                        pos = other(other > 0);
+                        if ~isempty(pos) && prod(pos) == flatN
+                            customLayer_no_NLP = 1;
+                        end
+                    end
+                end
+            end
         end
     catch
         

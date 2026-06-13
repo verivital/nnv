@@ -55,23 +55,29 @@ classdef PosLin
             % return, so exactness/completeness is untouched. Only the genuinely
             % two-sided case falls through to the LPs below. Compounds with predicate
             % contraction: contraction creates one-sided neurons, this cashes them in.
-            [emin, emax] = I.estimateRange(index);
-            if emin >= 0
-                S = I;                  % provably active: identity, no LP
-                return;
-            end
-            if emax <= 0                % provably inactive: zero the row, no LP
-                V1 = I.V;
-                V1(index, :) = 0;
-                if ~isempty(I.Z)        % outer-zono update mirrors the xmax<=0 branch
-                    zc = I.Z.c; zc(index) = 0;
-                    zV = I.Z.V; zV(index, :) = 0;
-                    new_Z = Zono(zc, zV);
-                else
-                    new_Z = [];
+            % Only run the shortcut when the predicate box is available (exact-star
+            % always sets it). If it is empty, estimateRange would fall back to an LP
+            % that ignores the caller's lp_solver, so skip the shortcut and use the
+            % getMin/getMax LPs below directly. (Addresses Copilot review #2.)
+            if ~isempty(I.predicate_lb) && ~isempty(I.predicate_ub)
+                [emin, emax] = I.estimateRange(index);
+                if emin >= 0
+                    S = I;                  % provably active: identity, no LP
+                    return;
                 end
-                S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
-                return;
+                if emax <= 0                % provably inactive: zero the row, no LP
+                    V1 = I.V;
+                    V1(index, :) = 0;
+                    if ~isempty(I.Z)        % outer-zono update mirrors the xmax<=0 branch
+                        zc = I.Z.c; zc(index) = 0;
+                        zV = I.Z.V; zV(index, :) = 0;
+                        new_Z = Zono(zc, zV);
+                    else
+                        new_Z = [];
+                    end
+                    S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+                    return;
+                end
             end
 
             xmin = I.getMin(index, lp_solver);

@@ -59,8 +59,11 @@ MATLAB_REAL="$(readlink -f "$MATLAB_BIN" 2>/dev/null || echo "$MATLAB_BIN")"
 MATLAB_ROOT_RESOLVED="$(dirname "$(dirname "$MATLAB_REAL")")"
 pip3 install --no-cache-dir "${MATLAB_ROOT_RESOLVED}/extern/engines/python" || \
     pip3 install --no-cache-dir matlabengine || \
-    echo "WARN: matlab.engine install failed; run_instance.sh will not work"
-python3 -c "import matlab.engine" || echo "WARN: matlab.engine import check failed"
+    echo "WARN: matlab.engine install failed (import check below decides)"
+# Fatal gate: execute.py does `import matlab.engine` on every instance, so a
+# missing engine means zero points. Fail the install loudly rather than let a
+# misleading "Install complete." defer the failure to runtime.
+python3 -c "import matlab.engine" || { echo "ERROR: matlab.engine import failed; fix before running instances" >&2; exit 1; }
 
 # Optional: Gurobi for a faster LP backend (uncomment + set license).
 # cd ~ && wget -q https://packages.gurobi.com/12.0/gurobi12.0.0_linux64.tar.gz && tar xfz gurobi*.tar.gz

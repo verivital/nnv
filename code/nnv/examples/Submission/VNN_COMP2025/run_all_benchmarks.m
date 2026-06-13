@@ -109,6 +109,14 @@ results = cell(0, 8);   % grows per instance (all-instances mode -> count unknow
 existing_pool = gcp('nocreate');
 if ~isempty(existing_pool), delete(existing_pool); end
 pool = parpool('Processes', 1);   % 1 worker avoids the 16-vs-N config error
+% A FRESH Processes worker pays a large one-time cost on its first instance
+% (worker init + ONNX-importer custom-layer codegen): measured ~100 s even for a
+% model that solves in 9 s warm. Grant that first instance a one-time grace so
+% cold-start cannot masquerade as a solver timeout. The flag is tied to POOL
+% lifetime: set here (job start) and after every timeout-triggered pool restart
+% -- NOT reset per benchmark folder. Recorded time_s is still true wall time.
+cold_grace_s = 120;
+pool_is_cold = true;
 
 % --- Iterate ---
 for i = 1:n
@@ -155,19 +163,12 @@ for i = 1:n
         continue;
     end
     fprintf('  %d instance(s) [%s]\n', numel(pairs), run_which);
-    % A FRESH Processes worker pays a large one-time cost on its first instance
-    % (worker init + ONNX-importer custom-layer codegen): measured ~100 s even for
-    % a model that solves in 9 s warm. Grant that first instance a one-time grace
-    % so cold-start cannot masquerade as a solver timeout. Applies to the job's
-    % first instance and to the first instance after every timeout-triggered pool
-    % restart. The recorded time_s is still the true wall time.
-    cold_grace_s = 120;
-    pool_is_cold = true;
     for k = 1:numel(pairs)
         pr = pairs{k};
         out_file = [tempname '.txt'];
         t0 = tic;
         f = parfeval(pool, @run_vnncomp_instance, 2, cat, pr.onnx, pr.vnnlib, out_file);
+        was_cold = pool_is_cold;   % for accurate timeout reporting below
         ok = wait(f, 'finished', timeout_s + cold_grace_s*pool_is_cold);
         pool_is_cold = false;
         if ok
@@ -185,7 +186,7 @@ for i = 1:n
         else
             cancel(f);
             status = -1; status_str = 'timeout';
-            err = sprintf('exceeded %d s', timeout_s);
+            err = sprintf('exceeded %d s', timeout_s + cold_grace_s*was_cold);
             % cancel() CANNOT interrupt a BUSY worker (it only de-schedules queued
             % futures): the zombie keeps grinding the timed-out reach while the next
             % parfeval queues BEHIND it -- cascading false timeouts plus unbounded
@@ -196,7 +197,11 @@ for i = 1:n
             % ~15 s restart cost applies only on timeouts.
             try
                 delete(pool);
-            catch
+            catch ME_pool
+                % restarting the pool is the zombie-kill mechanism; if delete
+                % fails we still attempt the restart, but say so loudly
+                fprintf('WARN: pool delete failed (%s); attempting restart anyway
+', ME_pool.message);
             end
             pool = parpool('Processes', 1);
             pool_is_cold = true;   % next instance gets the one-time cold-start grace

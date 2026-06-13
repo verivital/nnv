@@ -200,8 +200,7 @@ for i = 1:n
             catch ME_pool
                 % restarting the pool is the zombie-kill mechanism; if delete
                 % fails we still attempt the restart, but say so loudly
-                fprintf('WARN: pool delete failed (%s); attempting restart anyway
-', ME_pool.message);
+                fprintf('WARN: pool delete failed (%s); attempting restart anyway\n', ME_pool.message);
             end
             pool = parpool('Processes', 1);
             pool_is_cold = true;   % next instance gets the one-time cold-start grace

@@ -46,9 +46,42 @@ classdef PosLin
             if ~isa(I, 'Star')
                 error('Input is not a star set');
             end
-            
+
+            % --- nnenum-style estimate-first sign decision (CAV 2020, Step 2) ---
+            % estimateRange is a SOUND interval over-approximation of x[index] over
+            % the (Step-1-contracted) predicate box: true range subset of [emin,emax].
+            % A one-sided estimate therefore decides the neuron with ZERO LPs and the
+            % deterministic assignment is exactly what the getMin/getMax LPs would
+            % return, so exactness/completeness is untouched. Only the genuinely
+            % two-sided case falls through to the LPs below. Compounds with predicate
+            % contraction: contraction creates one-sided neurons, this cashes them in.
+            % Only run the shortcut when the predicate box is available (exact-star
+            % always sets it). If it is empty, estimateRange would fall back to an LP
+            % that ignores the caller's lp_solver, so skip the shortcut and use the
+            % getMin/getMax LPs below directly. (Addresses Copilot review #2.)
+            if ~isempty(I.predicate_lb) && ~isempty(I.predicate_ub)
+                [emin, emax] = I.estimateRange(index);
+                if emin >= 0
+                    S = I;                  % provably active: identity, no LP
+                    return;
+                end
+                if emax <= 0                % provably inactive: zero the row, no LP
+                    V1 = I.V;
+                    V1(index, :) = 0;
+                    if ~isempty(I.Z)        % outer-zono update mirrors the xmax<=0 branch
+                        zc = I.Z.c; zc(index) = 0;
+                        zV = I.Z.V; zV(index, :) = 0;
+                        new_Z = Zono(zc, zV);
+                    else
+                        new_Z = [];
+                    end
+                    S = Star(V1, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);
+                    return;
+                end
+            end
+
             xmin = I.getMin(index, lp_solver);
-                       
+
             if xmin >= 0
                 S = I; 
             else
@@ -88,13 +121,22 @@ classdef PosLin
                     else
                         new_Z = [];
                     end
-                    S1 = Star(new_V, new_C, new_d, I.predicate_lb, I.predicate_ub, new_Z);
+                    % nnenum-style predicate-bound contraction (CAV 2020): tighten
+                    % the predicate box from the newly-added split constraint so the
+                    % NEXT layer's stability prefilter (estimateRanges) sees smaller
+                    % bounds and flags fewer neurons as branching -> fewer splits ->
+                    % smaller exact-star tree. Sound: contraction only intersects the
+                    % box with a constraint already in C*alpha<=d, so no feasible
+                    % alpha is removed and the represented set is unchanged.
+                    [plb1, pub1] = Star.updatePredicateRanges(V, -c, I.predicate_lb, I.predicate_ub);
+                    S1 = Star(new_V, new_C, new_d, plb1, pub1, new_Z);
 
                     % S2 = I && x[index] >= 0
                     new_C = vertcat(I.C, -V);
                     new_d = vertcat(I.d, c);
 
-                    S2 = Star(I.V, new_C, new_d, I.predicate_lb, I.predicate_ub, I.Z);
+                    [plb2, pub2] = Star.updatePredicateRanges(-V, c, I.predicate_lb, I.predicate_ub);
+                    S2 = Star(I.V, new_C, new_d, plb2, pub2, I.Z);
 
                    S = [S1 S2];
 

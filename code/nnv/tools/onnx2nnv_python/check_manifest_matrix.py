@@ -190,8 +190,8 @@ def main(argv):
         print(f"  layers={r['n_layers']} compared={r['n_clean']} clean_max={r['clean_max']:.2e} "
               f"(scaled {r['clean_scaled_max']:.2e}) "
               f"final={f} patched={r['n_patched']} tainted_cmp={r['n_taint']}"
-              f"{'' if r['n_taint']==0 else f' taint_max={r['taint_max']:.2e}'}"
-              f"  -> {'PASS' if r['ok'] else 'FAIL'}", flush=True)
+              + ("" if r['n_taint'] == 0 else " taint_max={:.2e}".format(r['taint_max']))
+              + "  -> " + ("PASS" if r['ok'] else "FAIL"), flush=True)
         results.append(r)
     n_bad = sum(1 for r in results if not r.get('ok'))
     print(f"\n{len(results) - n_bad}/{len(results)} models PASS")

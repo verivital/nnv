@@ -973,38 +973,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         inputSize = nnvnet.Layers{1}.InputSize;
         needReshape = 1;   % CHW-flat vnnlib -> [H,W,C] image, same as cifar-class
         reachOptionsList = {};   % no sound reach available -> skip to unknown
-        if false
-        net = importNetworkFromONNX(onnx, "InputDataFormats", "BCSS", 'OutputDataFormats',"BC");
-        try
-            nnvnet = matlab2nnv(net);
-            needReshape = 1;
-            reachOptionsList = {};
-            % First: approx-star (tightest sound bound NNV offers without LP)
-            reachOpts1 = struct;
-            reachOpts1.reachMethod = 'approx-star';
-            reachOptionsList{end+1} = reachOpts1;
-            % Second: relax-star (faster fallback for deeper nets)
-            reachOpts2 = struct;
-            reachOpts2.reachMethod = 'relax-star-area';
-            reachOpts2.relaxFactor = 0.5;
-            reachOptionsList{end+1} = reachOpts2;
-        catch
-            nnvnet = "";
-            % cp-star fallback ONLY when sound conversion failed
-            reachOpts = struct;
-            reachOpts.train_epochs = 100;
-            reachOpts.train_lr = 0.001;
-            reachOpts.coverage = 0.999;
-            reachOpts.confidence = 0.999;
-            reachOpts.train_mode = 'Linear';
-            reachOpts.surrogate_dim = [-1,-1];
-            reachOpts.threshold_normal = 1e-5;
-            reachOpts.reachMethod = 'cp-star';
-            reachOptionsList = {reachOpts};
-            needReshape = 1;
-        end
-
-end
+        % (legacy MATLAB-import + cp-star path removed; see git history pre-#345)
 
     elseif contains(category, "yolo")
         % yolo: onnx to nnv

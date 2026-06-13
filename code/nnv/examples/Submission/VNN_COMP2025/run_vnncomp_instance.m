@@ -596,19 +596,16 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             % enumeration pays ~143x more per path (CAV 2020) and timed out on
             % 75/187 in the 2025 set. Exact-star stays as the fallback rung so
             % previously-solved instances cannot regress.
-            reachOptions = struct;
-            reachOptions.reachMethod = 'bab-inputsplit';
-            reachOptions.timeout = 60;
-            % per-cell bounds MUST be cheap: approx-star costs ~22 s/cell on
-            % acasxu (600 LPs); relax-star@1 is ~0.09 s/cell (estimate-only,
-            % no LPs) and tightens as cells shrink -- the nnenum zonotope-
-            % prefilter philosophy: cheap loose bounds + splitting do the work.
-            reachOptions.reachOptions = struct('reachMethod', 'relax-star-area', 'relaxFactor', 1);
-            reachOptionsList{1} = reachOptions;
-            reachOptions = struct;
+            % NOTE: a bab-inputsplit first rung was MEASURED HARMFUL here: relax@1
+            % cells do not converge on prop_1-class instances (still unknown at
+            % 1/64 box volume), so the rung burned 60 s and starved exact-star --
+            % 21/21 timeouts in the at-scale AWS check. The cheap-prefilter in
+            % PosLin.stepReach (T2.2) is the acasxu lever; the BaB driver remains
+            % available (engine/utils/verify_bab_inputsplit.m) for low-dim
+            % categories where per-cell bounds DO converge.
             reachOptions.reachMethod = 'exact-star';
             reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-            reachOptionsList{2} = reachOptions;
+            reachOptionsList{1} = reachOptions;
             nRand = 500;
         else
             reachOptions = struct;

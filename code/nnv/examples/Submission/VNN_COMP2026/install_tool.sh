@@ -54,7 +54,9 @@ pip3 install --no-cache-dir onnxsim onnxoptimizer
 # MATLAB tree -- guaranteed version match with the installed release; the PyPI
 # matlabengine wheel can fail to build and may mismatch the MATLAB version.
 MATLAB_BIN="$(command -v matlab || echo /usr/local/matlab/bin/matlab)"
-MATLAB_ROOT_RESOLVED="$(dirname "$(dirname "$(readlink -f "$MATLAB_BIN")")")"
+# readlink guarded: under set -e an unresolvable path must not kill the install
+MATLAB_REAL="$(readlink -f "$MATLAB_BIN" 2>/dev/null || echo "$MATLAB_BIN")"
+MATLAB_ROOT_RESOLVED="$(dirname "$(dirname "$MATLAB_REAL")")"
 pip3 install --no-cache-dir "${MATLAB_ROOT_RESOLVED}/extern/engines/python" || \
     pip3 install --no-cache-dir matlabengine || \
     echo "WARN: matlab.engine install failed; run_instance.sh will not work"

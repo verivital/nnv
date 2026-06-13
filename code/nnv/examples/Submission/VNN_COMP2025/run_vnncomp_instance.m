@@ -53,6 +53,21 @@ if contains(category, 'collins_aerospace_benchmark')
     return;
 end
 
+% smart_turn_multimodal_2026: a 692-node INT8-quantized MULTIMODAL transformer
+% (199 DequantizeLinear + 119 QuantizeLinear + 22 Conv + 9 Erf + 5 Softmax, with a
+% 5D video input). MATLAB's importer collapses it to an opaque fused blob NNV
+% cannot soundly evaluate. Abstain (unknown) rather than risk feeding the fused
+% net to cp-star/manifest and emitting an unsound verdict -- unknown is always a
+% safe VNN-COMP verdict. A real fix (multimodal + quantization) is out of scope.
+if contains(category, "smart_turn")
+    status = 2;            % unknown
+    tTime = toc(t);        % assign both outputs before the early return
+    fid = fopen(outputfile, 'w');
+    fprintf(fid, 'unknown \n');
+    fclose(fid);
+    return;
+end
+
 %% 1) Load components
 
 % Load networks
@@ -647,7 +662,21 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
             reachOptionsList{2} = reachOptions;
         end
-        
+
+    elseif contains(category, "adaptive_cruise")
+        % adaptive_cruise_control_non_linear_2026: a pure FFNN (8x Gemm + 5x Relu,
+        % [1,2]->[1,1]) that imports cleanly; it only erred because no dispatcher
+        % branch matched and control fell to the catch-all "ONNX model not
+        % supported". Route it through the standard FFNN reach path.
+        net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
+        nnvnet = matlab2nnv(net);
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'exact-star'; % tiny net -> sound+complete fallback
+        reachOptions.numCores = 1;
+        reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "cctsdb_yolo")
         % Handled by the complete-enumeration path at the TOP of
@@ -1020,7 +1049,11 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         %   img = permute(reshape(x, [3 30 30]), [3 2 1])  -> [30 30 3] HWC
         nnvnet = load_manifest_net(onnx);
         net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
-        inputSize = [3 30 30];   % reshape size BEFORE the [3 2 1] permute
+        % reshape size BEFORE the [3 2 1] permute. The old hardcoded [3 30 30]
+        % only fit the 30x30 models and threw "Number of elements must not
+        % change" on the 48x48 / 64x64 traffic-sign models (6912 / 12288 != 2700).
+        % Derive it from the net's own input layer: InputSize [H W C] -> [C W H].
+        inputSize = nnvnet.Layers{1}.InputSize([3 2 1]);
         needReshape = 3;
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star';

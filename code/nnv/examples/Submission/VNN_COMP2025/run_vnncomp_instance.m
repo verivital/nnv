@@ -60,6 +60,8 @@ end
 % net to cp-star/manifest and emitting an unsound verdict -- unknown is always a
 % safe VNN-COMP verdict. A real fix (multimodal + quantization) is out of scope.
 if contains(category, "smart_turn")
+    status = 2;            % unknown
+    tTime = toc(t);        % assign both outputs before the early return
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unknown \n');
     fclose(fid);

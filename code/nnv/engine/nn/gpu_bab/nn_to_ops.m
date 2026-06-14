@@ -16,7 +16,13 @@ function ops = nn_to_ops(nnvnet)
         elseif contains(cls, 'Relu') || contains(cls, 'ReLU')
             ops{end+1} = struct('type', 'relu'); %#ok<AGROW>
         elseif contains(cls, 'Input') || contains(cls, 'Flatten')
-            % skip -- identity on a flat input box
+            % skip -- identity on a flat input box. NOTE: a normalizing ImageInputLayer
+            % (e.g. zerocenter) is an AFFINE shift the caller must apply to the input
+            % (pre-normalize the image / box) since it is dropped here.
+        elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
+                || contains(cls, 'Output') || contains(cls, 'Regression')
+            % skip -- softmax is monotonic and the output layer is identity on logits,
+            % so neither affects argmax-robustness verification on the pre-softmax scores.
         else
             error('nn_to_ops:unsupported', ...
                 ['GPU-BaB Phase 1 supports FullyConnected + ReLU only; got "%s" ' ...

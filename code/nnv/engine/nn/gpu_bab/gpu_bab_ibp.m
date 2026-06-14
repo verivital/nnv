@@ -41,28 +41,111 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
 
     lb = cast(in_lb, precision);
     ub = cast(in_ub, precision);
+    nOps = numel(ops);
+    hasAdd = any(cellfun(@(o) strcmp(o.type, 'add'), ops));
 
-    for k = 1:numel(ops)
-        op = ops{k};
-        switch op.type
-            case 'affine'
-                W = cast(op.W, precision);
-                b = cast(op.b(:), precision);
-                Wp = max(W, 0);
-                Wn = min(W, 0);
-                new_lb = Wp * lb + Wn * ub + b;
-                new_ub = Wp * ub + Wn * lb + b;
-                lb = new_lb;
-                ub = new_ub;
-            case 'relu'
-                lb = max(lb, 0);
-                ub = max(ub, 0);
-            otherwise
-                error('gpu_bab_ibp:unsupportedOp', ...
-                    'Unsupported op type "%s" (Phase 1 supports affine + relu).', op.type);
+    if ~hasAdd
+        % sequential (chain) net -- rolling bounds, no per-op cache.
+        for k = 1:nOps
+            [lb, ub] = i_apply_ibp(ops{k}, lb, ub, precision);
         end
+        out_lb = lb; out_ub = ub;
+        return;
     end
 
-    out_lb = lb;
-    out_ub = ub;
+    % DAG net (residual): cache each op's output bounds (index k+1 = op k; index 1 = op 0 =
+    % input), so an 'add' can sum two non-adjacent ops. Interval add is EXACT (sound + tight).
+    cl = cell(nOps + 1, 1); cu = cell(nOps + 1, 1);
+    cl{1} = lb; cu{1} = ub;
+    for k = 1:nOps
+        op = ops{k};
+        if strcmp(op.type, 'add')
+            a = op.inputs(1) + 1; b = op.inputs(2) + 1;
+            cl{k+1} = cl{a} + cl{b};
+            cu{k+1} = cu{a} + cu{b};
+        else
+            [cl{k+1}, cu{k+1}] = i_apply_ibp(op, cl{k}, cu{k}, precision);
+        end
+    end
+    out_lb = cl{nOps + 1};
+    out_ub = cu{nOps + 1};
+end
+
+function [nlb, nub] = i_apply_ibp(op, lb, ub, precision)
+% Sound IBP for a single (single-input) op. 'add' is multi-input and handled by the caller.
+    switch op.type
+        case 'affine'
+            W = cast(op.W, precision); b = cast(op.b(:), precision);
+            Wp = max(W, 0); Wn = min(W, 0);
+            nlb = Wp * lb + Wn * ub + b;
+            nub = Wp * ub + Wn * lb + b;
+        case 'relu'
+            nlb = max(lb, 0); nub = max(ub, 0);
+        case 'conv'
+            [nlb, nub] = i_conv_ibp(op, lb, ub, precision);
+        case 'normaffine'
+            [nlb, nub] = i_normaffine_ibp(op, lb, ub, precision);
+        case 'avgpool'
+            [nlb, nub] = i_avgpool_ibp(op, lb, ub, precision);
+        case 'maxpool'
+            [nlb, nub] = i_maxpool_ibp(op, lb, ub, precision);
+        otherwise
+            error('gpu_bab_ibp:unsupportedOp', ...
+                'Unsupported op type "%s" (affine/relu/conv/normaffine/avgpool/maxpool/add).', op.type);
+    end
+end
+
+function [olb, oub] = i_conv_ibp(op, lb, ub, precision)
+% Conv IBP = interval arithmetic over the LINEAR conv map: the SAME W+/W- split as the
+% affine op, with the matmul replaced by dlconv. Sound (tightest interval for a linear
+% map). Flat columns <-> [H W C B] (column-major) at the boundary; spec/batch = dim 4.
+    B = size(lb, 2);
+    ish = op.inShape; osh = op.outShape;
+    W = cast(op.W, precision);
+    bb = cast(op.b(:), precision);
+    Wp = max(W, 0); Wn = min(W, 0);
+    L4 = dlarray(reshape(lb, [ish(1) ish(2) ish(3) B]), 'SSCB');
+    U4 = dlarray(reshape(ub, [ish(1) ish(2) ish(3) B]), 'SSCB');
+    pad2 = [op.pad(1) op.pad(3); op.pad(2) op.pad(4)];   % [t l; b r] for dlconv
+    args = {'Stride', op.stride, 'Padding', pad2, 'DilationFactor', op.dil};
+    Lo = dlconv(L4, Wp, bb, args{:}) + dlconv(U4, Wn, 0, args{:});   % lower
+    Hi = dlconv(U4, Wp, bb, args{:}) + dlconv(L4, Wn, 0, args{:});   % upper
+    olb = reshape(extractdata(Lo), [prod(osh) B]);
+    oub = reshape(extractdata(Hi), [prod(osh) B]);
+end
+
+function [olb, oub] = i_normaffine_ibp(op, lb, ub, precision)
+% Per-element affine y = s.*x + t (s,t broadcast over [H W C]); sound interval map.
+    s = cast(op.scale, precision); t = cast(op.shift, precision);
+    sh = op.shape; B = size(lb, 2);
+    L4 = reshape(lb, [sh(1) sh(2) sh(3) B]);
+    U4 = reshape(ub, [sh(1) sh(2) sh(3) B]);
+    a = s .* L4 + t; c = s .* U4 + t;
+    olb = reshape(min(a, c), [prod(sh) B]);
+    oub = reshape(max(a, c), [prod(sh) B]);
+end
+
+function [olb, oub] = i_avgpool_ibp(op, lb, ub, precision)
+% Average pool = per-channel mean over each window: all +weights -> MONOTONE, so the
+% bounds map directly (avgpool(lb), avgpool(ub)) with no W+/W- split. Non-overlapping,
+% unpadded (enforced at extraction). dlarray avgpool with Stride=pool.
+    B = size(lb, 2); ish = op.inShape; osh = op.outShape;
+    L4 = dlarray(reshape(lb, [ish(1) ish(2) ish(3) B]), 'SSCB');
+    U4 = dlarray(reshape(ub, [ish(1) ish(2) ish(3) B]), 'SSCB');
+    Lo = avgpool(L4, op.pool, 'Stride', op.stride);
+    Hi = avgpool(U4, op.pool, 'Stride', op.stride);
+    olb = reshape(extractdata(Lo), [prod(osh) B]);
+    oub = reshape(extractdata(Hi), [prod(osh) B]);
+end
+
+function [olb, oub] = i_maxpool_ibp(op, lb, ub, precision)
+% Max pool = per-channel max over each window: MONOTONE, so bounds map directly
+% (maxpool(lb), maxpool(ub)) -- exact interval, no relaxation. dlarray maxpool.
+    B = size(lb, 2); ish = op.inShape; osh = op.outShape;
+    L4 = dlarray(reshape(cast(lb, precision), [ish(1) ish(2) ish(3) B]), 'SSCB');
+    U4 = dlarray(reshape(cast(ub, precision), [ish(1) ish(2) ish(3) B]), 'SSCB');
+    Lo = maxpool(L4, op.pool, 'Stride', op.stride);
+    Hi = maxpool(U4, op.pool, 'Stride', op.stride);
+    olb = reshape(extractdata(Lo), [prod(osh) B]);
+    oub = reshape(extractdata(Hi), [prod(osh) B]);
 end

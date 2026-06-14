@@ -26,22 +26,27 @@ function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, 
     unstable = cell(nOps, 1);
 
     % ---- tight intermediate bounds, layer by layer ----
+    % Compute input bounds for every op whose backward relaxation needs them: ReLU (the
+    % pre-activation) AND maxpool (the window inputs that decide the sound max relaxation).
     for k = 1:nOps
-        if strcmp(ops{k}.type, 'relu')
-            % z_k (the pre-activation feeding this ReLU) = output of ops[1..k-1].
-            % Bound each of its neurons via a backward CROWN pass over ops[1..k-1],
-            % which uses preL/preU of the strictly-earlier ReLUs (already computed).
+        tk = ops{k}.type;
+        if strcmp(tk, 'relu') || strcmp(tk, 'maxpool')
+            % z_k (the input feeding this op) = output of ops[1..k-1]. Bound each of its
+            % elements via a backward CROWN pass over ops[1..k-1], which reuses preL/preU of
+            % the strictly-earlier ReLUs/maxpools (already computed -- sound by induction).
             nk = i_layer_width(ops, k-1);
             Ck = eye(nk, precision);
             pu = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, false);
             pl = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, true);
-            if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
+            if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                 fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
                 pl(fx == 1)  = max(pl(fx == 1),  0);
                 pu(fx == -1) = min(pu(fx == -1), 0);
             end
             preL{k} = pl; preU{k} = pu;
-            unstable{k} = (pl < 0) & (pu > 0);
+            if strcmp(tk, 'relu')
+                unstable{k} = (pl < 0) & (pu > 0);
+            end
         end
     end
 
@@ -51,11 +56,17 @@ end
 
 function w = i_layer_width(ops, upto)
 % # outputs of ops[1..upto] = rows of the last affine in that prefix.
-    w = [];
     for k = upto:-1:1
-        if strcmp(ops{k}.type, 'affine'), w = size(ops{k}.W, 1); return; end
+        t = ops{k}.type;
+        if strcmp(t, 'affine'),         w = size(ops{k}.W, 1);     return;
+        elseif strcmp(t, 'conv'),       w = prod(ops{k}.outShape); return;
+        elseif strcmp(t, 'avgpool'),    w = prod(ops{k}.outShape); return;
+        elseif strcmp(t, 'maxpool'),    w = prod(ops{k}.outShape); return;
+        elseif strcmp(t, 'add'),        w = prod(ops{k}.shape);    return;
+        elseif strcmp(t, 'normaffine'), w = prod(ops{k}.shape);    return;
+        end
     end
-    error('gpu_bab_crown_tight:noaffine', 'no affine op before index %d', upto);
+    error('gpu_bab_crown_tight:nolinear', 'no affine/conv op before index %d', upto);
 end
 
 function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
@@ -64,12 +75,38 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
     A = A0;
     nS = size(A0, 1);
     d = zeros(nS, 1, precision);
+    % DAG support: an 'add' op (out = out[a]+out[b]) sends its coefficient UNCHANGED to BOTH
+    % inputs (linear -> exact). skipA{k} accumulates the coefficient arriving at op k's OUTPUT
+    % from later adds; inputSkipA accumulates skips that target op 0 (the engine input).
+    hasAdd = any(cellfun(@(o) strcmp(o.type, 'add'), ops(1:upto)));
+    skipA = cell(upto, 1); inputSkipA = 0;
     for k = upto:-1:1
         op = ops{k};
-        if strcmp(op.type, 'affine')
+        if hasAdd && ~isempty(skipA{k}), A = A + skipA{k}; end
+        if strcmp(op.type, 'add')
+            for ii = 1:numel(op.inputs)
+                src = op.inputs(ii);
+                if src == 0
+                    inputSkipA = inputSkipA + A;
+                elseif isempty(skipA{src})
+                    skipA{src} = A;
+                else
+                    skipA{src} = skipA{src} + A;
+                end
+            end
+            A = zeros(nS, size(A, 2), precision);   % fully distributed to its inputs
+        elseif strcmp(op.type, 'affine')
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             d = d + A * b;
             A = A * W;
+        elseif strcmp(op.type, 'conv')
+            [A, d] = i_conv_backward(A, d, op, precision);
+        elseif strcmp(op.type, 'normaffine')
+            [A, d] = i_normaffine_backward(A, d, op, precision);
+        elseif strcmp(op.type, 'avgpool')
+            [A, d] = i_avgpool_backward(A, d, op, precision);
+        elseif strcmp(op.type, 'maxpool')
+            [A, d] = i_maxpool_backward(A, d, op, preL{k}, preU{k}, precision, lower);
         else
             l = preL{k}; u = preU{k};
             [au, bu, al] = i_relax(l, u, precision);
@@ -83,12 +120,124 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
             end
         end
     end
+    if hasAdd, A = A + inputSkipA; end   % coeff on the input = chain + skips-to-input
     Apos = max(A, 0); Aneg = min(A, 0);
     if lower
         bound = Apos * cast(x_lb, precision) + Aneg * cast(x_ub, precision) + d;
     else
         bound = Apos * cast(x_ub, precision) + Aneg * cast(x_lb, precision) + d;
     end
+end
+
+function [A2, d2] = i_conv_backward(A, d, op, precision)
+% Exact CROWN backward through a conv (linear, NO relaxation): A_in = the conv ADJOINT
+% (dltranspconv) of A_out, d += <A_out, b>. The adjoint identity <A_out,conv(W,x)> =
+% <transpconv(A_out,W),x> holds EXACTLY -> sound (no over/under-approx). spec = batch dim.
+    nS = size(A, 1);
+    osh = op.outShape; ish = op.inShape;
+    W = cast(op.W, precision);
+    A4 = dlarray(reshape(A.', [osh(1) osh(2) osh(3) nS]), 'SSCB');
+    % Exact conv adjoint: reconstruct the adjoint on the PADDED input (Cropping=0), then
+    % crop to the original-input region (rows pad_t+1:pad_t+Hin, cols pad_l+1:pad_l+Win).
+    % This is the exact transpose of "pad-then-conv" for any stride/pad/dilation (a
+    % symmetric Cropping mis-sizes strided convs because the forward floor drops the
+    % unused bottom pad). Tail rows the floor never reached carry zero coefficient -> 0.
+    Afull = extractdata(dltranspconv(A4, W, 0, 'Stride', op.stride, 'Cropping', 0, 'DilationFactor', op.dil));
+    pt = op.pad(1); pl = op.pad(3);
+    Ain = zeros([ish(1) ish(2) ish(3) nS], 'like', Afull);
+    hi = min(ish(1), size(Afull,1) - pt);
+    wi = min(ish(2), size(Afull,2) - pl);
+    if hi > 0 && wi > 0
+        Ain(1:hi, 1:wi, :, :) = Afull(pt+(1:hi), pl+(1:wi), :, :);
+    end
+    A2 = reshape(Ain, [prod(ish) nS]).';                              % nS x prod(inShape)
+    bc = reshape(cast(op.b(:), precision), [1 1 osh(3)]);
+    dinc = squeeze(sum(extractdata(A4) .* bc, [1 2 3]));
+    d2 = d + dinc(:);
+end
+
+function [A2, d2] = i_avgpool_backward(A, d, op, precision)
+% Exact CROWN backward through avgpool (LINEAR, no relaxation): each output cell is the
+% mean of its kh x kw window, so the adjoint distributes A_out/(kh*kw) uniformly back to
+% the window's input cells. Non-overlapping (stride==pool) -> every input cell lies in at
+% most one window -> the adjoint is repelem(A_out, kh, kw)/(kh*kw), zero-padded to inShape
+% (floor-dropped tail cells were in no window -> zero coefficient). No bias -> d unchanged.
+    nS = size(A, 1);
+    osh = op.outShape; ish = op.inShape;
+    kh = op.pool(1); kw = op.pool(2);
+    A4 = reshape(A.', [osh(1) osh(2) osh(3) nS]);           % [Hout Wout C nS]
+    Aup = repelem(cast(A4, precision), kh, kw, 1, 1) / (kh*kw);   % distribute to window cells
+    Ain = zeros([ish(1) ish(2) ish(3) nS], precision);
+    hi = min(ish(1), size(Aup,1)); wi = min(ish(2), size(Aup,2));
+    Ain(1:hi, 1:wi, :, :) = Aup(1:hi, 1:wi, :, :);
+    A2 = reshape(Ain, [prod(ish) nS]).';                   % nS x prod(inShape)
+    d2 = d;
+end
+
+function [A2, d2] = i_maxpool_backward(A, d, op, l, u, precision, lower)
+% Sound CROWN backward through max pooling. For each output cell o = max over its window:
+%   lower bound  y_o >= x_m        (m = argmax of the window's LOWER bounds; max >= any elem)
+%   upper bound  y_o <= x_m        if m is DECIDED (l_m >= u_i for every other i) -- EXACT
+%               y_o <= max_i u_i  otherwise (a constant; sound since max <= max of uppers)
+% Lmat/Umat are n_out x n_in selection matrices (sparse); overlapping windows accumulate
+% naturally in Apos*Lmat. Sign-aware: +coeff uses the relaxation that bounds the spec on the
+% correct side. Undecided cells leave a constant gap (the BaB can split the feeding ReLUs).
+    [mIdx, decided, umax] = i_maxpool_relax(op, l, u);
+    n_in = prod(op.inShape); n_out = prod(op.outShape);
+    Lmat = sparse(1:n_out, mIdx, 1, n_out, n_in);               % y_o >= x_{m_o}
+    dec  = find(decided);
+    Umat = sparse(dec, mIdx(dec), 1, n_out, n_in);              % decided: y_o <= x_{m_o}
+    Ubias = zeros(n_out, 1); Ubias(~decided) = umax(~decided);  % undecided: y_o <= umax
+    Ad = double(A); Apos = max(Ad, 0); Aneg = min(Ad, 0);
+    if lower
+        A2 = cast(Apos * Lmat + Aneg * Umat, precision);
+        d2 = d + cast(Aneg * Ubias, precision);
+    else
+        A2 = cast(Apos * Umat + Aneg * Lmat, precision);
+        d2 = d + cast(Apos * Ubias, precision);
+    end
+end
+
+function [mIdx, decided, umax] = i_maxpool_relax(op, l, u)
+% Per output cell: m = flat input index of the window's argmax-LOWER element; decided = that
+% element dominates (its lower bound >= every other window upper => max is exactly it); umax =
+% max window upper. Unpadded windows (enforced at extraction); overlap allowed.
+    ish = op.inShape; osh = op.outShape;
+    H = ish(1); W = ish(2); C = ish(3); Ho = osh(1); Wo = osh(2);
+    kh = op.pool(1); kw = op.pool(2); sh = op.stride(1); sw = op.stride(2);
+    L = reshape(double(l), [H W C]); U = reshape(double(u), [H W C]);
+    n_out = prod(osh);
+    mIdx = ones(n_out, 1); decided = false(n_out, 1); umax = zeros(n_out, 1);
+    for c = 1:C
+        for ow = 1:Wo
+            rw = (ow-1)*sw + (1:kw);
+            for oh = 1:Ho
+                rh = (oh-1)*sh + (1:kh);
+                lw = L(rh, rw, c); uw = U(rh, rw, c);
+                [maxl, p] = max(lw(:));
+                [pr, pc] = ind2sub([kh kw], p);
+                o = sub2ind([Ho Wo C], oh, ow, c);
+                mIdx(o) = sub2ind([H W C], rh(pr), rw(pc), c);
+                uw2 = uw; uw2(p) = -inf;
+                decided(o) = maxl >= max(uw2(:));               % argmax-lower dominates others
+                umax(o) = max(uw(:));
+            end
+        end
+    end
+end
+
+function [A2, d2] = i_normaffine_backward(A, d, op, precision)
+% Backward through y = s.*x + t (diagonal affine): A_in = A .* s_flat'; d += A * t_flat.
+    sh = op.shape;
+    sf = i_bcast_flat(op.scale, sh, precision);
+    tf = i_bcast_flat(op.shift, sh, precision);
+    A2 = A .* sf.';
+    d2 = d + A * tf;
+end
+
+function v = i_bcast_flat(x, sh, precision)
+% Broadcast x ([1 1 C] / [H W C] / scalar) to a flat [prod(sh) x 1] column (column-major).
+    v = reshape(zeros([sh(1) sh(2) sh(3)], precision) + cast(x, precision), [], 1);
 end
 
 function [au, bu, al] = i_relax(l, u, precision)

@@ -36,6 +36,16 @@ function [status, info] = gpu_bab_relu_split(ops, x_lb, x_ub, trueLabel, nClasse
     cexEvery  = i_get(opts, 'cexEvery', 25);   % per-node counterexample cadence (0 = off)
     intermediate = i_get(opts, 'intermediate', 'ibp');  % 'ibp' | 'tight' (CROWN intermediate bounds)
 
+    % SOUNDNESS GUARD: the 'ibp' (i_crown_clamped) and alpha-fix node-bound paths handle
+    % ONLY affine+relu; a conv/normaffine/avgpool op would fall through their else-branch
+    % and be silently treated as a ReLU -> wrong (possibly unsound) bounds -> false robust.
+    % gpu_bab_crown_tight is the only path that bounds those ops soundly, so force 'tight'
+    % whenever the net is not pure FC+ReLU.
+    hasNonFC = any(cellfun(@(o) ~any(strcmp(o.type, {'affine','relu'})), ops));
+    if hasNonFC && ~strcmp(intermediate, 'tight')
+        intermediate = 'tight';
+    end
+
     C = -eye(nClasses, precision);
     C(:, trueLabel) = C(:, trueLabel) + 1;
     C(trueLabel, :) = [];
@@ -121,8 +131,7 @@ function [margins, unstable] = i_crown_clamped(ops, x_lb, x_ub, C, precision, fi
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             Wp = max(W,0); Wn = min(W,0);
             nlb = Wp*lb + Wn*ub + b; nub = Wp*ub + Wn*lb + b; lb = nlb; ub = nub;
-        else
-            r = find(reluIdx == k, 1);
+        elseif strcmp(op.type, 'relu')
             fx = fixings{k};
             if ~isempty(fx)
                 lb(fx == 1)  = max(lb(fx == 1),  0);    % active: z >= 0
@@ -131,6 +140,9 @@ function [margins, unstable] = i_crown_clamped(ops, x_lb, x_ub, C, precision, fi
             preL{k} = lb; preU{k} = ub;
             unstable{k} = (lb < 0) & (ub > 0);
             lb = max(lb, 0); ub = max(ub, 0);
+        else
+            error('gpu_bab_relu_split:fcOnly', ...
+                'i_crown_clamped supports affine/relu only (got "%s"); use intermediate=''tight'' for conv/bn/pool.', op.type);
         end
     end
     % backward CROWN (single box, lower bound on C*f)
@@ -141,7 +153,7 @@ function [margins, unstable] = i_crown_clamped(ops, x_lb, x_ub, C, precision, fi
         if strcmp(op.type, 'affine')
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             d = d + A*b; A = A*W;
-        else
+        elseif strcmp(op.type, 'relu')
             l = preL{k}; u = preU{k}; m = numel(l);
             au = zeros(m,1,precision); bu = zeros(m,1,precision); al = zeros(m,1,precision);
             act = (l >= 0); au(act) = 1; al(act) = 1;
@@ -151,6 +163,8 @@ function [margins, unstable] = i_crown_clamped(ops, x_lb, x_ub, C, precision, fi
             Apos = max(A,0); Aneg = min(A,0);
             d = d + Aneg*bu;
             A = Apos .* al.' + Aneg .* au.';
+        else
+            error('gpu_bab_relu_split:fcOnly', 'i_crown_clamped backward supports affine/relu only (got "%s").', op.type);
         end
     end
     Apos = max(A,0); Aneg = min(A,0);

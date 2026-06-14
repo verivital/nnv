@@ -1,4 +1,4 @@
-function [margins, info] = gpu_bab_crown_alpha(ops, x_lb, x_ub, C, precision, nIter, lr)
+function [margins, info] = gpu_bab_crown_alpha(ops, x_lb, x_ub, C, precision, nIter, lr, useTight)
 % GPU_BAB_CROWN_ALPHA  alpha-CROWN: tighten the CROWN spec lower bound by optimizing
 %   the unstable-ReLU lower-relaxation slopes (the "alpha" parameters).
 %
@@ -23,31 +23,42 @@ function [margins, info] = gpu_bab_crown_alpha(ops, x_lb, x_ub, C, precision, nI
     if nargin < 5 || isempty(precision), precision = 'single'; end
     if nargin < 6 || isempty(nIter), nIter = 20; end
     if nargin < 7 || isempty(lr), lr = 0.5; end
+    if nargin < 8 || isempty(useTight), useTight = false; end  % true -> CROWN-tight intermediate bounds
 
     B = size(x_lb, 2);
     nSpec = size(C, 1);
     nOps = numel(ops);
 
-    % ---- forward IBP: pre-activation bounds + fixed relaxation pieces + masks ----
-    preL = cell(nOps,1); preU = cell(nOps,1); actM = cell(nOps,1); unsM = cell(nOps,1);
-    auC = cell(nOps,1);  buC = cell(nOps,1);
-    lb = cast(x_lb, precision); ub = cast(x_ub, precision);
+    % ---- intermediate bounds: IBP (default) or CROWN-tight (useTight; single-box) ----
+    preL = cell(nOps,1); preU = cell(nOps,1);
+    if useTight
+        [~, preL, preU] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision);  % assumes B==1
+    else
+        lb = cast(x_lb, precision); ub = cast(x_ub, precision);
+        for k = 1:nOps
+            op = ops{k};
+            if strcmp(op.type, 'affine')
+                W = cast(op.W, precision); b = cast(op.b(:), precision);
+                Wp = max(W,0); Wn = min(W,0);
+                nlb = Wp*lb + Wn*ub + b; nub = Wp*ub + Wn*lb + b; lb = nlb; ub = nub;
+            else
+                preL{k} = lb; preU{k} = ub;
+                lb = max(lb,0); ub = max(ub,0);
+            end
+        end
+    end
+    % ---- derive fixed relaxation pieces + masks from preL/preU (tight or IBP) ----
+    actM = cell(nOps,1); unsM = cell(nOps,1); auC = cell(nOps,1); buC = cell(nOps,1);
     for k = 1:nOps
-        op = ops{k};
-        if strcmp(op.type, 'affine')
-            W = cast(op.W, precision); b = cast(op.b(:), precision);
-            Wp = max(W,0); Wn = min(W,0);
-            nlb = Wp*lb + Wn*ub + b; nub = Wp*ub + Wn*lb + b; lb = nlb; ub = nub;
-        else
-            preL{k} = lb; preU{k} = ub;
-            act = (lb >= 0); uns = (lb < 0) & (ub > 0);
-            au = zeros(size(lb), precision); bu = zeros(size(lb), precision);
+        if strcmp(ops{k}.type, 'relu')
+            l = preL{k}; u = preU{k};
+            act = (l >= 0); uns = (l < 0) & (u > 0);
+            au = zeros(size(l), precision); bu = zeros(size(l), precision);
             au(act) = 1;
-            dn = ub(uns) - lb(uns);
-            au(uns) = ub(uns) ./ dn; bu(uns) = -au(uns) .* lb(uns);
+            dn = u(uns) - l(uns);
+            au(uns) = u(uns) ./ dn; bu(uns) = -au(uns) .* l(uns);
             actM{k} = cast(act, precision); unsM{k} = cast(uns, precision);
             auC{k} = au; buC{k} = bu;
-            lb = max(lb,0); ub = max(ub,0);
         end
     end
 

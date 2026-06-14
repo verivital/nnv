@@ -646,6 +646,25 @@ function ok = is_nnvnet_valid(nnvnet)
     ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
 end
 
+function L = relax_ladder(ks)
+% Build an ordered cell array of sound relax-star-area reachOptions.
+%   ks : vector of relaxFactor values, ordered cheapest(high k) -> tightest(low k).
+% Every k in [0,1] is a SOUND over-approximation (PosLin.reach_relaxed_star_area only
+% REPLACES an LP-tight bound with an estimateRanges superset, never tightens below the
+% true reachable set), so the whole ladder is sound-or-unknown regardless of order; the
+% verify loop takes the FIRST rung that returns a decisive status. Used to (a) lead with
+% a fast high-k pass so reach COMPLETES within budget (the verify loop has no per-method
+% timeout, so a timeout kills the instance before later rungs run) and (b) follow with
+% tighter rungs that can certify loose-unknowns.
+    L = cell(1, numel(ks));
+    for i = 1:numel(ks)
+        o = struct();
+        o.reachMethod = 'relax-star-area';
+        o.relaxFactor = ks(i);
+        L{i} = o;
+    end
+end
+
 function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib)
 % load participating vnncomp 2025 benchmark NNs
 % Not yet supported:
@@ -836,20 +855,16 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = matlab2nnv(net);
         if contains(onnx, '-set')
-            reachOptions = struct;
-            reachOptions.reachMethod = 'relax-star-area';
-            reachOptions.relaxFactor = 0.5;
-            reachOptionsList{1} = reachOptions;
-            reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star'; % default parameters
-            reachOptionsList{2} = reachOptions;
+            reachOptionsList = relax_ladder([0.5, 0.2]);
+            oo = struct(); oo.reachMethod = 'approx-star';
+            reachOptionsList{end+1} = oo;
         else
-            % Was a 0.9-then-0.7 double-write to {1} (only 0.7 ever ran). Keep the
-            % single sound relax-star-area@0.9; slow_cats prepends approx-zono+abs-dom.
-            reachOptions = struct;
-            reachOptions.reachMethod = 'relax-star-area';
-            reachOptions.relaxFactor = 0.9;
-            reachOptionsList{1} = reachOptions;
+            % Adaptive relax-star ladder for the 133 cora timeouts: the verify loop has
+            % NO per-method timeout, so a slow method kills the instance before any later
+            % rung runs -> LEAD with the fastest (high-k) pass so reach COMPLETES in
+            % budget, then tighter rungs to certify loose-unknowns. Every k is a sound
+            % over-approx (PosLin estimateRanges); slow_cats still prepends abs-dom.
+            reachOptionsList = relax_ladder([0.95, 0.85, 0.5]);
         end
         nRand = 500;
 
@@ -866,37 +881,29 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         % OVERWRITING {1}, so only the exponential exact-star ran and stalled to
         % 'unknown'. exact-star is re-added as {3} -- now tractable WITH predicate
         % contraction -- running only after approx/relax both return unknown.)
-        reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star';
-        reachOptionsList{1} = reachOptions;
-        reachOptions = struct;
-        reachOptions.reachMethod = 'relax-star-area';
-        reachOptions.relaxFactor = 0.7;
-        reachOptionsList{2} = reachOptions;
-        % exact-star + predicate contraction (acasxu Step 1+2) as a GATED precise
-        % closer. The earlier exact-star here was removed because it blew up WITHOUT
-        % contraction; WITH contraction it is tractable on these small nets and decides
-        % the approx/relax 'unknown's (validated: dist_shift probe -> sound unsat @120s).
-        % Runs only after approx-star and relax-star both return unknown.
-        reachOptions = struct;
-        reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = 1;
-        reachOptionsList{3} = reachOptions;
+        % approx-star -> relax-star tightening ladder (cheap, for the 36 unknowns) ->
+        % GATED exact-star closer LAST (only if everything above returns unknown). Each
+        % rung is a sound over-approx; the loop takes the first decisive status.
+        reachOptionsList = {};
+        o1 = struct(); o1.reachMethod = 'approx-star'; reachOptionsList{1} = o1;
+        reachOptionsList = [reachOptionsList, relax_ladder([0.7, 0.4, 0.15])];
+        % exact-star + predicate contraction (acasxu Step 1+2) as the precise closer --
+        % tractable WITH contraction on these small nets (validated: dist_shift probe ->
+        % sound unsat @120s); runs only after approx-star and the relax ladder return unknown.
+        oe = struct(); oe.reachMethod = 'exact-star'; oe.numCores = 1;
+        reachOptionsList{end+1} = oe;
 
     elseif contains(category, "linearize")
         % 
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
         try 
             nnvnet = matlab2nnv(net);
-            % Sound approx-star -> looser relax-star fallback (was approx-star at {1}
-            % then exact-star OVERWRITING {1}; only the exponential exact-star ran).
-            reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star';
-            reachOptionsList{1} = reachOptions;
-            reachOptions = struct;
-            reachOptions.reachMethod = 'relax-star-area';
-            reachOptions.relaxFactor = 0.7;
-            reachOptionsList{2} = reachOptions;
+            % 120/120 unknown today = bounds too loose (reach completes <2s, not a
+            % timeout). Tightness ladder relax 0.5 -> 0.25 -> approx-star (full LP,
+            % tightest). All sound; any rung that certifies is a pure +10.
+            reachOptionsList = relax_ladder([0.5, 0.25]);
+            oo = struct(); oo.reachMethod = 'approx-star';
+            reachOptionsList{end+1} = oo;
         catch
             nnvnet = "";
             reachOptions = struct;
@@ -1093,13 +1100,11 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         % tllverify: onnx to nnv
         net = importNetworkFromONNX(onnx,"InputDataFormats", "BC", 'OutputDataFormats',"BC");
         nnvnet = matlab2nnv(net);
-        reachOptions = struct;
-        reachOptions.reachMethod = 'relax-star-area';
-        reachOptions.relaxFactor = 0.9;
-        reachOptionsList{1} = reachOptions;
-        reachOptions = struct;
-        reachOptions.reachMethod = 'approx-star'; % default parameters
-        reachOptionsList{2} = reachOptions;
+        % 0.95 fast pass for the 18 big-N timeouts; tighter rungs for the 12 unknowns;
+        % approx-star (full LP) as the tightest fallback. All sound (any k is over-approx).
+        reachOptionsList = relax_ladder([0.95, 0.8, 0.5]);
+        oo = struct(); oo.reachMethod = 'approx-star';
+        reachOptionsList{end+1} = oo;
 
     elseif contains(category, "traffic")
         % traffic_signs_recognition: MATLAB's importNetworkFromONNX cannot

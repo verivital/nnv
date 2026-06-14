@@ -20,9 +20,21 @@ function ops = nn_to_ops(nnvnet)
             % (e.g. zerocenter) is an AFFINE shift the caller must apply to the input
             % (pre-normalize the image / box) since it is dropped here.
         elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
-                || contains(cls, 'Output') || contains(cls, 'Regression')
-            % skip -- softmax is monotonic and the output layer is identity on logits,
-            % so neither affects argmax-robustness verification on the pre-softmax scores.
+                || contains(cls, 'Output') || contains(cls, 'Regression') ...
+                || contains(cls, 'Placeholder')
+            % Trailing output tail (softmax monotonic; classification/output identity on
+            % logits; Placeholder = matlab2nnv stand-in for the softmax/output it could not
+            % convert). Skippable for argmax-robustness ONLY if nothing computational
+            % follows -- guard against a mid-net unknown layer being silently dropped.
+            for jj = i+1:numel(nnvnet.Layers)
+                c2 = class(nnvnet.Layers{jj});
+                if contains(c2,'FullyConnected') || contains(c2,'Relu') || contains(c2,'ReLU') ...
+                        || contains(c2,'Conv') || contains(c2,'BatchNorm') || contains(c2,'Pool')
+                    error('nn_to_ops:unsupported', ...
+                        ['Layer "%s" (layer %d) is not a trailing output layer ' ...
+                         '(computational layer "%s" follows); cannot skip.'], cls, i, c2);
+                end
+            end
         else
             error('nn_to_ops:unsupported', ...
                 ['GPU-BaB Phase 1 supports FullyConnected + ReLU only; got "%s" ' ...

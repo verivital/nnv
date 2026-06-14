@@ -68,20 +68,28 @@ function [margins, info] = gpu_bab_crown_alpha(ops, x_lb, x_ub, C, precision, nI
 
     m0 = i_alpha_back(ops, preL, actM, unsM, auC, buC, x_lb, x_ub, C, precision, ...
                       alphaVec, reluIdx, rdims, offsets, B, nSpec);
-    info = struct('base_minmargin', i_gather(sum(min(m0,[],1),2)), 'iters', nIter);
+    bestObj = i_gather(sum(min(m0,[],1), 'all'));
+    bestVec = alphaVec;
+    info = struct('base_minmargin', bestObj, 'iters', nIter);
 
-    % ---- projected gradient ascent ----
+    % ---- projected gradient ascent (normalized step + keep-best -> monotone) ----
     for it = 1:nIter
         [~, grad] = dlfeval(@(av) i_alpha_loss(ops, preL, actM, unsM, auC, buC, ...
                             x_lb, x_ub, C, precision, av, reluIdx, rdims, offsets, B, nSpec), alphaVec);
-        v = extractdata(alphaVec) - lr * extractdata(grad);   % descend loss = ascend margin
+        g = extractdata(grad);
+        g = g / (max(abs(g(:))) + eps(precision));        % normalize -> step ~ lr per coord
+        v = extractdata(alphaVec) - lr * g;               % descend loss = ascend margin
         v = max(min(v, 1), 0);
         alphaVec = dlarray(v);
+        m = i_alpha_back(ops, preL, actM, unsM, auC, buC, x_lb, x_ub, C, precision, ...
+                         alphaVec, reluIdx, rdims, offsets, B, nSpec);
+        obj = i_gather(sum(min(m,[],1), 'all'));
+        if obj > bestObj, bestObj = obj; bestVec = alphaVec; end   % keep best (never regress)
     end
 
     margins = i_alpha_back(ops, preL, actM, unsM, auC, buC, x_lb, x_ub, C, precision, ...
-                           alphaVec, reluIdx, rdims, offsets, B, nSpec);
-    info.alpha_minmargin = i_gather(sum(min(margins,[],1),2));
+                           bestVec, reluIdx, rdims, offsets, B, nSpec);
+    info.alpha_minmargin = i_gather(sum(min(margins,[],1), 'all'));
 end
 
 function [loss, grad] = i_alpha_loss(ops, preL, actM, unsM, auC, buC, x_lb, x_ub, C, precision, alphaVec, reluIdx, rdims, offsets, B, nSpec)

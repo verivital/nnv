@@ -26,7 +26,24 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
 
     if strcmp(dataType, "gpuArray") || isa(A, "gpuArray") % ensure it is not a gpuArray
         f = gather(f); A = gather(A); b = gather(b); lb = gather(lb);
-        Aeq = gather(Aeq); Beq = gather(Beq); ub = gather(ub); 
+        Aeq = gather(Aeq); Beq = gather(Beq); ub = gather(ub);
+    end
+
+    % box-only fast path: an LP whose inequality matrix is empty or all-zero (and no
+    % equality constraints) over a finite box predicate has the closed-form optimum
+    % sum_i min(f_i*lb_i, f_i*ub_i) -- no solver call needed. NNV's Star.getRange/getMin/
+    % getMax over a box predicate produce exactly these (a single benchmark, cifar100
+    % resnet, issues ~13.5k of them per instance, all with nnz(A)=0). The all-zero rows
+    % impose 0 <= b, vacuous iff every b >= 0 (guarded below); otherwise fall through.
+    % SOUND: the box optimum is exact (each coordinate optimizes independently over [lb,ub])
+    % and linprog returns the identical value -- this only skips the redundant solver call.
+    if (isempty(A) || nnz(A) == 0) && isempty(Aeq) && isempty(Beq) && ~isempty(f) ...
+            && ~isempty(lb) && ~isempty(ub) && all(isfinite(lb(:))) && all(isfinite(ub(:))) ...
+            && (isempty(b) || all(double(b(:)) >= 0))
+        ff = double(f(:)); llb = double(lb(:)); uub = double(ub(:));
+        fval = sum(min(ff .* llb, ff .* uub));   % min of f'x over the box (linprog minimizes)
+        exitflag = "l1";                          % match the linprog success exitflag
+        return;
     end
 
     if isempty(A)

@@ -1,4 +1,12 @@
-function ops = nn_to_ops(nnvnet)
+function ops = nn_to_ops(nnvnet, flattenOrder)
+%   nn_to_ops(nnvnet, flattenOrder) -- flattenOrder controls how the conv output tensor
+%   [H W C] maps to the first FC's input columns (the conv->FC boundary). MATLAB-native
+%   dlnetworks flatten column-major ('colmajor', default); ONNX-imported nets flatten
+%   row-major, which mis-orders the FC columns vs the engine's column-major view (caught by
+%   the degenerate-IBP==evaluate guard). The dispatcher auto-calibrates: it tries each order
+%   and keeps the one whose op-list matches net.evaluate. Sound either way (wrong -> guard
+%   fails -> skip). Orders: 'colmajor' | 'chw_rowmajor' (ONNX [C H W]) | 'hwc_rowmajor'.
+    if nargin < 2 || isempty(flattenOrder), flattenOrder = 'colmajor'; end
 % NN_TO_OPS  Flatten an NNV NN object into an op list for the GPU-BaB engine.
 %   Phase 1: FullyConnected + ReLU. Phase 2 (this version): + Conv2D and the
 %   ImageInputLayer normalization (folded as a leading per-element affine op), so
@@ -37,6 +45,9 @@ function ops = nn_to_ops(nnvnet)
                          'inconsistent -- cannot map conv output to this FC soundly.'], ...
                         size(W,2), prod(curShape), num2str(curShape));
                 end
+                % reorder the FC weight columns from the net's flatten order to the engine's
+                % column-major [H W C] view (identity for 'colmajor'); validated by the guard.
+                W = i_flatten_permute(W, curShape, flattenOrder);
                 curShape = [];   % flattened; back to flat-vector world
             end
             ops{end+1} = struct('type','affine','W',W,'b',L.Bias); %#ok<AGROW>
@@ -193,6 +204,27 @@ function op = i_maxpool_op(L, inShape)
     Wout = floor((Win - pool(2))/stride(2) + 1);
     op = struct('type','maxpool','pool',pool,'stride',stride,'pad',pad, ...
                 'inShape',inShape, 'outShape',[Hout Wout C]);
+end
+
+% ---- conv->FC flatten: reorder FC weight columns to the engine's column-major view -----
+function W2 = i_flatten_permute(W, shape, order)
+% The engine flattens the conv output [H W C] COLUMN-MAJOR (H fastest). If the net flattens
+% it in another order, the FC weight columns are mis-aligned. Build the permutation that maps
+% each column-major position (h,w,c) to the net's flatten index, then reorder W's columns.
+    H = shape(1); Wd = shape(2); C = shape(3);
+    [hh, ww, cc] = ndgrid(1:H, 1:Wd, 1:C);              % linearized = column-major over [H W C]
+    h = hh(:); w = ww(:); c = cc(:);
+    switch order
+        case 'colmajor'
+            W2 = W; return;                              % already column-major -- no reorder
+        case 'chw_rowmajor'                              % ONNX [C H W] flattened row-major (W fastest)
+            netidx = (c-1)*H*Wd + (h-1)*Wd + w;
+        case 'hwc_rowmajor'                              % [H W C] row-major (C fastest)
+            netidx = (h-1)*Wd*C + (w-1)*C + c;
+        otherwise
+            error('nn_to_ops:flattenOrder', 'unknown flattenOrder "%s".', order);
+    end
+    W2 = W(:, netidx);
 end
 
 % ---- ImageInputLayer normalization -> per-element affine (scale, shift) ---------------

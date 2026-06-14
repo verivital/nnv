@@ -30,31 +30,46 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     if nargin < 5, opts = struct(); end
     guardTol = i_optget(opts, 'guardTol', 1e-4);
 
-    % (1) extract ops; refuse-on-unsupported -> skip (caller's Star path)
-    try
-        ops = nn_to_ops(net);
-    catch ME
-        verdict = 'skip'; info.reason = ['nn_to_ops refused: ' ME.message]; return;
-    end
-
     inShape = i_input_shape(net);
     lb = double(lb(:)); ub = double(ub(:));
     if isempty(inShape) || prod(inShape) ~= numel(lb)
         verdict = 'skip'; info.reason = 'unknown/mismatched input shape'; return;
     end
 
-    % (2) orientation soundness guard: op-list eval == net.evaluate at the box center
-    c  = (lb + ub) / 2;
-    yo = gpu_bab_ibp(ops, c, c, 'double'); yo = yo(:);
-    yn = net.evaluate(reshape(c, inShape));  yn = yn(:);
-    if numel(yo) ~= numel(yn)
-        verdict = 'skip'; info.reason = 'output-size mismatch'; return;
+    % (1+2) extract ops AND auto-calibrate the conv->FC flatten order against net.evaluate at
+    % SEVERAL probe points. ONNX-imported nets flatten row-major while the engine views the
+    % conv output column-major; trying each order and keeping the one whose op-list matches
+    % net.evaluate (the soundness guard) handles both. A wrong order/extraction never matches
+    % the probes -> 'skip' (Star), never a -150. Multi-probe makes a coincidental match negligible.
+    c = (lb + ub) / 2;
+    probes  = [c, lb + 0.25*(ub - lb), lb + 0.75*(ub - lb)];
+    orders  = {'colmajor', 'chw_rowmajor', 'hwc_rowmajor'};
+    ops = []; nClasses = NaN;
+    for oi = 1:numel(orders)
+        try
+            cand = nn_to_ops(net, orders{oi});
+        catch ME0
+            if oi == 1, info.reason = ['nn_to_ops refused: ' ME0.message]; end
+            continue;                               % unsupported layer -> same for every order
+        end
+        ok = true; maxe = 0;
+        for pp = 1:size(probes, 2)
+            cp = probes(:, pp);
+            yo = gpu_bab_ibp(cand, cp, cp, 'double'); yo = yo(:);
+            yn = net.evaluate(reshape(cp, inShape)); yn = yn(:);
+            if numel(yo) ~= numel(yn), ok = false; break; end
+            e = max(abs(yo - yn)); maxe = max(maxe, e);
+            if e > guardTol * max(1, max(abs(yn))), ok = false; break; end
+        end
+        if ok
+            ops = cand; nClasses = numel(yn); info.guardErr = maxe;
+            info.reason = sprintf('flatten=%s', orders{oi}); break;
+        end
     end
-    info.guardErr = max(abs(yo - yn));
-    if info.guardErr > guardTol * max(1, max(abs(yn)))
-        verdict = 'skip'; info.reason = sprintf('orientation guard failed (%.2e)', info.guardErr); return;
+    if isempty(ops)
+        if isempty(info.reason), info.reason = 'no flatten order matched net.evaluate (guard)'; end
+        verdict = 'skip'; return;
     end
-    nClasses = numel(yn);
     if target < 1 || target > nClasses
         verdict = 'skip'; info.reason = 'target out of range'; return;
     end

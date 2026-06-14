@@ -55,5 +55,13 @@ assert(all(mt <= trueMin + 1e-4), 'conv CROWN-tight margin must be sound (<= tru
 Cp = max(Cspec, 0); Cn = min(Cspec, 0);
 assert(all(mt >= Cp*ilb + Cn*iub - 1e-6), 'conv CROWN-tight must be no looser than IBP');
 
+%% Test 5: conv->FC flatten-order permute is non-trivial and column-major matches the net
+% (the dispatcher auto-calibrates this against net.evaluate for ONNX row-major flattens)
+xt = rand(10,10,2); yn = nnvnet.evaluate(xt); yn = yn(:);
+y_cm = gpu_bab_ibp(nn_to_ops(nnvnet, 'colmajor'),     xt(:), xt(:), 'double');
+y_rm = gpu_bab_ibp(nn_to_ops(nnvnet, 'chw_rowmajor'), xt(:), xt(:), 'double');
+assert(max(abs(y_cm(:) - yn)) < 1e-4, 'colmajor must match this native dlnetwork''s flatten');
+assert(max(abs(y_rm(:) - yn)) > 1e-3, 'a wrong flatten order must visibly differ (guard discriminates)');
+
 %% Summary
 disp('test_soundness_gpu_bab_conv: all sections passed');

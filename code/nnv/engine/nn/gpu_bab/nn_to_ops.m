@@ -61,6 +61,25 @@ function ops = nn_to_ops(nnvnet)
             op = i_conv_op(L, curShape);
             curShape = op.outShape;
             ops{end+1} = op; %#ok<AGROW>
+        elseif contains(cls, 'BatchNorm')
+            % BatchNorm at inference is a per-CHANNEL affine y = s_c.*x + t_c (LINEAR ->
+            % exact, no relaxation): fold as a per-channel normaffine ([1 1 C] broadcast
+            % over [H W C], handled by the existing normaffine IBP/CROWN). Conv-path only;
+            % a post-flatten BN (curShape==[]) is refused (rare; sound-by-refusal).
+            if isempty(curShape)
+                error('nn_to_ops:bnFlat', ...
+                    'BatchNorm on a flat (post-flatten) vector not yet supported -- refused for soundness.');
+            end
+            [s, t] = i_bn_fold(L, curShape);
+            ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',curShape); %#ok<AGROW>
+        elseif contains(cls, 'AvgPool') || contains(cls, 'AveragePool') || contains(cls, 'GlobalAveragePool')
+            if isempty(curShape)
+                error('nn_to_ops:poolFlat', ...
+                    'Pooling on a flat vector has no spatial shape -- refused for soundness.');
+            end
+            op = i_avgpool_op(L, curShape, cls);
+            curShape = op.outShape;
+            ops{end+1} = op; %#ok<AGROW>
         elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
                 || contains(cls, 'Output') || contains(cls, 'Regression') ...
                 || contains(cls, 'Placeholder')
@@ -105,6 +124,49 @@ function op = i_conv_op(L, inShape)
     Cout = size(W,4);
     op = struct('type','conv','W',W,'b',b,'stride',stride,'pad',pad,'dil',dil, ...
                 'inShape',inShape, 'outShape',[Hout Wout Cout]);
+end
+
+% ---- BatchNorm (inference) -> per-channel affine fold -------------------------------
+function [s, t] = i_bn_fold(L, shape)
+% y = Scale.*(x - TrainedMean)./sqrt(TrainedVariance + Epsilon) + Offset = s_c.*x + t_c.
+% Per channel -> [1 1 C] (broadcast over [H W C] by the normaffine op). LINEAR -> exact.
+    C = shape(3);
+    mu = L.TrainedMean(:); v = L.TrainedVariance(:);
+    ga = L.Scale(:); be = L.Offset(:);
+    if isscalar(L.Epsilon), ep = L.Epsilon * ones(C,1); else, ep = L.Epsilon(:); end
+    if numel(mu)~=C || numel(v)~=C || numel(ga)~=C || numel(be)~=C
+        error('nn_to_ops:bnChannels', ...
+            'BatchNorm param lengths (mean %d var %d scale %d offset %d) ~= channels %d.', ...
+            numel(mu), numel(v), numel(ga), numel(be), C);
+    end
+    den = sqrt(v + ep);
+    s = reshape(ga ./ den, [1 1 C]);
+    t = reshape(be - ga .* mu ./ den, [1 1 C]);
+end
+
+% ---- Average pooling -> depthwise non-overlapping LINEAR pool ------------------------
+function op = i_avgpool_op(L, inShape, cls)
+% Per-channel mean over each window (all +weights -> monotone IBP, exact CROWN adjoint =
+% uniform distribute). NON-OVERLAPPING only (stride==pool) and UNPADDED -- padded /
+% overlapping avgpool is refused (sound-by-refusal); GlobalAvgPool is the whole H x W.
+    Hin = inShape(1); Win = inShape(2); C = inShape(3);
+    if contains(cls, 'Global')
+        pool = [Hin Win]; stride = [Hin Win]; pad = [0 0 0 0];
+    else
+        pool   = i_pair(L.PoolSize, [1 1]);
+        stride = i_pair(L.Stride,   pool);          % default stride = pool size
+        pad    = i_quad(L.PaddingSize, [0 0 0 0]);
+    end
+    if any(pad ~= 0)
+        error('nn_to_ops:avgpoolPad', 'padded average pooling not yet supported -- refused for soundness.');
+    end
+    if ~isequal(stride, pool)
+        error('nn_to_ops:avgpoolOverlap', 'overlapping average pooling (stride~=pool) not yet supported -- refused for soundness.');
+    end
+    Hout = floor((Hin - pool(1))/stride(1) + 1);
+    Wout = floor((Win - pool(2))/stride(2) + 1);
+    op = struct('type','avgpool','pool',pool,'stride',stride,'pad',pad, ...
+                'inShape',inShape, 'outShape',[Hout Wout C]);
 end
 
 % ---- ImageInputLayer normalization -> per-element affine (scale, shift) ---------------

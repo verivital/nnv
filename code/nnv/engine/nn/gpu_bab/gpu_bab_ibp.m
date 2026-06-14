@@ -61,9 +61,11 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
                 [lb, ub] = i_conv_ibp(op, lb, ub, precision);
             case 'normaffine'
                 [lb, ub] = i_normaffine_ibp(op, lb, ub, precision);
+            case 'avgpool'
+                [lb, ub] = i_avgpool_ibp(op, lb, ub, precision);
             otherwise
                 error('gpu_bab_ibp:unsupportedOp', ...
-                    'Unsupported op type "%s" (supports affine/relu/conv/normaffine).', op.type);
+                    'Unsupported op type "%s" (supports affine/relu/conv/normaffine/avgpool).', op.type);
         end
     end
 
@@ -99,4 +101,17 @@ function [olb, oub] = i_normaffine_ibp(op, lb, ub, precision)
     a = s .* L4 + t; c = s .* U4 + t;
     olb = reshape(min(a, c), [prod(sh) B]);
     oub = reshape(max(a, c), [prod(sh) B]);
+end
+
+function [olb, oub] = i_avgpool_ibp(op, lb, ub, precision)
+% Average pool = per-channel mean over each window: all +weights -> MONOTONE, so the
+% bounds map directly (avgpool(lb), avgpool(ub)) with no W+/W- split. Non-overlapping,
+% unpadded (enforced at extraction). dlarray avgpool with Stride=pool.
+    B = size(lb, 2); ish = op.inShape; osh = op.outShape;
+    L4 = dlarray(reshape(lb, [ish(1) ish(2) ish(3) B]), 'SSCB');
+    U4 = dlarray(reshape(ub, [ish(1) ish(2) ish(3) B]), 'SSCB');
+    Lo = avgpool(L4, op.pool, 'Stride', op.stride);
+    Hi = avgpool(U4, op.pool, 'Stride', op.stride);
+    olb = reshape(extractdata(Lo), [prod(osh) B]);
+    oub = reshape(extractdata(Hi), [prod(osh) B]);
 end

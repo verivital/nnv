@@ -55,6 +55,7 @@ function w = i_layer_width(ops, upto)
         t = ops{k}.type;
         if strcmp(t, 'affine'),         w = size(ops{k}.W, 1);     return;
         elseif strcmp(t, 'conv'),       w = prod(ops{k}.outShape); return;
+        elseif strcmp(t, 'avgpool'),    w = prod(ops{k}.outShape); return;
         elseif strcmp(t, 'normaffine'), w = prod(ops{k}.shape);    return;
         end
     end
@@ -77,6 +78,8 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
             [A, d] = i_conv_backward(A, d, op, precision);
         elseif strcmp(op.type, 'normaffine')
             [A, d] = i_normaffine_backward(A, d, op, precision);
+        elseif strcmp(op.type, 'avgpool')
+            [A, d] = i_avgpool_backward(A, d, op, precision);
         else
             l = preL{k}; u = preU{k};
             [au, bu, al] = i_relax(l, u, precision);
@@ -123,6 +126,24 @@ function [A2, d2] = i_conv_backward(A, d, op, precision)
     bc = reshape(cast(op.b(:), precision), [1 1 osh(3)]);
     dinc = squeeze(sum(extractdata(A4) .* bc, [1 2 3]));
     d2 = d + dinc(:);
+end
+
+function [A2, d2] = i_avgpool_backward(A, d, op, precision)
+% Exact CROWN backward through avgpool (LINEAR, no relaxation): each output cell is the
+% mean of its kh x kw window, so the adjoint distributes A_out/(kh*kw) uniformly back to
+% the window's input cells. Non-overlapping (stride==pool) -> every input cell lies in at
+% most one window -> the adjoint is repelem(A_out, kh, kw)/(kh*kw), zero-padded to inShape
+% (floor-dropped tail cells were in no window -> zero coefficient). No bias -> d unchanged.
+    nS = size(A, 1);
+    osh = op.outShape; ish = op.inShape;
+    kh = op.pool(1); kw = op.pool(2);
+    A4 = reshape(A.', [osh(1) osh(2) osh(3) nS]);           % [Hout Wout C nS]
+    Aup = repelem(cast(A4, precision), kh, kw, 1, 1) / (kh*kw);   % distribute to window cells
+    Ain = zeros([ish(1) ish(2) ish(3) nS], precision);
+    hi = min(ish(1), size(Aup,1)); wi = min(ish(2), size(Aup,2));
+    Ain(1:hi, 1:wi, :, :) = Aup(1:hi, 1:wi, :, :);
+    A2 = reshape(Ain, [prod(ish) nS]).';                   % nS x prod(inShape)
+    d2 = d;
 end
 
 function [A2, d2] = i_normaffine_backward(A, d, op, precision)

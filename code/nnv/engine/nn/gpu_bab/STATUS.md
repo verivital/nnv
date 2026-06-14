@@ -22,6 +22,35 @@ Pure MATLAB, configurable precision (`'single'` default / `'double'`), gpuArray-
 exceed an FP slack; `unsafe` only from a concretely-evaluated misclassifying input;
 `unknown` on budget. Never a wrong verdict (VNN-COMP −150 avoided).
 
+## BREAKTHROUGH (2026-06-14) — CROWN intermediate bounds: the engine now verifies
+
+`gpu_bab_crown_tight` computes each layer's pre-activation bounds via a backward CROWN
+pass (reusing earlier layers' tight bounds) instead of IBP. On the trained MNIST FC net
+(2,304 ReLU) it tightens the robustness-margin lower bound by **~4 orders of magnitude**:
+
+| eps | IBP-intermediate | CROWN-intermediate | engine verdict |
+|---|---|---|---|
+| 0.005 | −40,278 | **+5.84** | **robust** (root, 0.1s, MC-sound) |
+| 0.01 | −84,714 | −270 | unknown (close) |
+| 0.02 | −178,593 | −4,712 | unknown |
+
+So the engine went from *useless* to a **sound verifier that proves real trained-MNIST
+robustness** at small eps. Wired into the ReLU-split BaB (`intermediate='tight'`) +
+BaBSR-lite gap branching (`i_pick_split_gap`).
+
+### Remaining gap to competition parity (honest)
+
+eps=0.01–0.05 on a 2,304-neuron net still returns `unknown` even with 800 BaB nodes — to
+certify you must split away the slack of *hundreds* of unstable neurons, and DFS fixes only
+~13/leaf. Closing this needs the two big LiRPA pieces, both substantial:
+1. **GPU-batched BaB** — batch thousands of sub-domains per bounding call (the original
+   GPU-BaB goal; needs the batched-tight form + a GPU instance to pay off).
+2. **α on the tight intermediate bounds** — joint α-optimization (auto_LiRPA-style),
+   tighter root → far fewer nodes.
+
+Current engine = a working, sound prototype. Competition parity = the full GPU-BaB vision
+(multi-week). The box-LP fast-path (PR #355) is the immediate VNN-COMP win.
+
 ## Known limitation (measured)
 
 Input-split BaB does **not** scale to high-dim inputs: on MNIST (784-dim) it exhausts

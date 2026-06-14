@@ -1,45 +1,139 @@
 function ops = nn_to_ops(nnvnet)
-% NN_TO_OPS  Flatten an NNV NN object into an affine/relu op list for the GPU-BaB
-%   engine. Phase 1 supports feedforward FullyConnected + ReLU nets (acasxu,
-%   MNIST-FC). Input/Flatten layers are skipped (no effect on a flat input box);
-%   any other layer ERRORS, so coverage is explicit rather than silently wrong.
+% NN_TO_OPS  Flatten an NNV NN object into an op list for the GPU-BaB engine.
+%   Phase 1: FullyConnected + ReLU. Phase 2 (this version): + Conv2D and the
+%   ImageInputLayer normalization (folded as a leading per-element affine op), so
+%   the engine covers feedforward conv nets (plain CNNs). BatchNorm / Pool /
+%   Addition(residual) are NOT yet handled and ERROR (sound-by-refusal: the
+%   dispatcher falls back to the Star path), so coverage is explicit, never
+%   silently wrong.
 %
 %   ops: cell array of structs consumed by gpu_bab_ibp / the CROWN pass:
-%     struct('type','affine','W',W,'b',b)   % y = W*x + b
-%     struct('type','relu')                 % y = max(0,x)
+%     struct('type','affine','W',W,'b',b)                       % y = W*x + b   (flat)
+%     struct('type','relu')                                     % y = max(0,x)
+%     struct('type','normaffine','scale',s,'shift',t,'shape',S) % y = s.*x + t  (per-element, [H W C])
+%     struct('type','conv','W',W,'b',b,'stride',..,'pad',..,'dil',..,'inShape',..,'outShape',..)
+%
+%   SHAPE: bounds/coeffs are carried FLAT by the engine; conv/normaffine ops reshape
+%   flat <-> [H W C (B/nSpec)] (column-major) at their boundary. nn_to_ops threads the
+%   running spatial shape `curShape` = [H W C] so each conv records inShape/outShape,
+%   and asserts prod(curShape)==size(firstFC.W,2) at the conv->FC (flatten) boundary.
+%   The reshape order is column-major; the caller MUST verify it matches reach by
+%   asserting gpu_bab_ibp(ops,center,center) ~= net.evaluate(center) (the input-order
+%   soundness guard) before trusting any verdict.
     ops = {};
+    curShape = [];   % [H W C] once an image/conv path is entered; [] for a flat FC net
     for i = 1:numel(nnvnet.Layers)
         L = nnvnet.Layers{i};
         cls = class(L);
         if contains(cls, 'FullyConnected')
-            ops{end+1} = struct('type', 'affine', 'W', L.Weights, 'b', L.Bias); %#ok<AGROW>
+            W = L.Weights;
+            if ~isempty(curShape)
+                % conv -> flatten -> FC boundary: the FC consumes the flattened conv
+                % output; its input width must equal prod(curShape) or the flatten
+                % order is inconsistent (caught here rather than producing wrong bounds).
+                if size(W,2) ~= prod(curShape)
+                    error('nn_to_ops:flattenMismatch', ...
+                        ['FC input width %d ~= prod(curShape) %d ([%s]); flatten order ' ...
+                         'inconsistent -- cannot map conv output to this FC soundly.'], ...
+                        size(W,2), prod(curShape), num2str(curShape));
+                end
+                curShape = [];   % flattened; back to flat-vector world
+            end
+            ops{end+1} = struct('type','affine','W',W,'b',L.Bias); %#ok<AGROW>
         elseif contains(cls, 'Relu') || contains(cls, 'ReLU')
-            ops{end+1} = struct('type', 'relu'); %#ok<AGROW>
-        elseif contains(cls, 'Input') || contains(cls, 'Flatten')
-            % skip -- identity on a flat input box. NOTE: a normalizing ImageInputLayer
-            % (e.g. zerocenter) is an AFFINE shift the caller must apply to the input
-            % (pre-normalize the image / box) since it is dropped here.
+            ops{end+1} = struct('type','relu'); %#ok<AGROW>
+        elseif contains(cls, 'ImageInput') || contains(cls, 'Image3DInput')
+            % seed the spatial shape from InputSize ([H W C]) and, if the layer
+            % normalizes, fold the normalization as the FIRST op (the -150 input-mismatch
+            % fix: the box must be bounded in the SAME normalized space reach feeds conv).
+            curShape = double(L.InputSize(:)');
+            [s, t, hasNorm] = i_input_norm(L);
+            if hasNorm
+                ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',curShape); %#ok<AGROW>
+            end
+        elseif contains(cls, 'Flatten')
+            % identity on values; the conv->FC boundary assert (above) enforces the order.
+        elseif contains(cls, 'Conv2D') || (contains(cls,'Conv') && ~contains(cls,'Transposed'))
+            if isempty(curShape)
+                error('nn_to_ops:noInputShape', ...
+                    'Conv layer %d reached without a known input [H W C] shape (need an ImageInputLayer).', i);
+            end
+            op = i_conv_op(L, curShape);
+            curShape = op.outShape;
+            ops{end+1} = op; %#ok<AGROW>
         elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
                 || contains(cls, 'Output') || contains(cls, 'Regression') ...
                 || contains(cls, 'Placeholder')
-            % Trailing output tail (softmax monotonic; classification/output identity on
-            % logits; Placeholder = matlab2nnv stand-in for the softmax/output it could not
-            % convert). Skippable for argmax-robustness ONLY if nothing computational
-            % follows -- guard against a mid-net unknown layer being silently dropped.
+            % trailing output tail -- skippable for argmax-robustness ONLY if nothing
+            % computational follows.
             for jj = i+1:numel(nnvnet.Layers)
                 c2 = class(nnvnet.Layers{jj});
                 if contains(c2,'FullyConnected') || contains(c2,'Relu') || contains(c2,'ReLU') ...
-                        || contains(c2,'Conv') || contains(c2,'BatchNorm') || contains(c2,'Pool')
+                        || contains(c2,'Conv') || contains(c2,'BatchNorm') || contains(c2,'Pool') ...
+                        || contains(c2,'Addition')
                     error('nn_to_ops:unsupported', ...
-                        ['Layer "%s" (layer %d) is not a trailing output layer ' ...
-                         '(computational layer "%s" follows); cannot skip.'], cls, i, c2);
+                        'Layer "%s" (layer %d) is not a trailing output layer ("%s" follows).', cls, i, c2);
                 end
             end
         else
             error('nn_to_ops:unsupported', ...
-                ['GPU-BaB Phase 1 supports FullyConnected + ReLU only; got "%s" ' ...
-                 '(layer %d). Add a backward rule for this layer type to extend coverage.'], ...
-                cls, i);
+                ['GPU-BaB Phase 2 supports ImageInput(norm)+Conv2D+FullyConnected+ReLU+Flatten; ' ...
+                 'got "%s" (layer %d). BatchNorm/Pool/Addition not yet handled -- refused for soundness.'], cls, i);
         end
     end
+end
+
+% ---- conv layer -> op (params copied in NNV-native [fh fw Cin Cout] form) -------------
+function op = i_conv_op(L, inShape)
+    W = L.Weights;
+    b = L.Bias;
+    if isempty(b), b = zeros(1,1,size(W,4), 'like', W); end
+    stride = i_pair(L.Stride, [1 1]);
+    pad    = i_quad(L.PaddingSize, [0 0 0 0]);     % [t b l r]
+    dil    = i_pair(L.DilationFactor, [1 1]);
+    ng = 1;
+    if isprop(L,'NumGroups') && ~isempty(L.NumGroups) && isnumeric(L.NumGroups)
+        ng = double(L.NumGroups);
+    end
+    if ng ~= 1
+        error('nn_to_ops:groupedConv', 'grouped conv (NumGroups=%g) not yet supported -- refused for soundness.', ng);
+    end
+    Hin = inShape(1); Win = inShape(2);
+    fh = size(W,1); fw = size(W,2);
+    Hout = floor((Hin + pad(1) + pad(2) - ((fh-1)*dil(1) + 1))/stride(1) + 1);
+    Wout = floor((Win + pad(3) + pad(4) - ((fw-1)*dil(2) + 1))/stride(2) + 1);
+    Cout = size(W,4);
+    op = struct('type','conv','W',W,'b',b,'stride',stride,'pad',pad,'dil',dil, ...
+                'inShape',inShape, 'outShape',[Hout Wout Cout]);
+end
+
+% ---- ImageInputLayer normalization -> per-element affine (scale, shift) ---------------
+function [s, t, hasNorm] = i_input_norm(L)
+    s = 1; t = 0; hasNorm = false;
+    if ~isprop(L,'Normalization') || isempty(L.Normalization), return; end
+    nrm = lower(char(string(L.Normalization)));
+    switch nrm
+        case {'none',''}
+            return;
+        case 'zerocenter'
+            t = -L.Mean; s = 1; hasNorm = true;
+        case 'zscore'
+            sd = L.StandardDeviation; s = 1 ./ sd; t = -L.Mean ./ sd; hasNorm = true;
+        case 'rescale-zero-one'
+            mn = L.Min; mx = L.Max; s = 1 ./ (mx - mn); t = -mn ./ (mx - mn); hasNorm = true;
+        case 'rescale-symmetric'
+            mn = L.Min; mx = L.Max; s = 2 ./ (mx - mn); t = -2*mn ./ (mx - mn) - 1; hasNorm = true;
+        otherwise
+            error('nn_to_ops:unknownNorm', 'unhandled ImageInputLayer Normalization "%s" -- refused for soundness.', nrm);
+    end
+end
+
+function v = i_pair(x, def)
+    if isempty(x), v = def; elseif isscalar(x), v = [x x]; else, v = double(x(:)'); v = v(1:2); end
+end
+function v = i_quad(x, def)
+    if isempty(x), v = def;
+    elseif isscalar(x), v = [x x x x];
+    elseif numel(x)==2, v = [x(1) x(1) x(2) x(2)];
+    else, v = double(x(:)'); v = v(1:4); end
 end

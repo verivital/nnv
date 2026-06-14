@@ -57,12 +57,46 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
             case 'relu'
                 lb = max(lb, 0);
                 ub = max(ub, 0);
+            case 'conv'
+                [lb, ub] = i_conv_ibp(op, lb, ub, precision);
+            case 'normaffine'
+                [lb, ub] = i_normaffine_ibp(op, lb, ub, precision);
             otherwise
                 error('gpu_bab_ibp:unsupportedOp', ...
-                    'Unsupported op type "%s" (Phase 1 supports affine + relu).', op.type);
+                    'Unsupported op type "%s" (supports affine/relu/conv/normaffine).', op.type);
         end
     end
 
     out_lb = lb;
     out_ub = ub;
+end
+
+function [olb, oub] = i_conv_ibp(op, lb, ub, precision)
+% Conv IBP = interval arithmetic over the LINEAR conv map: the SAME W+/W- split as the
+% affine op, with the matmul replaced by dlconv. Sound (tightest interval for a linear
+% map). Flat columns <-> [H W C B] (column-major) at the boundary; spec/batch = dim 4.
+    B = size(lb, 2);
+    ish = op.inShape; osh = op.outShape;
+    W = cast(op.W, precision);
+    bb = cast(op.b(:), precision);
+    Wp = max(W, 0); Wn = min(W, 0);
+    L4 = dlarray(reshape(lb, [ish(1) ish(2) ish(3) B]), 'SSCB');
+    U4 = dlarray(reshape(ub, [ish(1) ish(2) ish(3) B]), 'SSCB');
+    pad2 = [op.pad(1) op.pad(3); op.pad(2) op.pad(4)];   % [t l; b r] for dlconv
+    args = {'Stride', op.stride, 'Padding', pad2, 'DilationFactor', op.dil};
+    Lo = dlconv(L4, Wp, bb, args{:}) + dlconv(U4, Wn, 0, args{:});   % lower
+    Hi = dlconv(U4, Wp, bb, args{:}) + dlconv(L4, Wn, 0, args{:});   % upper
+    olb = reshape(extractdata(Lo), [prod(osh) B]);
+    oub = reshape(extractdata(Hi), [prod(osh) B]);
+end
+
+function [olb, oub] = i_normaffine_ibp(op, lb, ub, precision)
+% Per-element affine y = s.*x + t (s,t broadcast over [H W C]); sound interval map.
+    s = cast(op.scale, precision); t = cast(op.shift, precision);
+    sh = op.shape; B = size(lb, 2);
+    L4 = reshape(lb, [sh(1) sh(2) sh(3) B]);
+    U4 = reshape(ub, [sh(1) sh(2) sh(3) B]);
+    a = s .* L4 + t; c = s .* U4 + t;
+    olb = reshape(min(a, c), [prod(sh) B]);
+    oub = reshape(max(a, c), [prod(sh) B]);
 end

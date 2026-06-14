@@ -51,11 +51,14 @@ end
 
 function w = i_layer_width(ops, upto)
 % # outputs of ops[1..upto] = rows of the last affine in that prefix.
-    w = [];
     for k = upto:-1:1
-        if strcmp(ops{k}.type, 'affine'), w = size(ops{k}.W, 1); return; end
+        t = ops{k}.type;
+        if strcmp(t, 'affine'),         w = size(ops{k}.W, 1);     return;
+        elseif strcmp(t, 'conv'),       w = prod(ops{k}.outShape); return;
+        elseif strcmp(t, 'normaffine'), w = prod(ops{k}.shape);    return;
+        end
     end
-    error('gpu_bab_crown_tight:noaffine', 'no affine op before index %d', upto);
+    error('gpu_bab_crown_tight:nolinear', 'no affine/conv op before index %d', upto);
 end
 
 function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
@@ -70,6 +73,10 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             d = d + A * b;
             A = A * W;
+        elseif strcmp(op.type, 'conv')
+            [A, d] = i_conv_backward(A, d, op, precision);
+        elseif strcmp(op.type, 'normaffine')
+            [A, d] = i_normaffine_backward(A, d, op, precision);
         else
             l = preL{k}; u = preU{k};
             [au, bu, al] = i_relax(l, u, precision);
@@ -89,6 +96,47 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
     else
         bound = Apos * cast(x_ub, precision) + Aneg * cast(x_lb, precision) + d;
     end
+end
+
+function [A2, d2] = i_conv_backward(A, d, op, precision)
+% Exact CROWN backward through a conv (linear, NO relaxation): A_in = the conv ADJOINT
+% (dltranspconv) of A_out, d += <A_out, b>. The adjoint identity <A_out,conv(W,x)> =
+% <transpconv(A_out,W),x> holds EXACTLY -> sound (no over/under-approx). spec = batch dim.
+    nS = size(A, 1);
+    osh = op.outShape; ish = op.inShape;
+    W = cast(op.W, precision);
+    A4 = dlarray(reshape(A.', [osh(1) osh(2) osh(3) nS]), 'SSCB');
+    % Exact conv adjoint: reconstruct the adjoint on the PADDED input (Cropping=0), then
+    % crop to the original-input region (rows pad_t+1:pad_t+Hin, cols pad_l+1:pad_l+Win).
+    % This is the exact transpose of "pad-then-conv" for any stride/pad/dilation (a
+    % symmetric Cropping mis-sizes strided convs because the forward floor drops the
+    % unused bottom pad). Tail rows the floor never reached carry zero coefficient -> 0.
+    Afull = extractdata(dltranspconv(A4, W, 0, 'Stride', op.stride, 'Cropping', 0, 'DilationFactor', op.dil));
+    pt = op.pad(1); pl = op.pad(3);
+    Ain = zeros([ish(1) ish(2) ish(3) nS], 'like', Afull);
+    hi = min(ish(1), size(Afull,1) - pt);
+    wi = min(ish(2), size(Afull,2) - pl);
+    if hi > 0 && wi > 0
+        Ain(1:hi, 1:wi, :, :) = Afull(pt+(1:hi), pl+(1:wi), :, :);
+    end
+    A2 = reshape(Ain, [prod(ish) nS]).';                              % nS x prod(inShape)
+    bc = reshape(cast(op.b(:), precision), [1 1 osh(3)]);
+    dinc = squeeze(sum(extractdata(A4) .* bc, [1 2 3]));
+    d2 = d + dinc(:);
+end
+
+function [A2, d2] = i_normaffine_backward(A, d, op, precision)
+% Backward through y = s.*x + t (diagonal affine): A_in = A .* s_flat'; d += A * t_flat.
+    sh = op.shape;
+    sf = i_bcast_flat(op.scale, sh, precision);
+    tf = i_bcast_flat(op.shift, sh, precision);
+    A2 = A .* sf.';
+    d2 = d + A * tf;
+end
+
+function v = i_bcast_flat(x, sh, precision)
+% Broadcast x ([1 1 C] / [H W C] / scalar) to a flat [prod(sh) x 1] column (column-major).
+    v = reshape(zeros([sh(1) sh(2) sh(3)], precision) + cast(x, precision), [], 1);
 end
 
 function [au, bu, al] = i_relax(l, u, precision)

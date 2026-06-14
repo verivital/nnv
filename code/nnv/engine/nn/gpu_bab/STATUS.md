@@ -28,6 +28,32 @@ Input-split BaB does **not** scale to high-dim inputs: on MNIST (784-dim) it exh
 the box budget → `unknown` for borderline eps. Input-split is efficient only for
 low-dim inputs (acasxu, 5-dim). This is expected and matches the field.
 
+### DECISIVE diagnostic (2026-06-14) — the bound is catastrophically loose on real nets
+
+On a trained MNIST FC net (784→1024→512→256³→10, 2,304 ReLU), a confident digit
+(clean margin **+15**), the CROWN robustness-margin lower bound is:
+
+| eps | fixed-CROWN min | α-CROWN (60 it) min | proves at root |
+|---|---|---|---|
+| 0.005 | **−40,277** | −39,068 | no |
+| 0.01 | −84,714 | −82,119 | no |
+| 0.02 | −178,593 | −173,159 | no |
+
+The bound is **~4 orders of magnitude** too loose (−40k vs the true +15), and 60
+α-iterations move it only ~3%. **Root cause: this engine uses IBP for intermediate-layer
+bounds**, which explode over a 6-layer net — and α-optimizing only the *final* spec
+cannot fix loose *intermediate* bounds. No amount of α-iterations / BaB budget / branching
+closes a 40,000× gap.
+
+**Implication for the roadmap:** the missing piece is **CROWN intermediate bounds** — a
+backward CROWN pass to bound *every* intermediate layer (the O(L²) core of real α-CROWN /
+auto_LiRPA), with α optimized jointly across all those passes. That is a **major rework**,
+not a tune. Until it lands, this engine cannot verify real-scale MNIST nets (it is sound —
+returns `unknown` — never wrong). This confirms the research's conclusion that a
+from-scratch competitive LiRPA verifier in MATLAB is a long investment, and that the
+near-term VNN-COMP value is the **box-LP fast-path** (a real CPU win) + coverage/method
+levers, not GPU compute.
+
 ## Roadmap (priority order)
 
 DONE: **α-CROWN** (`gpu_bab_crown_alpha`) and the **β-CROWN ReLU-split framework**

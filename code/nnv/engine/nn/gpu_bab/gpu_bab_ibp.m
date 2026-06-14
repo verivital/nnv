@@ -63,9 +63,11 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
                 [lb, ub] = i_normaffine_ibp(op, lb, ub, precision);
             case 'avgpool'
                 [lb, ub] = i_avgpool_ibp(op, lb, ub, precision);
+            case 'maxpool'
+                [lb, ub] = i_maxpool_ibp(op, lb, ub, precision);
             otherwise
                 error('gpu_bab_ibp:unsupportedOp', ...
-                    'Unsupported op type "%s" (supports affine/relu/conv/normaffine/avgpool).', op.type);
+                    'Unsupported op type "%s" (supports affine/relu/conv/normaffine/avgpool/maxpool).', op.type);
         end
     end
 
@@ -112,6 +114,18 @@ function [olb, oub] = i_avgpool_ibp(op, lb, ub, precision)
     U4 = dlarray(reshape(ub, [ish(1) ish(2) ish(3) B]), 'SSCB');
     Lo = avgpool(L4, op.pool, 'Stride', op.stride);
     Hi = avgpool(U4, op.pool, 'Stride', op.stride);
+    olb = reshape(extractdata(Lo), [prod(osh) B]);
+    oub = reshape(extractdata(Hi), [prod(osh) B]);
+end
+
+function [olb, oub] = i_maxpool_ibp(op, lb, ub, precision)
+% Max pool = per-channel max over each window: MONOTONE, so bounds map directly
+% (maxpool(lb), maxpool(ub)) -- exact interval, no relaxation. dlarray maxpool.
+    B = size(lb, 2); ish = op.inShape; osh = op.outShape;
+    L4 = dlarray(reshape(cast(lb, precision), [ish(1) ish(2) ish(3) B]), 'SSCB');
+    U4 = dlarray(reshape(cast(ub, precision), [ish(1) ish(2) ish(3) B]), 'SSCB');
+    Lo = maxpool(L4, op.pool, 'Stride', op.stride);
+    Hi = maxpool(U4, op.pool, 'Stride', op.stride);
     olb = reshape(extractdata(Lo), [prod(osh) B]);
     oub = reshape(extractdata(Hi), [prod(osh) B]);
 end

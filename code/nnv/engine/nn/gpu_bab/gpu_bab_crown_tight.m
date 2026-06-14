@@ -26,22 +26,27 @@ function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, 
     unstable = cell(nOps, 1);
 
     % ---- tight intermediate bounds, layer by layer ----
+    % Compute input bounds for every op whose backward relaxation needs them: ReLU (the
+    % pre-activation) AND maxpool (the window inputs that decide the sound max relaxation).
     for k = 1:nOps
-        if strcmp(ops{k}.type, 'relu')
-            % z_k (the pre-activation feeding this ReLU) = output of ops[1..k-1].
-            % Bound each of its neurons via a backward CROWN pass over ops[1..k-1],
-            % which uses preL/preU of the strictly-earlier ReLUs (already computed).
+        tk = ops{k}.type;
+        if strcmp(tk, 'relu') || strcmp(tk, 'maxpool')
+            % z_k (the input feeding this op) = output of ops[1..k-1]. Bound each of its
+            % elements via a backward CROWN pass over ops[1..k-1], which reuses preL/preU of
+            % the strictly-earlier ReLUs/maxpools (already computed -- sound by induction).
             nk = i_layer_width(ops, k-1);
             Ck = eye(nk, precision);
             pu = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, false);
             pl = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, true);
-            if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
+            if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                 fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
                 pl(fx == 1)  = max(pl(fx == 1),  0);
                 pu(fx == -1) = min(pu(fx == -1), 0);
             end
             preL{k} = pl; preU{k} = pu;
-            unstable{k} = (pl < 0) & (pu > 0);
+            if strcmp(tk, 'relu')
+                unstable{k} = (pl < 0) & (pu > 0);
+            end
         end
     end
 
@@ -56,6 +61,7 @@ function w = i_layer_width(ops, upto)
         if strcmp(t, 'affine'),         w = size(ops{k}.W, 1);     return;
         elseif strcmp(t, 'conv'),       w = prod(ops{k}.outShape); return;
         elseif strcmp(t, 'avgpool'),    w = prod(ops{k}.outShape); return;
+        elseif strcmp(t, 'maxpool'),    w = prod(ops{k}.outShape); return;
         elseif strcmp(t, 'normaffine'), w = prod(ops{k}.shape);    return;
         end
     end
@@ -80,6 +86,8 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
             [A, d] = i_normaffine_backward(A, d, op, precision);
         elseif strcmp(op.type, 'avgpool')
             [A, d] = i_avgpool_backward(A, d, op, precision);
+        elseif strcmp(op.type, 'maxpool')
+            [A, d] = i_maxpool_backward(A, d, op, preL{k}, preU{k}, precision, lower);
         else
             l = preL{k}; u = preU{k};
             [au, bu, al] = i_relax(l, u, precision);
@@ -144,6 +152,58 @@ function [A2, d2] = i_avgpool_backward(A, d, op, precision)
     Ain(1:hi, 1:wi, :, :) = Aup(1:hi, 1:wi, :, :);
     A2 = reshape(Ain, [prod(ish) nS]).';                   % nS x prod(inShape)
     d2 = d;
+end
+
+function [A2, d2] = i_maxpool_backward(A, d, op, l, u, precision, lower)
+% Sound CROWN backward through max pooling. For each output cell o = max over its window:
+%   lower bound  y_o >= x_m        (m = argmax of the window's LOWER bounds; max >= any elem)
+%   upper bound  y_o <= x_m        if m is DECIDED (l_m >= u_i for every other i) -- EXACT
+%               y_o <= max_i u_i  otherwise (a constant; sound since max <= max of uppers)
+% Lmat/Umat are n_out x n_in selection matrices (sparse); overlapping windows accumulate
+% naturally in Apos*Lmat. Sign-aware: +coeff uses the relaxation that bounds the spec on the
+% correct side. Undecided cells leave a constant gap (the BaB can split the feeding ReLUs).
+    [mIdx, decided, umax] = i_maxpool_relax(op, l, u);
+    n_in = prod(op.inShape); n_out = prod(op.outShape);
+    Lmat = sparse(1:n_out, mIdx, 1, n_out, n_in);               % y_o >= x_{m_o}
+    dec  = find(decided);
+    Umat = sparse(dec, mIdx(dec), 1, n_out, n_in);              % decided: y_o <= x_{m_o}
+    Ubias = zeros(n_out, 1); Ubias(~decided) = umax(~decided);  % undecided: y_o <= umax
+    Ad = double(A); Apos = max(Ad, 0); Aneg = min(Ad, 0);
+    if lower
+        A2 = cast(Apos * Lmat + Aneg * Umat, precision);
+        d2 = d + cast(Aneg * Ubias, precision);
+    else
+        A2 = cast(Apos * Umat + Aneg * Lmat, precision);
+        d2 = d + cast(Apos * Ubias, precision);
+    end
+end
+
+function [mIdx, decided, umax] = i_maxpool_relax(op, l, u)
+% Per output cell: m = flat input index of the window's argmax-LOWER element; decided = that
+% element dominates (its lower bound >= every other window upper => max is exactly it); umax =
+% max window upper. Unpadded windows (enforced at extraction); overlap allowed.
+    ish = op.inShape; osh = op.outShape;
+    H = ish(1); W = ish(2); C = ish(3); Ho = osh(1); Wo = osh(2);
+    kh = op.pool(1); kw = op.pool(2); sh = op.stride(1); sw = op.stride(2);
+    L = reshape(double(l), [H W C]); U = reshape(double(u), [H W C]);
+    n_out = prod(osh);
+    mIdx = ones(n_out, 1); decided = false(n_out, 1); umax = zeros(n_out, 1);
+    for c = 1:C
+        for ow = 1:Wo
+            rw = (ow-1)*sw + (1:kw);
+            for oh = 1:Ho
+                rh = (oh-1)*sh + (1:kh);
+                lw = L(rh, rw, c); uw = U(rh, rw, c);
+                [maxl, p] = max(lw(:));
+                [pr, pc] = ind2sub([kh kw], p);
+                o = sub2ind([Ho Wo C], oh, ow, c);
+                mIdx(o) = sub2ind([H W C], rh(pr), rw(pc), c);
+                uw2 = uw; uw2(p) = -inf;
+                decided(o) = maxl >= max(uw2(:));               % argmax-lower dominates others
+                umax(o) = max(uw(:));
+            end
+        end
+    end
 end
 
 function [A2, d2] = i_normaffine_backward(A, d, op, precision)

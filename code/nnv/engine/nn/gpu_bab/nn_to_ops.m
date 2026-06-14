@@ -80,6 +80,14 @@ function ops = nn_to_ops(nnvnet)
             op = i_avgpool_op(L, curShape, cls);
             curShape = op.outShape;
             ops{end+1} = op; %#ok<AGROW>
+        elseif contains(cls, 'MaxPool') || contains(cls, 'MaxPooling')
+            if isempty(curShape)
+                error('nn_to_ops:poolFlat', ...
+                    'Pooling on a flat vector has no spatial shape -- refused for soundness.');
+            end
+            op = i_maxpool_op(L, curShape);
+            curShape = op.outShape;
+            ops{end+1} = op; %#ok<AGROW>
         elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
                 || contains(cls, 'Output') || contains(cls, 'Regression') ...
                 || contains(cls, 'Placeholder')
@@ -166,6 +174,24 @@ function op = i_avgpool_op(L, inShape, cls)
     Hout = floor((Hin - pool(1))/stride(1) + 1);
     Wout = floor((Win - pool(2))/stride(2) + 1);
     op = struct('type','avgpool','pool',pool,'stride',stride,'pad',pad, ...
+                'inShape',inShape, 'outShape',[Hout Wout C]);
+end
+
+% ---- Max pooling -> depthwise per-window max (NONLINEAR; sound relax in CROWN) --------
+function op = i_maxpool_op(L, inShape)
+% Per-channel max over each window. Monotone (exact IBP); CROWN uses a sound relaxation
+% from the window's input bounds. Overlapping (stride<pool) is allowed (the CROWN scatter
+% handles it). UNPADDED only -- padded max pooling (pads with -Inf) is refused for now.
+    Hin = inShape(1); Win = inShape(2); C = inShape(3);
+    pool   = i_pair(L.PoolSize, [1 1]);
+    stride = i_pair(L.Stride,   pool);
+    pad    = i_quad(L.PaddingSize, [0 0 0 0]);
+    if any(pad ~= 0)
+        error('nn_to_ops:maxpoolPad', 'padded max pooling not yet supported -- refused for soundness.');
+    end
+    Hout = floor((Hin - pool(1))/stride(1) + 1);
+    Wout = floor((Win - pool(2))/stride(2) + 1);
+    op = struct('type','maxpool','pool',pool,'stride',stride,'pad',pad, ...
                 'inShape',inShape, 'outShape',[Hout Wout C]);
 end
 

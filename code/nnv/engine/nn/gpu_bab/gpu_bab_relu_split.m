@@ -34,6 +34,7 @@ function [status, info] = gpu_bab_relu_split(ops, x_lb, x_ub, trueLabel, nClasse
     alphaIter = i_get(opts, 'alphaIter', 0);   % >0 -> alpha-CROWN node bounds (tighter -> fewer splits)
     alphaLr   = i_get(opts, 'alphaLr', 0.2);
     cexEvery  = i_get(opts, 'cexEvery', 25);   % per-node counterexample cadence (0 = off)
+    intermediate = i_get(opts, 'intermediate', 'ibp');  % 'ibp' | 'tight' (CROWN intermediate bounds)
 
     C = -eye(nClasses, precision);
     C(:, trueLabel) = C(:, trueLabel) + 1;
@@ -58,7 +59,9 @@ function [status, info] = gpu_bab_relu_split(ops, x_lb, x_ub, trueLabel, nClasse
         if info.nodes > maxNodes
             status = 'unknown'; return;
         end
-        if alphaIter > 0
+        if strcmp(intermediate, 'tight')
+            [margins, ~, ~, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, node.fix);
+        elseif alphaIter > 0
             [margins, unstable] = gpu_bab_crown_alpha_fix(ops, x_lb, x_ub, C, node.fix, reluIdx, precision, alphaIter, alphaLr);
         else
             [margins, unstable] = i_crown_clamped(ops, x_lb, x_ub, C, precision, node.fix, reluIdx);

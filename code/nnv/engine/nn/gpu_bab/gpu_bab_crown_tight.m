@@ -1,4 +1,4 @@
-function [margins, preL, preU] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision)
+function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings)
 % GPU_BAB_CROWN_TIGHT  CROWN with TIGHT (backward) intermediate-layer bounds.
 %
 %   [margins, preL, preU] = GPU_BAB_CROWN_TIGHT(ops, x_lb, x_ub, C, precision)
@@ -19,9 +19,11 @@ function [margins, preL, preU] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precisi
 %   per input box); batching is a later optimization.
 
     if nargin < 5 || isempty(precision), precision = 'single'; end
+    if nargin < 6, fixings = {}; end          % optional ReLU-split node fixings (-1/0/+1 per relu)
     nOps = numel(ops);
     preL = cell(nOps, 1);
     preU = cell(nOps, 1);
+    unstable = cell(nOps, 1);
 
     % ---- tight intermediate bounds, layer by layer ----
     for k = 1:nOps
@@ -31,8 +33,15 @@ function [margins, preL, preU] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precisi
             % which uses preL/preU of the strictly-earlier ReLUs (already computed).
             nk = i_layer_width(ops, k-1);
             Ck = eye(nk, precision);
-            preU{k} = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, false);
-            preL{k} = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, true);
+            pu = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, false);
+            pl = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, true);
+            if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
+                fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
+                pl(fx == 1)  = max(pl(fx == 1),  0);
+                pu(fx == -1) = min(pu(fx == -1), 0);
+            end
+            preL{k} = pl; preU{k} = pu;
+            unstable{k} = (pl < 0) & (pu > 0);
         end
     end
 

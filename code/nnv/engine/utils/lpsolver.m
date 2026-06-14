@@ -100,7 +100,18 @@ function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
         % first try solving using linprog
         [~, fval, exitflag, ~] = linprog(f, A, b, Aeq, Beq, lb, ub, options);
         % found (1), not feasible point found (-2), infeasible (-5)
-        if ~( (exitflag == -2 && strcmp(opts, 'emptySet')) || ismember(exitflag, [1, -5]) ) % return existflag if one of these conditions is met
+        % SOUNDNESS HARDENING: only trust linprog's exitflag directly when it is a
+        % DEFINITIVE result -- success (1) or PROVEN-infeasible (-5). exitflag -2
+        % ("No feasible point found") is a numerical/iteration GIVE-UP, NOT a proof of
+        % infeasibility, so it must NOT be accepted as an emptySet certificate on its own
+        % (the old code short-circuited the glpk cross-check for `-2 && emptySet`). A
+        % give-up on a large/near-degenerate but FEASIBLE LP would then be reported EMPTY,
+        % which Star.isEmptySet maps to "robust" -> a possible false UNSAT (-150 direction).
+        % Now -2 always falls through to the glpk backup: EMPTY is certified only when both
+        % solvers agree infeasible (or glpk proves it); if glpk also can't decide it errors
+        % -> caught upstream as `unknown`. This can only convert a possibly-wrong robust into
+        % unknown, NEVER create a false sat. (Equality-constrained LPs still error->unknown.)
+        if ~( ismember(exitflag, [1, -5]) ) % trust only definitive linprog results; -2 -> glpk
             if ~isempty(Aeq) || ~isempty(Beq)
                 error("Problem cannot be solved by linprog, and task not supported by glpk.")
             else

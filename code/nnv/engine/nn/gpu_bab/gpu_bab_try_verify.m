@@ -42,7 +42,18 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     % net.evaluate (the soundness guard) handles both. A wrong order/extraction never matches
     % the probes -> 'skip' (Star), never a -150. Multi-probe makes a coincidental match negligible.
     c = (lb + ub) / 2;
-    probes  = [c, lb + 0.25*(ub - lb), lb + 0.75*(ub - lb)];
+    % SOUNDNESS (audit finding): the guard must DISTINGUISH a wrong conv->FC flatten
+    % permutation. COLLINEAR probes lb+s*(ub-lb) are BLIND to column permutations on a uniform
+    % L-inf box -- for any permutation P, (P-I)*ones=0, so the s-dependent error cancels and
+    % the standard L-inf query (ub-lb uniform) admits a wrong flatten that passes the guard
+    % => false robust. Use NON-uniform, distinct-per-coordinate probe points (low-discrepancy
+    % fractional ramps): the probe images are spatially varying, so the conv output differs at
+    % permuted positions and a wrong order cannot match net.evaluate. Deterministic (no rng).
+    n = numel(lb); idx = (1:n)';
+    f1 = mod(idx * 0.6180339887498949, 1);
+    f2 = mod(idx * 1.3247179572447460 + 0.37, 1);
+    f3 = mod(idx * 0.7548776662466927 + 0.11, 1);
+    probes  = [c, lb + f1.*(ub-lb), lb + f2.*(ub-lb), lb + f3.*(ub-lb), lb + (1-f1).*(ub-lb)];
     orders  = {'colmajor', 'chw_rowmajor', 'hwc_rowmajor'};
     ops = []; nClasses = NaN;
     for oi = 1:numel(orders)
@@ -83,7 +94,18 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     %     it MUST be paired with per-op outward rounding (R1.a) or a proven FP error margin;
     %     until then 'single' is dev/empirical only. See research/GPU_BAB_PLAN.md sec 3.4/R1.
     bopts = opts; bopts.intermediate = 'tight';
-    if ~isfield(bopts, 'precision'), bopts.precision = 'double'; end   % sound default
+    % R1 SOUNDNESS (audit finding): a caller-supplied precision='single' is NOT sound (FP32
+    % rounding can make a margin spuriously positive => false robust). FORCE 'double' unless
+    % the caller EXPLICITLY opts into unsound single (dev / GPU speed; a SOUND single path
+    % needs per-op outward rounding, R1.a, not yet implemented).
+    if isfield(opts, 'allowUnsoundSingle') && isequal(opts.allowUnsoundSingle, true)
+        if ~isfield(bopts, 'precision'), bopts.precision = 'single'; end
+    else
+        bopts.precision = 'double';
+    end
+    % a negative leaf margin would certify nodes whose true class does NOT strictly dominate
+    % (false robust); clamp to >= 0 (sound-or-unknown).
+    if isfield(bopts, 'margin') && bopts.margin < 0, bopts.margin = 0; end
     if ~isfield(bopts, 'maxNodes'),  bopts.maxNodes  = 300;      end
     [status, binfo] = gpu_bab_relu_split(ops, lb, ub, target, nClasses, bopts);
     info.nodes = binfo.nodes;

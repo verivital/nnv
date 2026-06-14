@@ -235,6 +235,37 @@ pairs = {};
 % Resolve onnx/vnnlib relative to the instances.csv's OWN directory so both the 2025
 % layout (<sub>/) and the 2026 version layout (<sub>/1.0/) work (bench_root/sub then unused).
 bench_dir = fileparts(inst_csv);
+% VNN-LIB 2.0 multi-network instances.csv: column 1 is a python list of (name,path)
+% tuples, e.g.  [('f','onnx/a.onnx'), ('g','onnx/b.onnx')]  (monotonic_acasxu /
+% isomorphic_acasxu). Those internal commas break the 3-column readtable parse (it
+% truncates column 1 to `"[('f'`), so detect the tuple format and parse the RAW lines:
+% the FIRST onnx is f (the shared net for equal-to), and the *.vnnlib token is the
+% spec. This ENUMERATES rows that previously matched no file and made the whole
+% benchmark log "no resolvable instance in CSV" = 0 rows. isomorphic-to (different g)
+% is gated to `unknown` downstream in run_vnncomp_instance.
+raw = readlines(inst_csv);
+if any(contains(raw, "('")) && any(contains(raw, ".onnx"))
+    for r = 1:numel(raw)
+        ln = strtrim(raw(r));
+        if ln == "", continue; end
+        onx = regexp(ln, "'([^']*\.onnx)'", 'tokens', 'once');
+        if isempty(onx), continue; end
+        onnx_rel = strrep(char(onx{1}), './', '');
+        vmt = regexp(ln, "([^\s,'""]*\.vnnlib)", 'match', 'once');
+        if strlength(vmt) == 0, continue; end
+        vnnlib_rel = strrep(char(vmt), './', '');
+        onnx_p   = ensure_decompressed(fullfile(bench_dir, onnx_rel));
+        vnnlib_p = ensure_decompressed(fullfile(bench_dir, vnnlib_rel));
+        if ~isempty(onnx_p) && ~isempty(vnnlib_p)
+            pairs{end+1} = struct('onnx_rel', onnx_rel, 'vnnlib_rel', vnnlib_rel, ...
+                'onnx', onnx_p, 'vnnlib', vnnlib_p); %#ok<AGROW>
+            if strcmp(run_which, 'first'), return; end
+        end
+    end
+    return;
+end
+
+% --- standard 2025/2026 3-column format (onnx_rel, vnnlib_rel, timeout_s) ---
 T = readtable(inst_csv, 'Delimiter', ',', 'ReadVariableNames', false, ...
     'TextType', 'string', 'Format', '%s%s%s');
 for r = 1:height(T)

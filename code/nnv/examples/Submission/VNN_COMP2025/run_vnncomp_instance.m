@@ -665,11 +665,14 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
     inputSize = [];
     inputFormat = "default"; % no need to change for most of them, but needed for some ("UU")
     nRand = 100; % default from previous competitions
-    % Per-category falsification budget (VNNCOMP2026 tuning). Default preserves the old
-    % hardcoded struct('seed',0,'max_time',5); the ftab at the END of this function
-    % overrides n_restarts/n_steps/max_time and nRand per category.
+    % Per-category falsification budget (VNNCOMP2026 tuning). Default raised to 15s (was 5s)
+    % so an unlisted SAT-capable category still gets a meaningful PGD window before the sound
+    % reach ladder runs; the ftab at the END of this function overrides per category. Sound:
+    % falsification is SAT-or-unknown only (witness gated by validate_witness + onnxruntime
+    % replay), so a larger PGD budget can never manufacture a false verdict -- it only reclaims
+    % wall-clock that reach was otherwise spending timing out.
     falsifyOpts = struct('n_restarts',20, 'n_steps',40, 'lr',0.1, 'fgsm',true, ...
-                         'max_time',5, 'seed',0);
+                         'max_time',15, 'seed',0);
 
     if contains(category, "acasxu")
         % acasxu: onnx to nnv
@@ -1229,8 +1232,8 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
     % (pgd_falsify is dlnetwork-gated): lsnc_relu and traffic_signs -- rely on random
     % sampling, so keep their nRand higher until PGD reaches the NN path (a follow-up).
     ftab = {
-        "acasxu",            40, 60, 5,   200
-        "sat_relu",          50, 80, 5,   200
+        "acasxu",            60, 80, 30,  200
+        "sat_relu",          60, 100,30,  200
         "cersyve",           30, 50, 4,   150
         "lsnc_relu",         50, 80, 4,   500   % manifest: no PGD -> random is primary
         "relusplitter",      30, 50, 3,   150
@@ -1240,19 +1243,19 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         "collins_rul",       30, 60, 4,   150
         "collins_aerospace", 20, 40, 3,   150
         "nn4sys",            25, 50, 3,   150
-        "safenlp",           30, 60, 4,   200
-        "malbeware",         20, 40, 3,   150
+        "safenlp",           40, 80, 30,  300
+        "malbeware",         40, 80, 60,  150
         "ml4acopf",          25, 50, 3,   200
-        "cora",              30, 60, 4,   200
+        "cora",              40, 80, 30,  200
         "metaroom",          15, 30, 2,   100
-        "cifar100",          5,  15, 2,   30
-        "tinyimagenet",      5,  15, 2,   30
+        "cifar100",          15, 40, 20,  60
+        "tinyimagenet",      15, 40, 20,  60
         "vggnet",            4,  12, 1.5, 20
         "traffic_signs",     20, 40, 5,   400   % manifest: no PGD -> random is primary
         "cctsdb_yolo",       30, 50, 5,   150
         "yolo",              20, 40, 3,   100
-        "vit",               10, 25, 3,   50
-        "cgan",              60, 80, 25,  2000   % reach dropped for cgan -> spend the whole budget on PGD (5-dim input, cheap)
+        "vit",               20, 50, 25,  50
+        "cgan",              80, 120,40,  2000   % reach dropped for cgan -> spend the whole budget on PGD (5-dim input, cheap)
         "soundnessbench",    30, 50, 4,   100
     };
     for r = 1:size(ftab,1)

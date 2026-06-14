@@ -62,6 +62,7 @@ function w = i_layer_width(ops, upto)
         elseif strcmp(t, 'conv'),       w = prod(ops{k}.outShape); return;
         elseif strcmp(t, 'avgpool'),    w = prod(ops{k}.outShape); return;
         elseif strcmp(t, 'maxpool'),    w = prod(ops{k}.outShape); return;
+        elseif strcmp(t, 'add'),        w = prod(ops{k}.shape);    return;
         elseif strcmp(t, 'normaffine'), w = prod(ops{k}.shape);    return;
         end
     end
@@ -74,9 +75,27 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
     A = A0;
     nS = size(A0, 1);
     d = zeros(nS, 1, precision);
+    % DAG support: an 'add' op (out = out[a]+out[b]) sends its coefficient UNCHANGED to BOTH
+    % inputs (linear -> exact). skipA{k} accumulates the coefficient arriving at op k's OUTPUT
+    % from later adds; inputSkipA accumulates skips that target op 0 (the engine input).
+    hasAdd = any(cellfun(@(o) strcmp(o.type, 'add'), ops(1:upto)));
+    skipA = cell(upto, 1); inputSkipA = 0;
     for k = upto:-1:1
         op = ops{k};
-        if strcmp(op.type, 'affine')
+        if hasAdd && ~isempty(skipA{k}), A = A + skipA{k}; end
+        if strcmp(op.type, 'add')
+            for ii = 1:numel(op.inputs)
+                src = op.inputs(ii);
+                if src == 0
+                    inputSkipA = inputSkipA + A;
+                elseif isempty(skipA{src})
+                    skipA{src} = A;
+                else
+                    skipA{src} = skipA{src} + A;
+                end
+            end
+            A = zeros(nS, size(A, 2), precision);   % fully distributed to its inputs
+        elseif strcmp(op.type, 'affine')
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             d = d + A * b;
             A = A * W;
@@ -101,6 +120,7 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
             end
         end
     end
+    if hasAdd, A = A + inputSkipA; end   % coeff on the input = chain + skips-to-input
     Apos = max(A, 0); Aneg = min(A, 0);
     if lower
         bound = Apos * cast(x_lb, precision) + Aneg * cast(x_ub, precision) + d;

@@ -30,6 +30,12 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
 %   soundness guard) before trusting any verdict.
     ops = {};
     curShape = [];   % [H W C] once an image/conv path is entered; [] for a flat FC net
+    % DAG support (residual Addition): NNV keeps Layers topologically ordered + a Connections
+    % table. layerOp maps a layer NAME -> the op index whose output equals that layer's output
+    % (0 = the engine input). An AdditionLayer reads its source op indices from here.
+    conns = [];
+    if isprop(nnvnet, 'Connections'), conns = nnvnet.Connections; end
+    layerOp = containers.Map('KeyType', 'char', 'ValueType', 'double');
     for i = 1:numel(nnvnet.Layers)
         L = nnvnet.Layers{i};
         cls = class(L);
@@ -99,6 +105,21 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
             op = i_maxpool_op(L, curShape);
             curShape = op.outShape;
             ops{end+1} = op; %#ok<AGROW>
+        elseif contains(cls, 'Addition')
+            % residual skip-add: y = out[a] + out[b] (LINEAR -> exact). Read the two source
+            % layers from Connections; map to op indices via layerOp (0 = engine input). Only
+            % 2 inputs supported (audit guard); N>2 refused for soundness.
+            srcs = i_layer_sources(conns, char(L.Name));
+            if numel(srcs) ~= 2
+                error('nn_to_ops:addNInputs', ...
+                    'Addition with %d inputs not supported (only 2) -- refused for soundness.', numel(srcs));
+            end
+            if ~isKey(layerOp, srcs{1}) || ~isKey(layerOp, srcs{2})
+                error('nn_to_ops:addSrc', 'Addition source layer not yet emitted -- unsupported DAG topology.');
+            end
+            a = layerOp(srcs{1}); b = layerOp(srcs{2});
+            ops{end+1} = struct('type','add','inputs',[a b],'shape',curShape); %#ok<AGROW>
+            % element-wise add preserves curShape (both inputs must share it; guard validates)
         elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
                 || contains(cls, 'Output') || contains(cls, 'Regression') ...
                 || contains(cls, 'Placeholder')
@@ -115,8 +136,13 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
             end
         else
             error('nn_to_ops:unsupported', ...
-                ['GPU-BaB Phase 2 supports ImageInput(norm)+Conv2D+FullyConnected+ReLU+Flatten; ' ...
-                 'got "%s" (layer %d). BatchNorm/Pool/Addition not yet handled -- refused for soundness.'], cls, i);
+                ['GPU-BaB supports ImageInput(norm)+Conv2D+FullyConnected+ReLU+Flatten+BatchNorm' ...
+                 '+Avg/Max-pool+Addition(2-input); got "%s" (layer %d) -- refused for soundness.'], cls, i);
+        end
+        % record this layer's output op index (0 if it emitted no op = input/identity), so a
+        % later AdditionLayer can resolve its skip source. Names are unique within a net.
+        if isprop(L, 'Name') && ~isempty(char(L.Name))
+            layerOp(char(L.Name)) = numel(ops);
         end
     end
 end
@@ -256,4 +282,20 @@ function v = i_quad(x, def)
     elseif isscalar(x), v = [x x x x];
     elseif numel(x)==2, v = [x(1) x(1) x(2) x(2)];
     else, v = double(x(:)'); v = v(1:4); end
+end
+
+% ---- source layer names feeding a destination layer (from the Connections table) -------
+function srcs = i_layer_sources(conns, name)
+% Return the Source layer names whose Destination is `name` or `name/inK` (the input ports
+% of a multi-input layer like AdditionLayer). Empty if no Connections (sequential net).
+    srcs = {};
+    if isempty(conns), return; end
+    for r = 1:height(conns)
+        dest = char(conns.Destination(r));
+        sl = strfind(dest, '/');
+        if ~isempty(sl), dest = dest(1:sl(1)-1); end   % strip the "/inK" port
+        if strcmp(dest, name)
+            srcs{end+1} = char(conns.Source(r)); %#ok<AGROW>
+        end
+    end
 end

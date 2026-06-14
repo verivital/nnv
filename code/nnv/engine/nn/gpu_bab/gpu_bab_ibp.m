@@ -41,38 +41,58 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
 
     lb = cast(in_lb, precision);
     ub = cast(in_ub, precision);
+    nOps = numel(ops);
+    hasAdd = any(cellfun(@(o) strcmp(o.type, 'add'), ops));
 
-    for k = 1:numel(ops)
-        op = ops{k};
-        switch op.type
-            case 'affine'
-                W = cast(op.W, precision);
-                b = cast(op.b(:), precision);
-                Wp = max(W, 0);
-                Wn = min(W, 0);
-                new_lb = Wp * lb + Wn * ub + b;
-                new_ub = Wp * ub + Wn * lb + b;
-                lb = new_lb;
-                ub = new_ub;
-            case 'relu'
-                lb = max(lb, 0);
-                ub = max(ub, 0);
-            case 'conv'
-                [lb, ub] = i_conv_ibp(op, lb, ub, precision);
-            case 'normaffine'
-                [lb, ub] = i_normaffine_ibp(op, lb, ub, precision);
-            case 'avgpool'
-                [lb, ub] = i_avgpool_ibp(op, lb, ub, precision);
-            case 'maxpool'
-                [lb, ub] = i_maxpool_ibp(op, lb, ub, precision);
-            otherwise
-                error('gpu_bab_ibp:unsupportedOp', ...
-                    'Unsupported op type "%s" (supports affine/relu/conv/normaffine/avgpool/maxpool).', op.type);
+    if ~hasAdd
+        % sequential (chain) net -- rolling bounds, no per-op cache.
+        for k = 1:nOps
+            [lb, ub] = i_apply_ibp(ops{k}, lb, ub, precision);
         end
+        out_lb = lb; out_ub = ub;
+        return;
     end
 
-    out_lb = lb;
-    out_ub = ub;
+    % DAG net (residual): cache each op's output bounds (index k+1 = op k; index 1 = op 0 =
+    % input), so an 'add' can sum two non-adjacent ops. Interval add is EXACT (sound + tight).
+    cl = cell(nOps + 1, 1); cu = cell(nOps + 1, 1);
+    cl{1} = lb; cu{1} = ub;
+    for k = 1:nOps
+        op = ops{k};
+        if strcmp(op.type, 'add')
+            a = op.inputs(1) + 1; b = op.inputs(2) + 1;
+            cl{k+1} = cl{a} + cl{b};
+            cu{k+1} = cu{a} + cu{b};
+        else
+            [cl{k+1}, cu{k+1}] = i_apply_ibp(op, cl{k}, cu{k}, precision);
+        end
+    end
+    out_lb = cl{nOps + 1};
+    out_ub = cu{nOps + 1};
+end
+
+function [nlb, nub] = i_apply_ibp(op, lb, ub, precision)
+% Sound IBP for a single (single-input) op. 'add' is multi-input and handled by the caller.
+    switch op.type
+        case 'affine'
+            W = cast(op.W, precision); b = cast(op.b(:), precision);
+            Wp = max(W, 0); Wn = min(W, 0);
+            nlb = Wp * lb + Wn * ub + b;
+            nub = Wp * ub + Wn * lb + b;
+        case 'relu'
+            nlb = max(lb, 0); nub = max(ub, 0);
+        case 'conv'
+            [nlb, nub] = i_conv_ibp(op, lb, ub, precision);
+        case 'normaffine'
+            [nlb, nub] = i_normaffine_ibp(op, lb, ub, precision);
+        case 'avgpool'
+            [nlb, nub] = i_avgpool_ibp(op, lb, ub, precision);
+        case 'maxpool'
+            [nlb, nub] = i_maxpool_ibp(op, lb, ub, precision);
+        otherwise
+            error('gpu_bab_ibp:unsupportedOp', ...
+                'Unsupported op type "%s" (affine/relu/conv/normaffine/avgpool/maxpool/add).', op.type);
+    end
 end
 
 function [olb, oub] = i_conv_ibp(op, lb, ub, precision)

@@ -5,7 +5,7 @@
 % To run: results = runtests('test_soundness_gpu_bab')
 
 % ---- shared setup: a fixed small FC+ReLU net + an input box (deterministic) ----
-addpath(genpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'engine', 'nn', 'gpu_bab')));
+% (the engine/nn/gpu_bab dir is on the path via startup_nnv / install)
 rng(0);
 W1 = randn(16,5);  b1 = randn(16,1);
 W2 = randn(16,16); b2 = randn(16,1);

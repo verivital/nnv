@@ -186,13 +186,36 @@ end
 
 % ---------- (c) verify_multinet: sound refusals ----------
 
-function test_verify_multinet_whitelist_gate(tc)
-    % a net with a non-whitelisted layer must return unknown (2) IMMEDIATELY
-    % (whitelist runs before falsification and reach)
+function test_verify_multinet_falsifies_non_whitelisted(tc)
+    % FALSIFICATION-FIRST: a non-whitelisted net (TanhLayer) can still be SOUNDLY
+    % falsified -- the sat path only evaluates the real net; the FC+ReLU whitelist
+    % gates ONLY the unsat/reach path. f(x)=tanh(x) with INDEPENDENT boxes on x_f,x_g
+    % makes the unsafe region Y_f[0] < Y_g[0] trivially reachable -> sat, with a
+    % concretely-validated witness. (Old behavior here was an immediate unknown.)
     net = NN({FullyConnectedLayer('fc1', eye(2), zeros(2, 1)), TanhLayer()});
-    property = hand_built_multinet_property('equal');
+    property = hand_built_multinet_property('equal');   % crossProp Y_f[0]-Y_g[0] <= 0, NO coupling
     [status, counterEx] = verify_multinet(net, property, struct('reachMethod', 'approx-star'));
-    verifyEqual(tc, status, 2, 'non-whitelisted layer (TanhLayer) must yield unknown');
+    verifyEqual(tc, status, 0, 'falsifiable non-whitelisted equal-to net must yield sat');
+    verifyTrue(tc, iscell(counterEx) && numel(counterEx) == 2);
+    yf = net.evaluate(counterEx{1}); yg = net.evaluate(counterEx{2});
+    verifyLessThan(tc, yf(1) - yg(1), 0, 'sat witness must really violate Y_f[0] >= Y_g[0]');
+end
+
+function test_verify_multinet_whitelist_gates_unsat(tc)
+    % the FC+ReLU whitelist gates ONLY the unsat/reach direction: a non-whitelisted
+    % net (TanhLayer) whose property has NO strict violation (x_f == x_g forces
+    % Y_f == Y_g, so Y_f[0]-Y_g[0]=0 is never < 0) cannot be falsified, and the
+    % product net cannot be built -> unknown (never a false unsat). This is the
+    % -150 guard for the unsat path under the falsification-first ordering.
+    net = NN({FullyConnectedLayer('fc1', eye(2), zeros(2, 1)), TanhLayer()});
+    mn = struct('names', {{'f', 'g'}}, 'inShapes', {{2, 2}}, 'outShapes', {{2, 2}}, ...
+                'equivKind', 'equal', 'jointLb', -ones(4, 1), 'jointUb', ones(4, 1));
+    mn.jointC = [1 0 -1 0; -1 0 1 0; 0 1 0 -1; 0 -1 0 1];   % x_f == x_g (two-row pairs)
+    mn.jointd = zeros(4, 1);
+    mn.crossProp = HalfSpace([1 0 -1 0], 0);                % Y_f[0] - Y_g[0] <= 0
+    property = struct('lb', [], 'ub', [], 'prop', {{}}, 'unsupported', false, 'reason', '', 'multinet', mn);
+    [status, counterEx] = verify_multinet(net, property, struct('reachMethod', 'approx-star'));
+    verifyEqual(tc, status, 2, 'non-whitelisted net with no violation must yield unknown (gated unsat path)');
     verifyTrue(tc, isempty(counterEx));
 end
 

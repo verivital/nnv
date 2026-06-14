@@ -52,15 +52,14 @@ end
 function [status, counterEx] = verify_multinet_impl(nnvnet, property, reachOptions)
     status = 2; counterEx = [];
 
-    % ---- 1) layer whitelist FIRST (and product-net assembly) ---------------
-    % every layer must be FullyConnectedLayer or ReluLayer; anything else
-    % cannot be soundly stacked -> unknown immediately
-    [prodNet, okp] = multinet_product_net(nnvnet);
-    if ~okp
-        return;
-    end
-
-    % ---- 2) property validation (anything off -> unknown) ------------------
+    % ---- 1) property validation (anything off -> unknown) ------------------
+    % FALSIFICATION-FIRST ordering: the sat path only needs nnvnet.evaluate (which
+    % handles the FULL imported net -- ImageInput/ElementwiseAffine/Flatten wrappers
+    % and all), so validate the property and try to falsify BEFORE assembling the
+    % FC+ReLU-only product net. The product net (and its whitelist) is built later and
+    % is needed ONLY for the unsat/reach direction. This recovers easily-falsifiable
+    % equal-to instances (measured on monotonic_acasxu: ~50% of feasible samples
+    % violate) that the old whitelist-first order discarded as unknown.
     if ~isstruct(property) || ~isfield(property, 'multinet'), return; end
     if isfield(property, 'unsupported') && property.unsupported, return; end
     mn = property.multinet;
@@ -141,6 +140,15 @@ function [status, counterEx] = verify_multinet_impl(nnvnet, property, reachOptio
                 return;
             end
         end
+    end
+
+    % ---- product net (FC+ReLU whitelist) -- needed ONLY for unsat/reach ----
+    % every layer must be FullyConnectedLayer or ReluLayer; anything else cannot be
+    % soundly stacked into [f(x_f); f(x_g)] -> no unsat proof -> unknown (the sat
+    % path above already ran on the original net regardless of this).
+    [prodNet, okp] = multinet_product_net(nnvnet);
+    if ~okp
+        return;
     end
 
     % ---- 4) product-net consistency cross-check ----------------------------

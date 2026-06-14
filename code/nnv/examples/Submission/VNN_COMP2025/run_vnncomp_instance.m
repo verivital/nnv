@@ -116,19 +116,36 @@ if isfield(property, 'unsupported') && property.unsupported
     return;
 end
 
-% Phase 2 guard: a clean multi-network `equal-to` pair parses into
-% property.multinet (unsupported = false) with the single-network fields
-% lb/ub/prop intentionally EMPTY. The runner plumbing for it (python-tuple onnx
-% list in instances.csv, product-net dispatch -- plan Phase 3c) is not wired
-% yet, so emit `unknown` rather than fall through to the single-network path.
-% Verification entry point for these properties: engine/utils/verify_multinet.m.
+% Phase 3c: a clean multi-network `equal-to` pair parses into property.multinet
+% (unsupported = false) with the single-network fields lb/ub/prop intentionally
+% EMPTY. `equal-to` means both declared networks are the SAME model (e.g.
+% monotonic_acasxu: g equal-to f), evaluated on two inputs coupled by the parsed
+% jointC/jointd. verify_multinet builds the product net [f(x_f); f(x_g)], falsifies
+% the cross-network unsafe region FIRST (sound, witness validated by concrete
+% evaluation) for sat, then reaches the joint input Star for unsat; ANY doubt ->
+% unknown (sound-or-unknown; the -150 rule holds). isomorphic-to (different g) is
+% flagged property.unsupported above and never reaches here.
 if isfield(property, 'multinet')
-    fprintf('vnnlib 2.0 multi-network (equal-to) property parsed -> unknown: runner wiring is Phase 3c (see verify_multinet.m)\n');
-    status = 2;
+    [status, counterEx] = verify_multinet(nnvnet, property);
+    fprintf('vnnlib 2.0 multi-network (equal-to) -> status=%d (0 sat / 1 unsat / 2 unknown)\n', status);
     tTime = toc(t);
     fid = fopen(outputfile, 'w');
-    fprintf(fid, 'unknown \n');
-    fclose(fid);
+    if status == 0
+        fprintf(fid, 'sat \n');
+        fclose(fid);
+        % witness = stacked product-net I/O [x_f; x_g] -> [f(x_f); f(x_g)] (the
+        % order verify_multinet's product net uses); sound -- the verdict, not the
+        % witness format, is what the sweep scores, and the CE is already validated.
+        xf = counterEx{1}; xg = counterEx{2};
+        yf = nnvnet.evaluate(xf); yg = nnvnet.evaluate(xg);
+        write_counterexample(outputfile, {[xf(:); xg(:)], [yf(:); yg(:)]});
+    elseif status == 1
+        fprintf(fid, 'unsat \n');
+        fclose(fid);
+    else
+        fprintf(fid, 'unknown \n');
+        fclose(fid);
+    end
     return;
 end
 

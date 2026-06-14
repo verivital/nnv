@@ -59,8 +59,9 @@ function [status, info] = gpu_bab_relu_split(ops, x_lb, x_ub, trueLabel, nClasse
         if info.nodes > maxNodes
             status = 'unknown'; return;
         end
+        preLn = []; preUn = [];
         if strcmp(intermediate, 'tight')
-            [margins, ~, ~, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, node.fix);
+            [margins, preLn, preUn, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, node.fix);
         elseif alphaIter > 0
             [margins, unstable] = gpu_bab_crown_alpha_fix(ops, x_lb, x_ub, C, node.fix, reluIdx, precision, alphaIter, alphaLr);
         else
@@ -74,7 +75,11 @@ function [status, info] = gpu_bab_relu_split(ops, x_lb, x_ub, trueLabel, nClasse
             [cex, lab] = i_find_cex(ops, x_lb, x_ub, trueLabel, nSample, precision);
             if ~isempty(cex), status = 'unsafe'; info.cex = cex; info.cexLabel = lab; return; end
         end
-        [kop, j] = i_pick_split(ops, unstable, node.fix, reluIdx);
+        if ~isempty(preLn)
+            [kop, j] = i_pick_split_gap(unstable, preLn, preUn, node.fix, reluIdx);  % largest relaxation gap
+        else
+            [kop, j] = i_pick_split(ops, unstable, node.fix, reluIdx);               % first unstable
+        end
         if isempty(kop)
             status = 'unknown'; return;                 % no unstable left, still not certified
         end
@@ -84,6 +89,25 @@ function [status, info] = gpu_bab_relu_split(ops, x_lb, x_ub, trueLabel, nClasse
         stack{end+1} = struct('fix', {fi}, 'depth', node.depth+1); %#ok<AGROW>
     end
     status = 'robust';
+end
+
+function [kop, j] = i_pick_split_gap(unstable, preL, preU, fixings, reluIdx)
+% Branch on the unstable, unfixed neuron with the largest ReLU relaxation gap (the
+% upper-line intercept bu = u*(-l)/(u-l) -- the slack a split removes). A cheap BaBSR-lite
+% heuristic that closes the bound far faster than first-unstable.
+    kop = []; j = []; best = -inf;
+    for r = 1:numel(reluIdx)
+        k = reluIdx(r);
+        uns = unstable{k};
+        fx = fixings{k};
+        if isempty(fx), fx = zeros(numel(uns), 1); end
+        cand = find(uns(:) & (fx(:) == 0));
+        if isempty(cand), continue; end
+        l = preL{k}(cand); u = preU{k}(cand);
+        gap = u .* (-l) ./ (u - l);          % relaxation triangle slack
+        [g, idx] = max(gap);
+        if g > best, best = g; kop = k; j = cand(idx); end
+    end
 end
 
 function [margins, unstable] = i_crown_clamped(ops, x_lb, x_ub, C, precision, fixings, reluIdx)

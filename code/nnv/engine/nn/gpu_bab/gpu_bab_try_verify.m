@@ -61,8 +61,14 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
 
     % (3) sound ReLU-split BaB; force the 'tight' intermediate path (the only one sound for
     %     conv/bn/pool -- relu_split also self-forces this, set here for clarity).
+    %     PRECISION/SOUNDNESS (research R1): FP32 bounds are NOT certified-sound without
+    %     outward (directed) rounding -- accumulated rounding can make a single-precision
+    %     margin wrongly positive (-150). Default 'double' here (FP64 rounding ~1e-15,
+    %     negligible for these nets). GPU 'single' is fast but for CERTIFIED competition use
+    %     it MUST be paired with per-op outward rounding (R1.a) or a proven FP error margin;
+    %     until then 'single' is dev/empirical only. See research/GPU_BAB_PLAN.md sec 3.4/R1.
     bopts = opts; bopts.intermediate = 'tight';
-    if ~isfield(bopts, 'precision'), bopts.precision = 'single'; end
+    if ~isfield(bopts, 'precision'), bopts.precision = 'double'; end   % sound default
     if ~isfield(bopts, 'maxNodes'),  bopts.maxNodes  = 300;      end
     [status, binfo] = gpu_bab_relu_split(ops, lb, ub, target, nClasses, bopts);
     info.nodes = binfo.nodes;

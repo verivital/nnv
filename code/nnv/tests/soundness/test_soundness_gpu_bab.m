@@ -78,5 +78,14 @@ if strcmp(s2, 'unsafe')
 end
 assert(ok8, 'an unsafe verdict must carry an input that actually misclassifies');
 
+%% Test 9: JOINT alpha-CROWN is sound and no looser than fixed-slope CROWN-tight
+% gpu_bab_crown_alpha_joint optimizes the unstable-ReLU lower slopes INSIDE every
+% intermediate backward pass (not just the final spec), initialized at the min-area
+% slopes so iter 0 reproduces gpu_bab_crown_tight, then ascends + keeps-best.
+mt9 = gpu_bab_crown_tight(ops, lb, ub, Cspec, 'double');
+[mj9, ij9] = gpu_bab_crown_alpha_joint(ops, lb, ub, Cspec, 'double', 30, 0.5);
+assert(all(mj9 <= trueMin + 1e-4), 'joint alpha-CROWN margin must be sound (<= true min)');
+assert(ij9.alpha_minmargin >= sum(min(mt9,[],1)) - 1e-6, 'joint alpha-CROWN must be no looser than fixed-slope CROWN-tight');
+
 %% Summary
 disp('test_soundness_gpu_bab: all sections passed');

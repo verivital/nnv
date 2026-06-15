@@ -128,6 +128,16 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
                     'Addition with %d inputs not supported (only 2) -- refused for soundness.', numel(inOps));
             end
             ops{end+1} = struct('type','add','inputs',inOps,'shape',inShape,'src',inOps(1)); %#ok<AGROW>
+        elseif contains(cls, 'Placeholder') && isempty(ops)
+            % LEADING input-adapter Placeholder: matlab2nnv maps a SequenceInputLayer (the
+            % 'BCT' ONNX import of a flat MNIST FC net) / an unmappable input cast to a
+            % PlaceholderLayer at the head of the net. It carries no learnable transform on
+            % the values, so treat it as the engine-input passthrough (like Flatten /
+            % ImageInput-without-norm). Any actual reordering it hides is caught by the
+            % flatten-order calibration + the mandatory IBP==evaluate guard (sound-by-refusal:
+            % a wrong order fails the guard -> caller runs Star), so this only ADDS coverage
+            % (previously these nets errored -> Star) and never yields a wrong graph.
+            emitted = false;
         elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
                 || contains(cls, 'Output') || contains(cls, 'Regression') ...
                 || contains(cls, 'Placeholder')

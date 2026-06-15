@@ -22,11 +22,16 @@ if grep -qE "^[[:space:]]*'[,)]" "$RAB"; then
 fi
 echo "parse guard passed"
 
-# regenerate ALL manifest-category .nnv.mat (incl. vit, post-#345)
-for b in lsnc_relu traffic_signs_recognition_2023 cgan_2023 cgan2026 soundnessbench soundnessbench_2026 vit_2023; do
-  for gz in ~/vnncomp2026_benchmarks/benchmarks/$b/1.0/onnx/*.onnx.gz; do
-    [ -f "$gz" ] || continue; gunzip -kf "$gz"
-    onnx="${gz%.gz}"
+# regenerate ALL manifest-category .nnv.mat (incl. vit post-#345; nn4sys-mscn + test
+# post-error-fix). Handles both .onnx and .onnx.gz, and 1.0/2.0 version dirs.
+for b in lsnc_relu traffic_signs_recognition_2023 cgan_2023 cgan2026 soundnessbench soundnessbench_2026 vit_2023 nn4sys test; do
+  for f in ~/vnncomp2026_benchmarks/benchmarks/$b/*/onnx/*.onnx ~/vnncomp2026_benchmarks/benchmarks/$b/*/onnx/*.onnx.gz; do
+    [ -f "$f" ] || continue
+    onnx="$f"; case "$f" in *.gz) gunzip -kf "$f"; onnx="${f%.gz}";; esac
+    if [ "$b" = "nn4sys" ]; then
+      # only mscn routes via the manifest; mscn_2048d_dual is corrupt upstream (skip)
+      case "$onnx" in *mscn_2048d_dual*) continue;; *mscn*) ;; *) continue;; esac
+    fi
     [ -f "${onnx%.onnx}.nnv.mat" ] || python3 ~/nnv/code/nnv/tools/onnx2nnv_python/onnx2nnv.py "$onnx" "${onnx%.onnx}.nnv.mat" > /dev/null 2>&1 || echo "WARN manifest: $onnx"
   done
 done

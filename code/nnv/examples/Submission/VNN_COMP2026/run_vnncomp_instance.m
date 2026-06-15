@@ -68,6 +68,19 @@ if contains(category, "smart_turn")
     return;
 end
 
+% nn4sys mscn_2048d_dual.onnx is corrupt upstream: it fails BOTH MATLAB's ONNX parser
+% AND onnx 1.20's ParseFromString ("Wire format was corrupt"), so no tool can load it.
+% Abstain cleanly to unknown (0 points -- never an error row, never a -150) rather than
+% crash. [2026-06-15: confirmed unparseable by matlab2nnv and the Python manifest importer.]
+if contains(category, "nn4sys") && contains(onnx, "mscn_2048d_dual")
+    status = 2;            % unknown
+    tTime = toc(t);
+    fid = fopen(outputfile, 'w');
+    fprintf(fid, 'unknown \n');
+    fclose(fid);
+    return;
+end
+
 %% 1) Load components
 
 % Load networks
@@ -971,7 +984,21 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         % error("Not supported");
 
     elseif contains(category, "nn4sys")
-        if contains(onnx, "lindex")
+        if contains(onnx, "mscn")
+            % nn4sys mscn: MATLAB's importNetworkFromONNX cannot parse these models
+            % (Gather/embedding + elementwise product/division). Route via the
+            % Python-importer manifest (forward pass cross-validated vs onnxruntime).
+            % The net has NONLINEAR ElementwiseProduct/Division layers with no sound
+            % approx/cp-star reach, so run FALSIFICATION-ONLY (reachOptionsList = {}): a
+            % validated SAT witness (replayed through onnxruntime in falsify_single) or
+            % unknown -- never an unsound unsat. mscn_2048d_dual.onnx is corrupt upstream
+            % (fails MATLAB AND onnx 1.20 parsers) and abstains to unknown earlier in
+            % run_vnncomp_instance.
+            nnvnet = load_manifest_net(onnx);
+            net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+            inputSize = nnvnet.Layers{1}.InputSize;
+            reachOptionsList = {};
+        elseif contains(onnx, "lindex")
             net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
             nnvnet = matlab2nnv(net);
             reachOptions = struct;
@@ -988,18 +1015,6 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
                 inputFormat = "UU";
                 X = dlarray(rand(12,8), inputFormat);
                 needReshape = 1;
-            elseif contains(onnx, "mscn")
-                % if contains(onnx, "dual")
-                %     inputSize = [1,22,14];
-                %     inputFormat = "UUU";
-                %     X = dlarray(rand(1,22,14), inputFormat);
-                % else
-                %     needReshape = 2;
-                %     inputSize = [1,11,14];
-                %     inputFormat = "UUU";
-                %     X = dlarray(rand(1,11,14), inputFormat);
-                % end
-                error("These are not supported yet.")
             else
                 inputSize = [1,6,8];
                 inputFormat = "UUU";
@@ -1183,6 +1198,18 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptions.surrogate_dim = [-1,-1];
         reachOptions.threshold_normal = 1e-5;
         reachOptions.reachMethod = 'cp-star'; % default parameters
+        reachOptionsList{1} = reachOptions;
+
+    elseif contains(category, "test")
+        % VNN-COMP 'test' sanity benchmark: tiny FC/ReLU nets that MATLAB's
+        % importNetworkFromONNX rejects ("ONNX model not supported"). Route via the
+        % Python-importer manifest (forward pass cross-validated vs onnxruntime); the
+        % nets are small enough that approx-star decides them soundly.
+        nnvnet = load_manifest_net(onnx);
+        net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+        inputSize = nnvnet.Layers{1}.InputSize;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
         reachOptionsList{1} = reachOptions;
 
     else % all other benchmarks

@@ -12,11 +12,13 @@ box lacks). See [`../../../../VNNCOMP2026_STRATEGY.md`](../../../../VNNCOMP2026_
 - **`run_instance.sh v1 <cat> <onnx> <vnnlib> <results> <timeout>`** — runs one instance
   and writes a single-word result + a **validated** SAT witness.
 
-## Single source of truth
+## Self-contained 2026 submission
 
-The MATLAB verification logic is the **maintained runner** `../VNN_COMP2025/run_vnncomp_instance.m`
-(now with the gradient **PGD/FGSM falsifier** + **witness validation** — strategy Pillars 1 & 2)
-and its `execute.py` bridge; `run_instance.sh` here references them so there is no code fork.
+This folder owns the **full** MATLAB verification logic — the maintained runner
+`run_vnncomp_instance.m` (gradient **PGD/FGSM falsifier** + **witness validation** — strategy
+Pillars 1 & 2), its `execute.py` bridge, the falsifiers, and the sweep/first-pass tooling, all
+local. `VNN_COMP2025` is frozen at its **original 2025 participation state** (the `vnncomp2025`
+tag) for reproducibility; all 2026 development happens here.
 
 ## Pre-submission checklist (deadline June 30, 2026 AoE)
 

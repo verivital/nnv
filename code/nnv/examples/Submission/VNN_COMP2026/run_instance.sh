@@ -3,9 +3,9 @@
 # result (sat/unsat/unknown/timeout/error) + a validated SAT witness to RESULTS_FILE.
 # Args: v1, category, onnx_path, vnnlib_path, results_file, timeout_seconds.
 #
-# Reuses the maintained MATLAB runner in ../VNN_COMP2025 (run_vnncomp_instance.m, now
-# with the gradient PGD falsifier + witness validation) via the existing execute.py
-# bridge, so there is a single source of truth for the verification logic.
+# Self-contained 2026 submission: uses the LOCAL run_vnncomp_instance.m (gradient PGD
+# falsifier + witness validation) via the local execute.py bridge. The 2026 folder owns
+# its full verification logic; VNN_COMP2025 is frozen at its original 2025 submission.
 
 TOOL_NAME="nnv"
 VERSION_STRING="v1"
@@ -16,7 +16,7 @@ fi
 CATEGORY="$2"; ONNX_FILE="$3"; VNNLIB_FILE="$4"; RESULTS_FILE="$5"; TIMEOUT="$6"
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-EXECUTE="$DIR/../VNN_COMP2025/execute.py"   # maintained MATLAB<->result bridge
+EXECUTE="$DIR/execute.py"   # local maintained MATLAB<->result bridge (self-contained 2026)
 if [ ! -f "$EXECUTE" ]; then
     echo "error" > "$RESULTS_FILE"
     echo "ERROR: execute.py not found at $EXECUTE"; exit 1

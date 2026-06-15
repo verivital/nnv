@@ -44,6 +44,9 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     margin      = cast(i_get(opts, 'margin', 0), precision);
     nSample     = i_get(opts, 'nSample', 16);
     rootTight   = i_get(opts, 'rootTight', true);   % root-tight intermediate-bound reuse (#1 tightness lever)
+    alphaIter   = i_get(opts, 'alphaIter', 0);      % alpha-CROWN slope-opt iters per batched node bound (0 = off; FC only)
+    alphaLr     = i_get(opts, 'alphaLr', 0.2);
+    betaIter    = i_get(opts, 'betaIter', 0);       % beta-CROWN split-dual iters (>0 -> JOINT alpha+beta; FC only)
 
     % Supported ops: affine/relu (FC) + conv/normaffine/avgpool (SEQUENTIAL conv nets). The
     % batched bounding (gpu_bab_crown_spec_dag) is sound for these -- conv/BN/avgpool are
@@ -58,6 +61,12 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
 
     nOps    = numel(ops);
     reluIdx = find(cellfun(@(o) strcmp(o.type, 'relu'), ops));
+    % alpha/beta-CROWN node bounding (gpu_bab_crown_alpha_fix / _alpha_beta) is FC-only
+    % (affine/relu); for conv/normaffine/avgpool nets fall back to the (root-tight) CROWN bound
+    % so we never mis-bound.
+    if (alphaIter > 0 || betaIter > 0) && ~all(cellfun(@(o) any(strcmp(o.type, {'affine','relu'})), ops))
+        alphaIter = 0; betaIter = 0;
+    end
     C = -eye(nClasses, precision);
     C(:, trueLabel) = C(:, trueLabel) + 1;
     C(trueLabel, :) = [];
@@ -121,7 +130,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         end
 
         % bound the popped batch (reusing the tight root bounds, clamped per node, if rootTight)
-        [margins, preL, preU, infeas] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds);
+        [margins, preL, preU, infeas] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter);
         % An INFEASIBLE node (a fixing combination that made the clamped IBP box empty,
         % preL>preU at some neuron) represents an EMPTY sub-region: the property holds
         % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
@@ -161,16 +170,29 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
 end
 
 % ------------------------------------------------------------------------------------
-function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds)
-% Bound B frontier nodes (B <= maxFrontier) in one batched gpu_bab_crown_spec call. The
-% backward CROWN (pagemtimes) runs on-device; margins and the per-relu pre-activation
-% bounds are gathered to host (small) for the verdict + split-neuron selection.
-% infeasible(j) is true when node j's fixings made the clamped box empty (preL>preU at some
-% neuron) -- an empty sub-region the caller certifies vacuously. rootBounds (optional) routes
-% the tight root bounds into gpu_bab_crown_spec_dag (root-tight reuse) instead of IBP.
+function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter)
+% Bound B frontier nodes (B <= maxFrontier) in one batched CROWN call. The backward CROWN
+% (pagemtimes) runs on-device; margins and the per-relu pre-activation bounds are gathered to
+% host (small) for the verdict + split-neuron selection. infeasible(j) is true when node j's
+% fixings made the clamped box empty (preL>preU at some neuron) -- an empty sub-region the
+% caller certifies vacuously. rootBounds (optional) routes the tight root bounds in (root-tight
+% reuse). Node-bound tightening (FC nets only), strongest first:
+%   betaIter>0  -> gpu_bab_crown_alpha_beta (JOINT alpha-CROWN + beta-CROWN split duals)
+%   alphaIter>0 -> gpu_bab_crown_alpha_fix  (alpha-CROWN slopes only)
+%   else        -> gpu_bab_crown_spec_dag   (fixed-slope root-tight CROWN)
+% All sound (alpha in [0,1], beta>=0 are valid relaxations/Lagrangian duals).
     if nargin < 9, rootBounds = []; end
+    if nargin < 10 || isempty(alphaIter), alphaIter = 0; end
+    if nargin < 11 || isempty(alphaLr), alphaLr = 0.2; end
+    if nargin < 12 || isempty(betaIter), betaIter = 0; end
     LB = repmat(x_lb, 1, B); UB = repmat(x_ub, 1, B);
-    [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
+    if betaIter > 0
+        [m, ~, pL, pU] = gpu_bab_crown_alpha_beta(ops, LB, UB, C, fixc, reluIdx, precision, max(alphaIter,betaIter), alphaLr, rootBounds);
+    elseif alphaIter > 0
+        [m, ~, pL, pU] = gpu_bab_crown_alpha_fix(ops, LB, UB, C, fixc, reluIdx, precision, alphaIter, alphaLr, rootBounds);
+    else
+        [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
+    end
     margins = gather(m);
     preL = cell(numel(ops), 1); preU = cell(numel(ops), 1);
     infeasible = false(1, B);

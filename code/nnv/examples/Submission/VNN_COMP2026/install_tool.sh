@@ -22,13 +22,20 @@ echo "$USER"    # username (licensing)
 mkdir -p "$HOME/.matlab/${MATLAB_RELEASE}_licenses"
 
 # ---- detect the MATLAB install root (DO NOT hardcode): works for the MathWorks AMI
-# (/usr/local/matlab) AND a self-installed user-dir install (e.g. ~/MATLAB/R2026a). ----
-MATLAB_BIN_EARLY="$(command -v matlab || true)"
-if [ -n "$MATLAB_BIN_EARLY" ]; then
+# (/usr/local/matlab) AND a self-installed user-dir install (e.g. ~/MATLAB/R2026a). An
+# explicit MATLABROOT env wins; otherwise derive from `matlab` on PATH; else fall back. ----
+if [ -n "${MATLABROOT:-}" ]; then
+    :   # explicit override -- trust the caller
+elif MATLAB_BIN_EARLY="$(command -v matlab)"; then
     MATLAB_REAL_EARLY="$(readlink -f "$MATLAB_BIN_EARLY" 2>/dev/null || echo "$MATLAB_BIN_EARLY")"
     MATLABROOT="$(dirname "$(dirname "$MATLAB_REAL_EARLY")")"
 else
-    MATLABROOT="${MATLABROOT:-/usr/local/matlab}"   # fallback; override via env MATLABROOT
+    MATLABROOT="/usr/local/matlab"
+fi
+# Sanity: a real MATLAB root has bin/matlab. If not (e.g. `matlab` was a wrapper in /usr/local/bin
+# so dirname^2 mis-resolved), warn -- mpm/pip would otherwise target the wrong place.
+if [ ! -x "${MATLABROOT}/bin/matlab" ]; then
+    echo "WARN: MATLABROOT='${MATLABROOT}' has no bin/matlab; set MATLABROOT explicitly if installs land wrong."
 fi
 echo "Using MATLABROOT=${MATLABROOT}"
 
@@ -87,7 +94,10 @@ python3 -c "import matlab.engine" || { echo "ERROR: matlab.engine import failed;
 if command -v nvidia-smi >/dev/null 2>&1; then
     DRV="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)"
     DRV_MAJ="${DRV%%.*}"
-    if [ -n "$DRV_MAJ" ] && [ "$DRV_MAJ" -lt 570 ] 2>/dev/null; then
+    if [ -z "$DRV" ] || ! [ "$DRV_MAJ" -eq "$DRV_MAJ" ] 2>/dev/null; then
+        echo "WARN: nvidia-smi present but the driver version could not be determined (driver not loaded / no GPU?)."
+        echo "      GPU compute (gpuDevice) likely unavailable; R2026a (CUDA 12.8) needs NVIDIA driver >=570."
+    elif [ "$DRV_MAJ" -lt 570 ]; then
         echo "WARN: NVIDIA driver ${DRV} < 570 -> R2026a (CUDA 12.8) GPU compute (gpuDevice) will FAIL."
         echo "      Fix: sudo apt install -y nvidia-driver-580 && sudo reboot"
     else

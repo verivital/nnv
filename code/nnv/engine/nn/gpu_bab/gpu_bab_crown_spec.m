@@ -1,13 +1,22 @@
-function margins = gpu_bab_crown_spec(ops, x_lb, x_ub, C, precision)
+function [margins, preL, preU] = gpu_bab_crown_spec(ops, x_lb, x_ub, C, precision, fixings)
 % GPU_BAB_CROWN_SPEC  Sound CROWN lower bound on a linear output spec C*f(x),
 %   batched over input sub-domains -- the GPU-BaB bounding primitive.
 %
-%   margins = GPU_BAB_CROWN_SPEC(ops, x_lb, x_ub, C, precision)
+%   [margins, preL, preU] = GPU_BAB_CROWN_SPEC(ops, x_lb, x_ub, C, precision, fixings)
 %     ops        : affine/relu op list (see nn_to_ops)
 %     x_lb, x_ub : input box(es), n-by-B  (B sub-domains = the GPU BATCH dimension)
 %     C          : spec matrix, nSpec-by-nOut (same spec applied to every sub-box)
 %     precision  : 'single' (default) | 'double'
+%     fixings    : OPTIONAL cell(nOps,1); for a relu op k, fixings{k} is a dim_k-by-B
+%                  matrix of per-node ReLU-split clamps (-1 inactive / 0 free / +1 active).
+%                  This is what lets the B columns be ReLU-split BaB NODES that share the
+%                  SAME input box but partition the unstable neurons -- the clamp pins a
+%                  fixed neuron's pre-activation (active: l:=max(l,0); inactive: u:=min(u,0))
+%                  exactly as the serial gpu_bab_relu_split does, and propagates it forward.
+%                  Omit (or pass {}) for plain input-split bounding (gpu_bab_bab).
 %     margins    : nSpec-by-B;  margins(i,k) <= min_{x in box k} C(i,:)*f(x)
+%     preL, preU : OPTIONAL cell(nOps,1); the (clamped) pre-activation bounds at each relu
+%                  (dim_k-by-B), for the caller's split-neuron selection / bound reuse.
 %
 %   For robustness: C rows = e_true - e_j (j ~= true); all margins(:,k) > 0 proves
 %   sub-box k robust. Bounding a SPEC (not per-output ranges) is what lets a single
@@ -31,6 +40,7 @@ function margins = gpu_bab_crown_spec(ops, x_lb, x_ub, C, precision)
     if ~ismember(precision, {'single','double'})
         error('gpu_bab_crown_spec:precision', "precision must be 'single' or 'double'");
     end
+    if nargin < 6, fixings = {}; end   % optional per-relu BaB node clamps (-1/0/+1), dim_k-by-B
 
     B = size(x_lb, 2);
     nSpec = size(C, 1);
@@ -51,6 +61,16 @@ function margins = gpu_bab_crown_spec(ops, x_lb, x_ub, C, precision)
                 nub = Wp*ub + Wn*lb + b;
                 lb = nlb; ub = nub;
             case 'relu'
+                % Per-node ReLU-split clamp (BaB): a fixed-active neuron has z>=0 so its
+                % lower pre-activation bound rises to 0 (the neuron is now stable-on); a
+                % fixed-inactive neuron has z<=0 so its upper bound drops to 0 (stable-off).
+                % Pinning both propagates the split forward exactly as gpu_bab_relu_split's
+                % i_crown_clamped does, just batched over the B node columns.
+                if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
+                    fx = fixings{k};                         % dim_k x B
+                    lb(fx == 1)  = max(lb(fx == 1),  0);     % active fix:   z >= 0
+                    ub(fx == -1) = min(ub(fx == -1), 0);     % inactive fix: z <= 0
+                end
                 preL{k} = lb; preU{k} = ub;
                 lb = max(lb, 0); ub = max(ub, 0);
             otherwise

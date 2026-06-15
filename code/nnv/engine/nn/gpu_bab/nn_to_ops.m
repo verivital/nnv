@@ -115,6 +115,25 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
                 [s, t] = i_bn_fold(L, inShape);
                 ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',inShape,'src',inOp); %#ok<AGROW>
             end
+        elseif contains(cls, 'ElementwiseAffine')
+            % ONNX ElementwiseAffineLayer y = (DoScale?Scale:1).*x + (DoOffset?Offset:0)
+            % (LINEAR -> exact). matlab2nnv emits this for a Gemm-without-bias followed by an
+            % Add (the FC bias split out), e.g. safenlp FC nets. Fold as a per-feature
+            % normaffine (Scale is typically scalar, Offset per-feature). Flat input -> [F 1 1];
+            % spatial input -> inShape. The IBP==evaluate orientation guard validates the fold.
+            sc = 1; of = 0;
+            if (~isprop(L,'DoScale')  || L.DoScale)  && isprop(L,'Scale'),  sc = double(L.Scale);  end
+            if (~isprop(L,'DoOffset') || L.DoOffset) && isprop(L,'Offset'), of = double(L.Offset); end
+            if isempty(inShape)
+                F = max(numel(sc), numel(of));
+                if F <= 1
+                    error('nn_to_ops:elemAffineFlatSize', ...
+                        'ElementwiseAffine with scalar params on an unknown-size flat input -- refused for soundness.');
+                end
+                ops{end+1} = struct('type','normaffine','scale',sc(:).*ones(F,1),'shift',of(:).*ones(F,1),'shape',[F 1 1],'src',inOp); %#ok<AGROW>
+            else
+                ops{end+1} = struct('type','normaffine','scale',sc,'shift',of,'shape',inShape,'src',inOp); %#ok<AGROW>
+            end
         elseif contains(cls, 'AvgPool') || contains(cls, 'AveragePool') || contains(cls, 'GlobalAveragePool')
             if isempty(inShape)
                 error('nn_to_ops:poolFlat', 'Pooling on a flat vector -- refused for soundness.');
@@ -135,6 +154,20 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
                     'Addition with %d inputs not supported (only 2) -- refused for soundness.', numel(inOps));
             end
             ops{end+1} = struct('type','add','inputs',inOps,'shape',inShape,'src',inOps(1)); %#ok<AGROW>
+        elseif contains(cls, 'FeatureInput') && isempty(ops)
+            % LEADING FeatureInputLayer: a flat [n] feature-vector input (e.g. sat_relu /
+            % safenlp FC nets imported with InputDataFormats="BC"). It carries no learnable
+            % transform on the values, so treat it as the engine-input passthrough (like a
+            % leading Placeholder / Flatten / ImageInput-without-norm), which UNBLOCKS these
+            % FC nets for the GPU-BaB pre-check (they previously errored -> Star). SOUNDNESS:
+            % a FeatureInputLayer WITH normalization would change the values, so refuse that
+            % (the mandatory IBP==evaluate orientation guard would also catch it) -- only the
+            % no-normalization case becomes an op-list; sound-by-refusal otherwise.
+            if isprop(L, 'Normalization') && ~isempty(L.Normalization) && ~strcmpi(string(L.Normalization), 'none')
+                error('nn_to_ops:featureInputNorm', ...
+                    'FeatureInputLayer Normalization "%s" is not folded yet -- refused for soundness.', string(L.Normalization));
+            end
+            emitted = false;
         elseif contains(cls, 'Placeholder') && isempty(ops)
             % LEADING input-adapter Placeholder: matlab2nnv maps a SequenceInputLayer (the
             % 'BCT' ONNX import of a flat MNIST FC net) / an unmappable input cast to a

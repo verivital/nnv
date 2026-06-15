@@ -93,6 +93,8 @@ function [status, info] = gpu_bab_relu_split(ops, x_lb, x_ub, trueLabel, nClasse
         if isempty(kop)
             status = 'unknown'; return;                 % no unstable left, still not certified
         end
+        j = gather(j);   % split-neuron index -> host (the fixing vectors are host -1/0/+1); the
+                         % large bounds stayed on device -- only this scalar index crosses back
         fa = node.fix; if isempty(fa{kop}), fa{kop} = zeros(i_dim(unstable,kop),1); end; fa{kop}(j) = 1;
         fi = node.fix; if isempty(fi{kop}), fi{kop} = zeros(i_dim(unstable,kop),1); end; fi{kop}(j) = -1;
         stack{end+1} = struct('fix', {fa}, 'depth', node.depth+1); %#ok<AGROW>

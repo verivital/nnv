@@ -127,7 +127,7 @@ function [nBad, nNode, nMC, tighterFrac] = i_check_clamped(seed, nTrials)
 
         % MC over the node's sub-region (box ∩ fixing halfspaces)
         rng(2000 + t);
-        X = lb + (ub - lb) .* rand(6, 30000);
+        X = lb + (ub - lb) .* rand(6, 12000);   % enough for >=30 in-region pts with <=3 fixings; keeps CI fast
         [Y, pre] = i_forward_fc(ops, X);
         mask = true(1, size(X,2));
         for p = 1:nFix

@@ -75,12 +75,16 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
         % ops, so no forward propagation is needed. SOUND (root bounds hold over the full box
         % >= each node's region; the own-neuron clamp is the split's domain restriction) and
         % much tighter than IBP. Non-relu ops are validated for support but carry no bounds.
-        lb0 = cast(x_lb, precision);     % template fixing device + precision of the broadcasts
+        if ~isstruct(rootBounds) || ~all(isfield(rootBounds, {'preL','preU'}))
+            error('gpu_bab_crown_spec_dag:rootBounds', ...
+                'rootBounds must be a struct with fields preL and preU (per-op cell arrays).');
+        end
+        tmpl = cast(x_lb(1), precision); % scalar template for device+precision of the broadcasts (no n-by-B copy)
         for k = 1:nOps
             tk = ops{k}.type;
             if strcmp(tk, 'relu')
-                l = repmat(cast(rootBounds.preL{k}, 'like', lb0), 1, B);
-                u = repmat(cast(rootBounds.preU{k}, 'like', lb0), 1, B);
+                l = repmat(cast(rootBounds.preL{k}, 'like', tmpl), 1, B);
+                u = repmat(cast(rootBounds.preU{k}, 'like', tmpl), 1, B);
                 if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                     fx = fixings{k};
                     l(fx == 1)  = max(l(fx == 1),  0);

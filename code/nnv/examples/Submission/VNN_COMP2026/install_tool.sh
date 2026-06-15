@@ -21,15 +21,34 @@ ip link show   # mac address (licensing)
 echo "$USER"    # username (licensing)
 mkdir -p "$HOME/.matlab/${MATLAB_RELEASE}_licenses"
 
-# MathWorks Package Manager: ONNX + PyTorch converters (needed by importNetworkFromONNX
-# and the manifest importer). Add others here if the toolbox set grows.
+# ---- detect the MATLAB install root (DO NOT hardcode): works for the MathWorks AMI
+# (/usr/local/matlab) AND a self-installed user-dir install (e.g. ~/MATLAB/R2026a). ----
+MATLAB_BIN_EARLY="$(command -v matlab || true)"
+if [ -n "$MATLAB_BIN_EARLY" ]; then
+    MATLAB_REAL_EARLY="$(readlink -f "$MATLAB_BIN_EARLY" 2>/dev/null || echo "$MATLAB_BIN_EARLY")"
+    MATLABROOT="$(dirname "$(dirname "$MATLAB_REAL_EARLY")")"
+else
+    MATLABROOT="${MATLABROOT:-/usr/local/matlab}"   # fallback; override via env MATLABROOT
+fi
+echo "Using MATLABROOT=${MATLABROOT}"
+
+# MathWorks Package Manager (mpm): provision the FULL MATLAB toolbox set NNV needs PLUS the
+# ONNX/PyTorch converters, into the detected MATLAB root. mpm is ADDITIVE + idempotent --
+# products already present are skipped -- so this is fast on the AMI (base toolboxes
+# preinstalled) AND completes a general/from-scratch install. Override via env NNV_MPM_PRODUCTS.
 apt-get update -y && apt-get install -y wget
 wget -q https://www.mathworks.com/mpm/glnxa64/mpm
 chmod +x mpm
+NNV_MPM_PRODUCTS="${NNV_MPM_PRODUCTS:-Deep_Learning_Toolbox Parallel_Computing_Toolbox \
+Computer_Vision_Toolbox Statistics_and_Machine_Learning_Toolbox Optimization_Toolbox \
+Control_System_Toolbox Image_Processing_Toolbox Symbolic_Math_Toolbox \
+System_Identification_Toolbox Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format \
+Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format}"
 ./mpm install --release="${MATLAB_RELEASE}" \
-    --products Deep_Learning_Toolbox_Converter_for_ONNX_Model_Format \
-               Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format \
-    --destination /usr/local/matlab || true
+    --destination "${MATLABROOT}" \
+    --accept-vendor-licenses \
+    --products ${NNV_MPM_PRODUCTS} || \
+    echo "WARN: mpm install returned non-zero (some products may already be present)"
 
 # One-time NNV toolbox install (tbxmanager: mpt/glpk/sedumi/...). Doing it here (not
 # per-instance) keeps prepare/run overhead minimal. Adjust TOOLKIT if the image differs.
@@ -53,17 +72,30 @@ pip3 install --no-cache-dir onnxsim onnxoptimizer
 # the 2026-06-12 AWS dry run on the MathWorks R2026a AMI). Install from the
 # MATLAB tree -- guaranteed version match with the installed release; the PyPI
 # matlabengine wheel can fail to build and may mismatch the MATLAB version.
-MATLAB_BIN="$(command -v matlab || echo /usr/local/matlab/bin/matlab)"
-# readlink guarded: under set -e an unresolvable path must not kill the install
-MATLAB_REAL="$(readlink -f "$MATLAB_BIN" 2>/dev/null || echo "$MATLAB_BIN")"
-MATLAB_ROOT_RESOLVED="$(dirname "$(dirname "$MATLAB_REAL")")"
-pip3 install --no-cache-dir "${MATLAB_ROOT_RESOLVED}/extern/engines/python" || \
+pip3 install --no-cache-dir "${MATLABROOT}/extern/engines/python" || \
     pip3 install --no-cache-dir matlabengine || \
     echo "WARN: matlab.engine install failed (import check below decides)"
 # Fatal gate: execute.py does `import matlab.engine` on every instance, so a
 # missing engine means zero points. Fail the install loudly rather than let a
 # misleading "Install complete." defer the failure to runtime.
 python3 -c "import matlab.engine" || { echo "ERROR: matlab.engine import failed; fix before running instances" >&2; exit 1; }
+
+# ---- GPU driver / CUDA sanity (NNV's GPU-BaB engine needs a working gpuDevice) ------------
+# R2026a ships CUDA 12.8 -> requires NVIDIA driver >= 570. Warn (do NOT fail) when the GPU is
+# unusable so the user can upgrade (sudo apt install nvidia-driver-580 && sudo reboot); CPU
+# verification still works without a GPU.
+if command -v nvidia-smi >/dev/null 2>&1; then
+    DRV="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)"
+    DRV_MAJ="${DRV%%.*}"
+    if [ -n "$DRV_MAJ" ] && [ "$DRV_MAJ" -lt 570 ] 2>/dev/null; then
+        echo "WARN: NVIDIA driver ${DRV} < 570 -> R2026a (CUDA 12.8) GPU compute (gpuDevice) will FAIL."
+        echo "      Fix: sudo apt install -y nvidia-driver-580 && sudo reboot"
+    else
+        echo "NVIDIA driver ${DRV} OK for R2026a CUDA 12.8 (requires >=570)."
+    fi
+else
+    echo "NOTE: nvidia-smi not found -> GPU-BaB will run CPU-only. Install NVIDIA driver >=570 for GPU."
+fi
 
 # Optional: Gurobi for a faster LP backend (uncomment + set license).
 # cd ~ && wget -q https://packages.gurobi.com/12.0/gurobi12.0.0_linux64.tar.gz && tar xfz gurobi*.tar.gz

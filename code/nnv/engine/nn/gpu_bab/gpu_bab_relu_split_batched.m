@@ -98,8 +98,12 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         end
 
         % bound the popped batch
-        [margins, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B);
-        undec = find(~all(margins > margin, 1));
+        [margins, preL, preU, infeas] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B);
+        % An INFEASIBLE node (a fixing combination that made the clamped IBP box empty,
+        % preL>preU at some neuron) represents an EMPTY sub-region: the property holds
+        % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
+        % so the BaB splits it forever and degrades a robust query to a false 'unknown'.
+        undec = find(~(all(margins > margin, 1) | infeas));
         if isempty(undec)
             continue;                               % whole batch certified; pop the next
         end
@@ -134,18 +138,22 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
 end
 
 % ------------------------------------------------------------------------------------
-function [margins, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B)
+function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B)
 % Bound B frontier nodes (B <= maxFrontier) in one batched gpu_bab_crown_spec call. The
 % backward CROWN (pagemtimes) runs on-device; margins and the per-relu pre-activation
 % bounds are gathered to host (small) for the verdict + split-neuron selection.
+% infeasible(j) is true when node j's fixings made the clamped IBP box empty (preL>preU at
+% some neuron) -- an empty sub-region the caller certifies vacuously.
     LB = repmat(x_lb, 1, B); UB = repmat(x_ub, 1, B);
     [m, pL, pU] = gpu_bab_crown_spec(ops, LB, UB, C, precision, fixc);
     margins = gather(m);
     preL = cell(numel(ops), 1); preU = cell(numel(ops), 1);
+    infeasible = false(1, B);
     for r = 1:numel(reluIdx)
         k = reluIdx(r);
         preL{k} = gather(pL{k});
         preU{k} = gather(pU{k});
+        infeasible = infeasible | any(preL{k} > preU{k} + 1e-6, 1);   % clamp made box empty
     end
 end
 

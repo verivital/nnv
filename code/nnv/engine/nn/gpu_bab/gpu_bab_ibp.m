@@ -42,9 +42,9 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
     lb = cast(in_lb, precision);
     ub = cast(in_ub, precision);
     nOps = numel(ops);
-    hasAdd = any(cellfun(@(o) strcmp(o.type, 'add'), ops));
+    isDag = i_is_dag(ops);
 
-    if ~hasAdd
+    if ~isDag
         % sequential (chain) net -- rolling bounds, no per-op cache.
         for k = 1:nOps
             [lb, ub] = i_apply_ibp(ops{k}, lb, ub, precision);
@@ -53,8 +53,9 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
         return;
     end
 
-    % DAG net (residual): cache each op's output bounds (index k+1 = op k; index 1 = op 0 =
-    % input), so an 'add' can sum two non-adjacent ops. Interval add is EXACT (sound + tight).
+    % DAG net (residual / projection shortcut): cache each op's output bounds (index k+1 = op k;
+    % index 1 = op 0 = input). Each op consumes the output of its op.src (not the previous op),
+    % so conv-on-skip branches bound correctly; 'add' sums its two inputs. Interval ops EXACT.
     cl = cell(nOps + 1, 1); cu = cell(nOps + 1, 1);
     cl{1} = lb; cu{1} = ub;
     for k = 1:nOps
@@ -64,7 +65,8 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
             cl{k+1} = cl{a} + cl{b};
             cu{k+1} = cu{a} + cu{b};
         else
-            [cl{k+1}, cu{k+1}] = i_apply_ibp(op, cl{k}, cu{k}, precision);
+            s = op.src + 1;
+            [cl{k+1}, cu{k+1}] = i_apply_ibp(op, cl{s}, cu{s}, precision);
         end
     end
     out_lb = cl{nOps + 1};
@@ -92,6 +94,17 @@ function [nlb, nub] = i_apply_ibp(op, lb, ub, precision)
         otherwise
             error('gpu_bab_ibp:unsupportedOp', ...
                 'Unsupported op type "%s" (affine/relu/conv/normaffine/avgpool/maxpool/add).', op.type);
+    end
+end
+
+function tf = i_is_dag(ops)
+% Needs the cached DAG path if any op is an 'add' OR consumes a NON-previous op (src != k-1):
+% a residual / projection-shortcut branch. Pure chains (every src == k-1) use the rolling path.
+    tf = false;
+    for k = 1:numel(ops)
+        o = ops{k};
+        if strcmp(o.type, 'add'), tf = true; return; end
+        if isfield(o, 'src') && o.src ~= k-1, tf = true; return; end
     end
 end
 

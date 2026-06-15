@@ -31,13 +31,14 @@ function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, 
     for k = 1:nOps
         tk = ops{k}.type;
         if strcmp(tk, 'relu') || strcmp(tk, 'maxpool')
-            % z_k (the input feeding this op) = output of ops[1..k-1]. Bound each of its
-            % elements via a backward CROWN pass over ops[1..k-1], which reuses preL/preU of
-            % the strictly-earlier ReLUs/maxpools (already computed -- sound by induction).
-            nk = i_layer_width(ops, k-1);
+            % z_k (the input feeding this op) = output of op `src` = ops{k}.src (the DAG input,
+            % not assumed k-1). Bound each of its elements via a backward DAG-CROWN pass over
+            % ops[1..src], reusing preL/preU of strictly-earlier ReLUs/maxpools (sound by induction).
+            src = ops{k}.src;
+            if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
             Ck = eye(nk, precision);
-            pu = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, false);
-            pl = i_backward(ops, k-1, Ck, x_lb, x_ub, preL, preU, precision, true);
+            pu = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false);
+            pl = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true);
             if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                 fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
                 pl(fx == 1)  = max(pl(fx == 1),  0);
@@ -70,32 +71,39 @@ function w = i_layer_width(ops, upto)
 end
 
 function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
-% Backward CROWN over ops[1..upto] with initial coefficient A0, using preL/preU for the
-% ReLU relaxations. lower=true -> lower bound (min); false -> upper bound (max).
-    A = A0;
+% Backward CROWN over the DAG ops[1..upto] with initial coefficient A0 (on op `upto`'s output).
+% FULL DAG: each op routes its backward coefficient to op.src (its input op), accumulated in
+% skipA{src}; an 'add' routes UNCHANGED to BOTH inputs (linear -> exact). skipA{k} = accumulated
+% coefficient on op k's OUTPUT; inputSkipA = coefficient on op 0 (the engine input). Ops are
+% topologically ordered, so k=upto:-1:1 visits every consumer of op k before op k itself, so
+% skipA{k} is complete when op k is processed (sound by induction). lower=true -> lower bound.
     nS = size(A0, 1);
     d = zeros(nS, 1, precision);
-    % DAG support: an 'add' op (out = out[a]+out[b]) sends its coefficient UNCHANGED to BOTH
-    % inputs (linear -> exact). skipA{k} accumulates the coefficient arriving at op k's OUTPUT
-    % from later adds; inputSkipA accumulates skips that target op 0 (the engine input).
-    hasAdd = any(cellfun(@(o) strcmp(o.type, 'add'), ops(1:upto)));
-    skipA = cell(upto, 1); inputSkipA = 0;
+    if upto == 0                              % A0 is already on the engine input (op 0)
+        Apos = max(A0, 0); Aneg = min(A0, 0);
+        if lower, bound = Apos*cast(x_lb,precision) + Aneg*cast(x_ub,precision);
+        else,     bound = Apos*cast(x_ub,precision) + Aneg*cast(x_lb,precision); end
+        return;
+    end
+    skipA = cell(upto, 1);
+    skipA{upto} = A0;                         % seed: A0 is the coefficient on op `upto`'s output
+    inputSkipA = 0;
     for k = upto:-1:1
+        A = skipA{k};
+        if isempty(A), continue; end          % nothing routed to op k (dead w.r.t. the output)
         op = ops{k};
-        if hasAdd && ~isempty(skipA{k}), A = A + skipA{k}; end
-        if strcmp(op.type, 'add')
+        if strcmp(op.type, 'add')             % out = out[a]+out[b]: route UNCHANGED to both
             for ii = 1:numel(op.inputs)
-                src = op.inputs(ii);
-                if src == 0
-                    inputSkipA = inputSkipA + A;
-                elseif isempty(skipA{src})
-                    skipA{src} = A;
-                else
-                    skipA{src} = skipA{src} + A;
+                s = op.inputs(ii);
+                if s == 0,                inputSkipA = inputSkipA + A;
+                elseif isempty(skipA{s}), skipA{s} = A;
+                else,                     skipA{s} = skipA{s} + A;
                 end
             end
-            A = zeros(nS, size(A, 2), precision);   % fully distributed to its inputs
-        elseif strcmp(op.type, 'affine')
+            continue;
+        end
+        % single-input op: A (on op's OUTPUT) -> A (on op's INPUT)
+        if strcmp(op.type, 'affine')
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             d = d + A * b;
             A = A * W;
@@ -107,20 +115,25 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
             [A, d] = i_avgpool_backward(A, d, op, precision);
         elseif strcmp(op.type, 'maxpool')
             [A, d] = i_maxpool_backward(A, d, op, preL{k}, preU{k}, precision, lower);
-        else
+        else                                  % relu relaxation (sign-aware), preL/preU{k}
             l = preL{k}; u = preU{k};
             [au, bu, al] = i_relax(l, u, precision);
             Apos = max(A, 0); Aneg = min(A, 0);
             if lower
-                d = d + Aneg * bu;                 % min: +coeff->lower line(al), -coeff->upper line(au,bu)
+                d = d + Aneg * bu;
                 A = Apos .* al.' + Aneg .* au.';
             else
-                d = d + Apos * bu;                 % max: +coeff->upper line(au,bu), -coeff->lower line(al)
+                d = d + Apos * bu;
                 A = Apos .* au.' + Aneg .* al.';
             end
         end
+        s = op.src;                           % route the input coefficient to op.src
+        if s == 0,                inputSkipA = inputSkipA + A;
+        elseif isempty(skipA{s}), skipA{s} = A;
+        else,                     skipA{s} = skipA{s} + A;
+        end
     end
-    if hasAdd, A = A + inputSkipA; end   % coeff on the input = chain + skips-to-input
+    A = inputSkipA;                           % total coefficient on the engine input
     Apos = max(A, 0); Aneg = min(A, 0);
     if lower
         bound = Apos * cast(x_lb, precision) + Aneg * cast(x_ub, precision) + d;

@@ -272,13 +272,18 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
         if ~nnz(lb-ub) % lb == ub, not a set
 
             status = 1; % verified, since  we already tested this
-            
+
         else
 
+            % GPU-BaB sound additive unsat pre-check (FC argmax-robustness timeout
+            % categories): try the batched GPU-BaB before Star; a 'robust' verdict is a
+            % sound unsat -> emit + skip Star. Anything else falls through unchanged.
+            [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList);
+
             while ~isempty(reachOptionsList)
-                
+
                 reachOptions = reachOptionsList{1};
-    
+
                 IS = create_input_set(lb, ub, inputSize, needReshape, useImageStar);
 
                 % Compute reachability. Reach may FAIL LOUD by design (layers
@@ -657,6 +662,34 @@ function ok = is_nnvnet_valid(nnvnet)
 % matlab2nnv conversion fails inside a try/catch). We need an NN object,
 % not a string sentinel.
     ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
+end
+
+function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList)
+% Sound, ADDITIVE GPU-BaB unsat pre-check for the FC argmax-robustness timeout categories
+% (safenlp / sat_relu / relusplitter). Runs the batched GPU-BaB (sound CROWN + ReLU-split
+% branch-and-bound, DOUBLE precision -- FP-sound) BEFORE Star reachability. A 'robust'
+% verdict is a sound UNSAT proof, so emit it (status=1) and skip Star (empty the method
+% list). Any other outcome (unknown / skip / unsafe / error) leaves status + reachOptionsList
+% UNCHANGED, so Star runs exactly as before. gpu_bab_try_verify verifies the spec is
+% argmax-robustness for the net's own center prediction (target derived + checked inside),
+% so this can only ADD a fast sound unsat -- it can never produce a wrong verdict (a
+% non-matching spec / unsupported net / failed orientation guard -> 'skip' -> Star).
+    if status ~= 2, return; end                          % already decided -> nothing to do
+    if ~(contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter"))
+        return;                                          % only the FC timeout categories
+    end
+    if ~is_nnvnet_valid(nnvnet), return; end             % need a valid NNV net for nn_to_ops + evaluate
+    try
+        [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',5000));
+        if strcmp(gv, 'robust')
+            status = 1; reachOptionsList = {};
+            fprintf('GPU-BaB pre-check: robust/unsat (%d nodes, %s) -> skip Star reach\n', ginfo.nodes, ginfo.reason);
+        else
+            fprintf('GPU-BaB pre-check: %s (%s) -> Star reach\n', gv, ginfo.reason);
+        end
+    catch ME
+        fprintf('GPU-BaB pre-check errored (%s) -> Star reach\n', ME.message);
+    end
 end
 
 function L = relax_ladder(ks)

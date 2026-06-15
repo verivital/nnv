@@ -14,12 +14,12 @@ function tests = test_validate_witness_onnx
 end
 
 function setupOnce(tc)
-    % validate_witness_onnx lives in examples/Submission/VNN_COMP2025. The matrix CI splits
+    % validate_witness_onnx lives in examples/Submission/VNN_COMP2026. The matrix CI splits
     % tests into shards and nothing guarantees that dir is on the path, so add it here to be
     % self-sufficient -- otherwise these tests intermittently error 'Undefined function
     % validate_witness_onnx' depending on which other tests share the shard.
     here = fileparts(mfilename('fullpath'));
-    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2025');
+    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2026');
     tc.TestData.addedPath = '';
     if isfolder(sub) && ~contains(path, sub)
         addpath(sub);

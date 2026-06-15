@@ -151,7 +151,7 @@ jobs:
 
       - name: Clear committed results CSVs from the checkout (avoid polluting the artifact)
         shell: bash
-        run: rm -f code/nnv/examples/Submission/VNN_COMP2025/results_*.csv
+        run: rm -f code/nnv/examples/Submission/VNN_COMP2026/results_*.csv
 
       # Manifest categories: MATLAB's importNetworkFromONNX cannot parse these, so NNV
       # imports them via the Python importer (onnx2nnv.py -> <model>.nnv.mat). Mirrors the
@@ -187,7 +187,7 @@ jobs:
         with:
           command: |
             cd('code/nnv'); install;
-            cd(fullfile('examples','Submission','VNN_COMP2025'));
+            cd(fullfile('examples','Submission','VNN_COMP2026'));
             bench = fullfile(getenv('GITHUB_WORKSPACE'), 'vnncomp2025_benchmarks', '${{ github.event.inputs.benchmarks_subdir }}');
             to = str2double('${{ github.event.inputs.timeout_s }}'); if isnan(to), to = 120; end
             es = '${{ github.event.inputs.eps_shrink }}'; if ~isempty(es), setenv('NNV_EPS_SHRINK', es); end
@@ -206,7 +206,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sweep-${{ matrix.folder }}
-          path: code/nnv/examples/Submission/VNN_COMP2025/results_*.csv
+          path: code/nnv/examples/Submission/VNN_COMP2026/results_*.csv
           if-no-files-found: warn
 
   aggregate:

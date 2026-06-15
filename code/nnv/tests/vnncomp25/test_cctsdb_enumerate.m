@@ -19,11 +19,11 @@ function tests = test_cctsdb_enumerate
 end
 
 function setupOnce(tc)
-    % The runner + script live in examples/Submission/VNN_COMP2025. The matrix CI
+    % The runner + script live in examples/Submission/VNN_COMP2026. The matrix CI
     % splits tests into shards and nothing guarantees that dir is on the path, so
     % add it here to be self-sufficient.
     here = fileparts(mfilename('fullpath'));
-    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2025');
+    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2026');
     tc.TestData.subdir = sub;
     tc.TestData.addedPath = '';
     if isfolder(sub) && ~contains(path, sub)
@@ -93,7 +93,7 @@ function test_dispatcher_no_longer_stub_errors(tc)
     % unsupported: it routes to the enumeration path, which degrades bogus
     % inputs to a sound 'unknown' WITHOUT raising.
     tc.assumeTrue(exist('run_vnncomp_instance', 'file') == 2, ...
-        'run_vnncomp_instance not on path; add examples/Submission/VNN_COMP2025');
+        'run_vnncomp_instance not on path; add examples/Submission/VNN_COMP2026');
     onnx = [tempname '.onnx'];          % does not exist
     vnnlib = [tempname '.vnnlib'];      % does not exist
     outf = [tempname '.txt'];

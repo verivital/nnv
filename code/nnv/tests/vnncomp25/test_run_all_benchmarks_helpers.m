@@ -7,8 +7,8 @@ function tests = test_run_all_benchmarks_helpers
 % `pick_instances` / `ensure_decompressed` / `status_to_str` INSIDE
 % run_all_benchmarks.m, which are not reachable from a test. This test exercises
 % the behavior-preserving extracted copies:
-%     examples/Submission/VNN_COMP2025/vnncomp_pick_instances.m
-%     examples/Submission/VNN_COMP2025/vnncomp_status_to_str.m
+%     examples/Submission/VNN_COMP2026/vnncomp_pick_instances.m
+%     examples/Submission/VNN_COMP2026/vnncomp_status_to_str.m
 % Recommended follow-up refactor: have run_all_benchmarks.m delegate to these so
 % the tested code IS the production code.
 %
@@ -19,7 +19,7 @@ end
 function setupOnce(testCase)
     % Make the extracted helpers visible on the path.
     here = fileparts(mfilename('fullpath'));
-    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2025');
+    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2026');
     testCase.TestData.subdir = sub;
     testCase.TestData.addedPath = false;
     if isfolder(sub) && ~contains(path, sub)

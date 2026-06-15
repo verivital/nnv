@@ -9,12 +9,12 @@ classdef test_pgd_falsify < matlab.unittest.TestCase
 
     methods (TestClassSetup)
         function addRunnerPath(tc)
-            % pgd_falsify/validate_witness live in examples/Submission/VNN_COMP2025.
+            % pgd_falsify/validate_witness live in examples/Submission/VNN_COMP2026.
             % The matrix CI splits tests into shards and nothing guarantees that dir
             % is on the path (same latent flake test_validate_witness_onnx had), so
             % add it here to be self-sufficient.
             here = fileparts(mfilename('fullpath'));
-            sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2025');
+            sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2026');
             if isfolder(sub) && ~contains(path, sub)
                 addpath(sub);
                 tc.AddedPath = sub;

@@ -94,9 +94,17 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     % vnnlib unsat (the output avoids every unsafe halfspace). A spec that does not match this
     % exact pattern -> 'skip' (sound: we never emit a verdict about a property we did not prove).
     if isstruct(target) || iscell(target)
-        yc = net.evaluate(reshape(c, inShape)); yc = yc(:);
-        [~, tIdx] = max(yc);
-        if ~i_is_argmax_spec(target, tIdx, nClasses)
+        % FAIL CLOSED: this is an additive pre-check, so any failure deriving/validating the
+        % target (a net.evaluate that throws, a malformed/empty property) must return 'skip'
+        % (-> caller runs Star), never error or emit a verdict.
+        try
+            yc = net.evaluate(reshape(c, inShape)); yc = yc(:);
+            [~, tIdx] = max(yc);
+            okSpec = i_is_argmax_spec(target, tIdx, nClasses);
+        catch ME
+            verdict = 'skip'; info.reason = ['target derivation failed: ' ME.message]; return;
+        end
+        if ~okSpec
             verdict = 'skip'; info.reason = 'spec not argmax-robustness for the center prediction'; return;
         end
         target = tIdx;
@@ -206,7 +214,11 @@ function ok = i_is_argmax_spec(prop, target, K)
 % (The gpu-bab proves target dominates ALL classes, >= what the spec's listed j's require, so
 % it is sound-but-conservative if the spec lists a subset.) Anything else -> false -> skip.
     ok = false;
-    if iscell(prop), prop = prop{1}; end
+    if iscell(prop)
+        if isempty(prop), return; end          % empty cell -> not a spec -> skip
+        prop = prop{1};
+    end
+    if ~isstruct(prop) || ~isfield(prop, 'Hg'), return; end   % malformed -> fail closed
     Hg = prop.Hg;
     if isempty(Hg), return; end
     for i = 1:numel(Hg)

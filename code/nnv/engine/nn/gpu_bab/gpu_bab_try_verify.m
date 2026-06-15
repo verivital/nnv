@@ -81,6 +81,20 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
         if isempty(info.reason), info.reason = 'no flatten order matched net.evaluate (guard)'; end
         verdict = 'skip'; return;
     end
+    % `target` may be a vnnlib PROPERTY (cell/struct with .Hg) instead of a class index. In
+    % that case derive the target from the net's OWN center prediction and VERIFY the spec is
+    % argmax-robustness for it (every unsafe halfspace a positive multiple of e_target - e_j,
+    % g<=0). Then a 'robust' verdict (argmax==target on the whole box) PROVABLY implies the
+    % vnnlib unsat (the output avoids every unsafe halfspace). A spec that does not match this
+    % exact pattern -> 'skip' (sound: we never emit a verdict about a property we did not prove).
+    if isstruct(target) || iscell(target)
+        yc = net.evaluate(reshape(c, inShape)); yc = yc(:);
+        [~, tIdx] = max(yc);
+        if ~i_is_argmax_spec(target, tIdx, nClasses)
+            verdict = 'skip'; info.reason = 'spec not argmax-robustness for the center prediction'; return;
+        end
+        target = tIdx;
+    end
     if target < 1 || target > nClasses
         verdict = 'skip'; info.reason = 'target out of range'; return;
     end
@@ -126,7 +140,23 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
         lb = gpuArray(single(lb)); ub = gpuArray(single(ub));
         info.device = 'gpu';
     end
-    [status, binfo] = gpu_bab_relu_split(ops, lb, ub, target, nClasses, bopts);
+    % Engine: opts.engine='batched' uses gpu_bab_relu_split_batched (batched-DFS, processes a
+    % whole BaB-node frontier per kernel -- GPU-saturating, for FC + sequential conv); default
+    % is the serial gpu_bab_relu_split. The batched bounding is bound-for-bound identical
+    % (sound), so the verdict is the same; only throughput differs. (batched refuses 'add'/
+    % maxpool DAG ops -> it errors -> caught below -> 'skip', never an unsound verdict.)
+    useBatched = isfield(opts, 'engine') && strcmp(opts.engine, 'batched');
+    try
+        if useBatched
+            [status, binfo] = gpu_bab_relu_split_batched(ops, lb, ub, target, nClasses, bopts);
+        else
+            [status, binfo] = gpu_bab_relu_split(ops, lb, ub, target, nClasses, bopts);
+        end
+    catch ME
+        % a batched-engine refusal (e.g. residual/maxpool DAG) or any engine error -> skip,
+        % so the caller falls back to Star (additive: GPU-BaB never harms).
+        verdict = 'skip'; info.reason = ['engine error: ' ME.message]; return;
+    end
     info.nodes = binfo.nodes;
 
     % (4) map verdict; re-confirm any counterexample against net.evaluate
@@ -159,6 +189,31 @@ end
 
 function v = i_optget(s, f, d)
     if isfield(s, f) && ~isempty(s.(f)), v = s.(f); else, v = d; end
+end
+
+function ok = i_is_argmax_spec(prop, target, K)
+% SOUND check: is the vnnlib property EXACTLY argmax-robustness for class `target`? True iff
+% every unsafe halfspace {y: G*y <= g} is a positive multiple of e_target - e_j (g <= 0) for
+% some j ~= target. Then any output in the unsafe region has y_target <= y_j (+ a non-positive
+% margin) for some j => argmax(y) ~= target. So proving argmax==target on the whole box
+% ('robust') implies the output avoids EVERY unsafe halfspace => the vnnlib instance is UNSAT.
+% (The gpu-bab proves target dominates ALL classes, >= what the spec's listed j's require, so
+% it is sound-but-conservative if the spec lists a subset.) Anything else -> false -> skip.
+    ok = false;
+    if iscell(prop), prop = prop{1}; end
+    Hg = prop.Hg;
+    if isempty(Hg), return; end
+    for i = 1:numel(Hg)
+        G = double(Hg(i).G); g = double(Hg(i).g);
+        if size(G,1) ~= 1 || size(G,2) ~= K, return; end     % single row over the K outputs
+        if any(g > 1e-9), return; end                        % margin must be non-positive
+        nz = find(abs(G) > 1e-12);
+        if numel(nz) ~= 2 || ~ismember(target, nz), return; end   % exactly target vs one other
+        other = nz(nz ~= target);
+        if G(target) <= 0 || G(other) >= 0, return; end      % target +, the other -
+        if abs(abs(G(target)) - abs(G(other))) > 1e-6 * max(1, abs(G(target))), return; end  % ~ e_target - e_j
+    end
+    ok = true;
 end
 
 function ops = i_ops_to_gpu(ops)

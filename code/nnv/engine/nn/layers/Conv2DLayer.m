@@ -253,7 +253,12 @@ classdef Conv2DLayer < handle
                         error('Invalid weight matrix');
                     end
                     
-                    if length(b) ~= 3
+                    % A 1-filter conv has bias reshape(b,1,1,1), which MATLAB collapses
+                    % to size [1 1] (length 2); accept it when NumFilters==1, matching the
+                    % named-constructor path above (case 10). Without this, a single-output-
+                    % channel conv (e.g. soundnessbench model_residual's 1-filter blocks,
+                    % imported via the Python manifest) errored "Invalid biases array".
+                    if length(b) ~= 3 && ~(length(b) == 2 && obj.NumFilters == 1)
                         error('Invalid biases array');
                     else
                         obj.Bias = filter_bias;

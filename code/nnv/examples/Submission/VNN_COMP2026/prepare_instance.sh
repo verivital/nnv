@@ -21,15 +21,28 @@ pkill -f -q matlab 2>/dev/null
 # (~1-3 s/model, far under the 10 min prepare cap). The forward pass of each manifest is
 # cross-validated vs onnxruntime; any SAT witness is replayed through onnxruntime before
 # being emitted, so a mis-import degrades to error/unknown, never an unsound verdict.
+NNV_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # VNN_COMP2026 -> .../code/nnv
+gen_manifest() {
+    local onnx="$1"
+    local manifest="${onnx%.onnx}.nnv.mat"
+    if [ ! -f "${manifest}" ]; then
+        echo "Generating NNV manifest: ${manifest}"
+        python3 "${NNV_ROOT}/tools/onnx2nnv_python/onnx2nnv.py" "${onnx}" "${manifest}" \
+            || echo "WARN: manifest generation failed; run_instance will report error/unknown."
+    fi
+}
 case "$2" in
-    *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*|*vit*)
-        NNV_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # VNN_COMP2026 -> .../code/nnv
-        MANIFEST="${3%.onnx}.nnv.mat"
-        if [ ! -f "${MANIFEST}" ]; then
-            echo "Generating NNV manifest: ${MANIFEST}"
-            python3 "${NNV_ROOT}/tools/onnx2nnv_python/onnx2nnv.py" "$3" "${MANIFEST}" \
-                || echo "WARN: manifest generation failed; run_instance will report error/unknown."
-        fi
+    *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*|*vit*|*test*)
+        gen_manifest "$3"
+        ;;
+    *nn4sys*)
+        # Only the mscn models route via the manifest (lindex/pensieve use MATLAB's
+        # importNetworkFromONNX). mscn_2048d_dual.onnx is corrupt upstream and abstains
+        # to unknown in run_vnncomp_instance, so don't waste time trying to convert it.
+        case "$3" in
+            *mscn_2048d_dual*) : ;;
+            *mscn*) gen_manifest "$3" ;;
+        esac
         ;;
 esac
 

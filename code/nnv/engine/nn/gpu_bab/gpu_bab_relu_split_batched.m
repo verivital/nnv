@@ -40,11 +40,15 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     margin      = cast(i_get(opts, 'margin', 0), precision);
     nSample     = i_get(opts, 'nSample', 16);
 
-    % FC+ReLU guard: the batched bounding uses IBP intermediate bounds, sound ONLY for
-    % affine+relu (a conv/pool/normaffine op would hit gpu_bab_crown_spec's error).
-    if any(cellfun(@(o) ~any(strcmp(o.type, {'affine','relu'})), ops))
-        error('gpu_bab_relu_split_batched:fcOnly', ...
-            'affine+relu only; use gpu_bab_relu_split (intermediate=''tight'') for conv/pool nets.');
+    % Supported ops: affine/relu (FC) + conv/normaffine/avgpool (SEQUENTIAL conv nets). The
+    % batched bounding (gpu_bab_crown_spec_dag) is sound for these -- conv/BN/avgpool are
+    % LINEAR (exact interval forward + exact adjoint backward), only ReLU is relaxed.
+    % 'add' (residual DAG) and 'maxpool' need the tight/DAG path -> refuse (sound-by-refusal).
+    supported = {'affine','relu','conv','normaffine','avgpool'};
+    badIdx = find(cellfun(@(o) ~any(strcmp(o.type, supported)), ops), 1);
+    if ~isempty(badIdx)
+        error('gpu_bab_relu_split_batched:unsupportedOp', ...
+            'op "%s" unsupported (sequential affine/relu/conv/normaffine/avgpool only; add/maxpool need gpu_bab_relu_split tight).', ops{badIdx}.type);
     end
 
     nOps    = numel(ops);
@@ -145,7 +149,7 @@ function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x
 % infeasible(j) is true when node j's fixings made the clamped IBP box empty (preL>preU at
 % some neuron) -- an empty sub-region the caller certifies vacuously.
     LB = repmat(x_lb, 1, B); UB = repmat(x_ub, 1, B);
-    [m, pL, pU] = gpu_bab_crown_spec(ops, LB, UB, C, precision, fixc);
+    [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc);
     margins = gather(m);
     preL = cell(numel(ops), 1); preU = cell(numel(ops), 1);
     infeasible = false(1, B);

@@ -104,10 +104,17 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
             ops{end+1} = op; outShape = op.outShape; %#ok<AGROW>
         elseif contains(cls, 'BatchNorm')
             if isempty(inShape)
-                error('nn_to_ops:bnFlat', 'BatchNorm on a flat (post-flatten) vector -- refused for soundness.');
+                % BatchNorm on a flat (post-flatten / FC-output) vector: a per-FEATURE affine
+                % y = s.*x + t (LINEAR -> exact), one (s,t) per feature. Fold with the feature
+                % dim as the channel count and emit a flat normaffine (shape [F 1 1]) -- sound,
+                % exactly like the spatial per-channel case. (e.g. cifar10 cnn7's FC-head BN.)
+                [s, t] = i_bn_fold_flat(L);
+                F = numel(s);
+                ops{end+1} = struct('type','normaffine','scale',s(:),'shift',t(:),'shape',[F 1 1],'src',inOp); %#ok<AGROW>
+            else
+                [s, t] = i_bn_fold(L, inShape);
+                ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',inShape,'src',inOp); %#ok<AGROW>
             end
-            [s, t] = i_bn_fold(L, inShape);
-            ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',inShape,'src',inOp); %#ok<AGROW>
         elseif contains(cls, 'AvgPool') || contains(cls, 'AveragePool') || contains(cls, 'GlobalAveragePool')
             if isempty(inShape)
                 error('nn_to_ops:poolFlat', 'Pooling on a flat vector -- refused for soundness.');
@@ -206,6 +213,24 @@ function [s, t] = i_bn_fold(L, shape)
     den = sqrt(v + ep);
     s = reshape(ga ./ den, [1 1 C]);
     t = reshape(be - ga .* mu ./ den, [1 1 C]);
+end
+
+function [s, t] = i_bn_fold_flat(L)
+% Flat (per-feature) BatchNorm fold: y = Scale.*(x - TrainedMean)./sqrt(TrainedVariance +
+% Epsilon) + Offset = s.*x + t, one (s,t) per FEATURE (post-flatten / FC output). Returns flat
+% column vectors. LINEAR -> exact, same algebra as i_bn_fold with the feature dim as channels.
+    mu = L.TrainedMean(:); v = L.TrainedVariance(:);
+    ga = L.Scale(:); be = L.Offset(:);
+    F = numel(mu);
+    if isscalar(L.Epsilon), ep = L.Epsilon * ones(F,1); else, ep = L.Epsilon(:); end
+    if numel(v)~=F || numel(ga)~=F || numel(be)~=F
+        error('nn_to_ops:bnFlatChannels', ...
+            'flat BatchNorm param lengths (mean %d var %d scale %d offset %d) inconsistent.', ...
+            numel(mu), numel(v), numel(ga), numel(be));
+    end
+    den = sqrt(v + ep);
+    s = ga ./ den;
+    t = be - ga .* mu ./ den;
 end
 
 % ---- Average pooling -> depthwise non-overlapping LINEAR pool ------------------------

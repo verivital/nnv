@@ -93,6 +93,8 @@ function [status, info] = gpu_bab_relu_split(ops, x_lb, x_ub, trueLabel, nClasse
         if isempty(kop)
             status = 'unknown'; return;                 % no unstable left, still not certified
         end
+        j = gather(j);   % split-neuron index -> host (the fixing vectors are host -1/0/+1); the
+                         % large bounds stayed on device -- only this scalar index crosses back
         fa = node.fix; if isempty(fa{kop}), fa{kop} = zeros(i_dim(unstable,kop),1); end; fa{kop}(j) = 1;
         fi = node.fix; if isempty(fi{kop}), fi{kop} = zeros(i_dim(unstable,kop),1); end; fi{kop}(j) = -1;
         stack{end+1} = struct('fix', {fa}, 'depth', node.depth+1); %#ok<AGROW>
@@ -194,7 +196,7 @@ function [cex, lab] = i_find_cex(ops, LB, UB, trueLabel, nSample, precision)
     cex = []; lab = [];
     X = (LB + UB) / 2;
     for s = 1:max(0, nSample)
-        X = [X, LB + (UB - LB) .* rand(size(LB), precision)]; %#ok<AGROW>
+        X = [X, LB + (UB - LB) .* rand(size(LB), 'like', LB)]; %#ok<AGROW>  % 'like' LB keeps cex samples on-device for the GPU path (no host->GPU transfer); IBP casts to precision
     end
     Y = gpu_bab_ibp(ops, X, X, precision);
     [~, pred] = max(Y, [], 1);

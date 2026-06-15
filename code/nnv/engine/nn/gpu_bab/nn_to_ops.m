@@ -29,102 +29,109 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
 %   asserting gpu_bab_ibp(ops,center,center) ~= net.evaluate(center) (the input-order
 %   soundness guard) before trusting any verdict.
     ops = {};
-    curShape = [];   % [H W C] once an image/conv path is entered; [] for a flat FC net
-    % DAG support (residual Addition): NNV keeps Layers topologically ordered + a Connections
-    % table. layerOp maps a layer NAME -> the op index whose output equals that layer's output
-    % (0 = the engine input). An AdditionLayer reads its source op indices from here.
+    % FULL-DAG extraction: resolve EACH layer's input op(s) from the Connections table (not the
+    % assumed previous op), so projection-shortcut resnets (conv/BN ON a skip branch) extract
+    % correctly. layerOp: layer NAME -> output op index (0 = engine input). shapeOf: op index ->
+    % [H W C] output shape ([] = flat). Every emitted op carries src = its input op index
+    % ('add' carries inputs=[a b]); the IBP/CROWN route through src. Sequential nets (empty
+    % Connections) fall back to the chain (src = previous op) -> unchanged behavior.
     conns = [];
     if isprop(nnvnet, 'Connections'), conns = nnvnet.Connections; end
     layerOp = containers.Map('KeyType', 'char', 'ValueType', 'double');
+    shapeOf = containers.Map('KeyType', 'double', 'ValueType', 'any');
+    shapeOf(0) = [];                                  % engine input shape (set by input layer)
     for i = 1:numel(nnvnet.Layers)
         L = nnvnet.Layers{i};
         cls = class(L);
+        name = ''; if isprop(L, 'Name'), name = char(L.Name); end
+        % --- resolve this layer's input op(s): from Connections, else previous op (chain) ---
+        srcs = i_layer_sources(conns, name);
+        if isempty(srcs)
+            inOps = numel(ops);                       % chain default (0 if no op emitted yet)
+        else
+            inOps = zeros(1, numel(srcs));
+            for q = 1:numel(srcs)
+                if ~isKey(layerOp, srcs{q})
+                    error('nn_to_ops:srcNotEmitted', ...
+                        'layer "%s" input "%s" not yet emitted (non-topological DAG?).', name, srcs{q});
+                end
+                inOps(q) = layerOp(srcs{q});
+            end
+        end
+        % SOUNDNESS (Copilot #364): AdditionLayer is the ONLY supported multi-input op. Any other
+        % layer that resolves to >1 Connections source would be silently mis-extracted below (only
+        % inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors -> caller runs Star),
+        % never emit a wrong graph. This can only turn a previously-silent mis-extraction into a
+        % sound refusal; supported single-input layers always resolve to exactly one source.
+        if numel(inOps) > 1 && ~contains(cls, 'Addition')
+            error('nn_to_ops:multiInputUnsupported', ...
+                'layer "%s" (%s) has %d inputs but only AdditionLayer is multi-input-supported -- refused for soundness.', ...
+                name, cls, numel(inOps));
+        end
+        inOp = inOps(1);
+        inShape = shapeOf(inOp);
+        emitted = true; outShape = inShape;           % outShape default = inShape (relu/bn/add)
         if contains(cls, 'FullyConnected')
             W = L.Weights;
-            if ~isempty(curShape)
-                % conv -> flatten -> FC boundary: the FC consumes the flattened conv
-                % output; its input width must equal prod(curShape) or the flatten
-                % order is inconsistent (caught here rather than producing wrong bounds).
-                if size(W,2) ~= prod(curShape)
+            if ~isempty(inShape)                      % conv -> FC flatten boundary
+                if size(W,2) ~= prod(inShape)
                     error('nn_to_ops:flattenMismatch', ...
-                        ['FC input width %d ~= prod(curShape) %d ([%s]); flatten order ' ...
+                        ['FC input width %d ~= prod(inShape) %d ([%s]); flatten order ' ...
                          'inconsistent -- cannot map conv output to this FC soundly.'], ...
-                        size(W,2), prod(curShape), num2str(curShape));
+                        size(W,2), prod(inShape), num2str(inShape));
                 end
-                % reorder the FC weight columns from the net's flatten order to the engine's
-                % column-major [H W C] view (identity for 'colmajor'); validated by the guard.
-                W = i_flatten_permute(W, curShape, flattenOrder);
-                curShape = [];   % flattened; back to flat-vector world
+                W = i_flatten_permute(W, inShape, flattenOrder);
             end
-            ops{end+1} = struct('type','affine','W',W,'b',L.Bias); %#ok<AGROW>
+            ops{end+1} = struct('type','affine','W',W,'b',L.Bias,'src',inOp); outShape = []; %#ok<AGROW>
         elseif contains(cls, 'Relu') || contains(cls, 'ReLU')
-            ops{end+1} = struct('type','relu'); %#ok<AGROW>
+            ops{end+1} = struct('type','relu','src',inOp); %#ok<AGROW>
         elseif contains(cls, 'ImageInput') || contains(cls, 'Image3DInput')
-            % seed the spatial shape from InputSize ([H W C]) and, if the layer
-            % normalizes, fold the normalization as the FIRST op (the -150 input-mismatch
-            % fix: the box must be bounded in the SAME normalized space reach feeds conv).
-            curShape = double(L.InputSize(:)');
+            ishape = double(L.InputSize(:)');
             [s, t, hasNorm] = i_input_norm(L);
             if hasNorm
-                ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',curShape); %#ok<AGROW>
+                ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',ishape,'src',0); %#ok<AGROW>
+                outShape = ishape;
+            else
+                emitted = false; shapeOf(0) = ishape;  % the engine input itself
             end
         elseif contains(cls, 'Flatten')
-            % identity on values; the conv->FC boundary assert (above) enforces the order.
+            emitted = false;                           % identity on values (order at FC permute)
         elseif contains(cls, 'Conv2D') || (contains(cls,'Conv') && ~contains(cls,'Transposed'))
-            if isempty(curShape)
-                error('nn_to_ops:noInputShape', ...
-                    'Conv layer %d reached without a known input [H W C] shape (need an ImageInputLayer).', i);
+            if isempty(inShape)
+                error('nn_to_ops:noInputShape', 'Conv layer %d without a known [H W C] input shape.', i);
             end
-            op = i_conv_op(L, curShape);
-            curShape = op.outShape;
-            ops{end+1} = op; %#ok<AGROW>
+            op = i_conv_op(L, inShape); op.src = inOp;
+            ops{end+1} = op; outShape = op.outShape; %#ok<AGROW>
         elseif contains(cls, 'BatchNorm')
-            % BatchNorm at inference is a per-CHANNEL affine y = s_c.*x + t_c (LINEAR ->
-            % exact, no relaxation): fold as a per-channel normaffine ([1 1 C] broadcast
-            % over [H W C], handled by the existing normaffine IBP/CROWN). Conv-path only;
-            % a post-flatten BN (curShape==[]) is refused (rare; sound-by-refusal).
-            if isempty(curShape)
-                error('nn_to_ops:bnFlat', ...
-                    'BatchNorm on a flat (post-flatten) vector not yet supported -- refused for soundness.');
+            if isempty(inShape)
+                error('nn_to_ops:bnFlat', 'BatchNorm on a flat (post-flatten) vector -- refused for soundness.');
             end
-            [s, t] = i_bn_fold(L, curShape);
-            ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',curShape); %#ok<AGROW>
+            [s, t] = i_bn_fold(L, inShape);
+            ops{end+1} = struct('type','normaffine','scale',s,'shift',t,'shape',inShape,'src',inOp); %#ok<AGROW>
         elseif contains(cls, 'AvgPool') || contains(cls, 'AveragePool') || contains(cls, 'GlobalAveragePool')
-            if isempty(curShape)
-                error('nn_to_ops:poolFlat', ...
-                    'Pooling on a flat vector has no spatial shape -- refused for soundness.');
+            if isempty(inShape)
+                error('nn_to_ops:poolFlat', 'Pooling on a flat vector -- refused for soundness.');
             end
-            op = i_avgpool_op(L, curShape, cls);
-            curShape = op.outShape;
-            ops{end+1} = op; %#ok<AGROW>
+            op = i_avgpool_op(L, inShape, cls); op.src = inOp;
+            ops{end+1} = op; outShape = op.outShape; %#ok<AGROW>
         elseif contains(cls, 'MaxPool') || contains(cls, 'MaxPooling')
-            if isempty(curShape)
-                error('nn_to_ops:poolFlat', ...
-                    'Pooling on a flat vector has no spatial shape -- refused for soundness.');
+            if isempty(inShape)
+                error('nn_to_ops:poolFlat', 'Pooling on a flat vector -- refused for soundness.');
             end
-            op = i_maxpool_op(L, curShape);
-            curShape = op.outShape;
-            ops{end+1} = op; %#ok<AGROW>
+            op = i_maxpool_op(L, inShape); op.src = inOp;
+            ops{end+1} = op; outShape = op.outShape; %#ok<AGROW>
         elseif contains(cls, 'Addition')
-            % residual skip-add: y = out[a] + out[b] (LINEAR -> exact). Read the two source
-            % layers from Connections; map to op indices via layerOp (0 = engine input). Only
-            % 2 inputs supported (audit guard); N>2 refused for soundness.
-            srcs = i_layer_sources(conns, char(L.Name));
-            if numel(srcs) ~= 2
+            % residual skip-add: y = out[a]+out[b] (LINEAR -> exact). The DAG resolution above
+            % already mapped both inputs (incl. conv-on-skip branches). 2 inputs only.
+            if numel(inOps) ~= 2
                 error('nn_to_ops:addNInputs', ...
-                    'Addition with %d inputs not supported (only 2) -- refused for soundness.', numel(srcs));
+                    'Addition with %d inputs not supported (only 2) -- refused for soundness.', numel(inOps));
             end
-            if ~isKey(layerOp, srcs{1}) || ~isKey(layerOp, srcs{2})
-                error('nn_to_ops:addSrc', 'Addition source layer not yet emitted -- unsupported DAG topology.');
-            end
-            a = layerOp(srcs{1}); b = layerOp(srcs{2});
-            ops{end+1} = struct('type','add','inputs',[a b],'shape',curShape); %#ok<AGROW>
-            % element-wise add preserves curShape (both inputs must share it; guard validates)
+            ops{end+1} = struct('type','add','inputs',inOps,'shape',inShape,'src',inOps(1)); %#ok<AGROW>
         elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
                 || contains(cls, 'Output') || contains(cls, 'Regression') ...
                 || contains(cls, 'Placeholder')
-            % trailing output tail -- skippable for argmax-robustness ONLY if nothing
-            % computational follows.
+            emitted = false;                           % trailing output tail (skippable if nothing follows)
             for jj = i+1:numel(nnvnet.Layers)
                 c2 = class(nnvnet.Layers{jj});
                 if contains(c2,'FullyConnected') || contains(c2,'Relu') || contains(c2,'ReLU') ...
@@ -139,10 +146,12 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
                 ['GPU-BaB supports ImageInput(norm)+Conv2D+FullyConnected+ReLU+Flatten+BatchNorm' ...
                  '+Avg/Max-pool+Addition(2-input); got "%s" (layer %d) -- refused for soundness.'], cls, i);
         end
-        % record this layer's output op index (0 if it emitted no op = input/identity), so a
-        % later AdditionLayer can resolve its skip source. Names are unique within a net.
-        if isprop(L, 'Name') && ~isempty(char(L.Name))
-            layerOp(char(L.Name)) = numel(ops);
+        % record this layer's output op + shape (identity/no-op layers pass through to inOp)
+        if emitted
+            shapeOf(numel(ops)) = outShape;
+            if ~isempty(name), layerOp(name) = numel(ops); end
+        else
+            if ~isempty(name), layerOp(name) = inOp; end
         end
     end
 end

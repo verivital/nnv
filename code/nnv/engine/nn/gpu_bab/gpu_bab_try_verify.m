@@ -107,6 +107,25 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     % (false robust); clamp to >= 0 (sound-or-unknown).
     if isfield(bopts, 'margin') && bopts.margin < 0, bopts.margin = 0; end
     if ~isfield(bopts, 'maxNodes'),  bopts.maxNodes  = 300;      end
+    % DEVICE (opts.device 'cpu' default | 'gpu'): run the whole BaB on the GPU by moving the ops'
+    % weight tensors + the input box to gpuArray ONCE here. The IBP/CROWN passes are gpuArray-
+    % overloaded pure linear algebra, so all heavy compute + the per-node intermediate bounds stay
+    % RESIDENT on device; only tiny scalars (the certified test, the split-neuron index, a witness)
+    % cross back -- no per-iteration bound transfers. GPU implies single precision (T4 FP64 is
+    % ~1/16 rate), so it requires the explicit allowUnsoundSingle opt-in (FP32 is dev/empirical,
+    % not certified-sound without outward rounding -- R1). CPU path is unchanged (the default).
+    if isfield(opts, 'device') && strcmp(opts.device, 'gpu')
+        if gpuDeviceCount < 1
+            verdict = 'skip'; info.reason = 'device=gpu requested but no GPU available'; return;
+        end
+        if ~(isfield(opts, 'allowUnsoundSingle') && isequal(opts.allowUnsoundSingle, true))
+            verdict = 'skip'; info.reason = 'device=gpu needs allowUnsoundSingle (FP32 not certified-sound)'; return;
+        end
+        bopts.precision = 'single';
+        ops = i_ops_to_gpu(ops);
+        lb = gpuArray(single(lb)); ub = gpuArray(single(ub));
+        info.device = 'gpu';
+    end
     [status, binfo] = gpu_bab_relu_split(ops, lb, ub, target, nClasses, bopts);
     info.nodes = binfo.nodes;
 
@@ -140,4 +159,20 @@ end
 
 function v = i_optget(s, f, d)
     if isfield(s, f) && ~isempty(s.(f)), v = s.(f); else, v = d; end
+end
+
+function ops = i_ops_to_gpu(ops)
+% Move each op's numeric DATA tensors (weights/bias/scale/shift) to gpuArray(single) so the
+% bound passes run on device. Leaves dlconv hyperparameters (pool/stride/pad/dil) and metadata
+% (type/src/inputs/shapes) on the host -- they are scalars/small index vectors dlconv expects on
+% the host, and moving them would not help. Done ONCE per query (not per BaB node).
+    for k = 1:numel(ops)
+        o = ops{k};
+        for f = {'W', 'b', 'scale', 'shift'}
+            if isfield(o, f{1}) && isnumeric(o.(f{1}))
+                o.(f{1}) = gpuArray(single(o.(f{1})));
+            end
+        end
+        ops{k} = o;
+    end
 end

@@ -27,12 +27,18 @@ python3 -m pip install .
 #echo 'export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib"' >> ~/.bashrc
 
 # Ensure installation is correct
-matlab -nodisplay -r "cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2025/; prepare_run; quit"
+matlab -nodisplay -r "cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2026/; prepare_run; quit"
 
-sudo apt install -y python3-pip 
-pip install torch
-pip install numpy 
-pip install scipy
+sudo apt install -y python3-pip
+python3 -m pip install torch
+python3 -m pip install numpy
+python3 -m pip install scipy
+# onnxruntime backs BOTH the SAT-witness replay gate (validate_witness_onnx.m ->
+# onnx_replay_check.py) and the collins_aerospace falsification path
+# (collins_falsify.py). Without it those degrade safely to unknown -- but we'd
+# leave every collins point and the -150 witness guard on the table.
+# pinned to the versions validated on the 2026-06-12 AWS dry run (m5.16xlarge, R2026a)
+python3 -m pip install onnx==1.20.0 onnxruntime==1.23.1
 
 # For next year, let's fix gpu drivers to ensure no potential errors there...
 # Enable GPU persistence mode (prevents driver unloading)

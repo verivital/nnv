@@ -16,7 +16,7 @@ function tests = test_run_vnncomp_dispatch_smoke
 % >>> THE MAIN AGENT MUST VALIDATE THIS IN MATLAB. Two things matter:
 %   1. It needs run_vnncomp_instance.m + its dependencies (load_manifest_net,
 %      matlab2nnv, importNetworkFromONNX, ...) on the path; add
-%      examples/Submission/VNN_COMP2025 and run startup_nnv first.
+%      examples/Submission/VNN_COMP2026 and run startup_nnv first.
 %   2. For a REAL end-to-end dispatch check, point onnx/vnnlib at local files under
 %      vnncomp2025_benchmarks/benchmarks/<category>/ ; with the dummy paths used
 %      here the test only proves "dispatch did not reject the category", which is
@@ -29,7 +29,7 @@ end
 
 function setupOnce(testCase)
     here = fileparts(mfilename('fullpath'));
-    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2025');
+    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2026');
     testCase.TestData.subdir = sub;
     testCase.TestData.addedPath = false;
     if isfolder(sub) && ~contains(path, sub)
@@ -38,7 +38,7 @@ function setupOnce(testCase)
     end
     % Skip the whole file gracefully if the runner isn't importable here.
     testCase.assumeTrue(exist('run_vnncomp_instance', 'file') == 2, ...
-        'run_vnncomp_instance not on path; add examples/Submission/VNN_COMP2025 + startup_nnv');
+        'run_vnncomp_instance not on path; add examples/Submission/VNN_COMP2026 + startup_nnv');
 end
 
 function teardownOnce(testCase)

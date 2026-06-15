@@ -27,7 +27,7 @@ end
 
 function setupOnce(tc)
     here = fileparts(mfilename('fullpath'));
-    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2025');
+    sub = fullfile(here, '..', '..', 'examples', 'Submission', 'VNN_COMP2026');
     tc.TestData.subdir = sub;
     tc.TestData.addedPath = false;
     if isfolder(sub) && ~contains(path, sub)
@@ -35,7 +35,7 @@ function setupOnce(tc)
         tc.TestData.addedPath = true;
     end
     tc.assumeTrue(exist('run_vnncomp_instance', 'file') == 2, ...
-        'run_vnncomp_instance not on path; add examples/Submission/VNN_COMP2025');
+        'run_vnncomp_instance not on path; add examples/Submission/VNN_COMP2026');
     tc.TestData.script = fullfile(sub, 'collins_falsify.py');
     % Local benchmark files (kept .gz on disk; the script gunzips transparently).
     % <repo>/code/nnv/tests/vnncomp25 -> workspace root is 5 levels up.

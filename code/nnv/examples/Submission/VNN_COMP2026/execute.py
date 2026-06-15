@@ -52,8 +52,17 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     eng = matlab.engine.start_matlab()
 
     eng.addpath(os.getcwd())
-    eng.addpath(eng.genpath('/home/ubuntu/toolkit/code/nnv/'))
-    print("Paths added");
+    # NNV root: prefer $NNV_ROOT if it is exported in the environment (an optional override
+    # the eval host may set), else derive it relative to this file
+    # (code/nnv/examples/Submission/VNN_COMP2026/execute.py -> code/nnv is 3 dirs up).
+    # The old hardcoded '/home/ubuntu/toolkit/code/nnv/' broke whenever the eval VM cloned
+    # the toolkit anywhere else, silently dropping NNV from the path -> every run errored.
+    nnv_root = os.environ.get('NNV_ROOT')
+    if not nnv_root:
+        here = os.path.dirname(os.path.abspath(__file__))
+        nnv_root = os.path.abspath(os.path.join(here, '..', '..', '..'))
+    eng.addpath(eng.genpath(nnv_root))
+    print("Paths added (NNV root: %s)" % nnv_root)
     ## eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
 
     status = 2 #initialize with an 'Unknown' status

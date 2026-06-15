@@ -196,7 +196,7 @@ function [cex, lab] = i_find_cex(ops, LB, UB, trueLabel, nSample, precision)
     cex = []; lab = [];
     X = (LB + UB) / 2;
     for s = 1:max(0, nSample)
-        X = [X, LB + (UB - LB) .* rand(size(LB), precision)]; %#ok<AGROW>
+        X = [X, LB + (UB - LB) .* rand(size(LB), 'like', LB)]; %#ok<AGROW>  % 'like' LB keeps cex samples on-device for the GPU path (no host->GPU transfer); IBP casts to precision
     end
     Y = gpu_bab_ibp(ops, X, X, precision);
     [~, pred] = max(Y, [], 1);

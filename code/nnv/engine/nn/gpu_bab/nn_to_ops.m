@@ -58,6 +58,16 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
                 inOps(q) = layerOp(srcs{q});
             end
         end
+        % SOUNDNESS (Copilot #364): AdditionLayer is the ONLY supported multi-input op. Any other
+        % layer that resolves to >1 Connections source would be silently mis-extracted below (only
+        % inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors -> caller runs Star),
+        % never emit a wrong graph. This can only turn a previously-silent mis-extraction into a
+        % sound refusal; supported single-input layers always resolve to exactly one source.
+        if numel(inOps) > 1 && ~contains(cls, 'Addition')
+            error('nn_to_ops:multiInputUnsupported', ...
+                'layer "%s" (%s) has %d inputs but only AdditionLayer is multi-input-supported -- refused for soundness.', ...
+                name, cls, numel(inOps));
+        end
         inOp = inOps(1);
         inShape = shapeOf(inOp);
         emitted = true; outShape = inShape;           % outShape default = inShape (relu/bn/add)

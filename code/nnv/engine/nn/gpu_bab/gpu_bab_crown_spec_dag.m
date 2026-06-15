@@ -1,4 +1,4 @@
-function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings)
+function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds)
 % GPU_BAB_CROWN_SPEC_DAG  Sound CROWN lower bound on a linear output spec C*f(x), batched
 %   over B node columns, for SEQUENTIAL conv nets (affine/conv/normaffine/avgpool/relu).
 %   The generalisation of gpu_bab_crown_spec from FC to conv: conv/BN/avgpool are LINEAR
@@ -7,55 +7,94 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
 %   width), so the memory is nSpec*HWC*B -- feasible for conv, unlike batching the tight
 %   intermediate bounds' eye(nk) seed.
 %
-%   [margins, preL, preU] = GPU_BAB_CROWN_SPEC_DAG(ops, x_lb, x_ub, C, precision, fixings)
+%   [margins, preL, preU] = GPU_BAB_CROWN_SPEC_DAG(ops, x_lb, x_ub, C, precision, fixings, rootBounds)
 %     ops        : op list (nn_to_ops); SEQUENTIAL only (no 'add'/DAG, no 'maxpool')
 %     x_lb,x_ub  : n-by-B input box columns (B = batch/node dim)
 %     C          : nSpec-by-nOut spec
 %     fixings    : optional cell(nOps,1) of per-relu dim_k-by-B node clamps (-1/0/+1)
+%     rootBounds : optional struct with fields .preL,.preU (cell(nOps,1), dim_k-by-1 TIGHT
+%                  pre-activation bounds computed ONCE at the root by gpu_bab_crown_tight).
+%                  When given, the loose per-node IBP forward is SKIPPED and each node's
+%                  pre-activation bounds are the (broadcast) root bounds clamped per node by
+%                  the fixings -- tight bounds at batched speed (the #1 tightness lever).
 %     margins    : nSpec-by-B lower bound on C*f over each node's clamped box
 %     preL,preU  : per-relu (clamped) pre-activation bounds, dim_k-by-B
 %
 %   SOUNDNESS: interval-conv forward (Wp*lb+Wn*ub, the tightest linear interval) is sound;
 %   the conv/avgpool/normaffine backward adjoints are EXACT (linear, no relaxation); the
 %   ReLU relaxation is the standard sign-aware lower/upper line; the per-node clamps only
-%   tighten pre-activation bounds. For every x in node k's box, C*f(x) >= margins(:,k).
+%   tighten pre-activation bounds. With rootBounds, the reused root bounds hold over the FULL
+%   input box -- a superset of every node's sub-region -- and the per-neuron clamp (active:
+%   l>=0, inactive: u<=0) is the split's domain restriction, so the bounds stay sound and are
+%   tighter than the per-node IBP. For every x in node k's box, C*f(x) >= margins(:,k).
 
     if nargin < 5 || isempty(precision), precision = 'single'; end
     if nargin < 6, fixings = {}; end
+    if nargin < 7, rootBounds = []; end
     B = size(x_lb, 2); nSpec = size(C, 1); nOps = numel(ops);
     preL = cell(nOps,1); preU = cell(nOps,1);
 
-    % ---- forward IBP (batched), pre-activation bounds at each ReLU, with node clamps ----
-    lb = cast(x_lb, precision); ub = cast(x_ub, precision);
-    for k = 1:nOps
-        op = ops{k};
-        switch op.type
-            case 'affine'
-                W = cast(op.W, precision); b = cast(op.b(:), precision);
-                Wp = max(W,0); Wn = min(W,0);
-                nlb = Wp*lb + Wn*ub + b; nub = Wp*ub + Wn*lb + b; lb = nlb; ub = nub;
-            case 'conv'
-                [lb, ub] = i_conv_ibp(op, lb, ub, precision);
-            case 'normaffine'
-                sf = i_bcast_flat(op.scale, op.shape, precision);
-                tf = i_bcast_flat(op.shift, op.shape, precision);
-                pos = sf >= 0;
-                nlb = (sf.*lb).*pos + (sf.*ub).*(~pos) + tf;
-                nub = (sf.*ub).*pos + (sf.*lb).*(~pos) + tf;
-                lb = nlb; ub = nub;
-            case 'avgpool'
-                [lb, ub] = i_avgpool_ibp(op, lb, ub, precision);
-            case 'relu'
+    if isempty(rootBounds)
+        % ---- forward IBP (batched), pre-activation bounds at each ReLU, with node clamps ----
+        lb = cast(x_lb, precision); ub = cast(x_ub, precision);
+        for k = 1:nOps
+            op = ops{k};
+            switch op.type
+                case 'affine'
+                    W = cast(op.W, precision); b = cast(op.b(:), precision);
+                    Wp = max(W,0); Wn = min(W,0);
+                    nlb = Wp*lb + Wn*ub + b; nub = Wp*ub + Wn*lb + b; lb = nlb; ub = nub;
+                case 'conv'
+                    [lb, ub] = i_conv_ibp(op, lb, ub, precision);
+                case 'normaffine'
+                    sf = i_bcast_flat(op.scale, op.shape, precision);
+                    tf = i_bcast_flat(op.shift, op.shape, precision);
+                    pos = sf >= 0;
+                    nlb = (sf.*lb).*pos + (sf.*ub).*(~pos) + tf;
+                    nub = (sf.*ub).*pos + (sf.*lb).*(~pos) + tf;
+                    lb = nlb; ub = nub;
+                case 'avgpool'
+                    [lb, ub] = i_avgpool_ibp(op, lb, ub, precision);
+                case 'relu'
+                    if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
+                        fx = fixings{k};
+                        lb(fx == 1)  = max(lb(fx == 1),  0);
+                        ub(fx == -1) = min(ub(fx == -1), 0);
+                    end
+                    preL{k} = lb; preU{k} = ub;
+                    lb = max(lb,0); ub = max(ub,0);
+                otherwise
+                    error('gpu_bab_crown_spec_dag:op', ...
+                        'Unsupported op "%s" (sequential affine/conv/normaffine/avgpool/relu only).', op.type);
+            end
+        end
+    else
+        % ---- ROOT-TIGHT REUSE: skip the loose per-node IBP forward; build each ReLU's
+        % pre-activation bounds from the TIGHT root bounds (broadcast to all B nodes), then
+        % clamp per node by the fixings. The backward pass below only reads preL/preU at ReLU
+        % ops, so no forward propagation is needed. SOUND (root bounds hold over the full box
+        % >= each node's region; the own-neuron clamp is the split's domain restriction) and
+        % much tighter than IBP. Non-relu ops are validated for support but carry no bounds.
+        if ~isstruct(rootBounds) || ~all(isfield(rootBounds, {'preL','preU'}))
+            error('gpu_bab_crown_spec_dag:rootBounds', ...
+                'rootBounds must be a struct with fields preL and preU (per-op cell arrays).');
+        end
+        tmpl = cast(x_lb(1), precision); % scalar template for device+precision of the broadcasts (no n-by-B copy)
+        for k = 1:nOps
+            tk = ops{k}.type;
+            if strcmp(tk, 'relu')
+                l = repmat(cast(rootBounds.preL{k}, 'like', tmpl), 1, B);
+                u = repmat(cast(rootBounds.preU{k}, 'like', tmpl), 1, B);
                 if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                     fx = fixings{k};
-                    lb(fx == 1)  = max(lb(fx == 1),  0);
-                    ub(fx == -1) = min(ub(fx == -1), 0);
+                    l(fx == 1)  = max(l(fx == 1),  0);
+                    u(fx == -1) = min(u(fx == -1), 0);
                 end
-                preL{k} = lb; preU{k} = ub;
-                lb = max(lb,0); ub = max(ub,0);
-            otherwise
+                preL{k} = l; preU{k} = u;
+            elseif ~any(strcmp(tk, {'affine','conv','normaffine','avgpool'}))
                 error('gpu_bab_crown_spec_dag:op', ...
-                    'Unsupported op "%s" (sequential affine/conv/normaffine/avgpool/relu only).', op.type);
+                    'Unsupported op "%s" (sequential affine/conv/normaffine/avgpool/relu only).', tk);
+            end
         end
     end
 

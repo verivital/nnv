@@ -17,6 +17,10 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
 %       .maxStack    200000 live-stack cap (memory guard -> unknown if exceeded)
 %       .margin      0      FP-soundness slack: require every spec margin > margin
 %       .nSample     16     random samples per round for the concrete cex search
+%       .rootTight   true   compute the TIGHT intermediate bounds ONCE at the root
+%                           (gpu_bab_crown_tight) and reuse them -- clamped per node -- for
+%                           every batched bound, instead of the loose per-node IBP forward.
+%                           Tight bounds at batched speed; set false for the old IBP path.
 %
 %   SOUNDNESS (sound-or-unknown; identical guarantees to gpu_bab_relu_split's IBP-clamped
 %   path -- the bounding is bound-for-bound the same, just batched over node columns):
@@ -39,6 +43,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     maxStack    = i_get(opts, 'maxStack', 200000);
     margin      = cast(i_get(opts, 'margin', 0), precision);
     nSample     = i_get(opts, 'nSample', 16);
+    rootTight   = i_get(opts, 'rootTight', true);   % root-tight intermediate-bound reuse (#1 tightness lever)
 
     % Supported ops: affine/relu (FC) + conv/normaffine/avgpool (SEQUENTIAL conv nets). The
     % batched bounding (gpu_bab_crown_spec_dag) is sound for these -- conv/BN/avgpool are
@@ -64,8 +69,22 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         status = 'unsafe'; info.cex = cex; info.cexLabel = lab; return;
     end
 
-    % --- root: bound the un-split network once; certify, or seed the stack from its split ---
-    [mRoot, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, cell(nOps,1), 1);
+    % --- root: bound the un-split network once; certify, or seed the stack from its split.
+    % With rootTight (default), compute the TIGHT intermediate bounds ONCE here via a backward
+    % CROWN pass over the full box (gpu_bab_crown_tight) and reuse them -- clamped per node --
+    % for every batched bound below. This gives tight bounds (vs the loose per-node IBP) at
+    % batched speed (vs recomputing the tight pass per node). Falls back to the IBP forward
+    % when rootTight is off. ---
+    rootBounds = [];
+    if rootTight
+        [mRoot, rtL, rtU] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, cell(nOps,1));
+        mRoot = gather(mRoot(:));
+        rootBounds = struct('preL', {rtL}, 'preU', {rtU});
+        preL = cell(nOps,1); preU = cell(nOps,1);
+        for r = 1:numel(reluIdx), k = reluIdx(r); preL{k} = gather(rtL{k}); preU{k} = gather(rtU{k}); end
+    else
+        [mRoot, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, cell(nOps,1), 1);
+    end
     info.nodes = 1;
     if all(mRoot > margin, 1)
         status = 'robust'; return;
@@ -101,8 +120,8 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
             status = 'unknown'; return;
         end
 
-        % bound the popped batch
-        [margins, preL, preU, infeas] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B);
+        % bound the popped batch (reusing the tight root bounds, clamped per node, if rootTight)
+        [margins, preL, preU, infeas] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds);
         % An INFEASIBLE node (a fixing combination that made the clamped IBP box empty,
         % preL>preU at some neuron) represents an EMPTY sub-region: the property holds
         % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
@@ -142,14 +161,16 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
 end
 
 % ------------------------------------------------------------------------------------
-function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B)
+function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds)
 % Bound B frontier nodes (B <= maxFrontier) in one batched gpu_bab_crown_spec call. The
 % backward CROWN (pagemtimes) runs on-device; margins and the per-relu pre-activation
 % bounds are gathered to host (small) for the verdict + split-neuron selection.
-% infeasible(j) is true when node j's fixings made the clamped IBP box empty (preL>preU at
-% some neuron) -- an empty sub-region the caller certifies vacuously.
+% infeasible(j) is true when node j's fixings made the clamped box empty (preL>preU at some
+% neuron) -- an empty sub-region the caller certifies vacuously. rootBounds (optional) routes
+% the tight root bounds into gpu_bab_crown_spec_dag (root-tight reuse) instead of IBP.
+    if nargin < 9, rootBounds = []; end
     LB = repmat(x_lb, 1, B); UB = repmat(x_ub, 1, B);
-    [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc);
+    [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
     margins = gather(m);
     preL = cell(numel(ops), 1); preU = cell(numel(ops), 1);
     infeasible = false(1, B);

@@ -680,7 +680,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     end
     if ~is_nnvnet_valid(nnvnet), return; end             % need a valid NNV net for nn_to_ops + evaluate
     try
-        [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',500));
+        [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',5000));
         if strcmp(gv, 'robust')
             status = 1; reachOptionsList = {};
             fprintf('GPU-BaB pre-check: robust/unsat (%d nodes, %s) -> skip Star reach\n', ginfo.nodes, ginfo.reason);

@@ -33,7 +33,13 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     inShape = i_input_shape(net);
     lb = double(lb(:)); ub = double(ub(:));
     if isempty(inShape) || prod(inShape) ~= numel(lb)
-        verdict = 'skip'; info.reason = 'unknown/mismatched input shape'; return;
+        % i_input_shape could not determine a matching shape (e.g. a leading SequenceInput/
+        % PlaceholderLayer from a 'BCT' ONNX import of a flat FC net -- relusplitter/safenlp).
+        % Fall back to a FLAT [n 1] input, valid for feature/FC nets. The orientation guard
+        % below REQUIRES net.evaluate(reshape(c, inShape)) to match the op-list at several
+        % probes, so a wrong shape (e.g. a genuine image net) fails the guard -> 'skip'
+        % (sound: a mis-shaped query never yields a verdict).
+        inShape = [numel(lb) 1];
     end
 
     % (1+2) extract ops AND auto-calibrate the conv->FC flatten order against net.evaluate at

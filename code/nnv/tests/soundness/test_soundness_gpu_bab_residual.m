@@ -59,5 +59,35 @@ net3 = matlab2nnv(dlnetwork(lg3));
 err = false; try, nn_to_ops(net3); catch, err = true; end
 assert(err, 'N=3 addition must be refused for soundness');
 
+% --- BATCHED DAG path (gpu_bab_crown_spec_dag / gpu_bab_relu_split_batched): the residual
+% 'add' now routes its backward coefficient UNCHANGED to both inputs via the skipA accumulation
+% (forward IBP caches per-op bounds, add = sum). These mirror tests 3/4 for the batched engine. ---
+
+%% Test 6: degenerate BATCHED CROWN-dag == C*evaluate (the batched skipA DAG backward is exact)
+xt = rand(8,8,3); yn = nnvnet.evaluate(xt); yn = yn(:);
+mb = gpu_bab_crown_spec_dag(ops, xt(:), xt(:), Cspec, 'double');
+assert(max(abs(mb(:) - Cspec*yn)) < 1e-4, 'degenerate batched residual CROWN-dag must equal C*evaluate (skipA batched exact)');
+
+%% Test 7: BATCHED CROWN-dag is a sound lower bound over the box (<= the MC min)
+mb = gpu_bab_crown_spec_dag(ops, lb, ub, Cspec, 'double');
+assert(all(mb(:) <= trueMin + 1e-4), 'batched residual CROWN-dag must be a sound lower bound (<= true min)');
+
+%% Test 8: BATCHED columns of the same box are identical and the bound stays sound
+mb2 = gpu_bab_crown_spec_dag(ops, [lb lb], [ub ub], Cspec, 'double');
+assert(all(abs(mb2(:,1) - mb2(:,2)) < 1e-9), 'batched columns of the same box must be identical');
+assert(all(mb2(:,1) <= trueMin + 1e-4), 'batched residual CROWN-dag (column view) must be sound');
+
+%% Test 9: BATCHED residual ReLU-split is sound end-to-end (robust => no MC misclassification)
+yc = nnvnet.evaluate(reshape(lb+(ub-lb)/2,[8 8 3])); yc = yc(:); [~, tl] = max(yc);
+st = gpu_bab_relu_split_batched(ops, lb, ub, tl, 4, struct('precision','double','maxNodes',2000,'maxFrontier',64,'rootTight',false));
+if strcmp(st, 'robust')
+    bad = false;
+    for s = 1:size(Xs,2)
+        ys = nnvnet.evaluate(reshape(Xs(:,s),[8 8 3])); [~, p] = max(ys(:));
+        if p ~= tl, bad = true; break; end
+    end
+    assert(~bad, 'batched residual ReLU-split returned robust but MC found a misclassification (UNSOUND)');
+end
+
 %% Summary
 disp('test_soundness_gpu_bab_residual: all sections passed');

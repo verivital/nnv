@@ -255,25 +255,39 @@ if iscell(counterEx)
     % old gate, the MULTI-output path is gated too: use the Hg region the witness actually hit
     % (prop{hitSpc}); the single-output paths fall back to prop{1}.
     if hitSpc >= 1, gateHs = prop{hitSpc}.Hg; else, gateHs = prop{1}.Hg; end
-    isManifest = isfile(regexprep(char(onnx), '\.onnx$', '.nnv.mat'));   % python-imported -> divergence risk
+    % "riskyNet" = NNV's net is NOT a faithful independent stand-in for the real ONNX, so when
+    % onnxruntime cannot POSITIVELY confirm the witness we must NOT keep `sat`. True when:
+    %   - the net is a python/manifest import (isa(net,'NN')) -- the in-memory class is authoritative
+    %     and robust to the .netcache.mat cache-hit path, where no .nnv.mat is on disk (a file-only
+    %     check would miss it and leave a spurious manifest SAT standing); OR
+    %   - the witness depended on a non-identity input reshape/permute (needReshape ~= 0) -- then
+    %     validate_witness applies the SAME permute as the falsifier, so it CANNOT see an import/
+    %     encoding divergence between NNV's net and the real ONNX; only the onnxruntime replay can
+    %     (this is the cifar100/challenging/malbeware/metaroom -150 class). The on-disk .nnv.mat is
+    %     OR'd in as a belt-and-suspenders signal.
+    % A needReshape==0 standard MATLAB-imported flat-feature net (acasxu-style) is NOT risky:
+    % validate_witness is faithful there, so a `sat` it accepted may stand even without onnxruntime.
+    riskyNet = isa(net, 'NN') ...
+            || (~isempty(needReshape) && any(needReshape(:) ~= 0)) ...
+            || isfile(regexprep(char(onnx), '\.onnx$', '.nnv.mat'));
     try
         [orVio, orAvail] = validate_witness_onnx(onnx, counterEx{1}, gateHs);
         if orAvail && ~orVio
             % onnxruntime ran and the witness violates NOTHING on the real ONNX -> spurious -> drop.
             fprintf('onnxruntime replay rejected the SAT witness -> unknown\n');
             status = 2; counterEx = nan;
-        elseif ~orAvail && isManifest
-            % No independent onnxruntime confirmation AND the net came from a (python) manifest import
-            % that can diverge from the real ONNX -> we cannot stand behind this `sat`. Sound-or-unknown
-            % rather than risk a -150. (onnxruntime is a stated requirement; this is the safety net if it
-            % is somehow missing.) Standard MATLAB-imported nets keep `sat` (validate_witness is reliable).
-            fprintf('SAT witness unconfirmed (no onnxruntime) on a manifest-imported net -> unknown\n');
+        elseif ~orAvail && riskyNet
+            % No independent onnxruntime confirmation AND NNV's net can diverge from the real ONNX
+            % (manifest import or non-identity reshape) -> cannot stand behind this `sat`. Sound-or-
+            % unknown rather than risk a -150. (onnxruntime is a stated requirement -- requirements.txt;
+            % this is the safety net if it is somehow missing on the run host.)
+            fprintf('SAT witness unconfirmed (no onnxruntime) on a divergence-risk net -> unknown\n');
             status = 2; counterEx = nan;
         end
     catch
-        % Gate itself errored. Manifest nets are the divergence risk -> prefer unknown; standard
-        % MATLAB-imported nets fall back to validate_witness (which already accepted the witness).
-        if isManifest, status = 2; counterEx = nan; end
+        % Gate itself errored. Divergence-risk nets -> prefer unknown; a needReshape==0 MATLAB-imported
+        % net falls back to validate_witness (which already accepted the witness on NNV's own forward).
+        if riskyNet, status = 2; counterEx = nan; end
     end
 end
 

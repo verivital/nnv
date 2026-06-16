@@ -72,6 +72,7 @@ function py = ort_python()
     cands = {};
     e = strtrim(getenv('NNV_ORT_PYTHON'));
     if ~isempty(e), cands{end+1} = e; end
+    cands{end+1} = 'python3';    % install_tool.sh provisions+validates the ort/onnx stack in python3 -- try first
     try
         pe = pyenv;
         if ~isempty(pe.Executable) && isfile(pe.Executable), cands{end+1} = char(pe.Executable); end
@@ -79,7 +80,7 @@ function py = ort_python()
     end
     home = getenv('HOME');
     if ~isempty(home), cands{end+1} = fullfile(home, 'taylor_venv', 'bin', 'python'); end
-    cands = [cands, {'python3', 'python'}];
+    cands{end+1} = 'python';
     found = '';
     for i = 1:numel(cands)
         c = cands{i};

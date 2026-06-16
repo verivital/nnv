@@ -85,10 +85,18 @@ end
 
 % Load networks
 
-[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib);
+[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = i_load_vnncomp_network_cached(category, onnx, vnnlib);
 
 if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
+end
+
+% Prepare-phase net-cache pre-warm: prepare_instance.sh sets NNV_PREP_CACHE=1 and invokes this
+% ONLY to build the net cache (done inside i_load_vnncomp_network_cached above), WITHOUT running
+% the timed verification (VNN-COMP allows this ONNX->MATLAB conversion in the untimed prepare
+% phase). Unset in normal runs -> no effect.
+if strcmp(getenv('NNV_PREP_CACHE'), '1')
+    status = 2; tTime = 0; return;   % cache built; result ignored by prepare
 end
 
 % Decide the reach input-set type from the NET's input-layer TYPE (not the input
@@ -278,7 +286,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
             % GPU-BaB sound additive unsat pre-check (FC argmax-robustness timeout
             % categories): try the batched GPU-BaB before Star; a 'robust' verdict is a
             % sound unsat -> emit + skip Star. Anything else falls through unchanged.
-            [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList);
+            [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList, needReshape, inputSize);
 
             while ~isempty(reachOptionsList)
 
@@ -664,32 +672,88 @@ function ok = is_nnvnet_valid(nnvnet)
     ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
 end
 
-function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList)
-% Sound, ADDITIVE GPU-BaB unsat pre-check for the FC argmax-robustness timeout categories
-% (safenlp / sat_relu / relusplitter). Runs the batched GPU-BaB (sound CROWN + ReLU-split
-% branch-and-bound, DOUBLE precision -- FP-sound) BEFORE Star reachability. A 'robust'
-% verdict is a sound UNSAT proof, so emit it (status=1) and skip Star (empty the method
-% list). Any other outcome (unknown / skip / unsafe / error) leaves status + reachOptionsList
-% UNCHANGED, so Star runs exactly as before. gpu_bab_try_verify verifies the spec is
-% argmax-robustness for the net's own center prediction (target derived + checked inside),
-% so this can only ADD a fast sound unsat -- it can never produce a wrong verdict (a
-% non-matching spec / unsupported net / failed orientation guard -> 'skip' -> Star).
+function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList, needReshape, inputSize)
+% Sound, ADDITIVE GPU-BaB unsat pre-check for argmax-robustness timeout categories: the FC nets
+% (safenlp / sat_relu / relusplitter) AND the conv resnets (cifar100 / tinyimagenet). Runs the
+% batched GPU-BaB (sound CROWN + ReLU-split BaB, DOUBLE precision -- FP-sound) BEFORE Star. A
+% 'robust' verdict is a sound UNSAT proof -> emit it (status=1) and skip Star. Any other outcome
+% (unknown / skip / unsafe / error) leaves status + reachOptionsList UNCHANGED, so Star runs
+% exactly as before. gpu_bab_try_verify verifies the spec is argmax-robustness for the net's own
+% center prediction (target derived + checked inside) AND requires the op-list evaluation to
+% match net.evaluate (orientation guard), so it can only ADD a fast sound unsat -- never a wrong
+% verdict (non-matching spec / unsupported net / failed guard -> 'skip' -> Star). For the CONV
+% nets the flat vnnlib box is first remapped to the NET's input order via the SAME curated
+% needReshape Star uses (so gpu-bab bounds the SAME function reach verifies); a wrong order still
+% fails the guard -> skip, so soundness holds either way (validated: 10/10 cifar100, 0 contra).
     if status ~= 2, return; end                          % already decided -> nothing to do
-    if ~(contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter"))
-        return;                                          % only the FC timeout categories
-    end
+    if nargin < 8 || isempty(needReshape), needReshape = 0; end
+    if nargin < 9, inputSize = []; end
+    isFC   = contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter");
+    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet");
+    if ~(isFC || isConv), return; end                    % only the gated timeout categories
     if ~is_nnvnet_valid(nnvnet), return; end             % need a valid NNV net for nn_to_ops + evaluate
+    if isConv && needReshape ~= 0 && ~isempty(inputSize) && ~isscalar(inputSize)
+        try
+            lb = i_remap_box_to_net(lb, inputSize, needReshape);
+            ub = i_remap_box_to_net(ub, inputSize, needReshape);
+        catch
+            return;                                      % remap failed -> leave to Star (sound)
+        end
+    end
+    % Conv resnets are ~195s/instance in CPU-double (the bottleneck) but ~10s on GPU-single. So
+    % for conv use a 2-STAGE check: a fast GPU-SINGLE screen, then a CPU-DOUBLE re-confirm ONLY on
+    % a 'robust' screen (rare -- conv certifies ~0). SOUNDNESS: the EMITTED unsat comes from the
+    % DOUBLE-precision confirm; GPU-single is just a fast filter that can never emit a verdict.
+    % FC nets are cheap in double -> single-stage CPU-double (maxNodes 5000). No GPU -> conv also
+    % falls back to CPU-double (slow but sound).
     try
-        [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',5000));
-        if strcmp(gv, 'robust')
-            status = 1; reachOptionsList = {};
-            fprintf('GPU-BaB pre-check: robust/unsat (%d nodes, %s) -> skip Star reach\n', ginfo.nodes, ginfo.reason);
+        if isConv && gpuDeviceCount >= 1
+            [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, ...
+                struct('engine','batched','maxNodes',64,'device','gpu','allowUnsoundSingle',true));
+            if strcmp(gv, 'robust')
+                [gv2, gi2] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',64));  % CPU double = sound emit
+                if strcmp(gv2, 'robust')
+                    status = 1; reachOptionsList = {};
+                    fprintf('GPU-BaB pre-check: robust/unsat (gpu-screen + %d-node double-confirm) -> skip Star\n', gi2.nodes);
+                else
+                    fprintf('GPU-BaB pre-check: gpu-screen robust but double-confirm=%s -> Star reach\n', gv2);
+                end
+            else
+                fprintf('GPU-BaB pre-check: %s (gpu-screen, %s) -> Star reach\n', gv, ginfo.reason);
+            end
         else
-            fprintf('GPU-BaB pre-check: %s (%s) -> Star reach\n', gv, ginfo.reason);
+            mn = 5000; if isConv, mn = 64; end                 % conv-without-GPU: bounded (slow but sound)
+            [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',mn));
+            if strcmp(gv, 'robust')
+                status = 1; reachOptionsList = {};
+                fprintf('GPU-BaB pre-check: robust/unsat (%d nodes, %s) -> skip Star reach\n', ginfo.nodes, ginfo.reason);
+            else
+                fprintf('GPU-BaB pre-check: %s (%s) -> Star reach\n', gv, ginfo.reason);
+            end
         end
     catch ME
         fprintf('GPU-BaB pre-check errored (%s) -> Star reach\n', ME.message);
     end
+end
+
+function v = i_remap_box_to_net(x, inputSize, needReshape)
+% Map a flat vnnlib box vector to the NET's input order (returned flat, column-major), using the
+% SAME reshape+permute create_input_set applies for Star. gpu_bab_try_verify reshapes the flat
+% box column-major into the net's [H W C], so feeding it this net-ordered box makes it bound the
+% correctly-oriented image. Mirrors create_input_set's needReshape cases EXACTLY (1/2/3).
+    x = double(x(:));
+    if needReshape == 2
+        img = reshape(x, [inputSize(2) inputSize(1) inputSize(3:end)]);
+        img = permute(img, [2 1 3 4]);
+    else
+        img = reshape(x, inputSize);
+        if needReshape == 1
+            img = permute(img, [2 1 3]);
+        elseif needReshape == 3
+            img = permute(img, [3 2 1]);
+        end
+    end
+    v = img(:);
 end
 
 function L = relax_ladder(ks)
@@ -1337,6 +1401,54 @@ end
 
 % Create an array of random examples from input set and reshape if necessary
 % We use dlnetwork for simulation (MATLAB data structure)
+function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,falsifyOpts] = i_load_vnncomp_network_cached(category, onnx, vnnlib)
+% Cache wrapper for load_vnncomp_network. The ONNX import + matlab2nnv is paid PER INSTANCE but
+% the net + category options are ONNX-determined, so import ONCE per onnx and reuse across that
+% onnx's many vnnlib instances (VNN-COMP allows this format conversion in the prepare phase;
+% prepare_instance.sh can pre-build the cache, else the first run builds it). Keyed PER-ONNX
+% (path) on the onnx file's size+mtime + the NNV version -- a category with MULTIPLE networks
+% caches each separately, and a changed onnx OR a new NNV re-imports. SOUNDNESS: the net used to
+% verify MUST be identical to the onnx, so a stale cache would be a -150 -> the size+mtime+version
+% key guarantees a hit only for the SAME onnx+NNV (matlab2nnv is deterministic). Best-effort: any
+% cache error falls back to a fresh import (never fails the instance).
+    p = [char(onnx) '.netcache.mat'];
+    d = dir(char(onnx));
+    if isfile(p) && ~isempty(d)
+        try
+            S = load(p, 'C'); C = S.C;
+            if isfield(C,'onnx_bytes') && isequal(C.onnx_bytes, d.bytes) ...
+                    && abs(C.onnx_datenum - d.datenum) < 1e-9 ...
+                    && isfield(C,'nnv_ver') && strcmp(C.nnv_ver, i_nnv_ver())
+                net=C.net; nnvnet=C.nnvnet; needReshape=C.needReshape; reachOptionsList=C.reachOptionsList;
+                inputSize=C.inputSize; inputFormat=C.inputFormat; nRand=C.nRand; falsifyOpts=C.falsifyOpts;
+                fprintf('net cache HIT (%s)\n', p);
+                return;
+            end
+        catch
+            % corrupt/foreign cache -> fall through to a fresh import
+        end
+    end
+    [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib);
+    if ~isempty(d) && is_nnvnet_valid(nnvnet)
+        try
+            C = struct();
+            C.net=net; C.nnvnet=nnvnet; C.needReshape=needReshape; C.reachOptionsList=reachOptionsList;
+            C.inputSize=inputSize; C.inputFormat=inputFormat; C.nRand=nRand; C.falsifyOpts=falsifyOpts;
+            C.onnx_bytes=d.bytes; C.onnx_datenum=d.datenum; C.nnv_ver=i_nnv_ver();
+            tmp = [p '.tmp'];   % same dir as p; no two workers write the same onnx's cache concurrently
+            save(tmp, 'C', '-v7.3');
+            movefile(tmp, p, 'f');
+            fprintf('net cache BUILT (%s)\n', p);
+        catch
+            % best-effort: a failed save just means the next instance re-imports
+        end
+    end
+end
+
+function v = i_nnv_ver()
+    try, v = char(NNVVERSION()); catch, v = 'na'; end
+end
+
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,inputFormat)
     xB = Box(lb, ub); % lb, ub must be vectors
     xRand = xB.sample(nR-2);

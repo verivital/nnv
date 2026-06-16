@@ -66,7 +66,10 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     % alpha/beta-CROWN node bounding (gpu_bab_crown_alpha_fix / _alpha_beta) is FC-only
     % (affine/relu); for conv/normaffine/avgpool nets fall back to the (root-tight) CROWN bound
     % so we never mis-bound.
-    if (alphaIter > 0 || betaIter > 0) && ~all(cellfun(@(o) any(strcmp(o.type, {'affine','relu'})), ops))
+    % alpha/beta route: FC (affine/relu) -> alpha_fix/alpha_beta; DAG (conv/normaffine/avgpool/add)
+    % -> gpu_bab_crown_alpha_dag (alpha+beta over the full DAG). Only maxpool has no batched alpha
+    % backward -> disable alpha/beta there (sound: falls back to fixed-slope spec_dag / tight path).
+    if (alphaIter > 0 || betaIter > 0) && any(cellfun(@(o) strcmp(o.type, 'maxpool'), ops))
         alphaIter = 0; betaIter = 0;
     end
     % SPEC: argmax-robustness (default) builds C internally; a general-halfspace caller passes
@@ -219,7 +222,17 @@ function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x
     if nargin < 11 || isempty(alphaLr), alphaLr = 0.2; end
     if nargin < 12 || isempty(betaIter), betaIter = 0; end
     LB = repmat(x_lb, 1, B); UB = repmat(x_ub, 1, B);
-    if betaIter > 0
+    % DAG nets (conv/normaffine/avgpool/add) route to gpu_bab_crown_alpha_dag (alpha+beta over the
+    % full DAG); the FC-only alpha_fix/alpha_beta mis-bound a conv/add op (fail-open) so are used
+    % ONLY for pure affine/relu. alphaIter==betaIter==0 -> fixed-slope spec_dag (the cheap bound).
+    isDAG = any(cellfun(@(o) any(strcmp(o.type, {'conv','normaffine','avgpool','add'})), ops));
+    if isDAG
+        if alphaIter > 0 || betaIter > 0
+            [m, ~, pL, pU] = gpu_bab_crown_alpha_dag(ops, LB, UB, C, fixc, reluIdx, precision, max(alphaIter,betaIter), alphaLr, rootBounds);
+        else
+            [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
+        end
+    elseif betaIter > 0
         [m, ~, pL, pU] = gpu_bab_crown_alpha_beta(ops, LB, UB, C, fixc, reluIdx, precision, max(alphaIter,betaIter), alphaLr, rootBounds);
     elseif alphaIter > 0
         [m, ~, pL, pU] = gpu_bab_crown_alpha_fix(ops, LB, UB, C, fixc, reluIdx, precision, alphaIter, alphaLr, rootBounds);

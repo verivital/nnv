@@ -85,7 +85,11 @@ function [verdict, info] = gpu_bab_halfspace_verify(net, lb, ub, prop, opts)
     spec = struct();
     spec.C = C; spec.g = gAll(:); spec.rowGroups = rows;
     bopts = struct('precision', precision, 'spec', spec, 'margin', guardTol, 'rootTight', true, ...
-                   'maxNodes', i_optget(opts, 'maxNodes', 5000), 'maxFrontier', i_optget(opts, 'maxFrontier', 256));
+                   'maxNodes', i_optget(opts, 'maxNodes', 5000), 'maxFrontier', i_optget(opts, 'maxFrontier', 256), ...
+                   'alphaIter', i_optget(opts, 'alphaIter', 20), 'betaIter', i_optget(opts, 'betaIter', 20));
+    ev = getenv('NNV_HS_ALPHA'); if ~isempty(ev), bopts.alphaIter = str2double(ev); end
+    ev = getenv('NNV_HS_BETA');  if ~isempty(ev), bopts.betaIter  = str2double(ev); end
+    ev = getenv('NNV_HS_MAXNODES'); if ~isempty(ev), bopts.maxNodes = str2double(ev); end
     try
         [st, binfo] = gpu_bab_relu_split_batched(ops, lb, ub, 1, nOut, bopts);
     catch ME

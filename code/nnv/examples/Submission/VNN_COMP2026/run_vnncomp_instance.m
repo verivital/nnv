@@ -68,11 +68,19 @@ if contains(category, "smart_turn")
     return;
 end
 
-% nn4sys mscn_2048d_dual.onnx is corrupt upstream: it fails BOTH MATLAB's ONNX parser
-% AND onnx 1.20's ParseFromString ("Wire format was corrupt"), so no tool can load it.
-% Abstain cleanly to unknown (0 points -- never an error row, never a -150) rather than
-% crash. [2026-06-15: confirmed unparseable by matlab2nnv and the Python manifest importer.]
-if contains(category, "nn4sys") && contains(onnx, "mscn_2048d_dual")
+% nn4sys mscn: abstain ALL mscn models to unknown. Two distinct causes, one sound outcome:
+%   (1) mscn_2048d_dual.onnx is corrupt upstream -- fails BOTH MATLAB's ONNX parser AND onnx 1.20's
+%       ParseFromString ("Wire format was corrupt"); no tool can load it. [confirmed 2026-06-15]
+%   (2) mscn_128d / mscn_2048d produce FALSE-SAT on the cardinality_* specs. [confirmed 2026-06-16:
+%       10/10 NNV `sat` contradicted the abCROWN/NeuralSAT/PyRAT `unsat` consensus -- 10 x -150; NNV
+%       had 0 correct mscn solves.] Root cause: these specs are MULTI-OUTPUT, so the falsifier takes
+%       the ungated path and the onnxruntime SAT-witness replay (run_vnncomp_instance Pillar-2 gate)
+%       never runs -- it only wraps the single-Hg path; and the box's system python3 lacks
+%       onnxruntime regardless. So a spurious witness was emitted as a wrong verdict.
+% Abstaining to unknown (0 points, never -150) is the sound verdict and costs no real solves.
+% TODO durable fix: replay EVERY sat witness through the full vnnlib via the venv python before
+% emitting (gate the multi-output path too), then this mscn abstain can be lifted. See diagnosis doc.
+if contains(category, "nn4sys") && contains(onnx, "mscn")
     status = 2;            % unknown
     tTime = toc(t);
     fid = fopen(outputfile, 'w');

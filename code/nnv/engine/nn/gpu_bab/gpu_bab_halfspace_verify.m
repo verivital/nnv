@@ -78,27 +78,24 @@ function [verdict, info] = gpu_bab_halfspace_verify(net, lb, ub, prop, opts)
     C = cat(1, Gd{:});                                 % all rows of all disjuncts (nRows x nOut)
     gAll = cat(1, gd{:});                              % matching offsets
 
-    % (3) sound CROWN lower bound on C*y over the box (FP64). margins_i = lb(G_i*y).
+    % (3) sound disjunctive ReLU-split BaB (FP64). opts.spec routes the disjunct structure into the
+    % batched BaB, which certifies SAFE iff EVERY disjunct is avoided (some row separated) -- and
+    % SPLITS unstable ReLUs to tighten beyond the (typically too-loose) root CROWN. margin=guardTol
+    % is the FP64 soundness slack. 'robust' is a sound UNSAT proof; anything else -> Star.
+    spec = struct();
+    spec.C = C; spec.g = gAll(:); spec.rowGroups = rows;
+    bopts = struct('precision', precision, 'spec', spec, 'margin', guardTol, 'rootTight', true, ...
+                   'maxNodes', i_optget(opts, 'maxNodes', 5000), 'maxFrontier', i_optget(opts, 'maxFrontier', 256));
     try
-        margins = gpu_bab_crown_tight(ops, lb, ub, C, precision, cell(numel(ops),1));
-        margins = double(margins(:));
+        [st, binfo] = gpu_bab_relu_split_batched(ops, lb, ub, 1, nOut, bopts);
     catch ME
-        verdict = 'skip'; info.reason = ['crown_tight errored: ' ME.message]; return;
+        verdict = 'skip'; info.reason = ['halfspace BaB errored: ' ME.message]; return;
     end
-    avoidMargin = margins - gAll(:);                   % G_i*y - g_i >= avoidMargin (sound lower bound)
-
-    % per-disjunct OR (some row avoided), all-disjunct AND (every disjunct avoided)
-    allAvoided = true; worst = inf;
-    for d = 1:numel(rows)
-        best_d = max(avoidMargin(rows{d}));            % the most-separated row of disjunct d
-        worst = min(worst, best_d);
-        if ~(best_d > guardTol), allAvoided = false; end
-    end
-    info.worstDisjunctMargin = worst;
-    if allAvoided
-        verdict = 'robust';                            % every unsafe disjunct provably avoided
+    info.nodes = binfo.nodes;
+    if strcmp(st, 'robust')
+        verdict = 'robust';                            % every unsafe disjunct provably avoided over the box
     else
-        verdict = 'unknown'; info.reason = sprintf('root crown did not avoid all disjuncts (worst=%.4g)', worst);
+        verdict = 'unknown'; info.reason = sprintf('BaB %s (nodes=%d, rounds=%d)', st, binfo.nodes, binfo.rounds);
     end
 end
 

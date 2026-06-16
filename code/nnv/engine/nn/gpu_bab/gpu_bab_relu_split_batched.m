@@ -69,15 +69,30 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     if (alphaIter > 0 || betaIter > 0) && ~all(cellfun(@(o) any(strcmp(o.type, {'affine','relu'})), ops))
         alphaIter = 0; betaIter = 0;
     end
-    C = -eye(nClasses, precision);
-    C(:, trueLabel) = C(:, trueLabel) + 1;
-    C(trueLabel, :) = [];
+    % SPEC: argmax-robustness (default) builds C internally; a general-halfspace caller passes
+    % opts.spec = struct('C',C,'g',g,'rowGroups',{rows-per-disjunct}). The node certification then
+    % generalises "all margins > 0" to "every unsafe DISJUNCT has SOME row G_i*y-g_i > 0" (the
+    % output avoids every unsafe polytope). argmax is the special case: each margin is its own
+    % single-row disjunct, so the disjunctive test reduces EXACTLY to all-margins>0.
+    spec = i_get(opts, 'spec', []);
+    if isempty(spec)
+        C = -eye(nClasses, precision);
+        C(:, trueLabel) = C(:, trueLabel) + 1;
+        C(trueLabel, :) = [];
+        gOff = zeros(size(C,1), 1, precision);
+        rowGroups = num2cell(1:size(C,1));
+    else
+        C = cast(spec.C, precision); gOff = cast(spec.g(:), precision); rowGroups = spec.rowGroups;
+    end
+    doCex = isempty(spec);             % i_find_cex is argmax (misclassification) only; skip for halfspace
     info = struct('nodes', 0, 'rounds', 0, 'maxStack', 1, 'cex', [], 'cexLabel', []);
 
-    % concrete counterexample on the whole box first (cheap falsification)
-    [cex, lab] = i_find_cex(ops, x_lb, x_ub, trueLabel, nSample, precision);
-    if ~isempty(cex)
-        status = 'unsafe'; info.cex = cex; info.cexLabel = lab; return;
+    % concrete counterexample on the whole box first (cheap falsification; argmax only)
+    if doCex
+        [cex, lab] = i_find_cex(ops, x_lb, x_ub, trueLabel, nSample, precision);
+        if ~isempty(cex)
+            status = 'unsafe'; info.cex = cex; info.cexLabel = lab; return;
+        end
     end
 
     % --- root: bound the un-split network once; certify, or seed the stack from its split.
@@ -97,7 +112,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         [mRoot, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, cell(nOps,1), 1);
     end
     info.nodes = 1;
-    if all(mRoot > margin, 1)
+    if i_certify_dis(mRoot, gOff, rowGroups, margin)
         status = 'robust'; return;
     end
     reluDim = zeros(1, nOps);
@@ -137,15 +152,17 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         % preL>preU at some neuron) represents an EMPTY sub-region: the property holds
         % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
         % so the BaB splits it forever and degrades a robust query to a false 'unknown'.
-        undec = find(~(all(margins > margin, 1) | infeas));
+        undec = find(~(i_certify_dis(margins, gOff, rowGroups, margin) | infeas));
         if isempty(undec)
             continue;                               % whole batch certified; pop the next
         end
 
-        % periodic concrete counterexample search (cheap; once per round on the original box)
-        [cex, lab] = i_find_cex(ops, x_lb, x_ub, trueLabel, nSample, precision);
-        if ~isempty(cex)
-            status = 'unsafe'; info.cex = cex; info.cexLabel = lab; return;
+        % periodic concrete counterexample search (cheap; argmax only -- halfspace sat is the dispatcher's job)
+        if doCex
+            [cex, lab] = i_find_cex(ops, x_lb, x_ub, trueLabel, nSample, precision);
+            if ~isempty(cex)
+                status = 'unsafe'; info.cex = cex; info.cexLabel = lab; return;
+            end
         end
 
         % split each undecided node on its largest-gap unstable unfixed neuron
@@ -169,6 +186,20 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         M = M + 2 * nu;
     end
     status = 'robust';
+end
+
+% ------------------------------------------------------------------------------------
+function ok = i_certify_dis(margins, gOff, rowGroups, marginSlack)
+% Disjunctive certification: a node is certified SAFE iff EVERY unsafe disjunct is avoided, and a
+% disjunct {G*y<=g} is avoided iff SOME of its rows has a lower bound G_i*y-g_i > slack (the
+% reachable set lies entirely outside that halfspace -> outside the polytope). margins: nRows x B
+% (sound lower bound of G*y). Returns 1 x B. For argmax (each row its own disjunct, g=0) this is
+% exactly all(margins>slack) -- the original argmax certification, bound-for-bound.
+    av = (margins - gOff) > marginSlack;          % nRows x B : row i provably avoided
+    ok = true(1, size(margins, 2));
+    for d = 1:numel(rowGroups)
+        ok = ok & any(av(rowGroups{d}, :), 1);    % disjunct d avoided iff some of its rows avoided
+    end
 end
 
 % ------------------------------------------------------------------------------------

@@ -56,7 +56,11 @@ esac
 MATLAB_BIN="${MATLAB_BIN:-matlab}"
 build_netcache() {
     local cat="$1" onnx="$2" vnnlib="$3"
-    local cache="${onnx%.onnx}.netcache.mat"
+    # Name MUST match the MATLAB side exactly: i_load_vnncomp_network_cached writes/reads
+    # [char(onnx) '.netcache.mat'] -> "<onnx>.netcache.mat" (APPENDS; does not strip .onnx).
+    # A stripped name ("model.netcache.mat") would never match, so this skip-guard would never
+    # fire and prepare would relaunch MATLAB on every instance instead of once per onnx.
+    local cache="${onnx}.netcache.mat"
     [ -f "${cache}" ] && return
     echo "Pre-building NNV net cache: ${cache}"
     NNV_PREP_CACHE=1 "${MATLAB_BIN}" -batch \

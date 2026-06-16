@@ -1667,6 +1667,7 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
     if nargin < 9 || isempty(opts), opts = struct('seed', 0, 'max_time', 5); end
     if ~isfield(opts, 'seed'),     opts.seed = 0;     end
     if ~isfield(opts, 'max_time'), opts.max_time = 5; end
+    rng(opts.seed, 'twister');   % B: APPLY the seed -> reproducible falsification (PGD restarts + Box.sample); sound (witness still ort-validated)
     % Gradient-directed falsification FIRST (FGSM warm-start + PGD). pgd_falsify maps
     % the flat input to the network-input layout with the SAME reshape+permute the
     % runner uses (needReshape), so it works for image/permuted inputs too. NNV found

@@ -85,7 +85,7 @@ end
 
 % Load networks
 
-[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib);
+[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = i_load_vnncomp_network_cached(category, onnx, vnnlib);
 
 if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
@@ -692,17 +692,36 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             return;                                      % remap failed -> leave to Star (sound)
         end
     end
-    % conv is slow per node in double + the assessment shows it certifies at/near the root or not
-    % at all -> cap conv at a tight node budget so the pre-check bails to Star fast; FC keeps the
-    % larger budget. (Precision stays DOUBLE inside gpu_bab_try_verify -- FP-sound emit.)
-    if isConv, mn = 64; else, mn = 5000; end
+    % Conv resnets are ~195s/instance in CPU-double (the bottleneck) but ~10s on GPU-single. So
+    % for conv use a 2-STAGE check: a fast GPU-SINGLE screen, then a CPU-DOUBLE re-confirm ONLY on
+    % a 'robust' screen (rare -- conv certifies ~0). SOUNDNESS: the EMITTED unsat comes from the
+    % DOUBLE-precision confirm; GPU-single is just a fast filter that can never emit a verdict.
+    % FC nets are cheap in double -> single-stage CPU-double (maxNodes 5000). No GPU -> conv also
+    % falls back to CPU-double (slow but sound).
     try
-        [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',mn));
-        if strcmp(gv, 'robust')
-            status = 1; reachOptionsList = {};
-            fprintf('GPU-BaB pre-check: robust/unsat (%d nodes, %s) -> skip Star reach\n', ginfo.nodes, ginfo.reason);
+        if isConv && gpuDeviceCount >= 1
+            [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, ...
+                struct('engine','batched','maxNodes',64,'device','gpu','allowUnsoundSingle',true));
+            if strcmp(gv, 'robust')
+                [gv2, gi2] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',64));  % CPU double = sound emit
+                if strcmp(gv2, 'robust')
+                    status = 1; reachOptionsList = {};
+                    fprintf('GPU-BaB pre-check: robust/unsat (gpu-screen + %d-node double-confirm) -> skip Star\n', gi2.nodes);
+                else
+                    fprintf('GPU-BaB pre-check: gpu-screen robust but double-confirm=%s -> Star reach\n', gv2);
+                end
+            else
+                fprintf('GPU-BaB pre-check: %s (gpu-screen, %s) -> Star reach\n', gv, ginfo.reason);
+            end
         else
-            fprintf('GPU-BaB pre-check: %s (%s) -> Star reach\n', gv, ginfo.reason);
+            mn = 5000; if isConv, mn = 64; end                 % conv-without-GPU: bounded (slow but sound)
+            [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',mn));
+            if strcmp(gv, 'robust')
+                status = 1; reachOptionsList = {};
+                fprintf('GPU-BaB pre-check: robust/unsat (%d nodes, %s) -> skip Star reach\n', ginfo.nodes, ginfo.reason);
+            else
+                fprintf('GPU-BaB pre-check: %s (%s) -> Star reach\n', gv, ginfo.reason);
+            end
         end
     catch ME
         fprintf('GPU-BaB pre-check errored (%s) -> Star reach\n', ME.message);
@@ -1374,6 +1393,54 @@ end
 
 % Create an array of random examples from input set and reshape if necessary
 % We use dlnetwork for simulation (MATLAB data structure)
+function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,falsifyOpts] = i_load_vnncomp_network_cached(category, onnx, vnnlib)
+% Cache wrapper for load_vnncomp_network. The ONNX import + matlab2nnv is paid PER INSTANCE but
+% the net + category options are ONNX-determined, so import ONCE per onnx and reuse across that
+% onnx's many vnnlib instances (VNN-COMP allows this format conversion in the prepare phase;
+% prepare_instance.sh can pre-build the cache, else the first run builds it). Keyed PER-ONNX
+% (path) on the onnx file's size+mtime + the NNV version -- a category with MULTIPLE networks
+% caches each separately, and a changed onnx OR a new NNV re-imports. SOUNDNESS: the net used to
+% verify MUST be identical to the onnx, so a stale cache would be a -150 -> the size+mtime+version
+% key guarantees a hit only for the SAME onnx+NNV (matlab2nnv is deterministic). Best-effort: any
+% cache error falls back to a fresh import (never fails the instance).
+    p = [char(onnx) '.netcache.mat'];
+    d = dir(char(onnx));
+    if isfile(p) && ~isempty(d)
+        try
+            S = load(p, 'C'); C = S.C;
+            if isfield(C,'onnx_bytes') && isequal(C.onnx_bytes, d.bytes) ...
+                    && abs(C.onnx_datenum - d.datenum) < 1e-9 ...
+                    && isfield(C,'nnv_ver') && strcmp(C.nnv_ver, i_nnv_ver())
+                net=C.net; nnvnet=C.nnvnet; needReshape=C.needReshape; reachOptionsList=C.reachOptionsList;
+                inputSize=C.inputSize; inputFormat=C.inputFormat; nRand=C.nRand; falsifyOpts=C.falsifyOpts;
+                fprintf('net cache HIT (%s)\n', p);
+                return;
+            end
+        catch
+            % corrupt/foreign cache -> fall through to a fresh import
+        end
+    end
+    [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,falsifyOpts] = load_vnncomp_network(category, onnx, vnnlib);
+    if ~isempty(d) && is_nnvnet_valid(nnvnet)
+        try
+            C = struct();
+            C.net=net; C.nnvnet=nnvnet; C.needReshape=needReshape; C.reachOptionsList=reachOptionsList;
+            C.inputSize=inputSize; C.inputFormat=inputFormat; C.nRand=nRand; C.falsifyOpts=falsifyOpts;
+            C.onnx_bytes=d.bytes; C.onnx_datenum=d.datenum; C.nnv_ver=i_nnv_ver();
+            tmp = [p '.tmp'];   % same dir as p; no two workers write the same onnx's cache concurrently
+            save(tmp, 'C', '-v7.3');
+            movefile(tmp, p, 'f');
+            fprintf('net cache BUILT (%s)\n', p);
+        catch
+            % best-effort: a failed save just means the next instance re-imports
+        end
+    end
+end
+
+function v = i_nnv_ver()
+    try, v = char(NNVVERSION()); catch, v = 'na'; end
+end
+
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,inputFormat)
     xB = Box(lb, ub); % lb, ub must be vectors
     xRand = xB.sample(nR-2);

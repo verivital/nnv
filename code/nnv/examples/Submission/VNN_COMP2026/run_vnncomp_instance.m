@@ -746,8 +746,39 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     if nargin < 9, inputSize = []; end
     isFC   = contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter");
     isConv = contains(category,"cifar100") || contains(category,"tinyimagenet");
-    if ~(isFC || isConv), return; end                    % only the gated timeout categories
+    % General-halfspace control benchmarks (NOT argmax): prove the output avoids every unsafe
+    % disjunct in prop.Hg. gpu_bab_halfspace_verify is sound-or-skip (FP64 CROWN + orientation
+    % guard), so it can only ADD a sound unsat. Routed separately below (own predicate).
+    isHalfspace = contains(category,"cersyve") || contains(category,"lsnc_relu") || contains(category,"linearizenn");
+    if ~(isFC || isConv || isHalfspace), return; end     % only the gated timeout categories
     if ~is_nnvnet_valid(nnvnet), return; end             % need a valid NNV net for nn_to_ops + evaluate
+    if isHalfspace
+        try
+            if iscell(lb)                                % multiple input sets -> every set must be safe
+                allRobust = ~isempty(lb);
+                for s = 1:numel(lb)
+                    pv = prop{min(s, numel(prop))};
+                    hv = gpu_bab_halfspace_verify(nnvnet, lb{s}, ub{s}, pv);
+                    if ~strcmp(hv, 'robust'), allRobust = false; break; end
+                end
+                if allRobust
+                    status = 1; reachOptionsList = {};
+                    fprintf('halfspace pre-check: robust/unsat (all %d input sets) -> skip Star\n', numel(lb));
+                end
+            else
+                [hv, hinfo] = gpu_bab_halfspace_verify(nnvnet, lb, ub, prop{1});
+                if strcmp(hv, 'robust')
+                    status = 1; reachOptionsList = {};
+                    fprintf('halfspace pre-check: robust/unsat (%d disjuncts) -> skip Star\n', hinfo.nDisjuncts);
+                else
+                    fprintf('halfspace pre-check: %s (%s) -> Star reach\n', hv, hinfo.reason);
+                end
+            end
+        catch ME
+            fprintf('halfspace pre-check errored (%s) -> Star reach\n', ME.message);
+        end
+        return;                                          % halfspace path is terminal (no argmax fall-through)
+    end
     if isConv && needReshape ~= 0 && ~isempty(inputSize) && ~isscalar(inputSize)
         try
             lb = i_remap_box_to_net(lb, inputSize, needReshape);

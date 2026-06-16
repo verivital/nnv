@@ -278,7 +278,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
             % GPU-BaB sound additive unsat pre-check (FC argmax-robustness timeout
             % categories): try the batched GPU-BaB before Star; a 'robust' verdict is a
             % sound unsat -> emit + skip Star. Anything else falls through unchanged.
-            [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList);
+            [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList, needReshape, inputSize);
 
             while ~isempty(reachOptionsList)
 
@@ -664,23 +664,40 @@ function ok = is_nnvnet_valid(nnvnet)
     ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
 end
 
-function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList)
-% Sound, ADDITIVE GPU-BaB unsat pre-check for the FC argmax-robustness timeout categories
-% (safenlp / sat_relu / relusplitter). Runs the batched GPU-BaB (sound CROWN + ReLU-split
-% branch-and-bound, DOUBLE precision -- FP-sound) BEFORE Star reachability. A 'robust'
-% verdict is a sound UNSAT proof, so emit it (status=1) and skip Star (empty the method
-% list). Any other outcome (unknown / skip / unsafe / error) leaves status + reachOptionsList
-% UNCHANGED, so Star runs exactly as before. gpu_bab_try_verify verifies the spec is
-% argmax-robustness for the net's own center prediction (target derived + checked inside),
-% so this can only ADD a fast sound unsat -- it can never produce a wrong verdict (a
-% non-matching spec / unsupported net / failed orientation guard -> 'skip' -> Star).
+function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList, needReshape, inputSize)
+% Sound, ADDITIVE GPU-BaB unsat pre-check for argmax-robustness timeout categories: the FC nets
+% (safenlp / sat_relu / relusplitter) AND the conv resnets (cifar100 / tinyimagenet). Runs the
+% batched GPU-BaB (sound CROWN + ReLU-split BaB, DOUBLE precision -- FP-sound) BEFORE Star. A
+% 'robust' verdict is a sound UNSAT proof -> emit it (status=1) and skip Star. Any other outcome
+% (unknown / skip / unsafe / error) leaves status + reachOptionsList UNCHANGED, so Star runs
+% exactly as before. gpu_bab_try_verify verifies the spec is argmax-robustness for the net's own
+% center prediction (target derived + checked inside) AND requires the op-list evaluation to
+% match net.evaluate (orientation guard), so it can only ADD a fast sound unsat -- never a wrong
+% verdict (non-matching spec / unsupported net / failed guard -> 'skip' -> Star). For the CONV
+% nets the flat vnnlib box is first remapped to the NET's input order via the SAME curated
+% needReshape Star uses (so gpu-bab bounds the SAME function reach verifies); a wrong order still
+% fails the guard -> skip, so soundness holds either way (validated: 10/10 cifar100, 0 contra).
     if status ~= 2, return; end                          % already decided -> nothing to do
-    if ~(contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter"))
-        return;                                          % only the FC timeout categories
-    end
+    if nargin < 8 || isempty(needReshape), needReshape = 0; end
+    if nargin < 9, inputSize = []; end
+    isFC   = contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter");
+    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet");
+    if ~(isFC || isConv), return; end                    % only the gated timeout categories
     if ~is_nnvnet_valid(nnvnet), return; end             % need a valid NNV net for nn_to_ops + evaluate
+    if isConv && needReshape ~= 0 && ~isempty(inputSize) && ~isscalar(inputSize)
+        try
+            lb = i_remap_box_to_net(lb, inputSize, needReshape);
+            ub = i_remap_box_to_net(ub, inputSize, needReshape);
+        catch
+            return;                                      % remap failed -> leave to Star (sound)
+        end
+    end
+    % conv is slow per node in double + the assessment shows it certifies at/near the root or not
+    % at all -> cap conv at a tight node budget so the pre-check bails to Star fast; FC keeps the
+    % larger budget. (Precision stays DOUBLE inside gpu_bab_try_verify -- FP-sound emit.)
+    if isConv, mn = 64; else, mn = 5000; end
     try
-        [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',5000));
+        [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',mn));
         if strcmp(gv, 'robust')
             status = 1; reachOptionsList = {};
             fprintf('GPU-BaB pre-check: robust/unsat (%d nodes, %s) -> skip Star reach\n', ginfo.nodes, ginfo.reason);
@@ -690,6 +707,26 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     catch ME
         fprintf('GPU-BaB pre-check errored (%s) -> Star reach\n', ME.message);
     end
+end
+
+function v = i_remap_box_to_net(x, inputSize, needReshape)
+% Map a flat vnnlib box vector to the NET's input order (returned flat, column-major), using the
+% SAME reshape+permute create_input_set applies for Star. gpu_bab_try_verify reshapes the flat
+% box column-major into the net's [H W C], so feeding it this net-ordered box makes it bound the
+% correctly-oriented image. Mirrors create_input_set's needReshape cases EXACTLY (1/2/3).
+    x = double(x(:));
+    if needReshape == 2
+        img = reshape(x, [inputSize(2) inputSize(1) inputSize(3:end)]);
+        img = permute(img, [2 1 3 4]);
+    else
+        img = reshape(x, inputSize);
+        if needReshape == 1
+            img = permute(img, [2 1 3]);
+        elseif needReshape == 3
+            img = permute(img, [3 2 1]);
+        end
+    end
+    v = img(:);
 end
 
 function L = relax_ladder(ks)

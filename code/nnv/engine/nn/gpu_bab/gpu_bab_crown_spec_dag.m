@@ -1,14 +1,22 @@
 function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds)
 % GPU_BAB_CROWN_SPEC_DAG  Sound CROWN lower bound on a linear output spec C*f(x), batched
-%   over B node columns, for SEQUENTIAL conv nets (affine/conv/normaffine/avgpool/relu).
-%   The generalisation of gpu_bab_crown_spec from FC to conv: conv/BN/avgpool are LINEAR
-%   (exact interval forward + exact adjoint backward), only ReLU is relaxed. The backward
-%   coefficient A is nSpec-by-dim-by-B (the SPEC rows, nSpec ~ nClasses-1, NOT the layer
-%   width), so the memory is nSpec*HWC*B -- feasible for conv, unlike batching the tight
-%   intermediate bounds' eye(nk) seed.
+%   over B node columns, for feedforward conv nets INCLUDING residual DAGs
+%   (affine/conv/normaffine/avgpool/relu/add). The generalisation of gpu_bab_crown_spec from
+%   FC to conv: conv/BN/avgpool/add are LINEAR (exact interval forward + exact adjoint
+%   backward), only ReLU is relaxed. The backward coefficient A is nSpec-by-dim-by-B (the SPEC
+%   rows, nSpec ~ nClasses-1, NOT the layer width), so the memory is nSpec*HWC*B -- feasible
+%   for conv, unlike batching the tight intermediate bounds' eye(nk) seed.
+%
+%   FULL DAG: the forward IBP caches each op's output bounds (so a residual 'add' fetches BOTH
+%   its inputs and any op consuming a non-previous op bounds correctly) and the backward CROWN
+%   routes each op's coefficient to op.src -- an 'add' routes it UNCHANGED to BOTH inputs. A
+%   pure chain (every src==k-1, no 'add') reduces to the rolling forward + sequential backward
+%   exactly (bound-for-bound unchanged). 'maxpool' is NOT handled here (per-node window
+%   relaxation is not yet batched) and ERRORS -> sound-by-refusal (caller runs the tight path).
 %
 %   [margins, preL, preU] = GPU_BAB_CROWN_SPEC_DAG(ops, x_lb, x_ub, C, precision, fixings, rootBounds)
-%     ops        : op list (nn_to_ops); SEQUENTIAL only (no 'add'/DAG, no 'maxpool')
+%     ops        : op list (nn_to_ops); affine/conv/normaffine/avgpool/relu/add (DAG via op.src,
+%                  'add' via op.inputs=[a b]); NO 'maxpool'
 %     x_lb,x_ub  : n-by-B input box columns (B = batch/node dim)
 %     C          : nSpec-by-nOut spec
 %     fixings    : optional cell(nOps,1) of per-relu dim_k-by-B node clamps (-1/0/+1)
@@ -20,41 +28,54 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
 %     margins    : nSpec-by-B lower bound on C*f over each node's clamped box
 %     preL,preU  : per-relu (clamped) pre-activation bounds, dim_k-by-B
 %
-%   SOUNDNESS: interval-conv forward (Wp*lb+Wn*ub, the tightest linear interval) is sound;
-%   the conv/avgpool/normaffine backward adjoints are EXACT (linear, no relaxation); the
-%   ReLU relaxation is the standard sign-aware lower/upper line; the per-node clamps only
-%   tighten pre-activation bounds. With rootBounds, the reused root bounds hold over the FULL
-%   input box -- a superset of every node's sub-region -- and the per-neuron clamp (active:
-%   l>=0, inactive: u<=0) is the split's domain restriction, so the bounds stay sound and are
-%   tighter than the per-node IBP. For every x in node k's box, C*f(x) >= margins(:,k).
+%   SOUNDNESS: interval-conv forward (Wp*lb+Wn*ub, the tightest linear interval) is sound; the
+%   conv/avgpool/normaffine/add backward adjoints are EXACT (linear, no relaxation -- 'add'
+%   routes the coefficient unchanged to both summands); the ReLU relaxation is the standard
+%   sign-aware lower/upper line; the per-node clamps only tighten pre-activation bounds. With
+%   rootBounds, the reused root bounds hold over the FULL input box -- a superset of every
+%   node's sub-region -- and the per-neuron clamp (active: l>=0, inactive: u<=0) is the split's
+%   domain restriction, so the bounds stay sound and are tighter than the per-node IBP. The DAG
+%   backward is sound by induction: ops are topologically ordered, so every consumer of op k is
+%   processed before op k, hence skipA{k} (the total coefficient on op k's output) is complete
+%   when op k is bounded. For every x in node k's box, C*f(x) >= margins(:,k).
 
     if nargin < 5 || isempty(precision), precision = 'single'; end
     if nargin < 6, fixings = {}; end
     if nargin < 7, rootBounds = []; end
-    B = size(x_lb, 2); nSpec = size(C, 1); nOps = numel(ops);
+    B = size(x_lb, 2); nSpec = size(C, 1); nOps = numel(ops); n = size(x_lb, 1);
     preL = cell(nOps,1); preU = cell(nOps,1);
 
     if isempty(rootBounds)
-        % ---- forward IBP (batched), pre-activation bounds at each ReLU, with node clamps ----
-        lb = cast(x_lb, precision); ub = cast(x_ub, precision);
+        % ---- forward IBP (batched, FULL DAG), pre-activation bounds at each ReLU, with node
+        % clamps. cl/cu cache each op's output bounds (index k+1 = op k; index 1 = op 0 = input)
+        % so a residual 'add' fetches BOTH its inputs (out[a]+out[b], LINEAR -> exact) and any op
+        % consuming a non-previous op (skip branch) bounds correctly. Sequential nets reduce to
+        % the rolling bounds exactly. ----
+        cl = cell(nOps+1,1); cu = cell(nOps+1,1);
+        cl{1} = cast(x_lb, precision); cu{1} = cast(x_ub, precision);
         for k = 1:nOps
             op = ops{k};
+            if strcmp(op.type, 'add')
+                a = op.inputs(1)+1; b = op.inputs(2)+1;
+                cl{k+1} = cl{a} + cl{b}; cu{k+1} = cu{a} + cu{b};
+                continue;
+            end
+            s = op.src + 1; lb = cl{s}; ub = cu{s};
             switch op.type
                 case 'affine'
-                    W = cast(op.W, precision); b = cast(op.b(:), precision);
+                    W = cast(op.W, precision); bb = cast(op.b(:), precision);
                     Wp = max(W,0); Wn = min(W,0);
-                    nlb = Wp*lb + Wn*ub + b; nub = Wp*ub + Wn*lb + b; lb = nlb; ub = nub;
+                    cl{k+1} = Wp*lb + Wn*ub + bb; cu{k+1} = Wp*ub + Wn*lb + bb;
                 case 'conv'
-                    [lb, ub] = i_conv_ibp(op, lb, ub, precision);
+                    [cl{k+1}, cu{k+1}] = i_conv_ibp(op, lb, ub, precision);
                 case 'normaffine'
                     sf = i_bcast_flat(op.scale, op.shape, precision);
                     tf = i_bcast_flat(op.shift, op.shape, precision);
                     pos = sf >= 0;
-                    nlb = (sf.*lb).*pos + (sf.*ub).*(~pos) + tf;
-                    nub = (sf.*ub).*pos + (sf.*lb).*(~pos) + tf;
-                    lb = nlb; ub = nub;
+                    cl{k+1} = (sf.*lb).*pos + (sf.*ub).*(~pos) + tf;
+                    cu{k+1} = (sf.*ub).*pos + (sf.*lb).*(~pos) + tf;
                 case 'avgpool'
-                    [lb, ub] = i_avgpool_ibp(op, lb, ub, precision);
+                    [cl{k+1}, cu{k+1}] = i_avgpool_ibp(op, lb, ub, precision);
                 case 'relu'
                     if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                         fx = fixings{k};
@@ -62,10 +83,10 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
                         ub(fx == -1) = min(ub(fx == -1), 0);
                     end
                     preL{k} = lb; preU{k} = ub;
-                    lb = max(lb,0); ub = max(ub,0);
+                    cl{k+1} = max(lb,0); cu{k+1} = max(ub,0);
                 otherwise
                     error('gpu_bab_crown_spec_dag:op', ...
-                        'Unsupported op "%s" (sequential affine/conv/normaffine/avgpool/relu only).', op.type);
+                        'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/add only).', op.type);
             end
         end
     else
@@ -74,7 +95,7 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
         % clamp per node by the fixings. The backward pass below only reads preL/preU at ReLU
         % ops, so no forward propagation is needed. SOUND (root bounds hold over the full box
         % >= each node's region; the own-neuron clamp is the split's domain restriction) and
-        % much tighter than IBP. Non-relu ops are validated for support but carry no bounds.
+        % much tighter than IBP. Non-relu ops (incl. 'add') carry no relu bounds; validate support.
         if ~isstruct(rootBounds) || ~all(isfield(rootBounds, {'preL','preU'}))
             error('gpu_bab_crown_spec_dag:rootBounds', ...
                 'rootBounds must be a struct with fields preL and preU (per-op cell arrays).');
@@ -91,22 +112,44 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
                     u(fx == -1) = min(u(fx == -1), 0);
                 end
                 preL{k} = l; preU{k} = u;
-            elseif ~any(strcmp(tk, {'affine','conv','normaffine','avgpool'}))
+            elseif ~any(strcmp(tk, {'affine','conv','normaffine','avgpool','add'}))
                 error('gpu_bab_crown_spec_dag:op', ...
-                    'Unsupported op "%s" (sequential affine/conv/normaffine/avgpool/relu only).', tk);
+                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/add only).', tk);
             end
         end
     end
 
-    % ---- backward CROWN (batched over B): lower bound on C*f ----
-    A = repmat(cast(C, precision), 1, 1, B);      % nSpec x nOut x B
+    % ---- backward CROWN (batched over B, FULL DAG): lower bound on C*f ----
+    % skipA{k} = accumulated nSpec-by-width_k-by-B coefficient on op k's OUTPUT. A single-input
+    % op routes its coefficient (after its linear/relax backward) to op.src; an 'add' routes it
+    % UNCHANGED to BOTH inputs (LINEAR -> exact). inputSkipA = total coefficient on op 0 (the
+    % engine input). Topological order => every consumer of op k is visited before op k, so
+    % skipA{k} is complete when op k is processed (sound by induction). For a pure chain this is
+    % bound-for-bound the rolling pass (skipA{k-1} == the old running A).
+    skipA = cell(nOps, 1);
+    skipA{nOps} = repmat(cast(C, precision), 1, 1, B);   % spec sits on the network output (op nOps)
     d = zeros(nSpec, B, precision);
+    inputSkipA = [];
     for k = nOps:-1:1
+        A = skipA{k};
+        if isempty(A), continue; end
+        skipA{k} = [];                                   % free: keep only live branches resident
         op = ops{k};
+        if strcmp(op.type, 'add')
+            for ii = 1:numel(op.inputs)
+                s = op.inputs(ii);
+                if s == 0
+                    if isempty(inputSkipA), inputSkipA = A; else, inputSkipA = inputSkipA + A; end
+                elseif isempty(skipA{s}), skipA{s} = A;
+                else, skipA{s} = skipA{s} + A;
+                end
+            end
+            continue;
+        end
         switch op.type
             case 'affine'
-                W = cast(op.W, precision); b = cast(op.b(:), precision);
-                d = d + reshape(pagemtimes(A, b), nSpec, B);
+                W = cast(op.W, precision); bb = cast(op.b(:), precision);
+                d = d + reshape(pagemtimes(A, bb), nSpec, B);
                 A = pagemtimes(A, W);
             case 'conv'
                 [A, d] = i_conv_backward(A, d, op, precision);
@@ -124,10 +167,23 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
                 Apos = max(A, 0); Aneg = min(A, 0);
                 d = d + reshape(pagemtimes(Aneg, reshape(bu, dim, 1, B)), nSpec, B);
                 A = Apos .* reshape(al, 1, dim, B) + Aneg .* reshape(au, 1, dim, B);
+            otherwise
+                error('gpu_bab_crown_spec_dag:op', ...
+                    'Unsupported op "%s" in backward (affine/conv/normaffine/avgpool/relu/add only).', op.type);
+        end
+        s = op.src;                                       % route coefficient to op.src
+        if s == 0
+            if isempty(inputSkipA), inputSkipA = A; else, inputSkipA = inputSkipA + A; end
+        elseif isempty(skipA{s}), skipA{s} = A;
+        else, skipA{s} = skipA{s} + A;
         end
     end
 
-    n = size(x_lb, 1);
+    if isempty(inputSkipA)
+        margins = d;                                      % output independent of input (degenerate)
+        return;
+    end
+    A = inputSkipA;
     Apos = max(A, 0); Aneg = min(A, 0);
     lbcol = reshape(cast(x_lb, precision), n, 1, B);
     ubcol = reshape(cast(x_ub, precision), n, 1, B);

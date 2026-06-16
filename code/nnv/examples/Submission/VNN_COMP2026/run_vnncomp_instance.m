@@ -617,18 +617,45 @@ end
 % 'python' often does not exist on the competition VM; run_instance.sh itself
 % uses python3), 'python' on Windows dev boxes.
 function py = python_exe()
-    if ispc
-        py = 'python';
-    else
-        py = 'python3';
-    end
+%PYTHON_EXE  Return a quoted python interpreter that can import the verification stack
+%   (onnx + onnxruntime), discovered ROBUSTLY across machine configs -- a venv OR a
+%   direct/system python (lambda dev box has the stack in ~/taylor_venv; install_tool.sh
+%   provisions it into system python3 on the eval box). Used by the python verifiers that
+%   need onnxruntime: the cctsdb_yolo complete-enumeration shell-out (cctsdb_enumerate.py)
+%   and the witness-replay helpers. The old version returned bare python3/pyenv, which on a
+%   box whose system python3 lacks onnx/ort made cctsdb_enumerate.py fail -> all-unknown
+%   (the cctsdb_yolo 39->0 regression). Probe order: $NNV_ORT_PYTHON -> MATLAB pyenv ->
+%   common venv -> python3 -> python; pick the first that imports onnx+onnxruntime; if none
+%   has the stack, fall back to a plain interpreter so non-ort callers still run. Cached.
+    persistent cached
+    if ~isempty(cached), py = cached{1}; return; end
+    cands = {};
+    e = strtrim(getenv('NNV_ORT_PYTHON'));
+    if ~isempty(e), cands{end+1} = e; end
     try
         pe = pyenv;
-        if ~isempty(pe.Executable) && isfile(pe.Executable)
-            py = ['"' char(pe.Executable) '"'];
-        end
+        if ~isempty(pe.Executable) && isfile(pe.Executable), cands{end+1} = char(pe.Executable); end
     catch
     end
+    home = getenv('HOME');
+    if ~isempty(home), cands{end+1} = fullfile(home, 'taylor_venv', 'bin', 'python'); end
+    if ispc
+        cands = [cands, {'python', 'python3'}];
+    else
+        cands = [cands, {'python3', 'python'}];
+    end
+    found = '';
+    for i = 1:numel(cands)
+        c = cands{i};
+        if isempty(c), continue; end
+        [st, ~] = system(sprintf('"%s" -c "import onnx, onnxruntime"', c));
+        if st == 0, found = ['"' c '"']; break; end
+    end
+    if isempty(found)
+        if ispc, found = 'python'; else, found = 'python3'; end   % no stack found -> plain fallback
+    end
+    cached = {found};
+    py = found;
 end
 
 function IS = create_input_set(lb, ub, inputSize, needReshape, useImageStar)

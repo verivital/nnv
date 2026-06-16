@@ -68,11 +68,17 @@ matlab -batch "cd('${TOOLKIT}'); install" || \
 # manifests in prepare_instance.sh; onnxruntime also backs the SAT-witness replay gate that
 # prevents false-SAT (-150) verdicts. Pin a known-good set.
 apt-get install -y python3 python3-pip
-pip3 install --no-cache-dir onnx==1.20.0 onnxruntime==1.23.1 numpy scipy
-# onnx2nnv.py (the manifest importer for lsnc_relu/traffic_signs/cgan/soundnessbench)
-# hard-requires the simplifier stack; without these prepare_instance.sh fails to
-# generate manifests and every manifest-category instance errors (2026-06-12 dry run).
-pip3 install --no-cache-dir onnxsim onnxoptimizer
+# onnx2nnv.py (tools/onnx2nnv_python) needs the full simplifier stack -- onnx, onnxruntime,
+# numpy, scipy, onnxsim, onnxoptimizer. Missing ANY -> prepare_instance.sh cannot generate the
+# .nnv.mat manifests and every manifest-category instance errors (lsnc_relu/traffic_signs/cgan/
+# soundnessbench/nn4sys/vit). Single source of truth: tools/onnx2nnv_python/requirements.txt
+# (2026-06-15: a dev box whose python had onnx+onnxruntime but lacked onnxsim/onnxoptimizer/
+# scipy failed exactly this way). onnx2nnv.py also guards its imports with the same remediation.
+pip3 install --no-cache-dir -r "${TOOLKIT}/tools/onnx2nnv_python/requirements.txt"
+# PREFLIGHT GATE: verify the importer deps actually import in THIS python -- catches a
+# venv-vs-system mismatch BEFORE a sweep wastes hours erroring on every manifest benchmark.
+python3 -c "import numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer" \
+    || { echo "ERROR: onnx2nnv.py deps failed to import after install (check the active python vs ${TOOLKIT}/tools/onnx2nnv_python/requirements.txt)" >&2; exit 1; }
 
 # MATLAB Engine API for Python: execute.py (the run_instance.sh bridge) does
 # `import matlab.engine`; without it EVERY instance fails instantly (caught in

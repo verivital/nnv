@@ -1,0 +1,21 @@
+# Python dependencies for the NNV VNN-COMP ONNX->NNV manifest importer
+# (tools/onnx2nnv_python/onnx2nnv.py) and the onnxruntime SAT-witness replay gate.
+#
+# Install these into the SAME python the dispatcher uses to run onnx2nnv.py -- the
+# system python3 that install_tool.sh provisions, OR a project venv if one is active.
+# If ANY is missing, prepare_instance.sh cannot generate the .nnv.mat manifests and
+# EVERY manifest-routed benchmark errors: lsnc_relu, traffic_signs_recognition, cgan,
+# soundnessbench, nn4sys, vit. onnx2nnv.py guards its imports and prints this file +
+# the exact install command if a dep is missing.
+#
+# Fix on any box:   <python> -m pip install -r requirements.txt
+#
+# (2026-06-15: a dev box whose python had onnx + onnxruntime but lacked
+#  onnxsim/onnxoptimizer/scipy failed exactly this way -- every manifest benchmark
+#  errored in a sweep. Hence this explicit, single-source list + the import guard.)
+numpy
+scipy
+onnx==1.20.0
+onnxruntime==1.23.1
+onnxsim
+onnxoptimizer

@@ -41,12 +41,25 @@ Layer record types we emit (matching NNV layer classes):
 import argparse, os, sys, hashlib, re
 from dataclasses import dataclass, field
 from typing import Any
-import numpy as np
-import onnx
-from onnx import numpy_helper, shape_inference, version_converter
-import onnxsim
-import onnxoptimizer
-from scipy.io import savemat
+# Third-party deps (numpy/onnx/onnxsim/onnxoptimizer/scipy) -- guard the import so a box
+# whose python is missing any of them fails with an ACTIONABLE message instead of a raw
+# ModuleNotFoundError. Without this, a missing dep makes EVERY manifest-routed benchmark
+# (lsnc_relu/traffic_signs/cgan/soundnessbench/nn4sys/vit) error opaquely at prepare time.
+try:
+    import numpy as np
+    import onnx
+    from onnx import numpy_helper, shape_inference, version_converter
+    import onnxsim
+    import onnxoptimizer
+    from scipy.io import savemat
+except ImportError as _e:
+    _req = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
+    sys.stderr.write(
+        f"\nERROR: the ONNX->NNV manifest importer is missing a Python dependency: '{_e.name}'.\n"
+        f"  This python ({sys.executable}) cannot import the importer's deps, so manifest\n"
+        f"  generation (and every manifest-routed benchmark) will fail. Install them with:\n"
+        f"      {sys.executable} -m pip install -r {_req}\n\n")
+    sys.exit(3)
 
 
 # ---------- tensor-layout model ----------

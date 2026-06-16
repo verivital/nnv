@@ -215,12 +215,14 @@ end
 % fixed before this year's submission
 
 % Choose how to falsify based on vnnlib file
-if ~isa(lb, "cell") && length(prop) == 1 % one input, one output 
+hitSpc = 0;   % >=1 -> index of the multi-output spec region the witness hit (used by the gate below)
+if ~isa(lb, "cell") && length(prop) == 1 % one input, one output
     counterEx = falsify_single(net, lb, ub, inputSize, nRand, prop{1}.Hg, needReshape, inputFormat, falsifyOpts);
 elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
     for spc = 1:length(lb) % try parfeval, parfor does not work for early return
         counterEx = falsify_single(net, lb{spc}, ub{spc}, inputSize, nRand, prop{spc}.Hg, needReshape, inputFormat, falsifyOpts);
         if iscell(counterEx)
+            hitSpc = spc;
             break
         end
     end
@@ -244,29 +246,34 @@ cEX_time = toc(t);
 if iscell(counterEx)
     status = 0;
 
-    % Pillar-2 final gate: replay the SAT witness through onnxruntime on the ORIGINAL
-    % ONNX model (the competition's own checker) before committing to `sat`. A witness
-    % that NNV's self-consistent validate_witness accepts could still fail the
-    % competition if NNV's import permutes the input differently than the ONNX expects
-    % (the suspected source of several of the 19 -150 penalties in 2025). If onnxruntime
-    % is AVAILABLE and definitively says the witness violates NOTHING, downgrade to
-    % `unknown` rather than risk a -150. If onnxruntime is UNAVAILABLE (not installed, or
-    % a replay error), TRUST validate_witness and keep `sat` -- never suppress a SAT we
-    % cannot disprove. Single-output-spec instances only (length(prop)==1) -- covers
-    % BOTH the non-cell and the cell-lb (multiple input sets, single output spec) SAT
-    % search paths above, which both falsify against prop{1}.Hg, the region the witness
-    % hit. (Multi-output-spec instances aren't gated: which spec the witness hit isn't
-    % tracked here; they still pass validate_witness.)
-    if length(prop) == 1
-        try
-            [orVio, orAvail] = validate_witness_onnx(onnx, counterEx{1}, prop{1}.Hg);
-            if orAvail && ~orVio
-                fprintf('onnxruntime replay rejected the SAT witness -> unknown\n');
-                status = 2; counterEx = nan;
-            end
-        catch
-            % onnx guard could not run -> trust validate_witness, keep sat
+    % Pillar-2 final gate (config-robust, ALL falsify paths): replay the SAT witness through
+    % onnxruntime on the ORIGINAL ONNX -- the competition's own checker -- before committing to
+    % `sat`. validate_witness_onnx finds an ort-capable python whether it lives in a venv or a
+    % direct/system interpreter (see ort_python). This catches an import/encoding divergence between
+    % NNV's net and the real ONNX, which is the nn4sys mscn false-SAT class: NNV's manifest-imported
+    % net found a "counterexample" the real ONNX does NOT have (3 gold tools prove unsat). Unlike the
+    % old gate, the MULTI-output path is gated too: use the Hg region the witness actually hit
+    % (prop{hitSpc}); the single-output paths fall back to prop{1}.
+    if hitSpc >= 1, gateHs = prop{hitSpc}.Hg; else, gateHs = prop{1}.Hg; end
+    isManifest = isfile(regexprep(char(onnx), '\.onnx$', '.nnv.mat'));   % python-imported -> divergence risk
+    try
+        [orVio, orAvail] = validate_witness_onnx(onnx, counterEx{1}, gateHs);
+        if orAvail && ~orVio
+            % onnxruntime ran and the witness violates NOTHING on the real ONNX -> spurious -> drop.
+            fprintf('onnxruntime replay rejected the SAT witness -> unknown\n');
+            status = 2; counterEx = nan;
+        elseif ~orAvail && isManifest
+            % No independent onnxruntime confirmation AND the net came from a (python) manifest import
+            % that can diverge from the real ONNX -> we cannot stand behind this `sat`. Sound-or-unknown
+            % rather than risk a -150. (onnxruntime is a stated requirement; this is the safety net if it
+            % is somehow missing.) Standard MATLAB-imported nets keep `sat` (validate_witness is reliable).
+            fprintf('SAT witness unconfirmed (no onnxruntime) on a manifest-imported net -> unknown\n');
+            status = 2; counterEx = nan;
         end
+    catch
+        % Gate itself errored. Manifest nets are the divergence risk -> prefer unknown; standard
+        % MATLAB-imported nets fall back to validate_witness (which already accepted the witness).
+        if isManifest, status = 2; counterEx = nan; end
     end
 end
 

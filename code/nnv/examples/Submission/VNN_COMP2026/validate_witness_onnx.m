@@ -40,7 +40,10 @@ function [ok, available] = validate_witness_onnx(onnx_path, x_flat, Hs, out_tol)
     % NB: file names must be case-DISTINCT -- Windows' filesystem is case-insensitive,
     % so "G.csv" and "g.csv" would be the same file and the second write clobbers the
     % first (g would overwrite G), corrupting the unsafe-region matrix.
-    py = python_exe();
+    py = ort_python();
+    if isempty(py)
+        return;          % no onnxruntime on ANY interpreter -> cannot check (available stays false)
+    end
     all_clean = ~isempty(Hs);       % a "definitively non-violating" verdict needs >=1
     for h = 1:numel(Hs)             % Hs that onnxruntime cleanly checked
         Gf = fullfile(td, 'Gmat.csv'); gf = fullfile(td, 'gvec.csv');
@@ -58,14 +61,32 @@ function [ok, available] = validate_witness_onnx(onnx_path, x_flat, Hs, out_tol)
     available = all_clean;          % every Hs returned a clean OK -> confirmed non-CE
 end
 
-function py = python_exe()
-    % Prefer an explicit interpreter if MATLAB knows one; else fall back to PATH.
-    py = 'python';
+function py = ort_python()
+%ORT_PYTHON  Return a quoted python interpreter that can `import onnxruntime`, discovered
+%   robustly across machine configs -- a venv OR a direct/system python (lambda, AWS, CI).
+%   Probe order: $NNV_ORT_PYTHON (explicit override) -> MATLAB pyenv -> common venv ->
+%   python3 -> python. Returns '' if NONE can import onnxruntime (caller leaves
+%   available=false). Cached per MATLAB session (probes python at most once).
+    persistent cached
+    if ~isempty(cached), py = cached{1}; return; end
+    cands = {};
+    e = strtrim(getenv('NNV_ORT_PYTHON'));
+    if ~isempty(e), cands{end+1} = e; end
     try
         pe = pyenv;
-        if ~isempty(pe.Executable) && isfile(pe.Executable)
-            py = ['"' char(pe.Executable) '"'];
-        end
+        if ~isempty(pe.Executable) && isfile(pe.Executable), cands{end+1} = char(pe.Executable); end
     catch
     end
+    home = getenv('HOME');
+    if ~isempty(home), cands{end+1} = fullfile(home, 'taylor_venv', 'bin', 'python'); end
+    cands = [cands, {'python3', 'python'}];
+    found = '';
+    for i = 1:numel(cands)
+        c = cands{i};
+        if isempty(c), continue; end
+        [st, ~] = system(sprintf('"%s" -c "import onnxruntime"', c));
+        if st == 0, found = ['"' c '"']; break; end
+    end
+    cached = {found};
+    py = found;
 end

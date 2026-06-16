@@ -91,6 +91,14 @@ if isempty(inputSize)
     inputSize = net.Layers(1, 1).InputSize;
 end
 
+% Prepare-phase net-cache pre-warm: prepare_instance.sh sets NNV_PREP_CACHE=1 and invokes this
+% ONLY to build the net cache (done inside i_load_vnncomp_network_cached above), WITHOUT running
+% the timed verification (VNN-COMP allows this ONNX->MATLAB conversion in the untimed prepare
+% phase). Unset in normal runs -> no effect.
+if strcmp(getenv('NNV_PREP_CACHE'), '1')
+    status = 2; tTime = 0; return;   % cache built; result ignored by prepare
+end
+
 % Decide the reach input-set type from the NET's input-layer TYPE (not the input
 % SHAPE) whenever the net exposes Layers -- dlnetwork AND SeriesNetwork/DAGNetwork:
 % ImageInputLayer/Image3DInputLayer -> ImageStar; FeatureInputLayer -> Star. Leave

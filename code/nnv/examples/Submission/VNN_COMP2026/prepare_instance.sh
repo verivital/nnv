@@ -46,4 +46,28 @@ case "$2" in
         ;;
 esac
 
+# Net cache: importNetworkFromONNX + matlab2nnv is ONNX-determined, so pre-build the NNV net cache
+# ONCE per onnx HERE (untimed prepare; VNN-COMP allows ONNX->format conversion in prepare, same as
+# the manifests above) so the timed run loads a cached net (.netcache.mat) instead of re-converting
+# (~10 s/instance saved; a category with many vnnlib instances pays the conversion once). Skipped
+# if the cache already exists. Soundness: the cache is keyed (onnx size+mtime+NNV version) so a hit
+# is only for the SAME onnx -- run_vnncomp_instance re-imports on any mismatch. Pre-build via
+# NNV_PREP_CACHE=1, which makes run_vnncomp_instance return right after building the cache.
+MATLAB_BIN="${MATLAB_BIN:-matlab}"
+build_netcache() {
+    local cat="$1" onnx="$2" vnnlib="$3"
+    local cache="${onnx%.onnx}.netcache.mat"
+    [ -f "${cache}" ] && return
+    echo "Pre-building NNV net cache: ${cache}"
+    NNV_PREP_CACHE=1 "${MATLAB_BIN}" -batch \
+        "cd('${NNV_ROOT}'); startup_nnv; addpath('${NNV_ROOT}/examples/Submission/VNN_COMP2026'); cd('${NNV_ROOT}/examples/Submission/VNN_COMP2026'); try, run_vnncomp_instance('${cat}','${onnx}','${vnnlib}',tempname); catch ME, fprintf(2,'%s\n',ME.message); end" \
+        >/dev/null 2>&1 || echo "WARN: net cache pre-build failed; run_instance converts on first use."
+}
+# matlab2nnv (non-manifest) categories whose single (or few) network(s) are reused across many
+# vnnlib instances. Manifest categories above already cache via the .nnv.mat.
+case "$2" in
+    *cifar100*|*tinyimagenet*|*vggnet*|*yolo*|*metaroom*|*malbeware*|*collins_rul*|*dist_shift*|*relusplitter*|*safenlp*|*sat_relu*|*cersyve*|*linearize*|*tllverify*|*ml4acopf*|*cora*|*acasxu*|*challenging*)
+        build_netcache "$2" "$3" "$4" ;;
+esac
+
 exit 0

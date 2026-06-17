@@ -1,5 +1,9 @@
-function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings)
+function [margins, preL, preU, unstable, Ain, din] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings)
 % GPU_BAB_CROWN_TIGHT  CROWN with TIGHT (backward) intermediate-layer bounds.
+%   Optional 5th/6th outputs Ain (nSpec x nIn), din (nSpec x 1) are the CROWN input-space LOWER
+%   plane for the spec: C*f(x) >= Ain*x + din for every x in [x_lb,x_ub] (margins = min over the
+%   box of that plane). Used by Clip-and-Verify domain clipping (gpu_bab_clip) for the joint
+%   output-polytope avoidance that single-halfspace separation misses.
 %
 %   [margins, preL, preU] = GPU_BAB_CROWN_TIGHT(ops, x_lb, x_ub, C, precision)
 %   computes a sound lower bound on C*f(x) over [x_lb,x_ub] using CROWN-tight
@@ -48,15 +52,36 @@ function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, 
             if strcmp(tk, 'relu')
                 unstable{k} = (pl < 0) & (pu > 0);
             end
+        elseif strcmp(tk, 'product')
+            % BILINEAR product feeds the McCormick relaxation from the OUTPUT bounds of BOTH its
+            % input ops. Bound each input op's output (backward CROWN over its prefix, sound by
+            % induction) and store them STACKED [in1; in2] under preL{k}/preU{k} (numeric, so the
+            % BaB infeasible/gather logic stays valid). Width per input = ops{k}.sizes(1)=sizes(2).
+            ins = ops{k}.inputs;
+            plS = []; puS = [];
+            for ii = 1:2
+                si = ins(ii);
+                if si == 0, nki = numel(x_lb); else, nki = i_layer_width(ops, si); end
+                Cki = eye(nki, precision);
+                pui = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, false);
+                pli = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, true);
+                plS = [plS; pli]; puS = [puS; pui]; %#ok<AGROW>
+            end
+            preL{k} = plS; preU{k} = puS;
         end
     end
 
-    % ---- final spec margin (lower bound on C*output) ----
-    margins = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true);
+    % ---- final spec margin (lower bound on C*output) + the input-space lower plane ----
+    [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true);
 end
 
 function w = i_layer_width(ops, upto)
-% # outputs of ops[1..upto] = rows of the last affine in that prefix.
+% Flat output width of op `upto`. Prefer the recorded nOut (exact for ALL ops incl. flat
+% add/normaffine, where prod(shape)=prod([])=1 was a latent width=1 bug); fall back to the
+% structural walk for ops emitted without it.
+    if isfield(ops{upto}, 'nOut') && ~isempty(ops{upto}.nOut)
+        w = ops{upto}.nOut; return;
+    end
     for k = upto:-1:1
         t = ops{k}.type;
         if strcmp(t, 'affine'),         w = size(ops{k}.W, 1);     return;
@@ -65,29 +90,34 @@ function w = i_layer_width(ops, upto)
         elseif strcmp(t, 'maxpool'),    w = prod(ops{k}.outShape); return;
         elseif strcmp(t, 'add'),        w = prod(ops{k}.shape);    return;
         elseif strcmp(t, 'normaffine'), w = prod(ops{k}.shape);    return;
+        elseif strcmp(t, 'concat'),     w = sum(ops{k}.sizes);     return;
+        elseif strcmp(t, 'product'),    w = ops{k}.sizes(1);       return;  % elementwise: out width = each input width
         end
     end
     error('gpu_bab_crown_tight:nolinear', 'no affine/conv op before index %d', upto);
 end
 
-function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
+function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
 % Backward CROWN over the DAG ops[1..upto] with initial coefficient A0 (on op `upto`'s output).
 % FULL DAG: each op routes its backward coefficient to op.src (its input op), accumulated in
 % skipA{src}; an 'add' routes UNCHANGED to BOTH inputs (linear -> exact). skipA{k} = accumulated
 % coefficient on op k's OUTPUT; inputSkipA = coefficient on op 0 (the engine input). Ops are
 % topologically ordered, so k=upto:-1:1 visits every consumer of op k before op k itself, so
 % skipA{k} is complete when op k is processed (sound by induction). lower=true -> lower bound.
+% Optional Ain (nS x nIn), din (nS x 1): the input-space affine form, so for lower=true the
+% bounded quantity >= Ain*x + din for all x in the box (bound = min over the box of that plane).
     nS = size(A0, 1);
     d = zeros(nS, 1, precision);
     if upto == 0                              % A0 is already on the engine input (op 0)
         Apos = max(A0, 0); Aneg = min(A0, 0);
         if lower, bound = Apos*cast(x_lb,precision) + Aneg*cast(x_ub,precision);
         else,     bound = Apos*cast(x_ub,precision) + Aneg*cast(x_lb,precision); end
+        Ain = A0; din = zeros(nS, 1, precision);
         return;
     end
     skipA = cell(upto, 1);
     skipA{upto} = A0;                         % seed: A0 is the coefficient on op `upto`'s output
-    inputSkipA = 0;
+    inputSkipA = zeros(nS, numel(x_lb), precision);   % coefficient on the engine input (op 0); always nS x nIn
     for k = upto:-1:1
         A = skipA{k};
         if isempty(A), continue; end          % nothing routed to op k (dead w.r.t. the output)
@@ -99,6 +129,45 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
                 elseif isempty(skipA{s}), skipA{s} = A;
                 else,                     skipA{s} = skipA{s} + A;
                 end
+            end
+            continue;
+        end
+        if strcmp(op.type, 'concat')          % out = [in_1; in_2; ...]: SLICE columns back to each input
+            off = 0;
+            for ii = 1:numel(op.inputs)
+                sz = op.sizes(ii); s = op.inputs(ii);
+                Ablk = A(:, off+(1:sz)); off = off + sz;
+                if s == 0,                inputSkipA = inputSkipA + Ablk;
+                elseif isempty(skipA{s}), skipA{s} = Ablk;
+                else,                     skipA{s} = skipA{s} + Ablk;
+                end
+            end
+            continue;
+        end
+        if strcmp(op.type, 'product')         % out = in[a].*in[b], bilinear: McCormick, route to BOTH inputs
+            wa = op.sizes(1); lz = preL{k}; uz = preU{k};
+            la = lz(1:wa);       ua = uz(1:wa);          % input a (x) output bounds
+            lyy = lz(wa+1:end);  uyy = uz(wa+1:end);     % input b (y) output bounds
+            [aL,bL,cL,aU,bU,cU] = gpu_bab_mul_relax(la, ua, lyy, uyy, [], [], precision);
+            Apos = max(A, 0); Aneg = min(A, 0);          % sign-aware: +coeff -> LOWER plane (lower bnd)
+            if lower
+                Ax = Apos .* aL.' + Aneg .* aU.';
+                Ay = Apos .* bL.' + Aneg .* bU.';
+                d  = d + Apos * cL + Aneg * cU;
+            else
+                Ax = Apos .* aU.' + Aneg .* aL.';
+                Ay = Apos .* bU.' + Aneg .* bL.';
+                d  = d + Apos * cU + Aneg * cL;
+            end
+            sa = op.inputs(1);
+            if sa == 0,                inputSkipA = inputSkipA + Ax;
+            elseif isempty(skipA{sa}), skipA{sa} = Ax;
+            else,                      skipA{sa} = skipA{sa} + Ax;
+            end
+            sb = op.inputs(2);
+            if sb == 0,                inputSkipA = inputSkipA + Ay;
+            elseif isempty(skipA{sb}), skipA{sb} = Ay;
+            else,                      skipA{sb} = skipA{sb} + Ay;
             end
             continue;
         end
@@ -133,7 +202,8 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
         else,                     skipA{s} = skipA{s} + A;
         end
     end
-    A = inputSkipA;                           % total coefficient on the engine input
+    A = inputSkipA;                           % total coefficient on the engine input (nS x nIn; zero if no input dependence)
+    Ain = A; din = d;                         % input-space affine form: bounded >= Ain*x + din (lower)
     Apos = max(A, 0); Aneg = min(A, 0);
     if lower
         bound = Apos * cast(x_lb, precision) + Aneg * cast(x_ub, precision) + d;

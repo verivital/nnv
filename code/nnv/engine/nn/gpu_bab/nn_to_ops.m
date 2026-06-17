@@ -70,14 +70,14 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
                 inOps(q) = layerOp(srcs{q});
             end
         end
-        % SOUNDNESS (Copilot #364): AdditionLayer is the ONLY supported multi-input op. Any other
-        % layer that resolves to >1 Connections source would be silently mis-extracted below (only
-        % inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors -> caller runs Star),
-        % never emit a wrong graph. This can only turn a previously-silent mis-extraction into a
-        % sound refusal; supported single-input layers always resolve to exactly one source.
-        if numel(inOps) > 1 && ~contains(cls, 'Addition')
+        % SOUNDNESS (Copilot #364): Addition + Concatenation + ElementwiseProduct are the supported
+        % multi-input ops. Any OTHER layer that resolves to >1 Connections source would be silently
+        % mis-extracted below (only inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors
+        % -> caller runs Star), never emit a wrong graph. (Addition + ElementwiseProduct are order-
+        % insensitive; Concatenation re-resolves its inputs in PORT order in its own branch below.)
+        if numel(inOps) > 1 && ~contains(cls, 'Addition') && ~contains(cls, 'Concatenation') && ~contains(cls, 'ElementwiseProduct') && ~contains(cls, 'Multiplication')
             error('nn_to_ops:multiInputUnsupported', ...
-                'layer "%s" (%s) has %d inputs but only AdditionLayer is multi-input-supported -- refused for soundness.', ...
+                'layer "%s" (%s) has %d inputs but only Addition/Concatenation/ElementwiseProduct/Multiplication are multi-input-supported -- refused for soundness.', ...
                 name, cls, numel(inOps));
         end
         inOp = inOps(1);
@@ -175,6 +175,67 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
                     'Addition with %d inputs not supported (only 2) -- refused for soundness.', numel(inOps));
             end
             ops{end+1} = struct('type','add','inputs',inOps,'shape',inShape,'src',inOps(1)); %#ok<AGROW>
+        elseif contains(cls, 'Concatenation') || contains(cls, 'Concat')
+            % ConcatenationLayer: y = [in_p1; in_p2; ...] STACKED along the feature dim (LINEAR ->
+            % exact). The control-net manifests (e.g. lsnc_relu) concat FLAT feature vectors. Concat
+            % is ORDER-SENSITIVE (unlike add), so resolve the inputs in PORT order (name/in1,in2,...)
+            % -- i_layer_sources strips the port, so use the port-aware resolver. FLAT inputs only;
+            % spatial concat (along H/W/C) is refused (sound-by-refusal). The op records each input's
+            % flat size so the backward pass can slice the coefficient back to the right input. The
+            % mandatory IBP==evaluate orientation guard validates the stacking order.
+            psrcs = i_concat_sources(conns, name);
+            if numel(psrcs) < 2
+                error('nn_to_ops:concatSources', ...
+                    'ConcatenationLayer "%s" did not resolve >=2 port-ordered sources -- refused for soundness.', name);
+            end
+            cinOps = zeros(1, numel(psrcs));
+            for q = 1:numel(psrcs)
+                if ~isKey(layerOp, psrcs{q})
+                    error('nn_to_ops:srcNotEmitted', ...
+                        'concat "%s" input "%s" not yet emitted (non-topological DAG?).', name, psrcs{q});
+                end
+                cinOps(q) = layerOp(psrcs{q});
+            end
+            sizes = zeros(1, numel(cinOps));
+            for q = 1:numel(cinOps)
+                if ~isempty(shapeOf(cinOps(q)))
+                    error('nn_to_ops:concatSpatial', ...
+                        'spatial-input concat (non-flat) not supported -- refused for soundness.');
+                end
+                fq = i_flat_size(cinOps(q), shapeOf, flatSizeOf);
+                if isempty(fq) || fq < 1
+                    error('nn_to_ops:concatFlatSize', ...
+                        'concat input %d has unknown flat size -- refused for soundness.', q);
+                end
+                sizes(q) = fq;
+            end
+            ops{end+1} = struct('type','concat','inputs',cinOps,'sizes',sizes,'src',cinOps(1)); %#ok<AGROW>
+            outShape = []; outFlat = sum(sizes);
+        elseif contains(cls, 'ElementwiseProduct') || contains(cls, 'Multiplication')
+            % ElementwiseProductLayer: y = in[a] .* in[b], BOTH operands VARIABLE (bilinear) ->
+            % NONLINEAR. Relaxed by the McCormick envelope (gpu_bab_mul_relax) in the CROWN
+            % backward. 2 FLAT inputs of EQUAL width (elementwise); product is commutative so input
+            % order is irrelevant (the McCormick envelope is symmetric in x,y). This is the genuine
+            % nonlinearity in lsnc Lyapunov nets (e.g. x .* (P*x)). The IBP==evaluate orientation
+            % guard validates the wiring; sound-or-refusal otherwise.
+            if numel(inOps) ~= 2
+                error('nn_to_ops:productNInputs', ...
+                    'ElementwiseProductLayer "%s" has %d inputs (only 2 supported) -- refused for soundness.', name, numel(inOps));
+            end
+            for q = 1:2
+                if ~isempty(shapeOf(inOps(q)))
+                    error('nn_to_ops:productSpatial', ...
+                        'spatial-input elementwise product not supported (flat only) -- refused for soundness.');
+                end
+            end
+            wa = i_flat_size(inOps(1), shapeOf, flatSizeOf);
+            wb = i_flat_size(inOps(2), shapeOf, flatSizeOf);
+            if isempty(wa) || isempty(wb) || wa < 1 || wa ~= wb
+                error('nn_to_ops:productWidth', ...
+                    'elementwise product needs flat equal-width inputs (got %s, %s) -- refused for soundness.', mat2str(wa), mat2str(wb));
+            end
+            ops{end+1} = struct('type','product','inputs',inOps,'sizes',[wa wb],'src',inOps(1)); %#ok<AGROW>
+            outShape = []; outFlat = wa;
         elseif contains(cls, 'FeatureInput') && isempty(ops)
             % LEADING FeatureInputLayer: a flat [n] feature-vector input (e.g. sat_relu /
             % safenlp FC nets imported with InputDataFormats="BC"). It carries no learnable
@@ -221,6 +282,11 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
         if emitted
             shapeOf(numel(ops)) = outShape;
             if isempty(outShape), flatSizeOf(numel(ops)) = outFlat; else, flatSizeOf(numel(ops)) = prod(outShape); end
+            % record the flat OUTPUT width on the op so i_layer_width can read it directly. Needed for
+            % FLAT add/normaffine (shape=[]): prod(shape)=prod([])=1 was a latent width-=-1 bug that
+            % mis-seeded the CROWN intermediate-bound backward (crash at a downstream concat / wrong
+            % bounds elsewhere). The tracked flat size is exact (shape-preserving ops propagate it).
+            ops{numel(ops)}.nOut = i_flat_size(numel(ops), shapeOf, flatSizeOf); %#ok<AGROW>
             if ~isempty(name), layerOp(name) = numel(ops); end
         else
             if ~isempty(name), layerOp(name) = inOp; end
@@ -405,4 +471,30 @@ function srcs = i_layer_sources(conns, name)
             srcs{end+1} = char(conns.Source(r)); %#ok<AGROW>
         end
     end
+end
+
+% ---- source layer names feeding `name`, ORDERED by input port (name/in1, name/in2, ...) -------
+function srcs = i_concat_sources(conns, name)
+% Concatenation is ORDER-SENSITIVE: the stacking order is the input-PORT order (the "/inK" suffix
+% on the Connections Destination), which i_layer_sources discards. Parse the port index and return
+% the Source layer names sorted by it. Empty if no Connections (a concat needs a DAG anyway).
+    srcs = {};
+    if isempty(conns), return; end
+    cand = {}; ports = [];
+    for r = 1:height(conns)
+        dest = char(conns.Destination(r));
+        base = dest; port = 1;
+        sl = strfind(dest, '/');
+        if ~isempty(sl)
+            base = dest(1:sl(1)-1);
+            d = regexp(dest(sl(1)+1:end), '\d+', 'match', 'once');   % the K in "inK"
+            if ~isempty(d), port = str2double(d); end
+        end
+        if strcmp(base, name)
+            cand{end+1} = char(conns.Source(r)); %#ok<AGROW>
+            ports(end+1) = port; %#ok<AGROW>
+        end
+    end
+    [~, ord] = sort(ports);
+    srcs = cand(ord);
 end

@@ -70,14 +70,14 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
                 inOps(q) = layerOp(srcs{q});
             end
         end
-        % SOUNDNESS (Copilot #364): AdditionLayer is the ONLY supported multi-input op. Any other
-        % layer that resolves to >1 Connections source would be silently mis-extracted below (only
-        % inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors -> caller runs Star),
-        % never emit a wrong graph. This can only turn a previously-silent mis-extraction into a
-        % sound refusal; supported single-input layers always resolve to exactly one source.
-        if numel(inOps) > 1 && ~contains(cls, 'Addition')
+        % SOUNDNESS (Copilot #364): Addition + Concatenation are the supported multi-input ops. Any
+        % OTHER layer that resolves to >1 Connections source would be silently mis-extracted below
+        % (only inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors -> caller runs
+        % Star), never emit a wrong graph. (Addition is order-insensitive; Concatenation re-resolves
+        % its inputs in PORT order in its own branch below, since concat is order-sensitive.)
+        if numel(inOps) > 1 && ~contains(cls, 'Addition') && ~contains(cls, 'Concatenation')
             error('nn_to_ops:multiInputUnsupported', ...
-                'layer "%s" (%s) has %d inputs but only AdditionLayer is multi-input-supported -- refused for soundness.', ...
+                'layer "%s" (%s) has %d inputs but only Addition/Concatenation are multi-input-supported -- refused for soundness.', ...
                 name, cls, numel(inOps));
         end
         inOp = inOps(1);
@@ -175,6 +175,42 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
                     'Addition with %d inputs not supported (only 2) -- refused for soundness.', numel(inOps));
             end
             ops{end+1} = struct('type','add','inputs',inOps,'shape',inShape,'src',inOps(1)); %#ok<AGROW>
+        elseif contains(cls, 'Concatenation') || contains(cls, 'Concat')
+            % ConcatenationLayer: y = [in_p1; in_p2; ...] STACKED along the feature dim (LINEAR ->
+            % exact). The control-net manifests (e.g. lsnc_relu) concat FLAT feature vectors. Concat
+            % is ORDER-SENSITIVE (unlike add), so resolve the inputs in PORT order (name/in1,in2,...)
+            % -- i_layer_sources strips the port, so use the port-aware resolver. FLAT inputs only;
+            % spatial concat (along H/W/C) is refused (sound-by-refusal). The op records each input's
+            % flat size so the backward pass can slice the coefficient back to the right input. The
+            % mandatory IBP==evaluate orientation guard validates the stacking order.
+            psrcs = i_concat_sources(conns, name);
+            if numel(psrcs) < 2
+                error('nn_to_ops:concatSources', ...
+                    'ConcatenationLayer "%s" did not resolve >=2 port-ordered sources -- refused for soundness.', name);
+            end
+            cinOps = zeros(1, numel(psrcs));
+            for q = 1:numel(psrcs)
+                if ~isKey(layerOp, psrcs{q})
+                    error('nn_to_ops:srcNotEmitted', ...
+                        'concat "%s" input "%s" not yet emitted (non-topological DAG?).', name, psrcs{q});
+                end
+                cinOps(q) = layerOp(psrcs{q});
+            end
+            sizes = zeros(1, numel(cinOps));
+            for q = 1:numel(cinOps)
+                if ~isempty(shapeOf(cinOps(q)))
+                    error('nn_to_ops:concatSpatial', ...
+                        'spatial-input concat (non-flat) not supported -- refused for soundness.');
+                end
+                fq = i_flat_size(cinOps(q), shapeOf, flatSizeOf);
+                if isempty(fq) || fq < 1
+                    error('nn_to_ops:concatFlatSize', ...
+                        'concat input %d has unknown flat size -- refused for soundness.', q);
+                end
+                sizes(q) = fq;
+            end
+            ops{end+1} = struct('type','concat','inputs',cinOps,'sizes',sizes,'src',cinOps(1)); %#ok<AGROW>
+            outShape = []; outFlat = sum(sizes);
         elseif contains(cls, 'FeatureInput') && isempty(ops)
             % LEADING FeatureInputLayer: a flat [n] feature-vector input (e.g. sat_relu /
             % safenlp FC nets imported with InputDataFormats="BC"). It carries no learnable
@@ -405,4 +441,30 @@ function srcs = i_layer_sources(conns, name)
             srcs{end+1} = char(conns.Source(r)); %#ok<AGROW>
         end
     end
+end
+
+% ---- source layer names feeding `name`, ORDERED by input port (name/in1, name/in2, ...) -------
+function srcs = i_concat_sources(conns, name)
+% Concatenation is ORDER-SENSITIVE: the stacking order is the input-PORT order (the "/inK" suffix
+% on the Connections Destination), which i_layer_sources discards. Parse the port index and return
+% the Source layer names sorted by it. Empty if no Connections (a concat needs a DAG anyway).
+    srcs = {};
+    if isempty(conns), return; end
+    cand = {}; ports = [];
+    for r = 1:height(conns)
+        dest = char(conns.Destination(r));
+        base = dest; port = 1;
+        sl = strfind(dest, '/');
+        if ~isempty(sl)
+            base = dest(1:sl(1)-1);
+            d = regexp(dest(sl(1)+1:end), '\d+', 'match', 'once');   % the K in "inK"
+            if ~isempty(d), port = str2double(d); end
+        end
+        if strcmp(base, name)
+            cand{end+1} = char(conns.Source(r)); %#ok<AGROW>
+            ports(end+1) = port; %#ok<AGROW>
+        end
+    end
+    [~, ord] = sort(ports);
+    srcs = cand(ord);
 end

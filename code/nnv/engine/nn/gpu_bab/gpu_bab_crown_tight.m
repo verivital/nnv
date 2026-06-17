@@ -65,6 +65,7 @@ function w = i_layer_width(ops, upto)
         elseif strcmp(t, 'maxpool'),    w = prod(ops{k}.outShape); return;
         elseif strcmp(t, 'add'),        w = prod(ops{k}.shape);    return;
         elseif strcmp(t, 'normaffine'), w = prod(ops{k}.shape);    return;
+        elseif strcmp(t, 'concat'),     w = sum(ops{k}.sizes);     return;
         end
     end
     error('gpu_bab_crown_tight:nolinear', 'no affine/conv op before index %d', upto);
@@ -98,6 +99,18 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
                 if s == 0,                inputSkipA = inputSkipA + A;
                 elseif isempty(skipA{s}), skipA{s} = A;
                 else,                     skipA{s} = skipA{s} + A;
+                end
+            end
+            continue;
+        end
+        if strcmp(op.type, 'concat')          % out = [in_1; in_2; ...]: SLICE columns back to each input
+            off = 0;
+            for ii = 1:numel(op.inputs)
+                sz = op.sizes(ii); s = op.inputs(ii);
+                Ablk = A(:, off+(1:sz)); off = off + sz;
+                if s == 0,                inputSkipA = inputSkipA + Ablk;
+                elseif isempty(skipA{s}), skipA{s} = Ablk;
+                else,                     skipA{s} = skipA{s} + Ablk;
                 end
             end
             continue;

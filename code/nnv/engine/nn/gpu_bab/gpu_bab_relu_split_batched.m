@@ -54,7 +54,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     % backward coefficient unchanged to both summands, gpu_bab_crown_spec_dag handles the DAG via
     % op.src/op.inputs), only ReLU is relaxed. 'maxpool' needs a per-node window relaxation not
     % yet batched -> refuse (sound-by-refusal -> caller runs the serial tight path / Star).
-    supported = {'affine','relu','conv','normaffine','avgpool','add'};
+    supported = {'affine','relu','conv','normaffine','avgpool','add','concat'};
     badIdx = find(cellfun(@(o) ~any(strcmp(o.type, supported)), ops), 1);
     if ~isempty(badIdx)
         error('gpu_bab_relu_split_batched:unsupportedOp', ...
@@ -331,7 +331,7 @@ function [margins, preL, preU, infeasible, scoreCell] = i_bound_batch(ops, reluI
     % else per-node alpha_dag (alpha+beta, autodiff -> small frontier) when alphaIter/betaIter>0;
     % else min-area spec_dag. FC-only alpha_fix/alpha_beta mis-bound conv/add (fail-open) -> never
     % used for DAG. All sound (alpha in [0,1], beta>=0).
-    isDAG = any(cellfun(@(o) any(strcmp(o.type, {'conv','normaffine','avgpool','add'})), ops));
+    isDAG = any(cellfun(@(o) any(strcmp(o.type, {'conv','normaffine','avgpool','add','concat'})), ops));
     sc = {};                                          % per-relu BaBSR score (dim_k x B); {} -> gap fallback
     if isDAG
         if ~isempty(alphaRoot)

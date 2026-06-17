@@ -65,6 +65,11 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
                 cl{k+1} = cl{a} + cl{b}; cu{k+1} = cu{a} + cu{b};
                 continue;
             end
+            if strcmp(op.type, 'concat')
+                ic = op.inputs + 1;                       % stack input bounds (LINEAR -> exact)
+                cl{k+1} = vertcat(cl{ic}); cu{k+1} = vertcat(cu{ic});
+                continue;
+            end
             s = op.src + 1; lb = cl{s}; ub = cu{s};
             switch op.type
                 case 'affine'
@@ -117,9 +122,9 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
                     u(fx == -1) = min(u(fx == -1), 0);
                 end
                 preL{k} = l; preU{k} = u;
-            elseif ~any(strcmp(tk, {'affine','conv','normaffine','avgpool','add'}))
+            elseif ~any(strcmp(tk, {'affine','conv','normaffine','avgpool','add','concat'}))
                 error('gpu_bab_crown_spec_dag:op', ...
-                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/add only).', tk);
+                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/add/concat only).', tk);
             end
         end
     end
@@ -153,6 +158,21 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
                     if isempty(inputSkipA), inputSkipA = A; else, inputSkipA = inputSkipA + A; end
                 elseif isempty(skipA{s}), skipA{s} = A;
                 else, skipA{s} = skipA{s} + A;
+                end
+            end
+            continue;
+        end
+        if strcmp(op.type, 'concat')
+            % out = [in_1; in_2; ...] -> SLICE the coefficient's dim axis (axis 2) back to each
+            % input's block (transpose of stacking, LINEAR -> exact). A is nSpec x outDim x B.
+            off = 0;
+            for ii = 1:numel(op.inputs)
+                sz = op.sizes(ii); s = op.inputs(ii);
+                Ablk = A(:, off+(1:sz), :); off = off + sz;
+                if s == 0
+                    if isempty(inputSkipA), inputSkipA = Ablk; else, inputSkipA = inputSkipA + Ablk; end
+                elseif isempty(skipA{s}), skipA{s} = Ablk;
+                else, skipA{s} = skipA{s} + Ablk;
                 end
             end
             continue;

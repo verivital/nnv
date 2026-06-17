@@ -64,6 +64,10 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
             a = op.inputs(1) + 1; b = op.inputs(2) + 1;
             cl{k+1} = cl{a} + cl{b};
             cu{k+1} = cu{a} + cu{b};
+        elseif strcmp(op.type, 'concat')
+            ic = op.inputs + 1;                 % stack inputs along the feature dim (LINEAR -> exact)
+            cl{k+1} = vertcat(cl{ic});
+            cu{k+1} = vertcat(cu{ic});
         else
             s = op.src + 1;
             [cl{k+1}, cu{k+1}] = i_apply_ibp(op, cl{s}, cu{s}, precision);
@@ -103,7 +107,7 @@ function tf = i_is_dag(ops)
     tf = false;
     for k = 1:numel(ops)
         o = ops{k};
-        if strcmp(o.type, 'add'), tf = true; return; end
+        if strcmp(o.type, 'add') || strcmp(o.type, 'concat'), tf = true; return; end
         if isfield(o, 'src') && o.src ~= k-1, tf = true; return; end
     end
 end

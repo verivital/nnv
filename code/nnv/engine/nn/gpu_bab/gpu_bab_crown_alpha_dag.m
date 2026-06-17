@@ -1,4 +1,4 @@
-function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops, x_lb, x_ub, C, fixings, reluIdx, precision, nIter, lr, rootBounds)
+function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops, x_lb, x_ub, C, fixings, reluIdx, precision, nIter, lr, rootBounds, alphaInit)
 %   alphaOut (5th out): the optimized per-relu lower slopes as cell(nOps,1) of dim_k x 1 vectors
 %     (column 1 of the batch). Pass this as gpu_bab_crown_spec_dag's alphaCell to bound a whole
 %     BaB frontier with these fixed root slopes -- AMORTIZED alpha-CROWN (no per-node autodiff).
@@ -44,6 +44,7 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
     if nargin < 8 || isempty(nIter), nIter = 20; end
     if nargin < 9 || isempty(lr), lr = 0.2; end
     if nargin < 10, rootBounds = []; end
+    if nargin < 11, alphaInit = {}; end             % optional per-relu warm-start slopes (dim_k x 1)
 
     B = size(x_lb, 2); nSpec = size(C, 1); nOps = numel(ops);
 
@@ -61,7 +62,15 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
         k = reluIdx(r);
         a = zeros(size(preL{k}), precision);
         uns = unsM{k} > 0;
-        a(uns) = cast(preU{k}(uns) >= -preL{k}(uns), precision);   % min-area binary {0,1}
+        if ~isempty(alphaInit) && numel(alphaInit) >= k && ~isempty(alphaInit{k})
+            % WARM START: seed unstable slopes from the supplied (e.g. amortized root) alpha. keep-best
+            % then floors the bound at THIS init, so few PGA iters refine it instead of climbing from
+            % min-area. Sound for any alpha in [0,1] (clamped); a better init only helps convergence.
+            ai = repmat(cast(alphaInit{k}(:), precision), 1, size(preL{k}, 2));   % dim_k x B
+            a(uns) = min(max(ai(uns), 0), 1);
+        else
+            a(uns) = cast(preU{k}(uns) >= -preL{k}(uns), precision);   % min-area binary {0,1}
+        end
         a0(offsets(r)+1 : offsets(r+1)) = a(:);
         % BETA: per-node split-constraint sign (s_i = +1 active fix / -1 inactive fix / 0 free).
         % beta is a free dual ONLY on fixed neurons -> at the root (no fixings) fixedMask=0 ->

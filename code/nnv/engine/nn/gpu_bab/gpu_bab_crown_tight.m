@@ -1,4 +1,4 @@
-function [margins, preL, preU, unstable, Ain, din] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings)
+function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings, mulFix)
 % GPU_BAB_CROWN_TIGHT  CROWN with TIGHT (backward) intermediate-layer bounds.
 %   Optional 5th/6th outputs Ain (nSpec x nIn), din (nSpec x 1) are the CROWN input-space LOWER
 %   plane for the spec: C*f(x) >= Ain*x + din for every x in [x_lb,x_ub] (margins = min over the
@@ -24,10 +24,12 @@ function [margins, preL, preU, unstable, Ain, din] = gpu_bab_crown_tight(ops, x_
 
     if nargin < 5 || isempty(precision), precision = 'single'; end
     if nargin < 6, fixings = {}; end          % optional ReLU-split node fixings (-1/0/+1 per relu)
+    if nargin < 7, mulFix = {}; end           % optional per-'product' input-range overrides (struct .lo/.hi, stacked [in1;in2]) for targeted product-input branching
     nOps = numel(ops);
     preL = cell(nOps, 1);
     preU = cell(nOps, 1);
     unstable = cell(nOps, 1);
+    mulPlanes = cell(nOps, 1);   % per 'product' op: input value-planes (for targeted product-input branching)
 
     % ---- tight intermediate bounds, layer by layer ----
     % Compute input bounds for every op whose backward relaxation needs them: ReLU (the
@@ -59,15 +61,31 @@ function [margins, preL, preU, unstable, Ain, din] = gpu_bab_crown_tight(ops, x_
             % BaB infeasible/gather logic stays valid). Width per input = ops{k}.sizes(1)=sizes(2).
             ins = ops{k}.inputs;
             plS = []; puS = [];
+            mp = struct('inputs', ins, 'sizes', ops{k}.sizes, ...
+                        'AL', {cell(1,2)}, 'dL', {cell(1,2)}, 'AU', {cell(1,2)}, 'dU', {cell(1,2)});
             for ii = 1:2
                 si = ins(ii);
                 if si == 0, nki = numel(x_lb); else, nki = i_layer_width(ops, si); end
                 Cki = eye(nki, precision);
-                pui = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, false);
-                pli = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, true);
+                [pui, AinU, dinU] = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, false);
+                [pli, AinL, dinL] = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, true);
                 plS = [plS; pli]; puS = [puS; pui]; %#ok<AGROW>
+                % input value-planes over the box: AL*x+dL <= value <= AU*x+dU (per input element).
+                % Used by the BaB to branch a product input's range via gpu_bab_clip (constraint
+                % value<=mid  =>  AL*x + (dL-mid) <= 0 ;  value>=mid  =>  -AU*x + (mid-dU) <= 0).
+                mp.AL{ii} = AinL; mp.dL{ii} = dinL; mp.AU{ii} = AinU; mp.dU{ii} = dinU;
             end
             preL{k} = plS; preU{k} = puS;
+            mulPlanes{k} = mp;
+            % TARGETED BRANCHING override: clamp a product input's value-range to a branched
+            % sub-interval. SOUND: the two children partition by v(x)<=mid / v(x)>=mid (every input
+            % falls in one half), so bounding the spec with v clamped to [lo,hi] is a valid lower
+            % bound for the inputs whose v lies there; the McCormick over the narrower range is
+            % tighter, so the gap shrinks geometrically per split.
+            if ~isempty(mulFix) && numel(mulFix) >= k && ~isempty(mulFix{k})
+                preL{k} = max(preL{k}, cast(mulFix{k}.lo(:), precision));
+                preU{k} = min(preU{k}, cast(mulFix{k}.hi(:), precision));
+            end
         end
     end
 

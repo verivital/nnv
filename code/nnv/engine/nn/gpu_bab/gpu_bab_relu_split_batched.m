@@ -67,9 +67,10 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     % (affine/relu); for conv/normaffine/avgpool nets fall back to the (root-tight) CROWN bound
     % so we never mis-bound.
     % alpha/beta route: FC (affine/relu) -> alpha_fix/alpha_beta; DAG (conv/normaffine/avgpool/add)
-    % -> gpu_bab_crown_alpha_dag (alpha+beta over the full DAG). Only maxpool has no batched alpha
-    % backward -> disable alpha/beta there (sound: falls back to fixed-slope spec_dag / tight path).
-    if (alphaIter > 0 || betaIter > 0) && any(cellfun(@(o) strcmp(o.type, 'maxpool'), ops))
+    % -> gpu_bab_crown_alpha_dag (alpha+beta over the full DAG). maxpool/concat/product have no
+    % batched alpha backward yet -> disable alpha/beta there (sound: falls back to the fixed-slope
+    % gpu_bab_crown_spec_dag, which DOES handle concat/product; alpha-McCormick is a follow-on).
+    if (alphaIter > 0 || betaIter > 0) && any(cellfun(@(o) any(strcmp(o.type, {'maxpool','concat','product'})), ops))
         alphaIter = 0; betaIter = 0;
     end
     % SPEC: argmax-robustness (default) builds C internally; a general-halfspace caller passes

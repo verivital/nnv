@@ -88,7 +88,13 @@ function [verdict, info] = gpu_bab_halfspace_genbab(ops, lb, ub, Gd, gd, opts)
         else
             % FALLBACK net-input bisection (products tight, residual ReLU looseness)
             w = nd.ub - nd.lb; [wmax, jdim] = max(w);
-            if wmax < minWidth, verdict = 'unknown'; info.reason = 'barrier (box+products tight, undecided)'; return; end
+            if wmax < minWidth
+                if ~isempty(getenv('NNV_GENBAB_DBG'))
+                    bw = inf; for dd = 1:numel(Gd), bw = min(bw, max(m(rows{dd}) - gAll(rows{dd}))); end
+                    fprintf('[genbab] BARRIER worstDisjunctBestRowMargin=%.6g boxWidth=%.2e prodGap=%.2e nodes=%d\n', bw, wmax, bestGap, info.nodes);
+                end
+                verdict = 'unknown'; info.reason = 'barrier (box+products tight, undecided)'; return;
+            end
             md = (nd.lb(jdim) + nd.ub(jdim)) / 2;
             c1 = nd; c1.ub(jdim) = md; c2 = nd; c2.lb(jdim) = md;
             stack{end+1} = c1; stack{end+1} = c2; %#ok<AGROW>

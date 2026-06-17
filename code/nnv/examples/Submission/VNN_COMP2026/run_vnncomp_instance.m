@@ -798,18 +798,30 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     ev = getenv('NNV_CONV_FRONTIER'); if ~isempty(ev), cFrontier = str2double(ev); end
     try
         if isConv && gpuDeviceCount >= 1
-            [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, ...
-                struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier,'device','gpu','allowUnsoundSingle',true));
-            if strcmp(gv, 'robust')
+            % CONV: an optional fast GPU-single SCREEN, then the sound CPU-DOUBLE pass that decides
+            % the emit (single is never trusted). The screen filters cheaply, but DOUBLE bounds are
+            % tighter (no FP32 rounding loosening) so the double pass crosses the convex barrier in
+            % far fewer nodes -- on robust conv the screen grinds the launch-bound tail much longer
+            % than the double pass takes. NNV_CONV_GPU_SCREEN=0 skips the screen -> straight to double.
+            useScreen = ~isequal(getenv('NNV_CONV_GPU_SCREEN'), '0');
+            screenPass = true;
+            if useScreen
+                [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, ...
+                    struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier,'device','gpu','allowUnsoundSingle',true));
+                screenPass = strcmp(gv, 'robust');
+                if ~screenPass
+                    fprintf('GPU-BaB pre-check: %s (gpu-screen, %s) -> Star reach\n', gv, ginfo.reason);
+                end
+            end
+            if screenPass
                 [gv2, gi2] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier));  % CPU double = sound emit
                 if strcmp(gv2, 'robust')
                     status = 1; reachOptionsList = {};
-                    fprintf('GPU-BaB pre-check: robust/unsat (gpu-screen + %d-node double-confirm) -> skip Star\n', gi2.nodes);
+                    if useScreen, src = 'gpu-screen + '; else, src = ''; end
+                    fprintf('GPU-BaB pre-check: robust/unsat (%s%d-node double) -> skip Star\n', src, gi2.nodes);
                 else
-                    fprintf('GPU-BaB pre-check: gpu-screen robust but double-confirm=%s -> Star reach\n', gv2);
+                    fprintf('GPU-BaB pre-check: double=%s -> Star reach\n', gv2);
                 end
-            else
-                fprintf('GPU-BaB pre-check: %s (gpu-screen, %s) -> Star reach\n', gv, ginfo.reason);
             end
         else
             mn = 5000; if isConv, mn = 64; end                 % conv-without-GPU: bounded (slow but sound)

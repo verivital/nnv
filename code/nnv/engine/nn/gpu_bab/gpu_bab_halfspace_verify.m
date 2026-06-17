@@ -87,7 +87,7 @@ function [verdict, info] = gpu_bab_halfspace_verify(net, lb, ub, prop, opts)
     % CROWN + an O(n) clip per disjunct), so run before the BaB; disjuncts it cannot close fall
     % through to the ReLU-split BaB unchanged.
     try
-        [~, ~, ~, ~, Ain, din] = gpu_bab_crown_tight(ops, lb, ub, C, precision, cell(nOps,1));
+        [~, ~, ~, ~, Ain, din] = gpu_bab_crown_tight(ops, lb, ub, C, precision, cell(numel(ops),1));
         Ain = gather(double(Ain)); din = gather(double(din(:)));
         nClipped = 0;
         for d = 1:numel(Gd)

@@ -25,6 +25,18 @@ function [verdict, info] = gpu_bab_halfspace_genbab(ops, lb, ub, Gd, gd, opts)
 %
 %   opts: .maxNodes (3e5) .timeCap (Inf) .tol (1e-6) .precision ('double') .gapTol (1e-7)
 %         .minWidth (1e-9, smallest product value-range still worth splitting).
+%
+%   STATUS / LIMITATION (empirical, lsnc_relu quadrotor2d, 2026-06-17): this is the SOUND GenBaB
+%   FOUNDATION, not yet a converging lsnc verifier. With FIXED-slope crown_tight bounds the root
+%   spec margin is ~ -41 (very loose), and product + ReLU-phase branching does NOT close it: full-node
+%   certifications stay ~0 from 10k to 40k nodes while the tree grows (>1 child/node) -> diverges to
+%   'unknown'. The looseness is the single-neuron CROWN relaxation (Salman/Mao barrier), the same wall
+%   cersyve hits. Only INPUT-box bisection tightens it (box-shrinking tightens CROWN) but is
+%   impractically slow (see gpu_bab_halfspace_input_bab). A converging lsnc verifier needs the full
+%   abCROWN GenBaB: alpha/beta-CROWN optimized bounds (extend gpu_bab_crown_alpha_dag to 'product')
+%   + alpha-optimized McCormick corners + this targeted product-input branching together. The
+%   product-input override (crown_tight mulFix) and the infeasibility prune below are the validated,
+%   sound building blocks for that; they are correct in isolation (test_gpu_bab_halfspace_genbab).
 
     if nargin < 6, opts = struct(); end
     maxNodes = i_g(opts, 'maxNodes', 300000);

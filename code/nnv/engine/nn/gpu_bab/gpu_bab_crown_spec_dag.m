@@ -1,4 +1,4 @@
-function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell)
+function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell)
 % AMORTIZED alpha-CROWN: optional alphaCell (cell(nOps,1) of per-relu lower-slope vectors,
 % dim_k x 1, in [0,1]) lets the caller bound a whole BaB frontier with FIXED root-optimized
 % slopes -- no autodiff, no per-node gradient tape -> large frontier. Unset -> min-area (default,
@@ -135,6 +135,12 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
     skipA{nOps} = repmat(cast(C, precision), 1, 1, B);   % spec sits on the network output (op nOps)
     d = zeros(nSpec, B, precision);
     inputSkipA = [];
+    % BaBSR sensitivity score (computed only if the caller asks for the 4th output). At each ReLU,
+    % neuron i's relaxation LOWERS the bound by exactly Aneg(s,i,b)*bu(i,b) for spec s; the total
+    % slack a split there can recover is sum_s |Aneg(s,i,b)|*bu(i,b). Branching on the largest such
+    % score (output-sensitivity x gap) closes the bound in far fewer nodes than largest-gap alone.
+    wantScore = nargout >= 4;
+    scoreCell = cell(nOps, 1);
     for k = nOps:-1:1
         A = skipA{k};
         if isempty(A), continue; end
@@ -172,6 +178,10 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
                 dim = size(l, 1);
                 Apos = max(A, 0); Aneg = min(A, 0);
                 d = d + reshape(pagemtimes(Aneg, reshape(bu, dim, 1, B)), nSpec, B);
+                if wantScore
+                    % sum_s |Aneg(s,i,b)| * bu(i,b) -> dim x B (the BaBSR split score for this layer)
+                    scoreCell{k} = reshape(sum(abs(Aneg), 1), dim, B) .* bu;
+                end
                 A = Apos .* reshape(al, 1, dim, B) + Aneg .* reshape(au, 1, dim, B);
             otherwise
                 error('gpu_bab_crown_spec_dag:op', ...

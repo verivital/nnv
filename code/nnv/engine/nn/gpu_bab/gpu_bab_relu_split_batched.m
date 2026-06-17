@@ -169,7 +169,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         end
 
         % bound the popped batch (reusing the tight root bounds, clamped per node, if rootTight)
-        [margins, preL, preU, infeas] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot);
+        [margins, preL, preU, infeas, scoreC] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot);
         % An INFEASIBLE node (a fixing combination that made the clamped IBP box empty,
         % preL>preU at some neuron) represents an EMPTY sub-region: the property holds
         % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
@@ -187,8 +187,9 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
             end
         end
 
-        % split each undecided node on its largest-gap unstable unfixed neuron
-        [sK, sJ, hasS] = i_pick_splits(reluIdx, preL, preU, fixc, undec);
+        % split each undecided node on its highest BaBSR-score unstable unfixed neuron
+        % (output-sensitivity x gap; falls back to largest-gap when no score is available)
+        [sK, sJ, hasS] = i_pick_splits(reluIdx, preL, preU, fixc, undec, scoreC);
         if ~all(hasS)
             status = 'unknown'; return;             % an undecided node cannot be split
         end
@@ -225,7 +226,7 @@ function ok = i_certify_dis(margins, gOff, rowGroups, marginSlack)
 end
 
 % ------------------------------------------------------------------------------------
-function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot)
+function [margins, preL, preU, infeasible, scoreCell] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot)
 % Bound B frontier nodes (B <= maxFrontier) in one batched CROWN call. The backward CROWN
 % (pagemtimes) runs on-device; margins and the per-relu pre-activation bounds are gathered to
 % host (small) for the verdict + split-neuron selection. infeasible(j) is true when node j's
@@ -248,40 +249,46 @@ function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x
     % else min-area spec_dag. FC-only alpha_fix/alpha_beta mis-bound conv/add (fail-open) -> never
     % used for DAG. All sound (alpha in [0,1], beta>=0).
     isDAG = any(cellfun(@(o) any(strcmp(o.type, {'conv','normaffine','avgpool','add'})), ops));
+    sc = {};                                          % per-relu BaBSR score (dim_k x B); {} -> gap fallback
     if isDAG
         if ~isempty(alphaRoot)
-            [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds, alphaRoot);
+            [m, pL, pU, sc] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds, alphaRoot);
         elseif alphaIter > 0 || betaIter > 0
             [m, ~, pL, pU] = gpu_bab_crown_alpha_dag(ops, LB, UB, C, fixc, reluIdx, precision, max(alphaIter,betaIter), alphaLr, rootBounds);
         else
-            [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
+            [m, pL, pU, sc] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
         end
     elseif betaIter > 0
         [m, ~, pL, pU] = gpu_bab_crown_alpha_beta(ops, LB, UB, C, fixc, reluIdx, precision, max(alphaIter,betaIter), alphaLr, rootBounds);
     elseif alphaIter > 0
         [m, ~, pL, pU] = gpu_bab_crown_alpha_fix(ops, LB, UB, C, fixc, reluIdx, precision, alphaIter, alphaLr, rootBounds);
     else
-        [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
+        [m, pL, pU, sc] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
     end
     margins = gather(m);
     preL = cell(numel(ops), 1); preU = cell(numel(ops), 1);
+    scoreCell = cell(numel(ops), 1);
     infeasible = false(1, B);
     for r = 1:numel(reluIdx)
         k = reluIdx(r);
         preL{k} = gather(pL{k});
         preU{k} = gather(pU{k});
+        if ~isempty(sc) && numel(sc) >= k && ~isempty(sc{k}), scoreCell{k} = gather(sc{k}); end
         infeasible = infeasible | any(preL{k} > preU{k} + 1e-6, 1);   % clamp made box empty
     end
 end
 
 % ------------------------------------------------------------------------------------
-function [splitK, splitJ, hasSplit] = i_pick_splits(reluIdx, preL, preU, fixc, undec)
-% For each undecided node, pick the unstable, unfixed neuron with the largest ReLU
-% relaxation gap bu = u*(-l)/(u-l) (the upper-line slack a split removes) -- a BaBSR-lite
-% heuristic that closes the bound far faster than first-unstable. Returns the chosen relu
-% op index + neuron index per node, and a flag (false => no splittable neuron left).
+function [splitK, splitJ, hasSplit] = i_pick_splits(reluIdx, preL, preU, fixc, undec, scoreCell)
+% For each undecided node, pick the unstable, unfixed neuron with the highest split score among
+% all relu layers. When a per-relu BaBSR score is supplied (scoreCell{k} = sum_s |Aneg|*bu, the
+% output-sensitivity-weighted intercept slack a split recovers), branch on the largest score --
+% proper BaBSR, which closes the bound in far fewer nodes. Without a score (alpha_dag/FC paths),
+% fall back to the largest ReLU relaxation gap bu = u*(-l)/(u-l) (BaBSR-lite). Returns the chosen
+% relu op index + neuron index per node, and a flag (false => no splittable neuron left).
+    if nargin < 6, scoreCell = {}; end
     nu = numel(undec);
-    bestGap = -inf(1, nu);
+    bestVal = -inf(1, nu);
     splitK  = zeros(1, nu);
     splitJ  = zeros(1, nu);
     for r = 1:numel(reluIdx)
@@ -289,15 +296,20 @@ function [splitK, splitJ, hasSplit] = i_pick_splits(reluIdx, preL, preU, fixc, u
         l = preL{k}(:, undec); u = preU{k}(:, undec);     % dim_k x nu
         uns = (l < 0) & (u > 0);
         if isempty(fixc{k}), free = true(size(l)); else, free = (fixc{k}(:, undec) == 0); end
-        gap = u .* (-l) ./ (u - l);
-        gap(~(uns & free)) = -inf;
-        [g, j] = max(gap, [], 1);                          % 1 x nu
-        better = g > bestGap;
-        bestGap(better) = g(better);
+        haveScore = ~isempty(scoreCell) && numel(scoreCell) >= k && ~isempty(scoreCell{k});
+        if haveScore
+            val = scoreCell{k}(:, undec);                  % BaBSR score (sensitivity x gap)
+        else
+            val = u .* (-l) ./ (u - l);                    % gap fallback
+        end
+        val(~(uns & free)) = -inf;
+        [g, j] = max(val, [], 1);                          % 1 x nu
+        better = g > bestVal;
+        bestVal(better) = g(better);
         splitK(better)  = k;
         splitJ(better)  = j(better);
     end
-    hasSplit = isfinite(bestGap);
+    hasSplit = isfinite(bestVal);
 end
 
 % ------------------------------------------------------------------------------------

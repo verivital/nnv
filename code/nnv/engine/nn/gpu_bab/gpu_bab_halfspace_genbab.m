@@ -38,7 +38,7 @@ function [verdict, info] = gpu_bab_halfspace_genbab(ops, lb, ub, Gd, gd, opts)
     lb = double(lb(:)); ub = double(ub(:));
     prodIdx = find(cellfun(@(o) strcmp(o.type, 'product'), ops));   % bilinear ops to branch
 
-    info = struct('nodes', 0, 'maxStack', 1, 'sep', 0, 'clip', 0, 'prodSplit', 0, 'inpSplit', 0, 'reason', '');
+    info = struct('nodes', 0, 'maxStack', 1, 'sep', 0, 'clip', 0, 'pruned', 0, 'prodSplit', 0, 'inpSplit', 0, 'reason', '');
 
     stack = {struct('lb', lb, 'ub', ub, 'mf', {cell(nOps, 1)})};   % root: full box, no product overrides
     t0 = tic;
@@ -51,6 +51,18 @@ function [verdict, info] = gpu_bab_halfspace_genbab(ops, lb, ub, Gd, gd, opts)
 
         [m, preL, preU, ~, Ain, din] = gpu_bab_crown_tight(ops, nd.lb, nd.ub, C, prec, {}, nd.mf);
         m = double(m(:)); Ain = double(Ain); din = double(din(:));
+
+        % Infeasible sub-problem: a stale mulFix override (set at an ancestor, before a later
+        % net-input bisection) clamped a product value-range to a half its child box can't reach.
+        % CROWN proves it empty (computed preL > clamped preU ==> the true value exceeds the clamp
+        % everywhere in this box ==> no input satisfies the split) -> prune, vacuously safe. SOUND:
+        % only fires when a real coordinate's lower bound exceeds its upper by a true margin, never
+        % an eps-level FP wobble (tol 1e-9), so a non-empty node is never dropped.
+        empty = false;
+        for kk = 1:numel(prodIdx)
+            if any(preL{prodIdx(kk)} > preU{prodIdx(kk)} + 1e-9), empty = true; break; end
+        end
+        if empty, info.pruned = info.pruned + 1; continue; end
 
         ok = true;
         for d = 1:numel(Gd)

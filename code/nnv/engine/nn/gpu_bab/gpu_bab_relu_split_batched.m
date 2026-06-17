@@ -137,6 +137,41 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     if i_certify_dis(mRoot, gOff, rowGroups, margin)
         status = 'robust'; return;
     end
+    % ---- SPEC REDUCTION (monotone-margin pruning) -------------------------------------------
+    % Each spec's CROWN margin is MONOTONE non-decreasing down the BaB tree: a split only fixes a
+    % ReLU / shrinks the box, which tightens (never loosens) the fixed-slope bound. So any unsafe
+    % DISJUNCT already avoided at the root (some row margin > slack) is avoided at EVERY descendant
+    % -- drop it and keep only the unproven rows. The per-node bound then costs O(#unproven specs)
+    % not O(all specs); for cifar100 (99 argmax rows, root median margin ~6.5) that is a ~10-99x
+    % cheaper bound. SOUND: the reference is the SAME fixed-slope no-fixings root bound the children
+    % use (a guaranteed lower bound every descendant meets), so monotonicity holds exactly; a small
+    % eps keeps borderline disjuncts in the BaB.
+    if numel(rowGroups) > 1
+        if ~isempty(rootBounds)
+            mRef = gather(reshape(gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, {}, rootBounds, alphaRoot), [], 1));
+        else
+            mRef = mRoot(:);                            % rootTight off: children use this same min-area bound
+        end
+        provenEps = cast(1e-3, precision);
+        keepDisj = true(1, numel(rowGroups));
+        for d = 1:numel(rowGroups)
+            if any(mRef(rowGroups{d}) > margin + provenEps), keepDisj(d) = false; end  % avoided everywhere
+        end
+        if ~any(keepDisj)
+            status = 'robust'; return;                  % every disjunct proven at the root
+        end
+        if ~all(keepDisj)
+            keepRows = unique([rowGroups{keepDisj}], 'stable');
+            remap = zeros(1, size(C,1)); remap(keepRows) = 1:numel(keepRows);
+            C = C(keepRows, :); gOff = gOff(keepRows); mRoot = mRoot(keepRows);
+            rowGroups = rowGroups(keepDisj);
+            for d = 1:numel(rowGroups), rowGroups{d} = remap(rowGroups{d}); end
+            if ~isempty(getenv('NNV_DEBUG_BAB'))
+                fprintf('[spec-reduce] kept %d/%d rows, %d/%d disjuncts unproven at root\n', ...
+                    numel(keepRows), numel(remap), numel(rowGroups), numel(keepDisj));
+            end
+        end
+    end
     reluDim = zeros(1, nOps);
     for r = 1:numel(reluIdx), reluDim(reluIdx(r)) = size(preL{reluIdx(r)}, 1); end
     [sK, sJ, hasS] = i_pick_splits(reluIdx, preL, preU, cell(nOps,1), 1);
@@ -151,8 +186,10 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     M = 2;
 
     % --- batched DFS over the node stack ---
-    dbgBab = ~isempty(getenv('NNV_DEBUG_BAB')); dbgEvery = 100;   % progress telemetry cadence (rounds)
+    dbgBab = ~isempty(getenv('NNV_DEBUG_BAB'));
+    dbgEvery = str2double(getenv('NNV_BAB_DBG_EVERY')); if isnan(dbgEvery) || dbgEvery < 1, dbgEvery = 100; end
     bestWorst = -inf;                                            % best (largest) worst-margin seen so far
+    tBab = tic; tPrev = 0;                                       % wall clock for node-throughput telemetry
     while M > 0
         info.rounds = info.rounds + 1;
         info.maxStack = max(info.maxStack, M);
@@ -183,8 +220,11 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
             bw = min(min(margins, [], 1));           % worst (most-negative) margin in this batch
             if isfinite(bw), bestWorst = max(bestWorst, bw); end
             if mod(info.rounds, dbgEvery) == 0
-                fprintf('[bab] round=%d nodes=%d stack=%d batch=%d certified=%d/%d worstMargin=%.4g bestWorst=%.4g\n', ...
-                    info.rounds, info.nodes, M, B, B - numel(undec), B, bw, bestWorst);
+                tNow = toc(tBab); dt = max(tNow - tPrev, 1e-6);
+                fprintf('[bab] round=%d nodes=%d stack=%d certified=%d/%d worstMargin=%.4g bestWorst=%.4g | %.0f nodes/s (%.1fs elapsed)\n', ...
+                    info.rounds, info.nodes, M, B - numel(undec), B, bw, bestWorst, ...
+                    dbgEvery * B / dt, tNow);
+                tPrev = tNow;
             end
         end
         if isempty(undec)

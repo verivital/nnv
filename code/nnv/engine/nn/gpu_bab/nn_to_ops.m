@@ -1,4 +1,4 @@
-function ops = nn_to_ops(nnvnet, flattenOrder)
+function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
 %   nn_to_ops(nnvnet, flattenOrder) -- flattenOrder controls how the conv output tensor
 %   [H W C] maps to the first FC's input columns (the conv->FC boundary). MATLAB-native
 %   dlnetworks flatten column-major ('colmajor', default); ONNX-imported nets flatten
@@ -7,6 +7,7 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
 %   and keeps the one whose op-list matches net.evaluate. Sound either way (wrong -> guard
 %   fails -> skip). Orders: 'colmajor' | 'chw_rowmajor' (ONNX [C H W]) | 'hwc_rowmajor'.
     if nargin < 2 || isempty(flattenOrder), flattenOrder = 'colmajor'; end
+    if nargin < 3, inputDim = []; end                 % optional flat input feature count (resolves a scalar ElementwiseAffine on a flat vector)
 % NN_TO_OPS  Flatten an NNV NN object into an op list for the GPU-BaB engine.
 %   Phase 1: FullyConnected + ReLU. Phase 2 (this version): + Conv2D and the
 %   ImageInputLayer normalization (folded as a leading per-element affine op), so
@@ -40,6 +41,8 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
     layerOp = containers.Map('KeyType', 'char', 'ValueType', 'double');
     shapeOf = containers.Map('KeyType', 'double', 'ValueType', 'any');
     shapeOf(0) = [];                                  % engine input shape (set by input layer)
+    flatSizeOf = containers.Map('KeyType', 'double', 'ValueType', 'any');
+    flatSizeOf(0) = inputDim;                         % flat element count of each op's output ([] = unknown); seeds the input
     for i = 1:numel(nnvnet.Layers)
         L = nnvnet.Layers{i};
         cls = class(L);
@@ -70,7 +73,9 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
         end
         inOp = inOps(1);
         inShape = shapeOf(inOp);
+        inFlat = i_flat_size(inOp, shapeOf, flatSizeOf);   % flat element count of the input op (for a flat scalar affine)
         emitted = true; outShape = inShape;           % outShape default = inShape (relu/bn/add)
+        outFlat = inFlat;                             % default: shape-preserving (relu/elementwise/add); affine/bn-flat override
         if contains(cls, 'FullyConnected')
             W = L.Weights;
             if ~isempty(inShape)                      % conv -> FC flatten boundary
@@ -82,7 +87,7 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
                 end
                 W = i_flatten_permute(W, inShape, flattenOrder);
             end
-            ops{end+1} = struct('type','affine','W',W,'b',L.Bias,'src',inOp); outShape = []; %#ok<AGROW>
+            ops{end+1} = struct('type','affine','W',W,'b',L.Bias,'src',inOp); outShape = []; outFlat = size(W,1); %#ok<AGROW>
         elseif contains(cls, 'Relu') || contains(cls, 'ReLU')
             ops{end+1} = struct('type','relu','src',inOp); %#ok<AGROW>
         elseif contains(cls, 'ImageInput') || contains(cls, 'Image3DInput')
@@ -109,7 +114,7 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
                 % dim as the channel count and emit a flat normaffine (shape [F 1 1]) -- sound,
                 % exactly like the spatial per-channel case. (e.g. cifar10 cnn7's FC-head BN.)
                 [s, t] = i_bn_fold_flat(L);
-                F = numel(s);
+                F = numel(s); outFlat = F;
                 ops{end+1} = struct('type','normaffine','scale',s(:),'shift',t(:),'shape',[F 1 1],'src',inOp); %#ok<AGROW>
             else
                 [s, t] = i_bn_fold(L, inShape);
@@ -127,6 +132,13 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
             if isempty(inShape)
                 F = max(numel(sc), numel(of));
                 if F <= 1
+                    % SCALAR scale/offset (uniform y=s*x+t): the per-element form needs the flat
+                    % feature count, which we resolve from the tracked flat size (seeded by the
+                    % caller's input dim, propagated through affines). Broadcasting a scalar to F is
+                    % exact, and the mandatory IBP==evaluate orientation guard catches any wrong F.
+                    F = inFlat;
+                end
+                if isempty(F) || F < 1
                     error('nn_to_ops:elemAffineFlatSize', ...
                         'ElementwiseAffine with scalar params on an unknown-size flat input -- refused for soundness.');
                 end
@@ -199,11 +211,20 @@ function ops = nn_to_ops(nnvnet, flattenOrder)
         % record this layer's output op + shape (identity/no-op layers pass through to inOp)
         if emitted
             shapeOf(numel(ops)) = outShape;
+            if isempty(outShape), flatSizeOf(numel(ops)) = outFlat; else, flatSizeOf(numel(ops)) = prod(outShape); end
             if ~isempty(name), layerOp(name) = numel(ops); end
         else
             if ~isempty(name), layerOp(name) = inOp; end
         end
     end
+end
+
+% flat element count of op k: prod of its [H W C] shape if spatial, else its tracked flat size ([] if
+% unknown). Lets a scalar ElementwiseAffine on a flat vector resolve its per-feature broadcast size.
+function f = i_flat_size(k, shapeOf, flatSizeOf)
+    if isKey(shapeOf, k) && ~isempty(shapeOf(k)), f = prod(shapeOf(k));
+    elseif isKey(flatSizeOf, k), f = flatSizeOf(k);
+    else, f = []; end
 end
 
 % ---- conv layer -> op (params copied in NNV-native [fh fw Cin Cout] form) -------------

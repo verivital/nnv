@@ -1,4 +1,8 @@
-function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds)
+function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell)
+% AMORTIZED alpha-CROWN: optional alphaCell (cell(nOps,1) of per-relu lower-slope vectors,
+% dim_k x 1, in [0,1]) lets the caller bound a whole BaB frontier with FIXED root-optimized
+% slopes -- no autodiff, no per-node gradient tape -> large frontier. Unset -> min-area (default,
+% bound-for-bound unchanged). Any alpha in [0,1] is a sound lower ReLU slope, so this is sound.
 % GPU_BAB_CROWN_SPEC_DAG  Sound CROWN lower bound on a linear output spec C*f(x), batched
 %   over B node columns, for feedforward conv nets INCLUDING residual DAGs
 %   (affine/conv/normaffine/avgpool/relu/add). The generalisation of gpu_bab_crown_spec from
@@ -42,6 +46,7 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
     if nargin < 5 || isempty(precision), precision = 'single'; end
     if nargin < 6, fixings = {}; end
     if nargin < 7, rootBounds = []; end
+    if nargin < 8, alphaCell = {}; end
     B = size(x_lb, 2); nSpec = size(C, 1); nOps = numel(ops); n = size(x_lb, 1);
     preL = cell(nOps,1); preU = cell(nOps,1);
 
@@ -130,6 +135,12 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
     skipA{nOps} = repmat(cast(C, precision), 1, 1, B);   % spec sits on the network output (op nOps)
     d = zeros(nSpec, B, precision);
     inputSkipA = [];
+    % BaBSR sensitivity score (computed only if the caller asks for the 4th output). At each ReLU,
+    % neuron i's relaxation LOWERS the bound by exactly Aneg(s,i,b)*bu(i,b) for spec s; the total
+    % slack a split there can recover is sum_s |Aneg(s,i,b)|*bu(i,b). Branching on the largest such
+    % score (output-sensitivity x gap) closes the bound in far fewer nodes than largest-gap alone.
+    wantScore = nargout >= 4;
+    scoreCell = cell(nOps, 1);
     for k = nOps:-1:1
         A = skipA{k};
         if isempty(A), continue; end
@@ -162,10 +173,15 @@ function [margins, preL, preU] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, prec
                 [A, d] = i_avgpool_backward(A, d, op, precision);
             case 'relu'
                 l = preL{k}; u = preU{k};                  % dim x B
-                [au, bu, al] = i_relu_relax(l, u, precision);
+                ak = []; if ~isempty(alphaCell) && numel(alphaCell) >= k, ak = alphaCell{k}; end
+                [au, bu, al] = i_relu_relax(l, u, precision, ak);
                 dim = size(l, 1);
                 Apos = max(A, 0); Aneg = min(A, 0);
                 d = d + reshape(pagemtimes(Aneg, reshape(bu, dim, 1, B)), nSpec, B);
+                if wantScore
+                    % sum_s |Aneg(s,i,b)| * bu(i,b) -> dim x B (the BaBSR split score for this layer)
+                    scoreCell{k} = reshape(sum(abs(Aneg), 1), dim, B) .* bu;
+                end
                 A = Apos .* reshape(al, 1, dim, B) + Aneg .* reshape(au, 1, dim, B);
             otherwise
                 error('gpu_bab_crown_spec_dag:op', ...
@@ -270,12 +286,20 @@ function v = i_bcast_flat(x, sh, precision)
     v = reshape(zeros([sh(1) sh(2) sh(3)], precision) + cast(x, precision), [], 1);
 end
 
-function [au, bu, al] = i_relu_relax(l, u, precision)
+function [au, bu, al] = i_relu_relax(l, u, precision, alpha)
 % Per-neuron ReLU relaxation over [l,u] (elementwise, dim x B): stable-on (l>=0) identity,
-% stable-off (u<=0) zero, unstable upper line au*z+bu / lower line al*z (al in {0,1}).
+% stable-off (u<=0) zero, unstable upper line au*z+bu / lower line al*z. al = min-area {0,1}
+% by default; if alpha (dim x 1, the AMORTIZED root slopes) is given, al(unstable) = alpha
+% (clamped [0,1] -> sound), broadcast over the B node columns.
+    if nargin < 4, alpha = []; end
     au = zeros(size(l), precision); bu = zeros(size(l), precision); al = zeros(size(l), precision);
     act = (l >= 0); au(act) = 1; al(act) = 1;
     unst = (l < 0) & (u > 0); dn = u(unst) - l(unst);
     au(unst) = u(unst) ./ dn; bu(unst) = -au(unst) .* l(unst);
-    al(unst) = cast(u(unst) >= -l(unst), precision);
+    if isempty(alpha)
+        al(unst) = cast(u(unst) >= -l(unst), precision);     % min-area binary {0,1}
+    else
+        ab = repmat(cast(alpha(:), precision), 1, size(l,2));  % dim x 1 -> dim x B (root slopes)
+        al(unst) = min(max(ab(unst), 0), 1);                   % clamp [0,1] (sound)
+    end
 end

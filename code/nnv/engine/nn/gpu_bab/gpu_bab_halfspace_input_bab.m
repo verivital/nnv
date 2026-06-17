@@ -14,7 +14,9 @@ function [verdict, info] = gpu_bab_halfspace_input_bab(ops, lb, ub, Gd, gd, opts
 %   (closed split [lb,mid] U [mid,ub]); 'robust' is returned ONLY when the stack empties with
 %   EVERY popped sub-box certified avoided, so the whole input box is covered by certified-safe
 %   sub-boxes. Both certification tests are sound (single-row = a sound CROWN lower bound;
-%   gpu_bab_clip never reports a false "empty"). FP64. Never a wrong unsat.
+%   gpu_bab_clip never reports a false "empty"). The CERTIFIED path is FP64 (`opts.precision`
+%   defaults to 'double'); 'single' is a faster DEV/screen mode only (an emitted 'robust' must come
+%   from an FP64 run). Used soundly, never a wrong unsat.
 %
 %   WHEN TO USE: only when the gap shrinks with box width (bilinear/product). For pure-ReLU nets
 %   (e.g. cersyve) the looseness lives in the ReLU relaxation, not the box, and input bisection

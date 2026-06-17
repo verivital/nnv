@@ -75,9 +75,9 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
         % mis-extracted below (only inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors
         % -> caller runs Star), never emit a wrong graph. (Addition + ElementwiseProduct are order-
         % insensitive; Concatenation re-resolves its inputs in PORT order in its own branch below.)
-        if numel(inOps) > 1 && ~contains(cls, 'Addition') && ~contains(cls, 'Concatenation') && ~contains(cls, 'ElementwiseProduct')
+        if numel(inOps) > 1 && ~contains(cls, 'Addition') && ~contains(cls, 'Concatenation') && ~contains(cls, 'ElementwiseProduct') && ~contains(cls, 'Multiplication')
             error('nn_to_ops:multiInputUnsupported', ...
-                'layer "%s" (%s) has %d inputs but only Addition/Concatenation/ElementwiseProduct are multi-input-supported -- refused for soundness.', ...
+                'layer "%s" (%s) has %d inputs but only Addition/Concatenation/ElementwiseProduct/Multiplication are multi-input-supported -- refused for soundness.', ...
                 name, cls, numel(inOps));
         end
         inOp = inOps(1);

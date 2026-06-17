@@ -117,7 +117,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     end
     skipA = cell(upto, 1);
     skipA{upto} = A0;                         % seed: A0 is the coefficient on op `upto`'s output
-    inputSkipA = 0;
+    inputSkipA = zeros(nS, numel(x_lb), precision);   % coefficient on the engine input (op 0); always nS x nIn
     for k = upto:-1:1
         A = skipA{k};
         if isempty(A), continue; end          % nothing routed to op k (dead w.r.t. the output)
@@ -202,8 +202,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
         else,                     skipA{s} = skipA{s} + A;
         end
     end
-    A = inputSkipA;                           % total coefficient on the engine input
-    if isscalar(A), A = zeros(nS, numel(x_lb), precision); end   % input-independent -> zero plane
+    A = inputSkipA;                           % total coefficient on the engine input (nS x nIn; zero if no input dependence)
     Ain = A; din = d;                         % input-space affine form: bounded >= Ain*x + din (lower)
     Apos = max(A, 0); Aneg = min(A, 0);
     if lower

@@ -151,6 +151,8 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     M = 2;
 
     % --- batched DFS over the node stack ---
+    dbgBab = ~isempty(getenv('NNV_DEBUG_BAB')); dbgEvery = 100;   % progress telemetry cadence (rounds)
+    bestWorst = -inf;                                            % best (largest) worst-margin seen so far
     while M > 0
         info.rounds = info.rounds + 1;
         info.maxStack = max(info.maxStack, M);
@@ -175,6 +177,16 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
         % so the BaB splits it forever and degrades a robust query to a false 'unknown'.
         undec = find(~(i_certify_dis(margins, gOff, rowGroups, margin) | infeas));
+        % progress telemetry: stack-size trajectory is the convergence signal (shrinking => the
+        % BaB is certifying faster than it splits; growing => bounds too loose, more nodes won't help)
+        if dbgBab
+            bw = min(min(margins, [], 1));           % worst (most-negative) margin in this batch
+            if isfinite(bw), bestWorst = max(bestWorst, bw); end
+            if mod(info.rounds, dbgEvery) == 0
+                fprintf('[bab] round=%d nodes=%d stack=%d batch=%d certified=%d/%d worstMargin=%.4g bestWorst=%.4g\n', ...
+                    info.rounds, info.nodes, M, B, B - numel(undec), B, bw, bestWorst);
+            end
+        end
         if isempty(undec)
             continue;                               % whole batch certified; pop the next
         end

@@ -6,8 +6,17 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
 %   the degenerate-IBP==evaluate guard). The dispatcher auto-calibrates: it tries each order
 %   and keeps the one whose op-list matches net.evaluate. Sound either way (wrong -> guard
 %   fails -> skip). Orders: 'colmajor' | 'chw_rowmajor' (ONNX [C H W]) | 'hwc_rowmajor'.
+%
+%   nn_to_ops(nnvnet, flattenOrder, inputDim) -- the optional 3rd arg inputDim is the flat
+%   feature count of the engine input (e.g. numel(lb) for an FC net). It seeds the per-op flat-size
+%   tracking so a SCALAR ElementwiseAffine on a flat input resolves its per-feature broadcast size.
+%   Coerced to a positive integer scalar (ignored if empty/invalid). Conv callers may omit it.
     if nargin < 2 || isempty(flattenOrder), flattenOrder = 'colmajor'; end
     if nargin < 3, inputDim = []; end                 % optional flat input feature count (resolves a scalar ElementwiseAffine on a flat vector)
+    if ~isempty(inputDim)                             % coerce to a positive integer scalar; else ignore (sound: only affects a flat scalar-affine, guarded by IBP==evaluate)
+        inputDim = double(inputDim(1));
+        if ~isfinite(inputDim) || inputDim < 1, inputDim = []; else, inputDim = round(inputDim); end
+    end
 % NN_TO_OPS  Flatten an NNV NN object into an op list for the GPU-BaB engine.
 %   Phase 1: FullyConnected + ReLU. Phase 2 (this version): + Conv2D and the
 %   ImageInputLayer normalization (folded as a leading per-element affine op), so

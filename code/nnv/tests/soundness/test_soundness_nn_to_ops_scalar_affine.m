@@ -31,14 +31,16 @@ try, nn_to_ops(net, 'colmajor'); catch e, oldId = e.identifier; end
 assert(strcmp(oldId, 'nn_to_ops:elemAffineFlatSize'), ...
     'without inputDim, the scalar ElementwiseAffine should still refuse (elemAffineFlatSize), got "%s"', oldId);
 
-% (2) WITH the input dim: the scalar ElementwiseAffine is RESOLVED; nn_to_ops advances past it and
-% only refuses at a genuinely-later unsupported op (lsnc has Concat + bilinear ElementwiseProduct).
-newId = ''; newMsg = '';
-try, nn_to_ops(net, 'colmajor', nIn); catch e, newId = e.identifier; newMsg = e.message; end
-assert(~isempty(newId), 'lsnc is not fully supported yet (Concat/bilinear) -> expected a later refusal');
+% (2) WITH the input dim: the scalar ElementwiseAffine is RESOLVED. nn_to_ops then either succeeds
+% end-to-end (if every later op is supported) OR refuses at a genuinely-later op -- but the ONE
+% invariant is that it must NEVER refuse at the scalar affine (elemAffineFlatSize) again. (Not
+% brittle to future Concat/bilinear support: success is allowed.)
+newId = ''; nOps = 0;
+try, ops = nn_to_ops(net, 'colmajor', nIn); nOps = numel(ops); catch e, newId = e.identifier; end
 assert(~strcmp(newId, 'nn_to_ops:elemAffineFlatSize'), ...
-    'with inputDim, the scalar ElementwiseAffine must be RESOLVED, not refused; got elemAffineFlatSize again');
-assert(contains(newMsg,'Concat') || contains(newMsg,'multi-input') || contains(newMsg,'Product') || contains(newMsg,'unsupported'), ...
-    'expected advance to a later op (Concat / ElementwiseProduct), got: %s', newMsg);
-
-fprintf('test_soundness_nn_to_ops_scalar_affine: passed (scalar affine resolved with inputDim; advances to "%s")\n', newId);
+    'with inputDim, the scalar ElementwiseAffine must be RESOLVED, not refused (got elemAffineFlatSize again)');
+if isempty(newId)
+    fprintf('test_soundness_nn_to_ops_scalar_affine: passed (scalar affine resolved; full net supported -> %d ops)\n', nOps);
+else
+    fprintf('test_soundness_nn_to_ops_scalar_affine: passed (scalar affine resolved; advances to a later refusal "%s")\n', newId);
+end

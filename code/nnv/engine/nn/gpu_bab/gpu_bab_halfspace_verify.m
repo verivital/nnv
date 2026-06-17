@@ -48,7 +48,7 @@ function [verdict, info] = gpu_bab_halfspace_verify(net, lb, ub, prop, opts)
     ops = []; nOut = NaN;
     for oi = 1:numel(orders)
         try
-            cand = nn_to_ops(net, orders{oi});
+            cand = nn_to_ops(net, orders{oi}, numel(lb));   % pass the flat input dim (resolves scalar ElementwiseAffine on a flat vector)
         catch ME0
             if oi == 1, info.reason = ['nn_to_ops refused: ' ME0.message]; end
             continue;

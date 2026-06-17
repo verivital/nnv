@@ -282,6 +282,11 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
         if emitted
             shapeOf(numel(ops)) = outShape;
             if isempty(outShape), flatSizeOf(numel(ops)) = outFlat; else, flatSizeOf(numel(ops)) = prod(outShape); end
+            % record the flat OUTPUT width on the op so i_layer_width can read it directly. Needed for
+            % FLAT add/normaffine (shape=[]): prod(shape)=prod([])=1 was a latent width-=-1 bug that
+            % mis-seeded the CROWN intermediate-bound backward (crash at a downstream concat / wrong
+            % bounds elsewhere). The tracked flat size is exact (shape-preserving ops propagate it).
+            ops{numel(ops)}.nOut = i_flat_size(numel(ops), shapeOf, flatSizeOf); %#ok<AGROW>
             if ~isempty(name), layerOp(name) = numel(ops); end
         else
             if ~isempty(name), layerOp(name) = inOp; end

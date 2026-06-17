@@ -72,7 +72,12 @@ function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, 
 end
 
 function w = i_layer_width(ops, upto)
-% # outputs of ops[1..upto] = rows of the last affine in that prefix.
+% Flat output width of op `upto`. Prefer the recorded nOut (exact for ALL ops incl. flat
+% add/normaffine, where prod(shape)=prod([])=1 was a latent width=1 bug); fall back to the
+% structural walk for ops emitted without it.
+    if isfield(ops{upto}, 'nOut') && ~isempty(ops{upto}.nOut)
+        w = ops{upto}.nOut; return;
+    end
     for k = upto:-1:1
         t = ops{k}.type;
         if strcmp(t, 'affine'),         w = size(ops{k}.W, 1);     return;

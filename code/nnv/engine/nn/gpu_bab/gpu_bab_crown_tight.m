@@ -48,6 +48,22 @@ function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, 
             if strcmp(tk, 'relu')
                 unstable{k} = (pl < 0) & (pu > 0);
             end
+        elseif strcmp(tk, 'product')
+            % BILINEAR product feeds the McCormick relaxation from the OUTPUT bounds of BOTH its
+            % input ops. Bound each input op's output (backward CROWN over its prefix, sound by
+            % induction) and store them STACKED [in1; in2] under preL{k}/preU{k} (numeric, so the
+            % BaB infeasible/gather logic stays valid). Width per input = ops{k}.sizes(1)=sizes(2).
+            ins = ops{k}.inputs;
+            plS = []; puS = [];
+            for ii = 1:2
+                si = ins(ii);
+                if si == 0, nki = numel(x_lb); else, nki = i_layer_width(ops, si); end
+                Cki = eye(nki, precision);
+                pui = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, false);
+                pli = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, true);
+                plS = [plS; pli]; puS = [puS; pui]; %#ok<AGROW>
+            end
+            preL{k} = plS; preU{k} = puS;
         end
     end
 
@@ -66,6 +82,7 @@ function w = i_layer_width(ops, upto)
         elseif strcmp(t, 'add'),        w = prod(ops{k}.shape);    return;
         elseif strcmp(t, 'normaffine'), w = prod(ops{k}.shape);    return;
         elseif strcmp(t, 'concat'),     w = sum(ops{k}.sizes);     return;
+        elseif strcmp(t, 'product'),    w = ops{k}.sizes(1);       return;  % elementwise: out width = each input width
         end
     end
     error('gpu_bab_crown_tight:nolinear', 'no affine/conv op before index %d', upto);
@@ -112,6 +129,33 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
                 elseif isempty(skipA{s}), skipA{s} = Ablk;
                 else,                     skipA{s} = skipA{s} + Ablk;
                 end
+            end
+            continue;
+        end
+        if strcmp(op.type, 'product')         % out = in[a].*in[b], bilinear: McCormick, route to BOTH inputs
+            wa = op.sizes(1); lz = preL{k}; uz = preU{k};
+            la = lz(1:wa);       ua = uz(1:wa);          % input a (x) output bounds
+            lyy = lz(wa+1:end);  uyy = uz(wa+1:end);     % input b (y) output bounds
+            [aL,bL,cL,aU,bU,cU] = gpu_bab_mul_relax(la, ua, lyy, uyy, [], [], precision);
+            Apos = max(A, 0); Aneg = min(A, 0);          % sign-aware: +coeff -> LOWER plane (lower bnd)
+            if lower
+                Ax = Apos .* aL.' + Aneg .* aU.';
+                Ay = Apos .* bL.' + Aneg .* bU.';
+                d  = d + Apos * cL + Aneg * cU;
+            else
+                Ax = Apos .* aU.' + Aneg .* aL.';
+                Ay = Apos .* bU.' + Aneg .* bL.';
+                d  = d + Apos * cU + Aneg * cL;
+            end
+            sa = op.inputs(1);
+            if sa == 0,                inputSkipA = inputSkipA + Ax;
+            elseif isempty(skipA{sa}), skipA{sa} = Ax;
+            else,                      skipA{sa} = skipA{sa} + Ax;
+            end
+            sb = op.inputs(2);
+            if sb == 0,                inputSkipA = inputSkipA + Ay;
+            elseif isempty(skipA{sb}), skipA{sb} = Ay;
+            else,                      skipA{sb} = skipA{sb} + Ay;
             end
             continue;
         end

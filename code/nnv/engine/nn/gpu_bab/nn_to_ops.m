@@ -70,14 +70,14 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
                 inOps(q) = layerOp(srcs{q});
             end
         end
-        % SOUNDNESS (Copilot #364): Addition + Concatenation are the supported multi-input ops. Any
-        % OTHER layer that resolves to >1 Connections source would be silently mis-extracted below
-        % (only inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors -> caller runs
-        % Star), never emit a wrong graph. (Addition is order-insensitive; Concatenation re-resolves
-        % its inputs in PORT order in its own branch below, since concat is order-sensitive.)
-        if numel(inOps) > 1 && ~contains(cls, 'Addition') && ~contains(cls, 'Concatenation')
+        % SOUNDNESS (Copilot #364): Addition + Concatenation + ElementwiseProduct are the supported
+        % multi-input ops. Any OTHER layer that resolves to >1 Connections source would be silently
+        % mis-extracted below (only inOps(1) used) -> a wrong op graph. Refuse it (-> nn_to_ops errors
+        % -> caller runs Star), never emit a wrong graph. (Addition + ElementwiseProduct are order-
+        % insensitive; Concatenation re-resolves its inputs in PORT order in its own branch below.)
+        if numel(inOps) > 1 && ~contains(cls, 'Addition') && ~contains(cls, 'Concatenation') && ~contains(cls, 'ElementwiseProduct')
             error('nn_to_ops:multiInputUnsupported', ...
-                'layer "%s" (%s) has %d inputs but only Addition/Concatenation are multi-input-supported -- refused for soundness.', ...
+                'layer "%s" (%s) has %d inputs but only Addition/Concatenation/ElementwiseProduct are multi-input-supported -- refused for soundness.', ...
                 name, cls, numel(inOps));
         end
         inOp = inOps(1);
@@ -211,6 +211,31 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
             end
             ops{end+1} = struct('type','concat','inputs',cinOps,'sizes',sizes,'src',cinOps(1)); %#ok<AGROW>
             outShape = []; outFlat = sum(sizes);
+        elseif contains(cls, 'ElementwiseProduct') || contains(cls, 'Multiplication')
+            % ElementwiseProductLayer: y = in[a] .* in[b], BOTH operands VARIABLE (bilinear) ->
+            % NONLINEAR. Relaxed by the McCormick envelope (gpu_bab_mul_relax) in the CROWN
+            % backward. 2 FLAT inputs of EQUAL width (elementwise); product is commutative so input
+            % order is irrelevant (the McCormick envelope is symmetric in x,y). This is the genuine
+            % nonlinearity in lsnc Lyapunov nets (e.g. x .* (P*x)). The IBP==evaluate orientation
+            % guard validates the wiring; sound-or-refusal otherwise.
+            if numel(inOps) ~= 2
+                error('nn_to_ops:productNInputs', ...
+                    'ElementwiseProductLayer "%s" has %d inputs (only 2 supported) -- refused for soundness.', name, numel(inOps));
+            end
+            for q = 1:2
+                if ~isempty(shapeOf(inOps(q)))
+                    error('nn_to_ops:productSpatial', ...
+                        'spatial-input elementwise product not supported (flat only) -- refused for soundness.');
+                end
+            end
+            wa = i_flat_size(inOps(1), shapeOf, flatSizeOf);
+            wb = i_flat_size(inOps(2), shapeOf, flatSizeOf);
+            if isempty(wa) || isempty(wb) || wa < 1 || wa ~= wb
+                error('nn_to_ops:productWidth', ...
+                    'elementwise product needs flat equal-width inputs (got %s, %s) -- refused for soundness.', mat2str(wa), mat2str(wb));
+            end
+            ops{end+1} = struct('type','product','inputs',inOps,'sizes',[wa wb],'src',inOps(1)); %#ok<AGROW>
+            outShape = []; outFlat = wa;
         elseif contains(cls, 'FeatureInput') && isempty(ops)
             % LEADING FeatureInputLayer: a flat [n] feature-vector input (e.g. sat_relu /
             % safenlp FC nets imported with InputDataFormats="BC"). It carries no learnable

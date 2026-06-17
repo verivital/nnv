@@ -70,6 +70,14 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
                 cl{k+1} = vertcat(cl{ic}); cu{k+1} = vertcat(cu{ic});
                 continue;
             end
+            if strcmp(op.type, 'product')                 % bilinear: store stacked input bounds + corner interval
+                ia = op.inputs(1)+1; ib = op.inputs(2)+1;
+                la = cl{ia}; ua = cu{ia}; lyy = cl{ib}; uyy = cu{ib};
+                preL{k} = [la; lyy]; preU{k} = [ua; uyy];  % feed the McCormick backward
+                c1=la.*lyy; c2=la.*uyy; c3=ua.*lyy; c4=ua.*uyy;
+                cl{k+1} = min(min(c1,c2),min(c3,c4)); cu{k+1} = max(max(c1,c2),max(c3,c4));
+                continue;
+            end
             s = op.src + 1; lb = cl{s}; ub = cu{s};
             switch op.type
                 case 'affine'
@@ -122,9 +130,15 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
                     u(fx == -1) = min(u(fx == -1), 0);
                 end
                 preL{k} = l; preU{k} = u;
+            elseif strcmp(tk, 'product')
+                % bilinear: reuse the root stacked input bounds (broadcast). No per-node clamp --
+                % products carry no ReLU fixings; root bounds hold over the full box >= node region
+                % (sound, possibly looser than re-concretizing). Backward reads preL{k}=[xb;yb].
+                preL{k} = repmat(cast(rootBounds.preL{k}, 'like', tmpl), 1, B);
+                preU{k} = repmat(cast(rootBounds.preU{k}, 'like', tmpl), 1, B);
             elseif ~any(strcmp(tk, {'affine','conv','normaffine','avgpool','add','concat'}))
                 error('gpu_bab_crown_spec_dag:op', ...
-                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/add/concat only).', tk);
+                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/add/concat/product only).', tk);
             end
         end
     end
@@ -174,6 +188,36 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
                 elseif isempty(skipA{s}), skipA{s} = Ablk;
                 else, skipA{s} = skipA{s} + Ablk;
                 end
+            end
+            continue;
+        end
+        if strcmp(op.type, 'product')
+            % out = in[a].*in[b], bilinear: McCormick (gpu_bab_mul_relax), sign-aware, route a
+            % DISTINCT coefficient to each input (like 'add' but Ax/Ay differ). A is nSpec x wa x B;
+            % preL{k}=[xb;yb] is 2*wa x B (stacked input bounds). Sound: +coeff uses the LOWER
+            % plane for a spec lower bound; -coeff the UPPER plane (the al/au rule).
+            wa = op.sizes(1); lz = preL{k}; uz = preU{k};
+            la = lz(1:wa,:); ua = uz(1:wa,:); lyy = lz(wa+1:end,:); uyy = uz(wa+1:end,:);
+            [aL,bL,cL,aU,bU,cU] = gpu_bab_mul_relax(la, ua, lyy, uyy, [], [], precision);  % each wa x B
+            % spec_dag computes a LOWER bound on C*f (like its ReLU relax): +coeff -> LOWER plane,
+            % -coeff -> UPPER plane.
+            Apos = max(A,0); Aneg = min(A,0);
+            aLr = reshape(aL,1,wa,B); aUr = reshape(aU,1,wa,B);
+            bLr = reshape(bL,1,wa,B); bUr = reshape(bU,1,wa,B);
+            Ax = Apos.*aLr + Aneg.*aUr; Ay = Apos.*bLr + Aneg.*bUr;
+            d = d + reshape(pagemtimes(Apos, reshape(cL,wa,1,B)), nSpec, B) ...
+                  + reshape(pagemtimes(Aneg, reshape(cU,wa,1,B)), nSpec, B);
+            sa = op.inputs(1);
+            if sa == 0
+                if isempty(inputSkipA), inputSkipA = Ax; else, inputSkipA = inputSkipA + Ax; end
+            elseif isempty(skipA{sa}), skipA{sa} = Ax;
+            else, skipA{sa} = skipA{sa} + Ax;
+            end
+            sb = op.inputs(2);
+            if sb == 0
+                if isempty(inputSkipA), inputSkipA = Ay; else, inputSkipA = inputSkipA + Ay; end
+            elseif isempty(skipA{sb}), skipA{sb} = Ay;
+            else, skipA{sb} = skipA{sb} + Ay;
             end
             continue;
         end

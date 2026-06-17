@@ -68,6 +68,9 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
             ic = op.inputs + 1;                 % stack inputs along the feature dim (LINEAR -> exact)
             cl{k+1} = vertcat(cl{ic});
             cu{k+1} = vertcat(cu{ic});
+        elseif strcmp(op.type, 'product')
+            ia = op.inputs(1) + 1; ib = op.inputs(2) + 1;   % elementwise x.*y: exact interval = corner min/max
+            [cl{k+1}, cu{k+1}] = i_mul_interval(cl{ia}, cu{ia}, cl{ib}, cu{ib});
         else
             s = op.src + 1;
             [cl{k+1}, cu{k+1}] = i_apply_ibp(op, cl{s}, cu{s}, precision);
@@ -107,9 +110,17 @@ function tf = i_is_dag(ops)
     tf = false;
     for k = 1:numel(ops)
         o = ops{k};
-        if strcmp(o.type, 'add') || strcmp(o.type, 'concat'), tf = true; return; end
+        if strcmp(o.type, 'add') || strcmp(o.type, 'concat') || strcmp(o.type, 'product'), tf = true; return; end
         if isfield(o, 'src') && o.src ~= k-1, tf = true; return; end
     end
+end
+
+function [olb, oub] = i_mul_interval(xl, xu, yl, yu)
+% Exact interval for the elementwise product z = x.*y over [xl,xu] x [yl,yu]: the tightest
+% interval is the min/max over the four box-corner products (sound, batched/elementwise).
+    c1 = xl .* yl; c2 = xl .* yu; c3 = xu .* yl; c4 = xu .* yu;
+    olb = min(min(c1, c2), min(c3, c4));
+    oub = max(max(c1, c2), max(c3, c4));
 end
 
 function [olb, oub] = i_conv_ibp(op, lb, ub, precision)

@@ -83,17 +83,20 @@ function [verdict, info] = gpu_bab_halfspace_genbab(ops, lb, ub, Gd, gd, opts)
         [m, preL, preU, unstable, Ain, din] = gpu_bab_crown_tight(ops, lb, ub, C, prec, nd.fixings, nd.mf);
         m = double(m(:)); Ain = double(Ain); din = double(din(:));
 
-        % Infeasible node (stale override or a ReLU fixing the box can't satisfy): CROWN proves it
-        % empty (preL>preU past a real margin) -> prune, vacuously safe. The empty-margin is
-        % PRECISION- and MAGNITUDE-aware (unit roundoff u * 64 safety * bound magnitude, floored at
-        % 1e-9): the prune fires only when the lower bound exceeds the upper by MORE than the
-        % worst-case accumulated CROWN rounding error, so a genuinely non-empty node (where
-        % preL<=preU in exact arithmetic) is NEVER dropped, in single OR double precision and at any
-        % bound magnitude. A fixed 1e-9 was unsound for precision='single' / huge-magnitude nets.
+        % Infeasible node: a stale product override (after a later branch changed the bounds) OR a
+        % ReLU fixing the box can't satisfy (e.g. forcing active when pu<0) makes CROWN give
+        % preL{k}>preU{k}. Scan BOTH the product ops (override case) and the ReLU ops (fixing case);
+        % either proves the node empty -> prune, vacuously safe. The empty-margin is PRECISION- and
+        % MAGNITUDE-aware (unit roundoff u * 64 safety * bound magnitude, floored at 1e-9): the prune
+        % fires only when the lower bound exceeds the upper by MORE than the worst-case accumulated
+        % CROWN rounding error, so a genuinely non-empty node (where preL<=preU in exact arithmetic)
+        % is NEVER dropped, in single OR double precision and at any magnitude. A fixed 1e-9 was
+        % unsound for precision='single' / huge-magnitude nets.
         u = 1.1e-16; if strcmp(prec, 'single'), u = 6e-8; end
         empty = false;
-        for kk = 1:numel(prodIdx)
-            pl = preL{prodIdx(kk)}; pu = preU{prodIdx(kk)};
+        for k = [prodIdx(:); reluIdx(:)].'
+            pl = preL{k}; pu = preU{k};
+            if isempty(pl), continue; end
             emargin = max(1e-9, 64 * u * max([1; abs(pl(:)); abs(pu(:))]));
             if any(pl > pu + emargin), empty = true; break; end
         end
@@ -125,7 +128,7 @@ function [verdict, info] = gpu_bab_halfspace_genbab(ops, lb, ub, Gd, gd, opts)
         if bestGap > gapTol && (vhi - vlo) > minWidth
             % PRODUCT-INPUT split: halve the worst product input's value-range
             mid = (vlo + vhi) / 2;
-            wstack = 2 * ops{bk}.sizes(1);
+            wstack = sum(ops{bk}.sizes);            % stacked [in1;in2] width (inputs are equal-width)
             base = nd.mf{bk};
             if isempty(base), base = struct('lo', -inf(wstack, 1), 'hi', inf(wstack, 1)); end
             cLo = nd; cLo.mf{bk} = base; cLo.mf{bk}.hi(bIdx) = min(base.hi(bIdx), mid);

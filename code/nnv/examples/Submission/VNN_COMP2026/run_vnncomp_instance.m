@@ -794,8 +794,10 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     % FC nets are cheap in double -> single-stage CPU-double (maxNodes 5000). No GPU -> conv also
     % falls back to CPU-double (slow but sound).
     cMaxNodes = 64; cFrontier = 32;                          % conv BaB budget (env-tunable for dev)
-    ev = getenv('NNV_CONV_MAXNODES'); if ~isempty(ev), cMaxNodes = str2double(ev); end
-    ev = getenv('NNV_CONV_FRONTIER'); if ~isempty(ev), cFrontier = str2double(ev); end
+    % env overrides only when finite + sane (str2double of unset/non-numeric is NaN -> keep the
+    % default; a NaN budget would make info.nodes>maxNodes false forever and silently un-bound the BaB)
+    ev = str2double(getenv('NNV_CONV_MAXNODES')); if isfinite(ev) && ev >= 1, cMaxNodes = ev; end
+    ev = str2double(getenv('NNV_CONV_FRONTIER')); if isfinite(ev) && ev >= 1, cFrontier = ev; end
     try
         if isConv && gpuDeviceCount >= 1
             % CONV: an optional fast GPU-single SCREEN, then the sound CPU-DOUBLE pass that decides

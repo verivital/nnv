@@ -87,9 +87,11 @@ function [verdict, info] = gpu_bab_halfspace_verify(net, lb, ub, prop, opts)
     bopts = struct('precision', precision, 'spec', spec, 'margin', guardTol, 'rootTight', true, ...
                    'maxNodes', i_optget(opts, 'maxNodes', 5000), 'maxFrontier', i_optget(opts, 'maxFrontier', 256), ...
                    'alphaIter', i_optget(opts, 'alphaIter', 20), 'betaIter', i_optget(opts, 'betaIter', 20));
-    ev = getenv('NNV_HS_ALPHA'); if ~isempty(ev), bopts.alphaIter = str2double(ev); end
-    ev = getenv('NNV_HS_BETA');  if ~isempty(ev), bopts.betaIter  = str2double(ev); end
-    ev = getenv('NNV_HS_MAXNODES'); if ~isempty(ev), bopts.maxNodes = str2double(ev); end
+    % env overrides only when finite + in range (str2double of unset/non-numeric is NaN -> keep the
+    % default; a NaN maxNodes would un-bound the BaB, a NaN iter count would disable the knob)
+    v = str2double(getenv('NNV_HS_ALPHA'));    if isfinite(v) && v >= 0, bopts.alphaIter = v; end
+    v = str2double(getenv('NNV_HS_BETA'));     if isfinite(v) && v >= 0, bopts.betaIter  = v; end
+    v = str2double(getenv('NNV_HS_MAXNODES')); if isfinite(v) && v >= 1, bopts.maxNodes  = v; end
     try
         [st, binfo] = gpu_bab_relu_split_batched(ops, lb, ub, 1, nOut, bopts);
     catch ME
@@ -108,7 +110,7 @@ function [Gd, gd, rows, ok] = i_parse_disjuncts(prop, nOut)
 % prop.Hg: array of HalfSpace objects, each one unsafe disjunct {y : G*y <= g}. Return per-disjunct
 % G (k_d x nOut) and g (k_d x 1), plus rows{d} = the indices of disjunct d in the stacked spec.
     Gd = {}; gd = {}; rows = {}; ok = false;
-    if ~isfield(prop, 'Hg') && ~isprop(prop, 'Hg'), return; end
+    if ~i_has(prop, 'Hg'), return; end                 % struct-safe presence check (skip if no Hg)
     Hg = prop.Hg;
     if isempty(Hg), return; end
     if ~iscell(Hg), Hg = num2cell(Hg); end             % HalfSpace array -> cell of disjuncts
@@ -127,4 +129,10 @@ end
 
 function v = i_optget(s, f, d)
     if isfield(s, f) && ~isempty(s.(f)), v = s.(f); else, v = d; end
+end
+
+function tf = i_has(s, f)
+% struct-safe field/property presence check: isfield for structs (the load_vnnlib* prop case),
+% isprop for objects. Avoids relying on isprop's version-dependent behavior on a struct input.
+    if isstruct(s), tf = isfield(s, f); else, tf = isprop(s, f); end
 end

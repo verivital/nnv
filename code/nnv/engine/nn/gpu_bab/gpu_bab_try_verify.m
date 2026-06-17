@@ -138,9 +138,11 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     % per-node alpha+beta CROWN tightening (env override for dev/tuning; sound for any value --
     % alpha in [0,1], beta>=0 are valid relaxations). Lets the BaB cross the convex barrier the
     % fixed-slope bound can't, on the hardest deep nodes.
-    if ~isfield(bopts, 'alphaIter'), ev = getenv('NNV_BAB_ALPHA_ITERS'); if ~isempty(ev), bopts.alphaIter = str2double(ev); end; end
-    if ~isfield(bopts, 'betaIter'),  ev = getenv('NNV_BAB_BETA_ITERS');  if ~isempty(ev), bopts.betaIter  = str2double(ev); end; end
-    if ~isfield(bopts, 'alphaLr'),   ev = getenv('NNV_BAB_ALPHA_LR');    if ~isempty(ev), bopts.alphaLr   = str2double(ev); end; end
+    % only override when the parsed env is finite + in range (str2double of unset/non-numeric is NaN;
+    % a NaN alphaIter/betaIter would propagate through max(alphaIter,betaIter) and silently disable the knob)
+    if ~isfield(bopts, 'alphaIter'), v = str2double(getenv('NNV_BAB_ALPHA_ITERS')); if isfinite(v) && v >= 0, bopts.alphaIter = v; end; end
+    if ~isfield(bopts, 'betaIter'),  v = str2double(getenv('NNV_BAB_BETA_ITERS'));  if isfinite(v) && v >= 0, bopts.betaIter  = v; end; end
+    if ~isfield(bopts, 'alphaLr'),   v = str2double(getenv('NNV_BAB_ALPHA_LR'));    if isfinite(v) && v >  0, bopts.alphaLr   = v; end; end
     % DEVICE (opts.device 'cpu' default | 'gpu'): run the whole BaB on the GPU by moving the ops'
     % weight tensors + the input box to gpuArray ONCE here. The IBP/CROWN passes are gpuArray-
     % overloaded pure linear algebra, so all heavy compute + the per-node intermediate bounds stay

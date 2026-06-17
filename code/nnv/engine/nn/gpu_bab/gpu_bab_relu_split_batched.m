@@ -178,11 +178,15 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     if ~hasS
         status = 'unknown'; return;                 % root undecided, nothing to split
     end
-    % stack as per-relu fixing matrices fixStack{k} = [dim_k x M]; seed with root's 2 children.
+    % Stack as per-relu fixing matrices fixStack{k} = int8(dim_k x cap), with a SHARED column
+    % pointer M and amortized-doubling capacity. Pop/push then move only the pointer (no per-round
+    % concat/delete), so each is O(B) not O(stack) -- the cell-array realloc made rounds slow to a
+    % crawl (>17s) as the stack grew. int8 (fixings are -1/0/+1) keeps the live set ~8x smaller.
+    cap = max(1024, 4 * maxFrontier);
     fixStack = cell(nOps, 1);
-    for r = 1:numel(reluIdx), k = reluIdx(r); fixStack{k} = zeros(reluDim(k), 2); end
-    fixStack{sK}(sJ, 1) =  1;                        % active child
-    fixStack{sK}(sJ, 2) = -1;                        % inactive child
+    for r = 1:numel(reluIdx), k = reluIdx(r); fixStack{k} = zeros(reluDim(k), cap, 'int8'); end
+    fixStack{sK}(sJ, 1) =  int8(1);                 % active child
+    fixStack{sK}(sJ, 2) = -int8(1);                 % inactive child
     M = 2;
 
     % --- batched DFS over the node stack ---
@@ -190,7 +194,9 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     dbgEvery = str2double(getenv('NNV_BAB_DBG_EVERY')); if isnan(dbgEvery) || dbgEvery < 1, dbgEvery = 100; end
     bestWorst = -inf;                                            % best (largest) worst-margin seen so far
     tBab = tic; tPrev = 0;                                       % wall clock for node-throughput telemetry
+    tProf = zeros(1,5);                                          % [pop bound pick cex push] cumulative seconds
     while M > 0
+        tS = tic;
         info.rounds = info.rounds + 1;
         info.maxStack = max(info.maxStack, M);
         if M > maxStack
@@ -199,16 +205,19 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         B = min(maxFrontier, M);
         cols = (M - B + 1):M;                       % pop the top B nodes (LIFO -> DFS)
         fixc = cell(nOps, 1);
-        for r = 1:numel(reluIdx), k = reluIdx(r); fixc{k} = fixStack{k}(:, cols); end
-        for r = 1:numel(reluIdx), k = reluIdx(r); fixStack{k}(:, cols) = []; end
-        M = M - B;
+        % cast the popped batch to double (the type the bounding functions expect); only the big
+        % fixStack stays int8 for memory -- fixc is just B columns, so the cast is cheap.
+        for r = 1:numel(reluIdx), k = reluIdx(r); fixc{k} = double(fixStack{k}(:, cols)); end
+        M = M - B;                                  % move pointer only; popped cols become free space
         info.nodes = info.nodes + B;
         if info.nodes > maxNodes
             status = 'unknown'; return;
         end
+        tProf(1) = tProf(1) + toc(tS); tS = tic;
 
         % bound the popped batch (reusing the tight root bounds, clamped per node, if rootTight)
         [margins, preL, preU, infeas, scoreC] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot);
+        tProf(2) = tProf(2) + toc(tS); tS = tic;
         % An INFEASIBLE node (a fixing combination that made the clamped IBP box empty,
         % preL>preU at some neuron) represents an EMPTY sub-region: the property holds
         % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
@@ -220,45 +229,67 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
             bw = min(min(margins, [], 1));           % worst (most-negative) margin in this batch
             if isfinite(bw), bestWorst = max(bestWorst, bw); end
             if mod(info.rounds, dbgEvery) == 0
-                tNow = toc(tBab); dt = max(tNow - tPrev, 1e-6);
-                fprintf('[bab] round=%d nodes=%d stack=%d certified=%d/%d worstMargin=%.4g bestWorst=%.4g | %.0f nodes/s (%.1fs elapsed)\n', ...
+                tNow = toc(tBab); dt = max(tNow - tPrev, 1e-6); tp = tProf / max(tNow,1e-6) * 100;
+                fprintf('[bab] round=%d nodes=%d stack=%d certified=%d/%d worstMargin=%.4g bestWorst=%.4g | %.0f nodes/s (%.1fs) | pop%.0f bound%.0f pick%.0f cex%.0f push%.0f %%\n', ...
                     info.rounds, info.nodes, M, B - numel(undec), B, bw, bestWorst, ...
-                    dbgEvery * B / dt, tNow);
+                    dbgEvery * B / dt, tNow, tp(1), tp(2), tp(3), tp(4), tp(5));
                 tPrev = tNow;
             end
         end
         if isempty(undec)
             continue;                               % whole batch certified; pop the next
         end
+        tS = tic;
 
-        % periodic concrete counterexample search (cheap; argmax only -- halfspace sat is the dispatcher's job)
-        if doCex
+        % periodic concrete counterexample search (cheap; argmax only -- halfspace sat is the dispatcher's job).
+        % The box is fixed, so this only needs to run occasionally (the pre-loop check already covered it).
+        if doCex && mod(info.rounds, 25) == 0
             [cex, lab] = i_find_cex(ops, x_lb, x_ub, trueLabel, nSample, precision);
             if ~isempty(cex)
                 status = 'unsafe'; info.cex = cex; info.cexLabel = lab; return;
             end
         end
+        tProf(4) = tProf(4) + toc(tS); tS = tic;
 
         % split each undecided node on its highest BaBSR-score unstable unfixed neuron
         % (output-sensitivity x gap; falls back to largest-gap when no score is available)
         [sK, sJ, hasS] = i_pick_splits(reluIdx, preL, preU, fixc, undec, scoreC);
+        tProf(3) = tProf(3) + toc(tS); tS = tic;
         if ~all(hasS)
             status = 'unknown'; return;             % an undecided node cannot be split
         end
 
-        % push the two children of every undecided node onto the stack
+        % push the two children of every undecided node onto the stack (write into free columns
+        % above the pointer; grow capacity by doubling only when needed -> amortized O(B) per push)
         nu = numel(undec);
+        need = M + 2 * nu;
+        if need > maxStack
+            status = 'unknown'; return;             % live set would exceed the memory guard
+        end
+        if need > cap
+            newCap = cap; while newCap < need, newCap = 2 * newCap; end
+            newCap = min(newCap, maxStack);
+            for r = 1:numel(reluIdx)
+                k = reluIdx(r);
+                grown = zeros(reluDim(k), newCap, 'int8');
+                grown(:, 1:M) = fixStack{k}(:, 1:M);
+                fixStack{k} = grown;
+            end
+            cap = newCap;
+        end
         for r = 1:numel(reluIdx)
             k = reluIdx(r);
-            parent = fixc{k}(:, undec);             % dim_k x nu
-            fixStack{k} = [fixStack{k}, parent, parent];   % [active block | inactive block]
+            parent = fixc{k}(:, undec);             % dim_k x nu (int8)
+            fixStack{k}(:, M+1     : M+nu)   = parent;     % active block
+            fixStack{k}(:, M+nu+1  : M+2*nu) = parent;     % inactive block
         end
         for i = 1:nu
             k = sK(i); j = sJ(i);
-            fixStack{k}(j, M + i)      =  1;        % active child  (column M+i)
-            fixStack{k}(j, M + nu + i) = -1;        % inactive child (column M+nu+i)
+            fixStack{k}(j, M + i)      =  int8(1);  % active child  (column M+i)
+            fixStack{k}(j, M + nu + i) = -int8(1);  % inactive child (column M+nu+i)
         end
         M = M + 2 * nu;
+        tProf(5) = tProf(5) + toc(tS);
     end
     status = 'robust';
 end

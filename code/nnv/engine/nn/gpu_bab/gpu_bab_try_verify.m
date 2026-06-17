@@ -135,6 +135,12 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     % (false robust); clamp to >= 0 (sound-or-unknown).
     if isfield(bopts, 'margin') && bopts.margin < 0, bopts.margin = 0; end
     if ~isfield(bopts, 'maxNodes'),  bopts.maxNodes  = 300;      end
+    % per-node alpha+beta CROWN tightening (env override for dev/tuning; sound for any value --
+    % alpha in [0,1], beta>=0 are valid relaxations). Lets the BaB cross the convex barrier the
+    % fixed-slope bound can't, on the hardest deep nodes.
+    if ~isfield(bopts, 'alphaIter'), ev = getenv('NNV_BAB_ALPHA_ITERS'); if ~isempty(ev), bopts.alphaIter = str2double(ev); end; end
+    if ~isfield(bopts, 'betaIter'),  ev = getenv('NNV_BAB_BETA_ITERS');  if ~isempty(ev), bopts.betaIter  = str2double(ev); end; end
+    if ~isfield(bopts, 'alphaLr'),   ev = getenv('NNV_BAB_ALPHA_LR');    if ~isempty(ev), bopts.alphaLr   = str2double(ev); end; end
     % DEVICE (opts.device 'cpu' default | 'gpu'): run the whole BaB on the GPU by moving the ops'
     % weight tensors + the input box to gpuArray ONCE here. The IBP/CROWN passes are gpuArray-
     % overloaded pure linear algebra, so all heavy compute + the per-node intermediate bounds stay

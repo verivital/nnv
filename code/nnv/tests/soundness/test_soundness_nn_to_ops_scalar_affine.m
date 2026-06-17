@@ -22,25 +22,17 @@ if isempty(manifest)
 end
 
 net = load_nnv_from_mat(manifest);
-nIn = 6;   % lsnc relu_quadrotor2d_state: flat [6] feature input
-
-% (1) WITHOUT the input dim (the old call signature): a scalar ElementwiseAffine on the flat input
-% is still refused with elemAffineFlatSize (the fix is opt-in via inputDim; no behavior change).
-oldId = '';
-try, nn_to_ops(net, 'colmajor'); catch e, oldId = e.identifier; end
-assert(strcmp(oldId, 'nn_to_ops:elemAffineFlatSize'), ...
-    'without inputDim, the scalar ElementwiseAffine should still refuse (elemAffineFlatSize), got "%s"', oldId);
-
-% (2) WITH the input dim: the scalar ElementwiseAffine is RESOLVED. nn_to_ops then either succeeds
-% end-to-end (if every later op is supported) OR refuses at a genuinely-later op -- but the ONE
-% invariant is that it must NEVER refuse at the scalar affine (elemAffineFlatSize) again. (Not
-% brittle to future Concat/bilinear support: success is allowed.)
-newId = ''; nOps = 0;
-try, ops = nn_to_ops(net, 'colmajor', nIn); nOps = numel(ops); catch e, newId = e.identifier; end
-assert(~strcmp(newId, 'nn_to_ops:elemAffineFlatSize'), ...
-    'with inputDim, the scalar ElementwiseAffine must be RESOLVED, not refused (got elemAffineFlatSize again)');
-if isempty(newId)
-    fprintf('test_soundness_nn_to_ops_scalar_affine: passed (scalar affine resolved; full net supported -> %d ops)\n', nOps);
-else
-    fprintf('test_soundness_nn_to_ops_scalar_affine: passed (scalar affine resolved; advances to a later refusal "%s")\n', newId);
+% lsnc relu_quadrotor2d_state has SCALAR ElementwiseAffine layers on a flat vector, each preceded by
+% a FullyConnected. The fix tracks every op's flat size (= size(W,1) through affines, the input dim
+% for a leading affine), so those scalar affines resolve their per-feature broadcast size F instead
+% of refusing (nn_to_ops:elemAffineFlatSize). The ONE invariant: nn_to_ops must NEVER refuse at the
+% scalar affine again -- whether or not inputDim is supplied. (It advances to the next genuinely-
+% unsupported op -- lsnc's ConcatenationLayer / bilinear ElementwiseProduct -- or succeeds outright;
+% both are fine, so the test is not brittle to future Concat/bilinear support.)
+for inDim = {[], 6}                                   % both call forms: without inputDim, and with it
+    id = '';
+    try, nn_to_ops(net, 'colmajor', inDim{1}); catch e, id = e.identifier; end
+    assert(~strcmp(id, 'nn_to_ops:elemAffineFlatSize'), ...
+        'scalar ElementwiseAffine on a flat input must be RESOLVED, not refused (got elemAffineFlatSize, inputDim=%s)', mat2str(inDim{1}));
 end
+fprintf('test_soundness_nn_to_ops_scalar_affine: passed (scalar ElementwiseAffine on a flat input resolved on lsnc)\n');

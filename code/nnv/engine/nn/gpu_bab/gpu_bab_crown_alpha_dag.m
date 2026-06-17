@@ -1,4 +1,7 @@
-function [margins, unstable, preL, preU] = gpu_bab_crown_alpha_dag(ops, x_lb, x_ub, C, fixings, reluIdx, precision, nIter, lr, rootBounds)
+function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops, x_lb, x_ub, C, fixings, reluIdx, precision, nIter, lr, rootBounds)
+%   alphaOut (5th out): the optimized per-relu lower slopes as cell(nOps,1) of dim_k x 1 vectors
+%     (column 1 of the batch). Pass this as gpu_bab_crown_spec_dag's alphaCell to bound a whole
+%     BaB frontier with these fixed root slopes -- AMORTIZED alpha-CROWN (no per-node autodiff).
 % GPU_BAB_CROWN_ALPHA_DAG  alpha-CROWN lower bound on a linear spec C*f(x) for CONV/DAG nets.
 %   The fusion of gpu_bab_crown_alpha_fix (the FC alpha-CROWN harness) onto the full DAG
 %   backward of gpu_bab_crown_spec_dag (affine/conv/normaffine/avgpool/relu/add). It optimizes
@@ -77,6 +80,7 @@ function [margins, unstable, preL, preU] = gpu_bab_crown_alpha_dag(ops, x_lb, x_
         margins = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
                              pVec, reluIdx, rdims, offsets, nP, B, nSpec);
         margins = i_g(margins);
+        alphaOut = i_alpha_cell(pVec, nP, nOps, reluIdx, rdims, offsets);
         return;
     end
 
@@ -91,10 +95,24 @@ function [margins, unstable, preL, preU] = gpu_bab_crown_alpha_dag(ops, x_lb, x_
     bestObj = i_g(sum(min(m0,[],1), 'all')); bestVec = pVec;
     mt = zeros(2*nP, 1, precision); vt = zeros(2*nP, 1, precision);
     b1 = 0.9; b2 = 0.999; epsA = cast(1e-8, precision);
+    % WORST-SPEC gradient (the cifar-scale memory fix): the objective sum(min_spec margin) has a
+    % gradient that flows ONLY through each node's ARGMIN spec, so the autodiff tape needs just that
+    % ONE spec row per node (1 x featureMap x B) instead of all nSpec -> ~nSpec x less memory ->
+    % large frontier with full alpha+beta. For small nSpec (cheap) keep the exact full gradient.
+    useWorst = (nSpec > 16);
     try
         for it = 1:nIter
-            [~, grad] = dlfeval(@(p) i_aloss(ops, preL, actM, unsM, auC, buC, fixSign, ...
-                                x_lb, x_ub, C, precision, p, reluIdx, rdims, offsets, nP, B, nSpec), pVec);
+            if useWorst
+                mF = i_g(i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
+                                    pVec, reluIdx, rdims, offsets, nP, B, nSpec));   % all specs, NO tape
+                [~, wIdx] = min(mF, [], 1);                       % worst spec per node (1 x B)
+                Cw = i_worst_C(C, wIdx, precision);              % 1 x nOut x B (per-node worst row)
+                [~, grad] = dlfeval(@(p) i_aloss(ops, preL, actM, unsM, auC, buC, fixSign, ...
+                                    x_lb, x_ub, Cw, precision, p, reluIdx, rdims, offsets, nP, B, 1), pVec);
+            else
+                [~, grad] = dlfeval(@(p) i_aloss(ops, preL, actM, unsM, auC, buC, fixSign, ...
+                                    x_lb, x_ub, C, precision, p, reluIdx, rdims, offsets, nP, B, nSpec), pVec);
+            end
             g = extractdata(grad);
             if ~any(g(:)), break; end                  % zero gradient (tape didn't reach params) -> stop
             mt = b1*mt + (1-b1)*g;
@@ -119,6 +137,28 @@ function [margins, unstable, preL, preU] = gpu_bab_crown_alpha_dag(ops, x_lb, x_
     margins = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
                          bestVec, reluIdx, rdims, offsets, nP, B, nSpec);
     margins = i_g(margins);
+    alphaOut = i_alpha_cell(bestVec, nP, nOps, reluIdx, rdims, offsets);
+end
+
+% =====================================================================================
+function ac = i_alpha_cell(pVec, nP, nOps, reluIdx, rdims, offsets)
+% Extract the optimized alpha (first nP entries of [alpha;beta]) as a per-relu cell(nOps,1) of
+% dim_k x 1 column-1 slopes, for reuse as gpu_bab_crown_spec_dag's fixed alphaCell.
+    v = i_g(pVec(1:nP));
+    ac = cell(nOps, 1);
+    for r = 1:numel(reluIdx)
+        k = reluIdx(r);
+        a = reshape(v(offsets(r)+1 : offsets(r+1)), rdims(r), []);   % dim_k x B
+        ac{k} = a(:, 1);                                             % root: B=1 (or first column)
+    end
+end
+
+% =====================================================================================
+function Cw = i_worst_C(C, wIdx, precision)
+% Per-node worst spec for the memory-efficient gradient: 1 x nOut x B, where column b is the
+% wIdx(b)-th row of the full spec C (the argmin spec for node b).
+    nOut = size(C, 2); B = numel(wIdx);
+    Cw = reshape(cast(C(wIdx, :), precision).', 1, nOut, B);   % (B x nOut).' = nOut x B -> 1 x nOut x B
 end
 
 % =====================================================================================
@@ -136,7 +176,12 @@ function margins = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_
 % op-for-op identical to gpu_bab_crown_spec_dag.
     nOps = numel(ops); n = size(x_lb, 1);
     skipA = cell(nOps, 1);
-    skipA{nOps} = repmat(cast(C, precision), 1, 1, B);
+    if ndims(C) == 3
+        skipA{nOps} = cast(C, precision);            % per-NODE spec (nSpec x nOut x B), e.g. worst-spec
+    else
+        skipA{nOps} = repmat(cast(C, precision), 1, 1, B);   % shared spec
+    end
+    nSpec = size(skipA{nOps}, 1);                    % derive (1 for worst-spec gradient, else full)
     d = zeros(nSpec, B, precision);
     inputSkipA = [];
     for k = nOps:-1:1

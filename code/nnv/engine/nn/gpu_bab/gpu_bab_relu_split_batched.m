@@ -104,15 +104,34 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     % for every batched bound below. This gives tight bounds (vs the loose per-node IBP) at
     % batched speed (vs recomputing the tight pass per node). Falls back to the IBP forward
     % when rootTight is off. ---
-    rootBounds = [];
+    rootBounds = []; alphaRoot = {};
     if rootTight
         [mRoot, rtL, rtU] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, cell(nOps,1));
         mRoot = gather(mRoot(:));
         rootBounds = struct('preL', {rtL}, 'preU', {rtU});
         preL = cell(nOps,1); preU = cell(nOps,1);
         for r = 1:numel(reluIdx), k = reluIdx(r); preL{k} = gather(rtL{k}); preU{k} = gather(rtU{k}); end
+        % AMORTIZED alpha-CROWN: optimize alpha ONCE at the root (B=1, no per-node gradient memory)
+        % and reuse the FIXED slopes for every BaB node via spec_dag -> LARGE frontier (the per-node
+        % alpha autodiff OOMs past frontier ~8 on cifar). env NNV_AMORT_ALPHA = #root iters.
+        ev = getenv('NNV_AMORT_ALPHA');
+        if ~isempty(ev) && (alphaIter > 0 || betaIter > 0 || true)
+            nitR = str2double(ev); if isnan(nitR), nitR = 50; end
+            try
+                tRoot = tic;
+                [mR2, ~, ~, ~, alphaRoot] = gpu_bab_crown_alpha_dag(ops, x_lb, x_ub, C, cell(nOps,1), reluIdx, precision, nitR, alphaLr, rootBounds);
+                mRoot = gather(mR2(:));   % the root-alpha margin (tighter than min-area crown_tight)
+                if ~isempty(getenv('NNV_DEBUG_BAB'))
+                    fprintf('[amort] root-alpha (%d it, %.1fs): margin min=%.6g median=%.6g (n=%d, frontier=%d)\n', ...
+                        nitR, toc(tRoot), min(mRoot), median(mRoot), numel(mRoot), maxFrontier);
+                end
+            catch ME
+                alphaRoot = {};
+                if ~isempty(getenv('NNV_DEBUG_BAB')), fprintf('[amort] root-alpha errored: %s\n', ME.message); end
+            end
+        end
     else
-        [mRoot, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, cell(nOps,1), 1);
+        [mRoot, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, cell(nOps,1), 1, [], 0, 0.2, 0, {});
     end
     info.nodes = 1;
     if i_certify_dis(mRoot, gOff, rowGroups, margin)
@@ -150,7 +169,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         end
 
         % bound the popped batch (reusing the tight root bounds, clamped per node, if rootTight)
-        [margins, preL, preU, infeas] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter);
+        [margins, preL, preU, infeas] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot);
         % An INFEASIBLE node (a fixing combination that made the clamped IBP box empty,
         % preL>preU at some neuron) represents an EMPTY sub-region: the property holds
         % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
@@ -206,7 +225,7 @@ function ok = i_certify_dis(margins, gOff, rowGroups, marginSlack)
 end
 
 % ------------------------------------------------------------------------------------
-function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter)
+function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot)
 % Bound B frontier nodes (B <= maxFrontier) in one batched CROWN call. The backward CROWN
 % (pagemtimes) runs on-device; margins and the per-relu pre-activation bounds are gathered to
 % host (small) for the verdict + split-neuron selection. infeasible(j) is true when node j's
@@ -221,13 +240,18 @@ function [margins, preL, preU, infeasible] = i_bound_batch(ops, reluIdx, x_lb, x
     if nargin < 10 || isempty(alphaIter), alphaIter = 0; end
     if nargin < 11 || isempty(alphaLr), alphaLr = 0.2; end
     if nargin < 12 || isempty(betaIter), betaIter = 0; end
+    if nargin < 13, alphaRoot = {}; end
     LB = repmat(x_lb, 1, B); UB = repmat(x_ub, 1, B);
-    % DAG nets (conv/normaffine/avgpool/add) route to gpu_bab_crown_alpha_dag (alpha+beta over the
-    % full DAG); the FC-only alpha_fix/alpha_beta mis-bound a conv/add op (fail-open) so are used
-    % ONLY for pure affine/relu. alphaIter==betaIter==0 -> fixed-slope spec_dag (the cheap bound).
+    % DAG nets (conv/normaffine/avgpool/add): with AMORTIZED root slopes (alphaRoot) bound the whole
+    % frontier via spec_dag (fixed slopes, NO autodiff -> large frontier, the cifar memory fix);
+    % else per-node alpha_dag (alpha+beta, autodiff -> small frontier) when alphaIter/betaIter>0;
+    % else min-area spec_dag. FC-only alpha_fix/alpha_beta mis-bound conv/add (fail-open) -> never
+    % used for DAG. All sound (alpha in [0,1], beta>=0).
     isDAG = any(cellfun(@(o) any(strcmp(o.type, {'conv','normaffine','avgpool','add'})), ops));
     if isDAG
-        if alphaIter > 0 || betaIter > 0
+        if ~isempty(alphaRoot)
+            [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds, alphaRoot);
+        elseif alphaIter > 0 || betaIter > 0
             [m, ~, pL, pU] = gpu_bab_crown_alpha_dag(ops, LB, UB, C, fixc, reluIdx, precision, max(alphaIter,betaIter), alphaLr, rootBounds);
         else
             [m, pL, pU] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);

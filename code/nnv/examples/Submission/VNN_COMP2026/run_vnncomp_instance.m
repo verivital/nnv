@@ -793,12 +793,15 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     % DOUBLE-precision confirm; GPU-single is just a fast filter that can never emit a verdict.
     % FC nets are cheap in double -> single-stage CPU-double (maxNodes 5000). No GPU -> conv also
     % falls back to CPU-double (slow but sound).
+    cMaxNodes = 64; cFrontier = 32;                          % conv BaB budget (env-tunable for dev)
+    ev = getenv('NNV_CONV_MAXNODES'); if ~isempty(ev), cMaxNodes = str2double(ev); end
+    ev = getenv('NNV_CONV_FRONTIER'); if ~isempty(ev), cFrontier = str2double(ev); end
     try
         if isConv && gpuDeviceCount >= 1
             [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, ...
-                struct('engine','batched','maxNodes',64,'device','gpu','allowUnsoundSingle',true));
+                struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier,'device','gpu','allowUnsoundSingle',true));
             if strcmp(gv, 'robust')
-                [gv2, gi2] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',64));  % CPU double = sound emit
+                [gv2, gi2] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier));  % CPU double = sound emit
                 if strcmp(gv2, 'robust')
                     status = 1; reachOptionsList = {};
                     fprintf('GPU-BaB pre-check: robust/unsat (gpu-screen + %d-node double-confirm) -> skip Star\n', gi2.nodes);

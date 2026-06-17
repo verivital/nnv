@@ -78,6 +78,34 @@ function gpu_bab_alpha_dag_parity_test()
             ni, min(minTrue - mB), sum(ok), nMC);
     end
 
+    % ============ WORST-SPEC path (nSpec>16) — the cifar-scale memory mode ============
+    % Large nSpec triggers useWorst: find-worst-once gradient + 1-spec keep-best + min-area fallback.
+    % Verify (a) it runs, (b) no-worse than min-area (the per-node fallback guard), and (c) the BETA
+    % bound stays a valid lower bound under split fixings via Monte Carlo (the -150 gate, many specs).
+    for ni = 1:numel(nets)
+        net = nets{ni}; ops = net.ops; reluIdx = net.reluIdx; n = net.nIn; nOut = net.nOut;
+        c = randn(n,1); rad = 0.4*(0.5+rand(n,1)); lb = c-rad; ub = c+rad;
+        C = randn(40, nOut);                                 % 40 > 16 -> worst-spec mode
+        % (b) no-worse than min-area (no fixings): the fallback guard must hold per node.
+        mW0 = gpu_bab_crown_alpha_dag(ops, lb, ub, C, {}, reluIdx, prec, 0, [], []);
+        mWo = gpu_bab_crown_alpha_dag(ops, lb, ub, C, {}, reluIdx, prec, 20, 0.1, []);
+        reg = min(min(mWo,[],1) - min(mW0,[],1));
+        assert(reg >= -1e-7, '[worst-spec %d] REGRESSED below min-area by %.3e (fallback guard failed)', ni, -reg);
+        % (c) beta MC soundness with many specs (worst-spec gradient under split constraints).
+        [fixings, x0] = i_make_fixings(ops, lb, ub, reluIdx, prec);
+        mB = gpu_bab_crown_alpha_dag(ops, lb, ub, C, fixings, reluIdx, prec, 20, 0.1, []);
+        mB = min(mB, [], 2);
+        nMC = 40000; X = [x0, lb + (ub - lb) .* rand(n, nMC-1)];
+        [Y, Z] = i_forward(ops, X, reluIdx);
+        ok = i_satisfies(Z, fixings, reluIdx, 0);
+        assert(any(ok), '[worst-spec beta %d] no MC sample satisfied the split fixings', ni);
+        minTrue = min(C * Y(:, ok), [], 2);
+        viol = max(mB - minTrue);
+        assert(viol <= 1e-6, '[worst-spec beta %d] UNSOUND: bound exceeds MC true-min by %.3e', ni, viol);
+        fprintf('[worst-spec %d] OK (no-worse gain %.3e + beta sound; slack %.3e; %d/%d feasible)\n', ...
+            ni, reg, min(minTrue - mB), sum(ok), nMC);
+    end
+
     fprintf('\nALL PARITY + BETA-SOUNDNESS TESTS PASSED\n');
 end
 

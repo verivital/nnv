@@ -100,13 +100,13 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
     % ONE spec row per node (1 x featureMap x B) instead of all nSpec -> ~nSpec x less memory ->
     % large frontier with full alpha+beta. For small nSpec (cheap) keep the exact full gradient.
     useWorst = (nSpec > 16);
+    if useWorst
+        [~, wIdx] = min(i_g(m0), [], 1);              % worst spec per node, found ONCE (the stable bottleneck)
+        Cw = i_worst_C(C, wIdx, precision);          % 1 x nOut x B -> the optimization + keep-best use only this
+    end
     try
         for it = 1:nIter
             if useWorst
-                mF = i_g(i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
-                                    pVec, reluIdx, rdims, offsets, nP, B, nSpec));   % all specs, NO tape
-                [~, wIdx] = min(mF, [], 1);                       % worst spec per node (1 x B)
-                Cw = i_worst_C(C, wIdx, precision);              % 1 x nOut x B (per-node worst row)
                 [~, grad] = dlfeval(@(p) i_aloss(ops, preL, actM, unsM, auC, buC, fixSign, ...
                                     x_lb, x_ub, Cw, precision, p, reluIdx, rdims, offsets, nP, B, 1), pVec);
             else
@@ -122,9 +122,17 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
             v(1:nP)      = max(min(v(1:nP), 1), 0);            % alpha in [0,1]
             v(nP+1:end)  = max(v(nP+1:end), 0) .* fixedMask;   % beta >= 0, only on fixed neurons
             pVec = dlarray(v);
-            m = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
-                           pVec, reluIdx, rdims, offsets, nP, B, nSpec);
-            obj = i_g(sum(min(m,[],1), 'all'));
+            if useWorst
+                % cheap keep-best: score only the worst spec (1 row), not all nSpec. At init the
+                % worst spec IS the per-node argmin, so sum(worst) == sum(min) -> bestObj stays comparable.
+                mw = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, Cw, precision, ...
+                                pVec, reluIdx, rdims, offsets, nP, B, 1);
+                obj = i_g(sum(mw, 'all'));
+            else
+                m = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
+                               pVec, reluIdx, rdims, offsets, nP, B, nSpec);
+                obj = i_g(sum(min(m,[],1), 'all'));
+            end
             if obj > bestObj, bestObj = obj; bestVec = pVec; end
         end
     catch ME
@@ -137,6 +145,14 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
     margins = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
                          bestVec, reluIdx, rdims, offsets, nP, B, nSpec);
     margins = i_g(margins);
+    % NO-WORSE-THAN-MIN-AREA guarantee. The worst-spec keep-best optimizes a FIXED-worst-spec proxy;
+    % as (alpha,beta) move, a node's true argmin spec can shift, so the proxy can diverge and bestVec's
+    % true worst-margin can dip below min-area (still SOUND -- a valid lower bound at feasible
+    % (alpha,beta) -- just looser). Per node, fall back to the min-area bound m0 wherever it is tighter,
+    % so the returned bound is never below min-area. (No-op for the exact full-gradient path.)
+    m0g = i_g(m0);
+    fb = min(m0g, [], 1) > min(margins, [], 1);          % 1 x B: min-area beats optimized for this node
+    if any(fb), margins(:, fb) = m0g(:, fb); end
     alphaOut = i_alpha_cell(bestVec, nP, nOps, reluIdx, rdims, offsets);
 end
 

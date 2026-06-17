@@ -15,13 +15,27 @@ function [verdict, info] = gpu_bab_halfspace_genbab(ops, lb, ub, Gd, gd, opts)
 %
 %   [verdict, info] = ... ; verdict = 'robust' | 'unknown'.
 %
-%   SOUNDNESS (sound-or-unknown; never a wrong unsat): both splits partition the input set (product:
-%   v(x)<=mid / v(x)>=mid; ReLU: neuron active / inactive), and crown_tight only TIGHTENS the bound
-%   per child, so each child's spec lower bound is valid for its share of inputs. An infeasible node
-%   (a stale override or a ReLU fixing the box can't satisfy: CROWN gives preL>preU) is pruned -
-%   vacuously safe, proven empty by the CROWN bounds, fired only past a real 1e-9 margin so a live
-%   node is never dropped. 'robust' is returned ONLY when every leaf is certified or pruned. FP64;
-%   never a false 'empty'/separation -> never a wrong unsat.
+%   SOUNDNESS (sound-or-unknown; never a wrong unsat). Two facts compose:
+%     (1) REGION-VALIDITY. At a node, crown_tight's margin m and input-space lower plane (Ain,din)
+%         under the node's overrides+fixings are a valid lower bound on C*y over the node's REGION
+%         R = {x in box : v_k(x) in [lo_k,hi_k] for each product override k, and each fixed ReLU in
+%         its phase} -- NOT over the whole box. A product override clamps the McCormick to [lo,hi],
+%         a valid x*y envelope exactly where v(x) in [lo,hi]; a ReLU fixing clamps the relaxation to
+%         its phase. So certify (single-row m(row)>g, OR clip-empty) certifies that R avoids the
+%         unsafe disjunct -- a clip over the FULL box returning empty is a STRONGER claim that still
+%         implies emptiness over R.
+%     (2) COVERAGE. The leaves PARTITION the box: a product split gives v<=mid UNION v>=mid, a ReLU
+%         split active UNION inactive, and the prune removes only empty regions.
+%   Together: any input x* lies in exactly one leaf's region; if x* were a real violation it lands in
+%   THAT leaf's region where the bound is valid, so margin <= C*y(x*) <= g and x* sits in the clip
+%   set -> that leaf CANNOT certify (it splits or hits maxNodes -> 'unknown'). Hence the off-region
+%   over-promise of a McCormick plane is harmless: a SIBLING leaf certifying its own region never
+%   absolves the leaf that actually owns x*. 'robust' is returned ONLY when every leaf is certified
+%   or pruned, so the whole box is covered by safe regions. (Empirically stress-tested by
+%   test_gpu_bab_halfspace_genbab/test_fuzz_never_false_robust.)
+%   The infeasibility prune is vacuously safe (CROWN proves the region empty) and fires only past a
+%   PRECISION/MAGNITUDE-aware margin (unit roundoff * magnitude, floored at 1e-9), so a live node is
+%   never dropped in single or double precision. FP64 by default; never a false 'empty'/separation.
 %
 %   opts: .maxNodes (3e5) .timeCap (Inf) .tol (1e-6) .precision ('double') .gapTol (1e-7)
 %         .minWidth (1e-9, smallest product value-range still worth splitting).
@@ -70,10 +84,18 @@ function [verdict, info] = gpu_bab_halfspace_genbab(ops, lb, ub, Gd, gd, opts)
         m = double(m(:)); Ain = double(Ain); din = double(din(:));
 
         % Infeasible node (stale override or a ReLU fixing the box can't satisfy): CROWN proves it
-        % empty (preL>preU past a real margin) -> prune, vacuously safe. SOUND (never an eps wobble).
+        % empty (preL>preU past a real margin) -> prune, vacuously safe. The empty-margin is
+        % PRECISION- and MAGNITUDE-aware (unit roundoff u * 64 safety * bound magnitude, floored at
+        % 1e-9): the prune fires only when the lower bound exceeds the upper by MORE than the
+        % worst-case accumulated CROWN rounding error, so a genuinely non-empty node (where
+        % preL<=preU in exact arithmetic) is NEVER dropped, in single OR double precision and at any
+        % bound magnitude. A fixed 1e-9 was unsound for precision='single' / huge-magnitude nets.
+        u = 1.1e-16; if strcmp(prec, 'single'), u = 6e-8; end
         empty = false;
         for kk = 1:numel(prodIdx)
-            if any(preL{prodIdx(kk)} > preU{prodIdx(kk)} + 1e-9), empty = true; break; end
+            pl = preL{prodIdx(kk)}; pu = preU{prodIdx(kk)};
+            emargin = max(1e-9, 64 * u * max([1; abs(pl(:)); abs(pu(:))]));
+            if any(pl > pu + emargin), empty = true; break; end
         end
         if empty, info.pruned = info.pruned + 1; continue; end
 

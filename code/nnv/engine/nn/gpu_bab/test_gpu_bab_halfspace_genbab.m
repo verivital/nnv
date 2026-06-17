@@ -75,6 +75,41 @@ function test_disjunction_sound(tc)
         'UNSOUND: returned robust though the union of unsafe disjuncts covers the reachable set');
 end
 
+function test_fuzz_never_false_robust(tc)
+    % Adversarial fuzz for the off-region McCormick concern (soundness review finding 2): across many
+    % random bilinear nets and VIOLATED specs (unsafe region IS reachable, MC-confirmed, deliberately
+    % SMALL so a violation tends to sit inside ONE product-split sibling region), the verifier must
+    % NEVER return 'robust'. The product-input override makes the McCormick plane valid only over a
+    % child's value-region; if certify could lean on that plane OFF that region, some trial here would
+    % slip through as a false 'robust'. Empirically confirms the region-validity soundness argument.
+    nTrials = 25; nViolated = 0;
+    for trial = 1:nTrials
+        rng(1000 + trial, 'twister');
+        n = 3;
+        W1 = randn(5, n); b1 = randn(5, 1);
+        W2 = randn(3, 5); b2 = randn(3, 1);
+        W3 = randn(3, n); b3 = randn(3, 1);
+        W4 = randn(1, 3); b4 = randn(1, 1);
+        ops = { struct('type','affine','W',W1,'b',b1,'src',0), ...
+                struct('type','relu','src',1), ...
+                struct('type','affine','W',W2,'b',b2,'src',2), ...
+                struct('type','affine','W',W3,'b',b3,'src',0), ...
+                struct('type','product','inputs',[3 4],'sizes',[3 3],'src',3), ...
+                struct('type','affine','W',W4,'b',b4,'src',5) };
+        lb = -0.2 * ones(n, 1); ub = 0.2 * ones(n, 1);
+        N = 30000; X = lb + (ub - lb) .* rand(n, N); S = i_eval(ops, X);
+        sMin = min(S); sMax = max(S);
+        g = sMin + 0.08 * (sMax - sMin);          % unsafe = {s<=g}: reachable but small (~bottom 8%)
+        if ~any(S <= g), continue; end            % keep only genuinely violated trials
+        nViolated = nViolated + 1;
+        opts = struct('maxNodes', 2500, 'timeCap', 15, 'precision', 'double');
+        [verdict, ~] = gpu_bab_halfspace_genbab(ops, lb, ub, {1}, {g}, opts);
+        verifyFalse(tc, strcmp(verdict, 'robust'), ...
+            sprintf('UNSOUND on trial %d: robust returned for a reachable (violated) unsafe region', trial));
+    end
+    verifyGreaterThan(tc, nViolated, 15, 'fuzz setup: too few genuinely-violated trials to be meaningful');
+end
+
 function Y = i_eval(ops, X)
     cache = cell(numel(ops) + 1, 1); cache{1} = X;
     for k = 1:numel(ops)

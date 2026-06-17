@@ -78,6 +78,33 @@ function [verdict, info] = gpu_bab_halfspace_verify(net, lb, ub, prop, opts)
     C = cat(1, Gd{:});                                 % all rows of all disjuncts (nRows x nOut)
     gAll = cat(1, gd{:});                              % matching offsets
 
+    % (2.5) CLIP-AND-VERIFY joint pre-check (Zhou et al. NeurIPS 2025). The single-row separation
+    % test below is INCOMPLETE for a disjunct's CONJUNCTION (the reachable set can wrap the unsafe
+    % polytope so no single face separates it, yet every point escapes via SOME face). Here we use
+    % the CROWN input-space LOWER plane of each row (G_i*y >= Ain_i*x + din_i) to clip the input box
+    % against the conjunction {G_i*y <= g_i for all i}; if the clipped box is EMPTY, NO input reaches
+    % the unsafe polytope -> the disjunct is avoided JOINTLY (sound UNSAT). FP64. Cheap (one root
+    % CROWN + an O(n) clip per disjunct), so run before the BaB; disjuncts it cannot close fall
+    % through to the ReLU-split BaB unchanged.
+    try
+        [~, ~, ~, ~, Ain, din] = gpu_bab_crown_tight(ops, lb, ub, C, precision, cell(nOps,1));
+        Ain = gather(double(Ain)); din = gather(double(din(:)));
+        nClipped = 0;
+        for d = 1:numel(Gd)
+            rd = rows{d};                              % stacked-C rows of disjunct d
+            [~, ~, isEmpty] = gpu_bab_clip(lb, ub, Ain(rd, :), din(rd) - gAll(rd));
+            if isEmpty, nClipped = nClipped + 1; end
+        end
+        if nClipped == numel(Gd)
+            verdict = 'robust';                        % every disjunct's conjunction is infeasible -> safe
+            info.reason = sprintf('clip-and-verify (all %d disjuncts jointly avoided)', numel(Gd));
+            info.nodes = 0; return;
+        end
+        info.nClipped = nClipped;                      % partial progress (telemetry); BaB handles the rest
+    catch ME
+        info.clipErr = ME.message;                     % clip is an optional accelerator -> never fatal; fall to BaB
+    end
+
     % (3) sound disjunctive ReLU-split BaB (FP64). opts.spec routes the disjunct structure into the
     % batched BaB, which certifies SAFE iff EVERY disjunct is avoided (some row separated) -- and
     % SPLITS unstable ReLUs to tighten beyond the (typically too-loose) root CROWN. margin=guardTol

@@ -1,5 +1,9 @@
-function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings)
+function [margins, preL, preU, unstable, Ain, din] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings)
 % GPU_BAB_CROWN_TIGHT  CROWN with TIGHT (backward) intermediate-layer bounds.
+%   Optional 5th/6th outputs Ain (nSpec x nIn), din (nSpec x 1) are the CROWN input-space LOWER
+%   plane for the spec: C*f(x) >= Ain*x + din for every x in [x_lb,x_ub] (margins = min over the
+%   box of that plane). Used by Clip-and-Verify domain clipping (gpu_bab_clip) for the joint
+%   output-polytope avoidance that single-halfspace separation misses.
 %
 %   [margins, preL, preU] = GPU_BAB_CROWN_TIGHT(ops, x_lb, x_ub, C, precision)
 %   computes a sound lower bound on C*f(x) over [x_lb,x_ub] using CROWN-tight
@@ -67,8 +71,8 @@ function [margins, preL, preU, unstable] = gpu_bab_crown_tight(ops, x_lb, x_ub, 
         end
     end
 
-    % ---- final spec margin (lower bound on C*output) ----
-    margins = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true);
+    % ---- final spec margin (lower bound on C*output) + the input-space lower plane ----
+    [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true);
 end
 
 function w = i_layer_width(ops, upto)
@@ -93,19 +97,22 @@ function w = i_layer_width(ops, upto)
     error('gpu_bab_crown_tight:nolinear', 'no affine/conv op before index %d', upto);
 end
 
-function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
+function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
 % Backward CROWN over the DAG ops[1..upto] with initial coefficient A0 (on op `upto`'s output).
 % FULL DAG: each op routes its backward coefficient to op.src (its input op), accumulated in
 % skipA{src}; an 'add' routes UNCHANGED to BOTH inputs (linear -> exact). skipA{k} = accumulated
 % coefficient on op k's OUTPUT; inputSkipA = coefficient on op 0 (the engine input). Ops are
 % topologically ordered, so k=upto:-1:1 visits every consumer of op k before op k itself, so
 % skipA{k} is complete when op k is processed (sound by induction). lower=true -> lower bound.
+% Optional Ain (nS x nIn), din (nS x 1): the input-space affine form, so for lower=true the
+% bounded quantity >= Ain*x + din for all x in the box (bound = min over the box of that plane).
     nS = size(A0, 1);
     d = zeros(nS, 1, precision);
     if upto == 0                              % A0 is already on the engine input (op 0)
         Apos = max(A0, 0); Aneg = min(A0, 0);
         if lower, bound = Apos*cast(x_lb,precision) + Aneg*cast(x_ub,precision);
         else,     bound = Apos*cast(x_ub,precision) + Aneg*cast(x_lb,precision); end
+        Ain = A0; din = zeros(nS, 1, precision);
         return;
     end
     skipA = cell(upto, 1);
@@ -196,6 +203,8 @@ function bound = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lo
         end
     end
     A = inputSkipA;                           % total coefficient on the engine input
+    if isscalar(A), A = zeros(nS, numel(x_lb), precision); end   % input-independent -> zero plane
+    Ain = A; din = d;                         % input-space affine form: bounded >= Ain*x + din (lower)
     Apos = max(A, 0); Aneg = min(A, 0);
     if lower
         bound = Apos * cast(x_lb, precision) + Aneg * cast(x_ub, precision) + d;

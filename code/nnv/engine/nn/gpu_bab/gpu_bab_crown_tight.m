@@ -115,6 +115,28 @@ function w = i_layer_width(ops, upto)
     error('gpu_bab_crown_tight:nolinear', 'no affine/conv op before index %d', upto);
 end
 
+function rad = i_outward_rad(A, x_lb, x_ub, precision)
+% SOUND-FP32 outward error radius (Higham running-error). At a CROWN concretization
+% bound = Apos*x_lb + Aneg*x_ub + d (an nS-vector, computed in `precision` over the box), the
+% FP rounding error of the length-n input contraction is bounded by gamma_n*(|A|*|x_mag|) with
+% gamma_n = n*u/(1-n*u) and u the unit roundoff. Returning this nS x 1 radius (a TRANSIENT vector,
+% never an A-shaped tensor -> memory-flat, fits 11 GB) lets the caller widen OUTWARD: lower bounds
+% -= rad, upper += rad. SOUND: deterministic worst-case gamma_n (never the probabilistic sqrt(n)u),
+% pre-inflated by k (>=2) so the radius GEMM's own rounding can't make rad an under-estimate, plus
+% n*realmin to absorb subnormal flush. Only fires for 'single' (FP64 rounding ~1e-16 is negligible
+% and the FP64 path stays the oracle). See research/FP32_SOUND_RECIPE_2026-06-17.md.
+%   NOTE (M1): k is deliberately huge (10) and only the final contraction is widened -- this proves
+%   the outward plumbing + the speed/memory envelope; full soundness (per-op backward error, Edits
+%   B-D) follows in M2. NOT a certified EMIT path until M2 + the G1 parity gate pass.
+    if ~strcmp(precision, 'single'), rad = zeros(size(A,1), 1, 'like', A); return; end
+    n = numel(x_lb);
+    u = single(eps('single') / 2);
+    k = single(10);                                   % M1: deliberately huge conservative inflation
+    gbar = k * (n * u) / (1 - n * u);
+    xmag = max(abs(single(x_lb(:))), abs(single(x_ub(:))));
+    rad = gbar * (abs(A) * xmag) + single(n) * realmin('single');
+end
+
 function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
 % Backward CROWN over the DAG ops[1..upto] with initial coefficient A0 (on op `upto`'s output).
 % FULL DAG: each op routes its backward coefficient to op.src (its input op), accumulated in
@@ -130,6 +152,8 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
         Apos = max(A0, 0); Aneg = min(A0, 0);
         if lower, bound = Apos*cast(x_lb,precision) + Aneg*cast(x_ub,precision);
         else,     bound = Apos*cast(x_ub,precision) + Aneg*cast(x_lb,precision); end
+        rad = i_outward_rad(A0, x_lb, x_ub, precision);      % sound-FP32: widen OUTWARD
+        if lower, bound = bound - rad; else, bound = bound + rad; end
         Ain = A0; din = zeros(nS, 1, precision);
         return;
     end
@@ -228,6 +252,8 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     else
         bound = Apos * cast(x_ub, precision) + Aneg * cast(x_lb, precision) + d;
     end
+    rad = i_outward_rad(A, x_lb, x_ub, precision);           % sound-FP32: widen OUTWARD (lower-=rad / upper+=rad)
+    if lower, bound = bound - rad; else, bound = bound + rad; end
 end
 
 function [A2, d2] = i_conv_backward(A, d, op, precision)

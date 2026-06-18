@@ -162,6 +162,37 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
         lb = gpuArray(single(lb)); ub = gpuArray(single(ub));
         info.device = 'gpu';
     end
+    % ---- M1: sound-FP32 root pre-check EMIT --------------------------------------------------
+    % When sound-FP32 is enabled (NNV_SOUND_FP32_TIGHT set) on the single-precision path,
+    % gpu_bab_crown_tight returns a PROVABLY SOUND lower bound on the spec margins (every CROWN
+    % bound outward-widened by a per-op running-error radius; validated G1 0/99, PR #385). So
+    % min(margins) > 0 at the ROOT certifies argmax-robustness with NO branch-and-bound and NO
+    % FP64 confirm -- a sound ~9x emit for the root-certifiable tier. In this mode we do NOT fall
+    % through to the (not-yet-sound-FP32) batched BaB for a verdict (its per-node spec_dag is not
+    % yet hardened -- milestone M3b): a non-certifying root returns 'unknown' so the caller runs
+    % the sound fallback. FAIL-CLOSED: any crown_tight/vmag error -> 'unknown', never a verdict.
+    info.soundFP32 = false;
+    soundFP32 = strcmp(bopts.precision, 'single') && ~isempty(getenv('NNV_SOUND_FP32_TIGHT'));
+    if soundFP32
+        rootCert = false;
+        try
+            Cspec = i_argmax_spec_C(target, nClasses, lb);          % rows e_target - e_j (== relu_split.m)
+            mrg = gpu_bab_crown_tight(ops, lb, ub, Cspec, 'single');% sound lower bound on C*f(x)
+            mrg = gather(double(mrg(:)));
+            rootCert = ~isempty(mrg) && all(isfinite(mrg)) && all(mrg > 0);
+        catch ME1
+            info.reason = [info.reason '; sound-FP32 root pre-check error: ' ME1.message];
+        end
+        if rootCert
+            verdict = 'robust'; info.soundFP32 = true; info.nodes = 0;
+            info.reason = sprintf('%s; sound-FP32 root pre-check robust (min margin %.4g)', info.reason, min(mrg));
+        else
+            verdict = 'unknown';
+            info.reason = [info.reason '; sound-FP32 root did not certify (deep BaB pending M3b)'];
+        end
+        return;
+    end
+
     % Engine: opts.engine='batched' uses gpu_bab_relu_split_batched (batched-DFS, processes a
     % whole BaB-node frontier per kernel -- GPU-saturating, for FC + sequential conv); default
     % is the serial gpu_bab_relu_split. The batched bounding is bound-for-bound identical
@@ -211,6 +242,15 @@ end
 
 function v = i_optget(s, f, d)
     if isfield(s, f) && ~isempty(s.(f)), v = s.(f); else, v = d; end
+end
+
+function C = i_argmax_spec_C(target, K, like_arr)
+% Argmax-robustness spec matrix, IDENTICAL to gpu_bab_relu_split.m's construction: row j
+% (j ~= target) = e_target - e_j, so C*f(x) = f_target - f_j and 'robust' iff every margin > 0.
+% Built 'like' the input box so it inherits gpuArray/single on the GPU path.
+    C = -eye(K, 'like', like_arr);
+    C(:, target) = C(:, target) + 1;
+    C(target, :) = [];
 end
 
 function ok = i_is_argmax_spec(prop, target, K)

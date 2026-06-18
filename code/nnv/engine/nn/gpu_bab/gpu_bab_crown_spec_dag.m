@@ -1,4 +1,14 @@
-function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell)
+function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell, vmag)
+% SOUND-FP32 (M3b): optional `vmag` (cell(nOps+1,1) of DOUBLE per-op output value-magnitude
+% majorants from gpu_bab_ibp(...,'double'), computed ONCE at the BaB root since the input box is
+% fixed across nodes). When supplied on the single-precision path, the batched backward accumulates
+% a transient `derr` (nSpec x B) bounding the FP32 rounding error of every backward op, and the
+% final margins are widened OUTWARD by (rad + derr) so `margins_single <= margins_double <= true`
+% (monotone-sound -> can EMIT, no FP64 confirm). 5th output `soundFP32` = (single && vmag applied),
+% the fail-closed gate the caller MUST check before trusting a single-precision 'robust'. Absent vmag
+% (or double) -> byte-identical to the prior unsound screen (never emits). See FP32_SOUND_RECIPE §M3b.
+% NOTE: i_gamma_sd / i_outward_rad_sd below MUST stay identical to gpu_bab_crown_tight.m's
+% i_gamma / i_outward_rad (M0 will factor them to one shared file; until then, diff char-for-char).
 % AMORTIZED alpha-CROWN: optional alphaCell (cell(nOps,1) of per-relu lower-slope vectors,
 % dim_k x 1, in [0,1]) lets the caller bound a whole BaB frontier with FIXED root-optimized
 % slopes -- no autodiff, no per-node gradient tape -> large frontier. Unset -> min-area (default,
@@ -47,8 +57,32 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
     if nargin < 6, fixings = {}; end
     if nargin < 7, rootBounds = []; end
     if nargin < 8, alphaCell = {}; end
+    if nargin < 9, vmag = {}; end
     B = size(x_lb, 2); nSpec = size(C, 1); nOps = numel(ops); n = size(x_lb, 1);
     preL = cell(nOps,1); preU = cell(nOps,1);
+    % SOUND-FP32 (M3b) state. doErr=true only on the single path WITH a (double) vmag majorant ->
+    % the backward widens OUTWARD by derr (per-op FP32 roundoff, nSpec x B) + a final-contraction rad.
+    % vmag absent / double -> doErr=false -> NO widening -> byte-identical to the prior screen.
+    % SOUND-FP32 (M3b Step 3): doErr -> accumulate a sound bound `derr` (nSpec x B) on the FP32
+    % backward roundoff (mirroring the validated gpu_bab_crown_tight derr, batched) + a final
+    % contraction `rad`, and widen the margins OUTWARD (down) by (rad+derr) so
+    % `margins_single <= margins_double <= true`. soundFP32=doErr is the EMIT gate the caller checks.
+    % SOUNDNESS NB: the derr GEMMs are computed in DOUBLE (pagemtimes(double(|A|),vmag); vmag is the
+    % double IBP majorant) -- pagemtimes(single,double) errors AND a single vmag is too coarse. Each
+    % term is cast back to `precision` for the (single) derr accumulator (the i_gamma 2x inflation
+    % absorbs that cast). vmag absent / double -> doErr=false -> NO widening -> byte-identical screen.
+    % FAIL-CLOSED (adversarial review HOLE 3): the sound widening requires the ROOT-tight bounds,
+    % which crown_tight already outward-widened (its preL/preU via i_backward+vmag). The
+    % isempty(rootBounds) IBP-FORWARD branch below computes cl/cu in bare single WITHOUT widening,
+    % so the relu relaxation it builds is NOT a sound over-approx -> never emit from it. Require
+    % rootBounds for doErr; the emit path (cifar/tiny) always supplies them (rootTight).
+    doErr = strcmp(precision, 'single') && ~isempty(vmag) && ~isempty(rootBounds);
+    soundFP32 = doErr;
+    us = single(eps('single') / 2);            % single unit roundoff (the d=d+... add-chain rounds here)
+    if doErr
+        derr = zeros(nSpec, B, precision);     % sound bound on the FP32 backward roundoff (accumulated)
+        dmag = zeros(nSpec, B, precision);     % running sum of |d-terms| (the cross-op d=d+... chain)
+    end
 
     if isempty(rootBounds)
         % ---- forward IBP (batched, FULL DAG), pre-activation bounds at each ReLU, with node
@@ -168,6 +202,10 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
         if strcmp(op.type, 'add')
             for ii = 1:numel(op.inputs)
                 s = op.inputs(ii);
+                if doErr && (s == 0 || ~isempty(skipA{s}))   % a MERGE (accumulating +) -> coeff add-chain rounding
+                    if s == 0, vm = double(vmag{1}); else, vm = double(vmag{s + 1}); end
+                    derr = derr + i_dterm_sd(A, reshape(vm, [], 1, 1), nOps, nSpec, B);
+                end
                 if s == 0
                     if isempty(inputSkipA), inputSkipA = A; else, inputSkipA = inputSkipA + A; end
                 elseif isempty(skipA{s}), skipA{s} = A;
@@ -183,6 +221,10 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
             for ii = 1:numel(op.inputs)
                 sz = op.sizes(ii); s = op.inputs(ii);
                 Ablk = A(:, off+(1:sz), :); off = off + sz;
+                if doErr && ((s == 0 && ~isempty(inputSkipA)) || (s ~= 0 && ~isempty(skipA{s})))  % MERGE (HOLE 1)
+                    if s == 0, vm = double(vmag{1}); else, vm = double(vmag{s + 1}); end
+                    derr = derr + i_dterm_sd(Ablk, reshape(vm, [], 1, 1), nOps, nSpec, B);
+                end
                 if s == 0
                     if isempty(inputSkipA), inputSkipA = Ablk; else, inputSkipA = inputSkipA + Ablk; end
                 elseif isempty(skipA{s}), skipA{s} = Ablk;
@@ -199,6 +241,15 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
             wa = op.sizes(1); lz = preL{k}; uz = preU{k};
             la = lz(1:wa,:); ua = uz(1:wa,:); lyy = lz(wa+1:end,:); uyy = uz(wa+1:end,:);
             [aL,bL,cL,aU,bU,cU] = gpu_bab_mul_relax(la, ua, lyy, uyy, [], [], precision);  % each wa x B
+            if doErr   % McCormick slope-update error scales as the PRODUCT va*vb (the slopes are
+                       % UNBOUNDED, unlike relu's [0,1]) + the cL/cU intercept (per-node) + its d-add
+                va = double(vmag{op.inputs(1)+1}); vb = double(vmag{op.inputs(2)+1}); vab = va .* vb;  % wa x 1
+                ccl = double(abs(cL) + abs(cU));                                          % wa x B (per-node)
+                derr = derr + i_dterm_sd(A, reshape(2*vab, wa, 1, 1), 2,  nSpec, B) ...
+                            + i_dterm_sd(A, reshape(ccl,   wa, 1, B), wa, nSpec, B);
+                dmag = dmag + single(reshape(pagemtimes(double(abs(A)), reshape(ccl, wa, 1, B)), nSpec, B));
+                derr = derr + us * dmag;
+            end
             % spec_dag computes a LOWER bound on C*f (like its ReLU relax): +coeff -> LOWER plane,
             % -coeff -> UPPER plane.
             Apos = max(A,0); Aneg = min(A,0);
@@ -208,12 +259,20 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
             d = d + reshape(pagemtimes(Apos, reshape(cL,wa,1,B)), nSpec, B) ...
                   + reshape(pagemtimes(Aneg, reshape(cU,wa,1,B)), nSpec, B);
             sa = op.inputs(1);
+            if doErr && ((sa == 0 && ~isempty(inputSkipA)) || (sa ~= 0 && ~isempty(skipA{sa})))  % MERGE (HOLE 2)
+                if sa == 0, vm = double(vmag{1}); else, vm = double(vmag{sa + 1}); end
+                derr = derr + i_dterm_sd(Ax, reshape(vm, [], 1, 1), nOps, nSpec, B);
+            end
             if sa == 0
                 if isempty(inputSkipA), inputSkipA = Ax; else, inputSkipA = inputSkipA + Ax; end
             elseif isempty(skipA{sa}), skipA{sa} = Ax;
             else, skipA{sa} = skipA{sa} + Ax;
             end
             sb = op.inputs(2);
+            if doErr && ((sb == 0 && ~isempty(inputSkipA)) || (sb ~= 0 && ~isempty(skipA{sb})))  % MERGE (HOLE 2)
+                if sb == 0, vm = double(vmag{1}); else, vm = double(vmag{sb + 1}); end
+                derr = derr + i_dterm_sd(Ay, reshape(vm, [], 1, 1), nOps, nSpec, B);
+            end
             if sb == 0
                 if isempty(inputSkipA), inputSkipA = Ay; else, inputSkipA = inputSkipA + Ay; end
             elseif isempty(skipA{sb}), skipA{sb} = Ay;
@@ -221,26 +280,60 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
             end
             continue;
         end
+        if doErr, vin = double(vmag{op.src + 1}); end     % input value-magnitude majorant (op 0 = input)
         switch op.type
             case 'affine'
                 W = cast(op.W, precision); bb = cast(op.b(:), precision);
+                if doErr   % A*W contracts over out-width = size(A,2); output value-mag (no cancel) = |W|*vin+|b|
+                    omg = double(abs(W)) * double(vin) + double(abs(bb));            % out-width x 1
+                    derr = derr + i_dterm_sd(A, reshape(omg, [], 1, 1), size(A,2), nSpec, B);
+                    dmag = dmag + i_dterm_raw_sd(A, reshape(double(abs(bb)), [], 1, 1), nSpec, B);  % d=d+A*b chain
+                    derr = derr + us * dmag;
+                end
                 d = d + reshape(pagemtimes(A, bb), nSpec, B);
                 A = pagemtimes(A, W);
             case 'conv'
+                if doErr   % magnitude adjoint transpconv(|A|,|W|) [len kh*kw*outCh] + bias [len prod(outShape)]
+                    opm = op; opm.W = abs(op.W); opm.b = abs(op.b);
+                    [Amag, dmc] = i_conv_backward(abs(A), zeros(nSpec, B, precision), opm, precision); % nSpec x inDim x B, nSpec x B
+                    mC = size(op.W,1) * size(op.W,2) * size(op.W,4);
+                    derr = derr + i_dterm_sd(Amag, reshape(double(vin), [], 1, 1), mC, nSpec, B) ...
+                                + i_gamma_sd(prod(op.outShape), precision) * dmc;     % bias reduction length
+                    dmag = dmag + dmc; derr = derr + us * dmag;                       % d=d+bias add-chain
+                end
                 [A, d] = i_conv_backward(A, d, op, precision);
             case 'normaffine'
                 sf = i_bcast_flat(op.scale, op.shape, precision);
                 tf = i_bcast_flat(op.shift, op.shape, precision);
+                if doErr   % TWO FP32 ops: slope multiply A.*sf' AND intercept matmul d=d+A*tf
+                    sfm = double(i_bcast_flat(abs(op.scale), op.shape, precision));   % |slope| flat (dim x 1)
+                    tfm = double(i_bcast_flat(abs(op.shift), op.shape, precision));   % |shift| flat (dim x 1)
+                    Asf = abs(A) .* reshape(single(sfm), 1, [], 1);                   % |A| .* |sf|' (nSpec x dim x B)
+                    derr = derr + i_dterm_sd(Asf, reshape(double(vin), [], 1, 1), 2,          nSpec, B) ...
+                                + i_dterm_sd(A,   reshape(tfm,        [], 1, 1), numel(tfm),  nSpec, B);
+                    dmag = dmag + i_dterm_raw_sd(A, reshape(tfm, [], 1, 1), nSpec, B);% d=d+A*tf add-chain
+                    derr = derr + us * dmag;
+                end
                 d = d + reshape(pagemtimes(A, tf), nSpec, B);
                 A = A .* reshape(sf, 1, [], 1);
             case 'avgpool'
                 [A, d] = i_avgpool_backward(A, d, op, precision);
+                if doErr   % A is now on the INPUT; no bias -> no d-add
+                    derr = derr + i_dterm_sd(A, reshape(double(vin), [], 1, 1), prod(op.pool), nSpec, B);
+                end
             case 'relu'
                 l = preL{k}; u = preU{k};                  % dim x B
                 ak = []; if ~isempty(alphaCell) && numel(alphaCell) >= k, ak = alphaCell{k}; end
                 [au, bu, al] = i_relu_relax(l, u, precision, ak);
                 dim = size(l, 1);
                 Apos = max(A, 0); Aneg = min(A, 0);
+                if doErr   % slope mult (|A_in|<=|A|, no cancel) + the bu intercept (PER-NODE dim x B, R1a)
+                           % |A| covers the d-pass; +4u for the au=u/(u-l)/bu=-au*l derivation rounding
+                    Abu  = i_dterm_raw_sd(A, reshape(double(abs(bu)), dim, 1, B), nSpec, B);   % |A|*|bu| (nSpec x B)
+                    derr = derr + i_dterm_sd(A, reshape(double(vin), dim, 1, 1), 2, nSpec, B) ...
+                                + single(i_gamma_sd(dim,'double') + double(4)*double(us)) * Abu;
+                    dmag = dmag + Abu; derr = derr + us * dmag;        % d=d+Aneg*bu add-chain
+                end
                 d = d + reshape(pagemtimes(Aneg, reshape(bu, dim, 1, B)), nSpec, B);
                 if wantScore
                     % sum_s |Aneg(s,i,b)| * bu(i,b) -> dim x B (the BaBSR split score for this layer)
@@ -252,6 +345,10 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
                     'Unsupported op "%s" in backward (affine/conv/normaffine/avgpool/relu/add only).', op.type);
         end
         s = op.src;                                       % route coefficient to op.src
+        if doErr && (s == 0 || ~isempty(skipA{s}))        % a MERGE (accumulating +) -> coeff add-chain rounding
+            if s == 0, vm = double(vmag{1}); else, vm = double(vmag{s + 1}); end
+            derr = derr + i_dterm_sd(A, reshape(vm, [], 1, 1), nOps, nSpec, B);
+        end
         if s == 0
             if isempty(inputSkipA), inputSkipA = A; else, inputSkipA = inputSkipA + A; end
         elseif isempty(skipA{s}), skipA{s} = A;
@@ -260,7 +357,8 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
     end
 
     if isempty(inputSkipA)
-        margins = d;                                      % output independent of input (degenerate)
+        if doErr, derr = derr + us * abs(d); margins = d - derr;   % constant output: only the d add-chain rounds
+        else,     margins = d; end                                 % output independent of input (degenerate)
         return;
     end
     A = inputSkipA;
@@ -269,6 +367,12 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
     ubcol = reshape(cast(x_ub, precision), n, 1, B);
     margins = reshape(pagemtimes(Apos, lbcol), nSpec, B) ...
             + reshape(pagemtimes(Aneg, ubcol), nSpec, B) + d;
+    if doErr   % widen the LOWER bound OUTWARD (down) by the final-contraction rad + the accumulated
+               % per-op derr, so margins_single <= margins_double <= true (monotone-sound, can EMIT)
+        rad  = i_outward_rad_sd(A, x_lb, x_ub, precision);
+        derr = derr + us * abs(d);                        % the final '+ d' addition roundoff
+        margins = margins - rad - derr;
+    end
 end
 
 % ---------------------------------------------------------------------------------------
@@ -366,4 +470,50 @@ function [au, bu, al] = i_relu_relax(l, u, precision, alpha)
         ab = repmat(cast(alpha(:), precision), 1, size(l,2));  % dim x 1 -> dim x B (root slopes)
         al(unst) = min(max(ab(unst), 0), 1);                   % clamp [0,1] (sound)
     end
+end
+
+% ===== SOUND-FP32 (M3b) helpers. i_gamma_sd / i_outward_rad_sd MUST stay identical to =========
+% gpu_bab_crown_tight.m i_gamma / i_outward_rad (M0 will factor to one shared file). ===========
+function t = i_dterm_sd(A, OP, m, nSpec, B)
+% One sound-FP32 derr term for the batched backward: gamma(m) * (|A| * OP), where the contraction
+% is done in DOUBLE (pagemtimes(single,double) ERRORS; a single vmag is too coarse), then cast back
+% to single for the (single) derr accumulator (the 2x inflation in i_gamma_sd absorbs that cast).
+%   A  : nSpec x w x B coefficient (single)
+%   OP : the DOUBLE value-magnitude operand, w x 1 x 1 (shared, broadcast over B) OR w x 1 x B (per-node)
+%   m  : the FP contraction length for this op (deterministic Higham gamma_m)
+    t = single(i_gamma_sd(m, 'double') * reshape(pagemtimes(double(abs(A)), OP), nSpec, B));
+end
+
+function t = i_dterm_raw_sd(A, OP, nSpec, B)
+% The raw magnitude |A| * OP (no gamma), for the dmag add-chain accumulator. Same DOUBLE GEMM as
+% i_dterm_sd. A: nSpec x w x B (single); OP: double, w x 1 x 1 (shared) or w x 1 x B (per-node).
+    t = single(reshape(pagemtimes(double(abs(A)), OP), nSpec, B));
+end
+
+function g = i_gamma_sd(m, precision)
+% Pre-inflated (2x) deterministic Higham factor gamma_m = m*u/(1-m*u) for a length-m FP32
+% contraction; fail-closed to realmax when m*u>=0.5. IDENTICAL to gpu_bab_crown_tight.m i_gamma.
+    u = single(eps('single') / 2);
+    m = single(m);
+    den = 1 - m * u;
+    if den <= single(0.5)
+        g = cast(realmax('single'), precision); return;
+    end
+    g = cast(2, precision) * (m * u) / den;
+end
+
+function rad = i_outward_rad_sd(A, x_lb, x_ub, precision)
+% Batched final-contraction outward radius (mirrors gpu_bab_crown_tight i_outward_rad, computed in
+% DOUBLE). A: nSpec x n x B (input-space coeff), x_lb/x_ub: n x B -> rad: nSpec x B (single).
+    nSpec = size(A,1); B = size(A,3); n = size(x_lb,1);
+    if ~strcmp(precision, 'single'), rad = zeros(nSpec, B, 'like', A); return; end
+    u = single(eps('single') / 2); k = single(2);
+    den = 1 - single(n) * u;
+    if den <= single(0.5)
+        rad = realmax('single') * ones(nSpec, B, 'like', A); return;
+    end
+    gbar = double(k) * (double(n) * double(u)) / double(den);
+    xmag = max(abs(double(x_lb)), abs(double(x_ub)));            % n x B (double)
+    rad = single(gbar * reshape(pagemtimes(double(abs(A)), reshape(xmag, n, 1, B)), nSpec, B) ...
+                 + double(n) * realmin('single'));
 end

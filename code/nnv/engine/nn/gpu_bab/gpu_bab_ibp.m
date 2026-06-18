@@ -21,6 +21,10 @@ function [out_lb, out_ub, vmag] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
 %                 (the matmuls + the max) inherits the class, gpuArray included.
 %
 %   Output: [out_lb, out_ub] -- for EVERY x in [in_lb,in_ub], net(x) in [out_lb,out_ub].
+%   Optional 3rd output [~,~,vmag]: a per-op value-magnitude majorant cell, where
+%   vmag{j} >= |any reachable value at op j| over the box (computed in DOUBLE for rigor).
+%   It feeds gpu_bab_crown_tight's sound-FP32 per-op error bounds. Requesting it
+%   (nargout==3) forces the DAG-cache path (the sequential fast-path is skipped).
 %
 %   SOUNDNESS: interval arithmetic is a guaranteed over-approximation. Affine:
 %   split W into W+ = max(W,0), W- = min(W,0); the extremal outputs are

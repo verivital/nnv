@@ -151,14 +151,20 @@ function rad = i_outward_rad(A, x_lb, x_ub, precision)
 % pre-inflated by k (>=2) so the radius GEMM's own rounding can't make rad an under-estimate, plus
 % n*realmin to absorb subnormal flush. Only fires for 'single' (FP64 rounding ~1e-16 is negligible
 % and the FP64 path stays the oracle). See research/FP32_SOUND_RECIPE_2026-06-17.md.
-%   NOTE (M1): k is deliberately huge (10) and only the final contraction is widened -- this proves
-%   the outward plumbing + the speed/memory envelope; full soundness (per-op backward error, Edits
-%   B-D) follows in M2. NOT a certified EMIT path until M2 + the G1 parity gate pass.
+%   NOTE (M2): k=2 (modest pre-inflation) and the full per-op backward error is now carried by the
+%   per-op `derr` accumulator in the backward pass (affine/conv/normaffine/relu/maxpool/product +
+%   the d-add chain), so BOTH the final contraction AND every backward op are widened OUTWARD.
+%   Validated G1 (mS <= mH, 0/99) + G2 (mS <= MC min, 0/99). This is the sound EMIT path under
+%   NNV_SOUND_FP32_TIGHT; the FP64 path remains the oracle.
     if ~strcmp(precision, 'single'), rad = zeros(size(A,1), 1, 'like', A); return; end
     n = numel(x_lb);
     u = single(eps('single') / 2);
     k = single(2);                                    % M2: 2x pre-inflation (the per-op derr now covers the backward error)
-    gbar = k * (n * u) / (1 - n * u);
+    den = 1 - single(n) * u;
+    if den <= single(0.5)                             % n*u >= 0.5: linearized gamma_n invalid -> fail-closed (max sound widening, mirrors i_gamma)
+        rad = realmax('single') * ones(size(A,1), 1, 'like', A); return;
+    end
+    gbar = k * (single(n) * u) / den;
     xmag = max(abs(single(x_lb(:))), abs(single(x_ub(:))));
     rad = gbar * (abs(A) * xmag) + single(n) * realmin('single');
 end
@@ -355,7 +361,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
         bound = Apos * cast(x_ub, precision) + Aneg * cast(x_lb, precision) + d;
     end
     if doErr                                                 % sound-FP32 opt-in (else no widening -> screen unchanged)
-        rad  = i_outward_rad(A, x_lb, x_ub, precision);      % final-contraction roundoff (M1)
+        rad  = i_outward_rad(A, x_lb, x_ub, precision);      % final-contraction roundoff (M2)
         derr = derr + us * abs(d);                           % the final '+ d' addition roundoff (review #6)
         if lower, bound = bound - rad - derr; else, bound = bound + rad + derr; end   % widen OUTWARD by rad + per-op backward error (M2)
     end

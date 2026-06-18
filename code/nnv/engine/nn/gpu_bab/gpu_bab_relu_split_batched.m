@@ -192,6 +192,16 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
 
     % --- batched DFS over the node stack ---
     dbgBab = ~isempty(getenv('NNV_DEBUG_BAB'));
+    % M-A1: honest phase timing. Bare tic/toc around a gpuArray op measures kernel LAUNCH time, not
+    % run time (the async lie) -- deferred bound-kernel time otherwise lands in whichever bucket next
+    % hits a gather, so the [pop bound pick cex push] split is fiction. In debug mode on the GPU path
+    % only, fence each phase boundary with wait(dbgD) so the time lands in the correct bucket. dbgD is
+    % [] (no fence, byte-identical) in production and on the CPU path -- wait drains the pipeline and
+    % must never serialize a real run.
+    dbgD = [];
+    if dbgBab && canUseGPU()
+        try, dbgD = gpuDevice; catch, dbgD = []; end
+    end
     dbgEvery = str2double(getenv('NNV_BAB_DBG_EVERY')); if isnan(dbgEvery) || dbgEvery < 1, dbgEvery = 100; end
     bestWorst = -inf;                                            % best (largest) worst-margin seen so far
     tBab = tic; tPrev = 0;                                       % wall clock for node-throughput telemetry
@@ -214,10 +224,12 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         if info.nodes > maxNodes
             status = 'unknown'; return;
         end
+        if ~isempty(dbgD), wait(dbgD); end
         tProf(1) = tProf(1) + toc(tS); tS = tic;
 
         % bound the popped batch (reusing the tight root bounds, clamped per node, if rootTight)
         [margins, preL, preU, infeas, scoreC] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot);
+        if ~isempty(dbgD), wait(dbgD); end
         tProf(2) = tProf(2) + toc(tS); tS = tic;
         % An INFEASIBLE node (a fixing combination that made the clamped IBP box empty,
         % preL>preU at some neuron) represents an EMPTY sub-region: the property holds
@@ -250,11 +262,13 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
                 status = 'unsafe'; info.cex = cex; info.cexLabel = lab; return;
             end
         end
+        if ~isempty(dbgD), wait(dbgD); end
         tProf(4) = tProf(4) + toc(tS); tS = tic;
 
         % split each undecided node on its highest BaBSR-score unstable unfixed neuron
         % (output-sensitivity x gap; falls back to largest-gap when no score is available)
         [sK, sJ, hasS] = i_pick_splits(reluIdx, preL, preU, fixc, undec, scoreC);
+        if ~isempty(dbgD), wait(dbgD); end
         tProf(3) = tProf(3) + toc(tS); tS = tic;
         if ~all(hasS)
             status = 'unknown'; return;             % an undecided node cannot be split
@@ -290,6 +304,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
             fixStack{k}(j, M + nu + i) = -int8(1);  % inactive child (column M+nu+i)
         end
         M = M + 2 * nu;
+        if ~isempty(dbgD), wait(dbgD); end
         tProf(5) = tProf(5) + toc(tS);
     end
     status = 'robust';

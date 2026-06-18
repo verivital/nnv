@@ -1,4 +1,4 @@
-function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
+function [out_lb, out_ub, vmag] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
 % GPU_BAB_IBP  Sound interval bound propagation for a feedforward ReLU net.
 %
 %   [out_lb, out_ub] = GPU_BAB_IBP(ops, in_lb, in_ub, precision) forward-
@@ -21,6 +21,10 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
 %                 (the matmuls + the max) inherits the class, gpuArray included.
 %
 %   Output: [out_lb, out_ub] -- for EVERY x in [in_lb,in_ub], net(x) in [out_lb,out_ub].
+%   Optional 3rd output [~,~,vmag]: a per-op value-magnitude majorant cell, where
+%   vmag{j} >= |any reachable value at op j| over the box (computed in DOUBLE for rigor).
+%   It feeds gpu_bab_crown_tight's sound-FP32 per-op error bounds. Requesting it
+%   (nargout==3) forces the DAG-cache path (the sequential fast-path is skipped).
 %
 %   SOUNDNESS: interval arithmetic is a guaranteed over-approximation. Affine:
 %   split W into W+ = max(W,0), W- = min(W,0); the extremal outputs are
@@ -44,7 +48,7 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
     nOps = numel(ops);
     isDag = i_is_dag(ops);
 
-    if ~isDag
+    if ~isDag && nargout < 3
         % sequential (chain) net -- rolling bounds, no per-op cache.
         for k = 1:nOps
             [lb, ub] = i_apply_ibp(ops{k}, lb, ub, precision);
@@ -78,6 +82,16 @@ function [out_lb, out_ub] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
     end
     out_lb = cl{nOps + 1};
     out_ub = cu{nOps + 1};
+    if nargout >= 3
+        % Per-op output value-magnitude MAJORANT (sound, generously inflated to absorb the IBP's own
+        % FP rounding): vmag{k+1} = max(|cl|,|cu|) over op k's output (vmag{1} = the input box).
+        % Consumed by gpu_bab_crown_tight's sound-FP32 derr to scale each op's backward roundoff.
+        infl = cast(1, precision) + cast(1024, precision) * (eps(precision) / 2);
+        vmag = cell(nOps + 1, 1);
+        for j = 1:(nOps + 1)
+            vmag{j} = max(abs(cl{j}), abs(cu{j})) * infl;
+        end
+    end
 end
 
 function [nlb, nub] = i_apply_ibp(op, lb, ub, precision)

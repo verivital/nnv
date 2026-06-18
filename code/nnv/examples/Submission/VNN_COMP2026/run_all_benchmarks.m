@@ -49,6 +49,21 @@ else
     run_which = 'first';
 end
 
+% Optional GPU/parallel sharding: NNV_SWEEP_SHARD="id/total" (0-based id) makes THIS process run
+% only every `total`-th resolvable instance (global index across folders). N processes pinned to N
+% GPUs (CUDA_VISIBLE_DEVICES=0..N-1) then partition the work. Pure work-splitting -> verdicts and
+% per-instance behaviour are identical to an unsharded run; only the subset each process runs differs.
+shard_id = 0; shard_total = 1;
+sv = getenv('NNV_SWEEP_SHARD');
+if ~isempty(sv)
+    tv = sscanf(sv, '%d/%d');
+    if numel(tv) == 2 && tv(2) >= 1 && tv(1) >= 0 && tv(1) < tv(2)
+        shard_id = tv(1); shard_total = tv(2);
+        fprintf('Sweep shard: %d/%d (this process runs every %d-th resolvable instance)\n', shard_id, shard_total, shard_total);
+    end
+end
+gidx = 0;   % global instance counter across folders (for sharding)
+
 if ~isfolder(bench_root)
     error('Benchmark root not found: %s', bench_root);
 end
@@ -164,6 +179,10 @@ for i = 1:n
     end
     fprintf('  %d instance(s) [%s]\n', numel(pairs), run_which);
     for k = 1:numel(pairs)
+        gidx = gidx + 1;
+        if shard_total > 1 && mod(gidx - 1, shard_total) ~= shard_id
+            continue;                                   % this instance belongs to another GPU shard
+        end
         pr = pairs{k};
         out_file = [tempname '.txt'];
         t0 = tic;

@@ -165,7 +165,7 @@ function rad = i_outward_rad(A, x_lb, x_ub, precision)
     if ~strcmp(precision, 'single'), rad = zeros(size(A,1), 1, 'like', A); return; end
     n = numel(x_lb);
     u = single(eps('single') / 2);
-    k = single(1 + 2^-10);                            % M2b: the GEMM below is DOUBLE -> only the final single() cast needs covering (was 2x)
+    k = single(1 + 2^-7);                             % M2b: DOUBLE GEMM -> covers the rad cast + accumulation (was 2x); the final-add u*|a| is covered separately at line ~411
     den = 1 - single(n) * u;
     if den <= single(0.5)                             % n*u >= 0.5: linearized gamma_n invalid -> fail-closed (max sound widening, mirrors i_gamma)
         rad = realmax('single') * ones(size(A,1), 1, 'like', A); return;
@@ -180,18 +180,21 @@ function g = i_gamma(m, precision)
 % over-estimated where cheap. SOUND only with the DETERMINISTIC m (never probabilistic sqrt(m) -- a
 % single tail = a -150). INFLATION (M2b): the derr terms now compute each magnitude product in DOUBLE
 % (single(i_gamma(m,'double') * (double(abs(A)) * double(OP)))), so the only single-precision rounding
-% in the derr VALUE is the final single() cast (rel. <= u ~= 6e-8). (1 + 2^-10) covers that cast
-% ~16000x over -> still a sound over-estimate of the Higham bound on the actual single CROWN rounding.
-% (Was 2x, which absorbed the OLD single-computed derr; doubling the GEMM lets it halve -> the deep
-% BaB margins are ~2x tighter, so tight-margin certs certify in far fewer nodes. Conv Amag/dmc are
-% the only single-reduced operands -> additionally inflated by (1+2*i_gamma_raw) at the call site.)
+% in the derr VALUE is the final single() cast (rel. <= u ~= 6e-8) PLUS the SINGLE accumulation of the
+% per-op derr terms (derr is a single accumulator; summing N positive terms round-DOWNs by up to
+% gamma_N ~= N*u). (1 + 2^-7) covers BOTH the cast AND the accumulation for N <= 2^-7/u = 2^17 = 131072
+% derr-adds per i_backward call (any realistic net; cifar resnet ~ a few hundred), provably -> a sound
+% over-estimate of the Higham bound on the actual single CROWN rounding. (Was 2x, which absorbed the OLD
+% single-computed derr; doubling the GEMM lets it shrink ~16x while keeping the accumulation guarantee.
+% Conv Amag/dmc -- the only single-REDUCED operands -- get an extra (1+2*i_gamma_raw); the relu slope
+% term carries m=8 to also cover the relaxation-derivation rounding. Adversarial review 2026-06-18.)
     u = single(eps('single') / 2);
     m = single(m);
     den = 1 - m * u;
     if den <= single(0.5)            % m*u >= 0.5: the linearized gamma is invalid -> fail-closed (huge sound widening)
         g = cast(realmax('single'), precision); return;
     end
-    g = cast(1 + 2^-10, precision) * (m * u) / den;
+    g = cast(1 + 2^-7, precision) * (m * u) / den;
 end
 
 function g = i_gamma_raw_ct(m, precision)
@@ -210,7 +213,7 @@ end
 
 function t = i_dt(A, OP, m)
 % M2b: one sound-FP32 derr term = single(gamma_m * (|A| * OP)) with the |A|*OP contraction done in
-% DOUBLE, so the ONLY single rounding is the final single() cast (covered by i_gamma's 1+2^-10). OP
+% DOUBLE, so the ONLY single rounding is the final single() cast (covered by i_gamma's 1+2^-7). OP
 % must be a sound DOUBLE magnitude majorant of the propagated values (vmag/vin, or a double-computed
 % magnitude). Mirrors gpu_bab_crown_spec_dag.i_dterm_sd (2D matmul here vs batched pagemtimes there).
     t = single(i_gamma(m, 'double') * (double(abs(A)) * double(OP)));
@@ -342,7 +345,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 [Amag, dmc] = i_conv_backward(abs(A), zeros(nS,1,precision), opm, precision);
                 mC = size(op.W,1) * size(op.W,2) * size(op.W,4); nO = prod(op.outShape);
                 % Amag/dmc are SINGLE reductions (lengths ~mC / nO) -> can round DOWN by up to gamma_raw;
-                % inflate by (1+2*gamma_raw) >= 1/(1-gamma_raw) so the (1+2^-10) term over-estimates the
+                % inflate by (1+2*gamma_raw) >= 1/(1-gamma_raw) so the (1+2^-7) gamma term over-estimates the
                 % true single rounding even for large outShape (mirrors gpu_bab_crown_spec_dag conv fix).
                 Amag = Amag .* (1 + 2*i_gamma_raw_ct(mC, precision));
                 dmc  = dmc  .* (1 + 2*i_gamma_raw_ct(nO, precision));
@@ -376,7 +379,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             if doErr   % slope mults (|A_in|<=|A|, no cancel) + the bu intercept; |A| (not |Aneg|) so it
                        % covers BOTH passes (lower: d+=Aneg*bu, upper: d+=Apos*bu) -- review #2; +4u for
                        % the au=u/(u-l)/bu=-au*l derivation rounding (review #11), independent of width
-                derr = derr + i_dt(A, vin, 2) ...
+                derr = derr + i_dt(A, vin, 8) ...    % m=8: slope multiply (~u) + the relu RELAXATION-DERIVATION rounding (au=u/(u-l),bu=-au*l in single dips the relaxed line below relu by ~3u*vin at z=u; this scales with vin, NOT bu, so the +4u*|bu| term below does NOT cover it when u>>|l| -> bu->0). adversarial review 2026-06-18.
                             + single((i_gamma(numel(bu), 'double') + double(4)*double(us)) * (double(abs(A)) * double(abs(bu))));
                 dmag = dmag + i_draw(A, abs(bu)); derr = derr + us * dmag;        % d=d+(Aneg|Apos)*bu add-chain
             end
@@ -408,8 +411,18 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     end
     if doErr                                                 % sound-FP32 opt-in (else no widening -> screen unchanged)
         rad  = i_outward_rad(A, x_lb, x_ub, precision);      % final-contraction roundoff (M2)
-        derr = derr + us * abs(d);                           % the final '+ d' addition roundoff (review #6)
-        if lower, bound = bound - rad - derr; else, bound = bound + rad + derr; end   % widen OUTWARD by rad + per-op backward error (M2)
+        derr = derr + us * abs(d);                           % the '+ d' add's u*|d| roundoff (review #6)
+        % + the two final non-contraction adds margins=fl(fl(aposx+anegx)+d): each rounds by <= u*P
+        % (P=|aposx|+|anegx|), so ~2u*P total; the reduced (1+2^-7) rad k no longer leaves slack for them
+        % (esp. small input dim n<~1024: MNIST/ACAS/control). 3*us*P covers both adds w/ margin (>= the
+        % true |a| <= P, no cancellation). adversarial review 2026-06-18 (re-review CHECK 3).
+        if lower
+            derr = derr + cast(3,precision)*us * (abs(Apos * cast(x_lb, precision)) + abs(Aneg * cast(x_ub, precision)));
+            bound = bound - rad - derr;
+        else
+            derr = derr + cast(3,precision)*us * (abs(Apos * cast(x_ub, precision)) + abs(Aneg * cast(x_lb, precision)));
+            bound = bound + rad + derr;
+        end
     end
 end
 

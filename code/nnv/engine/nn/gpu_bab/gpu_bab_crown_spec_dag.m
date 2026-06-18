@@ -302,8 +302,8 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                     mC = size(op.W,1) * size(op.W,2) * size(op.W,4); nO = prod(op.outShape);
                     % Amag/dmc are SINGLE-precision reductions (lengths ~mC / nO), so they can round DOWN
                     % by up to gamma_raw -- the only derr operands NOT computed in double here. The
-                    % (1+2^-10) gamma inflation covers only the final single() cast, NOT this operand
-                    % shortfall, which exceeds 2^-10 once nO > ~16380 (early CIFAR convs hit 32x32x64).
+                    % the (1+2^-7) gamma inflation covers the cast + accumulation, NOT this operand
+                    % shortfall (a single reduction can round down by gamma_nO), so inflate it explicitly.
                     % Inflate each by (1+2*gamma_raw) >= 1/(1-gamma_raw) -> a sound over-estimate of the
                     % true magnitude (adversarial-review finding 2026-06-18; ~0.8% for nO=65536, so the
                     % derr stays ~halved while remaining a rigorous bound).
@@ -342,7 +342,7 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                 if doErr   % slope mult (|A_in|<=|A|, no cancel) + the bu intercept (PER-NODE dim x B, R1a)
                            % |A| covers the d-pass; +4u for the au=u/(u-l)/bu=-au*l derivation rounding
                     Abu  = i_dterm_raw_sd(A, reshape(double(abs(bu)), dim, 1, B), nSpec, B);   % |A|*|bu| (nSpec x B)
-                    derr = derr + i_dterm_sd(A, reshape(double(vin), dim, 1, 1), 2, nSpec, B) ...
+                    derr = derr + i_dterm_sd(A, reshape(double(vin), dim, 1, 1), 8, nSpec, B) ...    % m=8: slope multiply (~u) + the relu RELAXATION-DERIVATION rounding (~3u*vin at z=u; scales with vin, NOT bu) -- review 2026-06-18
                                 + single(i_gamma_sd(dim,'double') + double(4)*double(us)) * Abu;
                     dmag = dmag + Abu; derr = derr + us * dmag;        % d=d+Aneg*bu add-chain
                 end
@@ -377,12 +377,13 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
     Apos = max(A, 0); Aneg = min(A, 0);
     lbcol = reshape(cast(x_lb, precision), n, 1, B);
     ubcol = reshape(cast(x_ub, precision), n, 1, B);
-    margins = reshape(pagemtimes(Apos, lbcol), nSpec, B) ...
-            + reshape(pagemtimes(Aneg, ubcol), nSpec, B) + d;
+    aposx = reshape(pagemtimes(Apos, lbcol), nSpec, B);
+    anegx = reshape(pagemtimes(Aneg, ubcol), nSpec, B);
+    margins = aposx + anegx + d;
     if doErr   % widen the LOWER bound OUTWARD (down) by the final-contraction rad + the accumulated
                % per-op derr, so margins_single <= margins_double <= true (monotone-sound, can EMIT)
         rad  = i_outward_rad_sd(A, x_lb, x_ub, precision);
-        derr = derr + us * abs(d);                        % the final '+ d' addition roundoff
+        derr = derr + us * abs(d) + cast(3,precision)*us * (abs(aposx) + abs(anegx));  % '+d' u*|d| + the two final adds fl(fl(aposx+anegx)+d) ~2u*P (3*us*P w/ margin; reduced rad k no longer covers them) -- re-review CHECK 3, 2026-06-18
         margins = margins - rad - derr;
         if ~isempty(getenv('NNV_DEBUG_DERR'))             % M3b tightening diagnosis (no behaviour change)
             mraw = margins + rad + derr;                  % the un-widened margin
@@ -513,19 +514,20 @@ end
 function g = i_gamma_sd(m, precision)
 % Deterministic Higham factor gamma_m = m*u/(1-m*u) for a length-m FP32 contraction; fail-closed to
 % realmax when m*u>=0.5. INFLATION (M3b-T): spec_dag computes each derr term in DOUBLE
-% (i_dterm_sd: single(gamma * pagemtimes(double|A|, double vmag))), so the ONLY single-precision
-% rounding in the derr value is the final single() cast (rel. error <= u ~= 6e-8). A (1 + 2^-10)
-% inflation covers that cast ~16000x over -> still a sound over-estimate of the Higham bound on the
-% actual single CROWN rounding. (crown_tight.m's i_gamma keeps the 2x because ITS derr is accumulated
-% in single; this divergence is intentional + each is sound. Diagnosed 2026-06-18: the old 2x made
-% derr ~2x larger than necessary, blocking cifar emit; this halves it.)
+% (i_dterm_sd: single(gamma * pagemtimes(double|A|, double vmag))), so the only single-precision
+% rounding in the derr value is the final single() cast (<= u) PLUS the single derr-accumulator sum
+% (round-down ~ gamma_N for N derr-adds). A (1 + 2^-7) inflation covers BOTH the cast AND the
+% accumulation for N <= 2^17 derr-adds (any net), provably -> a sound over-estimate of the Higham
+% bound. (crown_tight.m's i_gamma now matches at (1+2^-7) -- same double-GEMM derr. The old 2x made
+% derr ~2x larger than necessary, blocking cifar emit; adversarial review 2026-06-18 confirmed the
+% relu-slope (m=8), final-add (3*us*|a|), and accumulator coverages this 2^-7 + the conv inflation.)
     u = single(eps('single') / 2);
     m = single(m);
     den = 1 - m * u;
     if den <= single(0.5)
         g = cast(realmax('single'), precision); return;
     end
-    g = cast(1 + 2^-10, precision) * (m * u) / den;
+    g = cast(1 + 2^-7, precision) * (m * u) / den;   % (1+2^-7): covers the final cast AND the single derr-accumulator sum for N<=2^17 derr-adds (any net). Was (1+2^-10) which covered only N<=16384 -- adversarial review 2026-06-18.
 end
 
 function g = i_gamma_raw_sd(m, precision)
@@ -551,7 +553,7 @@ function rad = i_outward_rad_sd(A, x_lb, x_ub, precision)
 % DOUBLE). A: nSpec x n x B (input-space coeff), x_lb/x_ub: n x B -> rad: nSpec x B (single).
     nSpec = size(A,1); B = size(A,3); n = size(x_lb,1);
     if ~strcmp(precision, 'single'), rad = zeros(nSpec, B, 'like', A); return; end
-    u = single(eps('single') / 2); k = single(1 + 2^-10);   % M3b-T: double-computed + single-cast -> (1+2^-10) covers the cast (was 2x, over-inflated)
+    u = single(eps('single') / 2); k = single(1 + 2^-7);    % M3b-T: double GEMM -> covers cast + accumulation (was 2x); final-add u*|a| covered at the margin block -- review 2026-06-18
     den = 1 - single(n) * u;
     if den <= single(0.5)
         rad = realmax('single') * ones(nSpec, B, 'like', A); return;

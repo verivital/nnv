@@ -53,6 +53,27 @@ function test_sound_fp32_parity_residual(tc)
     verifyLessThanOrEqual(tc, mS, minCY + 1e-4, 'G2 (residual): sound-FP32 <= MC true min');
 end
 
+function test_sound_fp32_relu_width1(tc)
+    % review #11: a width-1 unstable hidden ReLU (single neuron, u ~ -l near-symmetric, large
+    % downstream |Aneg|) stresses the au=u/(u-l) slope cancellation + the bu=-au*l intercept
+    % derivation -- NOT covered by the wider-layer cases (widths 16/12/10). G1/G2 must still hold.
+    rng(11, 'twister');
+    w1 = [1 -1 0.5]; b1 = 0;                  % single neuron; symmetric box -> z in [-a,a], u ~= -l
+    W3 = 50 * randn(4, 1); b3 = randn(4, 1);  % large downstream |Aneg| to amplify any slope-error leak
+    ops = { struct('type','affine','W',w1,'b',b1,'src',0,'nOut',1), ...
+            struct('type','relu','src',1), ...
+            struct('type','affine','W',W3,'b',b3,'src',2,'nOut',4) };
+    lb = -0.4 * ones(3, 1); ub = 0.4 * ones(3, 1);   % symmetric -> the single neuron straddles 0
+    C  = [1 -1 0 0; 0 0 1 -1];
+    mH = double(gpu_bab_crown_tight(ops, lb, ub, C, 'double', {})); mH = mH(:);
+    mS = double(gpu_bab_crown_tight(ops, lb, ub, C, 'single', {})); mS = mS(:);
+    verifyTrue(tc, all(isfinite(mS)));
+    verifyLessThanOrEqual(tc, mS, mH + 1e-4, 'G1 (width-1 relu): sound-FP32 <= FP64');
+    N = 40000; X = lb + (ub - lb) .* rand(3, N);
+    minCY = min(C * i_eval(ops, X), [], 2);
+    verifyLessThanOrEqual(tc, mS, minCY + 1e-4, 'G2 (width-1 relu): sound-FP32 <= MC true min');
+end
+
 function test_double_path_has_no_radius(tc)
     % The outward widening is gated to 'single': the 'double' path must be byte-identical to the
     % pre-sound-FP32 behaviour (derr=0, rad=0). Cross-check: doubling the box does not change the

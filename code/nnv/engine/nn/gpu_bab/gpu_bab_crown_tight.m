@@ -1,4 +1,4 @@
-function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings, mulFix)
+function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, fixings, mulFix)
 % GPU_BAB_CROWN_TIGHT  CROWN with TIGHT (backward) intermediate-layer bounds.
 %   Optional 5th/6th outputs Ain (nSpec x nIn), din (nSpec x 1) are the CROWN input-space LOWER
 %   plane for the spec: C*f(x) >= Ain*x + din for every x in [x_lb,x_ub] (margins = min over the
@@ -56,6 +56,12 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_ti
             vmag = {};
         end
     end
+    % SOUNDNESS FLAG: the sound-FP32 OUTWARD widening is actually applied only when precision is
+    % 'single' AND vmag was successfully computed (non-empty). If vmag failed (caught above -> {}),
+    % derr stays 0 -> the single-precision margins are the UNSOUND fast screen, NOT a sound bound.
+    % Callers that EMIT a verdict from single-precision margins MUST gate on this flag (fail-closed):
+    % a non-sound 'single' result must never be trusted as 'robust'. (Double is always exact-enough.)
+    soundFP32 = strcmp(precision, 'single') && ~isempty(vmag);
 
     % ---- tight intermediate bounds, layer by layer ----
     % Compute input bounds for every op whose backward relaxation needs them: ReLU (the

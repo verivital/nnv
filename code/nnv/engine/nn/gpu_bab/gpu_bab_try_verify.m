@@ -177,9 +177,13 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
         rootCert = false;
         try
             Cspec = i_argmax_spec_C(target, nClasses, lb);          % rows e_target - e_j (== relu_split.m)
-            mrg = gpu_bab_crown_tight(ops, lb, ub, Cspec, 'single');% sound lower bound on C*f(x)
+            [mrg, ~, ~, ~, ~, ~, ~, ctSound] = gpu_bab_crown_tight(ops, lb, ub, Cspec, 'single');
             mrg = gather(double(mrg(:)));
-            rootCert = ~isempty(mrg) && all(isfinite(mrg)) && all(mrg > 0);
+            % FAIL-CLOSED: trust the margins ONLY if crown_tight actually applied the sound-FP32
+            % widening (ctSound). If its internal vmag computation failed (-> derr=0, the UNSOUND
+            % fast screen), ctSound is false and we must NOT emit 'robust' from these single-precision
+            % margins -> fall through to 'unknown'. (Copilot review: the -150 hole on vmag failure.)
+            rootCert = ctSound && ~isempty(mrg) && all(isfinite(mrg)) && all(mrg > 0);
         catch ME1
             info.reason = [info.reason '; sound-FP32 root pre-check error: ' ME1.message];
         end

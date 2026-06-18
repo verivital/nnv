@@ -60,6 +60,12 @@ if ~isempty(sv)
     if numel(tv) == 2 && tv(2) >= 1 && tv(1) >= 0 && tv(1) < tv(2)
         shard_id = tv(1); shard_total = tv(2);
         fprintf('Sweep shard: %d/%d (this process runs every %d-th resolvable instance)\n', shard_id, shard_total, shard_total);
+    else
+        % LOUD on a malformed/out-of-range value: silently running unsharded would make N
+        % GPU-pinned processes each run the FULL set (duplicated work) with no indication.
+        warning('run_all_benchmarks:badShard', ['NNV_SWEEP_SHARD="%s" is malformed or out of range ' ...
+            '(expected "id/total" with 0<=id<total, total>=1) -> running UNSHARDED (all instances). ' ...
+            'Fix or unset it to avoid duplicated work across processes.'], sv);
     end
 end
 gidx = 0;   % global instance counter across folders (for sharding)

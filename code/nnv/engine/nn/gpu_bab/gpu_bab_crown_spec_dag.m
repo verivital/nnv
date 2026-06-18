@@ -1,4 +1,14 @@
-function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell)
+function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell, vmag)
+% SOUND-FP32 (M3b): optional `vmag` (cell(nOps+1,1) of DOUBLE per-op output value-magnitude
+% majorants from gpu_bab_ibp(...,'double'), computed ONCE at the BaB root since the input box is
+% fixed across nodes). When supplied on the single-precision path, the batched backward accumulates
+% a transient `derr` (nSpec x B) bounding the FP32 rounding error of every backward op, and the
+% final margins are widened OUTWARD by (rad + derr) so `margins_single <= margins_double <= true`
+% (monotone-sound -> can EMIT, no FP64 confirm). 5th output `soundFP32` = (single && vmag applied),
+% the fail-closed gate the caller MUST check before trusting a single-precision 'robust'. Absent vmag
+% (or double) -> byte-identical to the prior unsound screen (never emits). See FP32_SOUND_RECIPE §M3b.
+% NOTE: i_gamma_sd / i_outward_rad_sd below MUST stay identical to gpu_bab_crown_tight.m's
+% i_gamma / i_outward_rad (M0 will factor them to one shared file; until then, diff char-for-char).
 % AMORTIZED alpha-CROWN: optional alphaCell (cell(nOps,1) of per-relu lower-slope vectors,
 % dim_k x 1, in [0,1]) lets the caller bound a whole BaB frontier with FIXED root-optimized
 % slopes -- no autodiff, no per-node gradient tape -> large frontier. Unset -> min-area (default,
@@ -47,8 +57,23 @@ function [margins, preL, preU, scoreCell] = gpu_bab_crown_spec_dag(ops, x_lb, x_
     if nargin < 6, fixings = {}; end
     if nargin < 7, rootBounds = []; end
     if nargin < 8, alphaCell = {}; end
+    if nargin < 9, vmag = {}; end
     B = size(x_lb, 2); nSpec = size(C, 1); nOps = numel(ops); n = size(x_lb, 1);
     preL = cell(nOps,1); preU = cell(nOps,1);
+    % SOUND-FP32 (M3b) state. doErr=true only on the single path WITH a (double) vmag majorant ->
+    % the backward widens OUTWARD by derr (per-op FP32 roundoff, nSpec x B) + a final-contraction rad.
+    % vmag absent / double -> doErr=false -> NO widening -> byte-identical to the prior screen.
+    doErr = strcmp(precision, 'single') && ~isempty(vmag);
+    % FAIL-CLOSED: soundFP32 stays FALSE until the per-op derr below is COMPLETE + frontier-G1
+    % validated + adversarially reviewed. The arg/state are plumbed (M3b Step 1), but the per-op
+    % roundoff bounding (Step 3) is NOT yet wired, so a single-precision margin here is NOT a sound
+    % bound -> no caller may emit from it. Flip to `doErr` only when Step 3 lands + G1 passes.
+    soundFP32 = false;                         %#ok<NASGU>  (the fail-closed EMIT gate; see above)
+    derr = zeros(nSpec, B, precision);         %#ok<NASGU>  accumulated FP32 backward roundoff (Step 3)
+    dmag = zeros(nSpec, B, precision);         %#ok<NASGU>  running sum of |d-terms| (the d=d+... chain)
+    us   = single(eps('single') / 2);          %#ok<NASGU>  unit roundoff
+    % --- M3b Step 1 (vmag plumbing) landed; Step 3 (per-op derr + final widen) is the gated next step.
+    %     vmag is currently accepted but NOT applied -> margins are byte-identical to the prior screen.
 
     if isempty(rootBounds)
         % ---- forward IBP (batched, FULL DAG), pre-activation bounds at each ReLU, with node

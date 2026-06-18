@@ -793,7 +793,12 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     % DOUBLE-precision confirm; GPU-single is just a fast filter that can never emit a verdict.
     % FC nets are cheap in double -> single-stage CPU-double (maxNodes 5000). No GPU -> conv also
     % falls back to CPU-double (slow but sound).
-    cMaxNodes = 64; cFrontier = 32;                          % conv BaB budget (env-tunable for dev)
+    cMaxNodes = 2000; cFrontier = 32;                        % conv BaB budget (env-tunable: NNV_CONV_MAXNODES)
+    % NOTE (2026-06-18): default raised 64 -> 2000. The S6 sweep diagnostic showed certified cifar
+    % instances need 9-1039 BaB nodes (the FP64 confirm), so the old default of 64 silently truncated
+    % most certs to 'unknown'. 2000 covers the observed cert depth with margin. SOUND: a node cap only
+    % turns a verdict into 'unknown' (early stop), never a wrong verdict; the cost is wall-clock on
+    % non-certs (bounded by the per-instance cap). Lower it via the env for fast dev/smoke runs.
     % env overrides only when finite + sane (str2double of unset/non-numeric is NaN -> keep the
     % default; a NaN budget would make info.nodes>maxNodes false forever and silently un-bound the BaB)
     ev = str2double(getenv('NNV_CONV_MAXNODES')); if isfinite(ev) && ev >= 1, cMaxNodes = ev; end

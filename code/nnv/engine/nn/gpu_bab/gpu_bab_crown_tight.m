@@ -39,7 +39,14 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_ti
     vmag = {};
     if strcmp(precision, 'single')
         try
-            [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, precision);
+            % vmag in DOUBLE -> a rigorous value-magnitude majorant regardless of net depth (the
+            % single-IBP rounding ~ (sum of contraction lengths)*u can EXCEED a fixed inflation, e.g.
+            % ~7e-4 for the cifar resnet, so a single vmag would be unsound; double IBP rounding ~1e-16
+            % is negligible). The IBP forward is value-vectors only (no huge backward tensors) so double
+            % is cheap + cannot OOM. derr then mixes single |A| with double vmag -> the widening is
+            % computed in double (rigorous over-estimate); the fast single CROWN coefficient pass is
+            % unchanged. (Review findings #3/#9.)
+            [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, 'double');
         catch
             vmag = {};
         end
@@ -157,7 +164,11 @@ function g = i_gamma(m, precision)
 % SOUND only with the DETERMINISTIC m (never the probabilistic sqrt(m) -- a single tail = a -150).
     u = single(eps('single') / 2);
     m = single(m);
-    g = cast(2, precision) * (m * u) / (1 - m * u);
+    den = 1 - m * u;
+    if den <= single(0.5)            % m*u >= 0.5: the linearized gamma is invalid -> fail-closed (huge sound widening)
+        g = cast(realmax('single'), precision); return;
+    end
+    g = cast(2, precision) * (m * u) / den;
 end
 
 function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower, vmag)
@@ -183,6 +194,8 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     d = zeros(nS, 1, precision);
     doErr = strcmp(precision, 'single') && ~isempty(vmag);
     derr = zeros(nS, 1, precision);
+    dmag = zeros(nS, 1, precision);                 % running sum of |d-terms|: the cross-op d add-chain
+    us   = single(eps('single') / 2);               % rounding (each d=d+t injects u*|partial sum| <= u*dmag)
     if upto == 0                              % A0 is already on the engine input (op 0)
         Apos = max(A0, 0); Aneg = min(A0, 0);
         if lower, bound = Apos*cast(x_lb,precision) + Aneg*cast(x_ub,precision);
@@ -228,10 +241,11 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             lyy = lz(wa+1:end);  uyy = uz(wa+1:end);     % input b (y) output bounds
             [aL,bL,cL,aU,bU,cU] = gpu_bab_mul_relax(la, ua, lyy, uyy, [], [], precision);
             Apos = max(A, 0); Aneg = min(A, 0);          % sign-aware: +coeff -> LOWER plane (lower bnd)
-            if doErr   % McCormick plane mults to both inputs + the cL/cU intercept (conservative)
+            if doErr   % McCormick plane mults to both inputs + the cL/cU intercept + its d-add (conservative)
                 va = vmag{op.inputs(1) + 1}; vb = vmag{op.inputs(2) + 1};
                 derr = derr + i_gamma(2, precision) * (abs(A) * (va + vb)) ...
                             + i_gamma(wa, precision) * (abs(A) * (abs(cL) + abs(cU)));
+                dmag = dmag + abs(A) * (abs(cL) + abs(cU)); derr = derr + us * dmag;
             end
             if lower
                 Ax = Apos .* aL.' + Aneg .* aU.';
@@ -260,35 +274,47 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             if doErr   % A*W contracts over out-width; output value-mag majorant (no cancel) = |W|*vin+|b|
                 derr = derr + i_gamma(size(A,2), precision) * (abs(A) * (abs(W) * vin + abs(b)));
+                dmag = dmag + abs(A) * abs(b); derr = derr + us * dmag;            % d=d+A*b add-chain
             end
             d = d + A * b;
             A = A * W;
         elseif strcmp(op.type, 'conv')
-            if doErr   % magnitude adjoint transpconv(|A|,|W|) + |b| pass; m = kh*kw*out-ch
+            if doErr   % magnitude adjoint transpconv(|A|,|W|) [length kh*kw*out-ch] + bias [length prod(outShape)]
                 opm = op; opm.W = abs(op.W); opm.b = abs(op.b);
-                [Amag, dmag] = i_conv_backward(abs(A), zeros(nS,1,precision), opm, precision);
+                [Amag, dmc] = i_conv_backward(abs(A), zeros(nS,1,precision), opm, precision);
                 mC = size(op.W,1) * size(op.W,2) * size(op.W,4);
-                derr = derr + i_gamma(mC, precision) * (Amag * vin + dmag);
+                derr = derr + i_gamma(mC, precision) * (Amag * vin) ...
+                            + i_gamma(prod(op.outShape), precision) * dmc;          % bias reduction length (review #5)
+                dmag = dmag + dmc; derr = derr + us * dmag;                         % d=d+bias add-chain
             end
             [A, d] = i_conv_backward(A, d, op, precision);
         elseif strcmp(op.type, 'normaffine')
+            if doErr   % TWO FP32 ops: slope multiply A.*sf' AND intercept matmul d=d+A*tf (review #1/#8)
+                sfm = i_bcast_flat(abs(op.scale), op.shape, precision);            % |slope| flat
+                tfm = i_bcast_flat(abs(op.shift), op.shape, precision);            % |shift| flat
+                derr = derr + i_gamma(2, precision) * ((abs(A) .* sfm.') * vin) ...
+                            + i_gamma(numel(tfm), precision) * (abs(A) * tfm);       % the missing intercept term
+                dmag = dmag + abs(A) * tfm; derr = derr + us * dmag;               % d=d+A*tf add-chain
+            end
             [A, d] = i_normaffine_backward(A, d, op, precision);
-            if doErr, derr = derr + i_gamma(2, precision) * (abs(A) * vin); end   % A now = A_in (elementwise, no cancel)
         elseif strcmp(op.type, 'avgpool')
             [A, d] = i_avgpool_backward(A, d, op, precision);
-            if doErr, derr = derr + i_gamma(prod(op.pool), precision) * (abs(A) * vin); end
+            if doErr, derr = derr + i_gamma(prod(op.pool), precision) * (abs(A) * vin); end  % no bias -> no d-add
         elseif strcmp(op.type, 'maxpool')
             [A, d] = i_maxpool_backward(A, d, op, preL{k}, preU{k}, precision, lower);
-            if doErr   % selection exact (0/1); conservative term for the umax relaxation intercept
+            if doErr   % selection exact (0/1); conservative term for the umax relaxation intercept + its d-add
                 derr = derr + i_gamma(2*prod(op.pool), precision) * (abs(A) * (vin + vmag{k + 1}));
+                dmag = dmag + abs(A) * vmag{k + 1}; derr = derr + us * dmag;
             end
         else                                  % relu relaxation (sign-aware), preL/preU{k}
             l = preL{k}; u = preU{k};
             [au, bu, al] = i_relax(l, u, precision);
             Apos = max(A, 0); Aneg = min(A, 0);
-            if doErr   % slope mults (|A_in|<=|A|, no cancel) + the bu intercept (d += Aneg*bu)
+            if doErr   % slope mults (|A_in|<=|A|, no cancel) + the bu intercept (d += Aneg*bu); +4u for the
+                       % au=u/(u-l)/bu=-au*l derivation rounding (review #11), independent of width
                 derr = derr + i_gamma(2, precision) * (abs(A) * vin) ...
-                            + i_gamma(numel(bu), precision) * (abs(Aneg) * abs(bu));
+                            + (i_gamma(numel(bu), precision) + cast(4,precision)*us) * (abs(Aneg) * abs(bu));
+                dmag = dmag + abs(Aneg) * abs(bu); derr = derr + us * dmag;        % d=d+Aneg*bu add-chain
             end
             if lower
                 d = d + Aneg * bu;
@@ -313,6 +339,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
         bound = Apos * cast(x_ub, precision) + Aneg * cast(x_lb, precision) + d;
     end
     rad = i_outward_rad(A, x_lb, x_ub, precision);           % final-contraction roundoff (M1)
+    if doErr, derr = derr + us * abs(d); end                 % the final '+ d' addition roundoff (review #6)
     if lower, bound = bound - rad - derr; else, bound = bound + rad + derr; end   % widen OUTWARD by rad + the per-op backward error (M2)
 end
 

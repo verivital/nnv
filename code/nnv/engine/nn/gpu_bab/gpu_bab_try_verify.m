@@ -162,40 +162,27 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
         lb = gpuArray(single(lb)); ub = gpuArray(single(ub));
         info.device = 'gpu';
     end
-    % ---- M1: sound-FP32 root pre-check EMIT --------------------------------------------------
-    % When sound-FP32 is enabled (NNV_SOUND_FP32_TIGHT set) on the single-precision path,
-    % gpu_bab_crown_tight returns a PROVABLY SOUND lower bound on the spec margins (every CROWN
-    % bound outward-widened by a per-op running-error radius; validated G1 0/99, PR #385). So
-    % min(margins) > 0 at the ROOT certifies argmax-robustness with NO branch-and-bound and NO
-    % FP64 confirm -- a sound ~9x emit for the root-certifiable tier. In this mode we do NOT fall
-    % through to the (not-yet-sound-FP32) batched BaB for a verdict (its per-node spec_dag is not
-    % yet hardened -- milestone M3b): a non-certifying root returns 'unknown' so the caller runs
-    % the sound fallback. FAIL-CLOSED: any crown_tight/vmag error -> 'unknown', never a verdict.
+    % ---- M3b: sound-FP32 EMIT mode -----------------------------------------------------------
+    % When NNV_SOUND_FP32_TIGHT is set on the single-precision path, the BATCHED engine
+    % (relu_split_batched) computes a DOUBLE value-magnitude majorant ONCE at the root and threads it
+    % through gpu_bab_crown_tight (root bounds) + gpu_bab_crown_spec_dag (every BaB node) so the
+    % GPU-single margins are OUTWARD-widened to a sound lower bound -- root AND deep nodes (M1's
+    % root-only pre-check is subsumed by the engine's root certify, now itself sound). Validated:
+    % frontier-G1 0/1584, root-G2 0/200, 2-round adversarial review (3 holes fixed). The engine
+    % reports binfo.soundFP32; we EMIT 'robust' below ONLY when it is true -- FAIL-CLOSED: if vmag
+    % failed or a non-sound (alpha) path was used, the 'robust' is downgraded to 'unknown', never
+    % trusted as a verdict. Default-OFF (env unset) -> existing unsound screen, byte-identical.
     info.soundFP32 = false;
-    soundFP32 = strcmp(bopts.precision, 'single') && ~isempty(getenv('NNV_SOUND_FP32_TIGHT'));
-    if soundFP32
-        rootCert = false;
-        try
-            Cspec = i_argmax_spec_C(target, nClasses, lb);          % rows e_target - e_j (== relu_split.m)
-            [mrg, ~, ~, ~, ~, ~, ~, ctSound] = gpu_bab_crown_tight(ops, lb, ub, Cspec, 'single');
-            mrg = gather(double(mrg(:)));
-            % FAIL-CLOSED: trust the margins ONLY if crown_tight actually applied the sound-FP32
-            % widening (ctSound). If its internal vmag computation failed (-> derr=0, the UNSOUND
-            % fast screen), ctSound is false and we must NOT emit 'robust' from these single-precision
-            % margins -> fall through to 'unknown'. (Copilot review: the -150 hole on vmag failure.)
-            rootCert = ctSound && ~isempty(mrg) && all(isfinite(mrg)) && all(mrg > 0);
-        catch ME1
-            info.reason = [info.reason '; sound-FP32 root pre-check error: ' ME1.message];
-        end
-        if rootCert
-            verdict = 'robust'; info.soundFP32 = true; info.nodes = 0;
-            info.reason = sprintf('%s; sound-FP32 root pre-check robust (min margin %.4g)', info.reason, min(mrg));
-        else
-            verdict = 'unknown';
-            info.reason = [info.reason '; sound-FP32 root did not certify (deep BaB pending M3b)'];
-        end
-        return;
+    % SOUND-FP32 request: opts.soundFP32 (true/false) OVERRIDES the env -- lets ONE process run an
+    % UNSOUND fast screen (soundFP32=false) and a SOUND emit-attempt (soundFP32=true) without
+    % flipping a global env. Absent -> env default. Threaded to the engine via bopts.soundFP32.
+    if isfield(opts, 'soundFP32')
+        reqSound = isequal(opts.soundFP32, true);
+    else
+        reqSound = ~isempty(getenv('NNV_SOUND_FP32_TIGHT'));
     end
+    bopts.soundFP32 = reqSound;
+    soundFP32 = strcmp(bopts.precision, 'single') && reqSound;
 
     % Engine: opts.engine='batched' uses gpu_bab_relu_split_batched (batched-DFS, processes a
     % whole BaB-node frontier per kernel -- GPU-saturating, for FC + sequential conv); default
@@ -217,9 +204,17 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     info.nodes = binfo.nodes;
 
     % (4) map verdict; re-confirm any counterexample against net.evaluate
+    info.soundFP32 = isfield(binfo, 'soundFP32') && binfo.soundFP32;   % propagate the engine's flag
     switch status
         case 'robust'
-            verdict = 'robust';
+            if soundFP32 && ~info.soundFP32
+                % sound-FP32 EMIT mode but the engine's bound was NOT sound-FP32 (vmag failed or a
+                % non-sound alpha path) -> FAIL-CLOSED: never emit a verdict from an unsound margin.
+                verdict = 'unknown';
+                info.reason = [info.reason '; soundFP32 mode but engine bound not sound -> unknown'];
+            else
+                verdict = 'robust';   % normal mode: the (FP64-confirm/screen) robust; or sound-FP32 robust
+            end
         case 'unsafe'
             yc = net.evaluate(reshape(double(binfo.cex), inShape)); yc = yc(:);
             [~, pred] = max(yc);
@@ -246,15 +241,6 @@ end
 
 function v = i_optget(s, f, d)
     if isfield(s, f) && ~isempty(s.(f)), v = s.(f); else, v = d; end
-end
-
-function C = i_argmax_spec_C(target, K, like_arr)
-% Argmax-robustness spec matrix, IDENTICAL to gpu_bab_relu_split.m's construction: row j
-% (j ~= target) = e_target - e_j, so C*f(x) = f_target - f_j and 'robust' iff every margin > 0.
-% Built 'like' the input box so it inherits gpuArray/single on the GPU path.
-    C = -eye(K, 'like', like_arr);
-    C(:, target) = C(:, target) + 1;
-    C(target, :) = [];
 end
 
 function ok = i_is_argmax_spec(prop, target, K)

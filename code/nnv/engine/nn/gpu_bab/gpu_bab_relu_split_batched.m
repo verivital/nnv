@@ -105,11 +105,22 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     % for every batched bound below. This gives tight bounds (vs the loose per-node IBP) at
     % batched speed (vs recomputing the tight pass per node). Falls back to the IBP forward
     % when rootTight is off. ---
-    rootBounds = []; alphaRoot = {};
+    rootBounds = []; alphaRoot = {}; vmag = {};
     if rootTight
         [mRoot, rtL, rtU] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, cell(nOps,1));
         mRoot = gather(mRoot(:));
         rootBounds = struct('preL', {rtL}, 'preU', {rtU});
+        % SOUND-FP32 (M3b): compute the DOUBLE value-magnitude majorant ONCE at the root (the input
+        % box is FIXED across BaB nodes; only ReLU fixings change), threaded to every spec_dag bound
+        % below so the GPU-single margins are sound-widened -> the BaB can EMIT (no FP64 confirm).
+        % crown_tight already widens mRoot itself (its own internal vmag). Gated + fail-closed.
+        % opts.soundFP32 (true/false from the caller) OVERRIDES the env; [] -> env default. Lets the
+        % caller run an UNSOUND screen and a SOUND emit-attempt in one process (run_vnncomp_instance).
+        reqSound = i_get(opts, 'soundFP32', []);
+        if isempty(reqSound), reqSound = ~isempty(getenv('NNV_SOUND_FP32_TIGHT')); end
+        if strcmp(precision, 'single') && reqSound
+            try, [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, 'double'); catch, vmag = {}; end
+        end
         preL = cell(nOps,1); preU = cell(nOps,1);
         for r = 1:numel(reluIdx), k = reluIdx(r); preL{k} = gather(rtL{k}); preU{k} = gather(rtU{k}); end
         % AMORTIZED alpha-CROWN: optimize alpha ONCE at the root (B=1, no per-node gradient memory)
@@ -135,6 +146,10 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         [mRoot, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, cell(nOps,1), 1, [], 0, 0.2, 0, {});
     end
     info.nodes = 1;
+    % M3b: the whole BaB is sound-FP32 iff vmag was computed (root certify uses crown_tight's
+    % widened mRoot; deep nodes use spec_dag+vmag). Downgraded below if any batch used a
+    % non-sound-FP32 (alpha) path. The caller emits only when info.soundFP32 is true.
+    info.soundFP32 = ~isempty(vmag);
     if i_certify_dis(mRoot, gOff, rowGroups, margin)
         status = 'robust'; return;
     end
@@ -149,7 +164,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     % eps keeps borderline disjuncts in the BaB.
     if numel(rowGroups) > 1
         if ~isempty(rootBounds)
-            mRef = gather(reshape(gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, {}, rootBounds, alphaRoot), [], 1));
+            mRef = gather(reshape(gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, {}, rootBounds, alphaRoot, vmag), [], 1));   % M3b: widen the spec-reduction reference too
         else
             mRef = mRoot(:);                            % rootTight off: children use this same min-area bound
         end
@@ -228,7 +243,8 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         tProf(1) = tProf(1) + toc(tS); tS = tic;
 
         % bound the popped batch (reusing the tight root bounds, clamped per node, if rootTight)
-        [margins, preL, preU, infeas, scoreC] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot);
+        [margins, preL, preU, infeas, scoreC, bsf] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot, vmag);
+        if ~bsf, info.soundFP32 = false; end   % M3b: downgrade if a batch used a non-sound-FP32 (alpha) path
         if ~isempty(dbgD), wait(dbgD); end
         tProf(2) = tProf(2) + toc(tS); tS = tic;
         % An INFEASIBLE node (a fixing combination that made the clamped IBP box empty,
@@ -325,7 +341,7 @@ function ok = i_certify_dis(margins, gOff, rowGroups, marginSlack)
 end
 
 % ------------------------------------------------------------------------------------
-function [margins, preL, preU, infeasible, scoreCell] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot)
+function [margins, preL, preU, infeasible, scoreCell, soundFP32] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, fixc, B, rootBounds, alphaIter, alphaLr, betaIter, alphaRoot, vmag)
 % Bound B frontier nodes (B <= maxFrontier) in one batched CROWN call. The backward CROWN
 % (pagemtimes) runs on-device; margins and the per-relu pre-activation bounds are gathered to
 % host (small) for the verdict + split-neuron selection. infeasible(j) is true when node j's
@@ -341,6 +357,7 @@ function [margins, preL, preU, infeasible, scoreCell] = i_bound_batch(ops, reluI
     if nargin < 11 || isempty(alphaLr), alphaLr = 0.2; end
     if nargin < 12 || isempty(betaIter), betaIter = 0; end
     if nargin < 13, alphaRoot = {}; end
+    if nargin < 14, vmag = {}; end                    % SOUND-FP32 (M3b): double vmag majorant (root)
     LB = repmat(x_lb, 1, B); UB = repmat(x_ub, 1, B);
     % DAG nets (conv/normaffine/avgpool/add): with AMORTIZED root slopes (alphaRoot) bound the whole
     % frontier via spec_dag (fixed slopes, NO autodiff -> large frontier, the cifar memory fix);
@@ -348,22 +365,26 @@ function [margins, preL, preU, infeasible, scoreCell] = i_bound_batch(ops, reluI
     % else min-area spec_dag. FC-only alpha_fix/alpha_beta mis-bound conv/add (fail-open) -> never
     % used for DAG. All sound (alpha in [0,1], beta>=0).
     isDAG = any(cellfun(@(o) any(strcmp(o.type, {'conv','normaffine','avgpool','add','concat','product'})), ops));
-    sc = {};                                          % per-relu BaBSR score (dim_k x B); {} -> gap fallback
+    sc = {}; sf = false;                              % per-relu BaBSR score (dim_k x B); sf = spec_dag was sound-FP32
+    % SOUND-FP32 (M3b): the spec_dag branches thread `vmag` -> sound-widened margins + return their
+    % soundFP32 flag. The alpha_dag/alpha_beta/alpha_fix branches have NO derr -> NOT sound-FP32 (sf
+    % stays false) -> the caller will not emit from them.
     if isDAG
         if ~isempty(alphaRoot)
-            [m, pL, pU, sc] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds, alphaRoot);
+            [m, pL, pU, sc, sf] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds, alphaRoot, vmag);
         elseif alphaIter > 0 || betaIter > 0
             [m, ~, pL, pU] = gpu_bab_crown_alpha_dag(ops, LB, UB, C, fixc, reluIdx, precision, max(alphaIter,betaIter), alphaLr, rootBounds);
         else
-            [m, pL, pU, sc] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
+            [m, pL, pU, sc, sf] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds, {}, vmag);
         end
     elseif betaIter > 0
         [m, ~, pL, pU] = gpu_bab_crown_alpha_beta(ops, LB, UB, C, fixc, reluIdx, precision, max(alphaIter,betaIter), alphaLr, rootBounds);
     elseif alphaIter > 0
         [m, ~, pL, pU] = gpu_bab_crown_alpha_fix(ops, LB, UB, C, fixc, reluIdx, precision, alphaIter, alphaLr, rootBounds);
     else
-        [m, pL, pU, sc] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds);
+        [m, pL, pU, sc, sf] = gpu_bab_crown_spec_dag(ops, LB, UB, C, precision, fixc, rootBounds, {}, vmag);
     end
+    soundFP32 = sf;
     margins = gather(m);
     preL = cell(numel(ops), 1); preU = cell(numel(ops), 1);
     scoreCell = cell(numel(ops), 1);

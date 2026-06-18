@@ -811,16 +811,35 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             % far fewer nodes -- on robust conv the screen grinds the launch-bound tail much longer
             % than the double pass takes. NNV_CONV_GPU_SCREEN=0 skips the screen -> straight to double.
             useScreen = ~isequal(getenv('NNV_CONV_GPU_SCREEN'), '0');
+            soundEmit = ~isempty(getenv('NNV_SOUND_FP32_TIGHT'));     % sound-FP32 fast-emit attempt enabled
             screenPass = true;
             if useScreen
+                % FAST UNSOUND-FP32 SCREEN: the cheap, TIGHT candidate filter. soundFP32=false FORCES it
+                % unsound even when NNV_SOUND_FP32_TIGHT is set, so a HARD cert (which the widened sound
+                % bound cannot certify in budget) still passes the filter -> reaches the FP64 confirm.
                 [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, ...
-                    struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier,'device','gpu','allowUnsoundSingle',true));
+                    struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier,'device','gpu','allowUnsoundSingle',true,'soundFP32',false));
                 screenPass = strcmp(gv, 'robust');
                 if ~screenPass
                     fprintf('GPU-BaB pre-check: %s (gpu-screen, %s) -> Star reach\n', gv, ginfo.reason);
                 end
             end
             if screenPass
+                % SOUND-FP32 EMIT (M3b): on a screen-robust candidate, try the SOUND-FP32 BaB FIRST -- a
+                % 'robust' carrying soundFP32=true is a provably-sound unsat (every CROWN bound outward-
+                % widened; frontier-G1 0/1584 + root-G2 0/200 + 2-round adversarial review) -> emit
+                % directly, skipping the ~284s FP64 confirm. If it returns unknown (the widened bound is
+                % too loose for this hard instance), FALL BACK to FP64 below -- so the emit only ADDS fast
+                % certs, never loses the ones FP64 gets. Gated on NNV_SOUND_FP32_TIGHT (default off).
+                if soundEmit
+                    [gvE, giE] = gpu_bab_try_verify(nnvnet, lb, ub, prop, ...
+                        struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier,'device','gpu','allowUnsoundSingle',true,'soundFP32',true));
+                    if strcmp(gvE,'robust') && isfield(giE,'soundFP32') && giE.soundFP32
+                        status = 1; reachOptionsList = {};
+                        fprintf('GPU-BaB pre-check: robust/unsat (sound-FP32 emit, %d nodes) -> skip Star\n', giE.nodes);
+                        return;
+                    end
+                end
                 [gv2, gi2] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',cMaxNodes,'maxFrontier',cFrontier));  % CPU double = sound emit
                 if strcmp(gv2, 'robust')
                     status = 1; reachOptionsList = {};

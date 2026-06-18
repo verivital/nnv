@@ -825,6 +825,15 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
                     fprintf('GPU-BaB pre-check: double=%s -> Star reach\n', gv2);
                 end
             end
+            % MEASUREMENT: cifar/tinyimagenet Star reach never certifies (GPU-BaB exists precisely
+            % because Star cannot do these resnets) and burns the whole per-instance cap. With
+            % NNV_CONV_NO_STAR set, a non-certifying conv pre-check emits a FAST sound 'unknown'
+            % instead of grinding Star to the cap. SOUND: 'unknown' is always safe, and the
+            % pre-check's unsat certs are unchanged. Default-OFF -> no behaviour change.
+            if status == 2 && ~isempty(getenv('NNV_CONV_NO_STAR'))
+                reachOptionsList = {};
+                fprintf('GPU-BaB pre-check: conv not certified + NNV_CONV_NO_STAR -> skip Star (fast unknown)\n');
+            end
         else
             mn = 5000; if isConv, mn = 64; end                 % conv-without-GPU: bounded (slow but sound)
             [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',mn));

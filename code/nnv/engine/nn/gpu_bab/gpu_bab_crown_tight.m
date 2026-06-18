@@ -215,7 +215,10 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
         if strcmp(op.type, 'add')             % out = out[a]+out[b]: route UNCHANGED to both
             for ii = 1:numel(op.inputs)
                 s = op.inputs(ii);
-                if doErr, derr = derr + i_gamma(1, precision) * (abs(A) * vmag{s + 1}); end   % accumulation roundoff (conservative)
+                if doErr && (s == 0 || ~isempty(skipA{s}))   % coefficient add-chain rounding at a merge
+                    if s == 0, derr = derr + i_gamma(upto,precision) * (abs(A) * vmag{1});
+                    else,      derr = derr + i_gamma(upto,precision) * (abs(A) * vmag{s + 1}); end
+                end
                 if s == 0,                inputSkipA = inputSkipA + A;
                 elseif isempty(skipA{s}), skipA{s} = A;
                 else,                     skipA{s} = skipA{s} + A;
@@ -241,9 +244,10 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             lyy = lz(wa+1:end);  uyy = uz(wa+1:end);     % input b (y) output bounds
             [aL,bL,cL,aU,bU,cU] = gpu_bab_mul_relax(la, ua, lyy, uyy, [], [], precision);
             Apos = max(A, 0); Aneg = min(A, 0);          % sign-aware: +coeff -> LOWER plane (lower bnd)
-            if doErr   % McCormick plane mults to both inputs + the cL/cU intercept + its d-add (conservative)
-                va = vmag{op.inputs(1) + 1}; vb = vmag{op.inputs(2) + 1};
-                derr = derr + i_gamma(2, precision) * (abs(A) * (va + vb)) ...
+            if doErr   % McCormick slope-update error scales as the PRODUCT va*vb (slopes |aL|<=vb,|bL|<=va
+                       % are UNBOUNDED, unlike relu's [0,1]) -- review #1; + the cL/cU intercept + its d-add
+                va = vmag{op.inputs(1) + 1}; vb = vmag{op.inputs(2) + 1}; vab = va .* vb;
+                derr = derr + i_gamma(2, precision) * (abs(A) * (vab + vab)) ...
                             + i_gamma(wa, precision) * (abs(A) * (abs(cL) + abs(cU)));
                 dmag = dmag + abs(A) * (abs(cL) + abs(cU)); derr = derr + us * dmag;
             end
@@ -310,11 +314,12 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             l = preL{k}; u = preU{k};
             [au, bu, al] = i_relax(l, u, precision);
             Apos = max(A, 0); Aneg = min(A, 0);
-            if doErr   % slope mults (|A_in|<=|A|, no cancel) + the bu intercept (d += Aneg*bu); +4u for the
-                       % au=u/(u-l)/bu=-au*l derivation rounding (review #11), independent of width
+            if doErr   % slope mults (|A_in|<=|A|, no cancel) + the bu intercept; |A| (not |Aneg|) so it
+                       % covers BOTH passes (lower: d+=Aneg*bu, upper: d+=Apos*bu) -- review #2; +4u for
+                       % the au=u/(u-l)/bu=-au*l derivation rounding (review #11), independent of width
                 derr = derr + i_gamma(2, precision) * (abs(A) * vin) ...
-                            + (i_gamma(numel(bu), precision) + cast(4,precision)*us) * (abs(Aneg) * abs(bu));
-                dmag = dmag + abs(Aneg) * abs(bu); derr = derr + us * dmag;        % d=d+Aneg*bu add-chain
+                            + (i_gamma(numel(bu), precision) + cast(4,precision)*us) * (abs(A) * abs(bu));
+                dmag = dmag + abs(A) * abs(bu); derr = derr + us * dmag;          % d=d+(Aneg|Apos)*bu add-chain
             end
             if lower
                 d = d + Aneg * bu;
@@ -325,6 +330,10 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             end
         end
         s = op.src;                           % route the input coefficient to op.src
+        if doErr && (s == 0 || ~isempty(skipA{s}))   % a MERGE (accumulating +) -> coefficient add-chain rounding
+            if s == 0, derr = derr + i_gamma(upto,precision) * (abs(A) * vmag{1});
+            else,      derr = derr + i_gamma(upto,precision) * (abs(A) * vmag{s + 1}); end
+        end
         if s == 0,                inputSkipA = inputSkipA + A;
         elseif isempty(skipA{s}), skipA{s} = A;
         else,                     skipA{s} = skipA{s} + A;

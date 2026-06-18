@@ -199,6 +199,9 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
         if isempty(A), continue; end
         skipA{k} = [];                                   % free: keep only live branches resident
         op = ops{k};
+        if doErr && ~isempty(getenv('NNV_DEBUG_DERR'))   % per-op derr trace (cumulative BEFORE op k)
+            fprintf('[derrtrace] before op %2d %-10s cumderr_min=%.5g\n', k, op.type, gather(min(derr(:))));
+        end
         if strcmp(op.type, 'add')
             for ii = 1:numel(op.inputs)
                 s = op.inputs(ii);
@@ -372,6 +375,14 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
         rad  = i_outward_rad_sd(A, x_lb, x_ub, precision);
         derr = derr + us * abs(d);                        % the final '+ d' addition roundoff
         margins = margins - rad - derr;
+        if ~isempty(getenv('NNV_DEBUG_DERR'))             % M3b tightening diagnosis (no behaviour change)
+            mraw = margins + rad + derr;                  % the un-widened margin
+            [mw, iw] = min(margins(:));                   % binding spec (widened)
+            fprintf('[derr] raw_min=%.6g widened_min=%.6g | binding: raw=%.6g rad=%.6g derr=%.6g\n', ...
+                gather(min(mraw(:))), gather(mw), gather(mraw(iw)), gather(rad(iw)), gather(derr(iw)));
+            vm = cellfun(@(v) max(abs(double(v(:)))), vmag);
+            fprintf('[derr] vmag(IBP) max-per-op: %s\n', mat2str(gather(vm(:))', 4));
+        end
     end
 end
 
@@ -491,15 +502,21 @@ function t = i_dterm_raw_sd(A, OP, nSpec, B)
 end
 
 function g = i_gamma_sd(m, precision)
-% Pre-inflated (2x) deterministic Higham factor gamma_m = m*u/(1-m*u) for a length-m FP32
-% contraction; fail-closed to realmax when m*u>=0.5. IDENTICAL to gpu_bab_crown_tight.m i_gamma.
+% Deterministic Higham factor gamma_m = m*u/(1-m*u) for a length-m FP32 contraction; fail-closed to
+% realmax when m*u>=0.5. INFLATION (M3b-T): spec_dag computes each derr term in DOUBLE
+% (i_dterm_sd: single(gamma * pagemtimes(double|A|, double vmag))), so the ONLY single-precision
+% rounding in the derr value is the final single() cast (rel. error <= u ~= 6e-8). A (1 + 2^-10)
+% inflation covers that cast ~16000x over -> still a sound over-estimate of the Higham bound on the
+% actual single CROWN rounding. (crown_tight.m's i_gamma keeps the 2x because ITS derr is accumulated
+% in single; this divergence is intentional + each is sound. Diagnosed 2026-06-18: the old 2x made
+% derr ~2x larger than necessary, blocking cifar emit; this halves it.)
     u = single(eps('single') / 2);
     m = single(m);
     den = 1 - m * u;
     if den <= single(0.5)
         g = cast(realmax('single'), precision); return;
     end
-    g = cast(2, precision) * (m * u) / den;
+    g = cast(1 + 2^-10, precision) * (m * u) / den;
 end
 
 function rad = i_outward_rad_sd(A, x_lb, x_ub, precision)
@@ -507,7 +524,7 @@ function rad = i_outward_rad_sd(A, x_lb, x_ub, precision)
 % DOUBLE). A: nSpec x n x B (input-space coeff), x_lb/x_ub: n x B -> rad: nSpec x B (single).
     nSpec = size(A,1); B = size(A,3); n = size(x_lb,1);
     if ~strcmp(precision, 'single'), rad = zeros(nSpec, B, 'like', A); return; end
-    u = single(eps('single') / 2); k = single(2);
+    u = single(eps('single') / 2); k = single(1 + 2^-10);   % M3b-T: double-computed + single-cast -> (1+2^-10) covers the cast (was 2x, over-inflated)
     den = 1 - single(n) * u;
     if den <= single(0.5)
         rad = realmax('single') * ones(nSpec, B, 'like', A); return;

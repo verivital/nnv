@@ -131,7 +131,10 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
             rootSound = reqSound && rootCtSound;
         end
         if strcmp(precision, 'single') && reqSound
-            try, [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, 'double'); catch, vmag = {}; end
+            try
+                [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, 'double');
+                vmag = gpu_bab_tighten_vmag(vmag, rootBounds, ops, reluIdx);   % M3b-T: crown-tight majorant -> far smaller derr (IBP vmag blows up with depth)
+            catch, vmag = {}; end
         end
         preL = cell(nOps,1); preU = cell(nOps,1);
         for r = 1:numel(reluIdx), k = reluIdx(r); preL{k} = gather(rtL{k}); preU{k} = gather(rtU{k}); end

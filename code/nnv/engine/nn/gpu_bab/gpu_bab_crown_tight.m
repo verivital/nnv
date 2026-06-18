@@ -31,6 +31,20 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_ti
     unstable = cell(nOps, 1);
     mulPlanes = cell(nOps, 1);   % per 'product' op: input value-planes (for targeted product-input branching)
 
+    % SOUND-FP32 (M2): per-op output value-magnitude majorants, used by i_backward's derr to bound
+    % the FP32 backward roundoff. Single precision only (FP64 rounding ~1e-16 is negligible -> derr=0,
+    % the FP64 path stays the oracle). On any IBP failure -> vmag={} -> derr=0 (the single path falls
+    % back to UNSOUND-screen behaviour, which is fine because it never emits a verdict; the sound EMIT
+    % path requires vmag to succeed, gated in gpu_bab_try_verify). See FP32_SOUND_RECIPE.
+    vmag = {};
+    if strcmp(precision, 'single')
+        try
+            [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, precision);
+        catch
+            vmag = {};
+        end
+    end
+
     % ---- tight intermediate bounds, layer by layer ----
     % Compute input bounds for every op whose backward relaxation needs them: ReLU (the
     % pre-activation) AND maxpool (the window inputs that decide the sound max relaxation).
@@ -43,8 +57,8 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_ti
             src = ops{k}.src;
             if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
             Ck = eye(nk, precision);
-            pu = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false);
-            pl = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true);
+            pu = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
+            pl = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true, vmag);
             if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                 fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
                 pl(fx == 1)  = max(pl(fx == 1),  0);
@@ -67,8 +81,8 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_ti
                 si = ins(ii);
                 if si == 0, nki = numel(x_lb); else, nki = i_layer_width(ops, si); end
                 Cki = eye(nki, precision);
-                [pui, AinU, dinU] = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, false);
-                [pli, AinL, dinL] = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, true);
+                [pui, AinU, dinU] = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, false, vmag);
+                [pli, AinL, dinL] = i_backward(ops, si, Cki, x_lb, x_ub, preL, preU, precision, true, vmag);
                 plS = [plS; pli]; puS = [puS; pui]; %#ok<AGROW>
                 % input value-planes over the box: AL*x+dL <= value <= AU*x+dU (per input element).
                 % Used by the BaB to branch a product input's range via gpu_bab_clip (constraint
@@ -90,7 +104,7 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_ti
     end
 
     % ---- final spec margin (lower bound on C*output) + the input-space lower plane ----
-    [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true);
+    [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true, vmag);
 end
 
 function w = i_layer_width(ops, upto)
@@ -131,13 +145,22 @@ function rad = i_outward_rad(A, x_lb, x_ub, precision)
     if ~strcmp(precision, 'single'), rad = zeros(size(A,1), 1, 'like', A); return; end
     n = numel(x_lb);
     u = single(eps('single') / 2);
-    k = single(10);                                   % M1: deliberately huge conservative inflation
+    k = single(2);                                    % M2: 2x pre-inflation (the per-op derr now covers the backward error)
     gbar = k * (n * u) / (1 - n * u);
     xmag = max(abs(single(x_lb(:))), abs(single(x_ub(:))));
     rad = gbar * (abs(A) * xmag) + single(n) * realmin('single');
 end
 
-function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower)
+function g = i_gamma(m, precision)
+% Pre-inflated (2x) deterministic worst-case Higham factor for a length-m FP contraction (the 2x
+% absorbs the derr computation's own rounding). gamma_m = m*u/(1-m*u); m over-estimated where cheap.
+% SOUND only with the DETERMINISTIC m (never the probabilistic sqrt(m) -- a single tail = a -150).
+    u = single(eps('single') / 2);
+    m = single(m);
+    g = cast(2, precision) * (m * u) / (1 - m * u);
+end
+
+function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, precision, lower, vmag)
 % Backward CROWN over the DAG ops[1..upto] with initial coefficient A0 (on op `upto`'s output).
 % FULL DAG: each op routes its backward coefficient to op.src (its input op), accumulated in
 % skipA{src}; an 'add' routes UNCHANGED to BOTH inputs (linear -> exact). skipA{k} = accumulated
@@ -146,8 +169,20 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
 % skipA{k} is complete when op k is processed (sound by induction). lower=true -> lower bound.
 % Optional Ain (nS x nIn), din (nS x 1): the input-space affine form, so for lower=true the
 % bounded quantity >= Ain*x + din for all x in the box (bound = min over the box of that plane).
+%
+% SOUND-FP32 (M2): when vmag is supplied (single precision), accumulate derr (nS x 1) = a sound
+% bound on the FP32 ROUNDING error each op's backward arithmetic injects into the final bound. Each
+% op's matmul/relaxation roundoff <= gamma_m * |coeff| * |operand|; contracted RIGHT HERE with the
+% op input's value-magnitude majorant vmag{src+1}, it collapses to nS x 1 (memory-flat). The matmul
+% ops (affine/conv) use the |W|-amplified magnitude (|A_in| understates under cancellation); the
+% elementwise/monotone ops (normaffine/avgpool/relu/maxpool) use |A_in| (cancellation-free), plus
+% the relaxation INTERCEPT (relu bu / maxpool umax) error. The final bound widens OUTWARD by
+% (rad + derr). See research/FP32_SOUND_RECIPE_2026-06-17.md.
+    if nargin < 10, vmag = {}; end
     nS = size(A0, 1);
     d = zeros(nS, 1, precision);
+    doErr = strcmp(precision, 'single') && ~isempty(vmag);
+    derr = zeros(nS, 1, precision);
     if upto == 0                              % A0 is already on the engine input (op 0)
         Apos = max(A0, 0); Aneg = min(A0, 0);
         if lower, bound = Apos*cast(x_lb,precision) + Aneg*cast(x_ub,precision);
@@ -167,6 +202,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
         if strcmp(op.type, 'add')             % out = out[a]+out[b]: route UNCHANGED to both
             for ii = 1:numel(op.inputs)
                 s = op.inputs(ii);
+                if doErr, derr = derr + i_gamma(1, precision) * (abs(A) * vmag{s + 1}); end   % accumulation roundoff (conservative)
                 if s == 0,                inputSkipA = inputSkipA + A;
                 elseif isempty(skipA{s}), skipA{s} = A;
                 else,                     skipA{s} = skipA{s} + A;
@@ -192,6 +228,11 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             lyy = lz(wa+1:end);  uyy = uz(wa+1:end);     % input b (y) output bounds
             [aL,bL,cL,aU,bU,cU] = gpu_bab_mul_relax(la, ua, lyy, uyy, [], [], precision);
             Apos = max(A, 0); Aneg = min(A, 0);          % sign-aware: +coeff -> LOWER plane (lower bnd)
+            if doErr   % McCormick plane mults to both inputs + the cL/cU intercept (conservative)
+                va = vmag{op.inputs(1) + 1}; vb = vmag{op.inputs(2) + 1};
+                derr = derr + i_gamma(2, precision) * (abs(A) * (va + vb)) ...
+                            + i_gamma(wa, precision) * (abs(A) * (abs(cL) + abs(cU)));
+            end
             if lower
                 Ax = Apos .* aL.' + Aneg .* aU.';
                 Ay = Apos .* bL.' + Aneg .* bU.';
@@ -214,22 +255,41 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             continue;
         end
         % single-input op: A (on op's OUTPUT) -> A (on op's INPUT)
+        if doErr, vin = vmag{op.src + 1}; end           % input value-magnitude majorant (op 0 = input box)
         if strcmp(op.type, 'affine')
             W = cast(op.W, precision); b = cast(op.b(:), precision);
+            if doErr   % A*W contracts over out-width; output value-mag majorant (no cancel) = |W|*vin+|b|
+                derr = derr + i_gamma(size(A,2), precision) * (abs(A) * (abs(W) * vin + abs(b)));
+            end
             d = d + A * b;
             A = A * W;
         elseif strcmp(op.type, 'conv')
+            if doErr   % magnitude adjoint transpconv(|A|,|W|) + |b| pass; m = kh*kw*out-ch
+                opm = op; opm.W = abs(op.W); opm.b = abs(op.b);
+                [Amag, dmag] = i_conv_backward(abs(A), zeros(nS,1,precision), opm, precision);
+                mC = size(op.W,1) * size(op.W,2) * size(op.W,4);
+                derr = derr + i_gamma(mC, precision) * (Amag * vin + dmag);
+            end
             [A, d] = i_conv_backward(A, d, op, precision);
         elseif strcmp(op.type, 'normaffine')
             [A, d] = i_normaffine_backward(A, d, op, precision);
+            if doErr, derr = derr + i_gamma(2, precision) * (abs(A) * vin); end   % A now = A_in (elementwise, no cancel)
         elseif strcmp(op.type, 'avgpool')
             [A, d] = i_avgpool_backward(A, d, op, precision);
+            if doErr, derr = derr + i_gamma(prod(op.pool), precision) * (abs(A) * vin); end
         elseif strcmp(op.type, 'maxpool')
             [A, d] = i_maxpool_backward(A, d, op, preL{k}, preU{k}, precision, lower);
+            if doErr   % selection exact (0/1); conservative term for the umax relaxation intercept
+                derr = derr + i_gamma(2*prod(op.pool), precision) * (abs(A) * (vin + vmag{k + 1}));
+            end
         else                                  % relu relaxation (sign-aware), preL/preU{k}
             l = preL{k}; u = preU{k};
             [au, bu, al] = i_relax(l, u, precision);
             Apos = max(A, 0); Aneg = min(A, 0);
+            if doErr   % slope mults (|A_in|<=|A|, no cancel) + the bu intercept (d += Aneg*bu)
+                derr = derr + i_gamma(2, precision) * (abs(A) * vin) ...
+                            + i_gamma(numel(bu), precision) * (abs(Aneg) * abs(bu));
+            end
             if lower
                 d = d + Aneg * bu;
                 A = Apos .* al.' + Aneg .* au.';
@@ -252,8 +312,8 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     else
         bound = Apos * cast(x_ub, precision) + Aneg * cast(x_lb, precision) + d;
     end
-    rad = i_outward_rad(A, x_lb, x_ub, precision);           % sound-FP32: widen OUTWARD (lower-=rad / upper+=rad)
-    if lower, bound = bound - rad; else, bound = bound + rad; end
+    rad = i_outward_rad(A, x_lb, x_ub, precision);           % final-contraction roundoff (M1)
+    if lower, bound = bound - rad - derr; else, bound = bound + rad + derr; end   % widen OUTWARD by rad + the per-op backward error (M2)
 end
 
 function [A2, d2] = i_conv_backward(A, d, op, precision)

@@ -299,9 +299,18 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                 if doErr   % magnitude adjoint transpconv(|A|,|W|) [len kh*kw*outCh] + bias [len prod(outShape)]
                     opm = op; opm.W = abs(op.W); opm.b = abs(op.b);
                     [Amag, dmc] = i_conv_backward(abs(A), zeros(nSpec, B, precision), opm, precision); % nSpec x inDim x B, nSpec x B
-                    mC = size(op.W,1) * size(op.W,2) * size(op.W,4);
+                    mC = size(op.W,1) * size(op.W,2) * size(op.W,4); nO = prod(op.outShape);
+                    % Amag/dmc are SINGLE-precision reductions (lengths ~mC / nO), so they can round DOWN
+                    % by up to gamma_raw -- the only derr operands NOT computed in double here. The
+                    % (1+2^-10) gamma inflation covers only the final single() cast, NOT this operand
+                    % shortfall, which exceeds 2^-10 once nO > ~16380 (early CIFAR convs hit 32x32x64).
+                    % Inflate each by (1+2*gamma_raw) >= 1/(1-gamma_raw) -> a sound over-estimate of the
+                    % true magnitude (adversarial-review finding 2026-06-18; ~0.8% for nO=65536, so the
+                    % derr stays ~halved while remaining a rigorous bound).
+                    Amag = Amag .* (1 + 2*i_gamma_raw_sd(mC, precision));
+                    dmc  = dmc  .* (1 + 2*i_gamma_raw_sd(nO, precision));
                     derr = derr + i_dterm_sd(Amag, reshape(double(vin), [], 1, 1), mC, nSpec, B) ...
-                                + i_gamma_sd(prod(op.outShape), precision) * dmc;     % bias reduction length
+                                + i_gamma_sd(nO, precision) * dmc;                    % bias reduction length
                     dmag = dmag + dmc; derr = derr + us * dmag;                       % d=d+bias add-chain
                 end
                 [A, d] = i_conv_backward(A, d, op, precision);
@@ -517,6 +526,21 @@ function g = i_gamma_sd(m, precision)
         g = cast(realmax('single'), precision); return;
     end
     g = cast(1 + 2^-10, precision) * (m * u) / den;
+end
+
+function g = i_gamma_raw_sd(m, precision)
+% UN-inflated Higham factor gamma_m = m*u/(1-m*u): the relative down-rounding bound of a length-m
+% SINGLE reduction. Used to over-estimate single-computed derr OPERANDS (conv Amag/dmc) via
+% (1+2*gamma_raw) >= 1/(1-gamma_raw), so the (1+2^-10) gamma term stays a sound over-estimate of the
+% true rounding even when the operand's own reduction length exceeds the cast headroom. Fail-closed
+% to 0.5 (-> operand x2; the term's i_gamma_sd already fail-closes to realmax in that regime).
+    u = single(eps('single') / 2);
+    m = single(m);
+    den = 1 - m * u;
+    if den <= single(0.5)
+        g = cast(0.5, precision); return;
+    end
+    g = cast((m * u) / den, precision);
 end
 
 function rad = i_outward_rad_sd(A, x_lb, x_ub, precision)

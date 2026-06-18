@@ -530,15 +530,18 @@ end
 
 function g = i_gamma_raw_sd(m, precision)
 % UN-inflated Higham factor gamma_m = m*u/(1-m*u): the relative down-rounding bound of a length-m
-% SINGLE reduction. Used to over-estimate single-computed derr OPERANDS (conv Amag/dmc) via
-% (1+2*gamma_raw) >= 1/(1-gamma_raw), so the (1+2^-10) gamma term stays a sound over-estimate of the
-% true rounding even when the operand's own reduction length exceeds the cast headroom. Fail-closed
-% to 0.5 (-> operand x2; the term's i_gamma_sd already fail-closes to realmax in that regime).
+% SINGLE reduction. Used to over-estimate single-computed derr OPERANDS (conv Amag/dmc) via the
+% factor (1+2*gamma_raw). That factor is a sound over-estimate -- (1+2g) >= 1/(1-g) <=> g(1-2g) >= 0
+% -- ONLY for g <= 0.5, i.e. m*u <= 1/3 (den >= 2/3). Beyond g=0.5 the (1+2g) inflation UNDER-covers
+% 1/(1-g), so FAIL-CLOSE to realmax (operand -> +Inf -> derr -> +Inf -> margin -Inf -> never emits)
+% at den <= 2/3. This is UNREACHABLE for real convolutions (needs reduction length m > ~5.6e6; CIFAR
+% nO=prod(outShape)=65536 gives gamma_raw ~ 4e-3), but it makes the over-estimate a PROVABLE invariant
+% rather than a reachability argument (adversarial re-review 2026-06-18).
     u = single(eps('single') / 2);
     m = single(m);
     den = 1 - m * u;
-    if den <= single(0.5)
-        g = cast(0.5, precision); return;
+    if den <= single(2/3)
+        g = cast(realmax('single'), precision); return;
     end
     g = cast((m * u) / den, precision);
 end

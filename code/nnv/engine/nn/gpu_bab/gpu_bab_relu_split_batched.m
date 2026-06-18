@@ -106,8 +106,13 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     % batched speed (vs recomputing the tight pass per node). Falls back to the IBP forward
     % when rootTight is off. ---
     rootBounds = []; alphaRoot = {}; vmag = {};
+    % M3b SOUNDNESS: rootSound tracks whether the mRoot ACTUALLY certified at line ~153 was outward-
+    % widened. double is always FP-sound; single is sound only if crown_tight applied its widening
+    % (its 8th `soundFP32` output) AND no un-widened override (amort-alpha) replaced mRoot afterward.
+    % info.soundFP32 ANDs this in, so the emit gate can never trust an un-widened root margin.
+    rootSound = ~strcmp(precision, 'single');
     if rootTight
-        [mRoot, rtL, rtU] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, cell(nOps,1));
+        [mRoot, rtL, rtU, ~, ~, ~, ~, rootCtSound] = gpu_bab_crown_tight(ops, x_lb, x_ub, C, precision, cell(nOps,1));
         mRoot = gather(mRoot(:));
         rootBounds = struct('preL', {rtL}, 'preU', {rtU});
         % SOUND-FP32 (M3b): compute the DOUBLE value-magnitude majorant ONCE at the root (the input
@@ -118,6 +123,13 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         % caller run an UNSOUND screen and a SOUND emit-attempt in one process (run_vnncomp_instance).
         reqSound = i_get(opts, 'soundFP32', []);
         if isempty(reqSound), reqSound = ~isempty(getenv('NNV_SOUND_FP32_TIGHT')); end
+        % The single-precision root margin is sound ONLY if crown_tight actually widened it
+        % (rootCtSound). crown_tight self-gates its widening on the env, so a caller passing
+        % opts.soundFP32=true with the env UNSET gets rootCtSound=false -> rootSound stays false ->
+        % no emit (fail-closed: the override/env divergence cannot yield a false unsat).
+        if strcmp(precision, 'single')
+            rootSound = reqSound && rootCtSound;
+        end
         if strcmp(precision, 'single') && reqSound
             try, [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, 'double'); catch, vmag = {}; end
         end
@@ -133,6 +145,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
                 tRoot = tic;
                 [mR2, ~, ~, ~, alphaRoot] = gpu_bab_crown_alpha_dag(ops, x_lb, x_ub, C, cell(nOps,1), reluIdx, precision, nitR, alphaLr, rootBounds);
                 mRoot = gather(mR2(:));   % the root-alpha margin (tighter than min-area crown_tight)
+                rootSound = false;        % M3b SOUNDNESS: gpu_bab_crown_alpha_dag applies NO FP32 outward widening, so this overwritten mRoot is NOT a sound bound -> never emit from it (the FP64 confirm still certifies these; a sound re-widening of the amortized root margin via spec_dag is a follow-on enhancement).
                 if ~isempty(getenv('NNV_DEBUG_BAB'))
                     fprintf('[amort] root-alpha (%d it, %.1fs): margin min=%.6g median=%.6g (n=%d, frontier=%d)\n', ...
                         nitR, toc(tRoot), min(mRoot), median(mRoot), numel(mRoot), maxFrontier);
@@ -146,10 +159,11 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         [mRoot, preL, preU] = i_bound_batch(ops, reluIdx, x_lb, x_ub, C, precision, cell(nOps,1), 1, [], 0, 0.2, 0, {});
     end
     info.nodes = 1;
-    % M3b: the whole BaB is sound-FP32 iff vmag was computed (root certify uses crown_tight's
-    % widened mRoot; deep nodes use spec_dag+vmag). Downgraded below if any batch used a
-    % non-sound-FP32 (alpha) path. The caller emits only when info.soundFP32 is true.
-    info.soundFP32 = ~isempty(vmag);
+    % M3b: the whole BaB is sound-FP32 iff vmag was computed (deep nodes use spec_dag+vmag) AND the
+    % ROOT margin actually certified below was outward-widened (rootSound -- false if crown_tight did
+    % not widen, or the amort-alpha override replaced mRoot with an un-widened margin). Downgraded
+    % below if any deep batch used a non-sound-FP32 (alpha) path. Caller emits only when this is true.
+    info.soundFP32 = ~isempty(vmag) && rootSound;
     if i_certify_dis(mRoot, gOff, rowGroups, margin)
         status = 'robust'; return;
     end

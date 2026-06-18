@@ -13,6 +13,17 @@ function tests = test_gpu_bab_sound_fp32
     tests = functiontests(localfunctions);
 end
 
+function setup(tc)
+    % the sound-FP32 widening is opt-in via NNV_SOUND_FP32_TIGHT (default OFF keeps the fast unsound
+    % screen byte-identical). These tests exercise the SOUND path, so enable it for each.
+    tc.TestData.oldFlag = getenv('NNV_SOUND_FP32_TIGHT');
+    setenv('NNV_SOUND_FP32_TIGHT', '1');
+end
+
+function teardown(tc)
+    setenv('NNV_SOUND_FP32_TIGHT', tc.TestData.oldFlag);
+end
+
 function test_sound_fp32_parity_fc(tc)
     rng(3, 'twister');
     ops = i_fcnet();                    % input(8) -> affine -> relu -> affine -> relu -> affine(5)

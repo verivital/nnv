@@ -36,8 +36,13 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes] = gpu_bab_crown_ti
     % the FP64 path stays the oracle). On any IBP failure -> vmag={} -> derr=0 (the single path falls
     % back to UNSOUND-screen behaviour, which is fine because it never emits a verdict; the sound EMIT
     % path requires vmag to succeed, gated in gpu_bab_try_verify). See FP32_SOUND_RECIPE.
+    % SOUND-FP32 is OPT-IN via NNV_SOUND_FP32_TIGHT (default OFF): when unset, single-precision runs
+    % the fast UNSOUND screen exactly as before (no derr/rad widening, no vmag cost) -> the existing
+    % FP32-screen -> FP64-confirm pipeline is byte-identical, no regression. When set, every CROWN
+    % bound is outward-widened to be a PROVABLE sound lower/upper bound, so the verdict can be EMITTED
+    % from FP32 (M3). FP64 ('double') is always exact-enough -> never widened (the oracle).
     vmag = {};
-    if strcmp(precision, 'single')
+    if strcmp(precision, 'single') && ~isempty(getenv('NNV_SOUND_FP32_TIGHT'))
         try
             % vmag in DOUBLE -> a rigorous value-magnitude majorant regardless of net depth (the
             % single-IBP rounding ~ (sum of contraction lengths)*u can EXCEED a fixed inflation, e.g.
@@ -200,8 +205,10 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
         Apos = max(A0, 0); Aneg = min(A0, 0);
         if lower, bound = Apos*cast(x_lb,precision) + Aneg*cast(x_ub,precision);
         else,     bound = Apos*cast(x_ub,precision) + Aneg*cast(x_lb,precision); end
-        rad = i_outward_rad(A0, x_lb, x_ub, precision);      % sound-FP32: widen OUTWARD
-        if lower, bound = bound - rad; else, bound = bound + rad; end
+        if doErr                                             % sound-FP32 opt-in: widen OUTWARD (else screen unchanged)
+            rad = i_outward_rad(A0, x_lb, x_ub, precision);
+            if lower, bound = bound - rad; else, bound = bound + rad; end
+        end
         Ain = A0; din = zeros(nS, 1, precision);
         return;
     end
@@ -347,9 +354,11 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     else
         bound = Apos * cast(x_ub, precision) + Aneg * cast(x_lb, precision) + d;
     end
-    rad = i_outward_rad(A, x_lb, x_ub, precision);           % final-contraction roundoff (M1)
-    if doErr, derr = derr + us * abs(d); end                 % the final '+ d' addition roundoff (review #6)
-    if lower, bound = bound - rad - derr; else, bound = bound + rad + derr; end   % widen OUTWARD by rad + the per-op backward error (M2)
+    if doErr                                                 % sound-FP32 opt-in (else no widening -> screen unchanged)
+        rad  = i_outward_rad(A, x_lb, x_ub, precision);      % final-contraction roundoff (M1)
+        derr = derr + us * abs(d);                           % the final '+ d' addition roundoff (review #6)
+        if lower, bound = bound - rad - derr; else, bound = bound + rad + derr; end   % widen OUTWARD by rad + per-op backward error (M2)
+    end
 end
 
 function [A2, d2] = i_conv_backward(A, d, op, precision)

@@ -781,6 +781,10 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     if nargin < 8 || isempty(needReshape), needReshape = 0; end
     if nargin < 9, inputSize = []; end
     isFC   = contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter");
+    % NOTE: challenging_certified is deliberately NOT added here. Routing it to the conv GPU-BaB
+    % precheck CRASHED MATLAB on the box (hard std::exception "MATLAB process cannot be terminated" --
+    % the orientation guard did NOT catch it, so it is NOT a safe sound-or-skip). Needs the conv
+    % GPU-BaB path hardened against challenging's net before it can be enabled. Left on Star for now.
     isConv = contains(category,"cifar100") || contains(category,"tinyimagenet");
     % General-halfspace control benchmarks (NOT argmax): prove the output avoids every unsafe
     % disjunct in prop.Hg. gpu_bab_halfspace_verify is sound-or-skip (FP64 CROWN + orientation
@@ -977,22 +981,31 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
                          'max_time',15, 'seed',0);
 
     if contains(category, "acasxu")
-        % acasxu: onnx to nnv
+        % acasxu: MUST import as BCSS -- BC (FeatureInputLayer) makes matlab2nnv fail with
+        % "Unsupported Class of Layer" (tested on the box). BCSS yields an ImageInputLayer that
+        % matlab2nnv converts, but create_input_set then builds an ImageStar whose per-layer spatial
+        % overhead makes exact-star slow on these props. NOTE: acasxu is NOT a cheap win -- BCSS exact
+        % times out on the hard props even multi-core, and approx-star (DeepZ-level) is too loose to
+        % decide them. The approx-first + multi-core ladder below is SOUND and helps any approx-
+        % decidable prop, but the CROWN-needing props need a tighter method (separate, deeper work).
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
-        if ~contains(vnnlib, "prop_3.") && ~contains(vnnlib, "prop_4.")
-            reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-            reachOptionsList{1} = reachOptions;
-            nRand = 500;
-        else
-            reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star'; % default parameters
-            reachOptionsList{1} = reachOptions;
-            reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-            reachOptionsList{2} = reachOptions;
-        end
+        % SOUND-FIRST ladder for ALL props: fast approx-star (tightest non-exact; ~1-2s on these
+        % tiny 5->5 nets, settles the robust/UNSAT props) then MULTI-CORE exact-star as the complete
+        % closer, run only if approx returns unknown. Fixes two regressions: (1) prop_1/2/5-10
+        % previously ran exact-star ONLY (no approx rung) -> timed out the easy props; (2) numCores
+        % was pinned to 1 -> single-core exact-star blew past the 116s budget on the hard props.
+        % Restored to feature('numcores') (the 2024 strong config). SAFE: NN.start_pool returns early
+        % inside a parfeval worker (NN.m:1373 getCurrentTask) and the official harness runs ONE
+        % instance per process, so no nested parpool. approx-star is sound (no-intersection = proof);
+        % no cp-star; PGD (nRand) still finds SAT. (relax-star rungs omitted: relax is LOOSER than
+        % approx, so on these tiny nets it can never decide what approx couldn't.)
+        reachOptions = struct; reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct; reachOptions.reachMethod = 'exact-star';
+        reachOptions.numCores = feature('numcores');
+        reachOptionsList{2} = reachOptions;
+        nRand = 500;
 
     elseif contains(category, "adaptive_cruise")
         % adaptive_cruise_control_non_linear_2026: a pure FFNN (8x Gemm + 5x Relu,
@@ -1806,7 +1819,17 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
             % fall through to random sampling
         end
     end
-    xRand = create_random_examples(net, lb, ub, nRand, inputSize, needReshape, inputFormat);
+    try
+        xRand = create_random_examples(net, lb, ub, nRand, inputSize, needReshape, inputFormat);
+    catch
+        % Random-sampling falsification unavailable for this instance -- e.g. inputSize/vnnlib
+        % element-count mismatch makes the reshape in create_random_examples throw ("Number of
+        % elements must not change"), as seen on nn4sys pensieve_*_parallel under the manifest
+        % route. Skip it: sound (no counterexample found -> the reach verdict / 'unknown' stands;
+        % falsification can only ever ADD a sound SAT, never decide UNSAT), and it stops one bad
+        % input shape from crashing the whole instance to NO output.
+        return;
+    end
     s = size(xRand);
     n = length(s);
     %  look for counterexamples

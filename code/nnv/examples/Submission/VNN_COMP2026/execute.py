@@ -62,7 +62,16 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         here = os.path.dirname(os.path.abspath(__file__))
         nnv_root = os.path.abspath(os.path.join(here, '..', '..', '..'))
     eng.addpath(eng.genpath(nnv_root))
-    print("Paths added (NNV root: %s)" % nnv_root)
+    # CRITICAL: genpath(nnv_root) adds BOTH this submission folder (VNN_COMP2026) AND the frozen
+    # sibling VNN_COMP2025. genpath lists them alphabetically (2025 before 2026) and addpath prepends,
+    # so VNN_COMP2025/run_vnncomp_instance.m would SHADOW the 2026 one -> the wrong (frozen 2025)
+    # harness runs (observed: "VNN_COMP2025/run_vnncomp_instance.m ... ONNX model not supported").
+    # os.getcwd() above does NOT fix this (run_instance.sh does not cd into the 2026 dir). addpath
+    # prepends, so adding THIS file's own directory LAST puts the 2026 submission at the top of the
+    # path and guarantees run_vnncomp_instance + its local helpers resolve to 2026.
+    here = os.path.dirname(os.path.abspath(__file__))
+    eng.addpath(here)
+    print("Paths added (NNV root: %s; prioritized submission dir: %s)" % (nnv_root, here))
     ## eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
 
     status = 2 #initialize with an 'Unknown' status

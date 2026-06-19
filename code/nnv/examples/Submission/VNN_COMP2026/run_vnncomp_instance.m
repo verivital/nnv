@@ -781,7 +781,11 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     if nargin < 8 || isempty(needReshape), needReshape = 0; end
     if nargin < 9, inputSize = []; end
     isFC   = contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter");
-    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet");
+    % challenging_certified_training is a cifar10 conv net; it was missing here so the GPU-BaB
+    % precheck early-returned (line below) -> Star dispatcher -> guaranteed timeout. Adding it routes
+    % challenging through the same sound conv GPU-BaB path as cifar100 (orientation guard skips to Star
+    % if the remap is wrong, so it is sound either way).
+    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet") || contains(category,"challenging");
     % General-halfspace control benchmarks (NOT argmax): prove the output avoids every unsafe
     % disjunct in prop.Hg. gpu_bab_halfspace_verify is sound-or-skip (FP64 CROWN + orientation
     % guard), so it can only ADD a sound unsat. Routed separately below (own predicate).
@@ -980,19 +984,22 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         % acasxu: onnx to nnv
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
-        if ~contains(vnnlib, "prop_3.") && ~contains(vnnlib, "prop_4.")
-            reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-            reachOptionsList{1} = reachOptions;
-            nRand = 500;
-        else
-            reachOptions = struct;
-            reachOptions.reachMethod = 'approx-star'; % default parameters
-            reachOptionsList{1} = reachOptions;
-            reachOptions.reachMethod = 'exact-star';
-            reachOptions.numCores = 1;  % Phase 1.3: avoid nested-parpool errors when called inside parfeval workers
-            reachOptionsList{2} = reachOptions;
-        end
+        % SOUND-FIRST ladder for ALL props: fast approx-star (tightest non-exact; ~1-2s on these
+        % tiny 5->5 nets, settles the robust/UNSAT props) then MULTI-CORE exact-star as the complete
+        % closer, run only if approx returns unknown. Fixes two regressions: (1) prop_1/2/5-10
+        % previously ran exact-star ONLY (no approx rung) -> timed out the easy props; (2) numCores
+        % was pinned to 1 -> single-core exact-star blew past the 116s budget on the hard props.
+        % Restored to feature('numcores') (the 2024 strong config). SAFE: NN.start_pool returns early
+        % inside a parfeval worker (NN.m:1373 getCurrentTask) and the official harness runs ONE
+        % instance per process, so no nested parpool. approx-star is sound (no-intersection = proof);
+        % no cp-star; PGD (nRand) still finds SAT. (relax-star rungs omitted: relax is LOOSER than
+        % approx, so on these tiny nets it can never decide what approx couldn't.)
+        reachOptions = struct; reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct; reachOptions.reachMethod = 'exact-star';
+        reachOptions.numCores = feature('numcores');
+        reachOptionsList{2} = reachOptions;
+        nRand = 500;
 
     elseif contains(category, "adaptive_cruise")
         % adaptive_cruise_control_non_linear_2026: a pure FFNN (8x Gemm + 5x Relu,

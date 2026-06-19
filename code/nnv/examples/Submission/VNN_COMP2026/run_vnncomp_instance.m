@@ -781,11 +781,11 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     if nargin < 8 || isempty(needReshape), needReshape = 0; end
     if nargin < 9, inputSize = []; end
     isFC   = contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter");
-    % challenging_certified_training is a cifar10 conv net; it was missing here so the GPU-BaB
-    % precheck early-returned (line below) -> Star dispatcher -> guaranteed timeout. Adding it routes
-    % challenging through the same sound conv GPU-BaB path as cifar100 (orientation guard skips to Star
-    % if the remap is wrong, so it is sound either way).
-    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet") || contains(category,"challenging");
+    % NOTE: challenging_certified is deliberately NOT added here. Routing it to the conv GPU-BaB
+    % precheck CRASHED MATLAB on the box (hard std::exception "MATLAB process cannot be terminated" --
+    % the orientation guard did NOT catch it, so it is NOT a safe sound-or-skip). Needs the conv
+    % GPU-BaB path hardened against challenging's net before it can be enabled. Left on Star for now.
+    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet");
     % General-halfspace control benchmarks (NOT argmax): prove the output avoids every unsafe
     % disjunct in prop.Hg. gpu_bab_halfspace_verify is sound-or-skip (FP64 CROWN + orientation
     % guard), so it can only ADD a sound unsat. Routed separately below (own predicate).
@@ -981,7 +981,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
                          'max_time',15, 'seed',0);
 
     if contains(category, "acasxu")
-        % acasxu: onnx to nnv
+        % acasxu: MUST import as BCSS -- BC (FeatureInputLayer) makes matlab2nnv fail with
+        % "Unsupported Class of Layer" (tested on the box). BCSS yields an ImageInputLayer that
+        % matlab2nnv converts, but create_input_set then builds an ImageStar whose per-layer spatial
+        % overhead makes exact-star slow on these props. NOTE: acasxu is NOT a cheap win -- BCSS exact
+        % times out on the hard props even multi-core, and approx-star (DeepZ-level) is too loose to
+        % decide them. The approx-first + multi-core ladder below is SOUND and helps any approx-
+        % decidable prop, but the CROWN-needing props need a tighter method (separate, deeper work).
         net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
         % SOUND-FIRST ladder for ALL props: fast approx-star (tightest non-exact; ~1-2s on these

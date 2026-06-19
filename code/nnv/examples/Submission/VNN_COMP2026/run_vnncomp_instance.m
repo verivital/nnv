@@ -1806,7 +1806,17 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
             % fall through to random sampling
         end
     end
-    xRand = create_random_examples(net, lb, ub, nRand, inputSize, needReshape, inputFormat);
+    try
+        xRand = create_random_examples(net, lb, ub, nRand, inputSize, needReshape, inputFormat);
+    catch
+        % Random-sampling falsification unavailable for this instance -- e.g. inputSize/vnnlib
+        % element-count mismatch makes the reshape in create_random_examples throw ("Number of
+        % elements must not change"), as seen on nn4sys pensieve_*_parallel under the manifest
+        % route. Skip it: sound (no counterexample found -> the reach verdict / 'unknown' stands;
+        % falsification can only ever ADD a sound SAT, never decide UNSAT), and it stops one bad
+        % input shape from crashing the whole instance to NO output.
+        return;
+    end
     s = size(xRand);
     n = length(s);
     %  look for counterexamples

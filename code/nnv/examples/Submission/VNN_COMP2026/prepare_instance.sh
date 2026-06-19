@@ -32,16 +32,16 @@ gen_manifest() {
     fi
 }
 case "$2" in
-    *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*|*vit*|*test*|*linearize*)
+    *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*|*vit*|*test*|*linearize*|*ml4acopf*)
         gen_manifest "$3"
         ;;
     *nn4sys*)
-        # Only the mscn models route via the manifest (lindex/pensieve use MATLAB's
-        # importNetworkFromONNX). mscn_2048d_dual.onnx is corrupt upstream and abstains
-        # to unknown in run_vnncomp_instance, so don't waste time trying to convert it.
+        # mscn + pensieve route via the manifest (lindex uses MATLAB's importNetworkFromONNX).
+        # mscn_2048d_dual.onnx is corrupt upstream and abstains to unknown in run_vnncomp_instance,
+        # so don't waste time trying to convert it.
         case "$3" in
             *mscn_2048d_dual*) : ;;
-            *mscn*) gen_manifest "$3" ;;
+            *mscn*|*pensieve*) gen_manifest "$3" ;;
         esac
         ;;
 esac

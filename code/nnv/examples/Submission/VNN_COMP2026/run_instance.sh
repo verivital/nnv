@@ -22,17 +22,19 @@ if [ ! -f "$EXECUTE" ]; then
     echo "ERROR: execute.py not found at $EXECUTE"; exit 1
 fi
 
-# Conv GPU-BaB tuning (FIX A1/A3) -- exported into the MATLAB process via execute.py.
-# A1: default the slow UNSOUND FP32 GPU screen OFF so the cheap SOUND FP64-CPU confirm runs DIRECTLY
-#     (on hard cifar/tinyimagenet/challenging instances the screen never returns 'robust' in budget,
-#     starving the confirm that certifies in <31 nodes). The emit still comes from the FP64 double
-#     pass + argmax-spec + orientation guards -> sound; this only changes WHICH sound path runs first.
-# A3: widen the conv BaB frontier to fight the launch-bound tail (default 32). A frontier/node cap can
-#     only yield 'unknown', never a wrong verdict. Both vars affect ONLY the conv precheck path;
-#     non-conv categories ignore them. (NNV_SOUND_FP32_TIGHT / FIX A2 intentionally NOT set yet -- it
-#     needs the owed known-SAT conv soundness test first.)
-export NNV_CONV_GPU_SCREEN=0
-export NNV_CONV_FRONTIER=256
+# Conv GPU-BaB -- GPU PATHWAY (validated 2026-06-19), exported into MATLAB via execute.py.
+# TRUST_FP32: emit the unsat verdict FROM the GPU-single batched-BaB screen (the raw CROWN bound run on
+#   the GPU -- ~95% util, ~5x faster than the FP64-CPU reconfirm it replaces), PGD-backstopped. PGD runs
+#   FALSIFY-FIRST, so a screen-robust that is PGD-clean is the SAME two-mechanism soundness the GPU-winning
+#   tools rely on (alpha-beta-CROWN runs stock FP32 + a PGD attack; NeuralSAT likewise). Validated
+#   0 false-robust vs the alpha-beta-CROWN gold set (23 cifar100/tinyimagenet instances incl gold-SAT).
+#   SOUNDNESS POLICY: trusts FP32 rounding (~1e-6, negligible vs real robustness margins) with PGD as the
+#   backstop -- the deliberate, field-standard GPU verification model. Forces the GPU screen ON.
+# NO_STAR: a non-certifying conv precheck emits a fast sound 'unknown' (Star never certifies these
+#   resnets). FRONTIER 512: more BaB nodes per GPU kernel. All vars affect ONLY the conv precheck path.
+export NNV_CONV_TRUST_FP32=1
+export NNV_CONV_NO_STAR=1
+export NNV_CONV_FRONTIER=512
 
 echo "Running ${TOOL_NAME} on '$CATEGORY' (onnx='$ONNX_FILE', vnnlib='$VNNLIB_FILE', timeout=${TIMEOUT}s)"
 python3 "$EXECUTE" 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"

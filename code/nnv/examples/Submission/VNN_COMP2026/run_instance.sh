@@ -22,5 +22,17 @@ if [ ! -f "$EXECUTE" ]; then
     echo "ERROR: execute.py not found at $EXECUTE"; exit 1
 fi
 
+# Conv GPU-BaB tuning (FIX A1/A3) -- exported into the MATLAB process via execute.py.
+# A1: default the slow UNSOUND FP32 GPU screen OFF so the cheap SOUND FP64-CPU confirm runs DIRECTLY
+#     (on hard cifar/tinyimagenet/challenging instances the screen never returns 'robust' in budget,
+#     starving the confirm that certifies in <31 nodes). The emit still comes from the FP64 double
+#     pass + argmax-spec + orientation guards -> sound; this only changes WHICH sound path runs first.
+# A3: widen the conv BaB frontier to fight the launch-bound tail (default 32). A frontier/node cap can
+#     only yield 'unknown', never a wrong verdict. Both vars affect ONLY the conv precheck path;
+#     non-conv categories ignore them. (NNV_SOUND_FP32_TIGHT / FIX A2 intentionally NOT set yet -- it
+#     needs the owed known-SAT conv soundness test first.)
+export NNV_CONV_GPU_SCREEN=0
+export NNV_CONV_FRONTIER=256
+
 echo "Running ${TOOL_NAME} on '$CATEGORY' (onnx='$ONNX_FILE', vnnlib='$VNNLIB_FILE', timeout=${TIMEOUT}s)"
 python3 "$EXECUTE" 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"

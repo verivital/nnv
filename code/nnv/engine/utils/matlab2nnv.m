@@ -209,6 +209,27 @@ for i=1:n
             || isa(L, 'nnet.onnx.layer.FlattenInto2dLayer') || isa(L, 'nnet.onnx.layer.Flatten3dInto2dLayer')
         Li = FlattenLayer.parse(L);
 
+    % Custom (importer-generated) flatten layer -- the MATLAB ONNX importer emits a per-model
+    % custom Formattable flatten (e.g. vgg16_7.FlattenLayer1000) for the NO-OP Flatten ops ONNX
+    % inserts before each Gemm: the operand is already a flat [N x C] vector, so the flatten is an
+    % identity reshape. (The order-critical conv->FC flatten is a standard nnet.onnx.layer.*Flatten*
+    % handled by the case above.) These custom classes are not in any isa() map, so they fall to the
+    % catch-all and error "Unsupported Class of Layer" -- which blocked the official VNN-COMP
+    % vgg16-7.onnx import. Map them to NNV's FlattenLayer (identity on already-flat input). The
+    % restriction to non-'nnet.' classes leaves the standard-layer handling and the placeholder
+    % flatten path below untouched. SOUNDNESS: validate a new architecture with a forward cross-check
+    % (NN.evaluate vs dlnetwork.predict) before trusting verdicts -- a custom flatten that is NOT a
+    % no-op would change element order; the cross-check catches that.
+    elseif contains(class(L), 'Flatten') && ~startsWith(class(L), 'nnet.')
+        Li = FlattenLayer(L.Name, L.NumInputs, L.NumOutputs, L.InputNames, L.OutputNames);
+        % NNV FlattenLayer.evaluate/reach switch on .Type, so it must be one of the KNOWN types,
+        % not the custom class string (else "Unknown type of flatten layer"). These custom layers
+        % are identity reshapes on an already-flat [N x C] operand (the layer's own predict does
+        % permute[2 1] -> flatten -> permute[2 1] = identity on 2D), so the straight-reshape
+        % 'nnet.cnn.layer.FlattenLayer' behavior (no permute -> preserves element order) is the
+        % correct, order-safe mapping. (Validated for vgg16-7 by NN.evaluate == dlnetwork.predict.)
+        Li.Type = 'nnet.cnn.layer.FlattenLayer';
+
     % Sigmoid Layer (also referred to as logsig)
     elseif isa(L, 'nnet.keras.layer.SigmoidLayer') || isa(L, 'nnet.onnx.layer.SigmoidLayer') || isa(L, 'nnet.cnn.layer.SigmoidLayer')
         Li = SigmoidLayer.parse(L);

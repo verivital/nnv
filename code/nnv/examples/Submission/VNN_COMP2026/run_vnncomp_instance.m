@@ -93,10 +93,26 @@ end
 
 % Load networks
 
-[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = i_load_vnncomp_network_cached(category, onnx, vnnlib);
+% LOAD GUARD: a failure at the load stage (importNetworkFromONNX / matlab2nnv / load_manifest_net /
+% initialize -- e.g. a missing python-importer manifest, or an unsupported layer) would otherwise
+% throw out of this function and abort the instance with NO output file written -- a crash the sweep
+% cannot score. Convert it to a sound 'unknown' (0 points, never a wrong verdict), matching the
+% sound-or-unknown discipline the reach stage already uses (the reach try/catch blocks below). During
+% the untimed prepare phase (NNV_PREP_CACHE=1) just return without writing a result, since prepare
+% ignores the verdict and the timed run re-attempts (and re-guards).
+try
+    [net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = i_load_vnncomp_network_cached(category, onnx, vnnlib);
 
-if isempty(inputSize)
-    inputSize = net.Layers(1, 1).InputSize;
+    if isempty(inputSize)
+        inputSize = net.Layers(1, 1).InputSize;
+    end
+catch loadME
+    fprintf('LOAD FAILED for %s -> unknown: %s\n', category, loadME.message);
+    status = 2; tTime = toc(t);
+    if ~strcmp(getenv('NNV_PREP_CACHE'), '1')
+        fid = fopen(outputfile, 'w'); fprintf(fid, 'unknown \n'); fclose(fid);
+    end
+    return;
 end
 
 % Prepare-phase net-cache pre-warm: prepare_instance.sh sets NNV_PREP_CACHE=1 and invokes this

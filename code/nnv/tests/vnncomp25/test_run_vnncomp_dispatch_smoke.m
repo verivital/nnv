@@ -104,31 +104,26 @@ function test_cctsdb_yolo_routes_to_enumeration(testCase)
 end
 
 function test_unknown_category_is_rejected(testCase)
-    % A category the dispatcher does not recognize must hit the final else.
-    msg = dispatch_error_message(testCase, 'no_such_benchmark_xyz');
-    verifyTrue(testCase, contains(msg, 'ONNX model not supported'), ...
-        sprintf('unknown category should be rejected as unsupported; got: %s', msg));
+    % A category the dispatcher does not recognize hits the final else
+    % (error("ONNX model not supported")). The load guard in run_vnncomp_instance (the
+    % try/catch around the per-instance load) converts that load-stage failure into a
+    % sound 'unknown' written to the output file, instead of throwing out of the function
+    % and aborting the instance with NO output. Assert the sound degradation -- matching the
+    % sound-or-unknown discipline used everywhere else (and test_cctsdb_yolo above) -- rather
+    % than a thrown error.
+    onnx = [tempname '.onnx'];          % does not exist
+    vnnlib = [tempname '.vnnlib'];      % does not exist
+    outf = [tempname '.txt'];
+    c = onCleanup(@() cleanup_file(outf));
+    run_vnncomp_instance('no_such_benchmark_xyz', onnx, vnnlib, outf);
+    verifyTrue(testCase, isfile(outf), 'runner must write the output file');
+    verifyEqual(testCase, strtrim(fileread(outf)), 'unknown', ...
+        'an unknown category must degrade to a sound ''unknown'' (load guard), not crash');
 end
 
 % --------------------------------------------------------------------------
 % Helpers
 % --------------------------------------------------------------------------
-function msg = dispatch_error_message(testCase, cat)
-    % Invoke run_vnncomp_instance with bogus inputs; return the error message.
-    onnx = [tempname '.onnx'];          % does not exist
-    vnnlib = [tempname '.vnnlib'];      % does not exist
-    outf = [tempname '.txt'];
-    c = onCleanup(@() cleanup_file(outf));
-    msg = '';
-    try
-        run_vnncomp_instance(cat, onnx, vnnlib, outf);
-        % Reaching here means no error at all -- unexpected for bogus inputs.
-        verifyFail(testCase, sprintf('expected an error for category "%s" with bogus inputs', cat));
-    catch ME
-        msg = ME.message;
-    end
-end
-
 function kind = classify_dispatch(cat)
     % Classify the failure of run_vnncomp_instance with a non-existent model into:
     %   'unsupported_category' : final else "ONNX model not supported"

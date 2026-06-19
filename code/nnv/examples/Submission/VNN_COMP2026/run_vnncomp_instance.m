@@ -93,10 +93,33 @@ end
 
 % Load networks
 
-[net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = i_load_vnncomp_network_cached(category, onnx, vnnlib);
+% LOAD GUARD: a failure at the load stage (importNetworkFromONNX / matlab2nnv / load_manifest_net /
+% initialize -- e.g. a missing python-importer manifest, or an unsupported layer) would otherwise
+% throw out of this function and abort the instance with NO output file written -- a crash the sweep
+% cannot score. Convert it to a sound 'unknown' (0 points, never a wrong verdict), matching the
+% sound-or-unknown discipline the reach stage already uses (the reach try/catch blocks below). During
+% the untimed prepare phase (NNV_PREP_CACHE=1) just return without writing a result, since prepare
+% ignores the verdict and the timed run re-attempts (and re-guards).
+try
+    [net, nnvnet, needReshape, reachOptionsList, inputSize, inputFormat, nRand, falsifyOpts] = i_load_vnncomp_network_cached(category, onnx, vnnlib);
 
-if isempty(inputSize)
-    inputSize = net.Layers(1, 1).InputSize;
+    if isempty(inputSize)
+        inputSize = net.Layers(1, 1).InputSize;
+    end
+catch loadME
+    fprintf('LOAD FAILED for %s -> unknown: %s\n', category, loadME.message);
+    status = 2; tTime = toc(t);
+    if ~strcmp(getenv('NNV_PREP_CACHE'), '1')
+        % Defensive: if the output file cannot be opened (fid == -1), fprintf/fclose would THROW
+        % and re-break the "never crash" guarantee, so degrade to log-only on an fopen failure.
+        fid = fopen(outputfile, 'w');
+        if fid > 0
+            fprintf(fid, 'unknown \n'); fclose(fid);
+        else
+            fprintf('WARN: could not open output file %s (fopen=-1) -> unknown logged only\n', outputfile);
+        end
+    end
+    return;
 end
 
 % Prepare-phase net-cache pre-warm: prepare_instance.sh sets NNV_PREP_CACHE=1 and invokes this
@@ -1154,21 +1177,29 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptionsList{end+1} = oe;
 
     elseif contains(category, "linearize")
-        % 
-        net = importNetworkFromONNX(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC"); %reshape
-        try 
-            nnvnet = matlab2nnv(net);
-            % 120/120 unknown today = bounds too loose (reach completes <2s, not a
-            % timeout). Tightness ladder relax 0.5 -> 0.25 -> approx-star (full LP,
-            % tightest). All sound; any rung that certifies is a pure +10.
+        % matlab2nnv cannot parse linearizenn's custom static SliceLayer (AllInOne_*.SliceLayer ->
+        % "Unsupported Class of Layer"), so the old try/catch fell through to cp-star (probabilistic)
+        % on a GENERAL-HALFSPACE control benchmark -- a -150 exposure (a cp-star 'unsat' is not a proof).
+        % Route through the Python importer instead: onnx2nnv.py lowers the STATIC Slice to an EXACT
+        % sparse-selector FullyConnectedLayer (y = W_sel*x, b=0), so nnvnet is a valid NN and the SOUND
+        % approx-star/relax-star ladder (and the gpu_bab halfspace pre-check) run -- cp-star is gone.
+        % The manifest forward pass is cross-validated vs onnxruntime at generation; a missing/failed
+        % manifest degrades to 'unknown' via the load guard (sound). The .nnv.mat is built untimed at
+        % prepare (prepare_instance.sh gen_manifest *linearize*).
+        try
+            nnvnet = load_manifest_net(onnx);
+            net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+            inputSize = nnvnet.Layers{1}.InputSize;
+            % sound tightness ladder: relax 0.5 -> 0.25 -> approx-star (tightest). First decisive wins.
             reachOptionsList = relax_ladder([0.5, 0.25]);
             oo = struct(); oo.reachMethod = 'approx-star';
             reachOptionsList{end+1} = oo;
         catch
+            % Manifest unavailable (not generated at prepare) -> FALSIFICATION-ONLY: keep the raw net
+            % for PGD (sat-or-unknown), never cp-star. Sound, and no regression vs the PGD sat path.
+            net = importNetworkFromONNX(onnx, "InputDataFormats", "BC", 'OutputDataFormats',"BC");
             nnvnet = "";
-            reachOptions = struct;
-            reachOptions.reachMethod = 'cp-star';
-            reachOptionsList{1} = reachOptions;
+            reachOptionsList = {};
         end
 
     elseif contains(category, "lsnc_relu")
@@ -1214,21 +1245,15 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "ml4acopf")
-        % ml4acopf: onnx to matlab
+        % ml4acopf: matlab2nnv cannot soundly convert this ACOPF net, so there is no sound reach
+        % path. The old code set reachOptionsList = {cp-star} -- a PROBABILISTIC reach whose 'unsat'
+        % is NOT a proof (a -150 exposure on a general benchmark). Restrict to FALSIFICATION-ONLY
+        % (reachOptionsList = {}), exactly like vit / nn4sys-mscn: PGD can still find SAT witnesses
+        % (replayed through onnxruntime before emission), and a non-falsified instance returns a
+        % sound 'unknown'. No probabilistic 'unsat' can ever be emitted.
         net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
         nnvnet = "";
-        reachOptions = struct;
-        reachOptions.train_epochs = 500;
-        reachOptions.train_lr = 0.0001;
-        reachOptions.coverage = 0.999;
-        reachOptions.confidence = 0.999;
-        reachOptions.train_mode = 'Linear';
-        reachOptions.surrogate_dim = [-1,-1];
-        reachOptions.threshold_normal = 1e-5;
-        reachOptions.reachMethod = "cp-star";
-        reachOptionsList{1} = reachOptions;
-        % inputFormat = "BC";
-        % error("Not supported");
+        reachOptionsList = {};
 
     elseif contains(category, "nn4sys")
         if contains(onnx, "mscn")

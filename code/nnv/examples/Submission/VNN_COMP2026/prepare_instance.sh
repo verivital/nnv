@@ -32,7 +32,7 @@ gen_manifest() {
     fi
 }
 case "$2" in
-    *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*|*vit*|*test*)
+    *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*|*vit*|*test*|*linearize*)
         gen_manifest "$3"
         ;;
     *nn4sys*)
@@ -70,7 +70,7 @@ build_netcache() {
 # matlab2nnv (non-manifest) categories whose single (or few) network(s) are reused across many
 # vnnlib instances. Manifest categories above already cache via the .nnv.mat.
 case "$2" in
-    *cifar100*|*tinyimagenet*|*vggnet*|*yolo*|*metaroom*|*malbeware*|*collins_rul*|*dist_shift*|*relusplitter*|*safenlp*|*sat_relu*|*cersyve*|*linearize*|*tllverify*|*ml4acopf*|*cora*|*acasxu*|*challenging*)
+    *cifar100*|*tinyimagenet*|*vggnet*|*yolo*|*metaroom*|*malbeware*|*collins_rul*|*dist_shift*|*relusplitter*|*safenlp*|*sat_relu*|*cersyve*|*tllverify*|*cora*|*acasxu*|*challenging*)
         build_netcache "$2" "$3" "$4" ;;
 esac
 

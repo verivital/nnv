@@ -1245,15 +1245,25 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptionsList{2} = reachOptions;
 
     elseif contains(category, "ml4acopf")
-        % ml4acopf: matlab2nnv cannot soundly convert this ACOPF net, so there is no sound reach
-        % path. The old code set reachOptionsList = {cp-star} -- a PROBABILISTIC reach whose 'unsat'
-        % is NOT a proof (a -150 exposure on a general benchmark). Restrict to FALSIFICATION-ONLY
-        % (reachOptionsList = {}), exactly like vit / nn4sys-mscn: PGD can still find SAT witnesses
-        % (replayed through onnxruntime before emission), and a non-falsified instance returns a
-        % sound 'unknown'. No probabilistic 'unsat' can ever be emitted.
-        net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
-        nnvnet = "";
-        reachOptionsList = {};
+        % ml4acopf: matlab2nnv cannot parse the ACOPF net (custom fused Slice_To_MatMul/Mul/Transpose +
+        % Gather_To_Sub). Route through the Python importer manifest (onnx2nnv.py lowers those static
+        % ops); the net's nonlinear ElementwiseProduct layers ARE soundly OVER-APPROXIMATED by
+        % approx-star (validated: approx-star reaches in ~8s with no refusal), so run the SOUND
+        % approx-star reach -- an upgrade from the prior falsification-only/cp-star (cp-star was a -150
+        % exposure). PGD still provides SAT. Robust: if the manifest is unavailable, fall back to
+        % FALSIFICATION-ONLY (sat-or-unknown), never cp-star. Manifest built untimed at prepare
+        % (prepare_instance.sh gen_manifest *ml4acopf*).
+        try
+            nnvnet = load_manifest_net(onnx);
+            net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
+            inputSize = nnvnet.Layers{1}.InputSize;
+            reachOptions = struct; reachOptions.reachMethod = 'approx-star';
+            reachOptionsList{1} = reachOptions;
+        catch
+            net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+            nnvnet = "";
+            reachOptionsList = {};
+        end
 
     elseif contains(category, "nn4sys")
         if contains(onnx, "mscn")
@@ -1277,27 +1287,37 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             reachOptions.reachMethod = 'approx-star'; % default parameters
             reachOptionsList{1} = reachOptions;
         else
-            net = importNetworkFromONNX(onnx);
-            if contains(onnx, "pensieve_big_parallel")
-                inputSize = [12,8];
-                inputFormat = "UU";
-                X = dlarray(rand(12,8), inputFormat);
-            elseif contains(onnx, "pensieve_small_parallel")
-                inputSize = [12,8];
-                inputFormat = "UU";
-                X = dlarray(rand(12,8), inputFormat);
-                needReshape = 1;
-            else
-                inputSize = [1,6,8];
-                inputFormat = "UUU";
-                X = dlarray(rand(1,6,8), inputFormat);
+            % pensieve: matlab2nnv cannot parse it (custom Reshape_To_GemmLayer + a generic
+            % nnet InputLayer). Route through the Python importer manifest -> the net is FC/Relu/
+            % Reshape/Concat only -> SOUND approx-star (validated: approx-star -> unsat in ~1.6s),
+            % an upgrade from the prior probabilistic cp-star. PGD provides SAT. Robust: if the
+            % manifest is unavailable, fall back to FALSIFICATION-ONLY (sat-or-unknown), never cp-star.
+            try
+                nnvnet = load_manifest_net(onnx);
+                net = nnvnet;
+                inputSize = nnvnet.Layers{1}.InputSize;
+                reachOptions = struct; reachOptions.reachMethod = 'approx-star';
+                reachOptionsList{1} = reachOptions;
+            catch
+                net = importNetworkFromONNX(onnx);
+                if contains(onnx, "pensieve_big_parallel")
+                    inputSize = [12,8];
+                    inputFormat = "UU";
+                    X = dlarray(rand(12,8), inputFormat);
+                elseif contains(onnx, "pensieve_small_parallel")
+                    inputSize = [12,8];
+                    inputFormat = "UU";
+                    X = dlarray(rand(12,8), inputFormat);
+                    needReshape = 1;
+                else
+                    inputSize = [1,6,8];
+                    inputFormat = "UUU";
+                    X = dlarray(rand(1,6,8), inputFormat);
+                end
+                net = initialize(net, X);
+                nnvnet = "";
+                reachOptionsList = {};   % falsify-only (was cp-star -- probabilistic)
             end
-            net = initialize(net, X);
-            nnvnet = "";
-            reachOptions = struct;
-            reachOptions.inputFormat = inputFormat;
-            reachOptions.reachMethod = 'cp-star'; % default parameters
-            reachOptionsList{1} = reachOptions;
         end
         % Somehow, some of these networks have discrepancies  (all sat (invalid))
         

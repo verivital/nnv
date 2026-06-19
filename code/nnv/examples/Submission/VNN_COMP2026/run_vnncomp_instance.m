@@ -350,14 +350,11 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                 % Verify property
                 status = verify_specification(ySet, prop);
-                if status == 1 && strcmp(reachOptions.reachMethod, "cp-star")
-                    % cp-star is PROBABILISTIC (conformal prediction): this 'holds'/unsat
-                    % is NOT a sound proof. It is the primary reach method for some
-                    % categories (cifar100, ml4acopf, ...) and a sound-methods-first last
-                    % resort for others (cersyve). Either way, LOG it so the per-benchmark
-                    % -150 exposure from a probabilistic verdict is tracked (see
-                    % PROGRESS_LOG cp-star policy).
-                    fprintf('VERDICT VIA CP-STAR (probabilistic, not a sound proof): %s\n', onnx);
+                if status == 1 && i_is_probabilistic(reachOptions.reachMethod)
+                    % cp-star 'unsat' is PROBABILISTIC (conformal), not a sound proof -> tracked.
+                    % (When NNV_QUARANTINE_CPSTAR is set, cp-star is stripped upstream so this
+                    % branch is never reached; default OFF preserves the original behavior.)
+                    i_log_cpstar(onnx);
                 end
 
                 if status == 1 % verified, then stop
@@ -421,6 +418,9 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                         % Add verification status
                         tempStatus = verify_specification(ySet, prop(spc));
+                        if tempStatus == 1 && i_is_probabilistic(reachOptions.reachMethod)
+                            i_log_cpstar(onnx);   % parity: parfor cp-star verdicts were previously unlogged
+                        end
                     catch
                         tempStatus = 2;   % unknown; try the next reach option
                     end
@@ -488,6 +488,9 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                         % Add verification status
                         tempStatus = verify_specification(ySet, prop(spc));
+                        if tempStatus == 1 && i_is_probabilistic(reachOptions.reachMethod)
+                            i_log_cpstar(onnx);   % parity: parfor cp-star verdicts were previously unlogged
+                        end
                     catch
                         tempStatus = 2;   % unknown; try the next reach option
                     end
@@ -726,6 +729,16 @@ function ok = is_nnvnet_valid(nnvnet)
 % matlab2nnv conversion fails inside a try/catch). We need an NN object,
 % not a string sentinel.
     ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
+end
+
+function i_log_cpstar(onnx)
+% A cp-star (probabilistic, conformal) reach produced the accepted verdict -- NOT a sound proof.
+% Logged in EVERY reach branch (single-spec AND both parfor branches) so the per-benchmark -150
+% exposure from a probabilistic verdict is tracked uniformly (previously only the single-spec
+% branch logged it, hiding parfor cp-star verdicts). i_is_probabilistic + i_finalize_reach_options
+% live in their OWN files (same folder) so the routing logic is unit-testable -- see
+% tests/nn/vnncomp/test_run_vnncomp_routing.m.
+    fprintf('VERDICT VIA CP-STAR (probabilistic, not a sound proof): %s\n', onnx);
 end
 
 function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList, needReshape, inputSize)
@@ -1450,39 +1463,19 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         error("ONNX model not supported")
     end
 
-    % Phase 1.5 (TODO_VNNCOMP25_V01): for any category whose first reach
-    % method is "cp-star" (probabilistic, requires GPU on this machine),
-    % prepend sound CPU-only methods so the dispatcher tries them first.
-    % cp-star remains as fallback when the sound methods can't decide.
-    if ~isempty(reachOptionsList) && isfield(reachOptionsList{1}, 'reachMethod') ...
-            && strcmp(reachOptionsList{1}.reachMethod, 'cp-star') ...
-            && is_nnvnet_valid(nnvnet)
-        sound_opts = cell(1,2);
-        o1 = struct(); o1.reachMethod = 'approx-star';
-        sound_opts{1} = o1;
-        o2 = struct(); o2.reachMethod = 'relax-star-area'; o2.relaxFactor = 0.5;
-        sound_opts{2} = o2;
-        reachOptionsList = [sound_opts, reachOptionsList];
-    end
-
-    % Compute-bound categories (large CNNs / NLP / a SAT-encoding) time out under
-    % exact-star -- and even approx-star -- within a realistic per-instance budget.
-    % Lead with fast, looser, but STILL-SOUND over-approximations (zonotope, then
-    % abstract-domain) and DROP exact-star, so they at least produce a sound verdict
-    % instead of timing out; the tighter per-category methods stay as fallbacks.
-    % (Per the timeout-model guidance: never exact-star for these.)
-    slow_cats = ["cifar100","cora","safenlp","sat_relu","tinyimagenet","vggnet"];
-    if any(contains(category, slow_cats)) && is_nnvnet_valid(nnvnet)
-        kept = {};
-        for k = 1:numel(reachOptionsList)
-            if ~strcmp(reachOptionsList{k}.reachMethod, 'exact-star')
-                kept{end+1} = reachOptionsList{k}; %#ok<AGROW>
-            end
-        end
-        zo = struct(); zo.reachMethod = 'approx-zono';
-        ad = struct(); ad.reachMethod = 'abs-dom';
-        reachOptionsList = [{zo, ad}, kept];
-    end
+    % Method-selection POST-PROCESSING. Extracted to a PURE, unit-testable helper so the routing
+    % (which method actually runs per category, and whether a probabilistic method survives) is
+    % guarded by tests instead of being implicit in a 1500-line function. Does, in order:
+    %   (1) Phase-1.5 sound prepend: for a cp-star-led list, prepend {approx-star, relax-star 0.5}
+    %       so the dispatcher tries the SOUND methods first (cp-star stays as a fallback);
+    %   (2) slow_cats (cifar100/cora/safenlp/sat_relu/tinyimagenet/vggnet): drop exact-star and lead
+    %       with fast still-SOUND over-approximations {approx-zono, abs-dom} to avoid timing out;
+    %   (3) cp-star QUARANTINE: gated by env NNV_QUARANTINE_CPSTAR (default OFF -> behavior UNCHANGED).
+    %       When set, strip cp-star entirely so a probabilistic 'unsat' can never be emitted as a
+    %       sound verdict in ANY reach branch (single-spec OR the two parfor branches). Strictly
+    %       sound: removing cp-star can only turn an unsat/unknown into unknown, never a wrong verdict.
+    % See tests/nn/vnncomp/test_run_vnncomp_routing.m for the per-category routing assertions.
+    reachOptionsList = i_finalize_reach_options(reachOptionsList, category, is_nnvnet_valid(nnvnet));
 
     % ---- Per-category PGD/falsification budget (VNNCOMP2026 tuning) ----------------
     % Applied LAST so it is the single source of truth for falsification effort,

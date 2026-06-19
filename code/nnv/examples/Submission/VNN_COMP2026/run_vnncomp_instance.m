@@ -110,7 +110,14 @@ catch loadME
     fprintf('LOAD FAILED for %s -> unknown: %s\n', category, loadME.message);
     status = 2; tTime = toc(t);
     if ~strcmp(getenv('NNV_PREP_CACHE'), '1')
-        fid = fopen(outputfile, 'w'); fprintf(fid, 'unknown \n'); fclose(fid);
+        % Defensive: if the output file cannot be opened (fid == -1), fprintf/fclose would THROW
+        % and re-break the "never crash" guarantee, so degrade to log-only on an fopen failure.
+        fid = fopen(outputfile, 'w');
+        if fid > 0
+            fprintf(fid, 'unknown \n'); fclose(fid);
+        else
+            fprintf('WARN: could not open output file %s (fopen=-1) -> unknown logged only\n', outputfile);
+        end
     end
     return;
 end

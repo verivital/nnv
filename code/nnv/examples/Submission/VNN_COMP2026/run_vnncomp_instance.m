@@ -850,7 +850,10 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             % tighter (no FP32 rounding loosening) so the double pass crosses the convex barrier in
             % far fewer nodes -- on robust conv the screen grinds the launch-bound tail much longer
             % than the double pass takes. NNV_CONV_GPU_SCREEN=0 skips the screen -> straight to double.
-            useScreen = ~isequal(getenv('NNV_CONV_GPU_SCREEN'), '0');
+            % NNV_CONV_TRUST_FP32 emits FROM the GPU-single screen, so it FORCES the screen on (else
+            % NNV_CONV_GPU_SCREEN=0 from FIX A1 would skip the screen -> straight to the FP64-CPU
+            % confirm and trust-FP32 could never fire / the GPU would stay idle).
+            useScreen = ~isequal(getenv('NNV_CONV_GPU_SCREEN'), '0') || ~isempty(getenv('NNV_CONV_TRUST_FP32'));
             soundEmit = ~isempty(getenv('NNV_SOUND_FP32_TIGHT'));     % sound-FP32 fast-emit attempt enabled
             screenPass = true;
             if useScreen

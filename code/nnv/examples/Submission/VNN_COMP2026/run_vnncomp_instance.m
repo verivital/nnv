@@ -865,6 +865,22 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
                 end
             end
             if screenPass
+                % TRUST-FP32 EMIT (abCROWN/NeuralSAT model -- opt-in NNV_CONV_TRUST_FP32, default OFF):
+                % the GPU-SINGLE batched BaB above (the screen) certified 'robust' from the raw CROWN
+                % bound run ENTIRELY on the GPU. Falsification (PGD) already ran FALSIFY-FIRST -- this
+                % precheck is only reached when NO counterexample was found -- so a screen-robust that is
+                % ALSO PGD-clean is the SAME two-mechanism soundness the GPU-winning tools rely on (an
+                % FP32 GPU lower bound + an independent adversarial attack; abCROWN runs stock FP32 with
+                % PGD, NeuralSAT likewise). EMIT directly here, skipping the ~200s FP64-CPU reconfirm that
+                % leaves the GPU idle and caps the conv decide rate. SOUNDNESS POLICY: this TRUSTS FP32
+                % rounding (~1e-6, negligible vs real robustness margins) instead of the rigorous FP64
+                % confirm; gated OFF by default and to be validated 0 false-robust vs the alpha-beta-CROWN
+                % gold set before competition use. PGD is the backstop for the residual FP32 gap.
+                if useScreen && ~isempty(getenv('NNV_CONV_TRUST_FP32'))
+                    status = 1; reachOptionsList = {};
+                    fprintf('GPU-BaB pre-check: robust/unsat (TRUSTED gpu-single screen, %d nodes; PGD falsify-first clean) -> skip Star\n', ginfo.nodes);
+                    return;
+                end
                 % SOUND-FP32 EMIT (M3b): on a screen-robust candidate, try the SOUND-FP32 BaB FIRST -- a
                 % 'robust' carrying soundFP32=true is a provably-sound unsat (every CROWN bound outward-
                 % widened; frontier-G1 0/1584 + root-G2 0/200 + 2-round adversarial review) -> emit

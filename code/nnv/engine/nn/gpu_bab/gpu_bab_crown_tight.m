@@ -193,6 +193,7 @@ function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU
             % so halve B and RETRY the SAME block. SOUND: cannot change a verdict, only memory/speed.
             % Non-memory errors (a genuine bug) rethrow immediately; at B==1 there is no smaller retry.
             if B <= 1 || ~i_is_oom(ME), rethrow(ME); end
+            clear Ck;                    % release the (nb x nk) seed so the smaller-B retry has headroom
             Bn = max(1, floor(B / 2));
             fprintf('[crown-chunk] OOM at B=%d (nk=%d, op %d): %s -> halving to B=%d\n', ...
                 B, nk, src, i_first_line(ME.message), Bn);
@@ -207,9 +208,9 @@ function tf = i_is_oom(ME)
 % slow retries. Matches both identifier and message text (the device-size error carries no id).
     id = ME.identifier; m = lower(ME.message);
     tf = strcmp(id, 'parallel:gpu:array:OOM') || strcmp(id, 'MATLAB:nomem') ...
-        || contains(m, 'out of memory') || contains(m, 'maximum variable size') ...
-        || contains(m, 'maximum array size') || contains(m, 'exceeds available memory') ...
-        || (contains(m, 'gpu') && contains(m, 'memory'));
+        || contains(m, 'out of memory') || contains(m, 'insufficient memory') ...
+        || contains(m, 'maximum variable size') || contains(m, 'maximum array size') ...
+        || contains(m, 'exceeds available memory');
 end
 
 function s = i_first_line(m)

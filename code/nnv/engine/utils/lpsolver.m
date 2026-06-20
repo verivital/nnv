@@ -1,4 +1,6 @@
 function [fval, exitflag] = lpsolver(f, A, b, Aeq, Beq, lb, ub, lp_solver, opts)
+    % DIAGNOSTIC (gated): count every LP solve into a global, dumped by the reach instrumentation.
+    if ~isempty(getenv('NNV_LP_COUNT')), global NNV_LP_N; if isempty(NNV_LP_N), NNV_LP_N=0; end; NNV_LP_N=NNV_LP_N+1; end %#ok<TLEV>
     % common function for al linear programming problems
     % for now we will set linprog with default options to solve every task,
     % seems to be faster than glpk or yalmip, and if it fails, we try glpk

@@ -261,6 +261,7 @@ else
 end
 
 cEX_time = toc(t);
+if ~isempty(getenv('NNV_PHASE_LOG')), fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); fprintf(fpl,'PHASE import+falsify cEX_time=%.2f\n', cEX_time); fclose(fpl); end
 
 
 %% 3) UNSAT?
@@ -343,6 +344,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
             while ~isempty(reachOptionsList)
 
                 reachOptions = reachOptionsList{1};
+                rt0 = tic;
 
                 IS = create_input_set(lb, ub, inputSize, needReshape, useImageStar);
 
@@ -359,6 +361,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                             fprintf('reach skipped: matlab2nnv conversion failed earlier -> unknown\n');
                             status = 2; break;
                         end
+                        if ~isempty(getenv('NNV_PHASE_LOG')), nc=1; if isfield(reachOptions,'numCores'), nc=reachOptions.numCores; end; fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); fprintf(fpl,'PHASE reachcall %s START t=%.2f numCores=%g\n', reachOptions.reachMethod, toc(rt0), nc); fclose(fpl); end
                         ySet = nnvnet.reach(IS, reachOptions);
                     else
                         ySet = Prob_reach(net, IS, reachOptions);
@@ -373,6 +376,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                 % Verify property
                 status = verify_specification(ySet, prop);
+                if ~isempty(getenv('NNV_PHASE_LOG')), fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); fprintf(fpl,'PHASE reach %s %.2fs status=%d\n', reachOptions.reachMethod, toc(rt0), status); fclose(fpl); end
                 if status == 1 && i_is_probabilistic(reachOptions.reachMethod)
                     % cp-star 'unsat' is PROBABILISTIC (conformal), not a sound proof -> tracked.
                     % (When NNV_QUARANTINE_CPSTAR is set, cp-star is stripped upstream so this
@@ -1022,7 +1026,9 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         reachOptions = struct; reachOptions.reachMethod = 'approx-star';
         reachOptionsList{1} = reachOptions;
         reachOptions = struct; reachOptions.reachMethod = 'exact-star';
-        reachOptions.numCores = feature('numcores');
+        % acasxu nets are tiny (5->5): parpool gives NO speedup (1 input set) and is BROKEN on some boxes
+        % (worker status-1 crash -> exact-star errored->unknown). Run serial; speed comes from the prefilter.
+        reachOptions.numCores = 1;
         reachOptionsList{2} = reachOptions;
         nRand = 500;
 
@@ -1625,7 +1631,8 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             S = load(p, 'C'); C = S.C;
             if isfield(C,'onnx_bytes') && isequal(C.onnx_bytes, d.bytes) ...
                     && abs(C.onnx_datenum - d.datenum) < 1e-9 ...
-                    && isfield(C,'nnv_ver') && strcmp(C.nnv_ver, i_nnv_ver())
+                    && isfield(C,'nnv_ver') && strcmp(C.nnv_ver, i_nnv_ver()) ...
+                    && isfield(C,'cfg_ver') && strcmp(C.cfg_ver, i_cfg_ver())   % invalidate on config change
                 net=C.net; nnvnet=C.nnvnet; needReshape=C.needReshape; reachOptionsList=C.reachOptionsList;
                 inputSize=C.inputSize; inputFormat=C.inputFormat; nRand=C.nRand; falsifyOpts=C.falsifyOpts;
                 fprintf('net cache HIT (%s)\n', p);
@@ -1641,7 +1648,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             C = struct();
             C.net=net; C.nnvnet=nnvnet; C.needReshape=needReshape; C.reachOptionsList=reachOptionsList;
             C.inputSize=inputSize; C.inputFormat=inputFormat; C.nRand=nRand; C.falsifyOpts=falsifyOpts;
-            C.onnx_bytes=d.bytes; C.onnx_datenum=d.datenum; C.nnv_ver=i_nnv_ver();
+            C.onnx_bytes=d.bytes; C.onnx_datenum=d.datenum; C.nnv_ver=i_nnv_ver(); C.cfg_ver=i_cfg_ver();
             tmp = [p '.tmp'];   % same dir as p; no two workers write the same onnx's cache concurrently
             save(tmp, 'C', '-v7.3');
             movefile(tmp, p, 'f');
@@ -1654,6 +1661,15 @@ end
 
 function v = i_nnv_ver()
     try, v = char(NNVVERSION()); catch, v = 'na'; end
+end
+
+function v = i_cfg_ver()
+% Config version for the net cache: the .netcache.mat stores reachOptionsList/nRand/falsifyOpts (the
+% verification CONFIG), but the cache validity guard otherwise only checks the onnx+NNV version -- so a
+% CODE change to load_vnncomp_network's config (e.g. acasxu reach ladder / numCores / PGD budget) would
+% be masked by a stale cache (served the OLD config -> wrong/slow verdicts). BUMP this string whenever
+% the config logic in load_vnncomp_network changes, to invalidate all stale caches.
+    v = '2026-06-20.acas-serial-numcores1';
 end
 
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,inputFormat)

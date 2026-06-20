@@ -59,7 +59,7 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     badIdx = find(cellfun(@(o) ~any(strcmp(o.type, supported)), ops), 1);
     if ~isempty(badIdx)
         error('gpu_bab_relu_split_batched:unsupportedOp', ...
-            'op "%s" unsupported (affine/relu/conv/normaffine/avgpool/maxpool/add only).', ops{badIdx}.type);
+            'op "%s" unsupported (affine/relu/conv/normaffine/avgpool/maxpool/add/concat/product only).', ops{badIdx}.type);
     end
 
     nOps    = numel(ops);

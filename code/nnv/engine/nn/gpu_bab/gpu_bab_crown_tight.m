@@ -88,8 +88,12 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
             % not assumed k-1). Bound each of its elements via a backward DAG-CROWN pass over
             % ops[1..src], reusing preL/preU of strictly-earlier ReLUs/maxpools (sound by induction).
             src = ops{k}.src;
-            if src == 0
-                % the bounded value IS the engine input box -> exact, no seed needed
+            if src == 0 && ~soundFP32
+                % the bounded value IS the engine input box -> exact, no seed needed (double / unsound
+                % screen). NOT under sound-FP32: a naive single cast rounds to NEAREST, which can move a
+                % lower bound UP / an upper bound DOWN (inward) -> breaks the outward-widening guarantee.
+                % There we fall through to the chunked backward (else), whose i_backward(ops,0,...) applies
+                % the vmag/derr OUTWARD widening -- the same sound path the product input already uses.
                 nk = numel(x_lb); pl = cast(x_lb(:), precision); pu = cast(x_ub(:), precision);
             elseif src >= 1 && ~isequal(getenv('NNV_CROWN_NO_SHORTCUT'), '1') ...
                     && isfield(ops{src}, 'src') && i_box_exact(boxExact, ops{src}.src)
@@ -104,7 +108,8 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
                 % O(nk*width) -- the eye(nk) seed is the sole O(nk^2) blow-up (the conv adjoint is already
                 % structural). EXACT: each seed row is bounded independently. B from NNV_CROWN_CHUNK /
                 % NNV_CROWN_MEM_GB; B>=nk reproduces the original single eye(nk) pass.
-                nk = i_layer_width(ops, src);
+                % src==0 here is the sound-FP32 input-fed case routed off the fast cast above (widened).
+                if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
                 [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag);
             end
             if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})

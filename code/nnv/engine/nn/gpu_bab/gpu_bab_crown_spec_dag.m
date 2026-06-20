@@ -181,7 +181,7 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                 preU{k} = repmat(cast(rootBounds.preU{k}, 'like', tmpl), 1, B);
             elseif ~any(strcmp(tk, {'affine','conv','normaffine','avgpool','add','concat'}))
                 error('gpu_bab_crown_spec_dag:op', ...
-                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/add/concat/product only).', tk);
+                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/maxpool/add/concat/product only).', tk);
             end
         end
     end
@@ -520,6 +520,10 @@ function [A2, d] = i_maxpool_backward_batched(A, d, op, l, u, precision)
 %          (an i_maxpool_relax 'decided' miss only loosens -- never unsound).
 % A: nSpec x n_out x B ; l,u: n_in x B ; d: nSpec x B. The window relaxation differs per node
 % column b, so build per-b selection and scatter (overlapping windows accumulate in the matmul).
+% PERF (known, sound): this gathers to host + forms CPU sparse [n_out x n_in] per b, so for large
+% HWC maxpools / large B it dominates and negates batching. The window->flat index maps are static
+% per op, so a GPU-resident scatter (precompute maps once, argmax/umax on-device, no dense matrices)
+% is the planned speedup -- tracked as future work; the current path is correct, just CPU-bound.
     nSpec = size(A,1); B = size(A,3);
     n_in = prod(op.inShape); n_out = prod(op.outShape);
     A2 = zeros(nSpec, n_in, B, 'like', A);

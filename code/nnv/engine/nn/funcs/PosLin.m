@@ -339,6 +339,16 @@ classdef PosLin
         
         % exact reachability analysis using star
         function S = reach_star_exact(varargin)
+            % SOUND time-budget cap (opt-in via globals set by the caller): exact-star is complete but
+            % can be slow (star/LP growth). When a per-instance reach budget is exceeded, abort with an
+            % error -> the harness maps it to UNKNOWN (sound -- claims nothing), instead of grinding to
+            % the OS timeout. Enables a persistent-session sweep runner (no per-instance OS kill needed)
+            % and turns hard-instance hangs into fast unknowns. No-op unless NNV_REACH_T0/_BUD are set.
+            global NNV_REACH_T0 NNV_REACH_BUD %#ok<GVMIS>
+            if ~isempty(NNV_REACH_BUD) && NNV_REACH_BUD > 0 && ~isempty(NNV_REACH_T0) ...
+                    && toc(NNV_REACH_T0) > NNV_REACH_BUD
+                error('NNV:reachBudget', 'reach exceeded time budget (%.0fs) -> unknown', NNV_REACH_BUD);
+            end
             % @I: star input sets
             % @option: = 'parallel' using parallel computing
             %          = '[]'    do not use parallel computing

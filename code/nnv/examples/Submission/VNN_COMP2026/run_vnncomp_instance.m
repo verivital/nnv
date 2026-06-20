@@ -341,6 +341,15 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
             % sound unsat -> emit + skip Star. Anything else falls through unchanged.
             [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, ub, prop, status, reachOptionsList, needReshape, inputSize);
 
+            % Per-instance reach time budget (opt-in NNV_REACH_BUDGET seconds): arms the SOUND cap in
+            % PosLin.reach_star_exact so a slow exact-star aborts -> unknown instead of hanging. Reset
+            % here per instance so a persistent-session runner gets a fresh budget each instance.
+            i_reachbud = str2double(getenv('NNV_REACH_BUDGET'));
+            if isfinite(i_reachbud) && i_reachbud > 0
+                clear global NNV_REACH_T0 NNV_REACH_BUD; global NNV_REACH_T0 NNV_REACH_BUD %#ok<GVMIS>
+                NNV_REACH_T0 = tic; NNV_REACH_BUD = i_reachbud;
+            end
+
             while ~isempty(reachOptionsList)
 
                 reachOptions = reachOptionsList{1};
@@ -1574,7 +1583,10 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
     % (pgd_falsify is dlnetwork-gated): lsnc_relu and traffic_signs -- rely on random
     % sampling, so keep their nRand higher until PGD reaches the NN path (a follow-up).
     ftab = {
-        "acasxu",            60, 80, 30,  200
+        "acasxu",            20, 40, 8,   100   % trimmed PGD (was 60,80,30,200): the 30s budget was
+                                                % wasted in full on the many SAFE acasxu props (exact/approx
+                                                % is complete, so PGD is only a SAT accelerator). 8s still
+                                                % finds easy counterexamples. Sound (falsify = SAT-or-unknown).
         "sat_relu",          60, 100,30,  200
         "cersyve",           30, 50, 4,   150
         "lsnc_relu",         50, 80, 4,   500   % manifest: no PGD -> random is primary

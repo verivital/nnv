@@ -55,5 +55,21 @@ assert(any(cellfun(@(v) ~isempty(v) && ~all(logical(v)), boxExact)), ...
 setenv('NNV_CROWN_CHUNK','2');  mc = gpu_bab_crown_tight(ops, lb, ub, C, 'double'); setenv('NNV_CROWN_CHUNK','');
 assert(all(mc(:) <= trueMin + 1e-6), 'chunk+short-circuit composed margin must be sound');
 
+%% Test 7: AUTO-CHUNK halve-on-OOM yields the SAME bounds as a clean run (retry is exact + B-invariant)
+% NNV_CROWN_TEST_OOM forces a synthetic device OOM while B > thr, so the catch/halve/retry path runs:
+% B steps 64 -> 32 -> 16 -> 8, then proceeds. The result must be bit-identical to a clean B=64 pass.
+setenv('NNV_CROWN_CHUNK','64'); mClean = gpu_bab_crown_tight(ops, lb, ub, C, 'double');
+setenv('NNV_CROWN_TEST_OOM','8'); mHalved = gpu_bab_crown_tight(ops, lb, ub, C, 'double');
+setenv('NNV_CROWN_TEST_OOM',''); setenv('NNV_CROWN_CHUNK','');
+assert(max(abs(mHalved(:) - mClean(:))) == 0, 'auto-chunk halved result must be bit-identical to a clean run');
+assert(all(mHalved(:) <= trueMin + 1e-6), 'auto-chunk halved margin must be sound');
+
+%% Test 8: a NON-memory error inside the chunk loop PROPAGATES (i_is_oom must not swallow real bugs)
+setenv('NNV_CROWN_CHUNK','64'); setenv('NNV_CROWN_TEST_OOM','bug');
+threw = false;
+try, gpu_bab_crown_tight(ops, lb, ub, C, 'double'); catch ME, threw = strcmp(ME.identifier, 'NNV:test:notMemory'); end
+setenv('NNV_CROWN_TEST_OOM',''); setenv('NNV_CROWN_CHUNK','');
+assert(threw, 'a non-memory error must propagate out of the auto-chunk retry (not be retried as OOM)');
+
 %% Summary
 disp('test_soundness_gpu_bab_crown_memory: all sections passed');

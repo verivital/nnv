@@ -175,13 +175,58 @@ function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU
 % Replaces a dense Ck = eye(nk) (the O(nk^2) memory blow-up) with row-blocks; EXACT -- each seed row
 % is bounded independently of the others, so union(blocks) == full. B>=nk => the original single pass.
     B = i_chunk_rows(nk, precision);
+    oomTest = getenv('NNV_CROWN_TEST_OOM');                  % test seam (empty in production)
     pl = zeros(nk, 1, precision); pu = zeros(nk, 1, precision);
-    for s0 = 1:B:nk
+    s0 = 1;
+    while s0 <= nk
         rows = s0:min(s0 + B - 1, nk); nb = numel(rows);
-        Ck = zeros(nb, nk, precision);
-        Ck(sub2ind([nb nk], (1:nb).', rows(:))) = 1;        % a row-block of eye(nk)
-        pu(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
-        pl(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
+        try
+            i_maybe_inject_oom(B, oomTest);
+            Ck = zeros(nb, nk, precision);
+            Ck(sub2ind([nb nk], (1:nb).', rows(:))) = 1;        % a row-block of eye(nk)
+            pu(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
+            pl(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
+            s0 = s0 + B;
+        catch ME
+            % AUTO-CHUNK: a memory budget B chosen too large for the live device/host still OOMs. B
+            % only sets PEAK memory -- the bounds are EXACT for any B (each seed row is independent) --
+            % so halve B and RETRY the SAME block. SOUND: cannot change a verdict, only memory/speed.
+            % Non-memory errors (a genuine bug) rethrow immediately; at B==1 there is no smaller retry.
+            if B <= 1 || ~i_is_oom(ME), rethrow(ME); end
+            Bn = max(1, floor(B / 2));
+            fprintf('[crown-chunk] OOM at B=%d (nk=%d, op %d): %s -> halving to B=%d\n', ...
+                B, nk, src, i_first_line(ME.message), Bn);
+            B = Bn;
+        end
+    end
+end
+
+function tf = i_is_oom(ME)
+% True only for MEMORY-pressure errors (device gpuArray cap, GPU OOM, host OOM, "Maximum variable
+% size ... device"). Kept targeted so a genuine logic bug rethrows fast instead of after log2(B)
+% slow retries. Matches both identifier and message text (the device-size error carries no id).
+    id = ME.identifier; m = lower(ME.message);
+    tf = strcmp(id, 'parallel:gpu:array:OOM') || strcmp(id, 'MATLAB:nomem') ...
+        || contains(m, 'out of memory') || contains(m, 'maximum variable size') ...
+        || contains(m, 'maximum array size') || contains(m, 'exceeds available memory') ...
+        || (contains(m, 'gpu') && contains(m, 'memory'));
+end
+
+function s = i_first_line(m)
+    nl = find(m == newline, 1); if isempty(nl), s = m; else, s = m(1:nl-1); end
+end
+
+function i_maybe_inject_oom(B, spec)
+% TEST SEAM -- no-op unless NNV_CROWN_TEST_OOM is set; lets the soundness suite exercise the
+% auto-chunk catch/halve/retry path deterministically (real OOMs are not reproducible in a unit test).
+%   '<thr>' -> throw a synthetic device OOM while B > thr (B halves down to <= thr, then proceeds);
+%              the retried bounds must match a clean run (B-invariant) -> proves the retry is correct.
+%   'bug'   -> throw a NON-memory error; it must propagate (verifies i_is_oom does not swallow real bugs).
+    if isempty(spec), return; end
+    if strcmp(spec, 'bug'), error('NNV:test:notMemory', 'synthetic non-memory failure (must propagate)'); end
+    thr = str2double(spec);
+    if isfinite(thr) && B > thr
+        error('parallel:gpu:array:OOM', 'Out of memory on device (synthetic test injection at B=%d).', B);
     end
 end
 

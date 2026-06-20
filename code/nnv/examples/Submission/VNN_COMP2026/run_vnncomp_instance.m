@@ -298,11 +298,19 @@ if iscell(counterEx)
     %     encoding divergence between NNV's net and the real ONNX; only the onnxruntime replay can
     %     (this is the cifar100/challenging/malbeware/metaroom -150 class). The on-disk .nnv.mat is
     %     OR'd in as a belt-and-suspenders signal.
-    % A needReshape==0 standard MATLAB-imported flat-feature net (acasxu-style) is NOT risky:
+    % A needReshape==0 standard MATLAB-imported flat-feature net (acasxu-style) is NORMALLY not risky:
     % validate_witness is faithful there, so a `sat` it accepted may stand even without onnxruntime.
+    % EXCEPTION (Phase 1): the batched falsifier manufactures THIN, near-boundary acasxu witnesses
+    % (2e6 samples + coordinate-descent polish targeting margin -> 0). Such a witness is the most
+    % divergence-prone class: an NNV-fp32-vs-real-ONNX sign flip (NNV says -eps=violated, ONNX says
+    % +eps=safe) would be a false `sat`. Given the -150 asymmetry, treat ALL acasxu as risky -> REQUIRE
+    % onnxruntime confirmation. No effect when ORT is present (every acasxu SAT here is ORT-confirmed);
+    % only the no-ORT fallback changes: acasxu SAT -> unknown (sound, loses +10) rather than trusting
+    % validate_witness on a boundary witness.
     riskyNet = isa(net, 'NN') ...
             || (~isempty(needReshape) && any(needReshape(:) ~= 0)) ...
-            || isfile(regexprep(char(onnx), '\.onnx$', '.nnv.mat'));
+            || isfile(regexprep(char(onnx), '\.onnx$', '.nnv.mat')) ...
+            || contains(category, "acasxu");
     try
         [orVio, orAvail] = validate_witness_onnx(onnx, counterEx{1}, gateHs);
         if orAvail && ~orVio
@@ -1662,6 +1670,18 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         end
     end
 
+    % Phase 1 -- batched-random + coordinate-descent polish falsifier (low-dim flat-feature nets, e.g.
+    % acasxu). A single high-N vectorized predict finds most thin counterexamples the trimmed PGD/random
+    % miss (the 15-instance gold-sat "falsify gap"); a wall-capped local polish recovers the rest. Pure
+    % SAT-or-unknown: every returned witness is validate_witness-checked AND onnxruntime-replayed by the
+    % caller before 'sat' stands, so this can only ADD a sound SAT, never a wrong verdict. acasxu opts-in.
+    if contains(category, "acasxu")
+        falsifyOpts.batched_N    = 2e6;   % one batched predict over uniform samples (validated 15/15 recovery)
+        falsifyOpts.near_miss    = 0.5;   % polish only when best sample margin is within this of 0 (else clearly unsat -> skip)
+        falsifyOpts.polish       = true;  % coordinate-descent polish from the top-K lowest-margin samples
+        falsifyOpts.polish_max_t = 3;     % wall cap (s) on the whole polish stage -> bounds cost on unsat instances
+    end
+
 end
 
 % Create an array of random examples from input set and reshape if necessary
@@ -1721,7 +1741,7 @@ function v = i_cfg_ver()
 % CODE change to load_vnncomp_network's config (e.g. acasxu reach ladder / numCores / PGD budget) would
 % be masked by a stale cache (served the OLD config -> wrong/slow verdicts). BUMP this string whenever
 % the config logic in load_vnncomp_network changes, to invalidate all stale caches.
-    v = '2026-06-20.acas-serial-numcores1';
+    v = '2026-06-20.acas-batched-falsifier';
 end
 
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,inputFormat)
@@ -1887,6 +1907,28 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
     if ~isfield(opts, 'seed'),     opts.seed = 0;     end
     if ~isfield(opts, 'max_time'), opts.max_time = 5; end
     rng(opts.seed, 'twister');   % B: APPLY the seed -> reproducible falsification (PGD restarts + Box.sample); sound (witness still ort-validated)
+
+    % Phase 1 -- BATCHED-RANDOM + coordinate-descent polish, tried FIRST for low-dim flat-feature
+    % dlnetwork nets (acasxu footprint: d<=20, 3-elem inputSize, identity reshape). One vectorized predict
+    % over a huge uniform sample finds thin counterexamples that the trimmed PGD/random miss (the gold-sat
+    % "falsify gap"); a wall-capped local polish recovers the rest. SOUND: returns a witness ONLY if it
+    % passes validate_witness here (and the caller ORT-replays it), so it can only ADD a sound SAT or fall
+    % through to PGD/random. Gated by falsifyOpts.batched_N (set only for acasxu in the ftab).
+    if isfield(opts,'batched_N') && opts.batched_N > 0 && isa(net,'dlnetwork') ...
+            && numel(lb) <= 20 && numel(inputSize) == 3 && (isempty(needReshape) || all(needReshape(:) == 0))
+        try
+            nearMiss = 0.5; if isfield(opts,'near_miss'),    nearMiss = opts.near_miss;   end
+            doPol    = isfield(opts,'polish') && opts.polish;
+            polMaxT  = 3;   if isfield(opts,'polish_max_t'), polMaxT  = opts.polish_max_t; end
+            cex = falsify_batched_random(net, lb, ub, Hs, inputSize, opts.batched_N, doPol, polMaxT, nearMiss);
+            if iscell(cex) && validate_witness(net, cex{1}, lb, ub, Hs, inputSize, inputFormat, needReshape)
+                counterEx = cex; return;
+            end
+        catch
+            % fall through to PGD / random sampling
+        end
+    end
+
     % Gradient-directed falsification FIRST (FGSM warm-start + PGD). pgd_falsify maps
     % the flat input to the network-input layout with the SAME reshape+permute the
     % runner uses (needReshape), so it works for image/permuted inputs too. NNV found
@@ -1964,6 +2006,59 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
             end
         end
     end
+end
+
+% Phase 1 -- batched-random + coordinate-descent polish falsifier for low-dim flat-feature dlnetwork nets
+% (acasxu). Draws N uniform samples over [lb,ub], evaluates them in ONE batched predict, and computes each
+% sample's worst margin = min over the OR-halfspaces Hs of (max row of G*y - g) (<=0 means that sample
+% violates the unsafe region = a counterexample). If a raw sample violates, returns it. Otherwise, when the
+% best margin is a near-miss (< nearMiss) and doPolish is set, runs a wall-capped coordinate descent from
+% the top-K lowest-margin samples to push a witness past 0. Returns {x; y} (x in flat vnnlib order) or [].
+% SOUND: only ever returns a concrete point that violates on the net's own forward pass; the CALLER
+% re-validates it (validate_witness + onnxruntime replay) before any 'sat' stands. Validated 15/15 (all
+% ORT-confirmed) on the acasxu falsify gap -- see status-repo/research/acas_next_run_evidence/test_sound15.m.
+function cex = falsify_batched_random(net, lb, ub, Hs, inputSize, N, doPolish, polMaxT, nearMiss)
+    cex = [];
+    lb = double(lb(:)); ub = double(ub(:)); d = numel(lb); sp = ub - lb;
+    X = lb + sp .* rand(d, N);                                   % uniform samples in flat vnnlib order
+    Y = reshape(extractdata(predict(net, dlarray(single(reshape(X, [inputSize N])), 'SSCB'))), [], N);
+    nH = numel(Hs); M = inf(1, N); bH = ones(1, N);
+    for h = 1:nH                                                 % worst margin per sample over the OR-halfspaces
+        mh = max(Hs(h).G * Y - Hs(h).g(:), [], 1);
+        b = mh < M; M(b) = mh(b); bH(b) = h;
+    end
+    [Msort, ord] = sort(M, 'ascend');
+    if Msort(1) <= 0                                             % a raw sample already violates -> witness
+        k = ord(1); cex = {X(:,k); reshape(Y(:,k), [], 1)}; return;
+    end
+    if ~doPolish || Msort(1) >= nearMiss, return; end           % clearly unsat region (no near point) -> skip polish
+    topK = min(30, N); target = -1e-3; tp = tic;
+    for kk = 1:topK
+        if toc(tp) > polMaxT, break; end                        % wall cap bounds cost on (true-unsat) instances
+        x = X(:, ord(kk)); h = bH(ord(kk)); G = Hs(h).G; g = Hs(h).g(:);
+        m0 = max(G * i_eval_flat(net, x, inputSize) - g); step = sp * 0.05;
+        for it = 1:400
+            improved = false;
+            for dd = 1:d
+                for s = [-1 1]
+                    xt = x; xt(dd) = min(max(x(dd) + s*step(dd), lb(dd)), ub(dd));
+                    mt = max(G * i_eval_flat(net, xt, inputSize) - g);
+                    if mt < m0 - 1e-15, x = xt; m0 = mt; improved = true; end
+                end
+            end
+            if m0 <= target, break; end
+            if ~improved, step = step * 0.5; if max(step ./ max(sp, eps)) < 1e-10, break; end; end
+            if toc(tp) > polMaxT, break; end
+        end
+        if m0 <= 0                                              % polished a sample past the unsafe boundary -> witness
+            cex = {x; reshape(i_eval_flat(net, x, inputSize), [], 1)}; return;
+        end
+    end
+end
+
+% Single forward pass of a flat input through a low-dim dlnetwork (acasxu SSCB layout); returns a column.
+function y = i_eval_flat(net, x, inputSize)
+    y = double(reshape(extractdata(predict(net, dlarray(single(reshape(x, inputSize)), 'SSCB'))), [], 1));
 end
 
 % Get random example from input set

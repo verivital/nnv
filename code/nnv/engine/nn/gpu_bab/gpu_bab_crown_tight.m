@@ -63,6 +63,21 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
     % a non-sound 'single' result must never be trusted as 'robust'. (Double is always exact-enough.)
     soundFP32 = strcmp(precision, 'single') && ~isempty(vmag);
 
+    % FIRST-LAYER IBP short-circuit data: per-op IBP bounds (in `precision`) + box-exactness. Where an
+    % op's INPUT set is exactly a box, its IBP per-coordinate bound is EXACT (== CROWN), so that layer's
+    % tight bound needs no eye(nk) seed/backward -- this removes the WIDEST, input-fed seeds (vgg conv1
+    % 3.21M, tinyimagenet first conv 262144) for free + exact. IBP is always sound; the box-exact gate
+    % means no looseness. Disabled on the sound-FP32 emit path (vmag set), which needs the outward-rounded
+    % CROWN derr widening -- there the chunked CROWN runs instead (sound).
+    ibpL = {}; ibpU = {}; boxExact = {};
+    if ~soundFP32
+        try
+            [~, ~, ~, ibpL, ibpU, boxExact] = gpu_bab_ibp(ops, x_lb, x_ub, precision);
+        catch
+            boxExact = {};   % any failure -> no short-circuit (fall back to chunked CROWN; still sound)
+        end
+    end
+
     % ---- tight intermediate bounds, layer by layer ----
     % Compute input bounds for every op whose backward relaxation needs them: ReLU (the
     % pre-activation) AND maxpool (the window inputs that decide the sound max relaxation).
@@ -73,14 +88,25 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
             % not assumed k-1). Bound each of its elements via a backward DAG-CROWN pass over
             % ops[1..src], reusing preL/preU of strictly-earlier ReLUs/maxpools (sound by induction).
             src = ops{k}.src;
-            if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
-            % MEMORY: tile the eye(nk) identity seed into row-blocks so peak memory is O(B*width)
-            % instead of O(nk*width) -- the eye(nk) seed is the SOLE O(nk^2) blow-up (the conv adjoint
-            % i_conv_backward is already structural; VGG conv1 nk=3.21M -> eye is ~38 TB). EXACT: each
-            % seed row is bounded independently (the relaxations read only preL/preU of strictly-earlier
-            % ops + the input box, never other seed rows), so per-block bounds == the full-seed bounds.
-            % B from NNV_CROWN_CHUNK / NNV_CROWN_MEM_GB; B>=nk reproduces the original single eye(nk) pass.
-            [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag);
+            if src == 0
+                % the bounded value IS the engine input box -> exact, no seed needed
+                nk = numel(x_lb); pl = cast(x_lb(:), precision); pu = cast(x_ub(:), precision);
+            elseif src >= 1 && ~isequal(getenv('NNV_CROWN_NO_SHORTCUT'), '1') ...
+                    && isfield(ops{src}, 'src') && i_box_exact(boxExact, ops{src}.src)
+                % FIRST-LAYER IBP short-circuit: op `src`'s input set is exactly a box -> its IBP
+                % per-coordinate bound is EXACT (== CROWN). Skip the eye(nk) seed + backward entirely --
+                % this removes the WIDEST, input-fed seeds (vgg conv1 3.21M, tiny first conv 262144) for
+                % free + exact. IBP is always sound; the box-exact gate means zero looseness vs CROWN.
+                nk = i_layer_width(ops, src);
+                pl = ibpL{src+1}; pu = ibpU{src+1};
+            else
+                % MEMORY: tile the eye(nk) seed into row-blocks so peak memory is O(B*width) instead of
+                % O(nk*width) -- the eye(nk) seed is the sole O(nk^2) blow-up (the conv adjoint is already
+                % structural). EXACT: each seed row is bounded independently. B from NNV_CROWN_CHUNK /
+                % NNV_CROWN_MEM_GB; B>=nk reproduces the original single eye(nk) pass.
+                nk = i_layer_width(ops, src);
+                [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag);
+            end
             if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                 fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
                 pl(fx == 1)  = max(pl(fx == 1),  0);
@@ -127,6 +153,16 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
 
     % ---- final spec margin (lower bound on C*output) + the input-space lower plane ----
     [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true, vmag);
+end
+
+function tf = i_box_exact(boxExact, idx)
+% True iff op `idx`'s output set is exactly a box (idx = the op feeding the op being bounded; 0 = input).
+% gpu_bab_ibp marks box-exactness (true through the input + per-element relu/normaffine, false at any
+% coordinate-mixing op). Fail-safe: empty/missing/multi-col -> false (fall back to chunked CROWN; sound).
+    tf = false;
+    if isempty(boxExact) || idx < 0 || idx + 1 > numel(boxExact), return; end
+    v = boxExact{idx + 1};
+    tf = ~isempty(v) && all(logical(v(:)));
 end
 
 function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag)

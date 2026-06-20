@@ -52,13 +52,14 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     % conv nets). The batched bounding (gpu_bab_crown_spec_dag) is sound for these -- conv/BN/
     % avgpool/add are LINEAR (exact interval forward + exact adjoint backward; 'add' routes its
     % backward coefficient unchanged to both summands, gpu_bab_crown_spec_dag handles the DAG via
-    % op.src/op.inputs), only ReLU is relaxed. 'maxpool' needs a per-node window relaxation not
-    % yet batched -> refuse (sound-by-refusal -> caller runs the serial tight path / Star).
-    supported = {'affine','relu','conv','normaffine','avgpool','add','concat','product'};
+    % op.src/op.inputs), only ReLU is relaxed. 'maxpool' is now batched too (gpu_bab_crown_spec_dag
+    % i_maxpool_backward_batched: sound CROWN window relaxation, lower-direction; soundFP32 emit
+    % refused so the FP64 confirm handles sound-emit).
+    supported = {'affine','relu','conv','normaffine','avgpool','maxpool','add','concat','product'};
     badIdx = find(cellfun(@(o) ~any(strcmp(o.type, supported)), ops), 1);
     if ~isempty(badIdx)
         error('gpu_bab_relu_split_batched:unsupportedOp', ...
-            'op "%s" unsupported (affine/relu/conv/normaffine/avgpool/add only; maxpool needs gpu_bab_relu_split tight).', ops{badIdx}.type);
+            'op "%s" unsupported (affine/relu/conv/normaffine/avgpool/maxpool/add only).', ops{badIdx}.type);
     end
 
     nOps    = numel(ops);

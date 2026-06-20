@@ -56,5 +56,22 @@ assert(all(mt <= trueMin + 1e-4), 'maxpool CROWN-tight margin must be sound (<= 
 Cp = max(Cspec, 0); Cn = min(Cspec, 0);
 assert(all(mt >= Cp*ilb + Cn*iub - 1e-6), 'maxpool CROWN-tight must be no looser than IBP');
 
+%% Test 6: BATCHED spec_dag maxpool CROWN -- sound, matches serial crown_tight, exact at a point
+% (this is the GPU-screen path: gpu_bab_crown_spec_dag / gpu_bab_relu_split_batched)
+mb = gpu_bab_crown_spec_dag(ops, lb, ub, Cspec, 'double', {}, [], {}, []);
+assert(all(mb <= trueMin + 1e-4), 'batched maxpool CROWN margin must be sound (<= true min)');
+% a real CROWN bound: sound AND no looser than IBP. (The batched relu relaxation differs in
+% tightness from serial crown_tight -- both sound -- so check the IBP floor, not exact equality.)
+[ilb6, iub6] = gpu_bab_ibp(ops, lb, ub, 'double');
+assert(all(mb >= max(Cspec,0)*ilb6 + min(Cspec,0)*iub6 - 1e-6), 'batched maxpool CROWN must be no looser than IBP');
+mb0 = gpu_bab_crown_spec_dag(ops, xc(:), xc(:), Cspec, 'double', {}, [], {}, []);
+assert(max(abs(mb0(:) - Cspec*reshape(nnvnet.evaluate(xc),[],1))) < 1e-4, 'batched maxpool degenerate == C*evaluate');
+
+%% Test 7: BATCHED root-tight reuse path + B>1 (the trust-FP32 screen feeds rootBounds)
+[~, preLr, preUr] = gpu_bab_crown_spec_dag(ops, lb, ub, Cspec, 'double', {}, [], {}, []);
+rb = struct('preL', {preLr}, 'preU', {preUr});
+mrt = gpu_bab_crown_spec_dag(ops, [lb lb], [ub ub], Cspec, 'double', {}, rb, {}, []);   % B=2 node columns
+assert(all(mrt(:) <= repmat(trueMin,2,1) + 1e-4), 'batched maxpool root-tight margin must be sound (B>1)');
+
 %% Summary
 disp('test_soundness_gpu_bab_maxpool: all sections passed');

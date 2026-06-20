@@ -298,11 +298,19 @@ if iscell(counterEx)
     %     encoding divergence between NNV's net and the real ONNX; only the onnxruntime replay can
     %     (this is the cifar100/challenging/malbeware/metaroom -150 class). The on-disk .nnv.mat is
     %     OR'd in as a belt-and-suspenders signal.
-    % A needReshape==0 standard MATLAB-imported flat-feature net (acasxu-style) is NOT risky:
+    % A needReshape==0 standard MATLAB-imported flat-feature net (acasxu-style) is NORMALLY not risky:
     % validate_witness is faithful there, so a `sat` it accepted may stand even without onnxruntime.
+    % EXCEPTION (Phase 1): the batched falsifier manufactures THIN, near-boundary acasxu witnesses
+    % (2e6 samples + coordinate-descent polish targeting margin -> 0). Such a witness is the most
+    % divergence-prone class: an NNV-fp32-vs-real-ONNX sign flip (NNV says -eps=violated, ONNX says
+    % +eps=safe) would be a false `sat`. Given the -150 asymmetry, treat ALL acasxu as risky -> REQUIRE
+    % onnxruntime confirmation. No effect when ORT is present (every acasxu SAT here is ORT-confirmed);
+    % only the no-ORT fallback changes: acasxu SAT -> unknown (sound, loses +10) rather than trusting
+    % validate_witness on a boundary witness.
     riskyNet = isa(net, 'NN') ...
             || (~isempty(needReshape) && any(needReshape(:) ~= 0)) ...
-            || isfile(regexprep(char(onnx), '\.onnx$', '.nnv.mat'));
+            || isfile(regexprep(char(onnx), '\.onnx$', '.nnv.mat')) ...
+            || contains(category, "acasxu");
     try
         [orVio, orAvail] = validate_witness_onnx(onnx, counterEx{1}, gateHs);
         if orAvail && ~orVio

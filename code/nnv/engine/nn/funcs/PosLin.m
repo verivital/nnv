@@ -409,7 +409,7 @@ classdef PosLin
                         In = PosLin.stepReachMultipleInputs(In, map(i), option, lp_solver);
                     end
                     S = In;
-                    if ~isempty(getenv('NNV_LP_COUNT')), global NNV_LP_N; lpn=NNV_LP_N; if isempty(lpn), lpn=0; end; fz=fopen(getenv('NNV_LP_COUNT'),'a'); fprintf(fz,'reluLayer in=%d unstable=%d out=%d cumLP=%d\n', numel(I), m, numel(In), lpn); fclose(fz); end %#ok<TLEV>
+                    if ~isempty(getenv('NNV_LP_COUNT')), global NNV_LP_N; lpn=NNV_LP_N; if isempty(lpn), lpn=0; end; fz=fopen(getenv('NNV_LP_COUNT'),'a'); if fz>0, fprintf(fz,'reluLayer in=%d unstable=%d out=%d cumLP=%d\n', numel(I), m, numel(In), lpn); fclose(fz); end, end %#ok<TLEV>
                 end
                 
             else

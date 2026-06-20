@@ -261,7 +261,7 @@ else
 end
 
 cEX_time = toc(t);
-if ~isempty(getenv('NNV_PHASE_LOG')), fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); fprintf(fpl,'PHASE import+falsify cEX_time=%.2f\n', cEX_time); fclose(fpl); end
+if ~isempty(getenv('NNV_PHASE_LOG')), fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); if fpl>0, fprintf(fpl,'PHASE import+falsify cEX_time=%.2f\n', cEX_time); fclose(fpl); end, end
 
 
 %% 3) UNSAT?
@@ -344,9 +344,9 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
             % Per-instance reach time budget (opt-in NNV_REACH_BUDGET seconds): arms the SOUND cap in
             % PosLin.reach_star_exact so a slow exact-star aborts -> unknown instead of hanging. Reset
             % here per instance so a persistent-session runner gets a fresh budget each instance.
-            i_reachbud = str2double(getenv('NNV_REACH_BUDGET'));
+            clear global NNV_REACH_T0 NNV_REACH_BUD; global NNV_REACH_T0 NNV_REACH_BUD %#ok<GVMIS>
+            i_reachbud = str2double(getenv('NNV_REACH_BUDGET'));   % reset EVERY instance (no budget leak in a persistent session); arm only when valid
             if isfinite(i_reachbud) && i_reachbud > 0
-                clear global NNV_REACH_T0 NNV_REACH_BUD; global NNV_REACH_T0 NNV_REACH_BUD %#ok<GVMIS>
                 NNV_REACH_T0 = tic; NNV_REACH_BUD = i_reachbud;
             end
 
@@ -370,7 +370,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                             fprintf('reach skipped: matlab2nnv conversion failed earlier -> unknown\n');
                             status = 2; break;
                         end
-                        if ~isempty(getenv('NNV_PHASE_LOG')), nc=1; if isfield(reachOptions,'numCores'), nc=reachOptions.numCores; end; fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); fprintf(fpl,'PHASE reachcall %s START t=%.2f numCores=%g\n', reachOptions.reachMethod, toc(rt0), nc); fclose(fpl); end
+                        if ~isempty(getenv('NNV_PHASE_LOG')), nc=1; if isfield(reachOptions,'numCores'), nc=reachOptions.numCores; end; fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); if fpl>0, fprintf(fpl,'PHASE reachcall %s START t=%.2f numCores=%g\n', reachOptions.reachMethod, toc(rt0), nc); fclose(fpl); end, end
                         ySet = nnvnet.reach(IS, reachOptions);
                     else
                         ySet = Prob_reach(net, IS, reachOptions);
@@ -385,7 +385,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
 
                 % Verify property
                 status = verify_specification(ySet, prop);
-                if ~isempty(getenv('NNV_PHASE_LOG')), fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); fprintf(fpl,'PHASE reach %s %.2fs status=%d\n', reachOptions.reachMethod, toc(rt0), status); fclose(fpl); end
+                if ~isempty(getenv('NNV_PHASE_LOG')), fpl=fopen(getenv('NNV_PHASE_LOG'),'a'); if fpl>0, fprintf(fpl,'PHASE reach %s %.2fs status=%d\n', reachOptions.reachMethod, toc(rt0), status); fclose(fpl); end, end
                 if status == 1 && i_is_probabilistic(reachOptions.reachMethod)
                     % cp-star 'unsat' is PROBABILISTIC (conformal), not a sound proof -> tracked.
                     % (When NNV_QUARANTINE_CPSTAR is set, cp-star is stripped upstream so this

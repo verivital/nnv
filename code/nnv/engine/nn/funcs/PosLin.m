@@ -401,12 +401,23 @@ classdef PosLin
                     
                     In = Star(V, I.C, I.d, I.predicate_lb, I.predicate_ub, new_Z);                    
                     map = find(lb < 0 & ub > 0);
-                    m = length(map);                    
+                    m = length(map);
+                    i_star_cap = str2double(getenv('NNV_STAR_CAP'));  % optional belt-and-suspenders cap (NaN if unset)
                     for i=1:m
                         if strcmp(dis_opt, 'display')
                             fprintf('\nPerforming exact PosLin_%d operation using Star', map(i));
                         end
                         In = PosLin.stepReachMultipleInputs(In, map(i), option, lp_solver);
+                        % SOUND within-layer caps: a single layer with many unstable neurons can blow the
+                        % time budget or memory before the next per-layer entry check; abort -> unknown
+                        % rather than overrun/OOM. Both are no-ops unless the env/globals are armed.
+                        if ~isempty(NNV_REACH_BUD) && NNV_REACH_BUD > 0 && ~isempty(NNV_REACH_T0) ...
+                                && toc(NNV_REACH_T0) > NNV_REACH_BUD
+                            error('NNV:reachBudget', 'reach exceeded time budget (%.0fs) -> unknown', NNV_REACH_BUD);
+                        end
+                        if ~isnan(i_star_cap) && i_star_cap > 0 && numel(In) > i_star_cap
+                            error('NNV:starCap', 'exact-star cardinality %d exceeded cap (%d) -> unknown', numel(In), i_star_cap);
+                        end
                     end
                     S = In;
                     if ~isempty(getenv('NNV_LP_COUNT')), global NNV_LP_N; lpn=NNV_LP_N; if isempty(lpn), lpn=0; end; fz=fopen(getenv('NNV_LP_COUNT'),'a'); if fz>0, fprintf(fz,'reluLayer in=%d unstable=%d out=%d cumLP=%d\n', numel(I), m, numel(In), lpn); fclose(fz); end, end %#ok<TLEV>

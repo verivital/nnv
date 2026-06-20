@@ -5,6 +5,15 @@ function [status, tTime] = run_vnncomp_instance(category, onnx, vnnlib, outputfi
 t = tic;
 status = 2; % unknown (to start with)
 
+% SOUNDNESS HARDENING (persistent/shared-session safety): the per-instance reach budget lives in GLOBALS
+% (NNV_REACH_T0/_BUD) that ANOTHER verifier entry point (NN.verify_vnnlib / NN.verify_robustness) reads via
+% verify_specification, where under exactReach a result==2 is promoted to 0 (sat). A budget left ARMED after
+% this instance could make a LATER exactReach call in the SAME MATLAB session read a "gave-up -> 2" as a
+% FALSE sat. So clear any stale budget on ENTRY and guarantee teardown on EXIT (normal return OR error) via
+% onCleanup. No effect on the scored one-process-per-instance harness; matters for the persistent sweep.
+clear global NNV_REACH_T0 NNV_REACH_BUD %#ok<GVMIS>
+reachBudgetCleanup = onCleanup(@() i_arm_reach_budget(NaN)); %#ok<NASGU> % disarm budget globals on any exit
+
 % disp("We are running...")
 
 %% 0) cctsdb_yolo: complete-enumeration path (bypasses net import + reach)
@@ -406,9 +415,12 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
     elseif isa(lb, "cell") && length(lb) == length(prop) % multiple inputs, multiple outputs
         
         local_status = 2*ones(length(lb),1); % track status for each specification in the vnnlib
-        
+        i_reachbud = str2double(getenv('NNV_REACH_BUDGET'));  % broadcast the per-instance reach budget into the parfor
+                                                             % (globals do not cross to workers; arms the SOUND PosLin cap per worker)
+
         parfor spc = 1:length(lb) % We can compute these in parallel for faster computation
 
+            i_arm_reach_budget(i_reachbud);  % arm NNV_REACH_T0/_BUD on THIS worker (global decls are illegal in a parfor body -> helper)
             lb_spc = lb{spc};
             ub_spc = ub{spc};
 
@@ -485,9 +497,14 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
     elseif isa(lb, "cell") && length(prop) == 1 % one specification, multiple input definitions 
 
         local_status = 2*ones(length(lb),1); % track status for each specification in the vnnlib, initialize as unknown
-        
+        i_reachbud = str2double(getenv('NNV_REACH_BUDGET'));  % broadcast the per-instance reach budget into the parfor:
+                                                             % globals set on the client do NOT cross to parfor workers,
+                                                             % so without this the SOUND cap in PosLin.reach_star_exact is a
+                                                             % no-op on every multi-input-box prop (disjunctive-input overruns).
+
         parfor spc = 1:length(lb) % We can compute these in parallel for faster computation
 
+            i_arm_reach_budget(i_reachbud);  % arm NNV_REACH_T0/_BUD on THIS worker (global decls are illegal in a parfor body -> helper)
             reachOptPar = reachOptionsList;
             
             lb_spc = lb{spc};
@@ -522,8 +539,16 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                             ySet = Prob_reach(net, IS, reachOptions);
                         end
 
-                        % Add verification status
-                        tempStatus = verify_specification(ySet, prop(spc));
+                        % Add verification status.
+                        % This branch is "one output spec, MULTIPLE input boxes"
+                        % (length(prop)==1, lb is a cell): each input box is verified
+                        % against the SINGLE shared spec prop{1}. The old prop(spc) made
+                        % parfor try to SLICE prop by spc=1..length(lb), but prop has only
+                        % one element -> "Index exceeds the number of array elements" thrown
+                        % at the parfor supply stage (OUTSIDE this try/catch), surfacing as
+                        % an uncaught ERR for disjunctive-input props (e.g. acasxu prop_6).
+                        % prop(1) is a constant index -> parfor broadcasts prop, no slicing.
+                        tempStatus = verify_specification(ySet, prop(1));
                         if tempStatus == 1 && i_is_probabilistic(reachOptions.reachMethod)
                             i_log_cpstar(onnx);   % parity: parfor cp-star verdicts were previously unlogged
                         end
@@ -567,9 +592,9 @@ vT = toc(vT);
 
 tTime = toc(t); % save total computation time
 
-% if status == 2 && strcmp(reachOptions.reachMethod, 'exact-star')
-%     status = 0;
-% end
+% (removed) a dead, commented-out "status==2 && exact-star -> status=0" promotion used to live here.
+% Deleted as a soundness trap: re-enabling it would turn any exact-star UNKNOWN (incl. a sound budget/cap
+% abort) into a FALSE sat. Unknown must never be promoted to a verdict.
 
 disp("Verification result: " + string(status));
 disp("Counterexample search time: " + string(cEX_time));
@@ -765,6 +790,21 @@ function ok = is_nnvnet_valid(nnvnet)
 % matlab2nnv conversion fails inside a try/catch). We need an NN object,
 % not a string sentinel.
     ok = ~isempty(nnvnet) && ~ischar(nnvnet) && ~isstring(nnvnet);
+end
+
+function i_arm_reach_budget(bud)
+% Arm (or clear) the SOUND per-instance reach time budget on the CURRENT MATLAB
+% workspace by setting the globals PosLin.reach_star_exact / verify_specification read.
+% Routed through a helper because `global` declarations are ILLEGAL inside a parfor
+% body -- calling this from a parfor iteration sets the globals on that WORKER (where
+% the reach actually runs), which a client-side assignment cannot do (globals do not
+% cross the parfor boundary). Sound: an exceeded budget only ever aborts to unknown.
+    global NNV_REACH_T0 NNV_REACH_BUD %#ok<GVMIS>
+    if isfinite(bud) && bud > 0
+        NNV_REACH_T0 = tic; NNV_REACH_BUD = bud;
+    else
+        NNV_REACH_T0 = []; NNV_REACH_BUD = [];   % no budget configured -> cap stays a no-op
+    end
 end
 
 function i_log_cpstar(onnx)

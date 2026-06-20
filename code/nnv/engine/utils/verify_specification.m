@@ -17,7 +17,16 @@ function result = verify_specification(reachSet, property)
 
     R = reachSet;
     nr = length(R);    % number of output sets (for approx should be 1)
-    
+
+    % SOUND per-instance reach time budget (opt-in; same globals PosLin.reach_star_exact uses,
+    % armed by the harness / i_arm_reach_budget). The disjunctive-output path below is
+    % O(np disjuncts x nr stars) intersectHalfSpace/LP calls with no inherent bound, so on an
+    % exact-star set with many stars it can run far past the per-instance budget (the acasxu
+    % prop_7 overrun that previously needed an OS kill). When the budget is exceeded we return 2
+    % (UNKNOWN) -- sound, claims nothing -- rather than grind on. No-op unless the globals are set.
+    global NNV_REACH_T0 NNV_REACH_BUD %#ok<GVMIS>
+    i_budget_on = ~isempty(NNV_REACH_BUD) && NNV_REACH_BUD > 0 && ~isempty(NNV_REACH_T0);
+
     % Process property to verify
     if iscell(property) % created from vnnlib (one or multiple halfSpaces)
         property = property{1};
@@ -28,6 +37,7 @@ function result = verify_specification(reachSet, property)
     np = length(property);
     if np == 1 % only one halfspace
         for k = 1:nr
+            if i_budget_on && toc(NNV_REACH_T0) > NNV_REACH_BUD, result = 2; return; end % budget -> sound unknown
             Set = R(k);
             if ~isa(Set, "Star")
                 Set = Set.toStar;
@@ -48,6 +58,7 @@ function result = verify_specification(reachSet, property)
         result = 1; % start assuming property is unsat (no intersection)
         while cp <= np % multiple halfspaces, which means OR assertion
             for k = 1:nr % check every reach set vs OR property
+                if i_budget_on && toc(NNV_REACH_T0) > NNV_REACH_BUD, result = 2; return; end % budget -> sound unknown
                 Set = R(k);
                 if ~isa(Set, "Star")
                     Set = Set.toStar;

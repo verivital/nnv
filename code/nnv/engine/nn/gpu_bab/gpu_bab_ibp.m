@@ -1,4 +1,4 @@
-function [out_lb, out_ub, vmag] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
+function [out_lb, out_ub, vmag, cl, cu, boxExact] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
 % GPU_BAB_IBP  Sound interval bound propagation for a feedforward ReLU net.
 %
 %   [out_lb, out_ub] = GPU_BAB_IBP(ops, in_lb, in_ub, precision) forward-
@@ -62,6 +62,7 @@ function [out_lb, out_ub, vmag] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
     % so conv-on-skip branches bound correctly; 'add' sums its two inputs. Interval ops EXACT.
     cl = cell(nOps + 1, 1); cu = cell(nOps + 1, 1);
     cl{1} = lb; cu{1} = ub;
+    boxExact = cell(nOps + 1, 1); boxExact{1} = true;   % the input set is exactly a box
     for k = 1:nOps
         op = ops{k};
         if strcmp(op.type, 'add')
@@ -78,6 +79,15 @@ function [out_lb, out_ub, vmag] = gpu_bab_ibp(ops, in_lb, in_ub, precision)
         else
             s = op.src + 1;
             [cl{k+1}, cu{k+1}] = i_apply_ibp(op, cl{s}, cu{s}, precision);
+        end
+        % box-exactness: relu/normaffine are per-element (box -> box); every other op mixes
+        % coordinates (conv/affine/avgpool/maxpool/add/concat/product) so its output set is NOT a
+        % box. gpu_bab_crown_tight uses this: an op's IBP per-coord bounds are EXACT (== CROWN) iff
+        % its INPUT set is a box -> short-circuit those layers' tight bounds (the widest, input-fed ones).
+        if strcmp(op.type, 'relu') || strcmp(op.type, 'normaffine')
+            boxExact{k+1} = boxExact{op.src + 1};
+        else
+            boxExact{k+1} = false;
         end
     end
     out_lb = cl{nOps + 1};

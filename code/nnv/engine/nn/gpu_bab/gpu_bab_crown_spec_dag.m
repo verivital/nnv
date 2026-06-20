@@ -128,6 +128,9 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                     cu{k+1} = (sf.*ub).*pos + (sf.*lb).*(~pos) + tf;
                 case 'avgpool'
                     [cl{k+1}, cu{k+1}] = i_avgpool_ibp(op, lb, ub, precision);
+                case 'maxpool'
+                    preL{k} = lb; preU{k} = ub;            % window input bounds for the backward relaxation
+                    [cl{k+1}, cu{k+1}] = i_maxpool_ibp(op, lb, ub, precision);
                 case 'relu'
                     if ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                         fx = fixings{k};
@@ -170,9 +173,15 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                 % (sound, possibly looser than re-concretizing). Backward reads preL{k}=[xb;yb].
                 preL{k} = repmat(cast(rootBounds.preL{k}, 'like', tmpl), 1, B);
                 preU{k} = repmat(cast(rootBounds.preU{k}, 'like', tmpl), 1, B);
+            elseif strcmp(tk, 'maxpool')
+                % maxpool: reuse the root window input bounds (broadcast) for the backward relaxation.
+                % No per-node ReLU clamp (maxpool carries no fixings); root bounds hold over the full
+                % box >= the node region (sound, possibly looser). Backward reads preL{k}/preU{k}.
+                preL{k} = repmat(cast(rootBounds.preL{k}, 'like', tmpl), 1, B);
+                preU{k} = repmat(cast(rootBounds.preU{k}, 'like', tmpl), 1, B);
             elseif ~any(strcmp(tk, {'affine','conv','normaffine','avgpool','add','concat'}))
                 error('gpu_bab_crown_spec_dag:op', ...
-                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/add/concat/product only).', tk);
+                    'Unsupported op "%s" (affine/conv/normaffine/avgpool/relu/maxpool/add/concat/product only).', tk);
             end
         end
     end
@@ -333,6 +342,15 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                 if doErr   % A is now on the INPUT; no bias -> no d-add
                     derr = derr + i_dterm_sd(A, reshape(double(vin), [], 1, 1), prod(op.pool), nSpec, B);
                 end
+            case 'maxpool'
+                % Sound CROWN LOWER relaxation through maxpool (ported batched from gpu_bab_crown_tight
+                % i_maxpool_backward; spec_dag is lower-direction only). soundFP32 emit is NOT supported
+                % for maxpool -> refuse (the trust-FP32 screen runs soundFP32=false, so it is unaffected).
+                if doErr
+                    error('gpu_bab_crown_spec_dag:maxpoolSoundFP32', ...
+                        'maxpool sound-FP32 emit not supported -- refused (use the FP64 confirm).');
+                end
+                [A, d] = i_maxpool_backward_batched(A, d, op, preL{k}, preU{k}, precision);
             case 'relu'
                 l = preL{k}; u = preU{k};                  % dim x B
                 ak = []; if ~isempty(alphaCell) && numel(alphaCell) >= k, ak = alphaCell{k}; end
@@ -468,6 +486,86 @@ function [A2, d2] = i_avgpool_backward(A, d, op, precision)
     Ain(1:hi,1:wi,:,:) = Aup(1:hi,1:wi,:,:);
     A2 = permute(reshape(Ain, [prod(ish) nSpec B]), [2 1 3]);
     d2 = d;
+end
+
+function [olb, oub] = i_maxpool_ibp(op, lb, ub, precision)
+% Interval maxpool (batched): max over each window is monotone, so the exact interval is the
+% maxpool of the bounds. lb/ub prod(inShape)-by-B.
+    ish = op.inShape; osh = op.outShape; B = size(lb,2);
+    L4 = reshape(cast(lb,precision), [ish(1) ish(2) ish(3) B]);
+    U4 = reshape(cast(ub,precision), [ish(1) ish(2) ish(3) B]);
+    olb = reshape(i_pool_max(L4, op), [prod(osh) B]);
+    oub = reshape(i_pool_max(U4, op), [prod(osh) B]);
+end
+
+function Y = i_pool_max(X, op)
+% Max pool of X [H W C B] (stride/overlap allowed, unpadded -- enforced at extraction).
+    osh = op.outShape; kh = op.pool(1); kw = op.pool(2); B = size(X,4);
+    Y = -inf([osh(1) osh(2) osh(3) B], 'like', X);
+    for oh = 1:osh(1)
+        for ow = 1:osh(2)
+            rh = (oh-1)*op.stride(1) + (1:kh); rw = (ow-1)*op.stride(2) + (1:kw);
+            Y(oh,ow,:,:) = max(max(X(rh,rw,:,:),[],1),[],2);
+        end
+    end
+end
+
+function [A2, d] = i_maxpool_backward_batched(A, d, op, l, u, precision)
+% Batched (over the B node columns) sound CROWN LOWER backward through maxpool, ported from the
+% serial gpu_bab_crown_tight i_maxpool_backward (LOWER direction only -- spec_dag computes lower
+% margins). For each output cell o = max over its window:
+%   lower  y_o >= x_m       (m = argmax of the window's LOWER bounds; max >= any element)
+%   upper  y_o <= x_m       if m DOMINATES (l_m >= u_i for every other window i) -- exact
+%          y_o <= max_i u_i otherwise (a constant; sound). The constant upper is robust-by-default
+%          (an i_maxpool_relax 'decided' miss only loosens -- never unsound).
+% A: nSpec x n_out x B ; l,u: n_in x B ; d: nSpec x B. The window relaxation differs per node
+% column b, so build per-b selection and scatter (overlapping windows accumulate in the matmul).
+% PERF (known, sound): this gathers to host + forms CPU sparse [n_out x n_in] per b, so for large
+% HWC maxpools / large B it dominates and negates batching. The window->flat index maps are static
+% per op, so a GPU-resident scatter (precompute maps once, argmax/umax on-device, no dense matrices)
+% is the planned speedup -- tracked as future work; the current path is correct, just CPU-bound.
+    nSpec = size(A,1); B = size(A,3);
+    n_in = prod(op.inShape); n_out = prod(op.outShape);
+    A2 = zeros(nSpec, n_in, B, 'like', A);
+    for b = 1:B
+        [mIdx, decided, umax] = i_maxpool_relax(op, gather(l(:,b)), gather(u(:,b)));
+        Lmat  = sparse(1:n_out, mIdx, 1, n_out, n_in);             % y_o >= x_{m_o}
+        dec   = find(decided);
+        Umat  = sparse(dec, mIdx(dec), 1, n_out, n_in);            % decided: y_o <= x_{m_o}
+        Ubias = zeros(n_out, 1); Ubias(~decided) = umax(~decided); % undecided: y_o <= umax
+        Ab = double(gather(A(:,:,b))); Apos = max(Ab,0); Aneg = min(Ab,0);
+        A2(:,:,b) = cast(Apos*Lmat + Aneg*Umat, precision);
+        d(:,b)    = d(:,b) + cast(Aneg*Ubias, precision);
+    end
+end
+
+function [mIdx, decided, umax] = i_maxpool_relax(op, l, u)
+% Per output cell: m = flat input index of the window's argmax-LOWER element; decided = that
+% element dominates (its lower bound >= every other window upper => max is exactly it); umax =
+% max window upper. Unpadded windows (enforced at extraction); overlap allowed. (Verbatim port
+% of gpu_bab_crown_tight i_maxpool_relax.)
+    ish = op.inShape; osh = op.outShape;
+    H = ish(1); W = ish(2); C = ish(3); Ho = osh(1); Wo = osh(2);
+    kh = op.pool(1); kw = op.pool(2); sh = op.stride(1); sw = op.stride(2);
+    L = reshape(double(l), [H W C]); U = reshape(double(u), [H W C]);
+    n_out = prod(osh);
+    mIdx = ones(n_out, 1); decided = false(n_out, 1); umax = zeros(n_out, 1);
+    for c = 1:C
+        for ow = 1:Wo
+            rw = (ow-1)*sw + (1:kw);
+            for oh = 1:Ho
+                rh = (oh-1)*sh + (1:kh);
+                lw = L(rh, rw, c); uw = U(rh, rw, c);
+                [maxl, p] = max(lw(:));
+                [pr, pc] = ind2sub([kh kw], p);
+                o = sub2ind([Ho Wo C], oh, ow, c);
+                mIdx(o) = sub2ind([H W C], rh(pr), rw(pc), c);
+                uw2 = uw; uw2(p) = -inf;
+                decided(o) = maxl >= max(uw2(:));               % argmax-lower dominates others
+                umax(o) = max(uw(:));
+            end
+        end
+    end
 end
 
 function v = i_bcast_flat(x, sh, precision)

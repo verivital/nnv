@@ -260,6 +260,14 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
             % a wrong order fails the guard -> caller runs Star), so this only ADDS coverage
             % (previously these nets errored -> Star) and never yields a wrong graph.
             emitted = false;
+        elseif contains(cls, 'Placeholder') && i_placeholder_is_identity(L)
+            % MID-NETWORK identity Placeholder: the ONNX importer leaves Dropout (and Identity) as a
+            % PlaceholderLayer it can't map. At INFERENCE Dropout IS the identity, so this is a sound
+            % value-preserving pass-through (like Flatten) -- emit no op. Gated on the placeholder's
+            % recorded Type (Dropout/Identity) AND empty Perm/Constant, so a Transpose/Constant
+            % placeholder still refuses (sound-by-refusal). Unblocks vgg16 (2 dropout placeholders
+            % between its FC layers) for the GPU-BaB pre-check.
+            emitted = false;
         elseif contains(cls, 'Softmax') || contains(cls, 'Classification') ...
                 || contains(cls, 'Output') || contains(cls, 'Regression') ...
                 || contains(cls, 'Placeholder')
@@ -497,4 +505,19 @@ function srcs = i_concat_sources(conns, name)
     end
     [~, ord] = sort(ports);
     srcs = cand(ord);
+end
+
+function tf = i_placeholder_is_identity(L)
+% True iff a PlaceholderLayer is an INFERENCE-IDENTITY op (Dropout / Identity) that the ONNX importer
+% could not map -- sound to treat as a value-preserving pass-through. Gated on the recorded Type AND
+% empty Perm/Constant, so a Transpose/Constant-bearing placeholder is NOT treated as identity
+% (sound-by-refusal). (vgg16's dropout placeholders report Type "nnet.cnn.layer.DropoutLayer".)
+    tf = false;
+    props = properties(L);
+    if ~any(strcmp(props, 'Type')), return; end
+    t = lower(string(L.Type));
+    isId       = contains(t, "dropout") || contains(t, "identity");
+    permEmpty  = ~any(strcmp(props, 'Perm'))     || isempty(L.Perm);
+    constEmpty = ~any(strcmp(props, 'Constant')) || isempty(L.Constant);
+    tf = isId && permEmpty && constEmpty;
 end

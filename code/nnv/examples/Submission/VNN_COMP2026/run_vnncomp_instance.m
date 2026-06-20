@@ -785,7 +785,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     % precheck CRASHED MATLAB on the box (hard std::exception "MATLAB process cannot be terminated" --
     % the orientation guard did NOT catch it, so it is NOT a safe sound-or-skip). Needs the conv
     % GPU-BaB path hardened against challenging's net before it can be enabled. Left on Star for now.
-    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet");
+    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet") || contains(category,"vggnet");
     % General-halfspace control benchmarks (NOT argmax): prove the output avoids every unsafe
     % disjunct in prop.Hg. gpu_bab_halfspace_verify is sound-or-skip (FP64 CROWN + orientation
     % guard), so it can only ADD a sound unsat. Routed separately below (own predicate).

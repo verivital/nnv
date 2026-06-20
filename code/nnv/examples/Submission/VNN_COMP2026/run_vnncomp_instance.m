@@ -851,8 +851,56 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     % disjunct in prop.Hg. gpu_bab_halfspace_verify is sound-or-skip (FP64 CROWN + orientation
     % guard), so it can only ADD a sound unsat. Routed separately below (own predicate).
     isHalfspace = contains(category,"cersyve") || contains(category,"lsnc_relu") || contains(category,"linearizenn");
-    if ~(isFC || isConv || isHalfspace), return; end     % only the gated timeout categories
+    % ACAS-Xu (Phase 2): low-dim (5-input) pure-ReLU, general-halfspace specs. Certified via FP64
+    % input-bisection CROWN BaB (gpu_bab_halfspace_input_bab). That routine targets product/bilinear
+    % nets, but for the 5-D acas boxes input bisection DOES converge (validated: prop_1 8/8 certified,
+    % 55-4473 nodes, 0.2-13.9s) and is sound-or-unknown by construction. Routed separately below.
+    isAcas = contains(category,"acasxu");
+    if ~(isFC || isConv || isHalfspace || isAcas), return; end     % only the gated timeout categories
     if ~is_nnvnet_valid(nnvnet), return; end             % need a valid NNV net for nn_to_ops + evaluate
+    if isAcas
+        % FP64-ONLY additive unsat precheck. SOUNDNESS: gpu_bab_halfspace_input_bab returns 'robust'
+        % only when input bisection covers the box with FP64-certified-avoided sub-boxes (children
+        % partition the parent box); anything else (unknown / barrier / timeCap / maxNodes) leaves
+        % status + reachOptionsList UNCHANGED so Star runs as before. The op-list is built with the
+        % SAME orientation guard (degenerate-IBP == nnvnet.evaluate) used by the other gpu-bab paths,
+        % so a wrong flatten order -> guard fails -> skip (never bounds the wrong function). No FP32
+        % is trusted (acas nets are tiny; FP64 runs in <15s). Falsification/SAT is handled upstream.
+        try
+            ops = i_acas_build_ops(nnvnet, lb, ub);       % [] if no flatten order matches the net
+            if isempty(ops)
+                fprintf('acas BaB pre-check: orientation guard skip -> Star reach\n');
+                return;
+            end
+            tcap = 30;     ev = str2double(getenv('NNV_ACAS_BAB_TIMECAP'));  if isfinite(ev) && ev > 0,  tcap = ev; end
+            mnod = 300000; ev = str2double(getenv('NNV_ACAS_BAB_MAXNODES')); if isfinite(ev) && ev >= 1, mnod = ev; end
+            babOpts = struct('precision','double','maxNodes',mnod,'timeCap',tcap);
+            if iscell(lb)                                 % defensive: each input set must be robust (single box is the usual acas call path)
+                allRobust = ~isempty(lb);
+                for s = 1:numel(lb)
+                    [Gd, gd] = i_acas_halfspaces(prop{min(s, numel(prop))});
+                    bt = tic; v = gpu_bab_halfspace_input_bab(ops, lb{s}, ub{s}, Gd, gd, babOpts);
+                    if ~strcmp(v, 'robust'), allRobust = false; break; end
+                end
+                if allRobust
+                    status = 1; reachOptionsList = {};
+                    fprintf('acas BaB pre-check: robust/unsat (all %d input sets) -> skip Star\n', numel(lb));
+                end
+            else
+                [Gd, gd] = i_acas_halfspaces(prop{1});
+                bt = tic; [v, info] = gpu_bab_halfspace_input_bab(ops, lb, ub, Gd, gd, babOpts);
+                if strcmp(v, 'robust')
+                    status = 1; reachOptionsList = {};
+                    fprintf('acas BaB pre-check: robust/unsat (%d nodes, %.1fs) -> skip Star\n', info.nodes, toc(bt));
+                else
+                    fprintf('acas BaB pre-check: %s (%s, %.1fs) -> Star reach\n', v, info.reason, toc(bt));
+                end
+            end
+        catch ME
+            fprintf('acas BaB pre-check errored (%s) -> Star reach\n', ME.message);
+        end
+        return;                                           % acas path is terminal (no argmax fall-through)
+    end
     if isHalfspace
         try
             if iscell(lb)                                % multiple input sets -> every set must be safe
@@ -991,6 +1039,38 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     catch ME
         fprintf('GPU-BaB pre-check errored (%s) -> Star reach\n', ME.message);
     end
+end
+
+function ops = i_acas_build_ops(nnvnet, lb, ub)
+% Build the gpu_bab op-list for a low-dim acas net, choosing the flatten order whose degenerate-IBP
+% matches nnvnet.evaluate at several sample points (the orientation guard shared with the other gpu-bab
+% paths). Returns [] if no order matches -> caller skips to Star (sound). A wrong order produces grossly
+% different outputs and fails the guard, so the op-list that passes bounds the SAME function reach verifies.
+    if iscell(lb), lb1 = lb{1}; ub1 = ub{1}; else, lb1 = lb; ub1 = ub; end
+    lb1 = double(lb1(:)); ub1 = double(ub1(:)); n = numel(lb1);
+    idx = (1:n)';                                          % center + 3 low-discrepancy interior points
+    f1 = mod(idx*0.6180339887498949, 1);
+    f2 = mod(idx*1.3247179572447460 + 0.37, 1);
+    f3 = mod(idx*0.7548776662466927 + 0.11, 1);
+    pb = [(lb1+ub1)/2, lb1+f1.*(ub1-lb1), lb1+f2.*(ub1-lb1), lb1+f3.*(ub1-lb1)];
+    orders = {'colmajor', 'chw_rowmajor', 'hwc_rowmajor'}; ops = [];
+    for oi = 1:numel(orders)
+        try, cand = nn_to_ops(nnvnet, orders{oi}, n); catch, continue; end
+        ok = true;
+        for pp = 1:size(pb, 2)
+            cp = pb(:, pp);
+            yo = gpu_bab_ibp(cand, cp, cp, 'double'); yo = yo(:);
+            yn = nnvnet.evaluate(reshape(cp, [n 1]));  yn = yn(:);
+            if numel(yo) ~= numel(yn) || max(abs(yo - yn)) > 1e-4*max(1, max(abs(yn))), ok = false; break; end
+        end
+        if ok, ops = cand; return; end
+    end
+end
+
+function [Gd, gd] = i_acas_halfspaces(pv)
+% Extract the unsafe-region halfspace disjuncts (G, g) from a loaded vnnlib prop for gpu_bab_*.
+    Hg = pv.Hg; Gd = cell(1, numel(Hg)); gd = cell(1, numel(Hg));
+    for i = 1:numel(Hg), Gd{i} = double(Hg(i).G); gd{i} = double(Hg(i).g(:)); end
 end
 
 function v = i_remap_box_to_net(x, inputSize, needReshape)

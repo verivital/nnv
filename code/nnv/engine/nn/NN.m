@@ -254,8 +254,10 @@ classdef NN < handle
 
             % Parallel computation or single core?
             if  obj.numCores > 1
-                obj.start_pool;
-                obj.reachOption = 'parallel';
+                obj.start_pool;                 % may downgrade numCores->1 if the pool can't start
+                if obj.numCores > 1
+                    obj.reachOption = 'parallel';
+                end
             end
 
             % Debugging option
@@ -442,8 +444,10 @@ classdef NN < handle
 
             % Parallel computation or single core?
             if  obj.numCores > 1
-                obj.start_pool;
-                obj.reachOption = 'parallel';
+                obj.start_pool;                 % may downgrade numCores->1 if the pool can't start
+                if obj.numCores > 1
+                    obj.reachOption = 'parallel';
+                end
             end
 
             % Debugging option
@@ -1373,25 +1377,37 @@ classdef NN < handle
                 if ~isempty(getCurrentTask())
                     return;
                 end
-                poolobj = gcp('nocreate'); % If no pool, do not create new one.
-                if isempty(poolobj)
-                    cl = parcluster();
-                    if cl.NumWorkers < obj.numCores
-                        cl.NumWorkers = obj.numCores;
-                    end
-                    % evalc captures "Starting parallel pool..." / "Connected
-                    % to parallel pool with N workers." chatter; the pool is
-                    % otherwise unaffected (gcp/parfor pick it up normally).
-                    evalc('parpool(cl, obj.numCores);');
-                else
-                    if poolobj.NumWorkers ~= obj.numCores
-                        evalc('delete(poolobj);'); % delete old; suppress "shutting down" message
+                % GRACEFUL FALLBACK: a parpool can fail to start (e.g. a broken local
+                % cluster profile -> "MATLAB worker shut down ... status 1"). That must
+                % NOT crash reach into 'unknown' -- serial reach is the SAME result, just
+                % slower. On any failure, downgrade to serial (numCores=1); the dispatcher
+                % then leaves reachOption non-parallel and the reach parfor runs serially.
+                try
+                    poolobj = gcp('nocreate'); % If no pool, do not create new one.
+                    if isempty(poolobj)
                         cl = parcluster();
                         if cl.NumWorkers < obj.numCores
                             cl.NumWorkers = obj.numCores;
                         end
-                        evalc('parpool(cl, obj.numCores);'); % start new; suppress "Connected to" message
+                        % evalc captures "Starting parallel pool..." / "Connected
+                        % to parallel pool with N workers." chatter; the pool is
+                        % otherwise unaffected (gcp/parfor pick it up normally).
+                        evalc('parpool(cl, obj.numCores);');
+                    else
+                        if poolobj.NumWorkers ~= obj.numCores
+                            evalc('delete(poolobj);'); % delete old; suppress "shutting down" message
+                            cl = parcluster();
+                            if cl.NumWorkers < obj.numCores
+                                cl.NumWorkers = obj.numCores;
+                            end
+                            evalc('parpool(cl, obj.numCores);'); % start new; suppress "Connected to" message
+                        end
                     end
+                catch ME
+                    warning('NN:parpoolFallback', ...
+                        'parpool(%d) failed to start (%s) -> serial reach.', ...
+                        obj.numCores, regexprep(ME.message, '\s+', ' '));
+                    obj.numCores = 1;   % fall back to serial; reach result is identical
                 end
             end
         end

@@ -74,9 +74,13 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
             % ops[1..src], reusing preL/preU of strictly-earlier ReLUs/maxpools (sound by induction).
             src = ops{k}.src;
             if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
-            Ck = eye(nk, precision);
-            pu = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
-            pl = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true, vmag);
+            % MEMORY: tile the eye(nk) identity seed into row-blocks so peak memory is O(B*width)
+            % instead of O(nk*width) -- the eye(nk) seed is the SOLE O(nk^2) blow-up (the conv adjoint
+            % i_conv_backward is already structural; VGG conv1 nk=3.21M -> eye is ~38 TB). EXACT: each
+            % seed row is bounded independently (the relaxations read only preL/preU of strictly-earlier
+            % ops + the input box, never other seed rows), so per-block bounds == the full-seed bounds.
+            % B from NNV_CROWN_CHUNK / NNV_CROWN_MEM_GB; B>=nk reproduces the original single eye(nk) pass.
+            [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag);
             if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                 fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
                 pl(fx == 1)  = max(pl(fx == 1),  0);
@@ -123,6 +127,33 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
 
     % ---- final spec margin (lower bound on C*output) + the input-space lower plane ----
     [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true, vmag);
+end
+
+function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag)
+% Tight per-neuron intermediate bounds (lower pl / upper pu, nk x 1) via a CHUNKED identity seed.
+% Replaces a dense Ck = eye(nk) (the O(nk^2) memory blow-up) with row-blocks; EXACT -- each seed row
+% is bounded independently of the others, so union(blocks) == full. B>=nk => the original single pass.
+    B = i_chunk_rows(nk, precision);
+    pl = zeros(nk, 1, precision); pu = zeros(nk, 1, precision);
+    for s0 = 1:B:nk
+        rows = s0:min(s0 + B - 1, nk); nb = numel(rows);
+        Ck = zeros(nb, nk, precision);
+        Ck(sub2ind([nb nk], (1:nb).', rows(:))) = 1;        % a row-block of eye(nk)
+        pu(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
+        pl(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
+    end
+end
+
+function B = i_chunk_rows(nk, precision)
+% Seed-row block size. NNV_CROWN_CHUNK overrides explicitly (control/testing); else from a memory
+% budget NNV_CROWN_MEM_GB (default 2 GB), with a /4 safety factor for the backward intermediates
+% beyond the [B x nk] seed. Clamp to [1, nk] (B == nk reproduces the dense eye(nk) single pass).
+    e = str2double(getenv('NNV_CROWN_CHUNK'));
+    if isfinite(e) && e >= 1, B = max(1, min(round(e), nk)); return; end
+    bytes = 4; if strcmp(precision, 'double'), bytes = 8; end
+    gb = str2double(getenv('NNV_CROWN_MEM_GB')); if ~isfinite(gb) || gb <= 0, gb = 2; end
+    B = floor(gb * 1e9 / (max(nk, 1) * bytes * 4));
+    B = max(1, min(B, nk));
 end
 
 function w = i_layer_width(ops, upto)

@@ -879,6 +879,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
                 allRobust = ~isempty(lb);
                 for s = 1:numel(lb)
                     [Gd, gd] = i_acas_halfspaces(prop{min(s, numel(prop))});
+                    if isempty(Gd), allRobust = false; break; end   % no halfspaces -> never vacuously certify; defer to Star
                     bt = tic; v = gpu_bab_halfspace_input_bab(ops, lb{s}, ub{s}, Gd, gd, babOpts);
                     if ~strcmp(v, 'robust'), allRobust = false; break; end
                 end
@@ -888,6 +889,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
                 end
             else
                 [Gd, gd] = i_acas_halfspaces(prop{1});
+                if isempty(Gd), return; end   % no halfspaces -> never vacuously certify; defer to Star (sound)
                 bt = tic; [v, info] = gpu_bab_halfspace_input_bab(ops, lb, ub, Gd, gd, babOpts);
                 if strcmp(v, 'robust')
                     status = 1; reachOptionsList = {};

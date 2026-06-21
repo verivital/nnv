@@ -872,7 +872,11 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
                 fprintf('acas BaB pre-check: orientation guard skip -> Star reach\n');
                 return;
             end
-            tcap = 30;     ev = str2double(getenv('NNV_ACAS_BAB_TIMECAP'));  if isfinite(ev) && ev > 0,  tcap = ev; end
+            % Default BaB timeCap raised 30 -> 60s (per-category acasxu, NOT per-instance): the 3 hardest
+            % prop_1 nets (3_9/4_7/4_9) certify robust in 19-43s but were cut off at 30s -> raising to 60s
+            % yields 45/45 prop_1 (solo/competition). Sound: more FP64 BaB time only adds certs, never a
+            % wrong verdict. 60s leaves room under the ~116s per-instance budget (a cert skips Star).
+            tcap = 60;     ev = str2double(getenv('NNV_ACAS_BAB_TIMECAP'));  if isfinite(ev) && ev > 0,  tcap = ev; end
             mnod = 300000; ev = str2double(getenv('NNV_ACAS_BAB_MAXNODES')); if isfinite(ev) && ev >= 1, mnod = ev; end
             babOpts = struct('precision','double','maxNodes',mnod,'timeCap',tcap);
             if iscell(lb)                                 % defensive: each input set must be robust (single box is the usual acas call path)

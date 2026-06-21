@@ -115,6 +115,23 @@ try
     if isempty(inputSize)
         inputSize = net.Layers(1, 1).InputSize;
     end
+
+    % Competition lever (NNV_FALSIFY_MAXTIME, seconds): cap the falsify-first PGD budget so the SOUND reach
+    % ladder keeps its window within the OFFICIAL per-instance timeout. Several ftab rows set a PGD max_time
+    % >= the timeout (safenlp 30s/to=20s, cora 30s/to=30s): on a ROBUST instance PGD burns the whole wall
+    % finding nothing and the external kill fires BEFORE the (often <1s) reach proof -> a decidable unsat is
+    % lost to timeout. Capping PGD leaves reach its window. STRICTLY SOUND: falsification is SAT-or-unknown
+    % only, so less PGD only ever yields fewer SAT (-> unknown), never a wrong verdict; reach is untouched.
+    % Applied HERE (after the cached load) so it covers BOTH the cache-hit and cache-miss paths -- the cached
+    % falsifyOpts otherwise carries the un-capped ftab max_time. No-op when unset (tests/other callers
+    % unaffected); the competition harness sets it, mirroring how execute.py drives NNV_REACH_BUDGET.
+    fmt = getenv('NNV_FALSIFY_MAXTIME');
+    if ~isempty(fmt) && isstruct(falsifyOpts) && isfield(falsifyOpts, 'max_time')
+        fv = str2double(fmt);
+        if isfinite(fv) && fv > 0
+            falsifyOpts.max_time = min(falsifyOpts.max_time, fv);
+        end
+    end
 catch loadME
     fprintf('LOAD FAILED for %s -> unknown: %s\n', category, loadME.message);
     status = 2; tTime = toc(t);

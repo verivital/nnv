@@ -43,5 +43,17 @@ export NNV_CONV_FRONTIER=512
 # default) so tests / other callers are unaffected.
 export NNV_QUARANTINE_CPSTAR=1
 
+# FALSIFY_MAXTIME: cap the falsify-first PGD budget so the SOUND reach proof keeps its window within the
+# OFFICIAL timeout. safenlp's ftab PGD budget (30s) EXCEEDS its 20s timeout, so on a ROBUST instance PGD
+# burns the whole wall finding nothing and the external kill fires BEFORE the ~0.4s reach proof runs -> a
+# decidable unsat is lost to timeout. Measured: 25/25 over-timeout safenlp unsats recover (decide at
+# 8.5-14s) and 10/10 sat are preserved (found <3.3s), 0 gold-contradictions. STRICTLY SOUND: less PGD only
+# ever yields fewer SAT (-> unknown), never a wrong verdict; reach is untouched. Scoped to safenlp (the one
+# category where PGD>=timeout AND reach is sub-second); NOT applied to falsify-primary cats (cgan/sat_relu/
+# traffic_signs) whose SAT need the full PGD budget, nor to reach-slow cats (cora) the cap can't help.
+if [ "$CATEGORY" = "safenlp_2024" ]; then
+    export NNV_FALSIFY_MAXTIME=8
+fi
+
 echo "Running ${TOOL_NAME} on '$CATEGORY' (onnx='$ONNX_FILE', vnnlib='$VNNLIB_FILE', timeout=${TIMEOUT}s)"
 python3 "$EXECUTE" 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"

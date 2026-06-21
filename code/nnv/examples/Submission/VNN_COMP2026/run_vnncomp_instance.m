@@ -1809,9 +1809,12 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             % degraded load as a cache MISS: the fresh import below regenerates the +package AND re-warms
             % the cache. Sound either way (worst case = an extra re-import); makes a deleted/absent package
             % auto-recover instead of silently producing unknowns in a sweep or the competition.
-            owarn = warning('on','all'); lastwarn('');
+            owarn = warning('on','all');
+            restoreWarn = onCleanup(@() warning(owarn));  % restore warning state even if load() THROWS
+            lastwarn('');
             S = load(p, 'C'); C = S.C;
-            wmsg = lastwarn; warning(owarn);
+            wmsg = lastwarn;
+            clear restoreWarn;                            % success path: restore immediately
             if contains(wmsg,'Default objects will be substituted') || contains(wmsg,'Unable to load instances of class')
                 error('netcache:degraded','custom-layer +package missing -> re-import (%s)', wmsg);
             end

@@ -14,6 +14,21 @@ status = 2; % unknown (to start with)
 clear global NNV_REACH_T0 NNV_REACH_BUD %#ok<GVMIS>
 reachBudgetCleanup = onCleanup(@() i_arm_reach_budget(NaN)); %#ok<NASGU> % disarm budget globals on any exit
 
+% CODEGEN PACKAGES (custom-layer +package, e.g. +mnist_concat / +<relusplitter-onnx>). importNetworkFromONNX
+% writes a GENERATED custom-layer +package (named after the onnx) into the CURRENT FOLDER, and the per-onnx
+% netcache (.netcache.mat, built at prepare) stores a dlnetwork that REFERENCES those custom-layer classes.
+% So a cache load only reconstructs the real net when that +package is present on the MATLAB path -- if it is
+% missing, MATLAB SILENTLY substitutes default layer objects ("Unable to load instances of class ... default
+% objects will be substituted") and the net degrades to a useless 'unknown'. The packages are therefore
+% REQUIRED ARTIFACTS: prepare_instance.sh pre-generates them into code/nnv (on startup_nnv's genpath) and they
+% must persist (never delete; .gitignore'd). At a timed run the netcache HITS, so importNetworkFromONNX is NOT
+% re-invoked -> no regeneration, no concurrent-write 'getExternalLayers' collision, and no per-instance cwd
+% juggling is needed. (An earlier "give each instance a fresh scratch cwd" isolation was REMOVED: it sent any
+% regeneration to an ephemeral tempdir that was then deleted, so the NEXT process's cache load could not find
+% the package -> silent degrade -> 'unknown'. It was incompatible with the netcache and is the regression that
+% broke dist_shift + relusplitter.) Competition runs one process per instance (no concurrent import), so a
+% rare cache miss regenerates into code/nnv safely; the sweep relies on a serially pre-warmed cache.
+
 % disp("We are running...")
 
 %% 0) cctsdb_yolo: complete-enumeration path (bypasses net import + reach)
@@ -1786,7 +1801,20 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
     d = dir(char(onnx));
     if isfile(p) && ~isempty(d)
         try
+            % SELF-HEAL against a missing custom-layer +package. The cache stores a dlnetwork that
+            % REFERENCES importer-generated custom-layer classes (+<onnx>, e.g. +mnist_concat). If that
+            % package is absent from the path, load() does NOT error -- it SILENTLY substitutes default
+            % layer objects (warning "...Default objects will be substituted") and the net degrades to a
+            % useless 'unknown'. Force warnings ON so lastwarn captures the substitution, then treat a
+            % degraded load as a cache MISS: the fresh import below regenerates the +package AND re-warms
+            % the cache. Sound either way (worst case = an extra re-import); makes a deleted/absent package
+            % auto-recover instead of silently producing unknowns in a sweep or the competition.
+            owarn = warning('on','all'); lastwarn('');
             S = load(p, 'C'); C = S.C;
+            wmsg = lastwarn; warning(owarn);
+            if contains(wmsg,'Default objects will be substituted') || contains(wmsg,'Unable to load instances of class')
+                error('netcache:degraded','custom-layer +package missing -> re-import (%s)', wmsg);
+            end
             if isfield(C,'onnx_bytes') && isequal(C.onnx_bytes, d.bytes) ...
                     && abs(C.onnx_datenum - d.datenum) < 1e-9 ...
                     && isfield(C,'nnv_ver') && strcmp(C.nnv_ver, i_nnv_ver()) ...

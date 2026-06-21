@@ -63,8 +63,13 @@ build_netcache() {
     local cache="${onnx}.netcache.mat"
     [ -f "${cache}" ] && return
     echo "Pre-building NNV net cache: ${cache}"
+    # cwd stays at code/nnv (NNV_ROOT) for the import: importNetworkFromONNX writes the generated
+    # custom-layer +package into cwd, and code/nnv is what startup_nnv genpath'd, so the package lands
+    # ON the path and PERSISTS for every later timed run's netcache load (without it MATLAB silently
+    # substitutes default layers -> degraded net -> 'unknown'). Keeping it in code/nnv root (not the
+    # VNN_COMP2026 subdir) matches the .gitignore rule (code/nnv/+*/) and the cwd==code/nnv assumption.
     NNV_PREP_CACHE=1 "${MATLAB_BIN}" -batch \
-        "cd('${NNV_ROOT}'); startup_nnv; addpath('${NNV_ROOT}/examples/Submission/VNN_COMP2026'); cd('${NNV_ROOT}/examples/Submission/VNN_COMP2026'); try, run_vnncomp_instance('${cat}','${onnx}','${vnnlib}',tempname); catch ME, fprintf(2,'%s\n',ME.message); end" \
+        "cd('${NNV_ROOT}'); startup_nnv; addpath('${NNV_ROOT}/examples/Submission/VNN_COMP2026'); try, run_vnncomp_instance('${cat}','${onnx}','${vnnlib}',tempname); catch ME, fprintf(2,'%s\n',ME.message); end" \
         >/dev/null 2>&1 || echo "WARN: net cache pre-build failed; run_instance converts on first use."
 }
 # matlab2nnv (non-manifest) categories whose single (or few) network(s) are reused across many

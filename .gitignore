@@ -92,6 +92,11 @@ code/nnv/examples/Tutorial/NN/WeizmannHorse/
 code/nnv/examples/Submission/VNN_COMP2025/results_*.csv
 code/nnv/examples/Submission/VNN_COMP2025/results_*.md
 code/nnv/examples/Submission/VNN_COMP2025/+*/
+# VNN-COMP 2026: importNetworkFromONNX writes a generated custom-layer +package (named after the onnx,
+# e.g. +mnist_concat, +cifar_biasfield_*, +mnist_fc_*) into code/nnv (startup_nnv's genpath root) so the
+# per-onnx .netcache.mat can reconstruct its custom layers. These are REQUIRED RUNTIME ARTIFACTS
+# (prepare_instance.sh pre-generates them; never delete the live copy) but are regenerated, not source.
+code/nnv/+*/
 code/nnv/tests/nn/layers/+pgd_2_3_16/
 code/nnv/tests/utils/+ACASXU_run2a_1_1_batch_2000/
 code/nnv/tests/utils/+cartpole/

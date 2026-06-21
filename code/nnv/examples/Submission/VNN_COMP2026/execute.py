@@ -74,6 +74,18 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
     print("Paths added (NNV root: %s; prioritized submission dir: %s)" % (nnv_root, here))
     ## eng.addpath(eng.genpath('/root/Documents/MATLAB/SupportPackages/R2024a')) # This is where the support packages get installed from mpm
 
+    # COMPETITION TIMEOUT WIRING: drive NNV's INTERNAL sound caps from the OFFICIAL per-instance timeout
+    # (the toolkit reads the benchmark instances.csv and passes it as run_instance.sh $6 -> here), so the
+    # Star/PosLin reach and the acas BaB abort to a sound IN-TIME 'unknown' rather than only being hard-
+    # killed by future.result(timeout) below (which remains the backstop). These are the SAME env knobs the
+    # dev sweeps use -- only the SOURCE of the budget changes (official timeout vs a fixed dev value), so the
+    # verification config/algorithm is unchanged. Per-category / NNV-side, NOT per-instance tuning. Set via
+    # eng.setenv so the value lands in the MATLAB engine process (os.environ set after start_matlab would not).
+    to = float(timeout)
+    eng.setenv('NNV_REACH_BUDGET', '%.3f' % max(1.0, 0.95 * to), nargout=0)   # reach/verify cap ~ official timeout
+    if 'NNV_ACAS_BAB_TIMECAP' not in os.environ:                              # let an explicit export win
+        eng.setenv('NNV_ACAS_BAB_TIMECAP', '%.3f' % min(60.0, max(2.0, 0.5 * to)), nargout=0)  # acas BaB share of the budget
+
     status = 2 #initialize with an 'Unknown' status
     future = eng.run_vnncomp_instance(category, onnx, vnnlib, outputlocation, nargout = 2, background=True)
 

@@ -35,6 +35,13 @@ fi
 export NNV_CONV_TRUST_FP32=1
 export NNV_CONV_NO_STAR=1
 export NNV_CONV_FRONTIER=512
+# QUARANTINE_CPSTAR: strip the PROBABILISTIC (conformal) cp-star reach method so a cp-star 'unsat' can
+# never be emitted as a sound verdict. cp-star is NOT an FP64 proof -- under the absolute 0-wrong rule a
+# probabilistic unsat is a latent -150 (correct only with some confidence -> over the field some would be
+# wrong). STRICTLY SOUND: only ever converts a cp-star unsat -> unknown (never adds a verdict); the sound
+# FP64 / GPU-BaB / exact paths still decide what they can. Competition-scoped (set here, not the code
+# default) so tests / other callers are unaffected.
+export NNV_QUARANTINE_CPSTAR=1
 
 echo "Running ${TOOL_NAME} on '$CATEGORY' (onnx='$ONNX_FILE', vnnlib='$VNNLIB_FILE', timeout=${TIMEOUT}s)"
 python3 "$EXECUTE" 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"

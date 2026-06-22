@@ -68,7 +68,7 @@ fi
 # spec-reduction these resnets keep ~1 unproven spec, so the autodiff tape is tiny and a large
 # beta-frontier (64) batches the per-node refine cheaply.
 case "$CATEGORY" in
-    cifar100_2024|tinyimagenet_2024|vggnet16_2022|vggnet16_2023)
+    cifar100_2024|tinyimagenet_2024)   # vggnet deferred: beta-unlock + OOM untested at 1200s (follow-on)
         export NNV_BAB_BETA_ITERS=3
         export NNV_CONV_BETA_FRONTIER=64
         export NNV_AMORT_ALPHA=20

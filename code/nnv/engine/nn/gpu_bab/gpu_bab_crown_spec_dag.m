@@ -4,9 +4,16 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
 % disjunct's row for each node) REPLACES the full C as the backward seed. The 4th output
 % scoreCell then reflects the BaBSR sensitivity of ONLY the binding disjunct (the spec that is
 % actually blocking certification), so i_pick_splits branches on the neuron that helps the
-% binding spec instead of one helping an already-avoided spec. BOUND-INVARIANT: cSel only affects
-% which split is chosen -- the returned margins/preL/preU bound the same function; split selection
-% never alters a certified margin. Absent (default) -> byte-identical to the prior full-spec path.
+% binding spec instead of one helping an already-avoided spec.
+% ⚠ WHEN cSel IS PASSED, the returned `margins` (and preL/preU) ARE the SELECTED-row bound, NOT the
+%   full-C spec margins -- the backward seed becomes cSel (see below), so they correspond to cSel's
+%   rows only. The caller MUST use ONLY the 4th output (scoreCell) from a cSel call and DISCARD its
+%   margins; CERTIFICATION must always use the full-C margins from a SEPARATE cSel-absent call. (The
+%   sole caller, gpu_bab_relu_split_batched, does exactly this: `[~,~,~,scB] = ...spec_dag(...,cSel)`
+%   for the score, and certifies on the full-C `margins` from i_bound_batch.) So this is "bound-
+%   invariant" at the SYSTEM level (split CHOICE only; never the certified bound) but NOT a no-op on
+%   this function's `margins` output -- do not read cSel-path margins as full-spec.
+% Absent (default cSel={}) -> byte-identical to the prior full-spec path.
 % SOUND-FP32 (M3b): optional `vmag` (cell(nOps+1,1) of DOUBLE per-op output value-magnitude
 % majorants from gpu_bab_ibp(...,'double'), computed ONCE at the BaB root since the input box is
 % fixed across nodes). When supplied on the single-precision path, the batched backward accumulates

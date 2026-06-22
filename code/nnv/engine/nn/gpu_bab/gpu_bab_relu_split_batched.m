@@ -44,11 +44,15 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     margin      = cast(i_get(opts, 'margin', 0), precision);
     nSample     = i_get(opts, 'nSample', 16);
     rootTight   = i_get(opts, 'rootTight', true);   % root-tight intermediate-bound reuse (#1 tightness lever)
-    alphaIter   = i_get(opts, 'alphaIter', 0);      % alpha-CROWN slope-opt iters per batched node bound (0 = off; FC only)
+    alphaIter   = i_get(opts, 'alphaIter', 0);      % alpha-CROWN slope-opt iters per node bound (0 = off; FC + conv/DAG)
     alphaLr     = i_get(opts, 'alphaLr', 0.2);
-    betaIter    = i_get(opts, 'betaIter', 0);       % beta-CROWN split-dual iters (>0 -> JOINT alpha+beta; FC only)
+    betaIter    = i_get(opts, 'betaIter', 0);       % beta-CROWN split-dual iters (>0 -> JOINT alpha+beta; FC + conv/DAG via TIER-2)
     betaFrontier = i_get(opts, 'betaFrontier', 8);  % TIER-2: undec nodes per autodiff alpha+beta chunk (small; OOMs past ~8 on cifar)
-    bindingSpec = i_get(opts, 'bindingSpec', false);% binding-spec BaBSR branching (F0 floor; bound-invariant, split-choice only)
+    % SANITIZE betaFrontier: it is used as a colon step (1:betaFrontier:nu0) and to slice undec, and it
+    % is reachable from an env override (NNV_CONV_BETA_FRONTIER -> str2double -> NaN on a bad value). A
+    % non-integer/0/NaN/non-scalar would error on the index/step -> force a finite scalar integer >= 1.
+    if ~isscalar(betaFrontier) || ~isfinite(betaFrontier) || betaFrontier < 1, betaFrontier = 8; else, betaFrontier = floor(double(betaFrontier)); end
+    bindingSpec = i_get(opts, 'bindingSpec', false);% binding-spec BaBSR branching (F0 floor; split-CHOICE only, never the certified bound)
     if islogical(bindingSpec), bindingSpec = double(bindingSpec); end
 
     % Supported ops: affine/relu (FC) + conv/normaffine/avgpool/add (SEQUENTIAL + residual-DAG

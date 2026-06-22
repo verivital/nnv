@@ -345,7 +345,7 @@ classdef ReshapeLayer < handle
                 params = struct2cell(params);
                 targetDim = extractdata(params{1});
                 targetDim = reshape(targetDim, [1 length(targetDim)]);
-                
+
 %             elseif length(par_fields) > 1
 %                 params = struct2cell(params);
 %                 for i  = 1: length(params)
@@ -357,7 +357,31 @@ classdef ReshapeLayer < handle
                 error('Parsing Reshape Layer was unsuccessful. We only support reshape layer with one Nonlearnable parameter.')
             end
 
+            % NCHW image reshape: the ONNX Reshape target is stored in ONNX
+            % dim order. A 4-element [N C H W] target with a leading batch dim
+            % (N in {1,-1,0}) reshapes a flat/2D operand into a 4D NCHW image
+            % that downstream Conv layers must see in NNV's MATLAB [H W C]
+            % image convention. ONNX reshape is row-major (C-order); MATLAB
+            % reshape is column-major, so a plain reshape(x,[1 C H W]) both
+            % keeps the batch dim AND mis-orders the axes -- the Conv then
+            % reads H/W as channels and evaluate() throws (Cin mismatch).
+            % Convert to a 3-element [H W C] target and flag OnnxBCHW so
+            % evaluate()/reach() use the ONNX C-order reshape + spatial-permute
+            % path (which reproduces output(h,w,c) = flat[c*H*W + h*W + w],
+            % i.e. the imported network's predict() exactly). Only fire when
+            % C,H,W are concrete (>=1); a -1 sentinel in a spatial dim is
+            % ambiguous, so fall back to the plain reshape (sound-or-skip via
+            % the IBP==evaluate orientation guard).
+            onnxBCHW = false;
+            if numel(targetDim) == 4 && any(targetDim(1) == [1 -1 0]) ...
+                    && all(targetDim(2:4) >= 1)
+                C = targetDim(2); H = targetDim(3); W = targetDim(4);
+                targetDim = [H W C];
+                onnxBCHW = true;
+            end
+
             L = ReshapeLayer(layer.Name, layer.NumInputs, layer.NumOutputs, layer.InputNames, layer.OutputNames, targetDim);
+            L.OnnxBCHW = onnxBCHW;
         end
 
     end

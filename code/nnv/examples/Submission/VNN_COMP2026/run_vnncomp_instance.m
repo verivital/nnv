@@ -901,7 +901,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     % 0.05-5.9s). Sound-or-unknown by construction (children partition the parent box): validated
     % 0/5 gold-SAT falsely certified (they hit the minWidth barrier -> 'unknown' -> upstream PGD
     % finds the sat), gold-UNSAT certified via partition-covering FP64. Backstop is gated to these.
-    isInputBab = contains(category,"tllverifybench") || contains(category,"cersyve");
+    isInputBab = contains(category,"tllverifybench") || contains(category,"cersyve") || contains(category,"linearize");
     % ACAS-Xu (Phase 2): low-dim (5-input) pure-ReLU, general-halfspace specs. Certified via FP64
     % input-bisection CROWN BaB (gpu_bab_halfspace_input_bab). That routine targets product/bilinear
     % nets, but for the 5-D acas boxes input bisection DOES converge (validated: prop_1 8/8 certified,

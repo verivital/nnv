@@ -55,5 +55,25 @@ if [ "$CATEGORY" = "safenlp_2024" ]; then
     export NNV_FALSIFY_MAXTIME=8
 fi
 
+# CONV alpha+beta-CROWN BaB: per-node beta split-duals (NNV_BAB_BETA_ITERS) optimized jointly with
+# alpha, warm-started from the amortized root alpha (NNV_AMORT_ALPHA), refined over the still-
+# undecided frontier in chunks of NNV_CONV_BETA_FRONTIER. This is the throughput lever that closes
+# the loose root margin (cifar100 idx_2132 root -0.47 -> certified, 70s) the fixed-slope screen alone
+# cannot. SOUNDNESS: beta>=0 is a valid Lagrangian dual on the active/inactive split constraints
+# (the two children PARTITION the parent); keep-best + elementwise max(screen, refined) guarantees
+# the refined margin is a valid, no-worse lower bound (parity + beta-Monte-Carlo gates green). A
+# wrong split can only deepen the tree, never mis-certify. SCOPED to the conv resnet categories
+# (cifar100/tinyimagenet/vggnet) -- the only ones whose Star never certifies and whose root margin
+# needs beta; NOT set globally so FC/acas/falsify-primary categories are byte-identical. After
+# spec-reduction these resnets keep ~1 unproven spec, so the autodiff tape is tiny and a large
+# beta-frontier (64) batches the per-node refine cheaply.
+case "$CATEGORY" in
+    cifar100_2024|tinyimagenet_2024|vggnet16_2022|vggnet16_2023)
+        export NNV_BAB_BETA_ITERS=3
+        export NNV_CONV_BETA_FRONTIER=64
+        export NNV_AMORT_ALPHA=20
+        ;;
+esac
+
 echo "Running ${TOOL_NAME} on '$CATEGORY' (onnx='$ONNX_FILE', vnnlib='$VNNLIB_FILE', timeout=${TIMEOUT}s)"
 python3 "$EXECUTE" 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"

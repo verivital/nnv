@@ -882,7 +882,17 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     % General-halfspace control benchmarks (NOT argmax): prove the output avoids every unsafe
     % disjunct in prop.Hg. gpu_bab_halfspace_verify is sound-or-skip (FP64 CROWN + orientation
     % guard), so it can only ADD a sound unsat. Routed separately below (own predicate).
-    isHalfspace = contains(category,"cersyve") || contains(category,"lsnc_relu") || contains(category,"linearizenn");
+    % tllverifybench (TwoLevelLattice control nets, 2-D input, single-output >= c specs) is added
+    % here too: its spec is a general halfspace, so the same sound-or-skip halfspace path applies.
+    isHalfspace = contains(category,"cersyve") || contains(category,"lsnc_relu") || contains(category,"linearizenn") || contains(category,"tllverifybench");
+    % INPUT-BISECTION BaB BACKSTOP categories: low-input-dim (<=4) control nets whose general-
+    % halfspace spec the ROOT CROWN bound (gpu_bab_halfspace_verify) cannot decide, but the FP64
+    % input-bisection CROWN BaB (gpu_bab_halfspace_input_bab, the acas-proven routine) CAN -- halving
+    % a tiny input box quickly shrinks the relaxation gap (empirically: tll 0.6s/69 nodes, cersyve
+    % 0.05-5.9s). Sound-or-unknown by construction (children partition the parent box): validated
+    % 0/5 gold-SAT falsely certified (they hit the minWidth barrier -> 'unknown' -> upstream PGD
+    % finds the sat), gold-UNSAT certified via partition-covering FP64. Backstop is gated to these.
+    isInputBab = contains(category,"tllverifybench") || contains(category,"cersyve");
     % ACAS-Xu (Phase 2): low-dim (5-input) pure-ReLU, general-halfspace specs. Certified via FP64
     % input-bisection CROWN BaB (gpu_bab_halfspace_input_bab). That routine targets product/bilinear
     % nets, but for the 5-D acas boxes input bisection DOES converge (validated: prop_1 8/8 certified,
@@ -963,6 +973,15 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             end
         catch ME
             fprintf('halfspace pre-check errored (%s) -> Star reach\n', ME.message);
+        end
+        % INPUT-BISECTION BaB BACKSTOP (tll + cersyve): if the root-only CROWN bound above did not
+        % certify (status still 2), try the acas-proven FP64 input-bisection CROWN BaB, which decides
+        % the low-dim tll/cersyve boxes the single root bound cannot. STRICTLY ADDITIVE + sound: it
+        % emits status=1 ONLY on a partition-covering 'robust' proof (every sub-box FP64-certified
+        % avoided); anything else (unknown / barrier / [] / error) leaves status + reachOptionsList
+        % UNCHANGED so the existing Star ladder runs exactly as before.
+        if status == 2 && isInputBab
+            [status, reachOptionsList] = i_halfspace_input_bab(nnvnet, lb, ub, prop, status, reachOptionsList);
         end
         return;                                          % halfspace path is terminal (no argmax fall-through)
     end
@@ -1109,6 +1128,58 @@ function [Gd, gd] = i_acas_halfspaces(pv)
 % Extract the unsafe-region halfspace disjuncts (G, g) from a loaded vnnlib prop for gpu_bab_*.
     Hg = pv.Hg; Gd = cell(1, numel(Hg)); gd = cell(1, numel(Hg));
     for i = 1:numel(Hg), Gd{i} = double(Hg(i).G); gd{i} = double(Hg(i).g(:)); end
+end
+
+function [status, reachOptionsList] = i_halfspace_input_bab(nnvnet, lb, ub, prop, status, reachOptionsList)
+% FP64 input-bisection CROWN BaB backstop for low-input-dim general-halfspace control nets
+% (tllverifybench + cersyve). Mirrors the acas BaB path: an orientation-guarded op-list
+% (i_acas_build_ops) + gpu_bab_halfspace_input_bab over the unsafe-region halfspaces
+% (i_acas_halfspaces). SOUND/ADDITIVE: returns status=1 ONLY on a 'robust' verdict (the input
+% box is fully covered by FP64-certified-avoided sub-boxes -- the two children of every bisection
+% PARTITION the parent box, so 'robust' is a sound UNSAT proof); any other outcome (unknown /
+% barrier / no-halfspaces / [] op-list / error) leaves status + reachOptionsList UNCHANGED so the
+% existing Star ladder runs exactly as before. A wrong flatten order fails the shared orientation
+% guard -> [] -> skip, so it never bounds the wrong function. Validated (FP64): gold-UNSAT certified
+% (tll 69 nodes/0.6s, cersyve 159-1805 nodes); gold-SAT correctly NOT certified (minWidth barrier
+% -> 'unknown', upstream PGD then emits the sat). No FP32 is trusted (these nets are tiny).
+    if status ~= 2, return; end
+    try
+        ops = i_acas_build_ops(nnvnet, lb, ub);          % [] if no flatten order matches the net
+        if isempty(ops)
+            fprintf('halfspace input-bisection BaB: orientation guard skip -> Star reach\n');
+            return;
+        end
+        % Same FP64 BaB budget as the acas path (env-tunable via the shared NNV_ACAS_BAB_* knobs,
+        % which execute.py scales to the official per-instance timeout). 60s leaves room for Star.
+        tcap = 60;     ev = str2double(getenv('NNV_ACAS_BAB_TIMECAP'));  if isfinite(ev) && ev > 0,  tcap = ev; end
+        mnod = 300000; ev = str2double(getenv('NNV_ACAS_BAB_MAXNODES')); if isfinite(ev) && ev >= 1, mnod = ev; end
+        babOpts = struct('precision','double','maxNodes',mnod,'timeCap',tcap);
+        if iscell(lb)                                    % defensive: every input set must be robust
+            allRobust = ~isempty(lb);
+            for s = 1:numel(lb)
+                [Gd, gd] = i_acas_halfspaces(prop{min(s, numel(prop))});
+                if isempty(Gd), allRobust = false; break; end   % no halfspaces -> never vacuously certify
+                v = gpu_bab_halfspace_input_bab(ops, lb{s}, ub{s}, Gd, gd, babOpts);
+                if ~strcmp(v, 'robust'), allRobust = false; break; end
+            end
+            if allRobust
+                status = 1; reachOptionsList = {};
+                fprintf('halfspace input-bisection BaB: robust/unsat (all %d input sets) -> skip Star\n', numel(lb));
+            end
+        else
+            [Gd, gd] = i_acas_halfspaces(prop{1});
+            if isempty(Gd), return; end                  % no halfspaces -> defer to Star (sound)
+            bt = tic; [v, info] = gpu_bab_halfspace_input_bab(ops, lb, ub, Gd, gd, babOpts);
+            if strcmp(v, 'robust')
+                status = 1; reachOptionsList = {};
+                fprintf('halfspace input-bisection BaB: robust/unsat (%d nodes, %.1fs) -> skip Star\n', info.nodes, toc(bt));
+            else
+                fprintf('halfspace input-bisection BaB: %s (%s, %.1fs) -> Star reach\n', v, info.reason, toc(bt));
+            end
+        end
+    catch ME
+        fprintf('halfspace input-bisection BaB errored (%s) -> Star reach\n', ME.message);
+    end
 end
 
 function v = i_remap_box_to_net(x, inputSize, needReshape)

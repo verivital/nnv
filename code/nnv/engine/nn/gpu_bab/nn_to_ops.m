@@ -236,6 +236,25 @@ function ops = nn_to_ops(nnvnet, flattenOrder, inputDim)
             end
             ops{end+1} = struct('type','product','inputs',inOps,'sizes',[wa wb],'src',inOps(1)); %#ok<AGROW>
             outShape = []; outFlat = wa;
+        elseif contains(cls, 'SequenceInput') && isempty(ops)
+            % LEADING SequenceInputLayer: matlab2nnv produces this for the 'BCT' ONNX import of a
+            % FLAT MNIST FC net (relusplitter mnist_fc) under R2026a (an older importer mapped it to
+            % a PlaceholderLayer, handled below). Like FeatureInput / Flatten / ImageInput-without-
+            % norm it carries no learnable transform on the VALUES when it has no active normalization
+            % (NNV SequenceInputLayer.evaluate is identity iff Mean is empty or Normalization=='none'),
+            % so treat it as the engine-input passthrough -- this UNBLOCKS these FC nets for the
+            % GPU-BaB pre-check (they previously errored -> Star). SOUNDNESS: a SequenceInputLayer WITH
+            % active normalization (zerocenter/zscore) WOULD change the values, so refuse that (sound-
+            % by-refusal; the mandatory IBP==evaluate orientation guard would also catch it). Only the
+            % no-normalization case becomes an op-list, so this only ADDS coverage, never a wrong graph.
+            hasNorm = isprop(L,'Normalization') && ~isempty(L.Normalization) ...
+                      && ~strcmpi(string(L.Normalization),'none') ...
+                      && isprop(L,'Mean') && ~isempty(L.Mean);
+            if hasNorm
+                error('nn_to_ops:seqInputNorm', ...
+                    'SequenceInputLayer Normalization "%s" is not folded yet -- refused for soundness.', string(L.Normalization));
+            end
+            emitted = false;
         elseif contains(cls, 'FeatureInput') && isempty(ops)
             % LEADING FeatureInputLayer: a flat [n] feature-vector input (e.g. sat_relu /
             % safenlp FC nets imported with InputDataFormats="BC"). It carries no learnable

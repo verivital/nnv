@@ -297,6 +297,12 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
                     refined = gpu_bab_crown_alpha_dag(ops, LBs, UBs, C, subFix, reluIdx, precision, ...
                                   max(alphaIter, betaIter), alphaLr, rootBounds, alphaRoot);
                     refined = gather(refined);
+                    % SOUNDNESS guard (the -150 fence): a single-precision alpha+beta blowup can yield
+                    % +Inf/NaN; max(screen, +Inf)=+Inf would propagate to i_certify_dis -> false 'robust'
+                    % under TRUST_FP32 (no FP64 confirm). Force any non-finite refined to -Inf so the
+                    % combine falls back to the FINITE, sound TIER-1 screen margin. (max(x,-Inf)=x;
+                    % max(x,NaN)=x already, but NaN is made explicit too.)
+                    refined(~isfinite(refined)) = -Inf;
                     % column correspondence guard: refined(:,i) MUST be the bound for node sub(i).
                     % alpha_dag's keep-best floors at min-area, and spec_dag-with-alphaRoot ==
                     % alpha_dag-warm-started bound-for-bound at beta=0, so refined >= screen-eps holds

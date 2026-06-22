@@ -878,7 +878,16 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     % precheck CRASHED MATLAB on the box (hard std::exception "MATLAB process cannot be terminated" --
     % the orientation guard did NOT catch it, so it is NOT a safe sound-or-skip). Needs the conv
     % GPU-BaB path hardened against challenging's net before it can be enabled. Left on Star for now.
-    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet") || contains(category,"vggnet");
+    % malbeware: the malimg CNNs (4-25 / 16-25) are plain ImageInput->Conv2D->ReLU->Flatten->FC
+    % nets that nn_to_ops fully supports (probe: op-list builds for every flatten order, orientation
+    % guard matches net.evaluate, gold-unsat instances certify 'robust' in 1 node on GPU-single AND
+    % CPU-double). Routing malbeware through the SAME sound conv GPU-BaB precheck adds fast sound
+    % unsat certs for the ~62 CNN instances that otherwise time out in exact-star. STRICTLY ADDITIVE:
+    % a non-certifying instance leaves status/reachOptionsList unchanged -> the existing approx/exact-
+    % star ladder still runs (the linear-25 FC net is decided there as before). The NNV_CONV_NO_STAR
+    % "fast unknown" strip below is deliberately NOT applied to malbeware (unlike the resnets, whose
+    % Star never certifies) so malbeware keeps its sound Star fallback -- see the guard at line ~1071.
+    isConv = contains(category,"cifar100") || contains(category,"tinyimagenet") || contains(category,"vggnet") || contains(category,"malbeware");
     % General-halfspace control benchmarks (NOT argmax): prove the output avoids every unsafe
     % disjunct in prop.Hg. gpu_bab_halfspace_verify is sound-or-skip (FP64 CROWN + orientation
     % guard), so it can only ADD a sound unsat. Routed separately below (own predicate).
@@ -1060,7 +1069,11 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             % NNV_CONV_NO_STAR set, a non-certifying conv pre-check emits a FAST sound 'unknown'
             % instead of grinding Star to the cap. SOUND: 'unknown' is always safe, and the
             % pre-check's unsat certs are unchanged. Default-OFF -> no behaviour change.
-            if status == 2 && ~isempty(getenv('NNV_CONV_NO_STAR'))
+            % malbeware is EXCLUDED from the strip: unlike the resnets (cifar100/tinyimagenet/vggnet,
+            % whose Star provably never certifies), malbeware's approx/exact-star ladder DOES decide
+            % instances (esp. the linear-25 FC net). Stripping it would regress the 88 baseline. So a
+            % non-certified malbeware instance keeps its sound Star fallback (strictly additive).
+            if status == 2 && ~isempty(getenv('NNV_CONV_NO_STAR')) && ~contains(category,"malbeware")
                 reachOptionsList = {};
                 fprintf('GPU-BaB pre-check: conv not certified + NNV_CONV_NO_STAR -> skip Star (fast unknown)\n');
             end

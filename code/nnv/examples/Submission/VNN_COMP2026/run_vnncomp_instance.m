@@ -64,6 +64,31 @@ if contains(category, "cctsdb_yolo")
     return;
 end
 
+%% 0b) adaptive_cruise: NONLINEAR-property falsification path (bypasses NNV's gated load_vnnlib)
+%
+% adaptive_cruise_control_non_linear_2026 has NONLINEAR vnnlib (X*Y, X*X) which NNV deliberately
+% GATES as unsupported (never linearize -> sound), so the normal path always returns unknown.
+% adaptive_cruise_falsify.py finds a SAT witness by sampling the input box + forwarding the REAL
+% onnx via onnxruntime, and accepts it ONLY if EVERY assertion holds under the AUTHORITATIVE vnnlib
+% parser (the `vnnlib` pypi package: parse + to_dnf, exact arith eval on its AST) with a ROBUST
+% margin (1e-2) -- which excludes the thin saturation artifact (net saturates ~100.0011, only 1.2e-4
+% above the 100.001 threshold). SAT-or-FALL-THROUGH: a confirmed SAT is emitted + returns; anything
+% else falls through to the normal (unknown) path -> ZERO regression. Never emits unsat (sampling
+% can't prove it). The witness is authoritatively-parsed + ORT-forwarded + robust-margin -> sound.
+if contains(category, "adaptive_cruise")
+    [acStatus, acCounterEx] = verify_adaptive_cruise_falsify(onnx, vnnlib);
+    if acStatus == 0   % SAT, authoritatively confirmed
+        tTime = toc(t);
+        disp("Verification result: 0");
+        disp("Total Time: " + string(tTime));
+        fid = fopen(outputfile, 'w');
+        fprintf(fid, 'sat \n'); fclose(fid);
+        write_counterexample(outputfile, acCounterEx);
+        return;
+    end
+    % unknown -> fall through to the normal load/reach path (still unknown; preserves prior behaviour)
+end
+
 % collins_aerospace_benchmark: sound FALSIFICATION-ONLY path, fully outside MATLAB's
 % importer. importNetworkFromONNX dies on the YOLOv5 Detect-head custom layers, the
 % old import+matlab2nnv route produced invalid SAT instances (the vnnlib X order is
@@ -2128,6 +2153,46 @@ end
 
 function delete_if_exists(f)
     if exist(f, 'file'), delete(f); end
+end
+
+% adaptive_cruise NONLINEAR falsifier: shell out to adaptive_cruise_falsify.py, which samples the input
+% box + forwards the REAL onnx via onnxruntime and accepts a witness ONLY if EVERY assertion holds under
+% the authoritative `vnnlib` parser with a robust margin. Exit 10 = SAT (+ flat witness csv); anything
+% else (12 unknown / missing deps / error) -> unknown. Never returns unsat. Mirrors verify_cctsdb_enumeration.
+function [status, counterEx] = verify_adaptive_cruise_falsify(onnx, vnnlib)
+    status = 2; counterEx = nan;
+    here = fileparts(mfilename('fullpath'));
+    script = fullfile(here, 'adaptive_cruise_falsify.py');
+    if ~isfile(script)
+        fprintf('adaptive_cruise_falsify.py not found next to the runner -> unknown\n');
+        return;
+    end
+    witness_csv = [tempname '.csv'];
+    cleanup = onCleanup(@() delete_if_exists(witness_csv)); %#ok<NASGU>
+    py = python_exe();
+    cmd = sprintf('%s "%s" "%s" "%s" "%s" --n 1500000 --tol 0.01', ...
+        py, script, char(onnx), char(vnnlib), witness_csv);
+    [st, out] = system(cmd);
+    disp(strtrim(out));
+    if st == 10                          % SAT: witness csv carries the flat input; stdout "SAT y0 y1 ..."
+        tok = regexp(out, '\<SAT\s+([-+0-9.eE\s]+)', 'tokens', 'once');
+        try
+            x = readmatrix(witness_csv);
+        catch
+            x = [];
+        end
+        if isempty(tok) || isempty(x) || ~all(isfinite(x(:)))
+            fprintf('malformed SAT report from adaptive_cruise_falsify.py -> unknown\n');
+            return;
+        end
+        y = sscanf(strtrim(tok{1}), '%f');
+        if isempty(y) || ~all(isfinite(y))
+            fprintf('non-finite witness output from adaptive_cruise_falsify.py -> unknown\n');
+            return;
+        end
+        counterEx = {reshape(x, [], 1); reshape(y, [], 1)};
+        status = 0;
+    end                                  % anything else -> unknown (sound; never unsat)
 end
 
 % (python_exe is defined once above -- the Linux-aware version that

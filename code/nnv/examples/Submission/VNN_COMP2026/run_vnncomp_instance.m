@@ -205,13 +205,22 @@ end
 % ("Input is not an ImageStar"). Using [] for the unknown case (not false) avoids
 % forcing a Star on a non-dlnetwork image net (which would reintroduce that bug).
 useImageStar = [];
-if isprop(net, 'Layers') && ~isempty(net.Layers)
-    L1 = net.Layers(1);
-    if isa(L1, 'nnet.cnn.layer.ImageInputLayer') || isa(L1, 'nnet.cnn.layer.Image3DInputLayer')
-        useImageStar = true;
-    elseif isa(L1, 'nnet.cnn.layer.FeatureInputLayer') || isa(L1, 'nnet.onnx.layer.FeatureInputLayer')
-        useImageStar = false;
+% Guard the net.Layers access: a malformed imported dlnetwork (e.g. some quantized
+% traffic_signs nets under R2026a) throws "Undefined function 'getExternalLayers' for
+% input arguments of type 'double'" from dlnetwork.get.Layers. Catching it here keeps
+% useImageStar = [] (the sound shape-heuristic fallback) and lets the normal reach path
+% run -> a sound 'unknown' instead of an uncaught crash that writes NO result file.
+try
+    if isprop(net, 'Layers') && ~isempty(net.Layers)
+        L1 = net.Layers(1);
+        if isa(L1, 'nnet.cnn.layer.ImageInputLayer') || isa(L1, 'nnet.cnn.layer.Image3DInputLayer')
+            useImageStar = true;
+        elseif isa(L1, 'nnet.cnn.layer.FeatureInputLayer') || isa(L1, 'nnet.onnx.layer.FeatureInputLayer')
+            useImageStar = false;
+        end
     end
+catch ME
+    fprintf('net.Layers inspection failed (%s) -> useImageStar=[] (shape heuristic)\n', ME.message);
 end
 
 % Load property to verify

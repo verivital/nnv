@@ -342,7 +342,11 @@ if iscell(counterEx)
     riskyNet = isa(net, 'NN') ...
             || (~isempty(needReshape) && any(needReshape(:) ~= 0)) ...
             || isfile(regexprep(char(onnx), '\.onnx$', '.nnv.mat')) ...
-            || contains(category, "acasxu");
+            || contains(category, "acasxu") ...
+            || contains(category, "lsnc_relu");   % SAME thin near-boundary batched+polish witnesses as
+                                                  % acasxu -> the most divergence-prone class -> REQUIRE
+                                                  % onnxruntime confirmation (don't lean on the .nnv.mat
+                                                  % file coupling; principled match to the acasxu reason).
     try
         [orVio, orAvail] = validate_witness_onnx(onnx, counterEx{1}, gateHs);
         if orAvail && ~orVio
@@ -1500,14 +1504,30 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         end
 
     elseif contains(category, "lsnc_relu")
-        % lsnc_relu: MATLAB's importNetworkFromONNX cannot parse this model
-        % (IR/opset), so load via the Python-importer manifest
-        % (tools/onnx2nnv_python/onnx2nnv.py writes <model>.nnv.mat alongside
-        % the ONNX). Cross-validated against onnxruntime: max diff 9.2e-07
-        % over random inputs (2026-06-09). Flat [6] feature input, [8] output.
+        % lsnc_relu: flat [6] feature input, [8] output. SPLIT net usage:
+        %   REACH (UNSAT side) -> the Python-importer manifest (nnvnet), cross-validated
+        %     vs onnxruntime (max diff 9.2e-07, 2026-06-09); reach is byte-identical to
+        %     before -> no unsat regression.
+        %   FALSIFY (SAT side) -> a MATLAB-imported dlnetwork (net) so the acasxu-proven
+        %     batched-random falsifier + autodiff PGD can run. The manifest's one-at-a-time
+        %     numerical-gradient PGD MISSED the gold-sat that a huge batched dlnetwork
+        %     forward finds (probe: state_1 violated at margin -3.2e-3). Falsify uses
+        %     `net`, reach uses `nnvnet` (confirmed: reach=nnvnet, falsify=net).
+        % SOUNDNESS: every lsnc SAT witness is onnxruntime-replayed (riskyNet, below) on
+        % the ORIGINAL onnx before `sat` stands -> SAT-or-unknown, independent of any
+        % dlnetwork-vs-ONNX import divergence. Import is best-effort: on failure fall back
+        % to the manifest-as-net (prior numerical-gradient behaviour, still sound).
+        % The older "importNetworkFromONNX cannot parse this model" note is STALE: the
+        % import succeeds + is netcached; the manifest is kept only as the reach net.
         nnvnet = load_manifest_net(onnx);
-        net = nnvnet;   % falsify_single dispatches NN.evaluate for NNV nets
         inputSize = 6;
+        inputFormat = "CB";   % FeatureInputLayer wants channel-first: data [6 N] = 'CB' (NOT 'BC')
+        try
+            net = importNetworkFromONNX(onnx, "InputDataFormats","BC", "OutputDataFormats","BC");
+        catch
+            net = nnvnet;        % fall back: falsify_single dispatches NN.evaluate (numerical gradient)
+            inputFormat = "default";
+        end
         reachOptions = struct;
         reachOptions.reachMethod = 'approx-star';
         reachOptionsList{1} = reachOptions;
@@ -1884,6 +1904,17 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         falsifyOpts.polish_max_t = 3;     % wall cap (s) on the whole polish stage -> bounds cost on unsat instances
     end
 
+    % lsnc_relu opts-in to the SAME batched-random falsifier (scalar [6] inputSize, 'CB' dlnetwork). The
+    % batched dlnetwork forward finds the gold-sat the manifest's numerical-gradient PGD missed (probe:
+    % state_1 at margin -3.2e-3). lsnc is currently 0-solved (all unknown) -> pure-gain category. Every
+    % witness is validate_witness-checked AND onnxruntime-replayed (riskyNet) -> SAT-or-unknown.
+    if contains(category, "lsnc_relu")
+        falsifyOpts.batched_N    = 2e6;   % d=6 -> cheap; probe found the violation by 3e5 samples
+        falsifyOpts.near_miss    = 0.5;
+        falsifyOpts.polish       = true;
+        falsifyOpts.polish_max_t = 3;
+    end
+
 end
 
 % Create an array of random examples from input set and reshape if necessary
@@ -2127,19 +2158,22 @@ function counterEx = falsify_single(net, lb, ub, inputSize, nRand, Hs, needResha
     rng(opts.seed, 'twister');   % B: APPLY the seed -> reproducible falsification (PGD restarts + Box.sample); sound (witness still ort-validated)
 
     % Phase 1 -- BATCHED-RANDOM + coordinate-descent polish, tried FIRST for low-dim flat-feature
-    % dlnetwork nets (acasxu footprint: d<=20, 3-elem inputSize, identity reshape). One vectorized predict
-    % over a huge uniform sample finds thin counterexamples that the trimmed PGD/random miss (the gold-sat
-    % "falsify gap"); a wall-capped local polish recovers the rest. SOUND: returns a witness ONLY if it
-    % passes validate_witness here (and the caller ORT-replays it), so it can only ADD a sound SAT or fall
-    % through to PGD/random. Gated by falsifyOpts.batched_N (set only for acasxu in the ftab).
+    % dlnetwork nets (acasxu footprint: d<=20, 3-elem image inputSize OR scalar flat-feature inputSize,
+    % identity reshape). One vectorized predict over a huge uniform sample finds thin counterexamples that
+    % the trimmed PGD/random miss (the gold-sat "falsify gap"); a wall-capped local polish recovers the
+    % rest. SOUND: returns a witness ONLY if it passes validate_witness here (and the caller ORT-replays
+    % it), so it can only ADD a sound SAT or fall through to PGD/random. Gated by falsifyOpts.batched_N
+    % (set for acasxu (3-elem inputSize, SSCB) and lsnc_relu (scalar inputSize, CB) in the ftab block).
     if isfield(opts,'batched_N') && opts.batched_N > 0 && isa(net,'dlnetwork') ...
-            && numel(lb) <= 20 && numel(inputSize) == 3 && (isempty(needReshape) || all(needReshape(:) == 0))
+            && numel(lb) <= 20 && (numel(inputSize) == 3 || isscalar(inputSize)) ...
+            && (isempty(needReshape) || all(needReshape(:) == 0))
         try
             nearMiss = 0.5; if isfield(opts,'near_miss'),    nearMiss = opts.near_miss;   end
             doPol    = isfield(opts,'polish') && opts.polish;
             polMaxT  = 3;   if isfield(opts,'polish_max_t'), polMaxT  = opts.polish_max_t; end
             cex = falsify_batched_random(net, lb, ub, Hs, inputSize, opts.batched_N, doPol, polMaxT, nearMiss);
             if iscell(cex) && validate_witness(net, cex{1}, lb, ub, Hs, inputSize, inputFormat, needReshape)
+                if ~isempty(getenv('NNV_DEBUG_BATCHED')), fprintf('[batched-random] validated SAT witness (d=%d, inputSize=%s)\n', numel(lb), mat2str(inputSize)); end
                 counterEx = cex; return;
             end
         catch
@@ -2239,7 +2273,11 @@ function cex = falsify_batched_random(net, lb, ub, Hs, inputSize, N, doPolish, p
     cex = [];
     lb = double(lb(:)); ub = double(ub(:)); d = numel(lb); sp = ub - lb;
     X = lb + sp .* rand(d, N);                                   % uniform samples in flat vnnlib order
-    Y = reshape(extractdata(predict(net, dlarray(single(reshape(X, [inputSize N])), 'SSCB'))), [], N);
+    if isscalar(inputSize)                                       % flat feature net (lsnc): [d N] = 'CB'
+        Y = reshape(extractdata(predict(net, dlarray(single(reshape(X, [inputSize N])), 'CB'))), [], N);
+    else                                                         % image net (acasxu): [inputSize N] = 'SSCB'
+        Y = reshape(extractdata(predict(net, dlarray(single(reshape(X, [inputSize N])), 'SSCB'))), [], N);
+    end
     nH = numel(Hs); M = inf(1, N); bH = ones(1, N);
     for h = 1:nH                                                 % worst margin per sample over the OR-halfspaces
         mh = max(Hs(h).G * Y - Hs(h).g(:), [], 1);
@@ -2274,9 +2312,14 @@ function cex = falsify_batched_random(net, lb, ub, Hs, inputSize, N, doPolish, p
     end
 end
 
-% Single forward pass of a flat input through a low-dim dlnetwork (acasxu SSCB layout); returns a column.
+% Single forward pass of a flat input through a low-dim dlnetwork; returns a column.
+% Scalar inputSize -> flat feature net ('CB', e.g. lsnc [6]); 3-elem -> image net ('SSCB', acasxu).
 function y = i_eval_flat(net, x, inputSize)
-    y = double(reshape(extractdata(predict(net, dlarray(single(reshape(x, inputSize)), 'SSCB'))), [], 1));
+    if isscalar(inputSize)
+        y = double(reshape(extractdata(predict(net, dlarray(single(reshape(x, [inputSize 1])), 'CB'))), [], 1));
+    else
+        y = double(reshape(extractdata(predict(net, dlarray(single(reshape(x, inputSize)), 'SSCB'))), [], 1));
+    end
 end
 
 % Get random example from input set

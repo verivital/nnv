@@ -143,6 +143,10 @@ function [verdict, info] = gpu_bab_try_verify(net, lb, ub, target, opts)
     if ~isfield(bopts, 'alphaIter'), v = str2double(getenv('NNV_BAB_ALPHA_ITERS')); if isfinite(v) && v >= 0, bopts.alphaIter = v; end; end
     if ~isfield(bopts, 'betaIter'),  v = str2double(getenv('NNV_BAB_BETA_ITERS'));  if isfinite(v) && v >= 0, bopts.betaIter  = v; end; end
     if ~isfield(bopts, 'alphaLr'),   v = str2double(getenv('NNV_BAB_ALPHA_LR'));    if isfinite(v) && v >  0, bopts.alphaLr   = v; end; end
+    % TIER-2 beta autodiff chunk width (NNV_CONV_BETA_FRONTIER) + binding-spec BaBSR branching
+    % (NNV_BAB_BINDING_SPEC). Both sound for any value (beta>=0; binding-spec is split-choice only).
+    if ~isfield(bopts, 'betaFrontier'), v = str2double(getenv('NNV_CONV_BETA_FRONTIER')); if isfinite(v) && v >= 1, bopts.betaFrontier = v; end; end
+    if ~isfield(bopts, 'bindingSpec'),  v = str2double(getenv('NNV_BAB_BINDING_SPEC'));   if isfinite(v) && v >= 1, bopts.bindingSpec  = true; end; end
     % DEVICE (opts.device 'cpu' default | 'gpu'): run the whole BaB on the GPU by moving the ops'
     % weight tensors + the input box to gpuArray ONCE here. The IBP/CROWN passes are gpuArray-
     % overloaded pure linear algebra, so all heavy compute + the per-node intermediate bounds stay

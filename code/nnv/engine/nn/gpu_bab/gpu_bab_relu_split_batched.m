@@ -44,9 +44,16 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
     margin      = cast(i_get(opts, 'margin', 0), precision);
     nSample     = i_get(opts, 'nSample', 16);
     rootTight   = i_get(opts, 'rootTight', true);   % root-tight intermediate-bound reuse (#1 tightness lever)
-    alphaIter   = i_get(opts, 'alphaIter', 0);      % alpha-CROWN slope-opt iters per batched node bound (0 = off; FC only)
+    alphaIter   = i_get(opts, 'alphaIter', 0);      % alpha-CROWN slope-opt iters per node bound (0 = off; FC + conv/DAG)
     alphaLr     = i_get(opts, 'alphaLr', 0.2);
-    betaIter    = i_get(opts, 'betaIter', 0);       % beta-CROWN split-dual iters (>0 -> JOINT alpha+beta; FC only)
+    betaIter    = i_get(opts, 'betaIter', 0);       % beta-CROWN split-dual iters (>0 -> JOINT alpha+beta; FC + conv/DAG via TIER-2)
+    betaFrontier = i_get(opts, 'betaFrontier', 8);  % TIER-2: undec nodes per autodiff alpha+beta chunk (small; OOMs past ~8 on cifar)
+    % SANITIZE betaFrontier: it is used as a colon step (1:betaFrontier:nu0) and to slice undec, and it
+    % is reachable from an env override (NNV_CONV_BETA_FRONTIER -> str2double -> NaN on a bad value). A
+    % non-integer/0/NaN/non-scalar would error on the index/step -> force a finite scalar integer >= 1.
+    if ~isscalar(betaFrontier) || ~isfinite(betaFrontier) || betaFrontier < 1, betaFrontier = 8; else, betaFrontier = floor(double(betaFrontier)); end
+    bindingSpec = i_get(opts, 'bindingSpec', false);% binding-spec BaBSR branching (F0 floor; split-CHOICE only, never the certified bound)
+    if islogical(bindingSpec), bindingSpec = double(bindingSpec); end
 
     % Supported ops: affine/relu (FC) + conv/normaffine/avgpool/add (SEQUENTIAL + residual-DAG
     % conv nets). The batched bounding (gpu_bab_crown_spec_dag) is sound for these -- conv/BN/
@@ -142,8 +149,11 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         % AMORTIZED alpha-CROWN: optimize alpha ONCE at the root (B=1, no per-node gradient memory)
         % and reuse the FIXED slopes for every BaB node via spec_dag -> LARGE frontier (the per-node
         % alpha autodiff OOMs past frontier ~8 on cifar). env NNV_AMORT_ALPHA = #root iters.
+        % Populate the amortized root alpha whenever it will be USED: explicit NNV_AMORT_ALPHA, OR
+        % betaIter/alphaIter>0 (TIER-2 warm-starts the per-node alpha+beta from these root slopes --
+        % without a populated alphaRoot the 11th-arg warm-start is a no-op). Sound (alpha in [0,1]).
         ev = getenv('NNV_AMORT_ALPHA');
-        if ~isempty(ev) && (alphaIter > 0 || betaIter > 0 || true)
+        if ~isempty(ev) || betaIter > 0 || alphaIter > 0
             nitR = str2double(ev); if isnan(nitR), nitR = 50; end
             try
                 tRoot = tic;
@@ -270,6 +280,46 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         % vacuously, so it is certified. Without this, IBP+CROWN cannot bound such a node,
         % so the BaB splits it forever and degrades a robust query to a false 'unknown'.
         undec = find(~(i_certify_dis(margins, gOff, rowGroups, margin) | infeas));
+        % ---- TIER-2 per-node alpha+beta refinement (ADDITIVE; only the still-undecided subset) ----
+        % The TIER-1 spec_dag screen (above) bounds all B nodes with the fixed root alpha + beta=0.
+        % For the nodes it could NOT decide, optimize per-node [alpha;beta] split-duals via
+        % gpu_bab_crown_alpha_dag (autodiff), warm-started from the amortized root alpha (11th arg) so
+        % a few PGA iters refine instead of climbing from min-area. SOUND: each refined margin is a
+        % valid lower bound (alpha in [0,1], beta>=0 weak Lagrangian duality on the split that
+        % PARTITIONS the parent), and elementwise max(screen, refined) of two valid lower bounds is a
+        % valid, tighter lower bound. The autodiff tape OOMs past ~betaFrontier nodes, so chunk it.
+        % betaIter=0 -> this block is skipped entirely -> byte-identical to the prior screen.
+        if betaIter > 0 && ~isempty(undec)
+            refM = margins;
+            nu0 = numel(undec);
+            for cs = 1:betaFrontier:nu0
+                sub = undec(cs : min(cs + betaFrontier - 1, nu0));
+                subFix = cell(nOps, 1);
+                for r = 1:numel(reluIdx), k = reluIdx(r); subFix{k} = fixc{k}(:, sub); end
+                LBs = repmat(x_lb, 1, numel(sub)); UBs = repmat(x_ub, 1, numel(sub));
+                try
+                    refined = gpu_bab_crown_alpha_dag(ops, LBs, UBs, C, subFix, reluIdx, precision, ...
+                                  max(alphaIter, betaIter), alphaLr, rootBounds, alphaRoot);
+                    refined = gather(refined);
+                    % SOUNDNESS guard (the -150 fence): a single-precision alpha+beta blowup can yield
+                    % +Inf/NaN; max(screen, +Inf)=+Inf would propagate to i_certify_dis -> false 'robust'
+                    % under TRUST_FP32 (no FP64 confirm). Force any non-finite refined to -Inf so the
+                    % combine falls back to the FINITE, sound TIER-1 screen margin. (max(x,-Inf)=x;
+                    % max(x,NaN)=x already, but NaN is made explicit too.)
+                    refined(~isfinite(refined)) = -Inf;
+                    % column correspondence guard: refined(:,i) MUST be the bound for node sub(i).
+                    % alpha_dag's keep-best floors at min-area, and spec_dag-with-alphaRoot ==
+                    % alpha_dag-warm-started bound-for-bound at beta=0, so refined >= screen-eps holds
+                    % by construction; a violation flags a slicing/signature bug (fail to min-area).
+                    refM(:, sub) = max(margins(:, sub), refined);
+                catch
+                    % any per-node refine failure -> keep the (sound) TIER-1 screen margin for these
+                end
+            end
+            margins = refM;
+            info.soundFP32 = false;                 % a beta batch has no derr -> not sound-FP32-emittable
+            undec = find(~(i_certify_dis(margins, gOff, rowGroups, margin) | infeas));
+        end
         % progress telemetry: stack-size trajectory is the convergence signal (shrinking => the
         % BaB is certifying faster than it splits; growing => bounds too loose, more nodes won't help)
         if dbgBab
@@ -299,9 +349,40 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         if ~isempty(dbgD), wait(dbgD); end
         tProf(4) = tProf(4) + toc(tS); tS = tic;
 
+        % ---- BINDING-SPEC BaBSR score (F0; bound-invariant, split-choice only) ----
+        % TIER-1's scoreC sums |Aneg|*bu over ALL spec rows, so a neuron helping an already-avoided
+        % spec can outrank the one helping the BLOCKING (least-avoided) disjunct -> a worse split,
+        % a deeper tree. Recompute the score seeded with ONLY each node's binding row (argmin margin),
+        % via the SAME spec_dag relaxation (nSpec_eff=1, ~1/nSpec cost). SOUND: this only changes
+        % which neuron is split, never a returned margin. Off by default (byte-identical).
+        scoreUse = scoreC;
+        if bindingSpec && ~isempty(undec) && i_is_dag(ops)
+            try
+                [~, wIdx] = min(margins(:, undec), [], 1);     % binding (most-negative) row per undec node
+                cSel = i_binding_C(C, wIdx, precision);        % 1 x nOut x numel(undec)
+                subFix = cell(nOps, 1);
+                for r = 1:numel(reluIdx), k = reluIdx(r); subFix{k} = fixc{k}(:, undec); end
+                nu = numel(undec);
+                LBs = repmat(x_lb, 1, nu); UBs = repmat(x_ub, 1, nu);
+                [~, ~, ~, scB] = gpu_bab_crown_spec_dag(ops, LBs, UBs, C, precision, subFix, rootBounds, alphaRoot, {}, cSel);
+                % scB{k} is dim_k x nu (undec columns); expand to full B width so i_pick_splits'
+                % (:,undec) slice lines up (un-touched columns are never split -> their values unused).
+                scoreUse = cell(nOps, 1);
+                for r = 1:numel(reluIdx)
+                    k = reluIdx(r);
+                    if numel(scB) >= k && ~isempty(scB{k})
+                        full = -inf(size(preL{k}, 1), B, precision);
+                        full(:, undec) = gather(scB{k});
+                        scoreUse{k} = full;
+                    end
+                end
+            catch
+                scoreUse = scoreC;                             % any failure -> fall back to TIER-1 score (sound)
+            end
+        end
         % split each undecided node on its highest BaBSR-score unstable unfixed neuron
         % (output-sensitivity x gap; falls back to largest-gap when no score is available)
-        [sK, sJ, hasS] = i_pick_splits(reluIdx, preL, preU, fixc, undec, scoreC);
+        [sK, sJ, hasS] = i_pick_splits(reluIdx, preL, preU, fixc, undec, scoreUse);
         if ~isempty(dbgD), wait(dbgD); end
         tProf(3) = tProf(3) + toc(tS); tS = tic;
         if ~all(hasS)
@@ -468,4 +549,19 @@ end
 
 function v = i_get(s, f, d)
     if isfield(s, f) && ~isempty(s.(f)), v = s.(f); else, v = d; end
+end
+
+% ------------------------------------------------------------------------------------
+function Cb = i_binding_C(C, wIdx, precision)
+% Per-node binding-spec seed: 1 x nOut x B, where column b is the wIdx(b)-th row of C (the
+% least-avoided / blocking disjunct's row for node b). Mirrors gpu_bab_crown_alpha_dag i_worst_C.
+    nOut = size(C, 2); B = numel(wIdx);
+    Cb = reshape(cast(C(wIdx, :), precision).', 1, nOut, B);
+end
+
+% ------------------------------------------------------------------------------------
+function tf = i_is_dag(ops)
+% spec_dag (and thus the binding-spec score path) supports DAG conv ops; FC-only nets route the
+% non-DAG alpha/spec paths in i_bound_batch, so only enable the binding-spec score for DAG nets.
+    tf = any(cellfun(@(o) any(strcmp(o.type, {'conv','normaffine','avgpool','add','concat','product','maxpool'})), ops));
 end

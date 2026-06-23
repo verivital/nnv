@@ -106,6 +106,69 @@ function gpu_bab_alpha_dag_parity_test()
             ni, reg, min(minTrue - mB), sum(ok), nMC);
     end
 
+    % ============ WARM-START (11th arg alphaInit) — TIER-2 per-node refinement gate ============
+    % TIER-2 warm-starts gpu_bab_crown_alpha_dag's per-node [alpha;beta] PGA from the amortized root
+    % alpha (the 11th arg). Guard the new call signature: (a) a non-empty alphaInit under fixings at
+    % nIter>0 must still be a valid LOWER bound (beta-MC: bound <= true-min over feasible samples),
+    % and (b) nIter=0 with alphaInit=[] must stay bound-for-bound spec_dag (warm-start never leaks
+    % into the parity path). The warm-start only changes the optimizer's START point, not soundness.
+    for ni = 1:numel(nets)
+        net = nets{ni}; ops = net.ops; reluIdx = net.reluIdx; n = net.nIn; nOut = net.nOut; nOps = numel(ops);
+        c = randn(n,1); rad = 0.4*(0.5+rand(n,1)); lb = c-rad; ub = c+rad; C = randn(3, nOut);
+        % build an amortized root alpha (5th output of a root alpha-opt, no fixings) to warm-start from
+        [~, ~, ~, ~, alphaRoot] = gpu_bab_crown_alpha_dag(ops, lb, ub, C, {}, reluIdx, prec, 10, 0.2, []);
+        [fixings, x0] = i_make_fixings(ops, lb, ub, reluIdx, prec);
+        mB = gpu_bab_crown_alpha_dag(ops, lb, ub, C, fixings, reluIdx, prec, 20, 0.1, [], alphaRoot); % warm-started alpha+beta
+        mB = min(mB, [], 2);
+        nMC = 40000; X = [x0, lb + (ub - lb) .* rand(n, nMC-1)];
+        [Y, Z] = i_forward(ops, X, reluIdx);
+        ok = i_satisfies(Z, fixings, reluIdx, 0);
+        assert(any(ok), '[warmstart beta %d] no MC sample satisfied the split fixings', ni);
+        minTrue = min(C * Y(:, ok), [], 2);
+        viol = max(mB - minTrue);
+        assert(viol <= 1e-6, '[warmstart beta %d] UNSOUND: warm-started bound exceeds MC true-min by %.3e', ni, viol);
+        % (b) nIter=0 + alphaInit=[] still == spec_dag (warm-start cannot leak into the parity path)
+        mSpec = gpu_bab_crown_spec_dag(ops, lb, ub, C, prec, {}, []);
+        mA0   = gpu_bab_crown_alpha_dag(ops, lb, ub, C, {}, reluIdx, prec, 0, [], [], []);
+        ep = max(abs(mSpec(:) - mA0(:)));
+        assert(ep < tol, '[warmstart %d] nIter=0/alphaInit=[] parity FAILED: %.3e', ni, ep);
+        fprintf('[warmstart %d] OK (beta-MC sound, slack %.3e; nIter=0 parity diff %.2e)\n', ni, min(minTrue - mB), ep);
+    end
+
+    % ============ BINDING-SPEC (cSel) — branching bound-invariance ============
+    % The binding-spec branch passes a per-node cSel seed (1 x nOut x B) to gpu_bab_crown_spec_dag for
+    % its 4th-output BaBSR score. ASSERT: (a) supplying cSel does NOT change the DEFAULT (full-C)
+    % margins -- spec_dag's bound is byte-identical whether or not the 10th arg is present when called
+    % without it; (b) the cSel call returns finite scores of the right shape; (c) the cSel margins
+    % equal a direct full-C call restricted to the selected binding rows (the seed is wired correctly).
+    for ni = 1:numel(nets)
+        net = nets{ni}; ops = net.ops; reluIdx = net.reluIdx; n = net.nIn; nOut = net.nOut; nOps = numel(ops);
+        c = randn(n,1); rad = 0.4*(0.5+rand(n,1)); lb = c-rad; ub = c+rad; C = randn(5, nOut);
+        B = 3; LB = repmat(lb,1,B); UB = repmat(ub,1,B);
+        rb = i_root_bounds(ops, lb, ub, reluIdx, prec);
+        % (a) default path unchanged (no cSel arg)
+        mFull = gpu_bab_crown_spec_dag(ops, LB, UB, C, prec, {}, rb);     % B columns, full spec
+        % pick a binding row per column, build cSel, call with the 10th arg
+        wIdx = [1, 3, 5];                                                 % arbitrary distinct rows per node
+        Cb = reshape(C(wIdx,:).', 1, nOut, B);
+        [mSel, ~, ~, scB] = gpu_bab_crown_spec_dag(ops, LB, UB, C, prec, {}, rb, {}, {}, Cb);
+        % (c) cSel margin for node b must equal the full-C margin of its selected row
+        sel = zeros(1, B);
+        for b = 1:B, sel(b) = mFull(wIdx(b), b); end
+        eSel = max(abs(mSel(:) - sel(:)));
+        assert(eSel < tol, '[binding %d] cSel margin != full-C selected-row margin: %.3e', ni, eSel);
+        % (b) scores finite + right shape at the relu ops
+        for r = 1:numel(reluIdx)
+            k = reluIdx(r);
+            assert(~isempty(scB{k}) && isequal(size(scB{k},2), B) && all(isfinite(scB{k}(:))), ...
+                '[binding %d] cSel score malformed at relu op %d', ni, k);
+        end
+        % (a) re-confirm default unchanged after the cSel call (no global state leak)
+        mFull2 = gpu_bab_crown_spec_dag(ops, LB, UB, C, prec, {}, rb);
+        assert(isequal(mFull, mFull2), '[binding %d] default spec_dag margins drifted after cSel call', ni);
+        fprintf('[binding-spec %d] OK (cSel seeds binding row, diff %.2e; default unchanged)\n', ni, eSel);
+    end
+
     fprintf('\nALL PARITY + BETA-SOUNDNESS TESTS PASSED\n');
 end
 

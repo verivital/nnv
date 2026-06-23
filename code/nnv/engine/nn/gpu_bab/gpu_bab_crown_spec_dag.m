@@ -1,4 +1,19 @@
-function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell, vmag)
+function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(ops, x_lb, x_ub, C, precision, fixings, rootBounds, alphaCell, vmag, cSel)
+% BINDING-SPEC BRANCHING (10th arg cSel, optional): when non-empty, a per-NODE single
+% binding-spec coefficient (nSpec_eff x nOut x B, typically nSpec_eff=1 -- the least-avoided
+% disjunct's row for each node) REPLACES the full C as the backward seed. The 4th output
+% scoreCell then reflects the BaBSR sensitivity of ONLY the binding disjunct (the spec that is
+% actually blocking certification), so i_pick_splits branches on the neuron that helps the
+% binding spec instead of one helping an already-avoided spec.
+% ⚠ WHEN cSel IS PASSED, the returned `margins` (and preL/preU) ARE the SELECTED-row bound, NOT the
+%   full-C spec margins -- the backward seed becomes cSel (see below), so they correspond to cSel's
+%   rows only. The caller MUST use ONLY the 4th output (scoreCell) from a cSel call and DISCARD its
+%   margins; CERTIFICATION must always use the full-C margins from a SEPARATE cSel-absent call. (The
+%   sole caller, gpu_bab_relu_split_batched, does exactly this: `[~,~,~,scB] = ...spec_dag(...,cSel)`
+%   for the score, and certifies on the full-C `margins` from i_bound_batch.) So this is "bound-
+%   invariant" at the SYSTEM level (split CHOICE only; never the certified bound) but NOT a no-op on
+%   this function's `margins` output -- do not read cSel-path margins as full-spec.
+% Absent (default cSel={}) -> byte-identical to the prior full-spec path.
 % SOUND-FP32 (M3b): optional `vmag` (cell(nOps+1,1) of DOUBLE per-op output value-magnitude
 % majorants from gpu_bab_ibp(...,'double'), computed ONCE at the BaB root since the input box is
 % fixed across nodes). When supplied on the single-precision path, the batched backward accumulates
@@ -58,7 +73,12 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
     if nargin < 7, rootBounds = []; end
     if nargin < 8, alphaCell = {}; end
     if nargin < 9, vmag = {}; end
+    if nargin < 10, cSel = {}; end
     B = size(x_lb, 2); nSpec = size(C, 1); nOps = numel(ops); n = size(x_lb, 1);
+    % BINDING-SPEC: a per-node seed (nSpec_eff x nOut x B) overrides the full C as the backward
+    % seed (nSpec_eff rows, typically 1). Only the score uses it; bound-invariant for branching.
+    useCSel = ~isempty(cSel);
+    if useCSel, nSpec = size(cSel, 1); end
     preL = cell(nOps,1); preU = cell(nOps,1);
     % SOUND-FP32 (M3b) state. doErr=true only on the single path WITH a (double) vmag majorant ->
     % the backward widens OUTWARD by derr (per-op FP32 roundoff, nSpec x B) + a final-contraction rad.
@@ -194,7 +214,11 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
     % skipA{k} is complete when op k is processed (sound by induction). For a pure chain this is
     % bound-for-bound the rolling pass (skipA{k-1} == the old running A).
     skipA = cell(nOps, 1);
-    skipA{nOps} = repmat(cast(C, precision), 1, 1, B);   % spec sits on the network output (op nOps)
+    if useCSel
+        skipA{nOps} = cast(cSel, precision);             % per-node binding-spec seed (nSpec_eff x nOut x B)
+    else
+        skipA{nOps} = repmat(cast(C, precision), 1, 1, B);   % spec sits on the network output (op nOps)
+    end
     d = zeros(nSpec, B, precision);
     inputSkipA = [];
     % BaBSR sensitivity score (computed only if the caller asks for the 4th output). At each ReLU,

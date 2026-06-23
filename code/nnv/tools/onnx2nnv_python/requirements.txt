@@ -19,3 +19,4 @@ onnx==1.20.0
 onnxruntime==1.23.1
 onnxsim
 onnxoptimizer
+vnnlib

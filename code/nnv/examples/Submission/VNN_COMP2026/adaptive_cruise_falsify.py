@@ -42,7 +42,10 @@ def ev_cmp(c, X, Y, tol=0.0):
     if t == 'LessEqual':    return lo <= ro - tol
     if t == 'LessThan':     return lo <  ro - tol
     if t == 'Equal':        return lo == ro
-    if t == 'NotEqual':     return lo != ro
+    # NotEqual: with a robust margin, require |lhs-rhs| >= tol (strictly stronger than `!=`, so it
+    # preserves soundness while making an accepted witness robust to numeric noise / a different
+    # runtime; falls back to exact `!=` only when tol==0).
+    if t == 'NotEqual':     return abs(lo - ro) >= tol if tol > 0 else lo != ro
     raise ValueError("cmp node " + t)
 
 def holds_dnf(dnf, X, Y, tol=0.0):

@@ -2169,7 +2169,21 @@ function [status, counterEx] = verify_adaptive_cruise_falsify(onnx, vnnlib)
     end
     witness_csv = [tempname '.csv'];
     cleanup = onCleanup(@() delete_if_exists(witness_csv)); %#ok<NASGU>
+    % python_exe() resolves an onnx+onnxruntime interpreter; this helper ALSO needs `vnnlib`. If the
+    % resolved one lacks it, prefer a candidate that imports all three (else the path silently degrades
+    % to unknown even when vnnlib is installed elsewhere). Sound either way: no vnnlib -> exit 12 -> unknown.
     py = python_exe();
+    [stv, ~] = system(sprintf('%s -c "import vnnlib"', py));
+    if stv ~= 0
+        extra = {strtrim(getenv('NNV_ORT_PYTHON')), ...
+                 fullfile(getenv('HOME'), 'taylor_venv', 'bin', 'python'), 'python3', 'python'};
+        for k = 1:numel(extra)
+            c = extra{k};
+            if isempty(c), continue; end
+            [s2, ~] = system(sprintf('"%s" -c "import onnx, onnxruntime, vnnlib"', c));
+            if s2 == 0, py = ['"' c '"']; break; end
+        end
+    end
     cmd = sprintf('%s "%s" "%s" "%s" "%s" --n 1500000 --tol 0.01', ...
         py, script, char(onnx), char(vnnlib), witness_csv);
     [st, out] = system(cmd);

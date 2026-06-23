@@ -68,10 +68,10 @@ fi
 # spec-reduction these resnets keep ~1 unproven spec, so the autodiff tape is tiny and a large
 # beta-frontier (64) batches the per-node refine cheaply.
 case "$CATEGORY" in
-    cifar100_2024|tinyimagenet_2024)   # vggnet deferred: beta-unlock + OOM untested at 1200s (follow-on)
-        export NNV_BAB_BETA_ITERS=3
-        export NNV_CONV_BETA_FRONTIER=64
-        export NNV_AMORT_ALPHA=20
+    cifar100_2024)   # beta scoped to cifar100 ONLY: tinyimagenet (64x64) + vggnet beta time out the 100s budget (grind, no certs); env-tunable above for per-net experiments
+        export NNV_BAB_BETA_ITERS=${NNV_BAB_BETA_ITERS:-3}
+        export NNV_CONV_BETA_FRONTIER=${NNV_CONV_BETA_FRONTIER:-64}
+        export NNV_AMORT_ALPHA=${NNV_AMORT_ALPHA:-20}
         ;;
 esac
 

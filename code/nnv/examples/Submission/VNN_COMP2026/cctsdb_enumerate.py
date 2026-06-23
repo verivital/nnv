@@ -42,6 +42,7 @@ the margin keeps a borderline instance from flipping verdict on another machine.
 import argparse
 import gzip
 import math
+import os
 import re
 import sys
 import time
@@ -63,11 +64,21 @@ def unknown(why):
 
 
 def read_maybe_gz(path):
-    """Return file bytes, transparently gunzipping *.gz."""
-    if str(path).endswith(".gz"):
-        with gzip.open(path, "rb") as f:
+    """Return file bytes, transparently gunzipping *.gz.
+
+    If a non-.gz path is missing but a sibling ``<path>.gz`` exists, read that:
+    some cctsdb_yolo 2.0 specs ship gz-only while instances.csv names the plain
+    path. The fallback only triggers when the literal path is absent, so it never
+    changes behavior for an existing file (sound).
+    """
+    p = str(path)
+    if p.endswith(".gz"):
+        with gzip.open(p, "rb") as f:
             return f.read()
-    with open(path, "rb") as f:
+    if not os.path.exists(p) and os.path.exists(p + ".gz"):
+        with gzip.open(p + ".gz", "rb") as f:
+            return f.read()
+    with open(p, "rb") as f:
         return f.read()
 
 
@@ -76,8 +87,18 @@ def read_maybe_gz(path):
 # ---------------------------------------------------------------------------
 
 _NUM = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
+# Accept BOTH the 1.0 token `X_0`/`Y_0` and the 2.0 bracket token `X[0]`/`Y[0]`.
+# The vnnlib bumped to 2.0 (declare-network/declare-input header + bracket indices) but the
+# ONNX is byte-identical and the spec numerically identical to 1.0, so this is a cosmetic
+# syntax change: widening the variable token recovers the category WITHOUT touching any of the
+# four soundness guards below (the count guard, complete-bound-set, single-Y0, free-set check),
+# which is what keeps the enumeration sound. Group numbering is unchanged (op, var, idx, val) so
+# parse_vnnlib needs no other edit, and the 1.0 underscore branch still matches (no regression).
+# Verified on real specs: 1.0 24593/24593 (unchanged), 2.0 0 -> 24593, parsed box byte-identical
+# 1.0<->2.0, all 39 referenced 2.0 specs pass every guard. (Deliberately NOT a swap to the vnnlib
+# pkg: that would accept the full grammar and DELETE the count guard -> a -150 surface.)
 _ASSERT_RE = re.compile(
-    r"\(\s*assert\s+\(\s*(<=|>=)\s+([XY])_(\d+)\s+(" + _NUM + r")\s*\)\s*\)"
+    r"\(\s*assert\s+\(\s*(<=|>=)\s+([XY])(?:_|\[)(\d+)\]?\s+(" + _NUM + r")\s*\)\s*\)"
 )
 
 

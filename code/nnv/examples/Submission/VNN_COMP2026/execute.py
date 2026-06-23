@@ -98,7 +98,8 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
 
     # [status, total_time] = future.result()
     
-    try: 
+    crashed = False
+    try:
         [status, total_time] = future.result(timeout)
         #print('extra time = ',int(toc-tic))
     except matlab.engine.TimeoutError:
@@ -106,14 +107,36 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         #print('extra time = ',int(toc-tic))
         total_time = timeout
         status = 3
-        
+    except Exception as e:
+        # Any uncaught MATLAB execution error (e.g. a malformed imported net) used to
+        # propagate here and leave NO result file -> the harness sees an empty/missing
+        # result. A crash means NNV could not decide, so the SOUND verdict is `unknown`
+        # (0 points, never a wrong verdict). We never overwrite a verdict the runner
+        # already wrote (a late crash after emit), only fill an empty/missing file.
+        print("run_vnncomp_instance raised -> sound unknown:", repr(e))
+        total_time = timeout
+        status = 4
+        crashed = True
+
     future.cancel()
-    eng.quit() 
+    eng.quit()
 
     if status == 3:
         resultfile = outputlocation
         with open(resultfile, 'w') as f:
             f.write('timeout')
+    elif crashed:
+        # write `unknown` ONLY if the runner did not already write a (valid) verdict
+        existing = ''
+        try:
+            with open(outputlocation) as f:
+                existing = f.read().strip()
+        except Exception:
+            existing = ''
+        if not existing:
+            with open(outputlocation, 'w') as f:
+                f.write('unknown')
+            print("wrote sound 'unknown' for crashed instance (no result file was produced)")
     # All the other results are written from matlab
 
 

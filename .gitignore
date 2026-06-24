@@ -92,6 +92,9 @@ code/nnv/examples/Tutorial/NN/WeizmannHorse/
 code/nnv/examples/Submission/VNN_COMP2025/results_*.csv
 code/nnv/examples/Submission/VNN_COMP2025/results_*.md
 code/nnv/examples/Submission/VNN_COMP2025/+*/
+code/nnv/examples/Submission/VNN_COMP2026/results_*.csv
+code/nnv/examples/Submission/VNN_COMP2026/results_*.md
+code/nnv/examples/Submission/VNN_COMP2026/sweep_witnesses_*/
 code/nnv/examples/Submission/VNN_COMP2026/+*/
 # VNN-COMP 2026: importNetworkFromONNX writes a generated custom-layer +package (named after the onnx,
 # e.g. +mnist_concat, +cifar_biasfield_*, +mnist_fc_*) into code/nnv (startup_nnv's genpath root) so the

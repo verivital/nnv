@@ -254,6 +254,22 @@ end
 % flagged property.unsupported above and never reaches here.
 if isfield(property, 'multinet')
     [status, counterEx] = verify_multinet(nnvnet, property);
+    % SOUNDNESS GATE (benchmark issue #7 -- iso/monotonic_acasxu two-network specs).
+    % verify_multinet's falsifier evaluates the sub-nets on the FLAT vnnlib input vector
+    % WITHOUT the input reshape the real ONNX needs (vnnlib X[5] vs onnx [1,1,1,5]), so a
+    % "counterexample" can be a mis-indexing artifact -> a SPURIOUS instant (~0.3 s) sat: the
+    % 2026-06-24 sweep produced 50/50 such monotonic_acasxu sats (50 x -150 = -7500 if shipped).
+    % Worse, this branch RETURNS below before the Pillar-2 onnxruntime gate, and the stacked
+    % product-net witness [x_f; x_g] cannot be replayed by the single-network authoritative gate
+    % (validate_witness_authoritative.py opens ONE InferenceSession) -- so NEITHER existing gate
+    % catches it. The unsat verdict (joint-Star reach) is suspect for the same shape reason.
+    % Until the two-network shape handling is implemented AND witness-audited, force a SOUND
+    % `unknown` (0 points, never a -150). Set NNV_TRUST_MULTINET=1 to trust it once fixed.
+    if status ~= 2 && ~strcmp(strtrim(getenv('NNV_TRUST_MULTINET')), '1')
+        fprintf(['vnnlib 2.0 multi-network: verify_multinet status=%d DOWNGRADED to unknown ' ...
+                 '(two-network shape #7 unverified -- sound-or-unknown; NNV_TRUST_MULTINET=1 to trust)\n'], status);
+        status = 2; counterEx = nan;
+    end
     fprintf('vnnlib 2.0 multi-network (equal-to) -> status=%d (0 sat / 1 unsat / 2 unknown)\n', status);
     tTime = toc(t);
     fid = fopen(outputfile, 'w');
@@ -774,13 +790,20 @@ function py = python_exe()
     cands = {};
     e = strtrim(getenv('NNV_ORT_PYTHON'));
     if ~isempty(e), cands{end+1} = e; end
+    % Prefer the project venv (~/taylor_venv) BEFORE MATLAB's pyenv: the witness-replay gate
+    % and the falsifiers (adaptive_cruise) must use the SAME onnxruntime BUILD the witnesses
+    % were validated against. MATLAB pyenv can resolve a python with onnx+ort of a DIFFERENT
+    % ort version that then REJECTS real witnesses (the 2026-06-24 adaptive_cruise all-unknown:
+    % 50/50, incl. the validated instance_2). NNV_ORT_PYTHON still wins for an explicit
+    % eval-box override; on the eval box (no taylor_venv) this falls through to pyenv/system
+    % unchanged, so cctsdb_enumerate.py keeps its onnx+ort interpreter (no 39->0 regression).
+    home = getenv('HOME');
+    if ~isempty(home), cands{end+1} = fullfile(home, 'taylor_venv', 'bin', 'python'); end
     try
         pe = pyenv;
         if ~isempty(pe.Executable) && isfile(pe.Executable), cands{end+1} = char(pe.Executable); end
     catch
     end
-    home = getenv('HOME');
-    if ~isempty(home), cands{end+1} = fullfile(home, 'taylor_venv', 'bin', 'python'); end
     if ispc
         cands = [cands, {'python', 'python3'}];
     else

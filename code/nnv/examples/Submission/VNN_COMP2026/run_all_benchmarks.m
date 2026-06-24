@@ -113,7 +113,12 @@ sub_dirs = dir(bench_root);
 sub_dirs = sub_dirs([sub_dirs.isdir] & ~startsWith({sub_dirs.name}, '.'));
 folders = {sub_dirs.name};
 if ~isempty(only_folders)
-    folders = folders(ismember(folders, only_folders));
+    % Respect the CALLER's order (only_folders) rather than alphabetical dir order, so a launcher
+    % (sweep_lambda.sh) can place CHEAP categories first and slow leaders last. The alphabetical
+    % default starved later categories in the 2026-06-24 sweep (metaroom/nn4sys ran last and were
+    % cut by the wall cap). Keep only folders that actually exist on disk.
+    present = only_folders(ismember(only_folders, folders));
+    folders = reshape(present, 1, []);
 end
 n = numel(folders);
 
@@ -122,9 +127,28 @@ ts = datestr(now, 'yyyymmdd_HHMMSS');
 csv_path = fullfile(script_dir, sprintf('results_%s.csv', ts));
 md_path  = fullfile(script_dir, sprintf('results_%s.md', ts));
 fid = fopen(csv_path, 'w');
-fprintf(fid, 'subfolder,category,onnx,vnnlib,status,status_str,time_s,error_message\n');
+fprintf(fid, 'subfolder,category,onnx,vnnlib,status,status_str,time_s,error_message,witness_status\n');
 
-results = cell(0, 8);   % grows per instance (all-instances mode -> count unknown up front)
+results = cell(0, 9);   % grows per instance (all-instances mode -> count unknown up front)
+
+% --- Witness capture + authoritative re-check (sat only) ---------------------------------------
+% Make the sweep scorecard PER-WITNESS trustworthy, not just consensus-level: the sweep bypasses
+% execute.py, so without this every emitted `sat` is unchecked against the authoritative vnnlib
+% parser + real-onnx onnxruntime forward. We SAVE each sat witness and re-validate it via
+% authoritative_witness_gate; a `spurious` witness is sound-downgraded sat->unknown (a would-be
+% -150 -> 0). Default ON; set NNV_SWEEP_WITNESS_GATE=0 to skip (it adds one ort forward per sat, run
+% serially between instances). Witnesses are saved regardless so a post-hoc audit is always possible.
+witness_gate_on = ~strcmp(strtrim(getenv('NNV_SWEEP_WITNESS_GATE')), '0');
+witness_root = fullfile(script_dir, sprintf('sweep_witnesses_%s', ts));
+if ~isfolder(witness_root), mkdir(witness_root); end
+fprintf('Witness gate: %s; witnesses saved under %s\n', ternary(witness_gate_on,'ON','OFF'), witness_root);
+
+% --- Pool-restart circuit breaker --------------------------------------------------------------
+% Restart the pool on a timeout (zombie kill) OR a pool/queue exception (the FevalQueue error that
+% silently killed grp7 -> metaroom on 2026-06-24). A GLOBAL cap stops a persistently-dead pool (OOM)
+% from looping ~15s restarts forever: past the cap, abort this group cleanly (partial CSV is kept;
+% other sweep_lambda groups are separate processes and continue).
+pool_restarts = 0; max_pool_restarts = 8; aborted = false;
 
 % --- Use Processes pool with 1 worker for clean timeouts and real error msgs ---
 existing_pool = gcp('nocreate');
@@ -171,14 +195,14 @@ for i = 1:n
         end
     end
     if ~isfile(inst_csv)
-        row = {sub, cat, '', '', -2, 'no_instances_csv', 0, ''};
+        row = {sub, cat, '', '', -2, 'no_instances_csv', 0, '', ''};
         results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
         fprintf('  -> no instances.csv\n');
         continue;
     end
     pairs = pick_instances(inst_csv, bench_root, sub, run_which);
     if isempty(pairs)
-        row = {sub, cat, '', '', -2, 'no_resolvable_instance', 0, ''};
+        row = {sub, cat, '', '', -2, 'no_resolvable_instance', 0, '', ''};
         results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
         fprintf('  -> no resolvable instance in CSV\n');
         continue;
@@ -192,55 +216,100 @@ for i = 1:n
         pr = pairs{k};
         out_file = [tempname '.txt'];
         t0 = tic;
-        f = parfeval(pool, @run_vnncomp_instance, 2, cat, pr.onnx, pr.vnnlib, out_file);
-        was_cold = pool_is_cold;   % for accurate timeout reporting below
-        ok = wait(f, 'finished', timeout_s + cold_grace_s*pool_is_cold);
-        pool_is_cold = false;
-        if ok
-            if isempty(f.Error)
-                try
-                    [status, ~] = fetchOutputs(f);
+        witness_status = '';                 % '', 'valid', 'spurious_downgraded', 'cant_check'
+        need_restart = false; restart_reason = '';
+        try
+            f = parfeval(pool, @run_vnncomp_instance, 2, cat, pr.onnx, pr.vnnlib, out_file);
+            was_cold = pool_is_cold;          % for accurate timeout reporting below
+            ok = wait(f, 'finished', timeout_s + cold_grace_s*pool_is_cold);
+            pool_is_cold = false;
+            if ok
+                if isempty(f.Error)
+                    [status, ~] = fetchOutputs(f);   % may throw -> outer catch (pool/queue corruption)
                     status_str = status_to_str(status);
                     err = '';
-                catch ME
-                    status = -1; status_str = 'error'; err = ME.message;
+                else
+                    % a WORKER error (NNV threw on a net) does NOT corrupt the pool -- record it and
+                    % keep going on the SAME pool (restarting on every benign error would add ~15 s to
+                    % each instance in an all-error category).
+                    status = -1; status_str = 'error'; err = f.Error.message;
                 end
             else
-                status = -1; status_str = 'error'; err = f.Error.message;
+                cancel(f);
+                status = -1; status_str = 'timeout';
+                err = sprintf('exceeded %d s', timeout_s + cold_grace_s*was_cold);
+                % cancel() CANNOT interrupt a BUSY worker (it only de-schedules queued futures): the
+                % zombie keeps grinding the timed-out reach while the next parfeval queues BEHIND it --
+                % cascading false timeouts + unbounded CPU/memory growth (this killed the malbeware
+                % runners). Restarting the pool is the only reliable way to kill a busy MATLAB worker;
+                % the ~15 s restart cost applies only on timeouts.
+                need_restart = true; restart_reason = 'timeout';
             end
-        else
-            cancel(f);
-            status = -1; status_str = 'timeout';
-            err = sprintf('exceeded %d s', timeout_s + cold_grace_s*was_cold);
-            % cancel() CANNOT interrupt a BUSY worker (it only de-schedules queued
-            % futures): the zombie keeps grinding the timed-out reach while the next
-            % parfeval queues BEHIND it -- cascading false timeouts plus unbounded
-            % CPU/memory growth. This is what killed the malbeware sweep runners
-            % (~50 scaled_16 instances need ~370 s each vs the 120 s cap; both sweep
-            % runs died with NO logs and NO rows = runner-level death). Restarting
-            % the pool is the only reliable way to kill a busy MATLAB worker; the
-            % ~15 s restart cost applies only on timeouts.
+        catch ME_run
+            % parfeval / wait / fetchOutputs THREW, or the pool is dead -> POOL/QUEUE CORRUPTION (the
+            % FevalQueue error that silently killed grp7 -> metaroom, 0 rows, on 2026-06-24). Record a
+            % SOUND `unknown` (NNV could not decide) and restart the pool so the group keeps running.
+            status = 2; status_str = 'unknown'; err = ['pool/exec error: ' ME_run.message];
+            need_restart = true; restart_reason = 'exec/pool exception';
+        end
+
+        % --- Witness capture + authoritative re-check (sat only): save the witness, then re-validate
+        %     it against the authoritative vnnlib parser + real-onnx ort forward; a spurious witness is
+        %     sound-downgraded sat->unknown (a would-be -150 -> 0). See authoritative_witness_gate.m. ---
+        if status == 0 && exist(out_file, 'file')
+            wdir = fullfile(witness_root, sub);
+            if ~isfolder(wdir), mkdir(wdir); end
+            wname = matlab.lang.makeValidName([pr.onnx_rel '__' pr.vnnlib_rel]);
+            try, copyfile(out_file, fullfile(wdir, [wname '.txt'])); catch, end
+            if witness_gate_on
+                verdict = authoritative_witness_gate(pr.onnx, pr.vnnlib, out_file);
+                switch verdict
+                    case 'valid',    witness_status = 'valid';
+                    case 'spurious'
+                        status = 2; status_str = 'unknown'; witness_status = 'spurious_downgraded';
+                        if isempty(err), err = 'authoritative gate: witness spurious -> unknown'; end
+                        fprintf('  WITNESS GATE: %s/%s  sat -> SPURIOUS -> downgraded to unknown (would-be -150)\n', sub, pr.onnx_rel);
+                    otherwise,       witness_status = 'cant_check';   % fail open: keep sat
+                end
+            end
+        end
+
+        time_s = toc(t0);
+        fprintf('  [%d/%d] %s -> %s (%.1f s)%s%s\n', k, numel(pairs), pr.onnx_rel, status_str, time_s, ...
+            ternary(~isempty(err), [': ' err(1:min(120,end))], ''), ...
+            ternary(~isempty(witness_status), [' {' witness_status '}'], ''));
+        row = {sub, cat, pr.onnx_rel, pr.vnnlib_rel, status, status_str, time_s, err, witness_status};
+        results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
+        if exist(out_file, 'file'), delete(out_file); end   % avoid leaving 1000s of temp .txt
+
+        % --- Pool restart (timeout / corruption) with a GLOBAL circuit breaker ---
+        if need_restart
             try
                 delete(pool);
             catch ME_pool
-                % restarting the pool is the zombie-kill mechanism; if delete
-                % fails we still attempt the restart, but say so loudly
                 fprintf('WARN: pool delete failed (%s); attempting restart anyway\n', ME_pool.message);
             end
-            pool = parpool('Processes', 1);
-            pool_is_cold = true;   % next instance gets the one-time cold-start grace
+            pool_restarts = pool_restarts + 1;
+            if pool_restarts > max_pool_restarts
+                fprintf(2, ['FATAL: pool restarts (%d) exceeded cap (%d) [last: %s] -> aborting this ' ...
+                    'group to avoid an OOM restart loop (partial results kept)\n'], pool_restarts, max_pool_restarts, restart_reason);
+                pool = []; aborted = true; break;
+            end
+            try
+                pool = parpool('Processes', 1);
+                pool_is_cold = true;          % next instance gets the one-time cold-start grace
+                fprintf('  pool restarted (#%d/%d, reason: %s)\n', pool_restarts, max_pool_restarts, restart_reason);
+            catch ME_new
+                fprintf(2, 'FATAL: could not restart pool (%s) -> aborting this group (partial results kept)\n', ME_new.message);
+                pool = []; aborted = true; break;
+            end
         end
-        time_s = toc(t0);
-        fprintf('  [%d/%d] %s -> %s (%.1f s)%s\n', k, numel(pairs), pr.onnx_rel, status_str, time_s, ...
-            ternary(~isempty(err), [': ' err(1:min(120,end))], ''));
-        row = {sub, cat, pr.onnx_rel, pr.vnnlib_rel, status, status_str, time_s, err};
-        results(end+1,:) = row; write_row(fid, row); %#ok<AGROW>
-        if exist(out_file, 'file'), delete(out_file); end   % avoid leaving 1000s of temp .txt
     end
+    if aborted, break; end   % circuit breaker tripped -> stop this group (partial CSV kept)
 end
 
 fclose(fid);
-delete(pool);
+if ~isempty(pool), delete(pool); end
 fprintf('\nCSV written: %s\n', csv_path);
 
 % --- Generate summary markdown ---
@@ -338,12 +407,14 @@ end
 function r = ternary(c, a, b), if c, r = a; else, r = b; end, end
 
 function write_row(fid, row)
-% row = {sub, cat, onnx_rel, vnnlib_rel, status, status_str, time_s, err}
+% row = {sub, cat, onnx_rel, vnnlib_rel, status, status_str, time_s, err, witness_status}
 err_csv = strrep(row{8}, ',', ';');
 err_csv = strrep(err_csv, sprintf('\n'), ' | ');
 err_csv = strrep(err_csv, '"', '''');
-fprintf(fid, '%s,%s,%s,%s,%d,%s,%.2f,"%s"\n', ...
-    row{1}, row{2}, row{3}, row{4}, row{5}, row{6}, row{7}, err_csv);
+ws = '';
+if numel(row) >= 9 && ~isempty(row{9}), ws = row{9}; end
+fprintf(fid, '%s,%s,%s,%s,%d,%s,%.2f,"%s",%s\n', ...
+    row{1}, row{2}, row{3}, row{4}, row{5}, row{6}, row{7}, err_csv, ws);
 end
 
 function write_summary_md(path, results, bench_root, timeout_s)

@@ -77,8 +77,13 @@ apt-get install -y python3 python3-pip
 pip3 install --no-cache-dir -r "${TOOLKIT}/tools/onnx2nnv_python/requirements.txt"
 # PREFLIGHT GATE: verify the importer deps actually import in THIS python -- catches a
 # venv-vs-system mismatch BEFORE a sweep wastes hours erroring on every manifest benchmark.
-python3 -c "import numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer" \
-    || { echo "ERROR: onnx2nnv.py deps failed to import after install (check the active python vs ${TOOLKIT}/tools/onnx2nnv_python/requirements.txt)" >&2; exit 1; }
+# `vnnlib` is included here on purpose: it backs the AUTHORITATIVE SAT-witness gate
+# (validate_witness_authoritative.py + run_all_benchmarks' authoritative_witness_gate.m). It is
+# listed in requirements.txt, but without it in THIS check a failed/partial vnnlib install slips
+# through and the gate silently fail-opens -- every spurious sat then stands (the exact -150 class
+# the gate exists to stop). Single source of truth for the version pins: requirements.txt.
+python3 -c "import numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer, vnnlib" \
+    || { echo "ERROR: onnx2nnv.py / witness-gate deps failed to import after install (check the active python vs ${TOOLKIT}/tools/onnx2nnv_python/requirements.txt)" >&2; exit 1; }
 
 # MATLAB Engine API for Python: execute.py (the run_instance.sh bridge) does
 # `import matlab.engine`; without it EVERY instance fails instantly (caught in

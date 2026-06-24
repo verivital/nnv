@@ -98,6 +98,11 @@ code/nnv/examples/Submission/VNN_COMP2026/+*/
 # per-onnx .netcache.mat can reconstruct its custom layers. These are REQUIRED RUNTIME ARTIFACTS
 # (prepare_instance.sh pre-generates them; never delete the live copy) but are regenerated, not source.
 code/nnv/+*/
+# Same importer-generated +package dirs can also land at the REPO ROOT when a run is
+# launched from there (genpath root), e.g. +AllInOne_*, +vgg16_7. Same rationale as above:
+# REQUIRED RUNTIME ARTIFACTS, regenerated not source, never deleted. The leading slash
+# anchors to the repo root so this does NOT shadow code/nnv/+*/ above (#411 follow-up).
+/+*/
 code/nnv/tests/nn/layers/+pgd_2_3_16/
 code/nnv/tests/utils/+ACASXU_run2a_1_1_batch_2000/
 code/nnv/tests/utils/+cartpole/

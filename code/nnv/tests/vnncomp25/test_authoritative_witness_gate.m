@@ -89,6 +89,48 @@ function test_stacked_multinet_witness_is_cant(tc)
     verifyEqual(tc, v, 'cant', 'a stacked multinet witness is un-replayable -> gate fail-opens');
 end
 
+% ---------- two-network gate (validate_witness_multinet.py via the scriptName arg) ----------
+
+function test_multinet_gate_missing_is_cant(tc)
+    % The 4-arg form (scriptName) must keep the same fail-open contract: missing result -> 'cant'.
+    v = authoritative_witness_gate('no.onnx', 'no.vnnlib', fullfile(tempdir, 'nope_mn_123.txt'), ...
+                                   'validate_witness_multinet.py');
+    verifyEqual(tc, v, 'cant', 'missing result file -> fail-open even on the multinet gate');
+end
+
+function test_multinet_gate_nonsat_is_cant(tc)
+    f = [tempname '.txt']; fid = fopen(f, 'w'); fprintf(fid, 'unsat\n'); fclose(fid);
+    c = onCleanup(@() delete(f)); %#ok<NASGU>
+    v = authoritative_witness_gate('no.onnx', 'no.vnnlib', f, 'validate_witness_multinet.py');
+    verifyEqual(tc, v, 'cant', 'non-sat -> never spurious/valid on the multinet gate');
+end
+
+function test_multinet_gate_broken_coupling_not_valid(tc)
+    % SOUNDNESS: a stacked monotonic witness whose (== X_f[1] X_g[1]) coupling is broken by >> tol must
+    % NEVER be judged 'valid' (it would be a -150). Deterministic: the input-coupling assertion fails
+    % regardless of the forward, so this is a clean spurious-detection check.
+    [onnx, vnnlib] = assumeMonotonicAsset(tc);
+    % xf in-box, xg breaks X_g[1] (=5.0) vs X_f[1] (=-0.1); other coords coupled.
+    f = writeSat([0.5 -0.1 0.3 0.227272727 0.25,  0.4 5.0 0.3 0.227272727 0.25]);
+    c = onCleanup(@() delete(f)); %#ok<NASGU>
+    v = authoritative_witness_gate(onnx, vnnlib, f, 'validate_witness_multinet.py');
+    verifyTrue(tc, ~strcmp(v, 'valid'), 'a broken-coupling multinet witness must NOT be judged valid');
+end
+
+% ---------- helpers (two-network) ----------
+
+function [onnx, vnnlib] = assumeMonotonicAsset(tc)
+    % Skip when the gate python or the monotonic_acasxu asset is unavailable (CI without benchmarks).
+    assumeFalse(tc, isempty(resolve_gate_python()), 'no python imports onnx+onnxruntime+vnnlib -- skip');
+    here = fileparts(mfilename('fullpath'));
+    base = fullfile(here, '..', '..', '..', '..', '..', 'vnncomp2026_benchmarks', 'benchmarks', ...
+                    'monotonic_acasxu_2026', '2.0');
+    onnx = fullfile(base, 'onnx', 'ACASXU_run2a_2_2_batch_2000.onnx');
+    vnnlib = fullfile(base, 'vnnlib', 'instance_0.vnnlib');
+    assumeTrue(tc, isfile(onnx) || isfile([onnx '.gz']), 'monotonic_acasxu onnx not present -- skip');
+    assumeTrue(tc, isfile(vnnlib) || isfile([vnnlib '.gz']), 'monotonic_acasxu vnnlib not present -- skip');
+end
+
 % ---------- helpers ----------
 
 function [onnx, vnnlib] = assumeAcasxuAsset(tc)

@@ -254,41 +254,50 @@ end
 % flagged property.unsupported above and never reaches here.
 if isfield(property, 'multinet')
     [status, counterEx] = verify_multinet(nnvnet, property);
-    % SOUNDNESS GATE (benchmark issue #7 -- iso/monotonic_acasxu two-network specs).
-    % verify_multinet's falsifier evaluates the sub-nets on the FLAT vnnlib input vector
-    % WITHOUT the input reshape the real ONNX needs (vnnlib X[5] vs onnx [1,1,1,5]), so a
-    % "counterexample" can be a mis-indexing artifact -> a SPURIOUS instant (~0.3 s) sat: the
-    % 2026-06-24 sweep produced 50/50 such monotonic_acasxu sats (50 x -150 = -7500 if shipped).
-    % Worse, this branch RETURNS below before the Pillar-2 onnxruntime gate, and the stacked
-    % product-net witness [x_f; x_g] cannot be replayed by the single-network authoritative gate
-    % (validate_witness_authoritative.py opens ONE InferenceSession) -- so NEITHER existing gate
-    % catches it. The unsat verdict (joint-Star reach) is suspect for the same shape reason.
-    % Until the two-network shape handling is implemented AND witness-audited, force a SOUND
-    % `unknown` (0 points, never a -150). Set NNV_TRUST_MULTINET=1 to trust it once fixed.
-    if status ~= 2 && ~strcmp(strtrim(getenv('NNV_TRUST_MULTINET')), '1')
-        fprintf(['vnnlib 2.0 multi-network: verify_multinet status=%d DOWNGRADED to unknown ' ...
-                 '(two-network shape #7 unverified -- sound-or-unknown; NNV_TRUST_MULTINET=1 to trust)\n'], status);
-        status = 2; counterEx = nan;
+    % AUTHORITATIVE two-network witness gate (isomorphic/monotonic_acasxu, vnnlib-2.0 equal-to).
+    % verify_multinet is a COMPLETE, sound relational verifier (falsify-first on the REAL net +
+    % product-net joint-Star reach), and its forward matches onnxruntime to ~1e-9 (verified
+    % 2026-06-24: the earlier "issue #7 shape mismatch -> spurious instant sat" worry was FALSE --
+    % monotonic_acasxu sats are REAL). So instead of a blanket sat->unknown downgrade (which
+    % discarded ~50 real sats), re-validate the sat witness through the TWO-network onnxruntime gate
+    % (validate_witness_multinet.py: forwards BOTH x_f and x_g, checks the LITERAL two-network spec):
+    %   valid    -> trust the sat (ORT-confirmed counterexample)
+    %   spurious -> downgrade to unknown (a would-be -150 -> 0 points)
+    %   cant     -> downgrade to unknown (sound default: never ship an un-validated multinet sat)
+    % The unsat (joint-Star reach) verdict has no replayable witness, so it stays a conservative
+    % `unknown` until separately audited. NNV_TRUST_MULTINET=1 bypasses the gate (trusts both
+    % directions -- for testing / once the unsat direction is independently validated).
+    trust = strcmp(strtrim(getenv('NNV_TRUST_MULTINET')), '1');
+    if status == 0
+        % stacked witness [x_f; x_g] -> [f(x_f); f(x_g)] (write_counterexample's X_i/Y_i format)
+        xf = counterEx{1}; xg = counterEx{2};
+        yf = nnvnet.evaluate(xf); yg = nnvnet.evaluate(xg);
+        fid = fopen(outputfile, 'w'); fprintf(fid, 'sat \n'); fclose(fid);
+        write_counterexample(outputfile, {[xf(:); xg(:)], [yf(:); yg(:)]});
+        if ~trust
+            gate = authoritative_witness_gate(onnx, vnnlib, outputfile, 'validate_witness_multinet.py');
+            if ~strcmp(gate, 'valid')
+                fprintf('vnnlib 2.0 multi-network: sat witness gate=%s -> DOWNGRADE to unknown\n', gate);
+                status = 2;
+                fid = fopen(outputfile, 'w'); fprintf(fid, 'unknown \n'); fclose(fid);
+            else
+                fprintf('vnnlib 2.0 multi-network: sat witness gate=VALID (onnxruntime-confirmed) -> trust sat\n');
+            end
+        end
+    elseif status == 1
+        if trust
+            fid = fopen(outputfile, 'w'); fprintf(fid, 'unsat \n'); fclose(fid);
+        else
+            fprintf(['vnnlib 2.0 multi-network: unsat (joint-Star reach) has no replayable witness ' ...
+                     '-> sound unknown (NNV_TRUST_MULTINET=1 to trust)\n']);
+            status = 2;
+            fid = fopen(outputfile, 'w'); fprintf(fid, 'unknown \n'); fclose(fid);
+        end
+    else
+        fid = fopen(outputfile, 'w'); fprintf(fid, 'unknown \n'); fclose(fid);
     end
     fprintf('vnnlib 2.0 multi-network (equal-to) -> status=%d (0 sat / 1 unsat / 2 unknown)\n', status);
     tTime = toc(t);
-    fid = fopen(outputfile, 'w');
-    if status == 0
-        fprintf(fid, 'sat \n');
-        fclose(fid);
-        % witness = stacked product-net I/O [x_f; x_g] -> [f(x_f); f(x_g)] (the
-        % order verify_multinet's product net uses); sound -- the verdict, not the
-        % witness format, is what the sweep scores, and the CE is already validated.
-        xf = counterEx{1}; xg = counterEx{2};
-        yf = nnvnet.evaluate(xf); yg = nnvnet.evaluate(xg);
-        write_counterexample(outputfile, {[xf(:); xg(:)], [yf(:); yg(:)]});
-    elseif status == 1
-        fprintf(fid, 'unsat \n');
-        fclose(fid);
-    else
-        fprintf(fid, 'unknown \n');
-        fclose(fid);
-    end
     return;
 end
 

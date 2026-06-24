@@ -12,7 +12,7 @@ it), never emits a witness the authoritative parser doesn't confirm -> the only 
 Exit codes (mirrors cctsdb_enumerate.py protocol): 10=SAT (+ witness csv), 12=unknown, 1=error.
 Usage: adaptive_cruise_falsify.py <onnx> <vnnlib> <witness_out_csv> [--n N] [--seed S] [--tol T]
 """
-import sys, argparse
+import sys, argparse, time
 import numpy as np
 
 def eprint(*a): print(*a, file=sys.stderr)
@@ -84,9 +84,17 @@ def input_box(query, nin):
     return lb, ub
 
 def main():
+    # Stamp the wall clock at process entry so --max-seconds bounds the WHOLE run (the vnnlib/ort
+    # import, onnx load, dynamic-batch surgery, and to_dnf precompute below, plus the sampling loop) --
+    # not just the loop. The runner derives the budget from the OFFICIAL per-instance timeout so an
+    # UNFINDABLE instance returns a graceful `unknown` (exit 12) IN-TIME, instead of grinding --n
+    # samples past the official timeout and being hard-killed by the harness (no result -> EMPTY).
+    t_start = time.time()
     ap = argparse.ArgumentParser()
     ap.add_argument('onnx'); ap.add_argument('vnnlib'); ap.add_argument('witness_csv')
     ap.add_argument('--n', type=int, default=1_000_000)
+    ap.add_argument('--max-seconds', type=float, default=0.0,   # 0 = no wall bound (legacy/test callers)
+                    help='wall-clock budget from process entry; on expiry return unknown (sound, never unsat)')
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--tol', type=float, default=1e-2)     # ROBUST margin: excludes thin saturation
     # artifacts (the net saturates ~100.0011, only 1.2e-4 above the 100.001 threshold -> a fp-noise-grade
@@ -146,9 +154,18 @@ def main():
                all(holds_dnf(d, X, Y, tol) for d in out_dnf)
 
     found = None
-    BS = 200_000
+    # Per-sample input-assertion filtering below is a Python loop (~sub-ms/sample), so one batch is the
+    # deadline granularity: a big batch can't be interrupted and overshoots the wall budget by its whole
+    # duration (a 200k batch was ~136s here -> a 10s budget overshot to 136s, defeating the cap). Keep the
+    # batch SMALL so the deadline is re-checked every ~few seconds; throughput is ~unchanged (it's O(total
+    # samples), independent of batch size) but the worst-case overshoot is now one small batch, not 136s.
+    BS = 5_000
     done = 0
+    deadline = (t_start + args.max_seconds) if args.max_seconds > 0 else float('inf')
+    timed_out = False
     while done < args.n and found is None:
+        if time.time() >= deadline:        # wall budget hit before a witness -> sound `unknown`
+            timed_out = True; break
         m = min(BS, args.n - done); done += m
         X = lb + (ub - lb) * rng.random((m, nin))
         # keep only samples passing the (possibly nonlinear) input-only assertions
@@ -160,7 +177,12 @@ def main():
                 found = (Xk[r].copy(), Yk[r].copy()); break
 
     if found is None:
-        eprint("no strict witness in %d samples -> unknown" % args.n); sys.exit(12)
+        if timed_out:
+            eprint("no strict witness within %.1fs wall budget (%d samples drawn) -> unknown"
+                   % (args.max_seconds, done))
+        else:
+            eprint("no strict witness in %d samples -> unknown" % args.n)
+        sys.exit(12)
 
     Xw, _ = found
     # AUTHORITATIVE re-validation: fresh ORT forward + every assertion must hold (strict margin)

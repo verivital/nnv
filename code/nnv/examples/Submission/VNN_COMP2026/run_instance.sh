@@ -22,26 +22,11 @@ if [ ! -f "$EXECUTE" ]; then
     echo "ERROR: execute.py not found at $EXECUTE"; exit 1
 fi
 
-# Conv GPU-BaB -- GPU PATHWAY (validated 2026-06-19), exported into MATLAB via execute.py.
-# TRUST_FP32: emit the unsat verdict FROM the GPU-single batched-BaB screen (the raw CROWN bound run on
-#   the GPU -- ~95% util, ~5x faster than the FP64-CPU reconfirm it replaces), PGD-backstopped. PGD runs
-#   FALSIFY-FIRST, so a screen-robust that is PGD-clean is the SAME two-mechanism soundness the GPU-winning
-#   tools rely on (alpha-beta-CROWN runs stock FP32 + a PGD attack; NeuralSAT likewise). Validated
-#   0 false-robust vs the alpha-beta-CROWN gold set (23 cifar100/tinyimagenet instances incl gold-SAT).
-#   SOUNDNESS POLICY: trusts FP32 rounding (~1e-6, negligible vs real robustness margins) with PGD as the
-#   backstop -- the deliberate, field-standard GPU verification model. Forces the GPU screen ON.
-# NO_STAR: a non-certifying conv precheck emits a fast sound 'unknown' (Star never certifies these
-#   resnets). FRONTIER 512: more BaB nodes per GPU kernel. All vars affect ONLY the conv precheck path.
-export NNV_CONV_TRUST_FP32=1
-export NNV_CONV_NO_STAR=1
-export NNV_CONV_FRONTIER=512
-# QUARANTINE_CPSTAR: strip the PROBABILISTIC (conformal) cp-star reach method so a cp-star 'unsat' can
-# never be emitted as a sound verdict. cp-star is NOT an FP64 proof -- under the absolute 0-wrong rule a
-# probabilistic unsat is a latent -150 (correct only with some confidence -> over the field some would be
-# wrong). STRICTLY SOUND: only ever converts a cp-star unsat -> unknown (never adds a verdict); the sound
-# FP64 / GPU-BaB / exact paths still decide what they can. Competition-scoped (set here, not the code
-# default) so tests / other callers are unaffected.
-export NNV_QUARANTINE_CPSTAR=1
+# GLOBAL competition soundness-policy flags (NNV_CONV_TRUST_FP32 / NNV_CONV_NO_STAR / NNV_CONV_FRONTIER /
+# NNV_QUARANTINE_CPSTAR) live in ONE place -- vnncomp2026_env.sh -- so every harness sources the SAME values
+# and cannot drift (the 2026-06-24 cifar regression was sweep_lambda.sh dropping these). Full rationale +
+# soundness notes are in that file.
+source "$(dirname "${BASH_SOURCE[0]}")/vnncomp2026_env.sh"
 
 # FALSIFY_MAXTIME: cap the falsify-first PGD budget so the SOUND reach proof keeps its window within the
 # OFFICIAL timeout. safenlp's ftab PGD budget (30s) EXCEEDS its 20s timeout, so on a ROBUST instance PGD

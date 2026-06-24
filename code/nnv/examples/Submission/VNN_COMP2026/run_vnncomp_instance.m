@@ -2193,8 +2193,21 @@ function [status, counterEx] = verify_adaptive_cruise_falsify(onnx, vnnlib)
             if s2 == 0, py = ['"' c '"']; break; end
         end
     end
-    cmd = sprintf('%s "%s" "%s" "%s" "%s" --n 1500000 --tol 0.01', ...
-        py, script, char(onnx), char(vnnlib), witness_csv);
+    % WALL BUDGET: bound the sampler to the OFFICIAL per-instance timeout so an UNFINDABLE instance
+    % returns a graceful `unknown` (exit 12) IN-TIME instead of grinding --n 1.5M samples past the
+    % official timeout and being hard-killed -> EMPTY result. execute.py exports NNV_REACH_BUDGET =
+    % 0.95*official_timeout; we leave a further ~15s of headroom for python+onnxruntime startup, the
+    % onnx load, and the harness's own slack. Falls back to a generous fixed cap for dev/test callers
+    % that run the runner without execute.py (NNV_REACH_BUDGET unset). Sound either way: the cap only
+    % ever turns a would-be timeout into `unknown`, never affects a found witness (which exits fast).
+    reachBudget = str2double(getenv('NNV_REACH_BUDGET'));
+    if isfinite(reachBudget) && reachBudget > 0
+        wallSec = max(5, reachBudget - 15);
+    else
+        wallSec = 90;   % dev/test default (< the uniform 100s official adaptive_cruise timeout)
+    end
+    cmd = sprintf('%s "%s" "%s" "%s" "%s" --n 1500000 --tol 0.01 --max-seconds %.1f', ...
+        py, script, char(onnx), char(vnnlib), witness_csv, wallSec);
     [st, out] = system(cmd);
     disp(strtrim(out));
     if st == 10                          % SAT: witness csv carries the flat input; stdout "SAT y0 y1 ..."

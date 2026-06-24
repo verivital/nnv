@@ -5,6 +5,21 @@ function [status, tTime] = run_vnncomp_instance(category, onnx, vnnlib, outputfi
 t = tic;
 status = 2; % unknown (to start with)
 
+% CATEGORY-CONDITIONAL competition env (ANTI-DRIFT). These per-category tuning flags used to live ONLY in
+% run_instance.sh, so dev harnesses that re-declare config (robust_runner.m, sweep_lambda.sh) silently
+% drifted -- the 2026-06-24 cifar/safenlp class. Setting them HERE, keyed off the category, makes EVERY
+% harness faithful automatically. Guarded with isempty so an explicitly-set env still wins, and the official
+% run_instance.sh (which sets them first) is a no-op here. NOT the conv SOUNDNESS-policy opt-ins
+% (NNV_CONV_TRUST_FP32 etc.) -- those stay deliberately harness-set. See BENCHMARK_RUN_MATRIX.md.
+if contains(category, 'safenlp') && isempty(getenv('NNV_FALSIFY_MAXTIME'))
+    setenv('NNV_FALSIFY_MAXTIME', '8');     % safenlp 20s timeout: default 30s PGD over-runs -> unsats lost
+end
+if contains(category, 'cifar100')
+    if isempty(getenv('NNV_BAB_BETA_ITERS')),     setenv('NNV_BAB_BETA_ITERS', '3');     end
+    if isempty(getenv('NNV_CONV_BETA_FRONTIER')), setenv('NNV_CONV_BETA_FRONTIER', '64'); end
+    if isempty(getenv('NNV_AMORT_ALPHA')),        setenv('NNV_AMORT_ALPHA', '20');        end
+end
+
 % SOUNDNESS HARDENING (persistent/shared-session safety): the per-instance reach budget lives in GLOBALS
 % (NNV_REACH_T0/_BUD) that ANOTHER verifier entry point (NN.verify_vnnlib / NN.verify_robustness) reads via
 % verify_specification, where under exactReach a result==2 is promoted to 0 (sat). A budget left ARMED after
@@ -78,6 +93,10 @@ end
 if contains(category, "adaptive_cruise")
     [acStatus, acCounterEx] = verify_adaptive_cruise_falsify(onnx, vnnlib);
     if acStatus == 0   % SAT, authoritatively confirmed
+        status = 0;    % FIX: set the RETURN status (was left at the default 2). The result FILE was
+                       % written "sat" below, so the OFFICIAL path (execute.py reads the file) was fine,
+                       % but the DEV SWEEP (robust_runner.m / run_all_benchmarks read the RETURN value)
+                       % recorded `unknown` -> adaptive_cruise sats were silently undercounted.
         tTime = toc(t);
         disp("Verification result: 0");
         disp("Total Time: " + string(tTime));

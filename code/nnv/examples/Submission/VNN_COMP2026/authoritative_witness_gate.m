@@ -1,10 +1,15 @@
-function [verdict, detail] = authoritative_witness_gate(onnx, vnnlib, resultfile)
+function [verdict, detail] = authoritative_witness_gate(onnx, vnnlib, resultfile, scriptName)
 %AUTHORITATIVE_WITNESS_GATE  Re-validate an emitted `sat` result file against the AUTHORITATIVE
 %   vnnlib parser + a real-onnx onnxruntime forward -- the SAME check execute.py runs on the
 %   official path (validate_witness_authoritative.py). This is the run_all_benchmarks (dev-sweep)
 %   twin of that gate: the sweep bypasses execute.py, so without this a sweep scorecard's `sat`
 %   verdicts are only consensus-level-checked, never per-witness-checked. Wiring it into the sweep
 %   makes a scorecard per-witness trustworthy (the 2026-06-24 sweep's 0-wrong was consensus-level).
+%
+%   scriptName (optional, default 'validate_witness_authoritative.py'): the python gate to invoke.
+%   Pass 'validate_witness_multinet.py' for VNN-LIB 2.0 TWO-NETWORK (equal-to / monotonic_acasxu)
+%   witnesses -- same exit contract (0=valid/1=spurious/2=cant) and same <onnx> <vnnlib> <result>
+%   call, so this one wrapper (python resolver + wall bound + exit map) serves both.
 %
 %   verdict (char):
 %     'valid'    -- the witness is a real counterexample on the real ONNX -> keep `sat`.
@@ -19,9 +24,10 @@ function [verdict, detail] = authoritative_witness_gate(onnx, vnnlib, resultfile
 %   (exit 0=valid / 1=spurious / 2=cant); this wrapper only resolves a deps-complete python, bounds
 %   the wall time, and maps the exit code. Disable via NNV_SWEEP_WITNESS_GATE=0 (caller's choice).
     verdict = 'cant'; detail = '';
+    if nargin < 4 || isempty(scriptName), scriptName = 'validate_witness_authoritative.py'; end
     here = fileparts(mfilename('fullpath'));
-    gate = fullfile(here, 'validate_witness_authoritative.py');
-    if ~isfile(gate),        detail = 'validate_witness_authoritative.py missing'; return; end
+    gate = fullfile(here, char(scriptName));
+    if ~isfile(gate),        detail = [char(scriptName) ' missing']; return; end
     if ~isfile(char(resultfile)), detail = 'result file missing'; return; end
 
     py = i_ort_vnnlib_python();   % needs onnx+onnxruntime+vnnlib; '' if none on this box

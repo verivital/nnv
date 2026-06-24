@@ -35,7 +35,8 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
         vnnlib  (str): the path to the .vnnlib file
         timeout (int): the time (in ms) to wait before proceeding to the next instance
     """
-    
+    t0 = time.time()   # wall start: lets the witness gate below stay within the official timeout
+
     # print("Looking for connections")
     # eng_name = matlab.engine.find_matlab()
     # print(eng_name)
@@ -138,6 +139,68 @@ def run_instance(category, onnx, vnnlib, timeout, outputlocation) -> None:
                 f.write('unknown')
             print("wrote sound 'unknown' for crashed instance (no result file was produced)")
     # All the other results are written from matlab
+
+    # AUTHORITATIVE WITNESS GATE (durable -150 insurance; the TODO at run_vnncomp_instance.m:105).
+    # This is the SINGLE exit point for EVERY category, with onnx+vnnlib in scope -- so it closes the
+    # paths that bypass the in-runner Pillar-2 ORT gate (e.g. the multi-output mscn class that caused
+    # 10x -150). Re-validate any emitted `sat` against the AUTHORITATIVE vnnlib parser (`vnnlib` pkg) +
+    # a real-onnx onnxruntime forward; downgrade sat->unknown ONLY if it authoritatively fails (a
+    # would-be -150 -> 0). STRICTLY SOUND DIRECTION: only ever sat->unknown, never a wrong verdict.
+    # The validator uses a LENIENT tolerance, so a real boundary witness is never falsely downgraded.
+    # FAIL-OPEN: if the check cannot run (no vnnlib/ort, parse/shape mismatch, unparseable witness, or
+    # too little time left), the result is left untouched -> the gate is monotonically no-worse than
+    # today's stack (runs when there is budget, otherwise defers to the runner's own gates). The
+    # `timeout`/`unknown`/`unsat` files written above do not start with `sat`, so the gate no-ops on them.
+    # Disable entirely with NNV_DISABLE_WITNESS_GATE=1.
+    if os.environ.get('NNV_DISABLE_WITNESS_GATE') == '1':
+        return
+    try:
+        with open(outputlocation) as f:
+            head = f.read(16).lstrip().lower()
+        if head.startswith('sat'):
+            # BUDGET-AWARE: never let the gate push total wall-time past the official timeout (which would
+            # cost the +10, scored as a timeout). Run it only with comfortable headroom; else fail-open.
+            elapsed = time.time() - t0
+            margin = 12.0
+            remaining = float(timeout) - elapsed - margin
+            if remaining < 5.0:
+                print('AUTHORITATIVE WITNESS GATE: only %.1fs of budget left -> skip (fail-open, sat kept)'
+                      % max(0.0, remaining + margin))
+                return
+            gate = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'validate_witness_authoritative.py')
+            # The validator needs onnx+onnxruntime+vnnlib; the interpreter running execute.py (which only
+            # needs matlab.engine) may lack them, so prefer one that imports all three -- else exit 2
+            # (cant-check) -> fail-open. Mirrors run_vnncomp_instance.m's python_exe() probe order.
+            import subprocess
+            def _has_deps(p):
+                try:
+                    return subprocess.run([p, '-c', 'import onnx, onnxruntime, vnnlib'],
+                                          capture_output=True, timeout=30).returncode == 0
+                except Exception:
+                    return False
+            gate_py = sys.executable
+            if not _has_deps(gate_py):
+                for cand in (os.environ.get('NNV_ORT_PYTHON', '').strip(),
+                             os.path.join(os.environ.get('HOME', ''), 'taylor_venv', 'bin', 'python'),
+                             'python3', 'python'):
+                    if cand and _has_deps(cand):
+                        gate_py = cand
+                        break
+            rc = subprocess.run([gate_py, gate, onnx, vnnlib, outputlocation],
+                                timeout=min(remaining, 90.0)).returncode
+            if rc == 1:   # authoritatively SPURIOUS -> downgrade to a sound unknown
+                with open(outputlocation, 'w') as f:
+                    f.write('unknown')
+                print('AUTHORITATIVE WITNESS GATE: witness failed authoritative re-check '
+                      '-> downgraded sat to unknown (sound; would-be -150 -> 0 points)')
+            elif rc == 0:
+                print('AUTHORITATIVE WITNESS GATE: sat witness confirmed real.')
+            else:
+                print('AUTHORITATIVE WITNESS GATE: could not check (rc=%d) -> fail-open '
+                      '(sat left as emitted by the runner\'s own gates).' % rc)
+    except Exception as e:
+        print('AUTHORITATIVE WITNESS GATE skipped (fail-open):', e)
 
 
 def _get_args() -> None:

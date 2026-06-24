@@ -2199,7 +2199,13 @@ function [status, counterEx] = verify_nn4sys_lindex(onnx, vnnlib)
     script = fullfile(here, 'nn4sys_lindex_decide.py');
     if ~isfile(script), fprintf('nn4sys_lindex_decide.py not found -> unknown\n'); return; end
     py = python_exe();   % needs onnx+numpy+onnxruntime (it parses the vnnlib itself; no vnnlib pkg)
-    if isempty(py), fprintf('no onnx+onnxruntime python for the lindex decider -> unknown\n'); return; end
+    % python_exe() falls back to a PLAIN interpreter when the stack is absent, so isempty alone never
+    % trips. Probe the imports explicitly -> fail fast to a sound `unknown` instead of spawning a doomed
+    % subprocess. (A bad stack would still fail-open via the crash-safe exit map, but this is cleaner.)
+    [probe_rc, ~] = system(sprintf('%s -c "import onnx, onnxruntime, numpy"', py));
+    if isempty(py) || probe_rc ~= 0
+        fprintf('no onnx+onnxruntime+numpy python for the lindex decider -> unknown\n'); return;
+    end
     if ispc
         cmd = sprintf('%s "%s" "%s" "%s"', py, script, char(onnx), char(vnnlib));
     else

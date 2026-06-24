@@ -18,12 +18,25 @@ SOUND-OR-UNKNOWN: prints exactly one of
 Never emits unsat/sat without the proof/witness above. A self-check asserts IBP contains the true ORT
 forward at sampled points (a wrong-direction interval would abort to unknown).
 """
-import sys, re, os, gzip, tempfile
+import sys, re, os, gzip, tempfile, atexit
 import numpy as np
 
 # CRASH-SAFE exit codes: NEVER reuse 1 (an uncaught Python exception exits 1) for a verdict, so an
 # unexpected crash maps to fail-open unknown in the MATLAB caller, never a wrong unsat (-150).
 EXIT_SAT, EXIT_UNSAT, EXIT_UNKNOWN = 10, 11, 12
+
+# .gz inputs are extracted to temp files; remove them on exit so an eval box running many instances
+# does not leak /tmp.
+_TMPFILES = []
+
+
+@atexit.register
+def _cleanup_tmpfiles():
+    for p in _TMPFILES:
+        try:
+            os.unlink(p)
+        except OSError:
+            pass
 
 
 def _gunzip(p):
@@ -33,7 +46,9 @@ def _gunzip(p):
         with gzip.open(p + ".gz", "rb") as f:
             data = f.read()
         t = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(p)[1])
-        t.write(data); t.close(); return t.name
+        t.write(data); t.close()
+        _TMPFILES.append(t.name)
+        return t.name
     return p
 
 
@@ -89,7 +104,8 @@ def ibp(layers, lb, ub):
 
 def parse_boxes(vnn_path):
     """Return boxes [(lo,hi)], a[N], b[N] (unsafe = Y<=a or Y>=b; defaults open)."""
-    txt = open(vnn_path).read()
+    with open(vnn_path, encoding="utf-8") as f:
+        txt = f.read()
     pat = (r"\(and\s*\(>=\s*X\[0,0\]\s*([-\d.eE]+)\)\s*\(<=\s*X\[0,0\]\s*([-\d.eE]+)\)\s*"
            r"\((<=|>=)\s*Y\[0,0\]\s*([-\d.eE]+)\)")
     from collections import OrderedDict
@@ -149,7 +165,10 @@ def main():
     # SOUNDNESS SELF-CHECK: the sound interval MUST contain the true onnxruntime forward at sampled points.
     try:
         import onnxruntime as ort
-        s = ort.InferenceSession(onnx_p)
+        # pin CPU (like the other VNN_COMP2026 ORT scripts): the session backs the soundness self-check +
+        # witness validation, so behaviour must not depend on the local ORT GPU build, and it must not
+        # contend for the GPU during a sweep.
+        s = ort.InferenceSession(onnx_p, providers=["CPUExecutionProvider"])
         iname = s.get_inputs()[0].name; ish = s.get_inputs()[0].shape
         shp = tuple(1 if (d is None or isinstance(d, str)) else d for d in ish)
 

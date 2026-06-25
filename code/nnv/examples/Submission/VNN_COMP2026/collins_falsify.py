@@ -80,6 +80,74 @@ def materialize_onnx(path):
 _X_BOUND = re.compile(r"^\(assert \((<=|>=) X_(\d+) ([-+0-9.eE]+)\)\)\s*$")
 
 
+def _strides(shape):
+    """row-major (C) strides for a shape: [1,3,640,640] -> [1228800,409600,640,1]."""
+    st = [1] * len(shape)
+    for i in range(len(shape) - 2, -1, -1):
+        st[i] = st[i + 1] * shape[i + 1]
+    return st
+
+
+def _strip_top_sexpr(text, head):
+    """Remove every balanced `(head ...)` s-expression from text (head e.g. 'declare-network')."""
+    out, i, pat = [], 0, "(" + head
+    while i < len(text):
+        j = text.find(pat, i)
+        if j == -1:
+            out.append(text[i:]); break
+        out.append(text[i:j])
+        depth, k = 0, j
+        while k < len(text):
+            if text[k] == "(":
+                depth += 1
+            elif text[k] == ")":
+                depth -= 1
+                if depth == 0:
+                    k += 1; break
+            k += 1
+        i = k
+    return "".join(out)
+
+
+def _normalize_vnnlib_2x(text):
+    """Rewrite VNN-LIB 2.0 tensor notation into the flat 1.0 form parse_vnnlib already handles, WITHOUT
+    touching any proven downstream logic. 2.0 declares e.g.
+        (declare-input  X float32 [1,3,640,640])   (declare-output Y float32 [1,25200,11])
+    and indexes tensors X[0,c,h,w] / Y[0,r,k]; map each to the SAME row-major flat index the 1.0 path used
+    (X[0,c,h,w] -> X_(c*409600+h*640+w); Y[0,r,k] -> Y_(r*11+k)) and return n_x from the input shape.
+    Returns (rewritten_text, n_x). SOUNDNESS: this is a falsify-only path -- any mis-rewrite yields a witness
+    that the INDEPENDENT authoritative_witness_gate (vnnlib-pypi parse + onnxruntime replay, a different
+    parser) rejects -> 'unknown', never an unsound UNSAT/false-robust.
+    """
+    def shape_of(kind):
+        m = re.search(r"\(declare-" + kind + r"\s+\w+\s+\w+\s*\[\s*([0-9,\s]+?)\s*\]\s*\)", text)
+        return [int(x) for x in m.group(1).split(",")] if m else None
+    in_shape = shape_of("input")
+    if in_shape is None:
+        raise ValueError("vnnlib-2.0: no (declare-input ...) found")
+    out_shape = shape_of("output")
+    n_x = 1
+    for d in in_shape:
+        n_x *= d
+    st_in = _strides(in_shape)
+    st_out = _strides(out_shape) if out_shape else None
+
+    def _sub(var, strides):
+        def f(m):
+            idx = [int(x) for x in m.group(1).split(",")]
+            if len(idx) != len(strides):
+                raise ValueError("vnnlib-2.0: index rank mismatch vs declared shape")
+            return f"{var}_{sum(i * s for i, s in zip(idx, strides))}"
+        return f
+    t = re.sub(r"X\[\s*([0-9,\s]+?)\s*\]", _sub("X", st_in), text)
+    if st_out is not None:
+        t = re.sub(r"Y\[\s*([0-9,\s]+?)\s*\]", _sub("Y", st_out), t)
+    # strip the 2.0 preamble so only (assert ...) remain (declare-network wraps declare-input/output when nested)
+    for head in ("vnnlib-version", "declare-network", "declare-input", "declare-output", "declare-hidden"):
+        t = _strip_top_sexpr(t, head)
+    return t, n_x
+
+
 def parse_vnnlib(path):
     """Returns (lb, ub, groups).
 
@@ -94,7 +162,11 @@ def parse_vnnlib(path):
     n_x = 0
     rest_lines = []
     with open_maybe_gz(path) as f:
-        for line in f:
+        raw = f.read()
+    n_x_override = None
+    if ("(declare-input" in raw) or (re.search(r"\b[XY]\[", raw) is not None):
+        raw, n_x_override = _normalize_vnnlib_2x(raw)   # VNN-LIB 2.0 tensor notation -> flat 1.0 form
+    for line in raw.splitlines(keepends=True):
             if line.startswith("(assert ("):
                 m = _X_BOUND.match(line)
                 if m is not None:
@@ -117,6 +189,8 @@ def parse_vnnlib(path):
                     continue
                 rest_lines.append(line)
 
+    if n_x_override is not None:
+        n_x = n_x_override
     if n_x == 0:
         raise ValueError("no X declarations found")
     lb = np.full(n_x, np.nan)

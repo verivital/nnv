@@ -12,8 +12,12 @@ fi
 echo "Preparing ${TOOL_NAME} for category '$2' (onnx='$3', vnnlib='$4')"
 
 # Clear any zombie MATLAB/python from a previous instance so startup is clean.
-killall -q python3 2>/dev/null
-pkill -f -q matlab 2>/dev/null
+# NNV_SKIP_PREP_KILL=1 (set by a dev-sweep PRE-PASS) skips the kill so we don't terminate the sweep's own
+# persistent MATLAB sessions / the MATLAB-MCP. Competition leaves it unset -> kill runs as before.
+if [ "${NNV_SKIP_PREP_KILL}" != "1" ]; then
+    killall -q python3 2>/dev/null
+    pkill -f -q matlab 2>/dev/null
+fi
 
 # Manifest categories: MATLAB's importNetworkFromONNX cannot parse these models, so NNV
 # imports them via the Python importer (onnx2nnv.py -> <model>.nnv.mat). Generating the
@@ -22,12 +26,22 @@ pkill -f -q matlab 2>/dev/null
 # cross-validated vs onnxruntime; any SAT witness is replayed through onnxruntime before
 # being emitted, so a mis-import degrades to error/unknown, never an unsound verdict.
 NNV_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # VNN_COMP2026 -> .../code/nnv
+# Resolve a python that HAS the onnx2nnv stack. Competition: install_tool.sh installs it into system python3.
+# Dev box: the stack lives in ~/taylor_venv. Hardcoding `python3` silently fails manifest gen on the dev box
+# (the 2026-06-25 prep-parity miss). Prefer NNV_ORT_PYTHON, then ~/taylor_venv, then python3/python — pick the
+# first that imports the full stack. Mirrors execute.py's resolver + the python_exe preference.
+PREP_PY=""
+for c in "${NNV_ORT_PYTHON}" "${HOME}/taylor_venv/bin/python3" python3 python; do
+    [ -n "$c" ] || continue
+    if "$c" -c 'import numpy,scipy,onnx,onnxruntime,onnxsim,onnxoptimizer' 2>/dev/null; then PREP_PY="$c"; break; fi
+done
+[ -n "${PREP_PY}" ] || PREP_PY=python3
 gen_manifest() {
     local onnx="$1"
     local manifest="${onnx%.onnx}.nnv.mat"
     if [ ! -f "${manifest}" ]; then
-        echo "Generating NNV manifest: ${manifest}"
-        python3 "${NNV_ROOT}/tools/onnx2nnv_python/onnx2nnv.py" "${onnx}" "${manifest}" \
+        echo "Generating NNV manifest: ${manifest} (via ${PREP_PY})"
+        "${PREP_PY}" "${NNV_ROOT}/tools/onnx2nnv_python/onnx2nnv.py" "${onnx}" "${manifest}" \
             || echo "WARN: manifest generation failed; run_instance will report error/unknown."
     fi
 }
@@ -74,9 +88,14 @@ build_netcache() {
 }
 # matlab2nnv (non-manifest) categories whose single (or few) network(s) are reused across many
 # vnnlib instances. Manifest categories above already cache via the .nnv.mat.
+# NNV_PREP_MANIFEST_ONLY=1 (dev-sweep pre-pass) skips the per-onnx netcache MATLAB launch -- the persistent
+# sweep runner builds the netcache itself on first load, so the pre-pass only needs the .nnv.mat manifests
+# (fast, python-only). Competition leaves it unset -> netcache pre-build runs as before.
+if [ "${NNV_PREP_MANIFEST_ONLY}" != "1" ]; then
 case "$2" in
     *cifar100*|*tinyimagenet*|*vggnet*|*yolo*|*metaroom*|*malbeware*|*collins_rul*|*dist_shift*|*relusplitter*|*safenlp*|*sat_relu*|*cersyve*|*tllverify*|*cora*|*acasxu*|*challenging*)
         build_netcache "$2" "$3" "$4" ;;
 esac
+fi
 
 exit 0

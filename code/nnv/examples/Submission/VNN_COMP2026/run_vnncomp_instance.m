@@ -79,6 +79,29 @@ if contains(category, "cctsdb_yolo")
     return;
 end
 
+%% 0a) nn4sys lindex / lindex_deep: huge OR over ULTRA-THIN X-boxes -> sound batched-IBP decider.
+% A 1-in/1-out learned-index FC+ReLU net whose spec is a disjunction over 200-60000 ultra-thin X-boxes
+% (~8e-8 wide), each requiring Y in a safe band. NNV's general star/LP reach walks the clauses one at a
+% time and TIMES OUT (lindex_200 ran 444s). Route to nn4sys_lindex_decide.py: sound IBP + ADAPTIVE box
+% subdivision (IBP is exact at a point, so subdividing the thin box is sound AND tightens it ~linearly)
+% -> decides every lindex instance in <6s. SOUND-OR-UNKNOWN: unsat only when every box's sound interval
+% is provably inside its band; sat only with an onnxruntime witness; else unknown. (Validated standalone:
+% 24/24 lindex instances -> unsat, IBP-contains-forward self-check green.)
+if contains(category, "nn4sys") && contains(onnx, "lindex")
+    [status, counterEx] = verify_nn4sys_lindex(onnx, vnnlib);
+    tTime = toc(t);
+    disp("Verification result: " + string(status));
+    fid = fopen(outputfile, 'w');
+    if status == 0
+        fprintf(fid, 'sat \n'); fclose(fid); write_counterexample(outputfile, counterEx);
+    elseif status == 1
+        fprintf(fid, 'unsat \n'); fclose(fid);
+    else
+        fprintf(fid, 'unknown \n'); fclose(fid);
+    end
+    return;
+end
+
 %% 0b) adaptive_cruise: NONLINEAR-property falsification path (bypasses NNV's gated load_vnnlib)
 %
 % adaptive_cruise_control_non_linear_2026 has NONLINEAR vnnlib (X*Y, X*X) which NNV deliberately
@@ -2167,6 +2190,41 @@ end
 % onnxruntime. Exit protocol: 10 = SAT (witness CSV written + "SAT p q y" on
 % stdout), 11 = UNSAT, anything else = unknown. ANY parse/replay irregularity
 % on the MATLAB side also degrades to unknown -- never an unsound verdict.
+function [status, counterEx] = verify_nn4sys_lindex(onnx, vnnlib)
+    % Sound batched-IBP + adaptive box-subdivision decider for nn4sys lindex (nn4sys_lindex_decide.py).
+    % Crash-safe exit-code map: 10=sat, 11=unsat, ANYTHING ELSE -> unknown (fail-open). A Python crash
+    % (uncaught exception -> exit 1) therefore degrades to a sound `unknown`, never a wrong unsat (-150).
+    status = 2; counterEx = nan;
+    here = fileparts(mfilename('fullpath'));
+    script = fullfile(here, 'nn4sys_lindex_decide.py');
+    if ~isfile(script), fprintf('nn4sys_lindex_decide.py not found -> unknown\n'); return; end
+    py = python_exe();   % needs onnx+numpy+onnxruntime (it parses the vnnlib itself; no vnnlib pkg)
+    % python_exe() falls back to a PLAIN interpreter when the stack is absent, so isempty alone never
+    % trips. Probe the imports explicitly -> fail fast to a sound `unknown` instead of spawning a doomed
+    % subprocess. (A bad stack would still fail-open via the crash-safe exit map, but this is cleaner.)
+    [probe_rc, ~] = system(sprintf('%s -c "import onnx, onnxruntime, numpy"', py));
+    if isempty(py) || probe_rc ~= 0
+        fprintf('no onnx+onnxruntime+numpy python for the lindex decider -> unknown\n'); return;
+    end
+    if ispc
+        cmd = sprintf('%s "%s" "%s" "%s"', py, script, char(onnx), char(vnnlib));
+    else
+        cmd = sprintf('timeout 60 %s "%s" "%s" "%s"', py, script, char(onnx), char(vnnlib));
+    end
+    [rc, out] = system(cmd);
+    disp(strtrim(out));
+    switch rc
+        case 11, status = 1;   % unsat: every box's sound interval is provably inside its band
+        case 10                % sat: a concrete onnxruntime witness
+            xv = regexp(out, '\(X_0\s+([-+0-9.eE]+)\)', 'tokens', 'once');
+            yv = regexp(out, '\(Y_0\s+([-+0-9.eE]+)\)', 'tokens', 'once');
+            if ~isempty(xv) && ~isempty(yv)
+                status = 0; counterEx = {str2double(xv{1}); str2double(yv{1})};
+            end                % else: claimed sat but unparseable witness -> stay unknown
+        otherwise, status = 2; % 12 (cant/unknown) / 124 (timeout) / 1 (crash) / anything -> fail-open
+    end
+end
+
 function [status, counterEx] = verify_cctsdb_enumeration(onnx, vnnlib)
     status = 2; counterEx = nan;
     here = fileparts(mfilename('fullpath'));

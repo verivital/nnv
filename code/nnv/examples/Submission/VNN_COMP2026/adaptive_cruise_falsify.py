@@ -9,11 +9,25 @@ the parsed AST) with a strict margin. SAT-or-unknown: never emits unsat (samplin
 it), never emits a witness the authoritative parser doesn't confirm -> the only -150 surface
 (the property semantics) is delegated to the official parser.
 
-Exit codes (mirrors cctsdb_enumerate.py protocol): 10=SAT (+ witness csv), 12=unknown, 1=error.
+SAT-or-unknown is NOT the only sound verdict here: when the input region is provably EMPTY (the
+nonlinear input constraint, e.g. 200*x0 >= x1^2, is infeasible over the box) there is NO input,
+hence NO counterexample, hence the property holds vacuously -> UNSAT. `certify_empty` proves this
+by INTERVAL ARITHMETIC over the SAME authoritative parsed AST (sound by construction: IA over-
+approximates, so an IA-infeasible comparison is truly infeasible), abstains to unknown on any
+uncertainty, and never claims empty unless a dense-grid refutation pass finds no feasible point.
+This is the only path that emits unsat; everything else is SAT-or-unknown.
+
+Exit codes (mirrors cctsdb_enumerate.py protocol): 10=SAT (+ witness csv), 11=UNSAT (empty input),
+12=unknown, 1=error.
 Usage: adaptive_cruise_falsify.py <onnx> <vnnlib> <witness_out_csv> [--n N] [--seed S] [--tol T]
 """
 import sys, argparse, time
+from itertools import product as _iproduct
 import numpy as np
+
+# --- empty-input UNSAT certifier (interval arithmetic over the authoritative AST) ----------------
+EMPTY_MARGIN = 1e-6     # require a clear gap before declaring a comparison infeasible (stricter =>
+PRODUCT_CAP  = 256      # a borderline turns into a sound `unknown`, never a wrong unsat)
 
 def eprint(*a): print(*a, file=sys.stderr)
 
@@ -83,6 +97,96 @@ def input_box(query, nin):
     for a in query.assertions: walk(a.expr)
     return lb, ub
 
+def ia_arith(e, lb, ub):
+    """Interval [lo,hi] of an INPUT-only arith AST over the box. Raises on anything we can't
+    soundly bound (output var / unknown op) -> caller abstains (never claims empty)."""
+    t = type(e).__name__
+    if t == 'Var':
+        if not str(e.kind).endswith('Input'): raise ValueError("output var in input-empty IA")
+        i = list(e.indices)[-1]; return float(lb[i]), float(ub[i])
+    if t in ('Float', 'Int', 'IntExpr'): return float(e.value), float(e.value)
+    if t == 'Literal': return float(e.lexeme), float(e.lexeme)
+    if t == 'Negate':
+        lo, hi = ia_arith(e.expr, lb, ub); return -hi, -lo
+    if t == 'Plus':
+        los = his = 0.0
+        for a in e.args: alo, ahi = ia_arith(a, lb, ub); los += alo; his += ahi
+        return los, his
+    if t == 'Minus':
+        hlo, hhi = ia_arith(e.head, lb, ub); rlo = rhi = 0.0
+        for a in e.rest: alo, ahi = ia_arith(a, lb, ub); rlo += alo; rhi += ahi
+        return hlo - rhi, hhi - rlo
+    if t == 'Multiply':
+        lo, hi = 1.0, 1.0
+        for a in e.args:
+            alo, ahi = ia_arith(a, lb, ub); cands = (lo*alo, lo*ahi, hi*alo, hi*ahi)
+            lo, hi = min(cands), max(cands)
+        return lo, hi
+    raise ValueError("ia arith node " + t)
+
+def ia_cmp_infeasible(c, lb, ub):
+    """True iff comparison c is IA-PROVABLY infeasible over the box. Any uncertainty -> False."""
+    t = type(c).__name__
+    try:
+        llo, lhi = ia_arith(c.lhs, lb, ub); rlo, rhi = ia_arith(c.rhs, lb, ub)
+    except Exception:
+        return False
+    m = EMPTY_MARGIN
+    if t == 'GreaterEqual': return lhi < rlo - m     # lhs>=rhs impossible if max(lhs) < min(rhs)
+    if t == 'GreaterThan':  return lhi <= rlo - m
+    if t == 'LessEqual':    return llo > rhi + m      # lhs<=rhs impossible if min(lhs) > max(rhs)
+    if t == 'LessThan':     return llo >= rhi + m
+    if t == 'Equal':        return lhi < rlo - m or llo > rhi + m
+    return False                                       # NotEqual / unknown -> can't prove -> abstain
+
+def prove_input_empty(inp_asserts, lb, ub):
+    """SOUND: True iff the conjunction of input-only asserts is provably empty over [lb,ub].
+    Distributes AND-of-DNF; empty iff EVERY distributed conjunction has an IA-infeasible
+    comparison. Abstains (False) on cross-product blowup."""
+    dnfs = [a.to_dnf() for a in inp_asserts]
+    if not dnfs: return False
+    size = 1
+    for d in dnfs:
+        size *= max(1, len(d))
+        if size > PRODUCT_CAP: return False            # too complex -> abstain to unknown
+    for combo in _iproduct(*dnfs):
+        comps = [c for clause in combo for c in clause]
+        if not any(ia_cmp_infeasible(c, lb, ub) for c in comps): return False
+    return True
+
+def grid_refutes_empty(inp_dnf, lb, ub, nin, seed=0):
+    """Refutation-only backstop: return a FEASIBLE point if one exists (=> the IA empty-claim is
+    WRONG, abort the unsat), else None. NEVER used to PROVE empty (a grid can miss a region)."""
+    import itertools as it
+    Yz = [0.0]
+    if nin <= 3:
+        axes = [np.linspace(lb[i], ub[i], 257) for i in range(nin)]
+        mesh = np.meshgrid(*axes); pts = np.stack([m.ravel() for m in mesh], axis=1)
+    else:
+        rng = np.random.default_rng(seed); pts = lb + (ub - lb) * rng.random((500000, nin))
+    corners = np.array(list(it.product(*[(lb[i], ub[i]) for i in range(nin)]))) if nin <= 16 else np.empty((0, nin))
+    allpts = np.vstack([pts, corners, ((lb + ub) / 2.0).reshape(1, -1)])
+    for r in range(allpts.shape[0]):
+        if all(holds_dnf(d, allpts[r], Yz, 0.0) for d in inp_dnf): return allpts[r]
+    return None
+
+def certify_empty(query):
+    """(verdict, detail), verdict in {'empty','feasible','abstain'}. 'empty' => caller may emit
+    UNSAT (sound). Anything else => do NOT emit unsat."""
+    net = query.networks[0]
+    nin = int(np.prod(net.inputs[0].shape))
+    inp_asserts, _out = split_assertions(query)
+    lb, ub = input_box(query, nin)
+    if not (np.all(np.isfinite(lb)) and np.all(np.isfinite(ub)) and np.all(ub >= lb)):
+        return 'abstain', 'no finite box'
+    try:
+        if not prove_input_empty(inp_asserts, lb, ub): return 'feasible', 'IA could not prove empty'
+    except Exception as e:
+        return 'abstain', 'IA error: %s' % e
+    pt = grid_refutes_empty([e.to_dnf() for e in inp_asserts], lb, ub, nin)
+    if pt is not None: return 'abstain', 'IA-empty REFUTED by feasible grid point (bug; abstain)'
+    return 'empty', 'IA-proved empty, grid found no feasible point'
+
 def main():
     # Stamp the wall clock at process entry so --max-seconds bounds the WHOLE run (the vnnlib/ort
     # import, onnx load, dynamic-batch surgery, and to_dnf precompute below, plus the sampling loop) --
@@ -117,6 +221,15 @@ def main():
     lb, ub = input_box(q, nin)
     if not (np.all(np.isfinite(lb)) and np.all(np.isfinite(ub)) and np.all(ub >= lb)):
         eprint("no finite input box -> unknown"); sys.exit(12)
+    # EMPTY-INPUT UNSAT cert (sound, interval-arithmetic over the authoritative AST + grid backstop).
+    # Short-circuits before the ORT load: an empty input region has no counterexample -> vacuously
+    # UNSAT. Abstains to unknown on any uncertainty; only 'empty' emits unsat.
+    try:
+        ev, detail = certify_empty(q)
+    except Exception as e:
+        ev, detail = 'abstain', 'certify_empty raised: %s' % e
+    if ev == 'empty':
+        eprint("input region provably empty (%s) -> UNSAT" % detail); print("UNSAT (empty input region)"); sys.exit(11)
     # Prefer a dynamic-batch session (one-time onnx surgery: batch dim -> symbolic) so we can forward
     # millions of samples in one call; safe for a plain Gemm/Relu FFNN. Fall back to per-sample if that
     # fails (correctness preserved either way -- same real ONNX).

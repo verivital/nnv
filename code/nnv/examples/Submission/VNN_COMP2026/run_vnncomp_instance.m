@@ -127,6 +127,18 @@ if contains(category, "adaptive_cruise")
         fprintf(fid, 'sat \n'); fclose(fid);
         write_counterexample(outputfile, acCounterEx);
         return;
+    elseif acStatus == 1   % UNSAT: input region PROVABLY EMPTY (nonlinear input constraint infeasible
+        status = 1;        % over the box) -> no input -> no counterexample -> vacuously UNSAT. Proven by
+        % interval arithmetic over the AUTHORITATIVE parsed AST (+ dense-grid refutation backstop) in
+        % adaptive_cruise_falsify.py, which emits 11 ONLY when proven; any uncertainty there is 12 ->
+        % unknown -> falls through below. MUST return here (like SAT): otherwise the normal load path
+        % overwrites this with the gated nonlinear-vnnlib 'unknown' (the 2026-06-25 first-cut bug).
+        tTime = toc(t);
+        disp("Verification result: 1");
+        disp("Total Time: " + string(tTime));
+        fid = fopen(outputfile, 'w');
+        fprintf(fid, 'unsat \n'); fclose(fid);
+        return;
     end
     % unknown -> fall through to the normal load/reach path (still unknown; preserves prior behaviour)
 end
@@ -2337,7 +2349,13 @@ function [status, counterEx] = verify_adaptive_cruise_falsify(onnx, vnnlib)
         end
         counterEx = {reshape(x, [], 1); reshape(y, [], 1)};
         status = 0;
-    end                                  % anything else -> unknown (sound; never unsat)
+    elseif st == 11                      % UNSAT: input region PROVABLY EMPTY (the nonlinear input
+        % constraint is infeasible over the box) -> no input -> no counterexample -> vacuously UNSAT.
+        % adaptive_cruise_falsify.py proves emptiness by interval arithmetic over the AUTHORITATIVE
+        % parsed AST (+ a dense-grid refutation backstop) and emits 11 ONLY when proven; any
+        % uncertainty there exits 12 (unknown). Sound: an empty region cannot contain a witness.
+        status = 1;
+    end                                  % anything else (incl. 12) -> unknown (sound; never unsat)
 end
 
 % (python_exe is defined once above -- the Linux-aware version that

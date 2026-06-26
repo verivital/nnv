@@ -1995,7 +1995,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         "cifar100",          15, 40, 20,  60
         "tinyimagenet",      15, 40, 20,  60
         "vggnet",            4,  12, 1.5, 20
-        "traffic_signs",     20, 40, 5,   400   % manifest: no PGD -> random is primary
+        "traffic_signs",     20, 40, 5,   1000  % manifest + BINARIZED (Sign): PGD is gradient-blind, so
+                                                 % the per-coord box VERTICES in create_random_examples
+                                                 % (~(nRand-2)/2 = 499, > the ~400 the seeded probe needs)
+                                                 % are the PRIMARY finder. Reliably decides the small-net
+                                                 % (30x30) sats; the 64x64 net's per-sample forward is too
+                                                 % slow to exhaust enough vertices in-budget -> needs a
+                                                 % BATCHED-vertex forward (+ bit-flip local search, §4.5).
         "cctsdb_yolo",       30, 50, 5,   150
         "yolo",              20, 40, 3,   100
         "vit",               20, 50, 25,  50
@@ -2114,9 +2120,24 @@ function v = i_cfg_ver()
 end
 
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,inputFormat)
-    xB = Box(lb, ub); % lb, ub must be vectors
-    xRand = xB.sample(nR-2);
-    xRand = [lb, ub, xRand];
+    % Draw half per-coord BERNOULLI VERTICES (each coord independently at lb OR ub) and half uniform
+    % interior. Vertices are the ONLY way to falsify GRADIENT-BLIND nets -- binarized / Sign / quantized
+    % models (e.g. traffic_signs): a Sign activation has zero gradient a.e., so PGD cannot descend and
+    % the adversarials sit at L-inf box CORNERS. Vertices are valid points in [lb,ub], so this can only
+    % ADD candidate sats (each is property-checked here + the witness is validate_witness/ORT-replayed
+    % before emit) -- harmless to smooth nets, where PGD is the primary finder and this is only a fallback.
+    % DETERMINISTIC via a LOCAL RNG stream so the falsifier is REPRODUCIBLE (a random falsifier is a
+    % defect: the official run could draw a different state than dev) WITHOUT resetting the GLOBAL rng --
+    % which would change the caller's stream for the rest of the session (esp. the persistent-session
+    % runner). 'twister' Seed 0 matches the default generator, so the draws are identical to a `rng(0)`
+    % version but with no global side effect. (Plan §4.5.)
+    rs = RandStream('twister', 'Seed', 0);
+    nrand = max(0, nR - 2);
+    nv = floor(nrand/2);                  % => (nR-2)/2 vertices (the rest uniform); lb,ub added below
+    ncont = nrand - nv;
+    if nv > 0, Xvert = lb + (ub - lb) .* (rand(rs, numel(lb), nv) < 0.5); else, Xvert = []; end
+    if ncont > 0, Xcont = lb + (ub - lb) .* rand(rs, numel(lb), ncont); else, Xcont = []; end
+    xRand = [lb, ub, Xvert, Xcont];
     if needReshape
         if needReshape ==2 % for collins only (full_window_40) and metaroom
             newSize = [inputSize(2) inputSize(1) inputSize(3:end)];

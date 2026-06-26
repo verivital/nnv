@@ -204,12 +204,20 @@ function tf = is_vnnlib2(propertyFile)
     end
 end
 
-% combine multiple lines into a single one if they belong to a single statement/assertion
+% combine multiple lines into a single one if they belong to a single statement/assertion.
+% ITERATIVE (was recursive: one stack frame per appended line -> a statement spanning many lines,
+% e.g. the big multi-line output disjunction of the larger traffic_signs nets, overflowed the stack
+% -> "Out of memory / infinite recursion"). The loop has no depth limit. EOF guard: fgetl returns a
+% numeric -1 at end-of-file; the old code appended that (-> char(-1)) and recursed forever (the parens
+% never balance) -> the OOM. Now we stop on EOF and return what we have (the caller's paren-balance
+% checks still validate the result), so a truncated/malformed file degrades gracefully instead of hanging.
 function tline = merge_lines(tline, fileID)
-    if count(tline, '(') ~= count(tline, ')')
+    while count(tline, '(') ~= count(tline, ')')
         nextLine = fgetl(fileID);
+        if ~ischar(nextLine)   % EOF (numeric -1) -> stop appending; do not recurse/loop forever
+            break;
+        end
         tline = [tline nextLine];
-        tline = merge_lines(tline, fileID);
     end
 end
 

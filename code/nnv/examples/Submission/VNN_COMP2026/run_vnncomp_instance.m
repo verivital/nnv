@@ -1601,10 +1601,13 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         % edoardo_manino (NeuroCodeBench SAT-ReLU): byte-identical arch to sat_relu
         % (Gemm->ReLU->Gemm, opset 9). Previously had NO dispatch branch, so control fell to
         % the catch-all error("ONNX model not supported") below -> 100/100 unknown @0.0s (a
-        % dispatcher gap, NOT an importer failure). Route exactly like sat_relu: BC import +
-        % matlab2nnv (import-confirmed 2026-06-26), then the approx-star -> exact-star sound
-        % ladder. The SAT half is found by the falsifier (ftab "edoardo" row added below);
-        % the unsat-labeled half stays sound-unknown until the FC CROWN-BaB lever (B1).
+        % dispatcher gap, NOT an importer failure). Route like sat_relu's IMPORT (BC import +
+        % matlab2nnv, import-confirmed 2026-06-26), then an approx-star -> exact-star sound ladder.
+        % NOTE: edoardo is intentionally NOT in i_finalize_reach_options' slow_cats (unlike sat_relu),
+        % so it KEEPS exact-star. sat_relu is in slow_cats because its reach decides 0 unsat (exact-star
+        % is pure waste there); edoardo's exact-star is PRODUCTIVE -- it decided 2 unsat (at 80.4s/90.8s)
+        % in the dev-sweep, free under the per-instance 100s budget. The SAT half is found by the
+        % falsifier (ftab "edoardo" row added below); the rest stays sound-unknown until B1 (FC CROWN-BaB).
         net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
         nnvnet = matlab2nnv(net);
         reachOptions = struct;

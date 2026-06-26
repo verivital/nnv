@@ -531,8 +531,8 @@ end
 assert(errored, 'Test 29 failed: DynamicMatmul reach must refuse without operand shapes');
 % with shapes: sound 2x2 @ 2x2 (column-major reshape), MC-contained
 rng(29); L29.LeftShape = [2 2]; L29.RightShape = [2 2];
-Aset = Star(randn(4,1)-0.5, randn(4,1)+0.5);  % ensure lb<ub
-al = min(Aset.V(:,1)-0.5, Aset.V(:,1)+0.5); Aset = Star(al, al+1);
+ac = randn(4,1);                  % single random center => lb<=ub guaranteed
+Aset = Star(ac - 0.5, ac + 0.5);  % box of radius 0.5
 Bset = Star(zeros(4,1), ones(4,1));
 S29 = L29.reach({Aset, Bset}, 'approx-star');
 assert(isa(S29,'Star') && S29.dim == 4, 'Test 29: sound reach shape');

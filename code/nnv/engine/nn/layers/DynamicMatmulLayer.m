@@ -121,6 +121,16 @@ classdef DynamicMatmulLayer < handle
             if ~(isStar || isZono)
                 error('Unknown reach method for DynamicMatmulLayer: %s', method);
             end
+            if strcmp(method, 'exact-star')
+                % A product of two dynamic operands is bilinear, so there is no
+                % complete exact-star reach; warn so callers do not assume
+                % 'exact-star' is tighter than 'approx-star' here (both return the
+                % same sound box over-approximation).
+                warning('DynamicMatmulLayer:exactStarApprox', ...
+                    ['dynamic MatMul is bilinear: no exact star reach exists. ' ...
+                     '''exact-star'' returns the SAME sound box over-approximation ' ...
+                     'as ''approx-star'' (not complete or tighter).']);
+            end
             S = obj.reach_single_input(in_images);     % sound box Star
             if isZono
                 [lb, ub] = S.estimateRanges();         % box star -> exact box zono

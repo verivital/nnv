@@ -165,6 +165,15 @@ classdef ScaledDotProductAttentionLayer < handle
             % softmax + A*V), so every star-family method routes to the same SOUND
             % over-approximation (there is no exact star reach to fall back to).
             if any(strcmp(method, {'approx-star','exact-star','abs-dom'})) || contains(method, 'relax-star')
+                if strcmp(method, 'exact-star')
+                    % There is no complete exact-star reach for attention; warn so
+                    % callers do not assume 'exact-star' is tighter than 'approx-star'
+                    % (it routes to the same sound over-approximation).
+                    warning('ScaledDotProductAttentionLayer:exactStarApprox', ...
+                        ['attention is nonlinear (QK^T + softmax + A*V): no exact ' ...
+                         'star reach exists. ''exact-star'' returns the SAME sound ' ...
+                         'over-approximation as ''approx-star'' (not complete or tighter).']);
+                end
                 S = obj.reach_star_approx(Q_set, K_set, V_set, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 S = obj.reach_zono_approx(Q_set, K_set, V_set);
@@ -201,9 +210,18 @@ classdef ScaledDotProductAttentionLayer < handle
                 S = V_set;                       % single token: attention == V (exact)
                 return;
             end
-            if V_set.dim ~= N*D
+            % The value width may differ from the query/key width (d_v ~= d_k):
+            % QueryDim/KeyDim shape the score path, ValueDim shapes V and the
+            % output. Use ValueDim when set; otherwise infer it from V_set so the
+            % layer still works when only QueryDim was resolved by the importer.
+            Dv = obj.ValueDim;
+            if isempty(Dv) || Dv == 0
+                Dv = round(V_set.dim / N);
+            end
+            if Dv * N ~= V_set.dim
                 error('ScaledDotProductAttentionLayer:shape', ...
-                    'V dim %d ~= N*D %d (this sound path needs ValueDim==QueryDim)', V_set.dim, N*D);
+                    'V dim %d not a multiple of token count N=%d (ValueDim=%d)', ...
+                    V_set.dim, N, Dv);
             end
             S = SoftmaxAttn.singleHeadAttn(Q_set, K_set, V_set, obj.Scale, [N D], 'estimate');
         end

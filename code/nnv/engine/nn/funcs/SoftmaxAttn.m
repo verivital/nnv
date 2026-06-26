@@ -236,9 +236,11 @@ classdef SoftmaxAttn
         % ----- single-head attention kernel --------------------------------
         function O = singleHeadAttn(Q, K, V, scale, shape, mode)
             % Sound reach of O = softmax(scale * Q*K') * V for one head.
-            % Q,K,V are matrix-Stars of dim N*D (column-major reshape [N D]).
-            % Q,K are used only for sound score bounds; V is kept SYMBOLIC, so O
-            % stays correlated with V's predicates (value path). softmax over keys.
+            % Q,K are matrix-Stars of dim N*D (column-major reshape [N D]) used only
+            % for sound score bounds. V is a matrix-Star of dim N*Dv (its value
+            % width Dv = d_v may differ from the query/key width D = d_k; Dv is
+            % inferred from V). V is kept SYMBOLIC, so O (dim N*Dv) stays correlated
+            % with V's predicates (value path). softmax over keys.
             if nargin < 6 || isempty(mode), mode = 'estimate'; end
             N = shape(1); D = shape(2);
             [ql, qu] = SoftmaxAttn.starBounds(Q, mode);
@@ -250,7 +252,14 @@ classdef SoftmaxAttn
             lo = min(scale.*scl, scale.*scu);
             hi = max(scale.*scl, scale.*scu);
             [a_lb, a_ub] = SoftmaxAttn.correlatedRowSoftmaxBounds(lo, hi);
-            O = SoftmaxAttn.avEnvelopeStar(a_lb, a_ub, V, [N D], mode);
+            % The value width may differ from the query/key width (d_v ~= d_k); the
+            % score path used D above, but the A*V envelope must shape V by its own
+            % width, inferred from V (= d_v). For the ViT case d_v == d_k == D.
+            Dv = round(V.dim / N);
+            if Dv * N ~= V.dim
+                error('SoftmaxAttn:shape', 'V dim %d not a multiple of N=%d', V.dim, N);
+            end
+            O = SoftmaxAttn.avEnvelopeStar(a_lb, a_ub, V, [N Dv], mode);
         end
 
         % ----- per-token linear map (exact, predicate-preserving) ----------

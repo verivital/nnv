@@ -45,7 +45,8 @@ fprintf('Test 3 PASSED (softmax fails loud on unsupported type)\n');
 rng(4); N = 3; D = 4; scale = 0.5;
 L = ScaledDotProductAttentionLayer('a');
 L.ValueDim = D; L.QueryDim = D; L.KeyDim = D; L.Scale = scale;
-mk = @() Star(randn(N*D,1)-0.4, randn(N*D,1)+0.4);
+mkc = @(c) Star(c - 0.5, c + 0.5);   % box of radius 0.5 about a center
+mk  = @() mkc(randn(N*D,1));          % single random draw => lb<=ub guaranteed
 Q = mk(); K = mk(); V = mk();
 S = L.reach(Q, K, V, 'approx-star');
 assert(isa(S,'Star') && S.dim == N*D, 'multi-token SDPA reach shape');

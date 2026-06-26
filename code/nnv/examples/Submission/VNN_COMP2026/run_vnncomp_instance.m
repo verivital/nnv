@@ -2080,11 +2080,15 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             % `double` for C.net while the metadata (bytes/datenum/ver) still matches -> the HIT is accepted
             % and a later dot-index throws "Dot indexing is not supported for variables of type double"
             % (cifar100, 5 instances) -> unknown; worse, a partially-substituted net could reach and emit a
-            % CONFIDENT WRONG verdict. Reject any cache whose net is not a real network object (or whose NNV
-            % net is invalid) and fall through to a fresh re-import. Can only help: a valid cache has a
-            % non-numeric C.net + a valid C.nnvnet, so genuine HITs are unaffected.
-            cacheNetOK = isfield(C,'net') && ~isnumeric(C.net) ...
-                      && isfield(C,'nnvnet') && ~isnumeric(C.nnvnet) && is_nnvnet_valid(C.nnvnet);
+            % CONFIDENT WRONG verdict. Require both C.net and C.nnvnet to be REAL network OBJECTS (not a
+            % numeric/char/string/struct substitution) and fall through to a fresh re-import otherwise. We use
+            % `isobject(x) && ~isstring(x)` because a `double`/`char`/`struct`/`cell` substitution is not an
+            % object, and a `string` IS reported as an object by isobject so it needs the extra ~isstring
+            % (verified 2026-06-26). Can only help: a valid cache's net/nnvnet are class objects, so genuine
+            % HITs are unaffected.
+            isNetObj   = @(x) isobject(x) && ~isstring(x);
+            cacheNetOK = isfield(C,'net') && isNetObj(C.net) ...
+                      && isfield(C,'nnvnet') && isNetObj(C.nnvnet) && is_nnvnet_valid(C.nnvnet);
             if isfield(C,'onnx_bytes') && isequal(C.onnx_bytes, d.bytes) ...
                     && abs(C.onnx_datenum - d.datenum) < 1e-9 ...
                     && isfield(C,'nnv_ver') && strcmp(C.nnv_ver, i_nnv_ver()) ...

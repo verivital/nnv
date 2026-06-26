@@ -1997,7 +1997,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         "vggnet",            4,  12, 1.5, 20
         "traffic_signs",     20, 40, 5,   1000  % manifest + BINARIZED (Sign): PGD is gradient-blind, so
                                                  % the per-coord box VERTICES in create_random_examples
-                                                 % (half of nRand = 500, > the ~400 the seeded probe needs)
+                                                 % (~(nRand-2)/2 = 499, > the ~400 the seeded probe needs)
                                                  % are the PRIMARY finder. Reliably decides the small-net
                                                  % (30x30) sats; the 64x64 net's per-sample forward is too
                                                  % slow to exhaust enough vertices in-budget -> needs a
@@ -2120,23 +2120,23 @@ function v = i_cfg_ver()
 end
 
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,inputFormat)
-    xB = Box(lb, ub); % lb, ub must be vectors
-    % DETERMINISTIC: seed before drawing so the falsifier is REPRODUCIBLE -- a random falsifier is a
-    % defect (the official run can draw a different RNG state than dev and miss a witness we saw, or
-    % vice versa). Fixed seed + the per-instance box -> stable-yet-instance-diverse vertices.
-    rng(0);
-    % Sample half per-coord BERNOULLI VERTICES (each coord independently at lb OR ub) and half
-    % uniform interior. Vertices are the ONLY way to falsify GRADIENT-BLIND nets -- binarized /
-    % Sign / quantized models (e.g. traffic_signs): a Sign activation has zero gradient a.e., so
-    % PGD cannot descend and the adversarials sit at L-inf box CORNERS. Vertices are valid points
-    % in [lb,ub], so this can only ADD candidate sats (each is property-checked here + the witness
-    % is validate_witness/ORT-replayed before emit) -- harmless to smooth nets, where PGD is the
-    % primary finder and this random set is only a fallback. (Plan §4.5.)
+    % Draw half per-coord BERNOULLI VERTICES (each coord independently at lb OR ub) and half uniform
+    % interior. Vertices are the ONLY way to falsify GRADIENT-BLIND nets -- binarized / Sign / quantized
+    % models (e.g. traffic_signs): a Sign activation has zero gradient a.e., so PGD cannot descend and
+    % the adversarials sit at L-inf box CORNERS. Vertices are valid points in [lb,ub], so this can only
+    % ADD candidate sats (each is property-checked here + the witness is validate_witness/ORT-replayed
+    % before emit) -- harmless to smooth nets, where PGD is the primary finder and this is only a fallback.
+    % DETERMINISTIC via a LOCAL RNG stream so the falsifier is REPRODUCIBLE (a random falsifier is a
+    % defect: the official run could draw a different state than dev) WITHOUT resetting the GLOBAL rng --
+    % which would change the caller's stream for the rest of the session (esp. the persistent-session
+    % runner). 'twister' Seed 0 matches the default generator, so the draws are identical to a `rng(0)`
+    % version but with no global side effect. (Plan §4.5.)
+    rs = RandStream('twister', 'Seed', 0);
     nrand = max(0, nR - 2);
-    nv = floor(nrand/2);
+    nv = floor(nrand/2);                  % => (nR-2)/2 vertices (the rest uniform); lb,ub added below
     ncont = nrand - nv;
-    if nv > 0, Xvert = lb + (ub - lb) .* (rand(numel(lb), nv) < 0.5); else, Xvert = []; end
-    if ncont > 0, Xcont = xB.sample(ncont); else, Xcont = []; end
+    if nv > 0, Xvert = lb + (ub - lb) .* (rand(rs, numel(lb), nv) < 0.5); else, Xvert = []; end
+    if ncont > 0, Xcont = lb + (ub - lb) .* rand(rs, numel(lb), ncont); else, Xcont = []; end
     xRand = [lb, ub, Xvert, Xcont];
     if needReshape
         if needReshape ==2 % for collins only (full_window_40) and metaroom

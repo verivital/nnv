@@ -1,0 +1,3 @@
+# Generated weight/instance bundles (produced by extract_weights.py from the
+# benchmark ONNX + vendored npz; not checked in -- regenerate locally).
+*.mat

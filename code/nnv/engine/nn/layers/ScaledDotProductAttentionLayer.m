@@ -161,8 +161,10 @@ classdef ScaledDotProductAttentionLayer < handle
                     error('Invalid number of arguments');
             end
 
-            % Dispatch based on method
-            if strcmp(method, 'approx-star') || contains(method, 'relax-star')
+            % Dispatch based on method. Attention is nonlinear (bilinear QK^T +
+            % softmax + A*V), so every star-family method routes to the same SOUND
+            % over-approximation (there is no exact star reach to fall back to).
+            if any(strcmp(method, {'approx-star','exact-star','abs-dom'})) || contains(method, 'relax-star')
                 S = obj.reach_star_approx(Q_set, K_set, V_set, lp_solver);
             elseif strcmp(method, 'approx-zono')
                 S = obj.reach_zono_approx(Q_set, K_set, V_set);
@@ -172,69 +174,49 @@ classdef ScaledDotProductAttentionLayer < handle
         end
 
         function S = reach_star_approx(obj, Q_set, K_set, V_set, lp_solver)
-            % Over-approximate reachability using Star sets
+            % SOUND over-approximate reachability of softmax(scale*Q*K')*V as a
+            % Star, valid for MULTI-TOKEN attention. Q,K,V are matrix-Stars whose
+            % column-major reshape is [N x D] (D = QueryDim, N = seq length).
             %
-            % This implements a bounds-based approach:
-            % 1. Get bounds on Q, K, V
-            % 2. Compute bounds on QK^T using interval arithmetic
-            % 3. Apply softmax bounds
-            % 4. Compute output bounds
-
+            %   single token (N=1): softmax over one key == 1, so attention == V,
+            %     and we return V_set unchanged (exact).
+            %   multi token: SoftmaxAttn.singleHeadAttn computes sound score bounds
+            %     (Rump interval QK'), the exact correlated row-softmax bound, and a
+            %     sign-aware symbolic A*V envelope that keeps V's predicates -- so
+            %     the output stays correlated with the value path (not a box-lift).
             if nargin < 5
-                lp_solver = 'linprog';
+                lp_solver = 'linprog'; %#ok<NASGU>  (bounds use the cheap estimate path)
             end
-
-            % Get dimensions
-            n_q = Q_set.dim;
-            n_k = K_set.dim;
-            n_v = V_set.dim;
-            % NOTE: the multi-token soundness guard now lives in
-            % compute_attention_bounds (the single chokepoint shared by the star
-            % AND zono reach paths) so the zono path can no longer bypass it.
-
-            % Get bounds on inputs
-            Q_lb = zeros(n_q, 1);
-            Q_ub = zeros(n_q, 1);
-            for i = 1:n_q
-                Q_lb(i) = Q_set.getMin(i, lp_solver);
-                Q_ub(i) = Q_set.getMax(i, lp_solver);
+            D = obj.QueryDim;
+            if isempty(D) || D == 0
+                error('ScaledDotProductAttentionLayer:noDim', ...
+                    'QueryDim must be set to reach (head/key dimension).');
             end
-
-            K_lb = zeros(n_k, 1);
-            K_ub = zeros(n_k, 1);
-            for i = 1:n_k
-                K_lb(i) = K_set.getMin(i, lp_solver);
-                K_ub(i) = K_set.getMax(i, lp_solver);
+            N = round(Q_set.dim / D);
+            if N * D ~= Q_set.dim
+                error('ScaledDotProductAttentionLayer:shape', ...
+                    'Q dim %d not a multiple of QueryDim %d', Q_set.dim, D);
             end
-
-            V_lb = zeros(n_v, 1);
-            V_ub = zeros(n_v, 1);
-            for i = 1:n_v
-                V_lb(i) = V_set.getMin(i, lp_solver);
-                V_ub(i) = V_set.getMax(i, lp_solver);
+            if N <= 1
+                S = V_set;                       % single token: attention == V (exact)
+                return;
             end
-
-            % Compute attention output bounds
-            [out_lb, out_ub] = obj.compute_attention_bounds(Q_lb, Q_ub, ...
-                K_lb, K_ub, V_lb, V_ub);
-
-            % Create output Star from bounds
-            S = Star(out_lb, out_ub);
+            if V_set.dim ~= N*D
+                error('ScaledDotProductAttentionLayer:shape', ...
+                    'V dim %d ~= N*D %d (this sound path needs ValueDim==QueryDim)', V_set.dim, N*D);
+            end
+            S = SoftmaxAttn.singleHeadAttn(Q_set, K_set, V_set, obj.Scale, [N D], 'estimate');
         end
 
         function Z = reach_zono_approx(obj, Q_set, K_set, V_set)
-            % Over-approximate reachability using Zonotopes
-
-            % Get bounds from zonotopes
-            [Q_lb, Q_ub] = Q_set.getBounds();
-            [K_lb, K_ub] = K_set.getBounds();
-            [V_lb, V_ub] = V_set.getBounds();
-
-            % Compute attention output bounds
-            [out_lb, out_ub] = obj.compute_attention_bounds(Q_lb, Q_ub, ...
-                K_lb, K_ub, V_lb, V_ub);
-
-            % Create output Zonotope from bounds
+            % Over-approximate reachability returning a (box) Zonotope. Uses the
+            % same SOUND multi-token star reach, then encloses it in an axis-aligned
+            % zonotope. Q,K,V may be Zono/Star (toStar handles either).
+            if isa(Q_set,'Zono'), Q_set = Q_set.toStar(); end
+            if isa(K_set,'Zono'), K_set = K_set.toStar(); end
+            if isa(V_set,'Zono'), V_set = V_set.toStar(); end
+            S = obj.reach_star_approx(Q_set, K_set, V_set, 'linprog');
+            [out_lb, out_ub] = S.estimateRanges();
             center = (out_lb + out_ub) / 2;
             generators = diag((out_ub - out_lb) / 2);
             Z = Zono(center, generators);

@@ -517,22 +517,37 @@ end
 assert(errored, 'Test 28 failed: straddle-zero divisor must raise divisorStraddlesZero');
 fprintf('Test 28 PASSED (ElementwiseDivisionLayer MC-sound + straddle-zero fail-loud)\n');
 
-%% Test 29: DynamicMatmulLayer reach ERRORS (no sound bound implemented); evaluate exact
-% The previous reach took ELEMENT-WISE interval products of the flattened
-% operands -- not a sound bound for a matrix product (out(i,j) sums k bilinear
-% terms and the output shape differs). It must refuse rather than mislead.
+%% Test 29: DynamicMatmulLayer reach -- sound with operand shapes, refuses without
+% Without shapes a sound interval matmul is impossible (out(i,j) sums k bilinear
+% terms), so reach refuses (reachNeedsShapes). With LeftShape/RightShape set it
+% returns a SOUND Rump interval-matmul enclosure (every sampled product contained).
 L29 = DynamicMatmulLayer('mm29', 2, 1, {'in1','in2'}, {'out'});
 errored = false;
 try
     L29.reach({Star(zeros(4,1), ones(4,1)), Star(zeros(4,1), ones(4,1))}, 'approx-star');
 catch ME29
-    errored = strcmp(ME29.identifier, 'DynamicMatmulLayer:reachNotImplemented');
+    errored = strcmp(ME29.identifier, 'DynamicMatmulLayer:reachNeedsShapes');
 end
-assert(errored, 'Test 29 failed: DynamicMatmul reach must raise reachNotImplemented');
+assert(errored, 'Test 29 failed: DynamicMatmul reach must refuse without operand shapes');
+% with shapes: sound 2x2 @ 2x2 (column-major reshape), MC-contained
+rng(29); L29.LeftShape = [2 2]; L29.RightShape = [2 2];
+Aset = Star(randn(4,1)-0.5, randn(4,1)+0.5);  % ensure lb<ub
+al = min(Aset.V(:,1)-0.5, Aset.V(:,1)+0.5); Aset = Star(al, al+1);
+Bset = Star(zeros(4,1), ones(4,1));
+S29 = L29.reach({Aset, Bset}, 'approx-star');
+assert(isa(S29,'Star') && S29.dim == 4, 'Test 29: sound reach shape');
+for t = 1:50
+    a = Aset.predicate_lb + (Aset.predicate_ub-Aset.predicate_lb).*rand(Aset.nVar,1);
+    b = Bset.predicate_lb + (Bset.predicate_ub-Bset.predicate_lb).*rand(Bset.nVar,1);
+    av = Aset.V(:,1)+Aset.V(:,2:end)*a; bv = Bset.V(:,1)+Bset.V(:,2:end)*b;
+    prod = reshape(reshape(av,[2 2])*reshape(bv,[2 2]),[],1);
+    assert(soundness_test_utils.verify_star_containment(S29, prod, 1e-6), ...
+        'Test 29 failed: DynamicMatmul reach UNSOUND sample %d', t);
+end
 A29 = rand(3,4,'single'); B29 = rand(4,2,'single');
 assert(max(abs(double(L29.evaluate({A29,B29}) - A29*B29)), [], 'all') < 1e-5, ...
     'Test 29 failed: evaluate must stay exact');
-fprintf('Test 29 PASSED (DynamicMatmulLayer reach fail-loud; evaluate exact)\n');
+fprintf('Test 29 PASSED (DynamicMatmulLayer sound-with-shapes / refuse-without; evaluate exact)\n');
 
 %% Test 30: PlaceholderLayer ACTIVE ops reach soundly or refuse (identity was unsound)
 % evaluate() computes Sign/Abs/Exp/... and Constant/Transpose, but reach() was

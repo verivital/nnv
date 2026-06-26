@@ -284,21 +284,32 @@ classdef ViTReach
             info = struct('nodes', nodes, 'nCand', T);
         end
 
-        function rob = verifyBoxSplits(M, lb, ub, label, opt, splits)
+        function [rob, bestLP] = verifyBoxSplits(M, lb, ub, label, opt, splits)
             % robustness of [lb,ub] under forced ReLU phases: estimate margins
-            % first (cheap), then an LP (honouring the split half-spaces) on any
-            % class the estimate cannot clear. rob = 1 robust, 2 unknown.
+            % first (cheap), then an LP (honouring the split half-spaces) on the
+            % classes the estimate cannot clear -- WORST estimate first, short-
+            % circuiting on the first LP that stays <=0 (a node is usually not
+            % robust, so this does one LP, not nine). rob = 1 robust, 2 unknown.
+            % bestLP = the LP value of the binding (worst) class (for reporting).
             o = opt; o.splits = splits;
             L = ViTReach.reach(M, lb, ub, o);
-            lab = label + 1; rob = 1;
+            lab = label + 1;
+            est = inf(10,1); cdir = cell(10,1);
             for i = 1:10
                 if i == lab, continue; end
-                cc = zeros(10,1); cc(lab) = 1; cc(i) = -1;
+                cc = zeros(10,1); cc(lab) = 1; cc(i) = -1; cdir{i} = cc;
                 ms = L.affineMap(cc', 0);
-                [e,~] = ms.estimateRanges();
-                if e > 0, continue; end                    % cleared by estimate
-                if ms.getMin(1,'linprog') > 0, continue; end  % cleared by LP (uses splits)
-                rob = 2; return;
+                [e,~] = ms.estimateRanges(); est(i) = e;
+            end
+            unresolved = find(est <= 0);
+            [~, ord] = sort(est(unresolved), 'ascend');     % worst (most negative) first
+            unresolved = unresolved(ord);
+            rob = 1; bestLP = min(est(est < inf));
+            for j = 1:numel(unresolved)
+                i = unresolved(j);
+                mlb = L.affineMap(cdir{i}', 0).getMin(1, 'linprog');
+                if j == 1, bestLP = mlb; end
+                if mlb <= 0, rob = 2; bestLP = mlb; return; end   % binding class fails -> not robust
             end
         end
 

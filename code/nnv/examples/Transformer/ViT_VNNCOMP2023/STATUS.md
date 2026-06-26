@@ -78,13 +78,19 @@ Measured levers on `ibp_3_3_8` inst 11 (single-shot **estimate** ε\*=0.625/255)
   ε ∈ {0.80, 0.90, 1.00}/255 comparing single-shot-LP vs BaB; BaB ≥ single-shot-LP
   by construction (the root is the no-split case), strictly greater when a split
   flips the binding margin. See the script output for the per-ε numbers.
-- Full-eps LP count: `lp_fulleps.m` runs the LP margin at ε=1/255. It roughly
-  **halves the margin gap** vs estimate (inst 1: LP min-margin −0.19 vs estimate
-  −0.56) but stays negative — so even LP single-shot is **0/15 at full ε** on these
-  *filtered* hard instances. (The LP on a ~5600-predicate Star costs ~15–110 s/inst,
-  so this is a spot-check, not a full sweep.) Closing the remaining gap needs the
-  activation-split BaB to go deeper, and ideally to also split the attention
-  nonlinearity — consistent with α,β-CROWN's 79/200 being a complete-method result.
+- Full-eps LP margins (`lp_fulleps.m`) are markedly tighter than estimate but still
+  negative on every instance: the closest, `ibp_3_3_8` inst 11, has estimate margin
+  −0.2237 and **LP margin −0.0627** (dual-simplex, ~13 s) — tantalisingly close, but
+  short.
+- **Empirical full-ε BaB sweep** (`bab_sweep_close.m`, the FF-ReLU phase-split BaB
+  on the 5 closest ibp instances, ≤55 nodes each, ~20 min/inst): **0/5 verified at
+  ε=1/255.** The decisive case — inst 11, single-shot LP −0.0627 — did **not** flip
+  even after 55 ReLU-phase-split nodes. This is direct evidence (not inference) that
+  FF-ReLU-split BaB cannot close the gap: the binding looseness is the box-lifted
+  softmax attention *weights*, which sit *upstream* of the FF ReLUs, so adding ReLU
+  half-spaces barely moves the binding margin. Closing it requires a symbolic
+  softmax-weight relaxation **and** BaB over the *attention* nonlinearity — which is
+  exactly what α,β-CROWN's 79/200 does, and is the documented future work.
 
 ### Honest limitations
 

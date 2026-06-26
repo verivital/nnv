@@ -144,14 +144,14 @@ end
 
 function [loss, grad] = loss_and_grad(net, dlx, GG, gg)
     y = predict(net, dlx); y = y(:);
-    % Full-disjunction min-margin: clause h is satisfied iff max_i(G_h*y - g_h) <= 0, and
-    % the disjunction is satisfied iff the EASIEST clause is -> descend min_h max_i(...).
-    % min/max sub-gradients route the step to the currently-closest clause + its worst row.
-    cm = max(GG{1} * y - gg{1}(:));
+    % Full-disjunction min-margin: clause h is satisfied iff max_i(G_h*y - g_h) <= 0, and the
+    % disjunction iff the EASIEST clause is -> descend min_h max_i(...). Accumulate the min
+    % INCREMENTALLY (no growing vector in the dlfeval hot path; mirrors nn_margin); the min/max
+    % sub-gradients route the step to the currently-closest clause + its worst row.
+    loss = max(GG{1} * y - gg{1}(:));
     for h = 2:numel(GG)
-        cm = [cm; max(GG{h} * y - gg{h}(:))]; %#ok<AGROW>  (traced dlarray concat)
+        loss = min(loss, max(GG{h} * y - gg{h}(:)));
     end
-    loss = min(cm);
     grad = dlgradient(loss, dlx);
 end
 

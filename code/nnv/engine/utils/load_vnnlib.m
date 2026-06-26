@@ -204,12 +204,23 @@ function tf = is_vnnlib2(propertyFile)
     end
 end
 
-% combine multiple lines into a single one if they belong to a single statement/assertion
+% combine multiple lines into a single one if they belong to a single statement/assertion.
+% ITERATIVE (was recursive: one stack frame per appended line -> a statement spanning many lines,
+% e.g. the big multi-line output disjunction of the larger traffic_signs nets, overflowed the stack
+% -> "Out of memory / infinite recursion"). The loop has no depth limit. On EOF before the parens
+% balance (a truncated/malformed spec) we ERROR with a clear message: the old recursive code appended
+% fgetl's numeric -1 and recursed forever (-> OOM), and a silent break-and-return would leave tline
+% unbalanced so the CALLER (load_vnnlib's main loop, which re-enters merge_lines on any unbalanced
+% line) would loop forever (hang). Erroring fails loudly instead, and the runner's load guard turns it
+% into a sound 'unknown'. Well-formed specs always balance before EOF, so they never reach the error.
 function tline = merge_lines(tline, fileID)
-    if count(tline, '(') ~= count(tline, ')')
+    while count(tline, '(') ~= count(tline, ')')
         nextLine = fgetl(fileID);
+        if ~ischar(nextLine)   % EOF before parens balanced -> truncated/malformed spec
+            error('load_vnnlib:unbalancedEOF', ...
+                  'Unbalanced parentheses at EOF while merging a multi-line vnnlib statement (truncated or malformed spec).');
+        end
         tline = [tline nextLine];
-        tline = merge_lines(tline, fileID);
     end
 end
 

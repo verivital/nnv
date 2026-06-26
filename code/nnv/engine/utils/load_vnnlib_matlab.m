@@ -102,10 +102,16 @@ end % end function
 %% Helper Functions
 
 function tline = merge_lines(tline, fileID)
-    if count(tline, '(') ~= count(tline, ')')
+    % ITERATIVE (was recursive: one stack frame per appended line -> stack overflow / OOM on a
+    % statement spanning many lines, e.g. a large input box or output disjunction). Error on EOF
+    % before the parens balance (truncated/malformed spec) rather than recursing on -1 forever.
+    while count(tline, '(') ~= count(tline, ')')
         nextLine = fgetl(fileID);
+        if ~ischar(nextLine)   % EOF before parens balanced
+            error('load_vnnlib:unbalancedEOF', ...
+                  'Unbalanced parentheses at EOF while merging a multi-line vnnlib statement.');
+        end
         tline = [tline nextLine];
-        tline = merge_lines(tline, fileID);
     end
 end
 

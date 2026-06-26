@@ -2076,10 +2076,20 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
             if contains(wmsg,'Default objects will be substituted') || contains(wmsg,'Unable to load instances of class')
                 error('netcache:degraded','custom-layer +package missing -> re-import (%s)', wmsg);
             end
+            % TYPE-VALIDITY guard (soundness): a silent dlnetwork.loadobj failure can substitute a plain
+            % `double` for C.net while the metadata (bytes/datenum/ver) still matches -> the HIT is accepted
+            % and a later dot-index throws "Dot indexing is not supported for variables of type double"
+            % (cifar100, 5 instances) -> unknown; worse, a partially-substituted net could reach and emit a
+            % CONFIDENT WRONG verdict. Reject any cache whose net is not a real network object (or whose NNV
+            % net is invalid) and fall through to a fresh re-import. Can only help: a valid cache has a
+            % non-numeric C.net + a valid C.nnvnet, so genuine HITs are unaffected.
+            cacheNetOK = isfield(C,'net') && ~isnumeric(C.net) ...
+                      && isfield(C,'nnvnet') && ~isnumeric(C.nnvnet) && is_nnvnet_valid(C.nnvnet);
             if isfield(C,'onnx_bytes') && isequal(C.onnx_bytes, d.bytes) ...
                     && abs(C.onnx_datenum - d.datenum) < 1e-9 ...
                     && isfield(C,'nnv_ver') && strcmp(C.nnv_ver, i_nnv_ver()) ...
-                    && isfield(C,'cfg_ver') && strcmp(C.cfg_ver, i_cfg_ver())   % invalidate on config change
+                    && isfield(C,'cfg_ver') && strcmp(C.cfg_ver, i_cfg_ver()) ...   % invalidate on config change
+                    && cacheNetOK                                                    % reject substituted-double / invalid net
                 net=C.net; nnvnet=C.nnvnet; needReshape=C.needReshape; reachOptionsList=C.reachOptionsList;
                 inputSize=C.inputSize; inputFormat=C.inputFormat; nRand=C.nRand; falsifyOpts=C.falsifyOpts;
                 fprintf('net cache HIT (%s)\n', p);

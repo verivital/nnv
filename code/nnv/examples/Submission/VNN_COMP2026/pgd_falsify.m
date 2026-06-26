@@ -62,10 +62,19 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
     for r = 4:n_restarts, seeds{r} = lb + (ub-lb).*rand(nIn,1); end
 
     nH = numel(Hs);
+    % Precompute ALL unsafe-set (clause) constraints ONCE. The output property is a
+    % DISJUNCTION over Hs -- a counterexample lies in ANY one of them -- so the gradient
+    % should chase whichever clause is currently EASIEST to satisfy (a full-disjunction
+    % min-margin / CW multi-target loss), NOT a single clause cycled per restart. The old
+    % `h=mod(r-1,nH)+1` left the truly-vulnerable class untargeted when nH was large (the
+    % many-target image specs: tinyimagenet/cifar100/challenging) -> missed findable sats.
+    % SAT-only: this only changes the descent DIRECTION; the per-step found-check below
+    % still tests every clause and any witness is downstream validate_witness/ORT-replayed,
+    % so this can only ADD sats, never flip an unsat. nH==1 reduces to the old loss exactly.
+    GG = cell(1, nH); gg = cell(1, nH);
+    for h = 1:nH, [GG{h}, gg{h}] = halfspace_Gg(Hs(h)); end
     for r = 1:n_restarts
         if toc(t0) > max_time, return; end    % time budget exhausted -> let reach run
-        h = mod(r-1, nH) + 1;                 % steer toward one unsafe set per restart
-        [G, g] = halfspace_Gg(Hs(h));
         xn = flat_to_net_arr(seeds{r}, inputSize, needReshape);   % optimize in net space
         y = forward_eval(net, xn, fmt, is_nn);     % the seed itself may already be a CE
         for hh = 1:nH                              % (e.g. the ub corner / a random seed);
@@ -76,10 +85,10 @@ function [cex, found] = pgd_falsify(net, lb, ub, Hs, inputSize, inputFormat, nee
         end
         for it = 1:n_steps
             if is_nn
-                gnArr = nn_margin_grad(net, xn, G, g, SPn, use_spsa);   % numerical grad
+                gnArr = nn_margin_grad(net, xn, GG, gg, SPn, use_spsa);   % numerical grad
             else
                 dlx = to_dlarray(xn, fmt);
-                [~, grad] = dlfeval(@loss_and_grad, net, dlx, G, g);
+                [~, grad] = dlfeval(@loss_and_grad, net, dlx, GG, gg);
                 gnArr = reshape(double(extractdata(grad)), nsz);      % drop padded batch dim
             end
             if use_fgsm && it == 1
@@ -133,10 +142,16 @@ function dlx = to_dlarray(arr, fmt)
     dlx = dlarray(single(arr), fmt);
 end
 
-function [loss, grad] = loss_and_grad(net, dlx, G, g)
+function [loss, grad] = loss_and_grad(net, dlx, GG, gg)
     y = predict(net, dlx); y = y(:);
-    margins = G * y - g(:);          % unsafe set {y : G*y <= g}; drive all <= 0
-    loss = max(margins);
+    % Full-disjunction min-margin: clause h is satisfied iff max_i(G_h*y - g_h) <= 0, and the
+    % disjunction iff the EASIEST clause is -> descend min_h max_i(...). Accumulate the min
+    % INCREMENTALLY (no growing vector in the dlfeval hot path; mirrors nn_margin); the min/max
+    % sub-gradients route the step to the currently-closest clause + its worst row.
+    loss = max(GG{1} * y - gg{1}(:));
+    for h = 2:numel(GG)
+        loss = min(loss, max(GG{h} * y - gg{h}(:)));
+    end
     grad = dlgradient(loss, dlx);
 end
 
@@ -155,9 +170,9 @@ function y = forward_eval(net, xn, fmt, is_nn)
     y = double(y(:));
 end
 
-function gnArr = nn_margin_grad(net, xn, G, g, SPn, use_spsa)
-    % Numerical gradient of the violation margin max(G*evaluate(xn) - g) w.r.t. the
-    % net-input array xn, for NNV NN nets (which have no autodiff). Two estimators:
+function gnArr = nn_margin_grad(net, xn, GG, gg, SPn, use_spsa)
+    % Numerical gradient of the full-disjunction min-margin min_h max_i(G_h*evaluate-g_h)
+    % w.r.t. the net-input array xn, for NNV NN nets (which have no autodiff). Two estimators:
     %  - finite difference (nIn forward evals): exact-ish, used for small inputs.
     %  - SPSA (2 forward evals): a single random +-1 direction, used for high-dim
     %    image nets so cost stays O(1) per step instead of O(nIn).
@@ -166,23 +181,25 @@ function gnArr = nn_margin_grad(net, xn, G, g, SPn, use_spsa)
     if use_spsa
         delta = sign(rand(size(xn)) - 0.5); delta(delta == 0) = 1;
         c = max(1e-5, 1e-2 .* SPn);
-        mp = nn_margin(net, xn + c .* delta, G, g);
-        mm = nn_margin(net, xn - c .* delta, G, g);
+        mp = nn_margin(net, xn + c .* delta, GG, gg);
+        mm = nn_margin(net, xn - c .* delta, GG, gg);
         gnArr = ((mp - mm) / 2) .* (delta ./ c);
     else
-        m0 = nn_margin(net, xn, G, g);
+        m0 = nn_margin(net, xn, GG, gg);
         gnArr = zeros(size(xn));
         hstep = max(1e-6, 1e-3 .* SPn);
         for d = 1:numel(xn)
             xp = xn; xp(d) = xn(d) + hstep(d);
-            gnArr(d) = (nn_margin(net, xp, G, g) - m0) / hstep(d);
+            gnArr(d) = (nn_margin(net, xp, GG, gg) - m0) / hstep(d);
         end
     end
 end
 
-function m = nn_margin(net, xn, G, g)
+function m = nn_margin(net, xn, GG, gg)
     y = double(reshape(net.evaluate(xn), [], 1));
-    m = max(G * y - g(:));          % unsafe set {y : G*y <= g}; minimize the worst margin
+    % full-disjunction min-margin (see loss_and_grad): the easiest unsafe clause
+    m = max(GG{1} * y - gg{1}(:));
+    for h = 2:numel(GG), m = min(m, max(GG{h} * y - gg{h}(:))); end
 end
 
 % ---- flat-ONNX <-> network-input layout (mirrors run_vnncomp_instance) ----

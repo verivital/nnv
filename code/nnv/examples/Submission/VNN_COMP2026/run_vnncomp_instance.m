@@ -2110,7 +2110,7 @@ function v = i_cfg_ver()
 % CODE change to load_vnncomp_network's config (e.g. acasxu reach ladder / numCores / PGD budget) would
 % be masked by a stale cache (served the OLD config -> wrong/slow verdicts). BUMP this string whenever
 % the config logic in load_vnncomp_network changes, to invalidate all stale caches.
-    v = '2026-06-20.acas-batched-falsifier';
+    v = '2026-06-25.pgd-full-disjunction-min-margin';
 end
 
 function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,inputFormat)

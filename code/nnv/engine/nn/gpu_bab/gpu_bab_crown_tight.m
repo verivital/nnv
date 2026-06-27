@@ -121,9 +121,12 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
                 % stable (ibpLo>=0 or ibpHi<=0) has an EXACT relaxation (slope 1/0), so the downstream backward
                 % uses that exact slope regardless of [pl,pu] tightness -> skip its CROWN backward, fill from IBP.
                 ibpLo = []; ibpHi = [];
-                if strcmp(tk,'relu') && ~isempty(getenv('NNV_CROWN_IBP_PREFILTER')) ...
-                        && ~isempty(ibpLd) && numel(ibpLd) >= src+1 && ~isempty(ibpLd{src+1})
-                    ibpLo = ibpLd{src+1}; ibpHi = ibpUd{src+1};
+                if strcmp(tk,'relu') && ~isempty(getenv('NNV_CROWN_IBP_PREFILTER'))
+                    if ~isempty(ibpLd) && numel(ibpLd) >= src+1 && ~isempty(ibpLd{src+1})
+                        ibpLo = ibpLd{src+1}; ibpHi = ibpUd{src+1};            % SOUND single-emit path (sound DOUBLE IBP from line 54)
+                    elseif strcmp(precision,'double') && ~isempty(ibpL) && numel(ibpL) >= src+1 && ~isempty(ibpL{src+1})
+                        ibpLo = ibpL{src+1}; ibpHi = ibpU{src+1};             % FP64-CONFIRM path (line 75 IBP is double here = sound; no widening -> VERDICT-IDENTICAL) -- the broad cifar100 win
+                    end
                 end
                 if doProf, tL_ = tic; end
                 [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag, ibpLo, ibpHi);

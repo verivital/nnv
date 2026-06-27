@@ -229,6 +229,18 @@ function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU
             Ck(sub2ind([nb nk], (1:nb).', rows(:))) = 1;        % a row-block of eye(nk)
             pu(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
             pl(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
+            if strcmp(precision,'single') && ~isempty(getenv('NNV_DERR_ACTUAL'))
+                % P2 (advisor): the NET |fl32-fl64| roundoff of THIS interm-bound chunk (same call the DECOMP logs as
+                % nS=nb). Compare to the per-op measured-delta derr at matched depth -> is the ~500x cancellation gap real?
+                pld = i_backward(ops, src, double(Ck), x_lb, x_ub, preL, preU, 'double', true, {});
+                act = abs(double(gather(pl(rows))) - double(gather(pld(:))));
+                as = sort(act); medi = as(max(1, round(0.5*numel(as))));
+                fid_a = fopen(getenv('NNV_DERR_ACTUAL'), 'a');
+                if fid_a > 0
+                    fprintf(fid_a, 'INTERM src=%d nk=%d nb=%d max_net=%.6g median_net=%.6g\n', src, nk, nb, max(act), medi);
+                    fclose(fid_a);
+                end
+            end
             s0 = s0 + B;
         catch ME
             % AUTO-CHUNK: a memory budget B chosen too large for the live device/host still OOMs. B

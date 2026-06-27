@@ -389,6 +389,8 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     doErr = strcmp(precision, 'single') && ~isempty(vmag);
     derr = zeros(nS, 1, precision);
     derr_mm = zeros(nS, 1, precision);              % P2 step-0 decomp (env NNV_DERR_DECOMP, read-only): the matmul-reduction subset of derr
+    derr_flr = zeros(nS, 1, precision);             % P2 step-0 decomp: the NON-reducible FLOOR (measured-delta can't shrink it): relu-slope i_dt(A,vin,8) + d-add chains us*dmag + relu-4u + final adds
+    derr_slp = zeros(nS, 1, precision);             % P2 step-0 decomp: the relu-slope i_dt(A,vin,8) term alone (advisor-flagged: gamma_8 small but x a full |A|*vin reduction)
     doDecomp = ~isempty(getenv('NNV_DERR_DECOMP'));
     dmag = zeros(nS, 1, precision);                 % running sum of |d-terms|: the cross-op d add-chain
     us   = single(eps('single') / 2);               % rounding (each d=d+t injects u*|partial sum| <= u*dmag)
@@ -448,7 +450,9 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 ccl = double(abs(cL)) + double(abs(cU));
                 derr = derr + i_dt(A, vab + vab, 2) ...
                             + i_dt(A, ccl, wa);
+                if doDecomp, derr_flr = derr_flr + i_dt(A, vab + vab, 2); end       % product McCormick slope (floor, m=2); i_dt(A,ccl,wa) intercept is REDUCIBLE
                 dmag = dmag + i_draw(A, ccl); derr = derr + us * dmag;
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                   % d-add chain (floor)
             end
             if lower
                 Ax = Apos .* aL.' + Aneg .* aU.';
@@ -479,6 +483,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 omg = double(abs(W)) * double(vin) + double(abs(b));              % DOUBLE-computed magnitude majorant
                 t_mm = i_dt(A, omg, size(A,2)); derr = derr + t_mm; if doDecomp, derr_mm = derr_mm + t_mm; end
                 dmag = dmag + i_draw(A, abs(b)); derr = derr + us * dmag;          % d=d+A*b add-chain
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                  % d-add chain (floor)
             end
             d = d + A * b;
             A = A * W;
@@ -496,6 +501,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                             + single(i_gamma(nO, 'double') * double(dmc));          % bias reduction length (review #5)
                 if doDecomp, derr_mm = derr_mm + t_mm; end
                 dmag = dmag + dmc; derr = derr + us * dmag;                         % d=d+bias add-chain
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                   % d-add chain (floor)
             end
             [A, d] = i_conv_backward(A, d, op, precision);
         elseif strcmp(op.type, 'normaffine')
@@ -504,7 +510,9 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 tfm = i_bcast_flat(abs(op.shift), op.shape, precision);            % |shift| flat
                 derr = derr + i_dt(A, double(sfm) .* double(vin), 2) ...           % (|A|.*sf')*vin == |A|*(sf.*vin)
                             + i_dt(A, tfm, numel(tfm));                            % the missing intercept term
+                if doDecomp, derr_flr = derr_flr + i_dt(A, double(sfm) .* double(vin), 2); end  % slope-scale (floor, m=2); intercept i_dt(A,tfm,.) is REDUCIBLE
                 dmag = dmag + i_draw(A, tfm); derr = derr + us * dmag;             % d=d+A*tf add-chain
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                  % d-add chain (floor)
             end
             [A, d] = i_normaffine_backward(A, d, op, precision);
         elseif strcmp(op.type, 'avgpool')
@@ -515,6 +523,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             if doErr   % selection exact (0/1); conservative term for the umax relaxation intercept + its d-add
                 derr = derr + i_dt(A, vin + vmag{k + 1}, 2*prod(op.pool));
                 dmag = dmag + i_draw(A, vmag{k + 1}); derr = derr + us * dmag;
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                   % d-add chain (floor); i_dt intercept term is REDUCIBLE
             end
         else                                  % relu relaxation (sign-aware), preL/preU{k}
             l = preL{k}; u = preU{k};
@@ -525,7 +534,12 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                        % the au=u/(u-l)/bu=-au*l derivation rounding (review #11), independent of width
                 derr = derr + i_dt(A, vin, 8) ...    % m=8: slope multiply (~u) + the relu RELAXATION-DERIVATION rounding (au=u/(u-l),bu=-au*l in single dips the relaxed line below relu by ~3u*vin at z=u; this scales with vin, NOT bu, so the +4u*|bu| term below does NOT cover it when u>>|l| -> bu->0). adversarial review 2026-06-18.
                             + single((i_gamma(numel(bu), 'double') + double(4)*double(us)) * (double(abs(A)) * double(abs(bu))));
+                if doDecomp   % read-only floor decomp: relu-slope (floor) + the 4u relaxation-derivation slack (floor); the gamma_width*|A|*|bu| part is REDUCIBLE so excluded from floor
+                    t_slp = i_dt(A, vin, 8); derr_slp = derr_slp + t_slp;
+                    derr_flr = derr_flr + t_slp + single(double(4)*double(us) * (double(abs(A)) * double(abs(bu))));
+                end
                 dmag = dmag + i_draw(A, abs(bu)); derr = derr + us * dmag;        % d=d+(Aneg|Apos)*bu add-chain
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                 % d-add chain (floor)
             end
             if lower
                 d = d + Aneg * bu;
@@ -556,23 +570,41 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     if doErr                                                 % sound-FP32 opt-in (else no widening -> screen unchanged)
         rad  = i_outward_rad(A, x_lb, x_ub, precision);      % final-contraction roundoff (M2)
         derr = derr + us * abs(d);                           % the '+ d' add's u*|d| roundoff (review #6)
+        if doDecomp, derr_flr = derr_flr + us * abs(d); end  % final d-add roundoff (floor)
         % + the two final non-contraction adds margins=fl(fl(aposx+anegx)+d): each rounds by <= u*P
         % (P=|aposx|+|anegx|), so ~2u*P total; the reduced (1+2^-7) rad k no longer leaves slack for them
         % (esp. small input dim n<~1024: MNIST/ACAS/control). 3*us*P covers both adds w/ margin (>= the
         % true |a| <= P, no cancellation). adversarial review 2026-06-18 (re-review CHECK 3).
         if lower
-            derr = derr + cast(3,precision)*us * (abs(Apos * cast(x_lb, precision)) + abs(Aneg * cast(x_ub, precision)));
+            t_ia = cast(3,precision)*us * (abs(Apos * cast(x_lb, precision)) + abs(Aneg * cast(x_ub, precision)));
+            derr = derr + t_ia;
             bound = bound - rad - derr;
         else
-            derr = derr + cast(3,precision)*us * (abs(Apos * cast(x_ub, precision)) + abs(Aneg * cast(x_lb, precision)));
+            t_ia = cast(3,precision)*us * (abs(Apos * cast(x_ub, precision)) + abs(Aneg * cast(x_lb, precision)));
+            derr = derr + t_ia;
             bound = bound + rad + derr;
         end
-        if doDecomp                                          % P2 step-0: log the matmul-reduction fraction of the final derr
+        if doDecomp
+            derr_flr = derr_flr + t_ia;                      % final input-add roundoff (floor)
+        end
+        if doDecomp   % P2 step-0 (reducible-vs-floor): the FLOOR (measured-delta CANNOT shrink) is the go/no-go vs the intrinsic margins {1.4e-4,.0082,.0108,.0412,.0423}
             fid_d = fopen(getenv('NNV_DERR_DECOMP'), 'a');
             if fid_d > 0
                 dtot = max(double(derr)); dmm = max(double(derr_mm)); drad = max(double(rad));
-                fprintf(fid_d, 'DECOMP nS=%d widening=%.6g rad=%.6g derr=%.6g derr_matmul=%.6g matmul_frac_of_derr=%.4g rad_frac_of_widening=%.4g\n', ...
-                    nS, drad+dtot, drad, dtot, dmm, dmm/max(1e-30,dtot), drad/max(1e-30,drad+dtot));
+                dflr = max(double(derr_flr)); dslp = max(double(derr_slp));
+                % BINDING spec = argmin of the widened bound (the spec closest to violation = sets the verdict).
+                % Its floor vs its raw margin is the exact go/no-go; the max over all specs over-states the floor.
+                radv = rad; if isscalar(radv), radv = radv*ones(nS,1,precision); end
+                if lower, bnd_b = double(bound); else, bnd_b = -double(bound); end   % violation side: smaller = closer
+                [wmarg_b, ib] = min(bnd_b);
+                flr_b = double(derr_flr(ib)); derr_b = double(derr(ib)); rad_b = double(radv(ib));
+                rawmarg_b = wmarg_b + rad_b + derr_b;                                % raw (pre-widening) margin at the binding spec
+                fprintf(fid_d, ['DECOMP nS=%d widening=%.6g rad=%.6g derr=%.6g floor=%.6g relu_slope=%.6g matmul=%.6g ' ...
+                    'floor_frac=%.4g reducible_frac=%.4g matmul_frac=%.4g rad_frac_of_widening=%.4g ' ...
+                    'bind_rawmargin=%.6g bind_widened=%.6g bind_floor=%.6g bind_derr=%.6g bind_floor_frac=%.4g\n'], ...
+                    nS, drad+dtot, drad, dtot, dflr, dslp, dmm, dflr/max(1e-30,dtot), (dtot-dflr)/max(1e-30,dtot), ...
+                    dmm/max(1e-30,dtot), drad/max(1e-30,drad+dtot), ...
+                    rawmarg_b, wmarg_b, flr_b, derr_b, flr_b/max(1e-30,derr_b));
                 fclose(fid_d);
             end
         end

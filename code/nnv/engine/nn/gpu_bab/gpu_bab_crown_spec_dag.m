@@ -103,7 +103,11 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
     if doErr
         derr = zeros(nSpec, B, precision);     % sound bound on the FP32 backward roundoff (accumulated)
         dmag = zeros(nSpec, B, precision);     % running sum of |d-terms| (the cross-op d=d+... chain)
+        derr_flr = zeros(nSpec, B, precision); % P2 leaf decomp (NNV_DEBUG_DERR): non-reducible FLOOR (relu-slope + d-add chains + final)
+        derr_mm  = zeros(nSpec, B, precision); % P2 leaf decomp: the affine/conv matmul (A-path) a-priori term
+        derr_int = zeros(nSpec, B, precision); % P2 leaf decomp: the relu-intercept reduction term actually emitted (a-priori or measured-delta)
     end
+    doDbg = doErr && ~isempty(getenv('NNV_DEBUG_DERR'));
 
     if isempty(rootBounds)
         % ---- forward IBP (batched, FULL DAG), pre-activation bounds at each ReLU, with node
@@ -323,9 +327,12 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                 W = cast(op.W, precision); bb = cast(op.b(:), precision);
                 if doErr   % A*W contracts over out-width = size(A,2); output value-mag (no cancel) = |W|*vin+|b|
                     omg = double(abs(W)) * double(vin) + double(abs(bb));            % out-width x 1
-                    derr = derr + i_dterm_sd(A, reshape(omg, [], 1, 1), size(A,2), nSpec, B);
+                    t_amm = i_dterm_sd(A, reshape(omg, [], 1, 1), size(A,2), nSpec, B);
+                    derr = derr + t_amm;
+                    if doDbg, derr_mm = derr_mm + t_amm; end
                     dmag = dmag + i_dterm_raw_sd(A, reshape(double(abs(bb)), [], 1, 1), nSpec, B);  % d=d+A*b chain
                     derr = derr + us * dmag;
+                    if doDbg, derr_flr = derr_flr + us * dmag; end
                 end
                 d = d + reshape(pagemtimes(A, bb), nSpec, B);
                 A = pagemtimes(A, W);
@@ -343,9 +350,11 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                     % derr stays ~halved while remaining a rigorous bound).
                     Amag = Amag .* (1 + 2*i_gamma_raw_sd(mC, precision));
                     dmc  = dmc  .* (1 + 2*i_gamma_raw_sd(nO, precision));
-                    derr = derr + i_dterm_sd(Amag, reshape(double(vin), [], 1, 1), mC, nSpec, B) ...
-                                + i_gamma_sd(nO, precision) * dmc;                    % bias reduction length
+                    t_cmm = i_dterm_sd(Amag, reshape(double(vin), [], 1, 1), mC, nSpec, B);
+                    derr = derr + t_cmm + i_gamma_sd(nO, precision) * dmc;            % conv matmul + bias reduction length
+                    if doDbg, derr_mm = derr_mm + t_cmm + i_gamma_sd(nO, precision) * dmc; end
                     dmag = dmag + dmc; derr = derr + us * dmag;                       % d=d+bias add-chain
+                    if doDbg, derr_flr = derr_flr + us * dmag; end
                 end
                 [A, d] = i_conv_backward(A, d, op, precision);
             case 'normaffine'
@@ -397,11 +406,14 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                         cush  = double(2)*i_gamma_sd(dim,'double') * reshape(pagemtimes(double(abs(Aneg)), reshape(double(abs(bu)), dim,1,B)), nSpec, B);
                         t_red = min(single(i_gamma_sd(dim,'double')) * Abu, single(delta + cush));  % MIN(a-priori, measured)
                         derr  = derr + t_slp + t_red + single(double(4)*double(us)) * Abu;          % reduction (tightened) + derivation (kept)
+                        if doDbg, derr_int = derr_int + t_red; derr_flr = derr_flr + t_slp + single(double(4)*double(us)) * Abu; end
                     else
                         derr = derr + t_slp ...
-                                    + single(i_gamma_sd(dim,'double') + double(4)*double(us)) * Abu;
+                                    + single(i_gamma_sd(dim,'double') + double(4)*double(us)) * Abu;   % a-priori (byte-identical)
+                        if doDbg, derr_int = derr_int + single(i_gamma_sd(dim,'double')) * Abu; derr_flr = derr_flr + t_slp + single(double(4)*double(us)) * Abu; end
                     end
                     dmag = dmag + Abu; derr = derr + us * dmag;        % d=d+Aneg*bu add-chain
+                    if doDbg, derr_flr = derr_flr + us * dmag; end
                 end
                 d = d + reshape(pagemtimes(Aneg, reshape(bu, dim, 1, B)), nSpec, B);
                 if wantScore
@@ -416,7 +428,9 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
         s = op.src;                                       % route coefficient to op.src
         if doErr && (s == 0 || ~isempty(skipA{s}))        % a MERGE (accumulating +) -> coeff add-chain rounding
             if s == 0, vm = double(vmag{1}); else, vm = double(vmag{s + 1}); end
-            derr = derr + i_dterm_sd(A, reshape(vm, [], 1, 1), nOps, nSpec, B);
+            t_merge = i_dterm_sd(A, reshape(vm, [], 1, 1), nOps, nSpec, B);
+            derr = derr + t_merge;
+            if doDbg, derr_mm = derr_mm + t_merge; end
         end
         if s == 0
             if isempty(inputSkipA), inputSkipA = A; else, inputSkipA = inputSkipA + A; end
@@ -440,15 +454,18 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
     if doErr   % widen the LOWER bound OUTWARD (down) by the final-contraction rad + the accumulated
                % per-op derr, so margins_single <= margins_double <= true (monotone-sound, can EMIT)
         rad  = i_outward_rad_sd(A, x_lb, x_ub, precision);
-        derr = derr + us * abs(d) + cast(3,precision)*us * (abs(aposx) + abs(anegx));  % '+d' u*|d| + the two final adds fl(fl(aposx+anegx)+d) ~2u*P (3*us*P w/ margin; reduced rad k no longer covers them) -- re-review CHECK 3, 2026-06-18
+        t_fin = us * abs(d) + cast(3,precision)*us * (abs(aposx) + abs(anegx));
+        derr = derr + t_fin;  % '+d' u*|d| + the two final adds fl(fl(aposx+anegx)+d) ~2u*P (3*us*P w/ margin; reduced rad k no longer covers them) -- re-review CHECK 3, 2026-06-18
         margins = margins - rad - derr;
-        if ~isempty(getenv('NNV_DEBUG_DERR'))             % M3b tightening diagnosis (no behaviour change)
+        if doDbg                                          % M3b tightening diagnosis (no behaviour change)
+            derr_flr = derr_flr + t_fin;
             mraw = margins + rad + derr;                  % the un-widened margin
             [mw, iw] = min(margins(:));                   % binding spec (widened)
-            fprintf('[derr] raw_min=%.6g widened_min=%.6g | binding: raw=%.6g rad=%.6g derr=%.6g\n', ...
-                gather(min(mraw(:))), gather(mw), gather(mraw(iw)), gather(rad(iw)), gather(derr(iw)));
-            vm = cellfun(@(v) max(abs(double(v(:)))), vmag);
-            fprintf('[derr] vmag(IBP) max-per-op: %s\n', mat2str(gather(vm(:))', 4));
+            db = double(derr(iw));
+            fprintf('[derr] raw_min=%.6g widened_min=%.6g | binding: raw=%.6g rad=%.6g derr=%.6g floor=%.6g matmul=%.6g intercept=%.6g (frac flr=%.3g mm=%.3g int=%.3g)\n', ...
+                gather(min(mraw(:))), gather(mw), gather(mraw(iw)), gather(rad(iw)), db, ...
+                gather(double(derr_flr(iw))), gather(double(derr_mm(iw))), gather(double(derr_int(iw))), ...
+                gather(double(derr_flr(iw))/max(1e-30,db)), gather(double(derr_mm(iw))/max(1e-30,db)), gather(double(derr_int(iw))/max(1e-30,db)));
         end
     end
 end

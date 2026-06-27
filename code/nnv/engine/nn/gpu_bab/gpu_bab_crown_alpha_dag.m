@@ -34,11 +34,11 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
 %   gpu_bab_crown_spec_dag -- gpu_bab_alpha_dag_parity_test asserts bound-for-bound equality
 %   before this is ever trusted for a 'robust' emit.
 %
-%   NOTE (Phase 2 / autodiff): for nIter>0 the PGA loop needs the backward to be dlarray-
-%   traceable so dlgradient reaches alpha. i_conv_backward/i_avgpool_backward currently extract
-%   to numeric (tape-break) -> gradients vanish through conv and the optimizer no-ops (SOUND, no
-%   improvement). Making those adjoints traceable is the Phase-2 work; until then nIter>0 returns
-%   the min-area bound (keep-best), which is still sound.
+%   NOTE (autodiff): for nIter>0 the PGA loop differentiates the backward via dlgradient. The
+%   conv/pool adjoints ARE dlarray-traceable, so dlgradient reaches alpha through conv and the
+%   optimizer genuinely improves the bound (gpu_bab_alpha_dag_parity_test asserts gain>0). For
+%   speed the keep-best SCORING / re-eval runs on a PLAIN pVec (no tape -- ~3.8x faster, P4 STEP A);
+%   only the gradient keeps the dlarray pVec. nIter<=0 returns the min-area bound (parity gate).
 
     if nargin < 7 || isempty(precision), precision = 'single'; end
     if nargin < 8 || isempty(nIter), nIter = 20; end
@@ -99,9 +99,13 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
     % + weak Lagrangian duality on the split constraints). keep-best + the final re-eval at bestVec
     % mean the returned bound is >= the min-area/beta=0 bound regardless of the optimizer; a severed
     % autodiff tape is CAUGHT -> min-area fallback (sound, no improvement), never error/unsound.
+    % STEP A (P4): keep the keep-best SCORING / re-eval on a PLAIN pVec (no dlarray tape; ~3.8x faster
+    % per the prebench) -- scoring needs no gradient. Only the dlfeval GRADIENT keeps the dlarray pVec.
+    % Bound-identical: i_dag_back computes the SAME margin from the same numeric pVec, just without the tape.
+    pPlain = extractdata(pVec);
     m0 = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
-                    pVec, reluIdx, rdims, offsets, nP, B, nSpec);
-    bestObj = i_g(sum(min(m0,[],1), 'all')); bestVec = pVec;
+                    pPlain, reluIdx, rdims, offsets, nP, B, nSpec);
+    bestObj = i_g(sum(min(m0,[],1), 'all')); bestVec = pPlain;
     mt = zeros(2*nP, 1, precision); vt = zeros(2*nP, 1, precision);
     b1 = 0.9; b2 = 0.999; epsA = cast(1e-8, precision);
     % WORST-SPEC gradient (the cifar-scale memory fix): the objective sum(min_spec margin) has a
@@ -135,14 +139,14 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
                 % cheap keep-best: score only the worst spec (1 row), not all nSpec. At init the
                 % worst spec IS the per-node argmin, so sum(worst) == sum(min) -> bestObj stays comparable.
                 mw = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, Cw, precision, ...
-                                pVec, reluIdx, rdims, offsets, nP, B, 1);
+                                v, reluIdx, rdims, offsets, nP, B, 1);   % STEP A: plain v (no tape)
                 obj = i_g(sum(mw, 'all'));
             else
                 m = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, ...
-                               pVec, reluIdx, rdims, offsets, nP, B, nSpec);
+                               v, reluIdx, rdims, offsets, nP, B, nSpec);   % STEP A: plain v (no tape)
                 obj = i_g(sum(min(m,[],1), 'all'));
             end
-            if obj > bestObj, bestObj = obj; bestVec = pVec; end
+            if obj > bestObj, bestObj = obj; bestVec = v; end   % STEP A: store plain bestVec
         end
     catch ME
         if ~any(strcmp(ME.identifier, {'MATLAB:dlarray:GradientNotTraced', ...

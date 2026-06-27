@@ -84,7 +84,7 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
     doProf = ~isempty(getenv('NNV_CROWN_PROF'));     % perf profile (read-only): where the sound root spends time
     if doProf
         global G_CROWN_PROF; %#ok<TLEV>
-        G_CROWN_PROF = struct('up', 0, 'lo', 0, 'oom', 0);
+        G_CROWN_PROF = struct('oom', 0, 'nb', 0);
         gpL = zeros(nOps, 1); gpW = zeros(nOps, 1); gpT0 = tic;
     end
     for k = 1:nOps
@@ -165,9 +165,9 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
     end
     if doProf
         tot = toc(gpT0); [~, ord] = sort(gpL, 'descend');
-        fprintf('[crown-prof] interm-pass=%.1fs upper-bwd=%.1fs lower-bwd=%.1fs oom-halvings=%d | top layers: ', ...
-            tot, G_CROWN_PROF.up, G_CROWN_PROF.lo, G_CROWN_PROF.oom);
-        for ii = 1:min(8, nOps), j = ord(ii); if gpL(j) > 0.05, fprintf('op%d(%s,w%d)=%.1fs ', j, ops{j}.type, gpW(j), gpL(j)); end; end
+        fprintf('[crown-prof] interm-pass=%.1fs chunked-passes=%d oom-halvings=%d | top layers: ', ...
+            tot, G_CROWN_PROF.nb, G_CROWN_PROF.oom);
+        for ii = 1:min(10, nOps), j = ord(ii); if gpL(j) > 0.05, fprintf('op%d(%s,w%d)=%.1fs ', j, ops{j}.type, gpW(j), gpL(j)); end; end
         fprintf('\n');
     end
 
@@ -244,11 +244,9 @@ function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU
             i_maybe_inject_oom(B, oomTest);
             Ck = zeros(nb, nk, precision);
             Ck(sub2ind([nb nk], (1:nb).', rows(:))) = 1;        % a row-block of eye(nk)
-            if doP, tu_ = tic; end
+            if doP, G_CROWN_PROF.nb = G_CROWN_PROF.nb + 1; end   % count chunked backward passes (per-chunk sync was too heavy)
             pu(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
-            if doP, if isa(pu,'gpuArray'), wait(gpuDevice); end; G_CROWN_PROF.up = G_CROWN_PROF.up + toc(tu_); tl_ = tic; end
             pl(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
-            if doP, if isa(pl,'gpuArray'), wait(gpuDevice); end; G_CROWN_PROF.lo = G_CROWN_PROF.lo + toc(tl_); end
             if strcmp(precision,'single') && ~isempty(getenv('NNV_DERR_ACTUAL'))
                 % P2 (advisor): the NET |fl32-fl64| roundoff of THIS interm-bound chunk (same call the DECOMP logs as
                 % nS=nb). Compare to the per-op measured-delta derr at matched depth -> is the ~500x cancellation gap real?

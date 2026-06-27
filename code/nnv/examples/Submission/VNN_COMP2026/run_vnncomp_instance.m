@@ -1222,6 +1222,15 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             end
         else
             mn = 5000; if isConv, mn = 64; end                 % conv-without-GPU: bounded (slow but sound)
+            % Tier-1A node-budget raise (relusplitter): the FC ReLU-split BaB on these argmax nets is
+            % NODE-LIMITED, not bound-limited -- the default mn=5000 cap stops the search just before it
+            % certifies. Probe (2026-06-26): 2/15 relusplitter unknowns recover at 9.7k/47.7k nodes, in
+            % 8.7s/13.9s (~0.3-0.9ms/node, so 50k nodes ~= 15-45s, well within the 180s budget; the
+            % non-recoverable self-cap fast at the node limit). SOUND: CPU-double sound emit (no FP32
+            % trust); a 'robust' is an FP64-certified unsat, so this only ADDS sound certs (0 false-sat
+            % in the probe). Scoped to relusplitter -- short-budget FC cats (safenlp 20s) keep mn=5000.
+            if contains(category, "relusplitter"), mn = 50000; end
+            ev = str2double(getenv('NNV_FC_MAXNODES')); if isfinite(ev) && ev >= 1, mn = ev; end
             [gv, ginfo] = gpu_bab_try_verify(nnvnet, lb, ub, prop, struct('engine','batched','maxNodes',mn));
             if strcmp(gv, 'robust')
                 status = 1; reachOptionsList = {};

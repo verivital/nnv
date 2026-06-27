@@ -388,6 +388,8 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     d = zeros(nS, 1, precision);
     doErr = strcmp(precision, 'single') && ~isempty(vmag);
     derr = zeros(nS, 1, precision);
+    derr_mm = zeros(nS, 1, precision);              % P2 step-0 decomp (env NNV_DERR_DECOMP, read-only): the matmul-reduction subset of derr
+    doDecomp = ~isempty(getenv('NNV_DERR_DECOMP'));
     dmag = zeros(nS, 1, precision);                 % running sum of |d-terms|: the cross-op d add-chain
     us   = single(eps('single') / 2);               % rounding (each d=d+t injects u*|partial sum| <= u*dmag)
     if upto == 0                              % A0 is already on the engine input (op 0)
@@ -475,7 +477,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             if doErr   % A*W contracts over out-width; output value-mag majorant (no cancel) = |W|*vin+|b|
                 omg = double(abs(W)) * double(vin) + double(abs(b));              % DOUBLE-computed magnitude majorant
-                derr = derr + i_dt(A, omg, size(A,2));
+                t_mm = i_dt(A, omg, size(A,2)); derr = derr + t_mm; if doDecomp, derr_mm = derr_mm + t_mm; end
                 dmag = dmag + i_draw(A, abs(b)); derr = derr + us * dmag;          % d=d+A*b add-chain
             end
             d = d + A * b;
@@ -490,8 +492,9 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 % true single rounding even for large outShape (mirrors gpu_bab_crown_spec_dag conv fix).
                 Amag = Amag .* (1 + 2*i_gamma_raw_ct(mC, precision));
                 dmc  = dmc  .* (1 + 2*i_gamma_raw_ct(nO, precision));
-                derr = derr + i_dt(Amag, vin, mC) ...
+                t_mm = i_dt(Amag, vin, mC); derr = derr + t_mm ...
                             + single(i_gamma(nO, 'double') * double(dmc));          % bias reduction length (review #5)
+                if doDecomp, derr_mm = derr_mm + t_mm; end
                 dmag = dmag + dmc; derr = derr + us * dmag;                         % d=d+bias add-chain
             end
             [A, d] = i_conv_backward(A, d, op, precision);
@@ -563,6 +566,15 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
         else
             derr = derr + cast(3,precision)*us * (abs(Apos * cast(x_ub, precision)) + abs(Aneg * cast(x_lb, precision)));
             bound = bound + rad + derr;
+        end
+        if doDecomp                                          % P2 step-0: log the matmul-reduction fraction of the final derr
+            fid_d = fopen(getenv('NNV_DERR_DECOMP'), 'a');
+            if fid_d > 0
+                dtot = max(double(derr)); dmm = max(double(derr_mm)); drad = max(double(rad));
+                fprintf(fid_d, 'DECOMP nS=%d widening=%.6g rad=%.6g derr=%.6g derr_matmul=%.6g matmul_frac_of_derr=%.4g rad_frac_of_widening=%.4g\n', ...
+                    nS, drad+dtot, drad, dtot, dmm, dmm/max(1e-30,dtot), drad/max(1e-30,drad+dtot));
+                fclose(fid_d);
+            end
         end
     end
 end

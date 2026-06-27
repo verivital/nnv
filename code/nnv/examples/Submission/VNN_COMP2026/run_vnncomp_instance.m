@@ -997,7 +997,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
     if status ~= 2, return; end                          % already decided -> nothing to do
     if nargin < 8 || isempty(needReshape), needReshape = 0; end
     if nargin < 9, inputSize = []; end
-    isFC   = contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter");
+    isFC   = contains(category,"safenlp") || contains(category,"sat_relu") || contains(category,"relusplitter") || contains(category,"edoardo");
     % NOTE: challenging_certified is deliberately NOT added here. Routing it to the conv GPU-BaB
     % precheck CRASHED MATLAB on the box (hard std::exception "MATLAB process cannot be terminated" --
     % the orientation guard did NOT catch it, so it is NOT a safe sound-or-skip). Needs the conv
@@ -1597,6 +1597,27 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         oe = struct(); oe.reachMethod = 'exact-star'; oe.numCores = 1;
         reachOptionsList{end+1} = oe;
 
+    elseif contains(category, "edoardo")
+        % edoardo_manino (NeuroCodeBench SAT-ReLU): byte-identical arch to sat_relu
+        % (Gemm->ReLU->Gemm, opset 9). Previously had NO dispatch branch, so control fell to
+        % the catch-all error("ONNX model not supported") below -> 100/100 unknown @0.0s (a
+        % dispatcher gap, NOT an importer failure). Route like sat_relu's IMPORT (BC import +
+        % matlab2nnv, import-confirmed 2026-06-26), then an approx-star -> exact-star sound ladder.
+        % NOTE: edoardo is intentionally NOT in i_finalize_reach_options' slow_cats (unlike sat_relu),
+        % so it KEEPS exact-star. sat_relu is in slow_cats because its reach decides 0 unsat (exact-star
+        % is pure waste there); edoardo's exact-star is PRODUCTIVE -- it decided 2 unsat (at 80.4s/90.8s)
+        % in the dev-sweep, free under the per-instance 100s budget. The SAT half is found by the
+        % falsifier (ftab "edoardo" row added below); the rest stays sound-unknown until B1 (FC CROWN-BaB).
+        net = importNetworkFromONNX(onnx, "InputDataFormats", "BC");
+        nnvnet = matlab2nnv(net);
+        reachOptions = struct;
+        reachOptions.reachMethod = 'approx-star';
+        reachOptionsList{1} = reachOptions;
+        reachOptions = struct;
+        reachOptions.reachMethod = 'exact-star';
+        reachOptions.numCores = 1;
+        reachOptionsList{2} = reachOptions;
+
     elseif contains(category, "linearize")
         % matlab2nnv cannot parse linearizenn's custom static SliceLayer (AllInOne_*.SliceLayer ->
         % "Unsupported Class of Layer"), so the old try/catch fell through to cp-star (probabilistic)
@@ -1978,6 +1999,7 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
                                                 % is complete, so PGD is only a SAT accelerator). 8s still
                                                 % finds easy counterexamples. Sound (falsify = SAT-or-unknown).
         "sat_relu",          60, 100,30,  200
+        "edoardo",           60, 100,30,  200   % NeuroCodeBench SAT-ReLU: same arch as sat_relu; PGD finds the SAT half
         "cersyve",           30, 50, 4,   150
         "lsnc_relu",         50, 80, 4,   500   % manifest: no PGD -> random is primary
         "relusplitter",      30, 50, 3,   150

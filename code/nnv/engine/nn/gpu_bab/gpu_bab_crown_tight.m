@@ -57,6 +57,18 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
             vmag = {}; ibpLd = {}; ibpUd = {};
         end
     end
+    if isempty(ibpLd) && ~isempty(getenv('NNV_CROWN_IBP_PREFILTER'))
+        % The PREFILTER also wants the sound DOUBLE IBP on the NON-sound paths -- the unsound single GPU SCREEN
+        % and the FP64 confirm -- which are the actual cifar100 bottleneck (the screen times out in the wide-conv
+        % chunked CROWN before the confirm even runs). The double IBP forward is value-vectors only (cheap, cannot
+        % OOM). Sound classification on any path; on the unsound screen it only FILTERS (the verdict comes from the
+        % sound confirm) and it is TIGHTER, so it can only help -- never a false-negative (slope 1 is the tightest).
+        try
+            [~, ~, ~, ibpLd, ibpUd] = gpu_bab_ibp(ops, x_lb, x_ub, 'double');
+        catch
+            ibpLd = {}; ibpUd = {};
+        end
+    end
     % SOUNDNESS FLAG: the sound-FP32 OUTWARD widening is actually applied only when precision is
     % 'single' AND vmag was successfully computed (non-empty). If vmag failed (caught above -> {}),
     % derr stays 0 -> the single-precision margins are the UNSOUND fast screen, NOT a sound bound.

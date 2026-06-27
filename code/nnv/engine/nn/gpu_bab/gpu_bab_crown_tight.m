@@ -181,6 +181,26 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
 
     % ---- final spec margin (lower bound on C*output) + the input-space lower plane ----
     [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true, vmag);
+    if strcmp(precision, 'single') && ~isempty(getenv('NNV_DERR_ACTUAL'))
+        % P2 gate (read-only): the ACTUAL accumulated FP32 roundoff of this spec backward = |single - double|.
+        % Recompute the IDENTICAL backward in double (vmag={} -> pure FP64, derr=0), sharing preL/preU so it
+        % isolates the backward arithmetic roundoff. This is the achievable measured-delta widening WITH
+        % cancellation = the lower bound on what the running-error build emits. floor + actual_residual < margin
+        % is the real go/no-go (advisor); the a-priori reducible_frac only said the slack EXISTS, not that it vanishes.
+        try
+            m_d = i_backward(ops, nOps, cast(C, 'double'), x_lb, x_ub, preL, preU, 'double', true, {});
+            act = abs(double(gather(margins(:))) - double(gather(m_d(:))));
+            ms  = double(gather(margins(:)));
+            [wm, ib] = min(ms);                                 % binding spec = smallest single margin
+            acts = sort(act); medi = acts(max(1, round(0.5*numel(acts))));
+            fid_a = fopen(getenv('NNV_DERR_ACTUAL'), 'a');
+            if fid_a > 0
+                fprintf(fid_a, 'ACTUAL nS=%d max_actual=%.6g median_actual=%.6g bind_single=%.6g bind_double=%.6g bind_actual=%.6g\n', ...
+                    numel(ms), max(act), medi, wm, double(gather(m_d(ib))), act(ib));
+                fclose(fid_a);
+            end
+        catch, end
+    end
 end
 
 function tf = i_box_exact(boxExact, idx)

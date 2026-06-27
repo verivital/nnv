@@ -1406,8 +1406,9 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         ftok = regexp(char(onnx), '''f''\s*,\s*''([^'']+)''', 'tokens', 'once');
         if ~isempty(ftok)
             benchroot = fileparts(fileparts(char(vnnlib)));   % .../<ver>/vnnlib/x.vnnlib -> .../<ver>
-            onnx_f = fullfile(benchroot, ftok{1});
-            if ~isfile(onnx_f) && isfile(onnx_f + ".gz"), gunzip(onnx_f + ".gz"); end
+            onnx_f = char(fullfile(benchroot, ftok{1}));       % keep char; build .gz path by char concat
+            gzf = [onnx_f '.gz'];                              % (char concat -- avoids the char+string '+' pitfall)
+            if ~isfile(onnx_f) && isfile(gzf), gunzip(gzf); end
         end
         net = importNetworkFromONNX(onnx_f, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);

@@ -98,6 +98,7 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
     % rootBounds for doErr; the emit path (cifar/tiny) always supplies them (rootTight).
     doErr = strcmp(precision, 'single') && ~isempty(vmag) && ~isempty(rootBounds);
     soundFP32 = doErr;
+    doRun = doErr && ~isempty(getenv('NNV_DERR_RUNNING'));   % P2: measured-delta (running-error) on the relu-intercept reduction -- MUST match gpu_bab_crown_tight
     us = single(eps('single') / 2);            % single unit roundoff (the d=d+... add-chain rounds here)
     if doErr
         derr = zeros(nSpec, B, precision);     % sound bound on the FP32 backward roundoff (accumulated)
@@ -384,8 +385,22 @@ function [margins, preL, preU, scoreCell, soundFP32] = gpu_bab_crown_spec_dag(op
                 if doErr   % slope mult (|A_in|<=|A|, no cancel) + the bu intercept (PER-NODE dim x B, R1a)
                            % |A| covers the d-pass; +4u for the au=u/(u-l)/bu=-au*l derivation rounding
                     Abu  = i_dterm_raw_sd(A, reshape(double(abs(bu)), dim, 1, B), nSpec, B);   % |A|*|bu| (nSpec x B)
-                    derr = derr + i_dterm_sd(A, reshape(double(vin), dim, 1, 1), 8, nSpec, B) ...    % m=8: slope multiply (~u) + the relu RELAXATION-DERIVATION rounding (~3u*vin at z=u; scales with vin, NOT bu) -- review 2026-06-18
-                                + single(i_gamma_sd(dim,'double') + double(4)*double(us)) * Abu;
+                    t_slp = i_dterm_sd(A, reshape(double(vin), dim, 1, 1), 8, nSpec, B);       % m=8 slope+derivation (floor, kept)
+                    if doRun   % P2 RUNNING-ERROR: replace gamma_dim WORST-CASE reduction roundoff with the MEASURED roundoff
+                        % of the actual d-add d=d+pagemtimes(Aneg,bu) (line below) + a sound fl64-residual cushion.
+                        % min(a-priori,measured) is sound (both over-bound |fl32(Aneg*bu)-exact|); the +4u DERIVATION
+                        % term (kept) covers the au/bu single-construction error. MUST match gpu_bab_crown_tight.
+                        bur   = reshape(bu, dim, 1, B);
+                        p32   = reshape(pagemtimes(Aneg, bur), nSpec, B);                          % FP32 reduction (== the d-add)
+                        p64   = reshape(pagemtimes(double(Aneg), double(bur)), nSpec, B);          % FP64 reference
+                        delta = abs(double(p32) - p64);                                            % measured roundoff (nSpec x B)
+                        cush  = double(2)*i_gamma_sd(dim,'double') * reshape(pagemtimes(double(abs(Aneg)), reshape(double(abs(bu)), dim,1,B)), nSpec, B);
+                        t_red = min(single(i_gamma_sd(dim,'double')) * Abu, single(delta + cush));  % MIN(a-priori, measured)
+                        derr  = derr + t_slp + t_red + single(double(4)*double(us)) * Abu;          % reduction (tightened) + derivation (kept)
+                    else
+                        derr = derr + t_slp ...
+                                    + single(i_gamma_sd(dim,'double') + double(4)*double(us)) * Abu;
+                    end
                     dmag = dmag + Abu; derr = derr + us * dmag;        % d=d+Aneg*bu add-chain
                 end
                 d = d + reshape(pagemtimes(Aneg, reshape(bu, dim, 1, B)), nSpec, B);

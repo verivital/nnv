@@ -411,7 +411,9 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     derr_mm = zeros(nS, 1, precision);              % P2 step-0 decomp (env NNV_DERR_DECOMP, read-only): the matmul-reduction subset of derr
     derr_flr = zeros(nS, 1, precision);             % P2 step-0 decomp: the NON-reducible FLOOR (measured-delta can't shrink it): relu-slope i_dt(A,vin,8) + d-add chains us*dmag + relu-4u + final adds
     derr_slp = zeros(nS, 1, precision);             % P2 step-0 decomp: the relu-slope i_dt(A,vin,8) term alone (advisor-flagged: gamma_8 small but x a full |A|*vin reduction)
+    derr_runi = zeros(nS, 1, precision);            % P2 RUNNING-ERROR: the measured-delta relu-intercept term actually used (min(a-priori,measured)) -> the build's emitted widening
     doDecomp = ~isempty(getenv('NNV_DERR_DECOMP'));
+    doRun = strcmp(precision, 'single') && ~isempty(getenv('NNV_DERR_RUNNING'));   % P2: measured-delta (running-error) on the d-path intercept reductions
     dmag = zeros(nS, 1, precision);                 % running sum of |d-terms|: the cross-op d add-chain
     us   = single(eps('single') / 2);               % rounding (each d=d+t injects u*|partial sum| <= u*dmag)
     if upto == 0                              % A0 is already on the engine input (op 0)
@@ -552,11 +554,30 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             if doErr   % slope mults (|A_in|<=|A|, no cancel) + the bu intercept; |A| (not |Aneg|) so it
                        % covers BOTH passes (lower: d+=Aneg*bu, upper: d+=Apos*bu) -- review #2; +4u for
                        % the au=u/(u-l)/bu=-au*l derivation rounding (review #11), independent of width
+                if doRun   % P2 RUNNING-ERROR: replace the gamma_width WORST-CASE reduction roundoff with the MEASURED roundoff
+                    % of the actual d-add d=d+Ab*bu (line 531/534) + a sound fl64-residual cushion. min(a-priori,measured)
+                    % is sound (both are valid over-bounds on |fl32(Ab*bu)-exact|). The +4u DERIVATION term (au/bu single
+                    % construction error, scales with vin not the reduction) is KEPT -- measured-delta only covers the reduction.
+                    t_red_ap = single(i_gamma(numel(bu), 'double') * (double(abs(A)) * double(abs(bu))));   % a-priori reduction roundoff
+                    t_drv    = single(double(4)*double(us) * (double(abs(A)) * double(abs(bu))));            % derivation roundoff (kept)
+                    if lower, Ab = Aneg; else, Ab = Apos; end                                               % the ACTUAL d-add coefficient
+                    p64   = double(Ab) * double(bu);                                                        % FP64 reference of the reduction
+                    delta = abs(double(Ab * bu) - p64);                                                     % |fl32 - fl64| = measured roundoff (nS x 1)
+                    cush  = double(2) * i_gamma(numel(bu), 'double') * (double(abs(Ab)) * double(abs(bu))); % bounds |fl64-exact| + the single() cast
+                    t_red = min(t_red_ap, single(delta + cush));                                            % MIN(a-priori, measured): sound + never worse
+                    derr  = derr + i_dt(A, vin, 8) + t_red + t_drv;
+                    derr_runi = derr_runi + t_red;
+                    if doDecomp
+                        t_slp = i_dt(A, vin, 8); derr_slp = derr_slp + t_slp;
+                        derr_flr = derr_flr + t_slp + t_drv;
+                    end
+                else
                 derr = derr + i_dt(A, vin, 8) ...    % m=8: slope multiply (~u) + the relu RELAXATION-DERIVATION rounding (au=u/(u-l),bu=-au*l in single dips the relaxed line below relu by ~3u*vin at z=u; this scales with vin, NOT bu, so the +4u*|bu| term below does NOT cover it when u>>|l| -> bu->0). adversarial review 2026-06-18.
                             + single((i_gamma(numel(bu), 'double') + double(4)*double(us)) * (double(abs(A)) * double(abs(bu))));
                 if doDecomp   % read-only floor decomp: relu-slope (floor) + the 4u relaxation-derivation slack (floor); the gamma_width*|A|*|bu| part is REDUCIBLE so excluded from floor
                     t_slp = i_dt(A, vin, 8); derr_slp = derr_slp + t_slp;
                     derr_flr = derr_flr + t_slp + single(double(4)*double(us) * (double(abs(A)) * double(abs(bu))));
+                end
                 end
                 dmag = dmag + i_draw(A, abs(bu)); derr = derr + us * dmag;        % d=d+(Aneg|Apos)*bu add-chain
                 if doDecomp, derr_flr = derr_flr + us * dmag; end                 % d-add chain (floor)
@@ -618,13 +639,15 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 if lower, bnd_b = double(bound); else, bnd_b = -double(bound); end   % violation side: smaller = closer
                 [wmarg_b, ib] = min(bnd_b);
                 flr_b = double(derr_flr(ib)); derr_b = double(derr(ib)); rad_b = double(radv(ib));
+                mat_b = double(derr_mm(ib)); runi_b = double(derr_runi(ib));         % bind_matmul (sets 2/5 vs 4/5) + the running-error intercept actually emitted
                 rawmarg_b = wmarg_b + rad_b + derr_b;                                % raw (pre-widening) margin at the binding spec
                 fprintf(fid_d, ['DECOMP nS=%d widening=%.6g rad=%.6g derr=%.6g floor=%.6g relu_slope=%.6g matmul=%.6g ' ...
                     'floor_frac=%.4g reducible_frac=%.4g matmul_frac=%.4g rad_frac_of_widening=%.4g ' ...
-                    'bind_rawmargin=%.6g bind_widened=%.6g bind_floor=%.6g bind_derr=%.6g bind_floor_frac=%.4g\n'], ...
+                    'bind_rawmargin=%.6g bind_widened=%.6g bind_floor=%.6g bind_derr=%.6g bind_floor_frac=%.4g ' ...
+                    'bind_matmul=%.6g bind_runintercept=%.6g\n'], ...
                     nS, drad+dtot, drad, dtot, dflr, dslp, dmm, dflr/max(1e-30,dtot), (dtot-dflr)/max(1e-30,dtot), ...
                     dmm/max(1e-30,dtot), drad/max(1e-30,drad+dtot), ...
-                    rawmarg_b, wmarg_b, flr_b, derr_b, flr_b/max(1e-30,derr_b));
+                    rawmarg_b, wmarg_b, flr_b, derr_b, flr_b/max(1e-30,derr_b), mat_b, runi_b);
                 fclose(fid_d);
             end
         end

@@ -146,6 +146,29 @@ function [status, info] = gpu_bab_relu_split_batched(ops, x_lb, x_ub, trueLabel,
         end
         preL = cell(nOps,1); preU = cell(nOps,1);
         for r = 1:numel(reluIdx), k = reluIdx(r); preL{k} = gather(rtL{k}); preU{k} = gather(rtU{k}); end
+        % NEURAL-METRIC log (read-only, env-gated NNV_LOG_METRICS, default-off): the activation pattern
+        % (per-relu stable+/stable-/unstable counts + bound MAGNITUDE -> why derr is ~2.0) and the root spec
+        % margin DISTRIBUTION (distance from the spec boundary). For the parameter-sweep feasibility diagnosis.
+        if ~isempty(getenv('NNV_LOG_METRICS'))
+            try
+                mf = fopen(getenv('NNV_LOG_METRICS'), 'a');
+                if mf > 0
+                    totU = 0; maxMag = 0;
+                    for r = 1:numel(reluIdx)
+                        k = reluIdx(r); pl = double(preL{k}(:)); pu = double(preU{k}(:));
+                        nU = sum(pl < 0 & pu > 0); nP = sum(pl >= 0); nM = sum(pu <= 0);
+                        mg = max([0; abs(pl); abs(pu)]); totU = totU + nU; maxMag = max(maxMag, mg);
+                        fprintf(mf, 'METRIC relu=%d width=%d stableActive=%d stableInactive=%d unstable=%d maxBoundMag=%.4g\n', ...
+                            k, numel(pl), nP, nM, nU, mg);
+                    end
+                    mr = double(mRoot(:)); mrs = sort(mr);
+                    p25 = mrs(min(numel(mrs), max(1, round(0.25*numel(mrs)))));
+                    fprintf(mf, 'METRIC root totUnstable=%d maxBoundMag=%.4g specMargin: min=%.6g p25=%.6g med=%.6g max=%.6g nNeg=%d/%d\n', ...
+                        totU, maxMag, min(mr), p25, median(mr), max(mr), sum(mr<0), numel(mr));
+                    fclose(mf);
+                end
+            catch, end
+        end
         % AMORTIZED alpha-CROWN: optimize alpha ONCE at the root (B=1, no per-node gradient memory)
         % and reuse the FIXED slopes for every BaB node via spec_dag -> LARGE frontier (the per-node
         % alpha autodiff OOMs past frontier ~8 on cifar). env NNV_AMORT_ALPHA = #root iters.

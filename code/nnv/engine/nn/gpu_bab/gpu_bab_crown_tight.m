@@ -156,6 +156,29 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
         end
     end
 
+    % M1 (P2.0 measurement, read-only, env-gated default-off): decompose the derr looseness -- log per op the
+    % IBP value-magnitude majorant `vmag` (what derr contracts against) vs the tighter crown_tight bound
+    % magnitude (what Approach A would use). The ratio is Approach A's ceiling. NO behavior change when unset.
+    if ~isempty(getenv('NNV_LOG_VMAG'))
+        try
+            fid = fopen(getenv('NNV_LOG_VMAG'), 'a');
+            if fid > 0
+                for kk = 1:nOps
+                    vm = NaN; cb = NaN;
+                    if ~isempty(vmag) && numel(vmag) >= kk && ~isempty(vmag{kk})
+                        vm = max(abs(double(gather(vmag{kk}(:)))));
+                    end
+                    if numel(preL) >= kk && ~isempty(preL{kk})
+                        cb = max([max(abs(double(gather(preL{kk}(:))))); max(abs(double(gather(preU{kk}(:)))))]);
+                    end
+                    fprintf(fid, 'VMAG op=%d type=%s vmag=%.6g crown=%.6g ratio=%.6g\n', kk, ops{kk}.type, vm, cb, vm/cb);
+                end
+                fprintf(fid, 'VMAG --- end-of-call (nOps=%d) ---\n', nOps);
+                fclose(fid);
+            end
+        catch, end
+    end
+
     % ---- final spec margin (lower bound on C*output) + the input-space lower plane ----
     [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true, vmag);
 end

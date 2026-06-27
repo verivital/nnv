@@ -42,6 +42,7 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
     % bound is outward-widened to be a PROVABLE sound lower/upper bound, so the verdict can be EMITTED
     % from FP32 (M3). FP64 ('double') is always exact-enough -> never widened (the oracle).
     vmag = {};
+    ibpLd = {}; ibpUd = {};                  % sound DOUBLE per-op IBP bounds (for the stable-neuron prefilter below)
     if strcmp(precision, 'single') && ~isempty(getenv('NNV_SOUND_FP32_TIGHT'))
         try
             % vmag in DOUBLE -> a rigorous value-magnitude majorant regardless of net depth (the
@@ -51,9 +52,9 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
             % is cheap + cannot OOM. derr then mixes single |A| with double vmag -> the widening is
             % computed in double (rigorous over-estimate); the fast single CROWN coefficient pass is
             % unchanged. (Review findings #3/#9.)
-            [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, 'double');
+            [~, ~, vmag, ibpLd, ibpUd] = gpu_bab_ibp(ops, x_lb, x_ub, 'double');
         catch
-            vmag = {};
+            vmag = {}; ibpLd = {}; ibpUd = {};
         end
     end
     % SOUNDNESS FLAG: the sound-FP32 OUTWARD widening is actually applied only when precision is
@@ -116,8 +117,16 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
                 % NNV_CROWN_MEM_GB; B>=nk reproduces the original single eye(nk) pass.
                 % src==0 here is the sound-FP32 input-fed case routed off the fast cast above (widened).
                 if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
+                % IBP-PREFILTER (verdict-identical, sound-path only): a relu neuron the SOUND DOUBLE IBP proves
+                % stable (ibpLo>=0 or ibpHi<=0) has an EXACT relaxation (slope 1/0), so the downstream backward
+                % uses that exact slope regardless of [pl,pu] tightness -> skip its CROWN backward, fill from IBP.
+                ibpLo = []; ibpHi = [];
+                if strcmp(tk,'relu') && ~isempty(getenv('NNV_CROWN_IBP_PREFILTER')) ...
+                        && ~isempty(ibpLd) && numel(ibpLd) >= src+1 && ~isempty(ibpLd{src+1})
+                    ibpLo = ibpLd{src+1}; ibpHi = ibpUd{src+1};
+                end
                 if doProf, tL_ = tic; end
-                [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag);
+                [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag, ibpLo, ibpHi);
                 if doProf, if isa(pl,'gpuArray'), wait(gpuDevice); end; gpL(k) = toc(tL_); gpW(k) = nk; end
             end
             if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
@@ -228,30 +237,43 @@ function tf = i_box_exact(boxExact, idx)
     tf = ~isempty(v) && all(logical(v(:)));
 end
 
-function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag)
+function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag, ibpLo, ibpHi)
 % Tight per-neuron intermediate bounds (lower pl / upper pu, nk x 1) via a CHUNKED identity seed.
 % Replaces a dense Ck = eye(nk) (the O(nk^2) memory blow-up) with row-blocks; EXACT -- each seed row
 % is bounded independently of the others, so union(blocks) == full. B>=nk => the original single pass.
+% IBP-PREFILTER (ibpLo/ibpHi non-empty): only rows the SOUND IBP cannot prove stable need a CROWN
+% backward; stable rows get the (sound) IBP bound. Verdict-identical for relu (a stable relu's relaxation
+% is exact slope 1/0, so downstream uses that slope regardless of [pl,pu] tightness).
+    if nargin < 10, ibpLo = []; end
+    if nargin < 11, ibpHi = []; end
     B = i_chunk_rows(nk, precision);
     oomTest = getenv('NNV_CROWN_TEST_OOM');                  % test seam (empty in production)
     doP = ~isempty(getenv('NNV_CROWN_PROF'));                % read-only perf profile (default-off)
     if doP, global G_CROWN_PROF; end %#ok<TLEV>
-    pl = zeros(nk, 1, precision); pu = zeros(nk, 1, precision);
+    if ~isempty(ibpLo)
+        ibpLo = double(gather(ibpLo(:))); ibpHi = double(gather(ibpHi(:)));
+        idxAll = find((ibpLo < 0) & (ibpHi > 0));            % the only rows that need a CROWN backward
+        pl = cast(ibpLo, precision); pu = cast(ibpHi, precision);  % stable rows: the sound IBP bound (exact relaxation)
+    else
+        idxAll = (1:nk).';
+        pl = zeros(nk, 1, precision); pu = zeros(nk, 1, precision);
+    end
+    nu = numel(idxAll);
     s0 = 1;
-    while s0 <= nk
-        rows = s0:min(s0 + B - 1, nk); nb = numel(rows);
+    while s0 <= nu
+        sel = idxAll(s0:min(s0 + B - 1, nu)); nb = numel(sel);
         try
             i_maybe_inject_oom(B, oomTest);
             Ck = zeros(nb, nk, precision);
-            Ck(sub2ind([nb nk], (1:nb).', rows(:))) = 1;        % a row-block of eye(nk)
+            Ck(sub2ind([nb nk], (1:nb).', sel(:))) = 1;        % a row-block of eye(nk) over the unstable subset
             if doP, G_CROWN_PROF.nb = G_CROWN_PROF.nb + 1; end   % count chunked backward passes (per-chunk sync was too heavy)
-            pu(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
-            pl(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
+            pu(sel) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
+            pl(sel) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
             if strcmp(precision,'single') && ~isempty(getenv('NNV_DERR_ACTUAL'))
                 % P2 (advisor): the NET |fl32-fl64| roundoff of THIS interm-bound chunk (same call the DECOMP logs as
                 % nS=nb). Compare to the per-op measured-delta derr at matched depth -> is the ~500x cancellation gap real?
                 pld = i_backward(ops, src, double(Ck), x_lb, x_ub, preL, preU, 'double', true, {});
-                act = abs(double(gather(pl(rows))) - double(gather(pld(:))));
+                act = abs(double(gather(pl(sel))) - double(gather(pld(:))));
                 as = sort(act); medi = as(max(1, round(0.5*numel(as))));
                 fid_a = fopen(getenv('NNV_DERR_ACTUAL'), 'a');
                 if fid_a > 0

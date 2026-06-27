@@ -117,16 +117,35 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
         [~, wIdx] = min(i_g(m0), [], 1);              % worst spec per node, found ONCE (the stable bottleneck)
         Cw = i_worst_C(C, wIdx, precision);          % 1 x nOut x B -> the optimization + keep-best use only this
     end
+    useCF  = ~isempty(getenv('NNV_BAB_CLOSEDFORM'));        % P4: analytic gradient (no dlfeval/dlgradient)
+    cfTest = ~isempty(getenv('NNV_BAB_CLOSEDFORM_TEST'));   % one-shot grad-equivalence vs dlgradient
     try
         for it = 1:nIter
-            if useWorst
-                [~, grad] = dlfeval(@(p) i_aloss(ops, preL, actM, unsM, auC, buC, fixSign, ...
-                                    x_lb, x_ub, Cw, precision, p, reluIdx, rdims, offsets, nP, B, 1), pVec);
-            else
-                [~, grad] = dlfeval(@(p) i_aloss(ops, preL, actM, unsM, auC, buC, fixSign, ...
-                                    x_lb, x_ub, C, precision, p, reluIdx, rdims, offsets, nP, B, nSpec), pVec);
+            if useCF || cfTest                              % closed-form analytic gradient (PLAIN, no tape)
+                pCur = extractdata(pVec);
+                if useWorst
+                    [~, gcf] = i_dag_grad(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, Cw, precision, pCur, reluIdx, rdims, offsets, nP, B, 1);
+                else
+                    [~, gcf] = i_dag_grad(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, pCur, reluIdx, rdims, offsets, nP, B, nSpec);
+                end
             end
-            g = extractdata(grad);
+            if ~useCF || cfTest                             % autodiff gradient (the oracle / default path)
+                if useWorst
+                    [~, grad] = dlfeval(@(p) i_aloss(ops, preL, actM, unsM, auC, buC, fixSign, ...
+                                        x_lb, x_ub, Cw, precision, p, reluIdx, rdims, offsets, nP, B, 1), pVec);
+                else
+                    [~, grad] = dlfeval(@(p) i_aloss(ops, preL, actM, unsM, auC, buC, fixSign, ...
+                                        x_lb, x_ub, C, precision, p, reluIdx, rdims, offsets, nP, B, nSpec), pVec);
+                end
+                gdl = extractdata(grad);
+            end
+            if cfTest && it == 1                            % log grad-equivalence once (the -150 gate evidence)
+                df = max(abs(double(gcf(:)) - double(gdl(:)))); rl = df / max(1e-8, max(abs(double(gdl(:)))));
+                fid = fopen('/tmp/goldgate/cf_graddiff.txt', 'a');
+                fprintf(fid, 'B=%d nSpec=%d nP=%d useWorst=%d  maxdiff=%.3e rel=%.3e\n', B, nSpec, nP, useWorst, df, rl);
+                fclose(fid);
+            end
+            if useCF, g = gcf; else, g = gdl; end
             if ~any(g(:)), break; end                  % zero gradient (tape didn't reach params) -> stop
             mt = b1*mt + (1-b1)*g;
             vt = b2*vt + (1-b2)*g.^2;
@@ -149,6 +168,12 @@ function [margins, unstable, preL, preU, alphaOut] = gpu_bab_crown_alpha_dag(ops
             if obj > bestObj, bestObj = obj; bestVec = v; end   % STEP A: store plain bestVec
         end
     catch ME
+        if cfTest
+            fid = fopen('/tmp/goldgate/cf_graddiff.txt','a');
+            fprintf(fid, 'ERROR: %s', ME.message);
+            for si = 1:min(3,numel(ME.stack)), fprintf(fid, ' | %s:%d', ME.stack(si).name, ME.stack(si).line); end
+            fprintf(fid, '\n'); fclose(fid);
+        end
         if ~any(strcmp(ME.identifier, {'MATLAB:dlarray:GradientNotTraced', ...
                 'deep:dlarray:ValueToDiffNotDlarray', 'MATLAB:dlarray:NotDifferentiable'}))
             % a real error (not the known tape-break) -> keep-best already holds the min-area
@@ -276,6 +301,162 @@ function margins = i_dag_back(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_
     ubcol = reshape(cast(x_ub, precision), n, 1, B);
     margins = reshape(pagemtimes(Apos, lbcol), nSpec, B) ...
             + reshape(pagemtimes(Aneg, ubcol), nSpec, B) + d;
+end
+
+% =====================================================================================
+function [margins, grad] = i_dag_grad(ops, preL, actM, unsM, auC, buC, fixSign, x_lb, x_ub, C, precision, pVec, reluIdx, rdims, offsets, nP, B, nSpec)
+% CLOSED-FORM analytic gradient of loss = -sum(min(margins,[],1)) w.r.t. [alpha;beta], on PLAIN
+% gpuArrays (NO dlarray / NO dlgradient). Reverse-mode over i_dag_back: PASS 1 = the backward CROWN
+% (store per-relu Apos/slope/dpath + the input-coeff signs); PASS 2 = the forward-adjoint over ops
+% 1..nOps (add SUMS the branch adjoints). Validated == dlgradient by test_soundness_gpu_bab_alpha_closedform.
+% SOUNDNESS: this only replaces HOW the (alpha,beta) gradient is computed; alpha in [0,1]/beta>=0
+% clamps + keep-best are unchanged, so any optimizer output remains a sound lower bound.
+    nOps = numel(ops); n = size(x_lb, 1);
+    skipA = cell(nOps, 1);
+    if ndims(C) == 3, skipA{nOps} = cast(C, precision);
+    else, skipA{nOps} = repmat(cast(C, precision), 1, 1, B); end
+    nSpec = size(skipA{nOps}, 1);
+    d = zeros(nSpec, B, precision);
+    inputSkipA = [];
+    Apos_s = cell(nOps,1); slope_s = cell(nOps,1); dpath_s = cell(nOps,1);  % per-relu PASS-1 stash
+    for k = nOps:-1:1
+        A = skipA{k};
+        if isempty(A), continue; end
+        skipA{k} = [];
+        op = ops{k};
+        if strcmp(op.type, 'add')
+            for ii = 1:numel(op.inputs)
+                s = op.inputs(ii);
+                if s == 0, if isempty(inputSkipA), inputSkipA = A; else, inputSkipA = inputSkipA + A; end
+                elseif isempty(skipA{s}), skipA{s} = A; else, skipA{s} = skipA{s} + A; end
+            end
+            continue;
+        end
+        switch op.type
+            case 'affine'
+                W = cast(op.W, precision); bb = cast(op.b(:), precision);
+                d = d + reshape(pagemtimes(A, bb), nSpec, B);
+                A = pagemtimes(A, W);
+            case 'conv'
+                [A, d] = i_conv_backward(A, d, op, precision);
+                A = i_undl(A); d = i_undl(d);
+            case 'normaffine'
+                sf = i_bcast_flat(op.scale, op.shape, precision);
+                tf = i_bcast_flat(op.shift, op.shape, precision);
+                d = d + reshape(pagemtimes(A, tf), nSpec, B);
+                A = A .* reshape(sf, 1, [], 1);
+            case 'avgpool'
+                [A, d] = i_avgpool_backward(A, d, op, precision); A = i_undl(A); d = i_undl(d);
+            case 'relu'
+                r = find(reluIdx == k, 1); dim = rdims(r);
+                alpha_k = reshape(pVec(offsets(r)+1:offsets(r+1)), dim, B);
+                beta_k  = reshape(pVec(nP+offsets(r)+1:nP+offsets(r+1)), dim, B);
+                au = auC{k}; bu = buC{k}; al = actM{k} + unsM{k}.*alpha_k;
+                Apos = max(A,0); Aneg = min(A,0);
+                d = d + reshape(pagemtimes(Aneg, reshape(bu, dim,1,B)), nSpec, B);
+                Apos_s{k}  = Apos;
+                slope_s{k} = (A>0).*reshape(al,1,dim,B) + (A<0).*reshape(au,1,dim,B);
+                dpath_s{k} = (A<0).*reshape(bu,1,dim,B);
+                A = Apos.*reshape(al,1,dim,B) + Aneg.*reshape(au,1,dim,B) - reshape(beta_k.*fixSign{k},1,dim,B);
+            otherwise
+                error('gpu_bab_crown_alpha_dag:op','Unsupported op "%s".', op.type);
+        end
+        s = op.src;
+        if s == 0, if isempty(inputSkipA), inputSkipA = A; else, inputSkipA = inputSkipA + A; end
+        elseif isempty(skipA{s}), skipA{s} = A; else, skipA{s} = skipA{s} + A; end
+    end
+    if isempty(inputSkipA)
+        margins = d; Ain = zeros(nSpec, n, B, precision);
+    else
+        Ain = inputSkipA;
+        lbcol = reshape(cast(x_lb,precision),n,1,B); ubcol = reshape(cast(x_ub,precision),n,1,B);
+        margins = reshape(pagemtimes(max(Ain,0),lbcol),nSpec,B) + reshape(pagemtimes(min(Ain,0),ubcol),nSpec,B) + d;
+    end
+    % ---- seeds: loss = -sum(min margins) ⇒ sel = -1 at each node's argmin spec ----
+    if nSpec == 1
+        sel = -ones(1, B, precision);
+    else
+        [~, amin] = min(margins, [], 1);
+        sel = zeros(nSpec, B, precision);
+        sel(sub2ind([nSpec B], amin(:).', 1:B)) = -1;
+    end
+    dbar = sel;
+    lbr = reshape(cast(x_lb,precision),1,n,B); ubr = reshape(cast(x_ub,precision),1,n,B);
+    Gbar_input = reshape(sel,nSpec,1,B) .* ((Ain>=0).*lbr + (Ain<0).*ubr);   % nSpec x n x B
+    % ---- PASS 2: forward-adjoint over ops 1..nOps ----
+    Gbar = cell(nOps,1);
+    ga = zeros(nP,1,precision); gb = zeros(nP,1,precision);
+    for k = 1:nOps
+        op = ops{k};
+        if strcmp(op.type,'add')
+            G = [];
+            for ii = 1:numel(op.inputs)
+                s = op.inputs(ii);
+                if s == 0, Gs = Gbar_input; else, Gs = Gbar{s}; end
+                if isempty(G), G = Gs; else, G = G + Gs; end
+            end
+            Gbar{k} = G; continue;
+        end
+        if op.src == 0, Gsrc = Gbar_input; else, Gsrc = Gbar{op.src}; end
+        switch op.type
+            case 'affine'
+                W = cast(op.W, precision); bb = cast(op.b(:), precision);
+                Gbar{k} = pagemtimes(Gsrc, W.') + reshape(dbar,nSpec,1,B).*reshape(bb,1,[],1);
+            case 'conv'
+                Gbar{k} = i_conv_adjoint(Gsrc, op, precision, nSpec, B) + i_conv_bias_adj(dbar, op, precision, nSpec, B);
+            case 'normaffine'
+                sf = i_bcast_flat(op.scale, op.shape, precision);
+                tf = i_bcast_flat(op.shift, op.shape, precision);
+                Gbar{k} = Gsrc .* reshape(sf,1,[],1) + reshape(dbar,nSpec,1,B).*reshape(tf,1,[],1);
+            case 'avgpool'
+                Gbar{k} = i_avgpool_adjoint(Gsrc, op, precision, nSpec, B);
+            case 'relu'
+                r = find(reluIdx == k, 1); dim = rdims(r);
+                gak = reshape(sum(Gsrc .* Apos_s{k}, 1), dim, B) .* unsM{k};
+                gbk = reshape(-sum(Gsrc .* reshape(fixSign{k},1,dim,B), 1), dim, B);
+                ga(offsets(r)+1:offsets(r+1)) = gak(:);
+                gb(offsets(r)+1:offsets(r+1)) = gbk(:);
+                Gbar{k} = Gsrc .* slope_s{k} + reshape(dbar,nSpec,1,B).*dpath_s{k};
+        end
+    end
+    grad = [ga; gb];   % sel already carries the -1 from loss = -sum(min margins)
+end
+
+function y = i_undl(x)
+    if isa(x,'dlarray'), y = extractdata(x); else, y = x; end
+end
+
+function R = i_conv_adjoint(G, op, precision, nSpec, B)
+% Forward-adjoint of i_conv_backward's A-map (the SOLVED conv adjoint, rel err 0 vs dlgradient):
+% M^T = P2t -> zero-insert-at-offset -> dlconv(W, Padding=0, same stride/dil, NO flip/permute) -> P1t.
+    ish = op.inShape; osh = op.outShape; W = cast(op.W, precision);
+    stride = op.stride; dil = op.dil;
+    Gin = reshape(permute(G,[2 1 3]), [ish(1) ish(2) ish(3) nSpec*B]);   % P2^T
+    fullH = (osh(1)-1)*stride(1) + dil(1)*(size(W,1)-1) + 1;
+    fullW = (osh(2)-1)*stride(2) + dil(2)*(size(W,2)-1) + 1;
+    pt = op.pad(1); pl = op.pad(3);
+    hi = min(ish(1), fullH-pt); wi = min(ish(2), fullW-pl);
+    Zfull = zeros([fullH fullW ish(3) nSpec*B], 'like', G);
+    Zfull(pt+(1:hi), pl+(1:wi), :, :) = Gin(1:hi, 1:wi, :, :);            % Crop^T = zero-insert
+    A4 = dlconv(dlarray(Zfull), W, 0, 'Stride', stride, 'Padding', 0, 'DilationFactor', dil, 'DataFormat', 'SSCB');
+    R = permute(reshape(extractdata(A4), [prod(osh) nSpec B]), [2 1 3]);  % P1^T
+end
+
+function Gb = i_conv_bias_adj(dbar, op, precision, nSpec, B)
+% Adjoint of the conv +bias d-path (d += sum(A4u.*bc)): contributes dbar (x) bias broadcast.
+    osh = op.outShape; bc = reshape(cast(op.b(:),precision),[1 1 osh(3)]);
+    bflat = reshape(repmat(bc, [osh(1) osh(2) 1]), 1, prod(osh));
+    Gb = reshape(dbar,nSpec,1,B) .* reshape(bflat,1,prod(osh),1);
+end
+
+function R = i_avgpool_adjoint(G, op, precision, nSpec, B)
+% Forward-adjoint of i_avgpool_backward (distribute repelem/n). Transpose of "distribute /n" is the
+% mean over each non-overlapping window (= i_pool_mean). (No-crop case; crop/zeropad would transpose
+% to a slice — flagged if a net needs it.)
+    ish = op.inShape; osh = op.outShape;
+    Gin = reshape(permute(G,[2 1 3]), [ish(1) ish(2) ish(3) nSpec*B]);
+    Y = i_pool_mean(Gin, op);
+    R = permute(reshape(Y, [prod(osh) nSpec B]), [2 1 3]);
 end
 
 % =====================================================================================

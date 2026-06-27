@@ -1394,7 +1394,23 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         % times out on the hard props even multi-core, and approx-star (DeepZ-level) is too loose to
         % decide them. The approx-first + multi-core ladder below is SOUND and helps any approx-
         % decidable prop, but the CROWN-needing props need a tighter method (separate, deeper work).
-        net = importNetworkFromONNX(onnx, "InputDataFormats","BCSS");
+        %
+        % TWO-NETWORK NORMALIZATION (isomorphic/monotonic_acasxu 2026): their instances.csv onnx field is a
+        % python tuple-list string "[('f','onnx/..'),('g','onnx/..')]", which importNetworkFromONNX cannot
+        % open -> LOAD FAILED -> unknown (and, in the dev harness, a re-loop). We import the f net here
+        % (resolved against the benchmark root from the vnnlib path); the relational verification + the g net
+        % are handled by the property.multinet / verify_multinet branch in run_vnncomp_instance, behind the
+        % authoritative validate_witness_multinet ORT gate. monotonic (g equal-to f) reaches verify_multinet;
+        % isomorphic (g != f) is flagged property.unsupported -> unknown upstream. Sound either way.
+        onnx_f = onnx;
+        ftok = regexp(char(onnx), '''f''\s*,\s*''([^'']+)''', 'tokens', 'once');
+        if ~isempty(ftok)
+            benchroot = fileparts(fileparts(char(vnnlib)));   % .../<ver>/vnnlib/x.vnnlib -> .../<ver>
+            onnx_f = char(fullfile(benchroot, ftok{1}));       % keep char; build .gz path by char concat
+            gzf = [onnx_f '.gz'];                              % (char concat -- avoids the char+string '+' pitfall)
+            if ~isfile(onnx_f) && isfile(gzf), gunzip(gzf); end
+        end
+        net = importNetworkFromONNX(onnx_f, "InputDataFormats","BCSS");
         nnvnet = matlab2nnv(net);
         % SOUND-FIRST ladder for ALL props: fast approx-star (tightest non-exact; ~1-2s on these
         % tiny 5->5 nets, settles the robust/UNSAT props) then MULTI-CORE exact-star as the complete

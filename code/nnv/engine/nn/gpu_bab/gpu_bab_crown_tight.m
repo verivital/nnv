@@ -81,6 +81,12 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
     % ---- tight intermediate bounds, layer by layer ----
     % Compute input bounds for every op whose backward relaxation needs them: ReLU (the
     % pre-activation) AND maxpool (the window inputs that decide the sound max relaxation).
+    doProf = ~isempty(getenv('NNV_CROWN_PROF'));     % perf profile (read-only): where the sound root spends time
+    if doProf
+        global G_CROWN_PROF; %#ok<TLEV>
+        G_CROWN_PROF = struct('up', 0, 'lo', 0, 'oom', 0);
+        gpL = zeros(nOps, 1); gpW = zeros(nOps, 1); gpT0 = tic;
+    end
     for k = 1:nOps
         tk = ops{k}.type;
         if strcmp(tk, 'relu') || strcmp(tk, 'maxpool')
@@ -110,7 +116,9 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
                 % NNV_CROWN_MEM_GB; B>=nk reproduces the original single eye(nk) pass.
                 % src==0 here is the sound-FP32 input-fed case routed off the fast cast above (widened).
                 if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
+                if doProf, tL_ = tic; end
                 [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag);
+                if doProf, if isa(pl,'gpuArray'), wait(gpuDevice); end; gpL(k) = toc(tL_); gpW(k) = nk; end
             end
             if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                 fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
@@ -154,6 +162,13 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
                 preU{k} = min(preU{k}, cast(mulFix{k}.hi(:), precision));
             end
         end
+    end
+    if doProf
+        tot = toc(gpT0); [~, ord] = sort(gpL, 'descend');
+        fprintf('[crown-prof] interm-pass=%.1fs upper-bwd=%.1fs lower-bwd=%.1fs oom-halvings=%d | top layers: ', ...
+            tot, G_CROWN_PROF.up, G_CROWN_PROF.lo, G_CROWN_PROF.oom);
+        for ii = 1:min(8, nOps), j = ord(ii); if gpL(j) > 0.05, fprintf('op%d(%s,w%d)=%.1fs ', j, ops{j}.type, gpW(j), gpL(j)); end; end
+        fprintf('\n');
     end
 
     % M1 (P2.0 measurement, read-only, env-gated default-off): decompose the derr looseness -- log per op the
@@ -219,6 +234,8 @@ function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU
 % is bounded independently of the others, so union(blocks) == full. B>=nk => the original single pass.
     B = i_chunk_rows(nk, precision);
     oomTest = getenv('NNV_CROWN_TEST_OOM');                  % test seam (empty in production)
+    doP = ~isempty(getenv('NNV_CROWN_PROF'));                % read-only perf profile (default-off)
+    if doP, global G_CROWN_PROF; end %#ok<TLEV>
     pl = zeros(nk, 1, precision); pu = zeros(nk, 1, precision);
     s0 = 1;
     while s0 <= nk
@@ -227,8 +244,11 @@ function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU
             i_maybe_inject_oom(B, oomTest);
             Ck = zeros(nb, nk, precision);
             Ck(sub2ind([nb nk], (1:nb).', rows(:))) = 1;        % a row-block of eye(nk)
+            if doP, tu_ = tic; end
             pu(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
+            if doP, if isa(pu,'gpuArray'), wait(gpuDevice); end; G_CROWN_PROF.up = G_CROWN_PROF.up + toc(tu_); tl_ = tic; end
             pl(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
+            if doP, if isa(pl,'gpuArray'), wait(gpuDevice); end; G_CROWN_PROF.lo = G_CROWN_PROF.lo + toc(tl_); end
             if strcmp(precision,'single') && ~isempty(getenv('NNV_DERR_ACTUAL'))
                 % P2 (advisor): the NET |fl32-fl64| roundoff of THIS interm-bound chunk (same call the DECOMP logs as
                 % nS=nb). Compare to the per-op measured-delta derr at matched depth -> is the ~500x cancellation gap real?
@@ -248,6 +268,7 @@ function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU
             % so halve B and RETRY the SAME block. SOUND: cannot change a verdict, only memory/speed.
             % Non-memory errors (a genuine bug) rethrow immediately; at B==1 there is no smaller retry.
             if B <= 1 || ~i_is_oom(ME), rethrow(ME); end
+            if doP && isstruct(G_CROWN_PROF), G_CROWN_PROF.oom = G_CROWN_PROF.oom + 1; end
             clear Ck;                    % release the (nb x nk) seed so the smaller-B retry has headroom
             Bn = max(1, floor(B / 2));
             fprintf('[crown-chunk] OOM at B=%d (nk=%d, op %d): %s -> halving to B=%d\n', ...

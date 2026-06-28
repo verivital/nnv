@@ -30,11 +30,8 @@ python3 -m pip install .
 matlab -nodisplay -r "cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2026/; prepare_run; quit"
 
 sudo apt install -y python3-pip
-# NOTE: python `torch` is NOT needed for the VNN-COMP path -- it is only used by
-# engine/nn/Prob_reach (probabilistic-reach research code), which the competition does not
-# run. The MATLAB PyTorch *converter* is an mpm support package (install_tool.sh), unrelated
-# to python torch. Removed the unpinned ~2GB `pip install torch` to save AWS setup time +
-# drop a failure point. (Re-add `python3 -m pip install torch` here if Prob_reach is ever run.)
+# torch backs engine/nn/Prob_reach (cp-star / probabilistic-reach paths) -- keep it.
+python3 -m pip install torch
 python3 -m pip install numpy
 python3 -m pip install scipy
 # onnxruntime backs BOTH the SAT-witness replay gate (validate_witness_onnx.m ->

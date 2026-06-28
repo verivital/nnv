@@ -60,7 +60,14 @@ case "$CATEGORY" in
         ;;
 esac
 
+# Surface the post_install log here -- the platform's ToolkitPostInstall step log captures only its wrapper,
+# so this is the only way to SEE why the python/venv setup did (or didn't) work on the eval box.
+if [ -f "$HOME/.nnv_post_install.log" ]; then
+    echo "=== POST_INSTALL LOG (begin) ==="; sed 's/^/[PI] /' "$HOME/.nnv_post_install.log"; echo "=== POST_INSTALL LOG (end) ==="
+fi
 echo "Running ${TOOL_NAME} on '$CATEGORY' (onnx='$ONNX_FILE', vnnlib='$VNNLIB_FILE', timeout=${TIMEOUT}s)"
-# Run execute.py under the venv that actually has matlab.engine (NNV_ORT_PYTHON, set by vnncomp2026_env.sh
-# sourced above). A bare `python3` is anaconda on the eval box and lacks matlab.engine (smoke 269).
+# Run execute.py under the python that actually has matlab.engine (NNV_ORT_PYTHON, set by vnncomp2026_env.sh
+# sourced above). A bare `python3` is anaconda on the eval box and lacks matlab.engine (smoke 269). GUARD: if
+# the recorded python is missing/not executable, fall back to python3 (avoid the smoke-272 exit-127 dead end).
+[ -x "$NNV_ORT_PYTHON" ] || NNV_ORT_PYTHON=python3
 "${NNV_ORT_PYTHON:-python3}" "$EXECUTE" 'run_instance' "$CATEGORY" "$ONNX_FILE" "$VNNLIB_FILE" "$TIMEOUT" "$RESULTS_FILE"

@@ -30,8 +30,9 @@
 # post_install.sh builds $HOME/.nnv_venv (matlab.engine + onnx stack + torch) because the eval box has
 # anaconda first on PATH, so a bare `python3` is ambiguous and the MATLAB engine would not install into it
 # (smoke 269: every result error_exit_code_1 from ModuleNotFoundError 'matlab'). An explicit NNV_ORT_PYTHON
-# still wins (e.g. the Lambda dev box's taylor_venv).
-export NNV_ORT_PYTHON="${NNV_ORT_PYTHON:-$HOME/.nnv_venv/bin/python}"
+# still wins (e.g. the Lambda dev box's taylor_venv). post_install records the VERIFIED working python path
+# (the uv/3.12 venv, or a system-python fallback) in ~/.nnv_python_path -- read it so we use what actually works.
+export NNV_ORT_PYTHON="${NNV_ORT_PYTHON:-$(cat "$HOME/.nnv_python_path" 2>/dev/null || echo "$HOME/.nnv_venv/bin/python")}"
 
 export NNV_CONV_TRUST_FP32=1
 # NNV_CONV_NO_STAR: a non-certifying conv precheck emits a FAST sound 'unknown' (Star never certifies these

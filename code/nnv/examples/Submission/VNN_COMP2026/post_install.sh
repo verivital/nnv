@@ -9,6 +9,12 @@
 # did `apt-get` (non-root -> Permission denied) and `matlab -batch install` (no license yet -> Error -1.2).
 # Licensing + the licensed MATLAB setup + apt MUST run here, after the license is in place.
 
+# --- VISIBILITY: the platform's ToolkitPostInstall step log captures only its wrapper, NOT this script's
+# output, and it marks the step Done regardless of our exit code. tee everything to a file; run_instance.sh
+# cats it into EVERY run log (which IS captured), so failures here are diagnosable. ---
+exec > >(tee "$HOME/.nnv_post_install.log") 2>&1
+echo "=== POST_INSTALL START $(date -u +%FT%TZ) ==="
+
 # Resolve the cloned repo root from THIS script's location BEFORE any cd (robust to the clone path).
 SD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"          # .../code/nnv/examples/Submission/VNN_COMP2026
 NNV_ROOT="$(cd "$SD/../../.." && pwd)"                          # .../code/nnv  (has install.m)
@@ -32,41 +38,66 @@ sudo cp -f license.lic /usr/local/matlab/licenses/ || { echo "ERROR: failed to i
 [ -s /usr/local/matlab/licenses/license.lic ] || { echo "ERROR: license not present after copy" >&2; exit 1; }
 sudo rm -f /usr/local/matlab/licenses/license_info.xml
 
-# ---- 2) Dedicated python venv (NNV_ORT_PYTHON) with matlab.engine + ONNX stack + torch ----
-# The eval box has anaconda FIRST on PATH (smoke 269), so a bare `python3` is ambiguous and the R2026a
-# MATLAB engine did NOT install into it. Build a self-contained venv from a SYSTEM python the engine
-# supports, put EVERYTHING in it, and point the whole harness at it via NNV_ORT_PYTHON. Works anywhere.
+# ---- 2) Robust python: a MATLAB-R2026a-engine-compatible python with matlab.engine + ONNX stack + torch ----
+# The eval box has anaconda FIRST on PATH (smoke 269) and NO native python3.12 (the platform installs 3.12 via
+# uv). A bare `python3` can't install the R2026a engine, and a plain `python3 -m venv` failed (smoke 272 ->
+# error_exit_code_127, no venv). So: build a uv/3.12 venv (the platform's own proven method), VERIFY by
+# importing matlab.engine, RECORD the working python path; fall back to system pythons + --break-system-packages.
 echo "=== python diagnostics (eval box) ==="
 echo "PATH python3 -> $(command -v python3) ($(python3 --version 2>&1))"
 ls -d /home/ubuntu/anaconda3 2>/dev/null && echo "  (anaconda present on PATH)"
 echo "/usr/bin/python3 -> $(/usr/bin/python3 --version 2>&1)"
 for v in 3.13 3.12 3.11 3.10; do command -v python$v >/dev/null 2>&1 && echo "  python$v -> $(python$v --version 2>&1)"; done
+echo "uv -> $(command -v uv || echo 'not found')"
 sudo apt-get install -y python3-venv python3-pip || true
-# Pick a SYSTEM python (NOT anaconda) that the R2026a MATLAB engine supports.
-BASEPY=""
-for cand in /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 /usr/bin/python3 python3; do
-    if command -v "$cand" >/dev/null 2>&1; then BASEPY="$cand"; break; fi
-done
-echo "Using BASEPY=$BASEPY ($("$BASEPY" --version 2>&1))"
+
+REQ_OK() { ( cd /tmp && "$1" -c "import matlab.engine,numpy,scipy,onnx,onnxruntime,onnxsim,onnxoptimizer,vnnlib" ) >/dev/null 2>&1; }
+WORKING_PY=""
 VENV="$HOME/.nnv_venv"
-"$BASEPY" -m venv "$VENV"
+
+# PRIMARY: uv + python 3.12 venv (matches what the platform itself does for python 3.12).
+if ! command -v uv >/dev/null 2>&1; then curl -LsSf https://astral.sh/uv/install.sh | sh || echo "WARN: uv install non-zero"; fi
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+echo "uv now -> $(command -v uv || echo 'still not found')"
+uv python install 3.12 2>&1 | tail -5 || true
+uv venv "$VENV" --python 3.12 2>&1 | tail -5 || /usr/bin/python3.12 -m venv "$VENV" 2>&1 | tail -5 || true
 VPY="$VENV/bin/python"
-"$VPY" -m pip install --upgrade pip wheel
-# matlab.engine into the venv (capture output so a failure is visible, not silent)
-( cd /usr/local/matlab/extern/engines/python && "$VPY" -m pip install . ) 2>&1 | tail -25 || echo "WARN: matlab.engine pip install . non-zero"
-# the ONNX importer + witness-gate stack + torch into the venv
-"$VPY" -m pip install -r "$REQ"
-"$VPY" -m pip install torch
-# FALLBACK: the PLATFORM's prep step runs onnx2nnv.py under a bare `python3` (may not see NNV_ORT_PYTHON),
-# so also put the ONNX stack in the system python3 (best-effort; PEP-668 boxes need --break-system-packages).
+if [ -x "$VPY" ]; then
+    echo "venv python: $VPY ($("$VPY" --version 2>&1))"
+    ( cd /usr/local/matlab/extern/engines/python && "$VPY" -m pip install . ) 2>&1 | tail -30 || echo "WARN: matlab.engine pip install . (venv) non-zero"
+    "$VPY" -m pip install -r "$REQ" 2>&1 | tail -10
+    "$VPY" -m pip install torch 2>&1 | tail -5
+    if REQ_OK "$VPY"; then WORKING_PY="$VPY"; echo "VENV_OK $VPY"; else echo "VENV_FAIL importing in $VPY:"; ( cd /tmp && "$VPY" -c "import matlab.engine,numpy,scipy,onnx,onnxruntime,onnxsim,onnxoptimizer,vnnlib" ) 2>&1 | tail -8; fi
+else
+    echo "WARN: venv $VPY not created by uv/python3.12"
+fi
+
+# FALLBACK: install the engine + deps directly into a system python (PEP-668 -> --break-system-packages).
+if [ -z "$WORKING_PY" ]; then
+    for SP in /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 /usr/bin/python3; do
+        command -v "$SP" >/dev/null 2>&1 || continue
+        echo "fallback trying $SP ($("$SP" --version 2>&1))"
+        ( cd /usr/local/matlab/extern/engines/python && "$SP" -m pip install . --break-system-packages ) 2>&1 | tail -15 || true
+        "$SP" -m pip install -r "$REQ" --break-system-packages 2>&1 | tail -5 || true
+        "$SP" -m pip install torch --break-system-packages 2>&1 | tail -3 || true
+        if REQ_OK "$SP"; then WORKING_PY="$SP"; echo "FALLBACK_OK $SP"; break; fi
+    done
+fi
+
+# ALSO seed the platform-prep python3 with the ONNX stack (the prep runs onnx2nnv.py under bare python3).
 pip3 install -r "$REQ" 2>/dev/null || python3 -m pip install -r "$REQ" --break-system-packages 2>/dev/null || true
-# FATAL GATE from a NEUTRAL cwd (the old gate ran from the engine source dir -> false positive on `import matlab`).
-cd /tmp && "$VPY" -c "import matlab.engine, numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer, vnnlib" \
-    || { echo "ERROR: venv ($VPY, base=$BASEPY) missing matlab.engine or the onnx stack" >&2; "$VPY" --version >&2; exit 1; }
-# Persist NNV_ORT_PYTHON for later shells (run_instance also exports it via vnncomp2026_env.sh).
-echo "export NNV_ORT_PYTHON=\"$VENV/bin/python\"" >> ~/.bashrc
-echo "export NNV_ORT_PYTHON=\"$VENV/bin/python\"" >> ~/.profile
-export NNV_ORT_PYTHON="$VENV/bin/python"
+
+# RECORD the working python for the harness (vnncomp2026_env.sh reads ~/.nnv_python_path).
+if [ -n "$WORKING_PY" ]; then
+    echo "$WORKING_PY" > "$HOME/.nnv_python_path"
+    export NNV_ORT_PYTHON="$WORKING_PY"
+    echo "export NNV_ORT_PYTHON=\"$WORKING_PY\"" >> ~/.bashrc
+    echo "export NNV_ORT_PYTHON=\"$WORKING_PY\"" >> ~/.profile
+    echo "NNV_ORT_PYTHON=$WORKING_PY (matlab.engine + onnx stack VERIFIED)"
+else
+    echo "ERROR: NO working python found with matlab.engine! runs will fall back to python3 and likely error." >&2
+fi
+# (No 'exit 1': the platform marks ToolkitPostInstall Done regardless of our exit code -- print loudly instead.)
 
 # ---- 3) NNV install (tbxmanager: mpt/glpk/sedumi + savepath) -- NOW LICENSED ----
 # Was in install_tool.sh where it hit license Error -1.2 (no license yet). install.m is load-bearing

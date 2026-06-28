@@ -12,7 +12,10 @@
 # --- VISIBILITY: the platform's ToolkitPostInstall step log captures only its wrapper, NOT this script's
 # output, and it marks the step Done regardless of our exit code. tee everything to a file; run_instance.sh
 # cats it into EVERY run log (which IS captured), so failures here are diagnosable. ---
-exec > >(tee "$HOME/.nnv_post_install.log") 2>&1
+# simple redirect (NOT process-substitution `>(tee ...)` — that silently failed on the eval box in smoke 273,
+# so the log was never created). All post_install output goes to this file; run_instance.sh cats it into the
+# run log (the platform does NOT capture post_install output otherwise).
+exec > "$HOME/.nnv_post_install.log" 2>&1
 echo "=== POST_INSTALL START $(date -u +%FT%TZ) ==="
 
 # Resolve the cloned repo root from THIS script's location BEFORE any cd (robust to the clone path).

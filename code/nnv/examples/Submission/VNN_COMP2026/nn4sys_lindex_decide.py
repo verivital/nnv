@@ -106,8 +106,13 @@ def parse_boxes(vnn_path):
     """Return boxes [(lo,hi)], a[N], b[N] (unsafe = Y<=a or Y>=b; defaults open)."""
     with open(vnn_path, encoding="utf-8") as f:
         txt = f.read()
-    pat = (r"\(and\s*\(>=\s*X\[0,0\]\s*([-\d.eE]+)\)\s*\(<=\s*X\[0,0\]\s*([-\d.eE]+)\)\s*"
-           r"\((<=|>=)\s*Y\[0,0\]\s*([-\d.eE]+)\)")
+    # Accept BOTH vnnlib index conventions: the 2.0 `X[0,0]`/`Y[0,0]` form AND the 1.0 `X_0`/`Y_0`
+    # form. nn4sys is a CARRY-OVER cat whose competition vnnlib is served from the 1.0/ dir (X_0),
+    # but this parser was written only for X[0,0] -> it silently parsed 0 sub-queries -> CANT ->
+    # every lindex instance fell to unknown (the +24 lindex recovery, PR #426, was lost). Widening
+    # the index pattern is purely a PARSE change; the sound IBP+witness decision logic is unchanged.
+    pat = (r"\(and\s*\(>=\s*X(?:\[0,\s*0\]|_0)\s*([-\d.eE]+)\)\s*\(<=\s*X(?:\[0,\s*0\]|_0)\s*([-\d.eE]+)\)\s*"
+           r"\((<=|>=)\s*Y(?:\[0,\s*0\]|_0)\s*([-\d.eE]+)\)")
     from collections import OrderedDict
     g = OrderedDict()
     for lo, hi, sense, bnd in re.findall(pat, txt):

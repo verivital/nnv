@@ -1,18 +1,29 @@
-cd ~/.matlab/R2024b_licenses
+mkdir -p ~/.matlab/R2026a_licenses
+cd ~/.matlab/R2026a_licenses
 
-curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/scl/fi/94gyrz1sdpiuvd7e8nc0r/LicenseTL.zip?rlkey=cbbrrkley11nnxd5r9mgrnkg1&st=4bx85clk&dl=0
-sleep 60
+# MAC-locked MATLAB R2026a license (HOSTID 02e1e896fadb == ENI eni-0b11771dfe21b94ee).
+# Verified 2026-06-28: FLEXlm passcode file, 116 products incl. Deep Learning (Neural_Network_Toolbox),
+# Parallel Computing (Distrib_Computing_Toolbox, for GPU/parfor), Optimization (linprog), GPU_Coder;
+# expires 30-may-2027. Fetched at runtime; the .lic is MAC-locked so the URL is unusable off this ENI.
+# NOTE: URL is QUOTED (the prior year's unquoted &-URL backgrounded curl + dropped query params).
+curl --retry 100 --retry-connrefused -L -o license.lic "https://www.dropbox.com/scl/fi/w5jgddmf3qm5znjw67ajm/matlab-license-vnncomp2026-nnv.lic?rlkey=z3wnimbad4ykjyde95yhq7ik3&st=2oc64st3&dl=1"
+sleep 5
 ls -al
 
-unzip  *.zip*
+# FAIL LOUDLY on a bad/empty download (else MATLAB never licenses and EVERY benchmark silently
+# returns unknown). A valid MathWorks passcode file contains INCREMENT lines / the header.
+if [ ! -s license.lic ] || ! grep -qE 'INCREMENT|MathWorks license' license.lic; then
+    echo "ERROR: MATLAB license download failed or invalid (license.lic missing/empty/not a passcode file)" >&2
+    exit 1
+fi
 
-ls -al
+# sudo: /usr/local/matlab/licenses is root-owned and post_install runs non-root
+# (run_post_installation_script_as_root=False). Without sudo the copy fails -> MATLAB never
+# licenses -> every benchmark unknown. Passwordless sudo is available (install_tool.sh uses it).
+sudo cp -f license.lic /usr/local/matlab/licenses/ || { echo "ERROR: failed to install license to /usr/local/matlab/licenses" >&2; exit 1; }
+[ -s /usr/local/matlab/licenses/license.lic ] || { echo "ERROR: license not present in /usr/local/matlab/licenses after copy" >&2; exit 1; }
 
-cp -f license.lic /usr/local/matlab/licenses/
-
-rm *.zip*
-
-rm /usr/local/matlab/licenses/license_info.xml
+sudo rm -f /usr/local/matlab/licenses/license_info.xml
 
 cd /usr/local/matlab/extern/engines/python
 python3 -m pip install .
@@ -30,6 +41,7 @@ python3 -m pip install .
 matlab -nodisplay -r "cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2026/; prepare_run; quit"
 
 sudo apt install -y python3-pip
+# torch backs engine/nn/Prob_reach (cp-star / probabilistic-reach paths) -- keep it.
 python3 -m pip install torch
 python3 -m pip install numpy
 python3 -m pip install scipy
@@ -44,6 +56,7 @@ python3 -m pip install onnx==1.20.0 onnxruntime==1.23.1
 # Enable GPU persistence mode (prevents driver unloading)
 sudo nvidia-smi -pm 1
 
-# Lock the kernenl verison and GPU drivers.
-sudo apt-mark hold linux-image-generic linux-headers-generic nvidia-driver-535
+# Lock the kernel version and GPU drivers (driver 570 -- the version on our tested g5 AMI; NNV GPU
+# reach needs >=570). Pair with the form's "restart after post-install" so the driver is reloaded.
+sudo apt-mark hold linux-image-generic linux-headers-generic nvidia-driver-570
 sudo systemctl disable unattended-upgrades

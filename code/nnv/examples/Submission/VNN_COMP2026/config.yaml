@@ -1,5 +1,7 @@
 name: nnv
-ami: ami-094040f6770aae1e3
+# MATLAB R2026a (matlab_linux) AMI from the submission dropdown -- install_tool.sh provisions
+# R2026a support packages, so the AMI MUST ship R2026a (the old ami-094040f6770aae1e3 was R2024b).
+ami: ami-0d88088c4d5b7e5e0
 scripts_dir: code/nnv/examples/Submission/VNN_COMP2026/
 manual_installation_step: False
 run_installation_script_as_root: False

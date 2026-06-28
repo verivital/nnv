@@ -1,18 +1,18 @@
-cd ~/.matlab/R2024b_licenses
+mkdir -p ~/.matlab/R2026a_licenses
+cd ~/.matlab/R2026a_licenses
 
-curl --retry 100 --retry-connrefused -L -O https://www.dropbox.com/scl/fi/94gyrz1sdpiuvd7e8nc0r/LicenseTL.zip?rlkey=cbbrrkley11nnxd5r9mgrnkg1&st=4bx85clk&dl=0
-sleep 60
-ls -al
-
-unzip  *.zip*
-
+# MAC-locked MATLAB R2026a license (HOSTID 02e1e896fadb == ENI eni-0b11771dfe21b94ee).
+# Verified 2026-06-28: FLEXlm passcode file, 116 products incl. Deep Learning (Neural_Network_Toolbox),
+# Parallel Computing (Distrib_Computing_Toolbox, for GPU/parfor), Optimization (linprog), GPU_Coder;
+# expires 30-may-2027. Fetched at runtime; the .lic is MAC-locked so the URL is unusable off this ENI.
+# NOTE: URL is QUOTED (the prior year's unquoted &-URL backgrounded curl + dropped query params).
+curl --retry 100 --retry-connrefused -L -o license.lic "https://www.dropbox.com/scl/fi/w5jgddmf3qm5znjw67ajm/matlab-license-vnncomp2026-nnv.lic?rlkey=z3wnimbad4ykjyde95yhq7ik3&st=2oc64st3&dl=1"
+sleep 5
 ls -al
 
 cp -f license.lic /usr/local/matlab/licenses/
 
-rm *.zip*
-
-rm /usr/local/matlab/licenses/license_info.xml
+rm -f /usr/local/matlab/licenses/license_info.xml
 
 cd /usr/local/matlab/extern/engines/python
 python3 -m pip install .

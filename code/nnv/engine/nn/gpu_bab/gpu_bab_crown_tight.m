@@ -42,6 +42,7 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
     % bound is outward-widened to be a PROVABLE sound lower/upper bound, so the verdict can be EMITTED
     % from FP32 (M3). FP64 ('double') is always exact-enough -> never widened (the oracle).
     vmag = {};
+    ibpLd = {}; ibpUd = {};                  % sound DOUBLE per-op IBP bounds (for the stable-neuron prefilter below)
     if strcmp(precision, 'single') && ~isempty(getenv('NNV_SOUND_FP32_TIGHT'))
         try
             % vmag in DOUBLE -> a rigorous value-magnitude majorant regardless of net depth (the
@@ -51,9 +52,21 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
             % is cheap + cannot OOM. derr then mixes single |A| with double vmag -> the widening is
             % computed in double (rigorous over-estimate); the fast single CROWN coefficient pass is
             % unchanged. (Review findings #3/#9.)
-            [~, ~, vmag] = gpu_bab_ibp(ops, x_lb, x_ub, 'double');
+            [~, ~, vmag, ibpLd, ibpUd] = gpu_bab_ibp(ops, x_lb, x_ub, 'double');
         catch
-            vmag = {};
+            vmag = {}; ibpLd = {}; ibpUd = {};
+        end
+    end
+    if isempty(ibpLd) && ~strcmp(getenv('NNV_CROWN_IBP_PREFILTER'), '0')   % DEFAULT-ON (opt out with =0)
+        % The PREFILTER also wants the sound DOUBLE IBP on the NON-sound paths -- the unsound single GPU SCREEN
+        % and the FP64 confirm -- which are the actual cifar100 bottleneck (the screen times out in the wide-conv
+        % chunked CROWN before the confirm even runs). The double IBP forward is value-vectors only (cheap, cannot
+        % OOM). Sound classification on any path; on the unsound screen it only FILTERS (the verdict comes from the
+        % sound confirm) and it is TIGHTER, so it can only help -- never a false-negative (slope 1 is the tightest).
+        try
+            [~, ~, ~, ibpLd, ibpUd] = gpu_bab_ibp(ops, x_lb, x_ub, 'double');
+        catch
+            ibpLd = {}; ibpUd = {};
         end
     end
     % SOUNDNESS FLAG: the sound-FP32 OUTWARD widening is actually applied only when precision is
@@ -81,6 +94,12 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
     % ---- tight intermediate bounds, layer by layer ----
     % Compute input bounds for every op whose backward relaxation needs them: ReLU (the
     % pre-activation) AND maxpool (the window inputs that decide the sound max relaxation).
+    doProf = ~isempty(getenv('NNV_CROWN_PROF'));     % perf profile (read-only): where the sound root spends time
+    if doProf
+        global G_CROWN_PROF; %#ok<TLEV>
+        G_CROWN_PROF = struct('oom', 0, 'nb', 0);
+        gpL = zeros(nOps, 1); gpW = zeros(nOps, 1); gpT0 = tic;
+    end
     for k = 1:nOps
         tk = ops{k}.type;
         if strcmp(tk, 'relu') || strcmp(tk, 'maxpool')
@@ -110,7 +129,22 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
                 % NNV_CROWN_MEM_GB; B>=nk reproduces the original single eye(nk) pass.
                 % src==0 here is the sound-FP32 input-fed case routed off the fast cast above (widened).
                 if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
-                [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag);
+                % IBP-PREFILTER (DEFAULT-ON, opt out NNV_CROWN_IBP_PREFILTER=0): a relu neuron the SOUND DOUBLE IBP
+                % proves stable (ibpLo>=0 or ibpHi<=0) has an EXACT relaxation (slope 1/0), so the downstream backward
+                % uses that exact slope regardless of [pl,pu] tightness -> skip its CROWN backward, fill from IBP. On
+                % the DOUBLE FP64-confirm path this is bit-identical (faster, not different); 75/75 soundness suite +
+                % 5/5 thin-margin recoveries certified (idx_496/4385/5308/4757/8589 UNSAT in 120-194s) vs timeout off.
+                ibpLo = []; ibpHi = [];
+                if strcmp(tk,'relu') && ~strcmp(getenv('NNV_CROWN_IBP_PREFILTER'), '0')
+                    if ~isempty(ibpLd) && numel(ibpLd) >= src+1 && ~isempty(ibpLd{src+1})
+                        ibpLo = ibpLd{src+1}; ibpHi = ibpUd{src+1};            % SOUND single-emit path (sound DOUBLE IBP from line 54)
+                    elseif strcmp(precision,'double') && ~isempty(ibpL) && numel(ibpL) >= src+1 && ~isempty(ibpL{src+1})
+                        ibpLo = ibpL{src+1}; ibpHi = ibpU{src+1};             % FP64-CONFIRM path (line 75 IBP is double here = sound; no widening -> VERDICT-IDENTICAL) -- the broad cifar100 win
+                    end
+                end
+                if doProf, tL_ = tic; end
+                [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag, ibpLo, ibpHi);
+                if doProf, if isa(pl,'gpuArray'), wait(gpuDevice); end; gpL(k) = toc(tL_); gpW(k) = nk; end
             end
             if strcmp(tk, 'relu') && ~isempty(fixings) && numel(fixings) >= k && ~isempty(fixings{k})
                 fx = fixings{k};                    % BaB node: clamp fixed neurons + propagate
@@ -155,9 +189,59 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
             end
         end
     end
+    if doProf
+        tot = toc(gpT0); [~, ord] = sort(gpL, 'descend');
+        fprintf('[crown-prof] interm-pass=%.1fs chunked-passes=%d oom-halvings=%d | top layers: ', ...
+            tot, G_CROWN_PROF.nb, G_CROWN_PROF.oom);
+        for ii = 1:min(10, nOps), j = ord(ii); if gpL(j) > 0.05, fprintf('op%d(%s,w%d)=%.1fs ', j, ops{j}.type, gpW(j), gpL(j)); end; end
+        fprintf('\n');
+    end
+
+    % M1 (P2.0 measurement, read-only, env-gated default-off): decompose the derr looseness -- log per op the
+    % IBP value-magnitude majorant `vmag` (what derr contracts against) vs the tighter crown_tight bound
+    % magnitude (what Approach A would use). The ratio is Approach A's ceiling. NO behavior change when unset.
+    if ~isempty(getenv('NNV_LOG_VMAG'))
+        try
+            fid = fopen(getenv('NNV_LOG_VMAG'), 'a');
+            if fid > 0
+                for kk = 1:nOps
+                    vm = NaN; cb = NaN;
+                    if ~isempty(vmag) && numel(vmag) >= kk && ~isempty(vmag{kk})
+                        vm = max(abs(double(gather(vmag{kk}(:)))));
+                    end
+                    if numel(preL) >= kk && ~isempty(preL{kk})
+                        cb = max([max(abs(double(gather(preL{kk}(:))))); max(abs(double(gather(preU{kk}(:)))))]);
+                    end
+                    fprintf(fid, 'VMAG op=%d type=%s vmag=%.6g crown=%.6g ratio=%.6g\n', kk, ops{kk}.type, vm, cb, vm/cb);
+                end
+                fprintf(fid, 'VMAG --- end-of-call (nOps=%d) ---\n', nOps);
+                fclose(fid);
+            end
+        catch, end
+    end
 
     % ---- final spec margin (lower bound on C*output) + the input-space lower plane ----
     [margins, Ain, din] = i_backward(ops, nOps, cast(C, precision), x_lb, x_ub, preL, preU, precision, true, vmag);
+    if strcmp(precision, 'single') && ~isempty(getenv('NNV_DERR_ACTUAL'))
+        % P2 gate (read-only): the ACTUAL accumulated FP32 roundoff of this spec backward = |single - double|.
+        % Recompute the IDENTICAL backward in double (vmag={} -> pure FP64, derr=0), sharing preL/preU so it
+        % isolates the backward arithmetic roundoff. This is the achievable measured-delta widening WITH
+        % cancellation = the lower bound on what the running-error build emits. floor + actual_residual < margin
+        % is the real go/no-go (advisor); the a-priori reducible_frac only said the slack EXISTS, not that it vanishes.
+        try
+            m_d = i_backward(ops, nOps, cast(C, 'double'), x_lb, x_ub, preL, preU, 'double', true, {});
+            act = abs(double(gather(margins(:))) - double(gather(m_d(:))));
+            ms  = double(gather(margins(:)));
+            [wm, ib] = min(ms);                                 % binding spec = smallest single margin
+            acts = sort(act); medi = acts(max(1, round(0.5*numel(acts))));
+            fid_a = fopen(getenv('NNV_DERR_ACTUAL'), 'a');
+            if fid_a > 0
+                fprintf(fid_a, 'ACTUAL nS=%d max_actual=%.6g median_actual=%.6g bind_single=%.6g bind_double=%.6g bind_actual=%.6g\n', ...
+                    numel(ms), max(act), medi, wm, double(gather(m_d(ib))), act(ib));
+                fclose(fid_a);
+            end
+        catch, end
+    end
 end
 
 function tf = i_box_exact(boxExact, idx)
@@ -170,22 +254,50 @@ function tf = i_box_exact(boxExact, idx)
     tf = ~isempty(v) && all(logical(v(:)));
 end
 
-function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag)
+function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU, precision, vmag, ibpLo, ibpHi)
 % Tight per-neuron intermediate bounds (lower pl / upper pu, nk x 1) via a CHUNKED identity seed.
 % Replaces a dense Ck = eye(nk) (the O(nk^2) memory blow-up) with row-blocks; EXACT -- each seed row
 % is bounded independently of the others, so union(blocks) == full. B>=nk => the original single pass.
+% IBP-PREFILTER (ibpLo/ibpHi non-empty): only rows the SOUND IBP cannot prove stable need a CROWN
+% backward; stable rows get the (sound) IBP bound. Verdict-identical for relu (a stable relu's relaxation
+% is exact slope 1/0, so downstream uses that slope regardless of [pl,pu] tightness).
+    if nargin < 10, ibpLo = []; end
+    if nargin < 11, ibpHi = []; end
     B = i_chunk_rows(nk, precision);
     oomTest = getenv('NNV_CROWN_TEST_OOM');                  % test seam (empty in production)
-    pl = zeros(nk, 1, precision); pu = zeros(nk, 1, precision);
+    doP = ~isempty(getenv('NNV_CROWN_PROF'));                % read-only perf profile (default-off)
+    if doP, global G_CROWN_PROF; end %#ok<TLEV>
+    if ~isempty(ibpLo)
+        ibpLo = double(gather(ibpLo(:))); ibpHi = double(gather(ibpHi(:)));
+        idxAll = find((ibpLo < 0) & (ibpHi > 0));            % the only rows that need a CROWN backward
+        pl = cast(ibpLo, precision); pu = cast(ibpHi, precision);  % stable rows: the sound IBP bound (exact relaxation)
+    else
+        idxAll = (1:nk).';
+        pl = zeros(nk, 1, precision); pu = zeros(nk, 1, precision);
+    end
+    nu = numel(idxAll);
     s0 = 1;
-    while s0 <= nk
-        rows = s0:min(s0 + B - 1, nk); nb = numel(rows);
+    while s0 <= nu
+        sel = idxAll(s0:min(s0 + B - 1, nu)); nb = numel(sel);
         try
             i_maybe_inject_oom(B, oomTest);
             Ck = zeros(nb, nk, precision);
-            Ck(sub2ind([nb nk], (1:nb).', rows(:))) = 1;        % a row-block of eye(nk)
-            pu(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
-            pl(rows) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
+            Ck(sub2ind([nb nk], (1:nb).', sel(:))) = 1;        % a row-block of eye(nk) over the unstable subset
+            if doP, G_CROWN_PROF.nb = G_CROWN_PROF.nb + 1; end   % count chunked backward passes (per-chunk sync was too heavy)
+            pu(sel) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, false, vmag);
+            pl(sel) = i_backward(ops, src, Ck, x_lb, x_ub, preL, preU, precision, true,  vmag);
+            if strcmp(precision,'single') && ~isempty(getenv('NNV_DERR_ACTUAL'))
+                % P2 (advisor): the NET |fl32-fl64| roundoff of THIS interm-bound chunk (same call the DECOMP logs as
+                % nS=nb). Compare to the per-op measured-delta derr at matched depth -> is the ~500x cancellation gap real?
+                pld = i_backward(ops, src, double(Ck), x_lb, x_ub, preL, preU, 'double', true, {});
+                act = abs(double(gather(pl(sel))) - double(gather(pld(:))));
+                as = sort(act); medi = as(max(1, round(0.5*numel(as))));
+                fid_a = fopen(getenv('NNV_DERR_ACTUAL'), 'a');
+                if fid_a > 0
+                    fprintf(fid_a, 'INTERM src=%d nk=%d nb=%d max_net=%.6g median_net=%.6g\n', src, nk, nb, max(act), medi);
+                    fclose(fid_a);
+                end
+            end
             s0 = s0 + B;
         catch ME
             % AUTO-CHUNK: a memory budget B chosen too large for the live device/host still OOMs. B
@@ -193,6 +305,7 @@ function [pl, pu] = i_interm_bounds_chunked(ops, src, nk, x_lb, x_ub, preL, preU
             % so halve B and RETRY the SAME block. SOUND: cannot change a verdict, only memory/speed.
             % Non-memory errors (a genuine bug) rethrow immediately; at B==1 there is no smaller retry.
             if B <= 1 || ~i_is_oom(ME), rethrow(ME); end
+            if doP && isstruct(G_CROWN_PROF), G_CROWN_PROF.oom = G_CROWN_PROF.oom + 1; end
             clear Ck;                    % release the (nb x nk) seed so the smaller-B retry has headroom
             Bn = max(1, floor(B / 2));
             fprintf('[crown-chunk] OOM at B=%d (nk=%d, op %d): %s -> halving to B=%d\n', ...
@@ -365,6 +478,12 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     d = zeros(nS, 1, precision);
     doErr = strcmp(precision, 'single') && ~isempty(vmag);
     derr = zeros(nS, 1, precision);
+    derr_mm = zeros(nS, 1, precision);              % P2 step-0 decomp (env NNV_DERR_DECOMP, read-only): the matmul-reduction subset of derr
+    derr_flr = zeros(nS, 1, precision);             % P2 step-0 decomp: the NON-reducible FLOOR (measured-delta can't shrink it): relu-slope i_dt(A,vin,8) + d-add chains us*dmag + relu-4u + final adds
+    derr_slp = zeros(nS, 1, precision);             % P2 step-0 decomp: the relu-slope i_dt(A,vin,8) term alone (advisor-flagged: gamma_8 small but x a full |A|*vin reduction)
+    derr_runi = zeros(nS, 1, precision);            % P2 RUNNING-ERROR: the measured-delta relu-intercept term actually used (min(a-priori,measured)) -> the build's emitted widening
+    doDecomp = ~isempty(getenv('NNV_DERR_DECOMP'));
+    doRun = strcmp(precision, 'single') && ~isempty(getenv('NNV_DERR_RUNNING'));   % P2: measured-delta (running-error) on the d-path intercept reductions
     dmag = zeros(nS, 1, precision);                 % running sum of |d-terms|: the cross-op d add-chain
     us   = single(eps('single') / 2);               % rounding (each d=d+t injects u*|partial sum| <= u*dmag)
     if upto == 0                              % A0 is already on the engine input (op 0)
@@ -423,7 +542,9 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 ccl = double(abs(cL)) + double(abs(cU));
                 derr = derr + i_dt(A, vab + vab, 2) ...
                             + i_dt(A, ccl, wa);
+                if doDecomp, derr_flr = derr_flr + i_dt(A, vab + vab, 2); end       % product McCormick slope (floor, m=2); i_dt(A,ccl,wa) intercept is REDUCIBLE
                 dmag = dmag + i_draw(A, ccl); derr = derr + us * dmag;
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                   % d-add chain (floor)
             end
             if lower
                 Ax = Apos .* aL.' + Aneg .* aU.';
@@ -452,8 +573,9 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             W = cast(op.W, precision); b = cast(op.b(:), precision);
             if doErr   % A*W contracts over out-width; output value-mag majorant (no cancel) = |W|*vin+|b|
                 omg = double(abs(W)) * double(vin) + double(abs(b));              % DOUBLE-computed magnitude majorant
-                derr = derr + i_dt(A, omg, size(A,2));
+                t_mm = i_dt(A, omg, size(A,2)); derr = derr + t_mm; if doDecomp, derr_mm = derr_mm + t_mm; end
                 dmag = dmag + i_draw(A, abs(b)); derr = derr + us * dmag;          % d=d+A*b add-chain
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                  % d-add chain (floor)
             end
             d = d + A * b;
             A = A * W;
@@ -467,9 +589,11 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 % true single rounding even for large outShape (mirrors gpu_bab_crown_spec_dag conv fix).
                 Amag = Amag .* (1 + 2*i_gamma_raw_ct(mC, precision));
                 dmc  = dmc  .* (1 + 2*i_gamma_raw_ct(nO, precision));
-                derr = derr + i_dt(Amag, vin, mC) ...
+                t_mm = i_dt(Amag, vin, mC); derr = derr + t_mm ...
                             + single(i_gamma(nO, 'double') * double(dmc));          % bias reduction length (review #5)
+                if doDecomp, derr_mm = derr_mm + t_mm; end
                 dmag = dmag + dmc; derr = derr + us * dmag;                         % d=d+bias add-chain
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                   % d-add chain (floor)
             end
             [A, d] = i_conv_backward(A, d, op, precision);
         elseif strcmp(op.type, 'normaffine')
@@ -478,7 +602,9 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
                 tfm = i_bcast_flat(abs(op.shift), op.shape, precision);            % |shift| flat
                 derr = derr + i_dt(A, double(sfm) .* double(vin), 2) ...           % (|A|.*sf')*vin == |A|*(sf.*vin)
                             + i_dt(A, tfm, numel(tfm));                            % the missing intercept term
+                if doDecomp, derr_flr = derr_flr + i_dt(A, double(sfm) .* double(vin), 2); end  % slope-scale (floor, m=2); intercept i_dt(A,tfm,.) is REDUCIBLE
                 dmag = dmag + i_draw(A, tfm); derr = derr + us * dmag;             % d=d+A*tf add-chain
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                  % d-add chain (floor)
             end
             [A, d] = i_normaffine_backward(A, d, op, precision);
         elseif strcmp(op.type, 'avgpool')
@@ -489,6 +615,7 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             if doErr   % selection exact (0/1); conservative term for the umax relaxation intercept + its d-add
                 derr = derr + i_dt(A, vin + vmag{k + 1}, 2*prod(op.pool));
                 dmag = dmag + i_draw(A, vmag{k + 1}); derr = derr + us * dmag;
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                   % d-add chain (floor); i_dt intercept term is REDUCIBLE
             end
         else                                  % relu relaxation (sign-aware), preL/preU{k}
             l = preL{k}; u = preU{k};
@@ -497,9 +624,33 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
             if doErr   % slope mults (|A_in|<=|A|, no cancel) + the bu intercept; |A| (not |Aneg|) so it
                        % covers BOTH passes (lower: d+=Aneg*bu, upper: d+=Apos*bu) -- review #2; +4u for
                        % the au=u/(u-l)/bu=-au*l derivation rounding (review #11), independent of width
+                if doRun   % P2 RUNNING-ERROR: replace the gamma_width WORST-CASE reduction roundoff with the MEASURED roundoff
+                    % of the actual d-add d=d+Ab*bu (line 531/534) + a sound fl64-residual cushion. min(a-priori,measured)
+                    % is sound (both are valid over-bounds on |fl32(Ab*bu)-exact|). The +4u DERIVATION term (au/bu single
+                    % construction error, scales with vin not the reduction) is KEPT -- measured-delta only covers the reduction.
+                    t_red_ap = single(i_gamma(numel(bu), 'double') * (double(abs(A)) * double(abs(bu))));   % a-priori reduction roundoff
+                    t_drv    = single(double(4)*double(us) * (double(abs(A)) * double(abs(bu))));            % derivation roundoff (kept)
+                    if lower, Ab = Aneg; else, Ab = Apos; end                                               % the ACTUAL d-add coefficient
+                    p64   = double(Ab) * double(bu);                                                        % FP64 reference of the reduction
+                    delta = abs(double(Ab * bu) - p64);                                                     % |fl32 - fl64| = measured roundoff (nS x 1)
+                    cush  = double(2) * i_gamma(numel(bu), 'double') * (double(abs(Ab)) * double(abs(bu))); % bounds |fl64-exact| + the single() cast
+                    t_red = min(t_red_ap, single(delta + cush));                                            % MIN(a-priori, measured): sound + never worse
+                    derr  = derr + i_dt(A, vin, 8) + t_red + t_drv;
+                    derr_runi = derr_runi + t_red;
+                    if doDecomp
+                        t_slp = i_dt(A, vin, 8); derr_slp = derr_slp + t_slp;
+                        derr_flr = derr_flr + t_slp + t_drv;
+                    end
+                else
                 derr = derr + i_dt(A, vin, 8) ...    % m=8: slope multiply (~u) + the relu RELAXATION-DERIVATION rounding (au=u/(u-l),bu=-au*l in single dips the relaxed line below relu by ~3u*vin at z=u; this scales with vin, NOT bu, so the +4u*|bu| term below does NOT cover it when u>>|l| -> bu->0). adversarial review 2026-06-18.
                             + single((i_gamma(numel(bu), 'double') + double(4)*double(us)) * (double(abs(A)) * double(abs(bu))));
+                if doDecomp   % read-only floor decomp: relu-slope (floor) + the 4u relaxation-derivation slack (floor); the gamma_width*|A|*|bu| part is REDUCIBLE so excluded from floor
+                    t_slp = i_dt(A, vin, 8); derr_slp = derr_slp + t_slp;
+                    derr_flr = derr_flr + t_slp + single(double(4)*double(us) * (double(abs(A)) * double(abs(bu))));
+                end
+                end
                 dmag = dmag + i_draw(A, abs(bu)); derr = derr + us * dmag;        % d=d+(Aneg|Apos)*bu add-chain
+                if doDecomp, derr_flr = derr_flr + us * dmag; end                 % d-add chain (floor)
             end
             if lower
                 d = d + Aneg * bu;
@@ -530,16 +681,45 @@ function [bound, Ain, din] = i_backward(ops, upto, A0, x_lb, x_ub, preL, preU, p
     if doErr                                                 % sound-FP32 opt-in (else no widening -> screen unchanged)
         rad  = i_outward_rad(A, x_lb, x_ub, precision);      % final-contraction roundoff (M2)
         derr = derr + us * abs(d);                           % the '+ d' add's u*|d| roundoff (review #6)
+        if doDecomp, derr_flr = derr_flr + us * abs(d); end  % final d-add roundoff (floor)
         % + the two final non-contraction adds margins=fl(fl(aposx+anegx)+d): each rounds by <= u*P
         % (P=|aposx|+|anegx|), so ~2u*P total; the reduced (1+2^-7) rad k no longer leaves slack for them
         % (esp. small input dim n<~1024: MNIST/ACAS/control). 3*us*P covers both adds w/ margin (>= the
         % true |a| <= P, no cancellation). adversarial review 2026-06-18 (re-review CHECK 3).
         if lower
-            derr = derr + cast(3,precision)*us * (abs(Apos * cast(x_lb, precision)) + abs(Aneg * cast(x_ub, precision)));
+            t_ia = cast(3,precision)*us * (abs(Apos * cast(x_lb, precision)) + abs(Aneg * cast(x_ub, precision)));
+            derr = derr + t_ia;
             bound = bound - rad - derr;
         else
-            derr = derr + cast(3,precision)*us * (abs(Apos * cast(x_ub, precision)) + abs(Aneg * cast(x_lb, precision)));
+            t_ia = cast(3,precision)*us * (abs(Apos * cast(x_ub, precision)) + abs(Aneg * cast(x_lb, precision)));
+            derr = derr + t_ia;
             bound = bound + rad + derr;
+        end
+        if doDecomp
+            derr_flr = derr_flr + t_ia;                      % final input-add roundoff (floor)
+        end
+        if doDecomp   % P2 step-0 (reducible-vs-floor): the FLOOR (measured-delta CANNOT shrink) is the go/no-go vs the intrinsic margins {1.4e-4,.0082,.0108,.0412,.0423}
+            fid_d = fopen(getenv('NNV_DERR_DECOMP'), 'a');
+            if fid_d > 0
+                dtot = max(double(derr)); dmm = max(double(derr_mm)); drad = max(double(rad));
+                dflr = max(double(derr_flr)); dslp = max(double(derr_slp));
+                % BINDING spec = argmin of the widened bound (the spec closest to violation = sets the verdict).
+                % Its floor vs its raw margin is the exact go/no-go; the max over all specs over-states the floor.
+                radv = rad; if isscalar(radv), radv = radv*ones(nS,1,precision); end
+                if lower, bnd_b = double(bound); else, bnd_b = -double(bound); end   % violation side: smaller = closer
+                [wmarg_b, ib] = min(bnd_b);
+                flr_b = double(derr_flr(ib)); derr_b = double(derr(ib)); rad_b = double(radv(ib));
+                mat_b = double(derr_mm(ib)); runi_b = double(derr_runi(ib));         % bind_matmul (sets 2/5 vs 4/5) + the running-error intercept actually emitted
+                rawmarg_b = wmarg_b + rad_b + derr_b;                                % raw (pre-widening) margin at the binding spec
+                fprintf(fid_d, ['DECOMP nS=%d widening=%.6g rad=%.6g derr=%.6g floor=%.6g relu_slope=%.6g matmul=%.6g ' ...
+                    'floor_frac=%.4g reducible_frac=%.4g matmul_frac=%.4g rad_frac_of_widening=%.4g ' ...
+                    'bind_rawmargin=%.6g bind_widened=%.6g bind_floor=%.6g bind_derr=%.6g bind_floor_frac=%.4g ' ...
+                    'bind_matmul=%.6g bind_runintercept=%.6g\n'], ...
+                    nS, drad+dtot, drad, dtot, dflr, dslp, dmm, dflr/max(1e-30,dtot), (dtot-dflr)/max(1e-30,dtot), ...
+                    dmm/max(1e-30,dtot), drad/max(1e-30,drad+dtot), ...
+                    rawmarg_b, wmarg_b, flr_b, derr_b, flr_b/max(1e-30,derr_b), mat_b, runi_b);
+                fclose(fid_d);
+            end
         end
     end
 end

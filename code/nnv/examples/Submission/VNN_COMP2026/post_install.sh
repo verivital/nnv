@@ -10,9 +10,12 @@ curl --retry 100 --retry-connrefused -L -o license.lic "https://www.dropbox.com/
 sleep 5
 ls -al
 
-cp -f license.lic /usr/local/matlab/licenses/
+# sudo: /usr/local/matlab/licenses is root-owned and post_install runs non-root
+# (run_post_installation_script_as_root=False). Without sudo the copy fails -> MATLAB never
+# licenses -> every benchmark unknown. Passwordless sudo is available (install_tool.sh uses it).
+sudo cp -f license.lic /usr/local/matlab/licenses/
 
-rm -f /usr/local/matlab/licenses/license_info.xml
+sudo rm -f /usr/local/matlab/licenses/license_info.xml
 
 cd /usr/local/matlab/extern/engines/python
 python3 -m pip install .

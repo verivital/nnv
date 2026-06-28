@@ -39,13 +39,17 @@ function reachOptionsList = i_finalize_reach_options(reachOptionsList, category,
         reachOptionsList = [{o1, o2}, reachOptionsList];
     end
 
-    % (2) slow_cats: drop exact-star, lead with zonotope + abstract-domain
+    % (2) slow_cats: drop exact-star (it never certifies these resnets/FC nets and just burns the
+    % per-instance budget). The earlier {approx-zono, abs-dom} PREPEND was DEAD CODE: create_input_set
+    % only ever builds Star/ImageStar (never Zono/ImageZono), so approx-zono throws "Input is not an
+    % ImageZono" and abs-dom throws "only star based methods are supported" -- BOTH always error ->
+    % caught at the reach try/catch -> fall through to the native approx-star ladder. Removing them
+    % clears the spurious per-instance error lines (the no-error mandate, GitHub #441 Class A) and is
+    % strictly VERDICT-PRESERVING: the native ladder -- which produced every actual verdict -- is
+    % unchanged, and dropping two always-erroring rungs only SAVES their wasted reach attempts.
     slow_cats = ["cifar100","cora","safenlp","sat_relu","tinyimagenet","vggnet"];
     if any(contains(category, slow_cats)) && nnvnetValid
-        kept = reachOptionsList(~cellfun(@(o) strcmp(o.reachMethod, 'exact-star'), reachOptionsList));
-        zo = struct(); zo.reachMethod = 'approx-zono';
-        ad = struct(); ad.reachMethod = 'abs-dom';
-        reachOptionsList = [{zo, ad}, kept];
+        reachOptionsList = reachOptionsList(~cellfun(@(o) strcmp(o.reachMethod, 'exact-star'), reachOptionsList));
     end
 
     % (3) cp-star quarantine (env-gated, DEFAULT OFF -> identity / behavior unchanged)

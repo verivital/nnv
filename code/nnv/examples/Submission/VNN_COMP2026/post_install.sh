@@ -10,10 +10,18 @@ curl --retry 100 --retry-connrefused -L -o license.lic "https://www.dropbox.com/
 sleep 5
 ls -al
 
+# FAIL LOUDLY on a bad/empty download (else MATLAB never licenses and EVERY benchmark silently
+# returns unknown). A valid MathWorks passcode file contains INCREMENT lines / the header.
+if [ ! -s license.lic ] || ! grep -qE 'INCREMENT|MathWorks license' license.lic; then
+    echo "ERROR: MATLAB license download failed or invalid (license.lic missing/empty/not a passcode file)" >&2
+    exit 1
+fi
+
 # sudo: /usr/local/matlab/licenses is root-owned and post_install runs non-root
 # (run_post_installation_script_as_root=False). Without sudo the copy fails -> MATLAB never
 # licenses -> every benchmark unknown. Passwordless sudo is available (install_tool.sh uses it).
-sudo cp -f license.lic /usr/local/matlab/licenses/
+sudo cp -f license.lic /usr/local/matlab/licenses/ || { echo "ERROR: failed to install license to /usr/local/matlab/licenses" >&2; exit 1; }
+[ -s /usr/local/matlab/licenses/license.lic ] || { echo "ERROR: license not present in /usr/local/matlab/licenses after copy" >&2; exit 1; }
 
 sudo rm -f /usr/local/matlab/licenses/license_info.xml
 

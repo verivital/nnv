@@ -23,5 +23,5 @@ vnnlib
 # hdf5storage: v7.3 (HDF5) .mat writer for manifests whose weights exceed scipy savemat's
 # 2 GB limit (large models, e.g. yolo 640x640 / vit). onnx2nnv.py imports it on that path
 # (~line 2195); WITHOUT it a >2GB manifest falls back to savemat which ERRORS on the oversized
-# tensor -> the manifest never generates. Pure-python (pulls h5py). Required for completeness.
+# tensor -> the manifest never generates. Pulls h5py (ships manylinux wheels -> no compiler needed).
 hdf5storage

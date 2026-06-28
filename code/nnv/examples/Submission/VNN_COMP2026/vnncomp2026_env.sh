@@ -25,6 +25,14 @@
 #   (sound-FP32 emit NNV_SOUND_FP32_TIGHT, FP64-only, matmul measured-delta) are in CONV_TRUST_FP32_POLICY.md.
 #   CONFIGURABLE: a CLEAN toggle now -- =1 ON, =0 (or unset) OFF -> straight to the sound FP64 double-confirm.
 #   (Was a footgun: `=0` did NOT disable; it read non-empty=ON. Fixed via i_envon() in run_vnncomp_instance.m.)
+
+# NNV_ORT_PYTHON: the dedicated python for execute.py's matlab.engine + the ORT/witness gate + onnx2nnv.
+# post_install.sh builds $HOME/.nnv_venv (matlab.engine + onnx stack + torch) because the eval box has
+# anaconda first on PATH, so a bare `python3` is ambiguous and the MATLAB engine would not install into it
+# (smoke 269: every result error_exit_code_1 from ModuleNotFoundError 'matlab'). An explicit NNV_ORT_PYTHON
+# still wins (e.g. the Lambda dev box's taylor_venv).
+export NNV_ORT_PYTHON="${NNV_ORT_PYTHON:-$HOME/.nnv_venv/bin/python}"
+
 export NNV_CONV_TRUST_FP32=1
 # NNV_CONV_NO_STAR: a non-certifying conv precheck emits a FAST sound 'unknown' (Star never certifies these
 #   resnets, it just burns the whole timeout). WITHOUT it -> every conv instance times out.

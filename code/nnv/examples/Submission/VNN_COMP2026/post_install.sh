@@ -32,10 +32,41 @@ sudo cp -f license.lic /usr/local/matlab/licenses/ || { echo "ERROR: failed to i
 [ -s /usr/local/matlab/licenses/license.lic ] || { echo "ERROR: license not present after copy" >&2; exit 1; }
 sudo rm -f /usr/local/matlab/licenses/license_info.xml
 
-# ---- 2) MATLAB Engine API for Python (execute.py does `import matlab.engine` on every instance) ----
-cd /usr/local/matlab/extern/engines/python
-python3 -m pip install . || pip3 install matlabengine || echo "WARN: matlab.engine install non-zero (gate below decides)"
-python3 -c "import matlab.engine" || { echo "ERROR: matlab.engine import failed; fix before running" >&2; exit 1; }
+# ---- 2) Dedicated python venv (NNV_ORT_PYTHON) with matlab.engine + ONNX stack + torch ----
+# The eval box has anaconda FIRST on PATH (smoke 269), so a bare `python3` is ambiguous and the R2026a
+# MATLAB engine did NOT install into it. Build a self-contained venv from a SYSTEM python the engine
+# supports, put EVERYTHING in it, and point the whole harness at it via NNV_ORT_PYTHON. Works anywhere.
+echo "=== python diagnostics (eval box) ==="
+echo "PATH python3 -> $(command -v python3) ($(python3 --version 2>&1))"
+ls -d /home/ubuntu/anaconda3 2>/dev/null && echo "  (anaconda present on PATH)"
+echo "/usr/bin/python3 -> $(/usr/bin/python3 --version 2>&1)"
+for v in 3.13 3.12 3.11 3.10; do command -v python$v >/dev/null 2>&1 && echo "  python$v -> $(python$v --version 2>&1)"; done
+sudo apt-get install -y python3-venv python3-pip || true
+# Pick a SYSTEM python (NOT anaconda) that the R2026a MATLAB engine supports.
+BASEPY=""
+for cand in /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 /usr/bin/python3 python3; do
+    if command -v "$cand" >/dev/null 2>&1; then BASEPY="$cand"; break; fi
+done
+echo "Using BASEPY=$BASEPY ($("$BASEPY" --version 2>&1))"
+VENV="$HOME/.nnv_venv"
+"$BASEPY" -m venv "$VENV"
+VPY="$VENV/bin/python"
+"$VPY" -m pip install --upgrade pip wheel
+# matlab.engine into the venv (capture output so a failure is visible, not silent)
+( cd /usr/local/matlab/extern/engines/python && "$VPY" -m pip install . ) 2>&1 | tail -25 || echo "WARN: matlab.engine pip install . non-zero"
+# the ONNX importer + witness-gate stack + torch into the venv
+"$VPY" -m pip install -r "$REQ"
+"$VPY" -m pip install torch
+# FALLBACK: the PLATFORM's prep step runs onnx2nnv.py under a bare `python3` (may not see NNV_ORT_PYTHON),
+# so also put the ONNX stack in the system python3 (best-effort; PEP-668 boxes need --break-system-packages).
+pip3 install -r "$REQ" 2>/dev/null || python3 -m pip install -r "$REQ" --break-system-packages 2>/dev/null || true
+# FATAL GATE from a NEUTRAL cwd (the old gate ran from the engine source dir -> false positive on `import matlab`).
+cd /tmp && "$VPY" -c "import matlab.engine, numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer, vnnlib" \
+    || { echo "ERROR: venv ($VPY, base=$BASEPY) missing matlab.engine or the onnx stack" >&2; "$VPY" --version >&2; exit 1; }
+# Persist NNV_ORT_PYTHON for later shells (run_instance also exports it via vnncomp2026_env.sh).
+echo "export NNV_ORT_PYTHON=\"$VENV/bin/python\"" >> ~/.bashrc
+echo "export NNV_ORT_PYTHON=\"$VENV/bin/python\"" >> ~/.profile
+export NNV_ORT_PYTHON="$VENV/bin/python"
 
 # ---- 3) NNV install (tbxmanager: mpt/glpk/sedumi + savepath) -- NOW LICENSED ----
 # Was in install_tool.sh where it hit license Error -1.2 (no license yet). install.m is load-bearing
@@ -45,19 +76,7 @@ matlab -batch "cd('${NNV_ROOT}'); install" || echo "WARN: NNV tbxmanager install
 # prepare_run: warm the codegen packages / netcache (licensed).
 matlab -nodisplay -r "cd('${SD}'); prepare_run; quit" || echo "WARN: prepare_run returned non-zero"
 
-# ---- 4) Python deps for the ONNX importer + the SAT-witness gate (sudo for apt -- works per 2025) ----
-sudo apt-get install -y python3 python3-pip
-# onnx2nnv.py + the witness gate: single source of truth. Missing ANY -> prepare_instance.sh cannot
-# generate the .nnv.mat manifests and every manifest-routed benchmark errors.
-pip3 install --no-cache-dir -r "${REQ}"
-# PREFLIGHT GATE: fail loudly if the importer / witness-gate deps don't import in THIS python (vnnlib
-# included: a partial install silently fail-opens the -150 witness guard).
-python3 -c "import numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer, vnnlib" \
-    || { echo "ERROR: onnx2nnv.py / witness-gate deps failed to import after install (check vs ${REQ})" >&2; exit 1; }
-# torch backs engine/nn/Prob_reach (cp-star / probabilistic-reach paths) -- not in requirements.txt.
-python3 -m pip install torch
-
-# ---- 5) GPU persistence + lock the driver (pair with the form's restart-after-post-install) ----
+# ---- 4) GPU persistence + lock the driver (pair with the form's restart-after-post-install) ----
 # Hold WHATEVER nvidia driver is installed (570 or 580 -- both >= the R2026a CUDA 12.8 minimum of 570;
 # the Lambda dev box uses 580). Detect it; fall back to 570. unattended-upgrades is disabled below too.
 sudo nvidia-smi -pm 1 2>/dev/null || true

@@ -19,6 +19,12 @@
 #   GPU, ~5x faster than the FP64-CPU reconfirm), PGD falsify-first as the backstop -- the same two-mechanism
 #   model alpha-beta-CROWN / NeuralSAT use. Validated 0 false-robust vs the alpha-beta-CROWN gold set
 #   (23 cifar100/tinyimagenet incl gold-SAT). Forces the GPU screen ON. WITHOUT it -> 0 conv unsats.
+#   SHIPPING POLICY (Taylor, 2026-06-28): KEEP ON for the competition. It governs ~all of cifar100's 42%
+#   and tinyimagenet's 40% (~80 breadth-pts); turning it OFF reverts those to unknown (the sound FP64
+#   reconfirm is 120-194s, over the 100s budget). SOUNDNESS basis + the post-competition exploration paths
+#   (sound-FP32 emit NNV_SOUND_FP32_TIGHT, FP64-only, matmul measured-delta) are in CONV_TRUST_FP32_POLICY.md.
+#   CONFIGURABLE: a CLEAN toggle now -- =1 ON, =0 (or unset) OFF -> straight to the sound FP64 double-confirm.
+#   (Was a footgun: `=0` did NOT disable; it read non-empty=ON. Fixed via i_envon() in run_vnncomp_instance.m.)
 export NNV_CONV_TRUST_FP32=1
 # NNV_CONV_NO_STAR: a non-certifying conv precheck emits a FAST sound 'unknown' (Star never certifies these
 #   resnets, it just burns the whole timeout). WITHOUT it -> every conv instance times out.

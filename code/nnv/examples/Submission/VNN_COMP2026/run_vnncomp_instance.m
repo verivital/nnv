@@ -1152,8 +1152,11 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             % NNV_CONV_TRUST_FP32 emits FROM the GPU-single screen, so it FORCES the screen on (else
             % NNV_CONV_GPU_SCREEN=0 from FIX A1 would skip the screen -> straight to the FP64-CPU
             % confirm and trust-FP32 could never fire / the GPU would stay idle).
-            useScreen = ~isequal(getenv('NNV_CONV_GPU_SCREEN'), '0') || ~isempty(getenv('NNV_CONV_TRUST_FP32'));
-            soundEmit = ~isempty(getenv('NNV_SOUND_FP32_TIGHT'));     % sound-FP32 fast-emit attempt enabled
+            % CONFIGURABILITY: i_envon() is a clean boolean toggle -- NNV_CONV_TRUST_FP32=1 ON, =0 (or
+            % unset) OFF -> straight to the sound FP64-double confirm. (Was ~isempty(), a footgun where
+            % `=0` did NOT disable -- any non-empty value counted as ON. See CONV_TRUST_FP32_POLICY.md.)
+            useScreen = ~isequal(getenv('NNV_CONV_GPU_SCREEN'), '0') || i_envon('NNV_CONV_TRUST_FP32');
+            soundEmit = i_envon('NNV_SOUND_FP32_TIGHT');             % sound-FP32 fast-emit attempt enabled (clean 1/0 toggle, like TRUST_FP32)
             screenPass = true;
             if useScreen
                 % FAST UNSOUND-FP32 SCREEN: the cheap, TIGHT candidate filter. soundFP32=false FORCES it
@@ -1178,7 +1181,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
                 % rounding (~1e-6, negligible vs real robustness margins) instead of the rigorous FP64
                 % confirm; gated OFF by default and to be validated 0 false-robust vs the alpha-beta-CROWN
                 % gold set before competition use. PGD is the backstop for the residual FP32 gap.
-                if useScreen && ~isempty(getenv('NNV_CONV_TRUST_FP32'))
+                if useScreen && i_envon('NNV_CONV_TRUST_FP32')
                     status = 1; reachOptionsList = {};
                     fprintf('GPU-BaB pre-check: robust/unsat (TRUSTED gpu-single screen, %d nodes; PGD falsify-first clean) -> skip Star\n', ginfo.nodes);
                     return;
@@ -1216,7 +1219,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             % whose Star provably never certifies), malbeware's approx/exact-star ladder DOES decide
             % instances (esp. the linear-25 FC net). Stripping it would regress the 88 baseline. So a
             % non-certified malbeware instance keeps its sound Star fallback (strictly additive).
-            if status == 2 && ~isempty(getenv('NNV_CONV_NO_STAR')) && ~contains(category,"malbeware")
+            if status == 2 && i_envon('NNV_CONV_NO_STAR') && ~contains(category,"malbeware")
                 reachOptionsList = {};
                 fprintf('GPU-BaB pre-check: conv not certified + NNV_CONV_NO_STAR -> skip Star (fast unknown)\n');
             end
@@ -2649,4 +2652,12 @@ function x = get_example(xRand,i)
     else
         error("InputSize = "+string(s));
     end
+end
+
+function tf = i_envon(name)
+% Clean boolean env toggle: TRUE iff getenv(name) is a truthy token (1/true/on/yes, case-
+% insensitive); '0'/'false'/'off'/'no'/'' (or unset) -> FALSE. This lets `NAME=0` cleanly
+% DISABLE a flag, instead of the ~isempty() footgun where ANY non-empty value (including the
+% string '0') counted as ON. Used for NNV_CONV_TRUST_FP32 -- see CONV_TRUST_FP32_POLICY.md.
+    tf = any(strcmpi(strtrim(getenv(name)), {'1','true','on','yes'}));
 end

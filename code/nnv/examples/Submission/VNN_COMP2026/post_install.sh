@@ -44,6 +44,7 @@ python3 -m pip install onnx==1.20.0 onnxruntime==1.23.1
 # Enable GPU persistence mode (prevents driver unloading)
 sudo nvidia-smi -pm 1
 
-# Lock the kernenl verison and GPU drivers.
-sudo apt-mark hold linux-image-generic linux-headers-generic nvidia-driver-535
+# Lock the kernel version and GPU drivers (driver 570 -- the version on our tested g5 AMI; NNV GPU
+# reach needs >=570). Pair with the form's "restart after post-install" so the driver is reloaded.
+sudo apt-mark hold linux-image-generic linux-headers-generic nvidia-driver-570
 sudo systemctl disable unattended-upgrades

@@ -62,8 +62,8 @@ esac
 
 # Surface the post_install log here -- the platform's ToolkitPostInstall step log captures only its wrapper,
 # so this is the only way to SEE why the python/venv setup did (or didn't) work on the eval box.
-if [ -f "$HOME/.nnv_post_install.log" ]; then
-    echo "=== POST_INSTALL LOG (begin) ==="; sed 's/^/[PI] /' "$HOME/.nnv_post_install.log"; echo "=== POST_INSTALL LOG (end) ==="
+if [ -f "/home/ubuntu/.nnv_post_install.log" ]; then
+    echo "=== POST_INSTALL LOG (begin) ==="; sed 's/^/[PI] /' "/home/ubuntu/.nnv_post_install.log"; echo "=== POST_INSTALL LOG (end) ==="
 fi
 echo "Running ${TOOL_NAME} on '$CATEGORY' (onnx='$ONNX_FILE', vnnlib='$VNNLIB_FILE', timeout=${TIMEOUT}s)"
 # Run execute.py under the python that actually has matlab.engine (NNV_ORT_PYTHON, set by vnncomp2026_env.sh

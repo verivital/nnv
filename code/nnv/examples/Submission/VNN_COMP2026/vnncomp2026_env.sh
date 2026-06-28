@@ -32,7 +32,9 @@
 # (smoke 269: every result error_exit_code_1 from ModuleNotFoundError 'matlab'). An explicit NNV_ORT_PYTHON
 # still wins (e.g. the Lambda dev box's taylor_venv). post_install records the VERIFIED working python path
 # (the uv/3.12 venv, or a system-python fallback) in ~/.nnv_python_path -- read it so we use what actually works.
-export NNV_ORT_PYTHON="${NNV_ORT_PYTHON:-$(cat "$HOME/.nnv_python_path" 2>/dev/null || echo "$HOME/.nnv_venv/bin/python")}"
+# Hardcoded /home/ubuntu (the eval-box RUN user): post_install may run with a different $HOME, so the venv +
+# recorded path live at the canonical /home/ubuntu location the runs read (smoke 274 $HOME-mismatch).
+export NNV_ORT_PYTHON="${NNV_ORT_PYTHON:-$(cat /home/ubuntu/.nnv_python_path 2>/dev/null || echo /home/ubuntu/.nnv_venv/bin/python)}"
 
 export NNV_CONV_TRUST_FP32=1
 # NNV_CONV_NO_STAR: a non-certifying conv precheck emits a FAST sound 'unknown' (Star never certifies these

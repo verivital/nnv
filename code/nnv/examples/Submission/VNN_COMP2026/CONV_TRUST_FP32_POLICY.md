@@ -21,7 +21,8 @@ the screen** and skips the ~120–194s FP64-CPU double-confirm. (`run_vnncomp_in
 - **Validated 0-false-robust** vs the α,β-CROWN gold set (23 cifar100/tinyimagenet incl gold-SAT).
 - **Overnight defense-in-depth (2026-06-28):** the 5 thin-margin cifar resnet_large recoveries
   (idx 496/4385/5308/4757/8589) were independently **FP64 double-oracle confirmed** robust (unsat via
-  3/7/15/9/175-node double; `status-repo/research/cifar_fp64_goldgate_2026-06-27/`).
+  3/7/15/9/175-node double). [Evidence lives in the team's SEPARATE internal status-tracking repo
+  (not this nnv repo): `research/cifar_fp64_goldgate_2026-06-27/`.]
 - **Residual risk (honest):** it is NOT an FP64 proof. If FP32 rounding ever flips a real margin on an
   instance PGD also misses → a false unsat → −150. The above evidence bounds, but does not eliminate,
   that risk. This is the standard FP32-verifier risk the whole field accepts.
@@ -45,7 +46,8 @@ vs "≈0 conv unsats".
 2. **Sound-FP32 emit (`NNV_SOUND_FP32_TIGHT`, default OFF):** the outward-rounded FP32 path — a provably
    sound lower bound (every CROWN bound widened by a rigorous roundoff bound) emitted from the GPU. The
    blocker is that the worst-case Higham γ_n widening is too loose on the wide-conv matmul; the
-   **matmul measured-δ** (running-error analysis) is the lever to make it tight (see
-   `status-repo/memory conv-sound-emit-diagnosis`, SUPERVISED-only, −150-sensitive).
+   **matmul measured-δ** (running-error analysis) is the lever to make it tight (documented in the
+   team's separate internal status-tracking repo, memory `conv-sound-emit-diagnosis`; SUPERVISED-only,
+   −150-sensitive).
 3. **FP64-only (maximally conservative):** `NNV_CONV_TRUST_FP32=0`. Sound, but loses ~80 breadth-points
    at the 100s budget unless the FP64 confirm is sped up (the matmul-δ / batched-double work).

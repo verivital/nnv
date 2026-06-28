@@ -1156,7 +1156,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             % unset) OFF -> straight to the sound FP64-double confirm. (Was ~isempty(), a footgun where
             % `=0` did NOT disable -- any non-empty value counted as ON. See CONV_TRUST_FP32_POLICY.md.)
             useScreen = ~isequal(getenv('NNV_CONV_GPU_SCREEN'), '0') || i_envon('NNV_CONV_TRUST_FP32');
-            soundEmit = ~isempty(getenv('NNV_SOUND_FP32_TIGHT'));     % sound-FP32 fast-emit attempt enabled
+            soundEmit = i_envon('NNV_SOUND_FP32_TIGHT');             % sound-FP32 fast-emit attempt enabled (clean 1/0 toggle, like TRUST_FP32)
             screenPass = true;
             if useScreen
                 % FAST UNSOUND-FP32 SCREEN: the cheap, TIGHT candidate filter. soundFP32=false FORCES it
@@ -1219,7 +1219,7 @@ function [status, reachOptionsList] = i_gpu_bab_precheck(category, nnvnet, lb, u
             % whose Star provably never certifies), malbeware's approx/exact-star ladder DOES decide
             % instances (esp. the linear-25 FC net). Stripping it would regress the 88 baseline. So a
             % non-certified malbeware instance keeps its sound Star fallback (strictly additive).
-            if status == 2 && ~isempty(getenv('NNV_CONV_NO_STAR')) && ~contains(category,"malbeware")
+            if status == 2 && i_envon('NNV_CONV_NO_STAR') && ~contains(category,"malbeware")
                 reachOptionsList = {};
                 fprintf('GPU-BaB pre-check: conv not certified + NNV_CONV_NO_STAR -> skip Star (fast unknown)\n');
             end

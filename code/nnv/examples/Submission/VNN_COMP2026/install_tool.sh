@@ -1,8 +1,17 @@
 #!/bin/bash
 # VNN-COMP 2026 install_tool.sh for NNV (https://github.com/verivital/nnv).
-# Runs ONCE on the evaluation image (Ubuntu, MATLAB R2026a). Installs the MATLAB
-# support packages NNV needs and warms the tbxmanager toolboxes so per-instance
-# overhead stays low (NNV had the worst startup overhead in 2025 -- 14.2s).
+# Runs ONCE on the evaluation image (Ubuntu, MATLAB R2026a), as the NON-ROOT toolkit user
+# (config.yaml run_installation_script_as_root: False).
+#
+# MINIMAL BY DESIGN (matches the known-good 2025 pattern). This script ONLY installs the MATLAB
+# support packages via mpm, AS THE RUNNING USER -- so they land in ~/Documents/MATLAB/SupportPackages
+# and stay visible to the toolkit user that runs verification (run_toolkit_as_root: False). If this
+# ran as root, the support packages would relocate to /root/... and the ONNX converter would vanish.
+#
+# Everything that needs root (apt) or a LICENSED MATLAB (the NNV tbxmanager install) lives in
+# post_install.sh, which runs AFTER licensing. The 2026-06-28 smoke test (task 266) proved why:
+# doing `apt-get install` here failed "Permission denied (are you root?)" (non-root), and
+# `matlab -batch install` failed license Error -1.2 (the license isn't installed until post_install).
 #
 # Arg 1: version string (must match VERSION_STRING below).
 
@@ -15,35 +24,33 @@ if [ "$1" != "${VERSION_STRING}" ]; then
     echo "Expected first argument (version string) '${VERSION_STRING}', got '$1'"
     exit 1
 fi
-echo "Installing ${TOOL_NAME} dependencies (MATLAB ${MATLAB_RELEASE})"
+echo "Installing ${TOOL_NAME} support packages (MATLAB ${MATLAB_RELEASE})"
 
 ip link show   # mac address (licensing)
 echo "$USER"    # username (licensing)
 mkdir -p "$HOME/.matlab/${MATLAB_RELEASE}_licenses"
 
 # ---- detect the MATLAB install root (DO NOT hardcode): works for the MathWorks AMI
-# (/usr/local/matlab) AND a self-installed user-dir install (e.g. ~/MATLAB/R2026a). An
-# explicit MATLABROOT env wins; otherwise derive from `matlab` on PATH; else fall back. ----
+# (/usr/local/matlab) AND a self-installed user-dir install. Explicit MATLABROOT env wins. ----
 if [ -n "${MATLABROOT:-}" ]; then
-    :   # explicit override -- trust the caller
+    :
 elif MATLAB_BIN_EARLY="$(command -v matlab)"; then
     MATLAB_REAL_EARLY="$(readlink -f "$MATLAB_BIN_EARLY" 2>/dev/null || echo "$MATLAB_BIN_EARLY")"
     MATLABROOT="$(dirname "$(dirname "$MATLAB_REAL_EARLY")")"
 else
     MATLABROOT="/usr/local/matlab"
 fi
-# Sanity: a real MATLAB root has bin/matlab. If not (e.g. `matlab` was a wrapper in /usr/local/bin
-# so dirname^2 mis-resolved), warn -- mpm/pip would otherwise target the wrong place.
 if [ ! -x "${MATLABROOT}/bin/matlab" ]; then
     echo "WARN: MATLABROOT='${MATLABROOT}' has no bin/matlab; set MATLABROOT explicitly if installs land wrong."
 fi
 echo "Using MATLABROOT=${MATLABROOT}"
 
-# MathWorks Package Manager (mpm): provision the FULL MATLAB toolbox set NNV needs PLUS the
-# ONNX/PyTorch converters, into the detected MATLAB root. mpm is ADDITIVE + idempotent --
-# products already present are skipped -- so this is fast on the AMI (base toolboxes
-# preinstalled) AND completes a general/from-scratch install. Override via env NNV_MPM_PRODUCTS.
-apt-get update -y && apt-get install -y wget
+# MathWorks Package Manager (mpm): provision the toolbox set NNV needs PLUS the ONNX/PyTorch converters,
+# AS THE USER (default destination ~/Documents/MATLAB/SupportPackages so they're visible to the toolkit
+# user). mpm is ADDITIVE + idempotent. Override via env NNV_MPM_PRODUCTS.
+# wget is needed to fetch mpm; it is usually preinstalled on the MathWorks AMI, so the apt is best-effort
+# (sudo works on this platform per the 2025 post_install, but guard it so a non-root/no-net box can't abort).
+sudo apt-get install -y wget 2>/dev/null || apt-get install -y wget 2>/dev/null || echo "WARN: could not apt-install wget (assuming preinstalled)"
 wget -q https://www.mathworks.com/mpm/glnxa64/mpm
 chmod +x mpm
 NNV_MPM_PRODUCTS="${NNV_MPM_PRODUCTS:-Deep_Learning_Toolbox Parallel_Computing_Toolbox \
@@ -57,67 +64,19 @@ Deep_Learning_Toolbox_Converter_for_PyTorch_Model_Format}"
     --products ${NNV_MPM_PRODUCTS} || \
     echo "WARN: mpm install returned non-zero (some products may already be present)"
 
-# One-time NNV toolbox install (tbxmanager: mpt/glpk/sedumi/...). Doing it here (not
-# per-instance) keeps prepare/run overhead minimal. Adjust TOOLKIT if the image differs.
-TOOLKIT="$(cd "$(dirname "$0")/../../.." && pwd)"   # VNN_COMP2026 -> .../code/nnv (has install.m)
-matlab -batch "cd('${TOOLKIT}'); install" || \
-    echo "WARN: NNV install step failed here; run_instance will run startup_nnv as a fallback."
-
-# Python importer + onnxruntime. onnx2nnv.py (tools/onnx2nnv_python) converts the models
-# MATLAB's importer cannot parse (lsnc_relu, traffic_signs, cgan, soundnessbench) into NNV
-# manifests in prepare_instance.sh; onnxruntime also backs the SAT-witness replay gate that
-# prevents false-SAT (-150) verdicts. Pin a known-good set.
-apt-get install -y python3 python3-pip
-# onnx2nnv.py (tools/onnx2nnv_python) needs the full simplifier stack -- onnx, onnxruntime,
-# numpy, scipy, onnxsim, onnxoptimizer. Missing ANY -> prepare_instance.sh cannot generate the
-# .nnv.mat manifests and every manifest-category instance errors (lsnc_relu/traffic_signs/cgan/
-# soundnessbench/nn4sys/vit). Single source of truth: tools/onnx2nnv_python/requirements.txt
-# (2026-06-15: a dev box whose python had onnx+onnxruntime but lacked onnxsim/onnxoptimizer/
-# scipy failed exactly this way). onnx2nnv.py also guards its imports with the same remediation.
-pip3 install --no-cache-dir -r "${TOOLKIT}/tools/onnx2nnv_python/requirements.txt"
-# PREFLIGHT GATE: verify the importer deps actually import in THIS python -- catches a
-# venv-vs-system mismatch BEFORE a sweep wastes hours erroring on every manifest benchmark.
-# `vnnlib` is included here on purpose: it backs the AUTHORITATIVE SAT-witness gate
-# (validate_witness_authoritative.py + run_all_benchmarks' authoritative_witness_gate.m). It is
-# listed in requirements.txt, but without it in THIS check a failed/partial vnnlib install slips
-# through and the gate silently fail-opens -- every spurious sat then stands (the exact -150 class
-# the gate exists to stop). Single source of truth for the version pins: requirements.txt.
-python3 -c "import numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer, vnnlib" \
-    || { echo "ERROR: onnx2nnv.py / witness-gate deps failed to import after install (check the active python vs ${TOOLKIT}/tools/onnx2nnv_python/requirements.txt)" >&2; exit 1; }
-
-# MATLAB Engine API for Python: execute.py (the run_instance.sh bridge) does
-# `import matlab.engine`; without it EVERY instance fails instantly (caught in
-# the 2026-06-12 AWS dry run on the MathWorks R2026a AMI). Install from the
-# MATLAB tree -- guaranteed version match with the installed release; the PyPI
-# matlabengine wheel can fail to build and may mismatch the MATLAB version.
-pip3 install --no-cache-dir "${MATLABROOT}/extern/engines/python" || \
-    pip3 install --no-cache-dir matlabengine || \
-    echo "WARN: matlab.engine install failed (import check below decides)"
-# Fatal gate: execute.py does `import matlab.engine` on every instance, so a
-# missing engine means zero points. Fail the install loudly rather than let a
-# misleading "Install complete." defer the failure to runtime.
-python3 -c "import matlab.engine" || { echo "ERROR: matlab.engine import failed; fix before running instances" >&2; exit 1; }
-
-# ---- GPU driver / CUDA sanity (NNV's GPU-BaB engine needs a working gpuDevice) ------------
-# R2026a ships CUDA 12.8 -> requires NVIDIA driver >= 570. Warn (do NOT fail) when the GPU is
-# unusable so the user can upgrade (sudo apt install nvidia-driver-580 && sudo reboot); CPU
-# verification still works without a GPU.
+# ---- GPU driver / CUDA sanity (warn only; post_install holds the driver). R2026a (CUDA 12.8) needs >=570. ----
 if command -v nvidia-smi >/dev/null 2>&1; then
     DRV="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)"
     DRV_MAJ="${DRV%%.*}"
     if [ -z "$DRV" ] || ! [ "$DRV_MAJ" -eq "$DRV_MAJ" ] 2>/dev/null; then
-        echo "WARN: nvidia-smi present but the driver version could not be determined (driver not loaded / no GPU?)."
-        echo "      GPU compute (gpuDevice) likely unavailable; R2026a (CUDA 12.8) needs NVIDIA driver >=570."
+        echo "WARN: nvidia-smi present but driver version undetermined; GPU compute likely unavailable (need >=570)."
     elif [ "$DRV_MAJ" -lt 570 ]; then
-        echo "WARN: NVIDIA driver ${DRV} < 570 -> R2026a (CUDA 12.8) GPU compute (gpuDevice) will FAIL."
-        echo "      Fix: sudo apt install -y nvidia-driver-580 && sudo reboot"
+        echo "WARN: NVIDIA driver ${DRV} < 570 -> R2026a (CUDA 12.8) GPU compute will FAIL."
     else
-        echo "NVIDIA driver ${DRV} OK for R2026a CUDA 12.8 (requires >=570)."
+        echo "NVIDIA driver ${DRV} OK for R2026a CUDA 12.8 (>=570)."
     fi
 else
-    echo "NOTE: nvidia-smi not found -> GPU-BaB will run CPU-only. Install NVIDIA driver >=570 for GPU."
+    echo "NOTE: nvidia-smi not found -> GPU-BaB CPU-only. Install NVIDIA driver >=570 for GPU."
 fi
 
-# Optional: Gurobi for a faster LP backend (uncomment + set license).
-# cd ~ && wget -q https://packages.gurobi.com/12.0/gurobi12.0.0_linux64.tar.gz && tar xfz gurobi*.tar.gz
-echo "Install complete."
+echo "Support-package install complete. License + licensed MATLAB setup + apt/pip deps run in post_install.sh."

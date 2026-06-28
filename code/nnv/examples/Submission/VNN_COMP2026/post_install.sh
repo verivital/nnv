@@ -1,62 +1,65 @@
+#!/bin/bash
+# VNN-COMP 2026 post_install.sh for NNV. Runs AFTER install_tool.sh, as the NON-ROOT toolkit user
+# (config.yaml run_post_installation_script_as_root: False). This is where the heavy lifting lives
+# (matches the known-good 2025 pattern): LICENSE first, then the LICENSED MATLAB NNV install
+# (tbxmanager: mpt/glpk/sedumi) + prepare_run, then the apt/pip deps (sudo for apt -- works on this
+# platform per the 2025 submission). install_tool.sh only does the mpm support packages.
+#
+# Why here and not install_tool.sh: the 2026-06-28 smoke test (task 266) failed because install_tool
+# did `apt-get` (non-root -> Permission denied) and `matlab -batch install` (no license yet -> Error -1.2).
+# Licensing + the licensed MATLAB setup + apt MUST run here, after the license is in place.
+
+# Resolve the cloned repo root from THIS script's location BEFORE any cd (robust to the clone path).
+SD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"          # .../code/nnv/examples/Submission/VNN_COMP2026
+NNV_ROOT="$(cd "$SD/../../.." && pwd)"                          # .../code/nnv  (has install.m)
+REQ="$NNV_ROOT/tools/onnx2nnv_python/requirements.txt"
+
+# ---- 1) LICENSE (must be first: the MATLAB install below needs a licensed MATLAB) ----
 mkdir -p ~/.matlab/R2026a_licenses
 cd ~/.matlab/R2026a_licenses
-
-# MAC-locked MATLAB R2026a license (HOSTID 02e1e896fadb == ENI eni-0b11771dfe21b94ee).
-# Verified 2026-06-28: FLEXlm passcode file, 116 products incl. Deep Learning (Neural_Network_Toolbox),
-# Parallel Computing (Distrib_Computing_Toolbox, for GPU/parfor), Optimization (linprog), GPU_Coder;
-# expires 30-may-2027. Fetched at runtime; the .lic is MAC-locked so the URL is unusable off this ENI.
-# NOTE: URL is QUOTED (the prior year's unquoted &-URL backgrounded curl + dropped query params).
+# MAC-locked MATLAB R2026a license (HOSTID 02e1e896fadb == ENI eni-0b11771dfe21b94ee). Verified
+# 2026-06-28: FLEXlm passcode file, 116 products incl. Deep Learning + Parallel Computing + Optimization
+# + GPU_Coder; expires 30-may-2027. The .lic is MAC-locked so the URL is unusable off this ENI.
+# URL QUOTED (the prior year's unquoted &-URL backgrounded curl + dropped query params).
 curl --retry 100 --retry-connrefused -L -o license.lic "https://www.dropbox.com/scl/fi/w5jgddmf3qm5znjw67ajm/matlab-license-vnncomp2026-nnv.lic?rlkey=z3wnimbad4ykjyde95yhq7ik3&st=2oc64st3&dl=1"
 sleep 5
 ls -al
-
-# FAIL LOUDLY on a bad/empty download (else MATLAB never licenses and EVERY benchmark silently
-# returns unknown). A valid MathWorks passcode file contains INCREMENT lines / the header.
 if [ ! -s license.lic ] || ! grep -qE 'INCREMENT|MathWorks license' license.lic; then
-    echo "ERROR: MATLAB license download failed or invalid (license.lic missing/empty/not a passcode file)" >&2
-    exit 1
+    echo "ERROR: MATLAB license download failed or invalid (missing/empty/not a passcode file)" >&2; exit 1
 fi
-
-# sudo: /usr/local/matlab/licenses is root-owned and post_install runs non-root
-# (run_post_installation_script_as_root=False). Without sudo the copy fails -> MATLAB never
-# licenses -> every benchmark unknown. Passwordless sudo is available (install_tool.sh uses it).
-sudo cp -f license.lic /usr/local/matlab/licenses/ || { echo "ERROR: failed to install license to /usr/local/matlab/licenses" >&2; exit 1; }
-[ -s /usr/local/matlab/licenses/license.lic ] || { echo "ERROR: license not present in /usr/local/matlab/licenses after copy" >&2; exit 1; }
-
+# /usr/local/matlab/licenses is root-owned and this script runs non-root -> sudo (works on this platform).
+sudo cp -f license.lic /usr/local/matlab/licenses/ || { echo "ERROR: failed to install license" >&2; exit 1; }
+[ -s /usr/local/matlab/licenses/license.lic ] || { echo "ERROR: license not present after copy" >&2; exit 1; }
 sudo rm -f /usr/local/matlab/licenses/license_info.xml
 
+# ---- 2) MATLAB Engine API for Python (execute.py does `import matlab.engine` on every instance) ----
 cd /usr/local/matlab/extern/engines/python
-python3 -m pip install .
+python3 -m pip install . || pip3 install matlabengine || echo "WARN: matlab.engine install non-zero (gate below decides)"
+python3 -c "import matlab.engine" || { echo "ERROR: matlab.engine import failed; fix before running" >&2; exit 1; }
 
-# ADD STEPS TO INSTALL GUROBI
+# ---- 3) NNV install (tbxmanager: mpt/glpk/sedumi + savepath) -- NOW LICENSED ----
+# Was in install_tool.sh where it hit license Error -1.2 (no license yet). install.m is load-bearing
+# (it installs the LP/polytope toolboxes via tbxmanager). Non-fatal guard: run_instance falls back to
+# startup_nnv, but with the license present here this should succeed.
+matlab -batch "cd('${NNV_ROOT}'); install" || echo "WARN: NNV tbxmanager install returned non-zero"
+# prepare_run: warm the codegen packages / netcache (licensed).
+matlab -nodisplay -r "cd('${SD}'); prepare_run; quit" || echo "WARN: prepare_run returned non-zero"
 
-#cp -f gurobi.lic ~/gurobi1102/
-
-#echo 'export GUROBI_HOME="~/gurobi1102/linux64"' >> ~/.bashrc
-#echo 'export GRB_LICENSE_FILE="~/gurobi1102/gurobi.lic"' >> ~/.bashrc
-#echo 'export PATH="${PATH}:${GUROBI_HOME}/bin"' >> ~/.bashrc
-#echo 'export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib"' >> ~/.bashrc
-
-# Ensure installation is correct
-matlab -nodisplay -r "cd /home/ubuntu/toolkit/code/nnv/examples/Submission/VNN_COMP2026/; prepare_run; quit"
-
-sudo apt install -y python3-pip
-# torch backs engine/nn/Prob_reach (cp-star / probabilistic-reach paths) -- keep it.
+# ---- 4) Python deps for the ONNX importer + the SAT-witness gate (sudo for apt -- works per 2025) ----
+sudo apt-get install -y python3 python3-pip
+# onnx2nnv.py + the witness gate: single source of truth. Missing ANY -> prepare_instance.sh cannot
+# generate the .nnv.mat manifests and every manifest-routed benchmark errors.
+pip3 install --no-cache-dir -r "${REQ}"
+# PREFLIGHT GATE: fail loudly if the importer / witness-gate deps don't import in THIS python (vnnlib
+# included: a partial install silently fail-opens the -150 witness guard).
+python3 -c "import numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer, vnnlib" \
+    || { echo "ERROR: onnx2nnv.py / witness-gate deps failed to import after install (check vs ${REQ})" >&2; exit 1; }
+# torch backs engine/nn/Prob_reach (cp-star / probabilistic-reach paths) -- not in requirements.txt.
 python3 -m pip install torch
-python3 -m pip install numpy
-python3 -m pip install scipy
-# onnxruntime backs BOTH the SAT-witness replay gate (validate_witness_onnx.m ->
-# onnx_replay_check.py) and the collins_aerospace falsification path
-# (collins_falsify.py). Without it those degrade safely to unknown -- but we'd
-# leave every collins point and the -150 witness guard on the table.
-# pinned to the versions validated on the 2026-06-12 AWS dry run (m5.16xlarge, R2026a)
-python3 -m pip install onnx==1.20.0 onnxruntime==1.23.1
 
-# For next year, let's fix gpu drivers to ensure no potential errors there...
-# Enable GPU persistence mode (prevents driver unloading)
+# ---- 5) GPU persistence + lock the driver (570; pair with the form's restart-after-post-install) ----
 sudo nvidia-smi -pm 1
-
-# Lock the kernel version and GPU drivers (driver 570 -- the version on our tested g5 AMI; NNV GPU
-# reach needs >=570). Pair with the form's "restart after post-install" so the driver is reloaded.
 sudo apt-mark hold linux-image-generic linux-headers-generic nvidia-driver-570
 sudo systemctl disable unattended-upgrades
+
+echo "post_install complete (license + NNV install + python deps + preflight all passed)."

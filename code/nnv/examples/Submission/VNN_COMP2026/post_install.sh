@@ -57,9 +57,12 @@ python3 -c "import numpy, scipy, onnx, onnxruntime, onnxsim, onnxoptimizer, vnnl
 # torch backs engine/nn/Prob_reach (cp-star / probabilistic-reach paths) -- not in requirements.txt.
 python3 -m pip install torch
 
-# ---- 5) GPU persistence + lock the driver (570; pair with the form's restart-after-post-install) ----
-sudo nvidia-smi -pm 1
-sudo apt-mark hold linux-image-generic linux-headers-generic nvidia-driver-570
-sudo systemctl disable unattended-upgrades
+# ---- 5) GPU persistence + lock the driver (pair with the form's restart-after-post-install) ----
+# Hold WHATEVER nvidia driver is installed (570 or 580 -- both >= the R2026a CUDA 12.8 minimum of 570;
+# the Lambda dev box uses 580). Detect it; fall back to 570. unattended-upgrades is disabled below too.
+sudo nvidia-smi -pm 1 2>/dev/null || true
+NVPKG="$(dpkg -l 2>/dev/null | awk '/^ii +nvidia-driver-[0-9]/{print $2}' | head -1)"
+sudo apt-mark hold linux-image-generic linux-headers-generic "${NVPKG:-nvidia-driver-570}" 2>/dev/null || true
+sudo systemctl disable unattended-upgrades 2>/dev/null || true
 
 echo "post_install complete (license + NNV install + python deps + preflight all passed)."

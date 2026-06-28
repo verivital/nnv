@@ -39,16 +39,32 @@ try, L.reach(42); catch, errored = true; end
 assert(errored, 'intermediate softmax must error on unsupported set type, not silently passthrough');
 fprintf('Test 3 PASSED (softmax fails loud on unsupported type)\n');
 
-%% Test 4: SDPA multi-token reach errors (would be unsound); single-token still works
+%% Test 4: SDPA multi-token reach is now SOUND (correlated softmax + symbolic A*V);
+% single-token stays exact (V-passthrough). Multi-token used to fail loud because
+% no sound bound existed; it now propagates a sound set (MC-containment locked).
+rng(4); N = 3; D = 4; scale = 0.5;
 L = ScaledDotProductAttentionLayer('a');
-L.ValueDim = 4; L.QueryDim = 4; L.KeyDim = 4; L.Scale = 0.5;
-Q = Star(zeros(4,1), ones(4,1)); K = Q;
-errMulti = false;
-try, L.reach(Q, K, Star(zeros(8,1), ones(8,1)), 'approx-star'); catch, errMulti = true; end
-assert(errMulti, 'multi-token SDPA reach must error (single-token V-bounds would be unsound)');
-S = L.reach(Q, K, Star(zeros(4,1), ones(4,1)), 'approx-star');
-assert(S.dim == 4, 'single-token SDPA reach broken');
-fprintf('Test 4 PASSED (SDPA multi-token fail-loud, single-token ok)\n');
+L.ValueDim = D; L.QueryDim = D; L.KeyDim = D; L.Scale = scale;
+mkc = @(c) Star(c - 0.5, c + 0.5);   % box of radius 0.5 about a center
+mk  = @() mkc(randn(N*D,1));          % single random draw => lb<=ub guaranteed
+Q = mk(); K = mk(); V = mk();
+S = L.reach(Q, K, V, 'approx-star');
+assert(isa(S,'Star') && S.dim == N*D, 'multi-token SDPA reach shape');
+rsf = @(s) s.V(:,1) + s.V(:,2:end) * (s.predicate_lb + (s.predicate_ub - s.predicate_lb).*rand(s.nVar,1));
+viol = 0;
+for k = 1:300
+    qv = rsf(Q); kv = rsf(K); vv = rsf(V);
+    Qm = reshape(qv,[N D]); Km = reshape(kv,[N D]); Vm = reshape(vv,[N D]);
+    sc = scale*(Qm*Km'); m = max(sc,[],2); ex = exp(sc-m); A = ex./sum(ex,2);
+    Om = reshape(A*Vm,[],1);
+    if ~soundness_test_utils.verify_star_containment(S, Om, 1e-6), viol = viol + 1; end
+end
+assert(viol == 0, 'multi-token SDPA reach UNSOUND: %d/300 MC violations', viol);
+% single-token: attention == V exactly
+L1 = ScaledDotProductAttentionLayer('a1'); L1.ValueDim = 4; L1.QueryDim = 4; L1.KeyDim = 4; L1.Scale = 0.5;
+S1 = L1.reach(Star(zeros(4,1),ones(4,1)), Star(zeros(4,1),ones(4,1)), Star(zeros(4,1),ones(4,1)), 'approx-star');
+assert(S1.dim == 4, 'single-token SDPA reach broken');
+fprintf('Test 4 PASSED (SDPA multi-token SOUND, single-token exact)\n');
 
 %% Test 5: MHA multi-token reach errors (would be unsound)
 L = MultiHeadAttentionLayer();

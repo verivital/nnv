@@ -17,6 +17,12 @@ classdef DynamicMatmulLayer < handle
         InputNames = {'in1', 'in2'};
         NumOutputs = 1;
         OutputNames = {'out'};
+        % Operand shapes [m k] and [k n] (out = [m n]). Required to enable a
+        % SOUND interval matmul (the operand shapes are not recoverable from the
+        % flattened set dimensions). Set them from the importer manifest or when
+        % constructing the layer by hand; left empty the layer refuses to reach.
+        LeftShape = [];
+        RightShape = [];
     end
 
     methods
@@ -90,31 +96,47 @@ classdef DynamicMatmulLayer < handle
             out = reshape(out_flat, [lead, k_a, k_b_in]);
         end
 
-        function out = reach_single_input(~, inputs) %#ok<INUSD,STOUT>
-            % SOUNDNESS: refuse rather than approximate wrongly. The previous
-            % implementation took element-wise interval products of the two
-            % flattened operands -- that is NOT a sound bound for a matrix
-            % product (each out(i,j) sums k bilinear terms and the output
-            % shape differs from either input), and its fallbacks silently
-            % passed an operand through as "the reachable set". Without the
-            % operand shapes a sound interval matmul cannot be computed here.
-            % evaluate() remains exact.
-            error('DynamicMatmulLayer:reachNotImplemented', ...
-                ['no SOUND reachability is implemented for dynamic MatMul ' ...
-                 '(needs operand shapes for a per-element sum-of-bilinear-terms ' ...
-                 'interval bound). Refusing to return an unsound set; use a ' ...
-                 'sampling-based method (e.g. cp-star) for networks with ' ...
-                 'dynamic MatMul, or wire shapes through the importer.']);
+        function S = reach_single_input(obj, inputs)
+            % SOUND set@set matrix product via the Rump interval matmul
+            % (SoftmaxAttn.bilinearMatMulStar): concretize each operand to its
+            % sound per-dimension range, enclose A*B, re-encode as a box Star.
+            % Requires LeftShape/RightShape; refuses otherwise (sound-by-refusal:
+            % the prior element-wise interval product was NOT a sound matmul bound).
+            if isempty(obj.LeftShape) || isempty(obj.RightShape)
+                error('DynamicMatmulLayer:reachNeedsShapes', ...
+                    ['no operand shapes set: a SOUND interval matmul needs the ' ...
+                     '[m k] x [k n] shapes. Set obj.LeftShape/obj.RightShape ' ...
+                     '(from the importer manifest), or use a sampling-based method.']);
+            end
+            A = inputs{1}; B = inputs{2};
+            S = SoftmaxAttn.bilinearMatMulStar(A, B, obj.LeftShape, obj.RightShape, 1.0, 'estimate');
         end
 
         function IS = reach(varargin)
             obj = varargin{1};
             in_images = varargin{2};
             method = varargin{3};
-            if any(strcmp(method, {'approx-star','exact-star','abs-dom','approx-zono'})) || contains(method, "relax-star")
-                IS = obj.reach_single_input(in_images);
-            else
+            isStar = any(strcmp(method, {'approx-star','exact-star','abs-dom'})) || contains(method, "relax-star");
+            isZono = strcmp(method, 'approx-zono');
+            if ~(isStar || isZono)
                 error('Unknown reach method for DynamicMatmulLayer: %s', method);
+            end
+            if strcmp(method, 'exact-star')
+                % A product of two dynamic operands is bilinear, so there is no
+                % complete exact-star reach; warn so callers do not assume
+                % 'exact-star' is tighter than 'approx-star' here (both return the
+                % same sound box over-approximation).
+                warning('DynamicMatmulLayer:exactStarApprox', ...
+                    ['dynamic MatMul is bilinear: no exact star reach exists. ' ...
+                     '''exact-star'' returns the SAME sound box over-approximation ' ...
+                     'as ''approx-star'' (not complete or tighter).']);
+            end
+            S = obj.reach_single_input(in_images);     % sound box Star
+            if isZono
+                [lb, ub] = S.estimateRanges();         % box star -> exact box zono
+                IS = Zono((lb+ub)/2, diag((ub-lb)/2));
+            else
+                IS = S;
             end
         end
     end

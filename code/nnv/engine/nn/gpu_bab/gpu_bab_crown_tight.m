@@ -57,7 +57,7 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
             vmag = {}; ibpLd = {}; ibpUd = {};
         end
     end
-    if isempty(ibpLd) && ~isempty(getenv('NNV_CROWN_IBP_PREFILTER'))
+    if isempty(ibpLd) && ~strcmp(getenv('NNV_CROWN_IBP_PREFILTER'), '0')   % DEFAULT-ON (opt out with =0)
         % The PREFILTER also wants the sound DOUBLE IBP on the NON-sound paths -- the unsound single GPU SCREEN
         % and the FP64 confirm -- which are the actual cifar100 bottleneck (the screen times out in the wide-conv
         % chunked CROWN before the confirm even runs). The double IBP forward is value-vectors only (cheap, cannot
@@ -129,11 +129,13 @@ function [margins, preL, preU, unstable, Ain, din, mulPlanes, soundFP32] = gpu_b
                 % NNV_CROWN_MEM_GB; B>=nk reproduces the original single eye(nk) pass.
                 % src==0 here is the sound-FP32 input-fed case routed off the fast cast above (widened).
                 if src == 0, nk = numel(x_lb); else, nk = i_layer_width(ops, src); end
-                % IBP-PREFILTER (verdict-identical, sound-path only): a relu neuron the SOUND DOUBLE IBP proves
-                % stable (ibpLo>=0 or ibpHi<=0) has an EXACT relaxation (slope 1/0), so the downstream backward
-                % uses that exact slope regardless of [pl,pu] tightness -> skip its CROWN backward, fill from IBP.
+                % IBP-PREFILTER (DEFAULT-ON, opt out NNV_CROWN_IBP_PREFILTER=0): a relu neuron the SOUND DOUBLE IBP
+                % proves stable (ibpLo>=0 or ibpHi<=0) has an EXACT relaxation (slope 1/0), so the downstream backward
+                % uses that exact slope regardless of [pl,pu] tightness -> skip its CROWN backward, fill from IBP. On
+                % the DOUBLE FP64-confirm path this is bit-identical (faster, not different); 75/75 soundness suite +
+                % 5/5 thin-margin recoveries certified (idx_496/4385/5308/4757/8589 UNSAT in 120-194s) vs timeout off.
                 ibpLo = []; ibpHi = [];
-                if strcmp(tk,'relu') && ~isempty(getenv('NNV_CROWN_IBP_PREFILTER'))
+                if strcmp(tk,'relu') && ~strcmp(getenv('NNV_CROWN_IBP_PREFILTER'), '0')
                     if ~isempty(ibpLd) && numel(ibpLd) >= src+1 && ~isempty(ibpLd{src+1})
                         ibpLo = ibpLd{src+1}; ibpHi = ibpUd{src+1};            % SOUND single-emit path (sound DOUBLE IBP from line 54)
                     elseif strcmp(precision,'double') && ~isempty(ibpL) && numel(ibpL) >= src+1 && ~isempty(ibpL{src+1})

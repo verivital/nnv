@@ -41,9 +41,9 @@ function test_prefilter_sound_on_deep_nets(tc)
         end
         ops{end+1} = struct('type','affine','W',randn(nout,w)/sqrt(w),'b',randn(nout,1),'src',2*depth,'nOut',nout); %#ok<AGROW>
         lb = -0.1*ones(nin,1); ub = 0.1*ones(nin,1);
-        setenv('NNV_CROWN_IBP_PREFILTER', '');  off = double(gpu_bab_crown_tight(ops, lb, ub, C, 'single', {})); off = off(:);
+        setenv('NNV_CROWN_IBP_PREFILTER', '0'); off = double(gpu_bab_crown_tight(ops, lb, ub, C, 'single', {})); off = off(:);  % '0' = prefilter OFF (default is now ON)
         setenv('NNV_CROWN_IBP_PREFILTER', '1'); on  = double(gpu_bab_crown_tight(ops, lb, ub, C, 'single', {})); on  = on(:);
-        setenv('NNV_CROWN_IBP_PREFILTER', '');
+        setenv('NNV_CROWN_IBP_PREFILTER', '0');   % pure no-prefilter FP64 oracle
         H = double(gpu_bab_crown_tight(ops, lb, ub, C, 'double', {})); H = H(:);
         verifyTrue(tc, all(isfinite(on)), sprintf('seed %d: finite', seed));
         % P1: prefilter single margin <= FP64 oracle (sound). tol 1e-5 >> double roundoff, << a real unsound gap.

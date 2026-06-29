@@ -40,20 +40,49 @@ def _maybe_gunzip_path(p):
 
 
 def read_witness(resfile):
-    """Parse the runner's sat result file: 'sat' then (X_i val) lines. Returns X array or None."""
+    """Parse the runner's sat result file: 'sat' then the input witness. Handles BOTH CE formats:
+    vnnlib-1.0 s-expr `(X_i val)` and vnnlib-2.0 textual `<name> <dtype> [shape]` + value-per-line
+    (2026-06-29 fix -- single-net 2.0 cats like cctsdb_yolo/adaptive_cruise now emit the textual format;
+    without this the gate returns 'cant' and only fail-open keeps the sat). Returns X array, None, or
+    'noncontig'."""
     txt = open(resfile).read()
     if not txt.lstrip().lower().startswith("sat"):
         return None
     fnum = r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?"
+    # ---- vnnlib 1.0 s-expr: (X_i val) ----
     xs = {}
     for m in re.finditer(r"\(\s*X_(\d+)\s+(" + fnum + r")\s*\)", txt):
         xs[int(m.group(1))] = float(m.group(2))
-    if not xs:
-        return None
-    n = max(xs) + 1
-    if len(xs) != n:
-        return "noncontig"
-    return np.array([xs[i] for i in range(n)], dtype=np.float64)
+    if xs:
+        n = max(xs) + 1
+        if len(xs) != n:
+            return "noncontig"
+        return np.array([xs[i] for i in range(n)], dtype=np.float64)
+    # ---- vnnlib 2.0 textual: concatenate INPUT (X*) blocks in declaration order ----
+    import math
+    lines = [ln.strip() for ln in txt.splitlines() if ln.strip()]
+    if lines and lines[0].lower().startswith("sat"):
+        lines.pop(0)
+    hdr = re.compile(r"^(\S+)\s+\S+\s+\[([0-9,\s]*)\]$")
+    out = []
+    i = 0
+    while i < len(lines):
+        m = hdr.match(lines[i])
+        if not m:
+            return None
+        name, dims = m.group(1), m.group(2).strip()
+        cnt = 1 if not dims else math.prod(int(d) for d in dims.split(","))
+        i += 1
+        block = lines[i:i + cnt]
+        i += cnt
+        if len(block) != cnt:
+            return None
+        if name.upper().startswith("X"):
+            try:
+                out.extend(float(v) for v in block)
+            except ValueError:
+                return None
+    return np.array(out, dtype=np.float64) if out else None
 
 
 def _flat(e):

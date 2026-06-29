@@ -68,7 +68,7 @@ if contains(category, "cctsdb_yolo")
     if status == 0
         fprintf(fid, 'sat \n');
         fclose(fid);
-        write_counterexample(outputfile, counterEx);
+        write_counterexample(outputfile, counterEx, vnnlib);
     elseif status == 1
         fprintf(fid, 'unsat \n');
         fclose(fid);
@@ -93,7 +93,7 @@ if contains(category, "nn4sys") && contains(onnx, "lindex")
     disp("Verification result: " + string(status));
     fid = fopen(outputfile, 'w');
     if status == 0
-        fprintf(fid, 'sat \n'); fclose(fid); write_counterexample(outputfile, counterEx);
+        fprintf(fid, 'sat \n'); fclose(fid); write_counterexample(outputfile, counterEx, vnnlib);
     elseif status == 1
         fprintf(fid, 'unsat \n'); fclose(fid);
     else
@@ -125,7 +125,7 @@ if contains(category, "adaptive_cruise")
         disp("Total Time: " + string(tTime));
         fid = fopen(outputfile, 'w');
         fprintf(fid, 'sat \n'); fclose(fid);
-        write_counterexample(outputfile, acCounterEx);
+        write_counterexample(outputfile, acCounterEx, vnnlib);
         return;
     elseif acStatus == 1   % UNSAT: input region PROVABLY EMPTY (nonlinear input constraint infeasible
         status = 1;        % over the box) -> no input -> no counterexample -> vacuously UNSAT. Proven by
@@ -327,7 +327,7 @@ if isfield(property, 'multinet')
         xf = counterEx{1}; xg = counterEx{2};
         yf = nnvnet.evaluate(xf); yg = nnvnet.evaluate(xg);
         fid = fopen(outputfile, 'w'); fprintf(fid, 'sat \n'); fclose(fid);
-        write_counterexample(outputfile, {[xf(:); xg(:)], [yf(:); yg(:)]});
+        write_counterexample(outputfile, {[xf(:); xg(:)], [yf(:); yg(:)]}, vnnlib);
         if ~trust
             gate = authoritative_witness_gate(onnx, vnnlib, outputfile, 'validate_witness_multinet.py');
             if ~strcmp(gate, 'valid')
@@ -765,7 +765,7 @@ if status == 0
     fprintf(fid, 'sat \n');
     % fprintf(fid, '%f \n', tTime); % remove this line when running on submission site
     fclose(fid);
-    write_counterexample(outputfile, counterEx)
+    write_counterexample(outputfile, counterEx, vnnlib)
 elseif status == 1
     fid = fopen(outputfile, 'w');
     fprintf(fid, 'unsat \n');
@@ -821,7 +821,7 @@ function [status, tTime] = run_collins_falsifier(onnx, vnnlib, outputfile, t)
             fid = fopen(outputfile, 'w');
             fprintf(fid, 'sat \n');
             fclose(fid);
-            write_counterexample(outputfile, {x, y});
+            write_counterexample(outputfile, {x, y}, vnnlib);
         end
     end
     if status ~= 0   % anything else (incl. malformed witness) -> unknown, never unsat
@@ -2242,40 +2242,82 @@ function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,
 end
 
 % Write counterexample to output file
-function write_counterexample(outputfile, counterEx)
-    % First line - > sat
-    % after that, write the variables for each input dimension  of the counterexample
+function write_counterexample(outputfile, counterEx, vnnlib)
+    % Append the SAT counterexample assignment block to outputfile (caller already wrote 'sat\n').
+    % VERSION-AWARE (2026-06-29 fix): vnnlib 1.0 uses the legacy s-expr `((X_0 v)\n...(Y_N v))`; vnnlib 2.0
+    % uses the section-5.3 TEXTUAL assignment format `name dtype [shape]` + one C-order value per line, in
+    % DECLARATION order. The 1.0 `X_0` token is rejected as malformed_ce by the 2.0 official checker
+    % (vnncomp2026_results SCORING/counterexamples_v2.py == stanleybak/vibecheck vnncomp_cex_v2.py) and
+    % vice-versa -- this is exactly why our extended/2.0-track CEs (cctsdb_yolo, adaptive_cruise, mono) came
+    % back malformed while the 1.0 regular track was all-valid. Verified: re-emitting our real 2.0 witnesses
+    % in this textual format makes the official checker return correct/correct_up_to_tolerance.
     %
-    % Example:
-    %  ( (X_0 0.12132)
-    %    (X_1 3.45454)
-    %    ( .... )
-    %    (Y_0 2.32342)
-    %    (Y_1 3.24355)
-    %    ( ... )
-    %    (Y_N 0.02456))
-    %
+    % 1.0 example:  ((X_0 0.12)\n(X_1 3.4)\n(Y_0 2.3)\n)
+    % 2.0 example:  X float32 [12296]\n0.12\n...\nY float32 [1]\n2.3
+    % 2.0 multinet (mono/iso): X_f real [5]\n<5>\nY_f real [5]\n<5>\nX_g real [5]\n<5>\nY_g real [5]\n<5>
+    if nargin < 3, vnnlib = ''; end
+    vmeta = i_vnnlib2_ce_meta(vnnlib);
 
     precision = '%.16g'; % set the precision for all variables written to txt file
-    % open file and start writing counterexamples
     fid = fopen(outputfile, 'a+');
-    x = counterEx{1};
-    x = reshape(x, [], 1);
-    % begin specifying value for input example
-    fprintf(fid,'(');
-    for i = 1:length(x)
-        fprintf(fid, "(X_" + string(i-1) + " " + num2str(x(i), precision)+ ")\n");
-    end
-    y = counterEx{2};
-    y = reshape(y, [], 1);
-    % specify values for output example
-    for j =1:length(y)
-        fprintf(fid, "(Y_" + string(j-1) + " " + num2str(y(j), precision)+ ")\n");
-    end
-    fprintf(fid, ')');
-    % close and save file
-    fclose(fid);
 
+    if ~vmeta.isV2 || isempty(vmeta.names)
+        % ---- vnnlib 1.0: legacy underscore s-expr (BYTE-IDENTICAL to the pre-fix emitter) ----
+        x = counterEx{1};
+        x = reshape(x, [], 1);
+        fprintf(fid,'(');
+        for i = 1:length(x)
+            fprintf(fid, "(X_" + string(i-1) + " " + num2str(x(i), precision)+ ")\n");
+        end
+        y = counterEx{2};
+        y = reshape(y, [], 1);
+        for j =1:length(y)
+            fprintf(fid, "(Y_" + string(j-1) + " " + num2str(y(j), precision)+ ")\n");
+        end
+        fprintf(fid, ')');
+    else
+        % ---- vnnlib 2.0: textual assignment format. counterEx{1}=stacked inputs, {2}=stacked outputs,
+        % both already in the flat (C-order) order the spec declares; partition them per-variable. ----
+        x = reshape(counterEx{1}, [], 1);
+        y = reshape(counterEx{2}, [], 1);
+        xi = 1; yi = 1;
+        for k = 1:numel(vmeta.names)
+            nm = vmeta.names{k}; dt = vmeta.dtypes{k}; shp = vmeta.shapes{k};
+            if isempty(shp), n = 1; dimstr = '1';
+            else, n = prod(shp); dimstr = strjoin(string(shp(:).'), ','); end
+            fprintf(fid, "%s %s [%s]\n", nm, dt, dimstr);
+            if startsWith(nm, "Y")
+                blk = y(yi:yi+n-1); yi = yi + n;
+            else
+                blk = x(xi:xi+n-1); xi = xi + n;
+            end
+            for t = 1:n
+                fprintf(fid, "%s\n", num2str(blk(t), precision));
+            end
+        end
+    end
+    fclose(fid);
+end
+
+% Sniff vnnlib version + (for 2.0) the per-variable CE metadata (name/dtype/shape) in DECLARATION order.
+% The engine's is_vnnlib2 is a file-local function (not callable here) and the runner has no version
+% arg/env, so re-sniff from the .vnnlib FILE: a '(vnnlib-version' header => 2.0; then scan declare-input/
+% declare-output IN FILE ORDER, which equals the official checker's _definitions order (per network: inputs
+% then outputs -> single-net X,Y; multinet mono/iso f,g -> X_f,Y_f,X_g,Y_g). 1.0 files have no header.
+function vmeta = i_vnnlib2_ce_meta(vnnlib)
+    vmeta = struct('isV2', false, 'names', {{}}, 'dtypes', {{}}, 'shapes', {{}});
+    if isempty(vnnlib) || ~isfile(vnnlib), return; end
+    txt = fileread(vnnlib);
+    if isempty(regexp(txt, '\(\s*vnnlib-version', 'once')), return; end   % no header => 1.0
+    vmeta.isV2 = true;
+    toks = regexp(txt, '\(\s*declare-(?:input|output)\s+(\S+)\s+(\S+)\s+\[([0-9,\s]*)\]', 'tokens');
+    for k = 1:numel(toks)
+        vmeta.names{end+1}  = toks{k}{1};
+        vmeta.dtypes{end+1} = toks{k}{2};
+        ds = strtrim(toks{k}{3});
+        if isempty(ds), vmeta.shapes{end+1} = [];
+        else, vmeta.shapes{end+1} = str2double(strsplit(ds, ',')); end
+    end
 end
 
 % cctsdb_yolo complete-enumeration verifier: shell out to cctsdb_enumerate.py

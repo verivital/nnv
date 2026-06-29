@@ -25,6 +25,22 @@
 #   (sound-FP32 emit NNV_SOUND_FP32_TIGHT, FP64-only, matmul measured-delta) are in CONV_TRUST_FP32_POLICY.md.
 #   CONFIGURABLE: a CLEAN toggle now -- =1 ON, =0 (or unset) OFF -> straight to the sound FP64 double-confirm.
 #   (Was a footgun: `=0` did NOT disable; it read non-empty=ON. Fixed via i_envon() in run_vnncomp_instance.m.)
+
+# NNV_ORT_PYTHON: the dedicated python for execute.py's matlab.engine + the ORT/witness gate + onnx2nnv.
+# An explicit value always wins (e.g. the Lambda dev box's taylor_venv). On the eval box, post_install.sh
+# installs matlab.engine + the ONNX stack into a SYSTEM python via `sudo --break-system-packages` (system
+# site-packages are readable by every user incl. the run user `ubuntu`, and persist). Since which system
+# python carries the engine is decided at install time, we PROBE the system pythons at runtime (run as
+# ubuntu) and pick the first whose matlab.engine imports. This sidesteps the smoke 269-276 failures: no venv
+# (a venv symlinks to a per-user base python the run user cannot reach) and no /home/ubuntu artifact file
+# (post_install runs as a user that cannot write /home/ubuntu).
+if [ -z "${NNV_ORT_PYTHON:-}" ]; then
+    for _c in /usr/bin/python3.13 /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 /usr/bin/python3; do
+        [ -x "$_c" ] && "$_c" -c "import matlab.engine" >/dev/null 2>&1 && { NNV_ORT_PYTHON="$_c"; break; }
+    done
+fi
+export NNV_ORT_PYTHON="${NNV_ORT_PYTHON:-python3}"
+
 export NNV_CONV_TRUST_FP32=1
 # NNV_CONV_NO_STAR: a non-certifying conv precheck emits a FAST sound 'unknown' (Star never certifies these
 #   resnets, it just burns the whole timeout). WITHOUT it -> every conv instance times out.

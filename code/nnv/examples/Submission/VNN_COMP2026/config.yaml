@@ -5,7 +5,10 @@ ami: ami-0d88088c4d5b7e5e0
 scripts_dir: code/nnv/examples/Submission/VNN_COMP2026/
 manual_installation_step: False
 run_installation_script_as_root: False
-run_post_installation_script_as_root: False
+# post_install runs as ROOT: it activates the MAC-locked license (cp into $MLROOT/licenses) and installs
+# matlab.engine system-wide -- both need privilege. Root removes the sudo-availability doubt (its `sudo`
+# calls become harmless no-ops). The per-benchmark runs still execute as the default user `ubuntu`.
+run_post_installation_script_as_root: True
 run_toolkit_as_root: False
 description: >
   Matlab Toolbox for Neural Network Verification. This toolbox implements reachability methods for analyzing deep learning models including but not limited to convolutional, recurrent and binary neural networks. NNV is also capable of analyzing neural networks on closed-loop controllers in autonomous cyber-physical systems (CPS).

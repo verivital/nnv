@@ -1430,7 +1430,19 @@ function [net,nnvnet,needReshape,reachOptionsList,inputSize,inputFormat,nRand,fa
         ftok = regexp(char(onnx), '''f''\s*,\s*''([^'']+)''', 'tokens', 'once');
         if ~isempty(ftok)
             benchroot = fileparts(fileparts(char(vnnlib)));   % .../<ver>/vnnlib/x.vnnlib -> .../<ver>
-            onnx_f = char(fullfile(benchroot, ftok{1}));       % keep char; build .gz path by char concat
+            cand = char(ftok{1});
+            % The f-token may be version-dir-relative ('onnx/..', straight from instances.csv) OR ALREADY a
+            % full run-dir-relative/absolute path ('./benchmarks/<cat>/<ver>/onnx/..', as the eval PLATFORM
+            % expands it before invoking the tool). Prepend benchroot ONLY when the token is not already a
+            % resolvable file -- else fullfile DOUBLES the prefix (.../<ver>/benchmarks/<cat>/<ver>/onnx/..)
+            % -> File not found -> LOAD FAILED -> every multinet sat lost (task 301: mono 0/10, the +100).
+            % Validated in MATLAB on all 3 forms (platform/instances.csv/single-net). See
+            % status-repo MONO_INPLATFORM_PATHBUG.md.
+            if isfile(cand) || isfile([cand '.gz'])
+                onnx_f = cand;                                % platform-expanded / absolute -> use as-is
+            else
+                onnx_f = char(fullfile(benchroot, cand));     % version-dir-relative -> prepend
+            end
             gzf = [onnx_f '.gz'];                              % (char concat -- avoids the char+string '+' pitfall)
             if ~isfile(onnx_f) && isfile(gzf), gunzip(gzf); end
         end

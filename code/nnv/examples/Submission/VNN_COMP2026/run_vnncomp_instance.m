@@ -20,6 +20,18 @@ if contains(category, 'cifar100')
     if isempty(getenv('NNV_AMORT_ALPHA')),        setenv('NNV_AMORT_ALPHA', '20');        end
 end
 
+% ---- PER-INSTANCE PARALLELISM (2026-06-29): honor NNV_BLAS_THREADS. The competition runs ONE instance on
+% the whole g5.8xlarge, so its matmul-bound reach (approx-star affine maps / CROWN / PGD forward) should use
+% ALL physical cores -- which is MATLAB's default, so unset/'auto' is byte-identical to before. The N=4
+% sweep instead caps each session to ~cores/N to stop the 4x BLAS oversubscription the 1-per-GPU design does
+% not catch. PERF-ONLY (verdict-identical). NNV_MAX_WORKERS (the disjunct-parfor pool) is read per-loop in
+% i_disjunct_workers(). See vnncomp2026_env.sh + research/parallelism_g5_2026-06-29.md.
+i_blas = strtrim(getenv('NNV_BLAS_THREADS'));
+if ~isempty(i_blas) && ~strcmpi(i_blas, 'auto')
+    i_blas_v = str2double(i_blas);
+    if isfinite(i_blas_v) && i_blas_v >= 1, maxNumCompThreads(i_blas_v); end
+end
+
 % SOUNDNESS HARDENING (persistent/shared-session safety): the per-instance reach budget lives in GLOBALS
 % (NNV_REACH_T0/_BUD) that ANOTHER verifier entry point (NN.verify_vnnlib / NN.verify_robustness) reads via
 % verify_specification, where under exactReach a result==2 is promoted to 0 (sat). A budget left ARMED after
@@ -575,7 +587,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
         i_reachbud = str2double(getenv('NNV_REACH_BUDGET'));  % broadcast the per-instance reach budget into the parfor
                                                              % (globals do not cross to workers; arms the SOUND PosLin cap per worker)
 
-        parfor spc = 1:length(lb) % We can compute these in parallel for faster computation
+        parfor (spc = 1:length(lb), i_disjunct_workers(length(lb))) % parallel across disjuncts; worker cap (and the pool size) from NNV_MAX_WORKERS: competition=min(physical cores,#disjuncts), sweep=serial -- see i_disjunct_workers
 
             i_arm_reach_budget(i_reachbud);  % arm NNV_REACH_T0/_BUD on THIS worker (global decls are illegal in a parfor body -> helper)
             lb_spc = lb{spc};
@@ -659,7 +671,7 @@ if status == 2 && ~quickRun % no counterexample found and supported for reachabi
                                                              % so without this the SOUND cap in PosLin.reach_star_exact is a
                                                              % no-op on every multi-input-box prop (disjunctive-input overruns).
 
-        parfor spc = 1:length(lb) % We can compute these in parallel for faster computation
+        parfor (spc = 1:length(lb), i_disjunct_workers(length(lb))) % parallel across disjuncts; worker cap (and the pool size) from NNV_MAX_WORKERS: competition=min(physical cores,#disjuncts), sweep=serial -- see i_disjunct_workers
 
             i_arm_reach_budget(i_reachbud);  % arm NNV_REACH_T0/_BUD on THIS worker (global decls are illegal in a parfor body -> helper)
             reachOptPar = reachOptionsList;
@@ -2238,6 +2250,33 @@ function xRand = create_random_examples(net, lb, ub, nR, inputSize, needReshape,
             end
         end
         
+    end
+end
+
+% Worker cap (and pre-sized pool) for the disjunct-level parfor (2026-06-29). Competition: one fresh
+% per-instance matlab.engine owns the whole g5, so use min(physical cores, #disjuncts) -- sizing to the
+% disjunct count avoids cold-starting 16 idle workers (~15-40s) on a 2-4-disjunct instance against a short
+% timeout. Sweep (NNV_MAX_WORKERS=1): return 0 -> parfor(...,0) runs serially in the client (no pool), so 4
+% concurrent sessions never spawn 4x16 worker processes. PERF-ONLY: parfor result == serial. getCurrentTask
+% guard keeps it inert inside a worker (no nested pool). Pool failure -> serial (graceful). Returns the M for
+% parfor(...,M).
+function W = i_disjunct_workers(ndisj)
+    W = 0;
+    if ~isempty(getCurrentTask()), return; end               % inside a worker: serial, no nested pool
+    nw = lower(strtrim(getenv('NNV_MAX_WORKERS')));
+    if isempty(nw) || strcmp(nw, 'auto'), nw = feature('numcores');
+    else, nw = str2double(nw); end
+    if ~isfinite(nw) || nw < 1, nw = feature('numcores'); end
+    W = max(0, min(round(nw), ndisj));
+    if W <= 1, W = 0; return; end                            % single disjunct / serial -> client, no pool
+    p = gcp('nocreate');
+    if isempty(p) || p.NumWorkers ~= W
+        try
+            if ~isempty(p), delete(p); end
+            parpool('Processes', W);
+        catch
+            W = 0;                                           % pool unavailable -> run serially (sound)
+        end
     end
 end
 

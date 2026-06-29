@@ -52,3 +52,27 @@ export NNV_CONV_FRONTIER=512
 #   STRICTLY SOUND: only ever converts a cp-star unsat -> unknown; the FP64 / GPU-BaB / exact paths still
 #   decide what they can.
 export NNV_QUARANTINE_CPSTAR=1
+
+# ---- PER-INSTANCE PARALLELISM PROFILE (2026-06-29) -----------------------------------------------------
+# The COMPETITION runs ONE instance at a time on the whole g5.8xlarge (32 vCPU = 16 PHYSICAL cores + 1 A10G
+# 24GB), so each instance should use the entire machine. Our LOCAL/LAMBDA sweeps run N=4 MATLAB sessions on
+# one box (1-per-GPU), so the CPU knobs must be divided by N or they oversubscribe (4 sessions x all-cores
+# BLAS = ~4x the cores). GPU/conv knobs are profile-INVARIANT: the sweep is already 1-instance-per-GPU
+# (CUDA_VISIBLE_DEVICES=$gpu), so each sweep session already owns a full GPU's memory -- same budget as the
+# competition. EVERY knob here is PERF-ONLY: serial==parallel verdict, larger batch only ever times-out/OOMs
+# to a SOUND 'unknown' (no -150 risk). All use ':-' so an outer export (the sweep harness) wins.
+# Switch profiles with NNV_PARALLEL_PROFILE=competition|sweep. Consumed by run_vnncomp_instance.m
+# (NNV_BLAS_THREADS -> maxNumCompThreads; NNV_MAX_WORKERS -> the disjunct-level parfor pool size).
+export NNV_PARALLEL_PROFILE="${NNV_PARALLEL_PROFILE:-competition}"
+if [ "$NNV_PARALLEL_PROFILE" = "sweep" ]; then
+    export NNV_MAX_WORKERS="${NNV_MAX_WORKERS:-1}"     # disjunct parfor -> serial (no per-session pool storm)
+    export NNV_BLAS_THREADS="${NNV_BLAS_THREADS:-4}"   # ~cores/N; the sweep harness sets the exact value
+else
+    export NNV_MAX_WORKERS="${NNV_MAX_WORKERS:-auto}"  # auto = min(physical cores, #disjuncts)
+    export NNV_BLAS_THREADS="${NNV_BLAS_THREADS:-auto}" # auto = MATLAB default (all physical cores)
+fi
+# GPU β-refine batch width (cifar100 conv TIER-2). Default 64 (validated on the 11GB sweep GPUs). On the
+# competition A10G (24GB, all owned by the one instance) it can likely rise to ~96-128 to cut autodiff
+# passes -- left configurable here; CONFIRM ON g5 (no OOM, within budget) before raising. See
+# research/parallelism_g5_2026-06-29.md.
+export NNV_CONV_BETA_FRONTIER_COMP="${NNV_CONV_BETA_FRONTIER_COMP:-96}"  # candidate g5 value (probe before use)

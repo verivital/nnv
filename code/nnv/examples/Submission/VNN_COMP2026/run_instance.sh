@@ -60,22 +60,23 @@ case "$CATEGORY" in
         ;;
 esac
 
-# Surface the post_install log here -- the platform's ToolkitPostInstall step log captures only its wrapper,
-# so this is the only way to SEE why the python/venv setup did (or didn't) work on the eval box.
-if [ -f "/home/ubuntu/.nnv_post_install.log" ]; then
-    echo "=== POST_INSTALL LOG (begin) ==="; sed 's/^/[PI] /' "/home/ubuntu/.nnv_post_install.log"; echo "=== POST_INSTALL LOG (end) ==="
-fi
-# GROUND-TRUTH DIAGNOSTIC (runs as the RUN user; this output IS captured by the platform). Shows whoami/HOME
-# and, for every candidate python, whether matlab.engine imports -- so we can see EXACTLY which interpreter
-# (if any) has the engine, instead of guessing about post_install's user/$HOME.
+# Surface the post_install /tmp log -- post_install mirrors ALL its output to /tmp/nnv_post_install.log
+# (world-writable), and the platform's ToolkitPostInstall step log only shows the wrapper, so this is the
+# one reliably-captured way to SEE what post_install actually did (license cp, engine install, MLROOT, ...).
+echo "=== POST_INSTALL LOG (/tmp/nnv_post_install.log) ==="
+if [ -f /tmp/nnv_post_install.log ]; then sed 's/^/[PI] /' /tmp/nnv_post_install.log; else echo "[PI] MISSING -- post_install body never ran or could not write /tmp"; fi
+echo "=== END POST_INSTALL LOG ==="
+# GROUND-TRUTH DIAG (runs as the RUN user `ubuntu`; output IS captured). Every candidate python's
+# matlab.engine status + the MATLAB root / license / engine-source paths (cheap ls, no matlab startup).
 echo "=== NNV PY DIAG === whoami=$(whoami) HOME=$HOME NNV_ORT_PYTHON=$NNV_ORT_PYTHON"
-for p in "$NNV_ORT_PYTHON" python3 /usr/bin/python3 /usr/bin/python3.13 /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 /home/ubuntu/anaconda3/bin/python3 /home/ubuntu/.nnv_venv/bin/python; do
+for p in "$NNV_ORT_PYTHON" python3 /usr/bin/python3 /usr/bin/python3.13 /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10; do
     pp=$(command -v "$p" 2>/dev/null); [ -z "$pp" ] && { [ -x "$p" ] && pp="$p"; }; [ -z "$pp" ] && continue
     eng=$(cd /tmp && "$pp" -c "import matlab.engine; print('ENGINE_OK')" 2>&1 | tail -1)
     echo "  DIAGPY $pp -> $("$pp" --version 2>&1) | $eng"
 done
-echo "  DIAGFILE /home/ubuntu/.nnv_python_path=$(cat /home/ubuntu/.nnv_python_path 2>/dev/null || echo MISSING) | /tmp/nnv_python_path=$(cat /tmp/nnv_python_path 2>/dev/null || echo MISSING)"
-ls -ld /home/ubuntu/.nnv_venv /home/ubuntu/.nnv_post_install.log /tmp/.nnv_post_install.log 2>&1 | sed 's/^/  DIAGLS /'
+echo "  DIAG command -v matlab = $(command -v matlab 2>&1)"
+for ml in /usr/local/matlab /usr/local/MATLAB/R2026a /usr/local/MATLAB/R2026b /opt/matlab; do [ -d "$ml" ] && ls -ld "$ml/licenses" "$ml/extern/engines/python" 2>&1 | sed 's/^/  DIAGML /'; done
+ls -l /usr/local/matlab/licenses/ /usr/local/MATLAB/R2026a/licenses/ 2>/dev/null | sed 's/^/  DIAGLIC /'
 echo "=== END NNV PY DIAG ==="
 echo "Running ${TOOL_NAME} on '$CATEGORY' (onnx='$ONNX_FILE', vnnlib='$VNNLIB_FILE', timeout=${TIMEOUT}s)"
 # Run execute.py under the python that actually has matlab.engine (NNV_ORT_PYTHON, set by vnncomp2026_env.sh

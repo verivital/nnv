@@ -1,119 +1,83 @@
 #!/bin/bash
-# VNN-COMP 2026 post_install.sh for NNV. Runs AFTER install_tool.sh (config.yaml
-# run_post_installation_script_as_root: False). Heavy lifting (known-good 2025 pattern): LICENSE first,
-# then the LICENSED MATLAB NNV install (tbxmanager: mpt/glpk/sedumi) + prepare_run, then the python deps.
-# install_tool.sh only does the mpm support packages.
+# VNN-COMP 2026 post_install.sh for NNV. Runs AFTER install_tool.sh, on the SAME instance, BEFORE the per-
+# benchmark runs (which execute as the default user `ubuntu`). Does the heavy LICENSED setup, in order:
+# LICENSE -> system-python matlab.engine + ONNX stack -> licensed NNV install -> GPU driver hold.
 #
-# Why here and not install_tool.sh: smoke 266 failed because install_tool did apt-get (non-root ->
-# Permission denied) and `matlab -batch install` (no license yet). Licensing + apt MUST run after the license.
+# TWO HARD LESSONS from smoke 266-276 (do NOT regress):
+# 1) DO NOT redirect this script's output to /home/ubuntu/* . post_install runs as a user that CANNOT write
+#    /home/ubuntu, so a `{ ...; } >> /home/ubuntu/log` redirect FAILS TO OPEN and the whole block then does
+#    NOT execute -- that is why the earlier license/python/matlab setup silently never happened and no log
+#    ever appeared. We now let output flow to the platform's captured stdout (no self-redirect).
+# 2) DO NOT use a venv or any ~/.nnv_* artifact for the python: the runs are a DIFFERENT user (ubuntu) and
+#    a venv symlinks to a per-user base python they cannot reach. Instead install matlab.engine + deps into a
+#    SYSTEM python via `sudo --break-system-packages` -- system site-packages are root-owned, hence readable
+#    and executable by EVERY user incl. ubuntu, and persist on the single shared instance. The runtime
+#    (vnncomp2026_env.sh, run as ubuntu) then PROBES the system pythons and picks the one with matlab.engine.
+set +e
+echo "=== POST_INSTALL START $(date -u +%FT%TZ) whoami=$(whoami) HOME=$HOME pwd=$(pwd) ==="
+id
 
-# --- VISIBILITY + CANONICAL LOCATION ---
-# The platform's ToolkitPostInstall step log captures only its wrapper, not this script's output, and marks
-# the step Done regardless of our exit code. WORSE (smoke 272/273/274): post_install runs with a DIFFERENT
-# $HOME than the runs (the runs use /home/ubuntu), so $HOME/.nnv_venv etc. landed where the runs couldn't read
-# them, and exec/process-sub redirects to $HOME/file silently failed. FIX: write ALL nnv python artifacts at a
-# CANONICAL /home/ubuntu location, APPEND output to a log (no exec/>(tee)), and a whoami self-diagnostic.
-NNVHOME=/home/ubuntu; [ -d "$NNVHOME" ] || NNVHOME="$HOME"
-PILOG="$NNVHOME/.nnv_post_install.log"
-{ echo "=== POST_INSTALL START $(date -u +%FT%TZ) ==="; echo "whoami=$(whoami) HOME=$HOME NNVHOME=$NNVHOME pwd=$(pwd)"; id; } >> "$PILOG" 2>&1
-sudo chmod 666 "$PILOG" 2>/dev/null || chmod 666 "$PILOG" 2>/dev/null || true
-
-# Resolve the cloned repo root from THIS script's location BEFORE any cd (robust to the clone path).
+# Resolve the cloned repo root from THIS script's location (robust to the clone path).
 SD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"          # .../code/nnv/examples/Submission/VNN_COMP2026
 NNV_ROOT="$(cd "$SD/../../.." && pwd)"                          # .../code/nnv  (has install.m)
 REQ="$NNV_ROOT/tools/onnx2nnv_python/requirements.txt"
+echo "SD=$SD NNV_ROOT=$NNV_ROOT REQ=$REQ"
 
-# ---- 1) LICENSE (must be first: the MATLAB install below needs a licensed MATLAB) ----
-{
+# ---- 1) LICENSE (must be first: the MATLAB install in step 3 needs a licensed MATLAB) ----
 mkdir -p ~/.matlab/R2026a_licenses
 cd ~/.matlab/R2026a_licenses
-# MAC-locked MATLAB R2026a license (HOSTID 02e1e896fadb == ENI eni-0b11771dfe21b94ee); exp 30-may-2027.
-# URL QUOTED (the prior year's unquoted &-URL backgrounded curl + dropped query params).
+# MAC-locked MATLAB R2026a license (HOSTID 02e1e896fadb == ENI eni-0b11771dfe21b94ee; exp 30-may-2027).
+# URL QUOTED so the &-containing query string is not split / backgrounded.
 curl --retry 100 --retry-connrefused -L -o license.lic "https://www.dropbox.com/scl/fi/w5jgddmf3qm5znjw67ajm/matlab-license-vnncomp2026-nnv.lic?rlkey=z3wnimbad4ykjyde95yhq7ik3&st=2oc64st3&dl=1"
 sleep 5
 ls -al
 if [ ! -s license.lic ] || ! grep -qE 'INCREMENT|MathWorks license' license.lic; then
-    echo "ERROR: MATLAB license download failed or invalid (missing/empty/not a passcode file)" >&2; exit 1
+    echo "ERROR: MATLAB license download failed or invalid (missing/empty/not a passcode file)"
 fi
-sudo cp -f license.lic /usr/local/matlab/licenses/ || { echo "ERROR: failed to install license" >&2; exit 1; }
-[ -s /usr/local/matlab/licenses/license.lic ] || { echo "ERROR: license not present after copy" >&2; exit 1; }
+sudo cp -f license.lic /usr/local/matlab/licenses/ && echo "license installed to /usr/local/matlab/licenses/" || echo "ERROR: failed to install license"
+[ -s /usr/local/matlab/licenses/license.lic ] && echo "license present after copy" || echo "ERROR: license not present after copy"
 sudo rm -f /usr/local/matlab/licenses/license_info.xml
-} >> "$PILOG" 2>&1
 
-# ---- 2) Robust python: a MATLAB-R2026a-engine-compatible python with matlab.engine + ONNX stack + torch ----
-{
-echo "=== python diagnostics (eval box) ==="
-echo "PATH python3 -> $(command -v python3) ($(python3 --version 2>&1))"
-ls -d /home/ubuntu/anaconda3 2>/dev/null && echo "  (anaconda present on PATH)"
-echo "/usr/bin/python3 -> $(/usr/bin/python3 --version 2>&1)"
-for v in 3.13 3.12 3.11 3.10; do command -v python$v >/dev/null 2>&1 && echo "  python$v -> $(python$v --version 2>&1)"; done
-echo "uv -> $(command -v uv || echo 'not found')"
-sudo apt-get install -y python3-venv python3-pip || true
-
+# ---- 2) system-python matlab.engine + ONNX stack + torch (sudo --break-system-packages -> system site-packages) ----
+echo "=== system-python engine install ==="
+echo "PATH python3 -> $(command -v python3) ($(python3 --version 2>&1)); /usr/bin/python3 -> $(/usr/bin/python3 --version 2>&1)"
+sudo apt-get install -y python3-pip software-properties-common 2>&1 | tail -3
 REQ_OK() { ( cd /tmp && "$1" -c "import matlab.engine,numpy,scipy,onnx,onnxruntime,onnxsim,onnxoptimizer,vnnlib" ) >/dev/null 2>&1; }
 WORKING_PY=""
-VENV="$NNVHOME/.nnv_venv"            # canonical: the RUN user (/home/ubuntu) must be able to read+exec it
-
-# PRIMARY: uv + python 3.12 venv (matches what the platform itself does for python 3.12).
-if ! command -v uv >/dev/null 2>&1; then curl -LsSf https://astral.sh/uv/install.sh | sh || echo "WARN: uv install non-zero"; fi
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-echo "uv now -> $(command -v uv || echo 'still not found')"
-uv python install 3.12 2>&1 | tail -5 || true
-uv venv "$VENV" --python 3.12 2>&1 | tail -5 || /usr/bin/python3.12 -m venv "$VENV" 2>&1 | tail -5 || true
-VPY="$VENV/bin/python"
-if [ -x "$VPY" ]; then
-    echo "venv python: $VPY ($("$VPY" --version 2>&1))"
-    ( cd /usr/local/matlab/extern/engines/python && "$VPY" -m pip install . ) 2>&1 | tail -30 || echo "WARN: matlab.engine pip install . (venv) non-zero"
-    "$VPY" -m pip install -r "$REQ" 2>&1 | tail -10
-    "$VPY" -m pip install torch 2>&1 | tail -5
-    if REQ_OK "$VPY"; then WORKING_PY="$VPY"; echo "VENV_OK $VPY"; else echo "VENV_FAIL importing in $VPY:"; ( cd /tmp && "$VPY" -c "import matlab.engine,numpy,scipy,onnx,onnxruntime,onnxsim,onnxoptimizer,vnnlib" ) 2>&1 | tail -8; fi
-else
-    echo "WARN: venv $VPY not created by uv/python3.12"
-fi
-
-# FALLBACK: install the engine + deps directly into a system python (PEP-668 -> --break-system-packages).
+for PY in /usr/bin/python3.13 /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 /usr/bin/python3; do
+    command -v "$PY" >/dev/null 2>&1 || continue
+    echo "--- installing matlab.engine + deps into $PY ($("$PY" --version 2>&1)) ---"
+    ( cd /usr/local/matlab/extern/engines/python && sudo "$PY" -m pip install . --break-system-packages ) 2>&1 | tail -15
+    sudo "$PY" -m pip install -r "$REQ" --break-system-packages 2>&1 | tail -4
+    sudo "$PY" -m pip install torch --break-system-packages 2>&1 | tail -2
+    if REQ_OK "$PY"; then WORKING_PY="$PY"; echo "ENGINE_WORKS $PY"; break; fi
+done
+# If no pre-installed system python supports the R2026a engine, add python3.12 system-wide via deadsnakes + retry.
 if [ -z "$WORKING_PY" ]; then
-    for SP in /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 /usr/bin/python3; do
-        command -v "$SP" >/dev/null 2>&1 || continue
-        echo "fallback trying $SP ($("$SP" --version 2>&1))"
-        ( cd /usr/local/matlab/extern/engines/python && "$SP" -m pip install . --break-system-packages ) 2>&1 | tail -15 || true
-        "$SP" -m pip install -r "$REQ" --break-system-packages 2>&1 | tail -5 || true
-        "$SP" -m pip install torch --break-system-packages 2>&1 | tail -3 || true
-        if REQ_OK "$SP"; then WORKING_PY="$SP"; echo "FALLBACK_OK $SP"; break; fi
-    done
+    echo "=== no pre-installed system python worked; installing python3.12 via deadsnakes ==="
+    sudo add-apt-repository -y ppa:deadsnakes/ppa 2>&1 | tail -2
+    sudo apt-get update 2>&1 | tail -2
+    sudo apt-get install -y python3.12 python3.12-venv python3.12-dev python3.12-distutils 2>&1 | tail -3
+    PY=/usr/bin/python3.12
+    if command -v "$PY" >/dev/null 2>&1; then
+        sudo "$PY" -m ensurepip 2>&1 | tail -2
+        ( cd /usr/local/matlab/extern/engines/python && sudo "$PY" -m pip install . --break-system-packages ) 2>&1 | tail -15
+        sudo "$PY" -m pip install -r "$REQ" --break-system-packages 2>&1 | tail -4
+        sudo "$PY" -m pip install torch --break-system-packages 2>&1 | tail -2
+        REQ_OK "$PY" && WORKING_PY="$PY" && echo "ENGINE_WORKS $PY (deadsnakes)"
+    fi
 fi
-
-# ALSO seed the platform-prep python3 with the ONNX stack (the prep runs onnx2nnv.py under bare python3).
-pip3 install -r "$REQ" 2>/dev/null || python3 -m pip install -r "$REQ" --break-system-packages 2>/dev/null || true
-
-# Make the venv readable/executable by the RUN user even if post_install ran as a different user (e.g. root).
-sudo chmod -R a+rX "$VENV" 2>/dev/null || true
-
-# RECORD the working python at the canonical path (vnncomp2026_env.sh reads /home/ubuntu/.nnv_python_path).
-if [ -n "$WORKING_PY" ]; then
-    echo "$WORKING_PY" > "$NNVHOME/.nnv_python_path"
-    sudo chmod 644 "$NNVHOME/.nnv_python_path" 2>/dev/null || true
-    export NNV_ORT_PYTHON="$WORKING_PY"
-    echo "export NNV_ORT_PYTHON=\"$WORKING_PY\"" >> ~/.bashrc
-    echo "export NNV_ORT_PYTHON=\"$WORKING_PY\"" >> ~/.profile
-    echo "NNV_ORT_PYTHON=$WORKING_PY (matlab.engine + onnx stack VERIFIED)"
-else
-    echo "ERROR: NO working python found with matlab.engine! runs will fall back to python3 and likely error." >&2
-fi
-# (No 'exit 1': the platform marks ToolkitPostInstall Done regardless of our exit code -- print loudly instead.)
-} >> "$PILOG" 2>&1
+# Best-effort: also seed the platform-prep python3 (prepare_instance runs onnx2nnv.py under bare python3).
+sudo python3 -m pip install -r "$REQ" --break-system-packages 2>/dev/null || python3 -m pip install -r "$REQ" 2>/dev/null || true
+echo "WORKING_SYS_PY=${WORKING_PY:-NONE}"
 
 # ---- 3) NNV install (tbxmanager: mpt/glpk/sedumi + savepath) -- NOW LICENSED ----
-{
 matlab -batch "cd('${NNV_ROOT}'); install" || echo "WARN: NNV tbxmanager install returned non-zero"
 matlab -nodisplay -r "cd('${SD}'); prepare_run; quit" || echo "WARN: prepare_run returned non-zero"
-} >> "$PILOG" 2>&1
 
 # ---- 4) GPU persistence + lock the driver (pair with the form's restart-after-post-install) ----
-{
 sudo nvidia-smi -pm 1 2>/dev/null || true
 NVPKG="$(dpkg -l 2>/dev/null | awk '/^ii +nvidia-driver-[0-9]/{print $2}' | head -1)"
 sudo apt-mark hold linux-image-generic linux-headers-generic "${NVPKG:-nvidia-driver-570}" 2>/dev/null || true
 sudo systemctl disable unattended-upgrades 2>/dev/null || true
-echo "=== POST_INSTALL END $(date -u +%FT%TZ) (license + NNV install + python setup done) ==="
-} >> "$PILOG" 2>&1
+echo "=== POST_INSTALL END $(date -u +%FT%TZ) WORKING_SYS_PY=${WORKING_PY:-NONE} ==="

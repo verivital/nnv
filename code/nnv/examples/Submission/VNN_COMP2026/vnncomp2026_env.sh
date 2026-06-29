@@ -27,14 +27,19 @@
 #   (Was a footgun: `=0` did NOT disable; it read non-empty=ON. Fixed via i_envon() in run_vnncomp_instance.m.)
 
 # NNV_ORT_PYTHON: the dedicated python for execute.py's matlab.engine + the ORT/witness gate + onnx2nnv.
-# post_install.sh builds $HOME/.nnv_venv (matlab.engine + onnx stack + torch) because the eval box has
-# anaconda first on PATH, so a bare `python3` is ambiguous and the MATLAB engine would not install into it
-# (smoke 269: every result error_exit_code_1 from ModuleNotFoundError 'matlab'). An explicit NNV_ORT_PYTHON
-# still wins (e.g. the Lambda dev box's taylor_venv). post_install records the VERIFIED working python path
-# (the uv/3.12 venv, or a system-python fallback) in ~/.nnv_python_path -- read it so we use what actually works.
-# Hardcoded /home/ubuntu (the eval-box RUN user): post_install may run with a different $HOME, so the venv +
-# recorded path live at the canonical /home/ubuntu location the runs read (smoke 274 $HOME-mismatch).
-export NNV_ORT_PYTHON="${NNV_ORT_PYTHON:-$(cat /home/ubuntu/.nnv_python_path 2>/dev/null || echo /home/ubuntu/.nnv_venv/bin/python)}"
+# An explicit value always wins (e.g. the Lambda dev box's taylor_venv). On the eval box, post_install.sh
+# installs matlab.engine + the ONNX stack into a SYSTEM python via `sudo --break-system-packages` (system
+# site-packages are readable by every user incl. the run user `ubuntu`, and persist). Since which system
+# python carries the engine is decided at install time, we PROBE the system pythons at runtime (run as
+# ubuntu) and pick the first whose matlab.engine imports. This sidesteps the smoke 269-276 failures: no venv
+# (a venv symlinks to a per-user base python the run user cannot reach) and no /home/ubuntu artifact file
+# (post_install runs as a user that cannot write /home/ubuntu).
+if [ -z "${NNV_ORT_PYTHON:-}" ]; then
+    for _c in /usr/bin/python3.13 /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 /usr/bin/python3; do
+        [ -x "$_c" ] && "$_c" -c "import matlab.engine" >/dev/null 2>&1 && { NNV_ORT_PYTHON="$_c"; break; }
+    done
+fi
+export NNV_ORT_PYTHON="${NNV_ORT_PYTHON:-python3}"
 
 export NNV_CONV_TRUST_FP32=1
 # NNV_CONV_NO_STAR: a non-certifying conv precheck emits a FAST sound 'unknown' (Star never certifies these

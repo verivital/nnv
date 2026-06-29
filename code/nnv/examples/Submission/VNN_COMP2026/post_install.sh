@@ -86,23 +86,35 @@ for PY in /usr/bin/python3.13 /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/p
     if install_stack "$PY"; then WORKING_PY="$PY"; echo "ENGINE_WORKS $PY"; break; fi
 done
 if [ -z "$WORKING_PY" ]; then
-    echo "=== no pre-installed system python worked; installing python3.12 via deadsnakes ==="
-    sudo add-apt-repository -y ppa:deadsnakes/ppa 2>&1 | tail -3
-    sudo apt-get update 2>&1 | tail -3
-    sudo apt-get install -y python3.12 python3.12-venv python3.12-dev python3.12-distutils 2>&1 | tail -4
-    if command -v /usr/bin/python3.12 >/dev/null 2>&1; then
-        sudo /usr/bin/python3.12 -m ensurepip 2>&1 | tail -3
-        install_stack /usr/bin/python3.12 && WORKING_PY=/usr/bin/python3.12 && echo "ENGINE_WORKS /usr/bin/python3.12 (deadsnakes)"
-    else echo "ERROR: deadsnakes python3.12 not present after install"; fi
+    echo "=== no pre-installed system python supports the R2026a engine (py3.10 too old); using deadsnakes ==="
+    sudo add-apt-repository -y ppa:deadsnakes/ppa 2>&1 | tail -2
+    sudo apt-get update 2>&1 | tail -2
+    # CRITICAL (smoke 280): do NOT request python3.12-distutils -- distutils was removed in 3.12 so that
+    # package does not exist, and naming it makes `apt-get install` abort the WHOLE transaction (python3.12
+    # then never installs -> WORKING_SYS_PY=NONE). ensurepip is bundled in the stdlib for >=3.12. Try 3.12
+    # then 3.11 then 3.13 (all R2026a-supported) and stop at the first whose matlab.engine imports.
+    for V in 3.12 3.11 3.13; do
+        sudo apt-get install -y "python$V" "python$V-venv" "python$V-dev" 2>&1 | tail -3
+        PY="/usr/bin/python$V"
+        command -v "$PY" >/dev/null 2>&1 || { echo "python$V not installed -> next"; continue; }
+        echo "deadsnakes $PY -> $("$PY" --version 2>&1)"
+        sudo "$PY" -m ensurepip --upgrade 2>&1 | tail -2
+        if install_stack "$PY"; then WORKING_PY="$PY"; echo "ENGINE_WORKS $PY (deadsnakes $V)"; break; fi
+    done
 fi
 # Seed the platform-prep python3 (prepare_instance runs onnx2nnv.py under bare python3).
 sudo python3 -m pip install -r "$REQ" --break-system-packages 2>/dev/null || python3 -m pip install -r "$REQ" 2>/dev/null || true
 echo "WORKING_SYS_PY=${WORKING_PY:-NONE}"
 
-# ---- 3) NNV install (tbxmanager: mpt/glpk/sedumi + savepath) -- NOW LICENSED. timeout-bounded. ----
-echo "=== [3] NNV install + prepare_run ==="
-timeout 900 matlab -batch "cd('${NNV_ROOT}'); install" 2>&1 | tail -25; echo "NNV install rc=${PIPESTATUS[0]} (124=timeout)"
-timeout 420 matlab -nodisplay -r "cd('${SD}'); prepare_run; quit" 2>&1 | tail -15; echo "prepare_run rc=${PIPESTATUS[0]} (124=timeout)"
+# ---- 3) NNV install + persist path -- NOW LICENSED. ONE `matlab -batch` (auto-quits on completion: no
+#         lingering interactive MATLAB, no double-install, no path races). install.m does
+#         tbxmanager(mpt/glpk/sedumi) + startup_nnv + self-test; then addpath+savepath persists NNV so the
+#         per-instance runs (each a fresh matlab.engine session) resolve NNV via the saved path. We deliberately
+#         DO NOT call prepare_run.m: it re-ran install (redundant ~2-3 min) and `disp(pyenv)` (MATLAB-calls-
+#         python, which the engine-driven runs never use) was hanging toward the timeout (smoke 280). ----
+echo "=== [3] NNV install + path persist (single matlab -batch, auto-quits) ==="
+timeout 1200 matlab -batch "cd('${NNV_ROOT}'); install; addpath(genpath('${NNV_ROOT}')); savepath; fprintf('NNV_PATH_SAVED matlabroot=%s\n', matlabroot)" 2>&1 | tail -30
+echo "NNV install+path rc=${PIPESTATUS[0]} (124=timeout)"
 sudo chmod -R a+rX "$NNV_ROOT/tbxmanager" "$NNV_ROOT/code" 2>/dev/null || true
 
 # ---- 4) GPU persistence + lock the driver ----

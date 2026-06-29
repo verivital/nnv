@@ -53,6 +53,21 @@ export NNV_CONV_FRONTIER=512
 #   decide what they can.
 export NNV_QUARANTINE_CPSTAR=1
 
+# NNV_TRUST_MULTINET: emit the monotonic_acasxu (2.0 two-network) sat directly, instead of routing it through
+#   the in-MATLAB STRICT multinet witness gate (validate_witness_multinet.py). WHY: on the eval platform that
+#   gate's python resolver (authoritative_witness_gate -> i_ort_vnnlib_python, which REQUIRES onnx+ort+vnnlib
+#   in ONE interpreter) returns 'cant' (it can't resolve a vnnlib-having python), and being FAIL-CLOSED it
+#   downgrades every REAL mono sat to unknown -> task 310 mono 0/10 despite verify_multinet finding sat. The
+#   single-net gate needs only onnx+ort and is fail-open, which is why cctsdb (7/7 valid) survived. SOUNDNESS
+#   BASIS: (1) the lambda 50/50 mono ORT audit confirmed every mono witness GENUINELY violates the spec; (2)
+#   the verdict still ships a concrete stacked CE (X_f/Y_f/X_g/Y_g), so the PLATFORM's OWN official CE checker
+#   is the final arbiter -- the same checker that validated cctsdb's 2.0 CEs. So this trades our redundant
+#   in-MATLAB pre-check for the official checker, it does NOT ship an unchecked verdict. iso is unaffected
+#   (flagged property.unsupported -> unknown upstream, never reaches the multinet sat branch). FOLLOW-UP
+#   (post-submission): repair i_ort_vnnlib_python's resolution so the in-MATLAB pre-check works again, then
+#   this flag can return to 0. CONFIRM the re-run shows mono sat + platform 'CE valid=N' before trusting.
+export NNV_TRUST_MULTINET=1
+
 # ---- PER-INSTANCE PARALLELISM PROFILE (2026-06-29) -----------------------------------------------------
 # The COMPETITION runs ONE instance at a time on the whole g5.8xlarge (32 vCPU = 16 PHYSICAL cores + 1 A10G
 # 24GB), so each instance should use the entire machine. Our LOCAL/LAMBDA sweeps run N=4 MATLAB sessions on

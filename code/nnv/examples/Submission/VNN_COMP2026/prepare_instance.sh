@@ -30,8 +30,17 @@ NNV_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # VNN_COMP2026 -> .../code/
 # Dev box: the stack lives in ~/taylor_venv. Hardcoding `python3` silently fails manifest gen on the dev box
 # (the 2026-06-25 prep-parity miss). Prefer NNV_ORT_PYTHON, then ~/taylor_venv, then python3/python — pick the
 # first that imports the full stack. Mirrors execute.py's resolver + the python_exe preference.
+# Source the competition env so NNV_ORT_PYTHON points at the python post_install actually installed the
+# onnx2nnv stack into (a deadsnakes python3.12/3.11/3.13 -- the pre-installed system python3.10 is too old
+# for the R2026a engine). prepare did NOT source this (run_instance.sh does), so NNV_ORT_PYTHON was unset and
+# PREP_PY fell back to the bare system python3 (no numpy) -> onnx2nnv manifest gen FAILED -> the manifest
+# cats LOAD FAILED -> unknown (task 314: cgan2026/lsnc_relu/traffic_signs/soundnessbench_2026). Also probe the
+# deadsnakes pythons directly, as a backstop matching post_install's install targets. Sourcing the env in
+# prepare is side-effect-free for verification (prepare only generates manifests; run_instance is a separate
+# process with its own env).
+source "$(dirname "${BASH_SOURCE[0]}")/vnncomp2026_env.sh" 2>/dev/null || true
 PREP_PY=""
-for c in "${NNV_ORT_PYTHON}" "${HOME}/taylor_venv/bin/python3" python3 python; do
+for c in "${NNV_ORT_PYTHON}" "${HOME}/taylor_venv/bin/python3" /usr/bin/python3.13 /usr/bin/python3.12 /usr/bin/python3.11 python3 python; do
     [ -n "$c" ] || continue
     if "$c" -c 'import numpy,scipy,onnx,onnxruntime,onnxsim,onnxoptimizer' 2>/dev/null; then PREP_PY="$c"; break; fi
 done

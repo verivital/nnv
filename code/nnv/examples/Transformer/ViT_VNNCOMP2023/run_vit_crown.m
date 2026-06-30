@@ -1,7 +1,7 @@
 function summary = run_vit_crown(modelName, nInst, opt)
 %RUN_VIT_CROWN  Sound, LP-free verification of the VNN-COMP 2023 ViT instances.
 %   Verifies argmax robustness at L-inf eps = 1/255 for every instance of one ViT
-%   model using ViTCrown's native alpha,beta-CROWN-style pipeline:
+%   model using ViTCrown's native (from-scratch MATLAB; no external verifier) pipeline:
 %       (1) lower the ViT to an op-DAG (ViTCrown.toOps),
 %       (2) CROWN intermediate-bound refinement (ViTCrown.refineBounds), and
 %       (3) alpha-optimization of the relu + attention-McCormick relaxations

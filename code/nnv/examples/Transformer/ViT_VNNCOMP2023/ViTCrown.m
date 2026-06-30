@@ -1,14 +1,21 @@
 classdef ViTCrown
     % ViTCrown - NNV-native optimized linear-bound reachability for the VNN-COMP 2023
-    % ViT. This is NNV's OWN method: the same optimizations NNV's gpu_bab already
-    % implements for ReLU nets (gpu_bab_crown_* = backward linear bounds; alpha-
-    % relaxation PGA; beta/branch-and-bound), here EXTENDED to the attention-specific
-    % layers (bilinear QK^T / A*V and softmax). It is NOT a port of auto_LiRPA's
-    % "alpha-CROWN" product - no external dependency; auto_LiRPA is a math reference
-    % only. The key tightening lever for the ViT is the alpha-relaxation on the
-    % ATTENTION layers (the McCormick bilinear planes), not the FF ReLU, plus score
-    % branch-and-bound. Soundness is the only hard constraint (worst case: unknown).
-    % Plan: gpu_bab/VIT_ALPHABETA_PLAN.md.
+    % ViT. Backward linear bounds + intermediate-bound refinement + optimizable
+    % relaxations (the same family NNV's own gpu_bab_crown_* kernels already use for
+    % ReLU nets), here EXTENDED to the attention layers (bilinear QK^T / A*V and
+    % softmax). The key tightening lever for the ViT is the relaxation optimization on
+    % the ATTENTION layers (the McCormick bilinear planes), not the FF ReLU.
+    %
+    % PROVENANCE / DEPENDENCIES (this file is entirely self-contained):
+    %   - Implemented FROM SCRATCH in MATLAB. It does NOT use, install, import, link,
+    %     or wrap auto_LiRPA, alpha-beta-CROWN (abcrown), LiRPA, or ANY third-party
+    %     verification tool. No Python verifier is called.
+    %   - Sole dependencies are NNV's own classes: SoftmaxAttn (intervalMatMul,
+    %     correlatedRowSoftmaxBounds) and ViTReach (epsBox, meanMap, patchEmbed).
+    %   - The underlying technique is the published CROWN linear-relaxation family
+    %     (Zhang+ 2018; alpha-CROWN Xu+ 2021; beta-CROWN Wang+ 2021) - an algorithm,
+    %     cited here as the math reference, re-derived and implemented independently.
+    %   - Soundness is the only hard constraint (worst case: unknown).
     %
     % The ViT lowers to a flat op DAG that is EXACT affine everywhere except: the FF
     % ReLU, the two bilinear matmuls (QK^T, A*V), and the softmax. This file is the
@@ -311,7 +318,7 @@ classdef ViTCrown
             lbnd = max(Lin,0)*lb + min(Lin,0)*ub + bL;   % min over box
         end
 
-        % ============= CROWN intermediate bounds (alpha,beta-CROWN style) ====
+        % ============= CROWN intermediate bounds (backward-pass refinement) ====
         function [lo, hi] = crownBounds(ops, lb, ub, cl, cu, targetOp, mmaps)
             % Tighter [lo,hi] for op targetOp's output via a backward CROWN pass to
             % the input (vs the looser forward-IBP). lo = min, hi = -min(-x).
@@ -323,7 +330,7 @@ classdef ViTCrown
         function [cl, cu, mmaps] = refineScores(ops, lb, ub)
             % Replace the IBP score boxes (exp inputs) with tighter CROWN bounds, then
             % re-propagate IBP downstream (so the exp/A/A*V relaxations see the tighter
-            % scores). This is the key alpha,beta-CROWN tightness lever for attention.
+            % scores). This is the key intermediate-bound tightness lever for attention.
             [cl,cu] = ViTCrown.forwardIBP(ops, lb, ub);
             mmaps = ViTCrown.precomputeMaps(ops, cl, cu);
             expIdx = find(cellfun(@(o) strcmp(o.type,'exp'), ops));
@@ -341,8 +348,8 @@ classdef ViTCrown
             % Replace IBP boxes with CROWN intermediate bounds for ALL nonlinearity
             % inputs (relu/exp/reciprocal/eprod/bmatmul operands), sequentially in
             % topological order so later refinements use earlier ones, re-propagating
-            % IBP each pass. This is the alpha,beta-CROWN tightness driver - with it the
-            % backward bound approaches the LP optimum. maxDim caps which ops to refine
+            % IBP each pass. This intermediate-bound refinement is the tightness driver
+            % - with it the backward bound approaches the LP optimum. maxDim caps refine
             % (skip very wide ones for speed).
             if nargin < 4 || isempty(iters), iters = 1; end
             if nargin < 5 || isempty(maxDim), maxDim = inf; end

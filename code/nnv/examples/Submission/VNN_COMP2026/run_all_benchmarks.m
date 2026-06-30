@@ -105,10 +105,6 @@ subfolder_to_category('tinyimagenet_2024')                 = 'tinyimagenet';
 subfolder_to_category('tllverifybench_2023')               = 'tllverifybench';
 subfolder_to_category('traffic_signs_recognition_2023')    = 'traffic';
 subfolder_to_category('vggnet16_2022')                     = 'vggnet';
-% ViT: the dispatcher path here is falsification-only (sat-or-unknown). For a SOUND,
-% LP-free robustness verdict on the VNN-COMP 2023 ViT instances, see the standalone
-% runner examples/Transformer/ViT_VNNCOMP2023/run_vit_crown.m  (e.g.
-% run_vit_crown('ibp_3_3_8')). It returns verified/unknown; unknown is the worst case.
 subfolder_to_category('vit_2023')                          = 'vit';
 subfolder_to_category('yolo_2023')                         = 'yolo';
 

@@ -51,13 +51,20 @@ function status = i_vit_sound_unsat(category, onnx, lb, ub, prop)
         rowLB = ViTCrown.optimizeAlpha(ops, lb, ub, cl, cu, Gall, ...
                     struct('nIter', nIter, 'lr', lr)) - gall;       % sound min_box(G*y) - g
 
+        % CRITICAL SOUNDNESS GUARD: a non-finite bound (NaN/Inf, e.g. CROWN overflow on
+        % some nets) is NOT a proof of anything -> defer to unknown. Without this, the
+        % loop below is unsound: max(NaN) <= tol evaluates to false, so 'robust' would
+        % never be cleared and a FALSE 'unsat' would be emitted (matches run_vit_crown's
+        % safe all(mg>0) polarity, where NaN -> false -> unknown).
+        if ~all(isfinite(rowLB)), return; end
+
         % disjunct cp is MISSED iff some row is always violated: max_r(rowLB) > 0.
         % Robust iff EVERY disjunct missed (min over disjuncts > tol). For the standard
         % argmax spec (single-row disjuncts), this is all(margins > 0) = the binding margin.
         tol = 1e-7;                                % FP guard above bound-computation noise
         robust = true;
         for cp = 1:np
-            if max(rowLB(disjOf == cp)) <= tol, robust = false; break; end
+            if ~(max(rowLB(disjOf == cp)) > tol), robust = false; break; end   % require positive proof
         end
         if robust, status = 1; end                 % SOUND unsat (verified robust)
     catch ME

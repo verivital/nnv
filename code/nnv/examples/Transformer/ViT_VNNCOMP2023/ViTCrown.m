@@ -25,8 +25,11 @@ classdef ViTCrown
     % Op struct fields: .type, .in (source op indices, 1-based into the ops cell),
     % and type-specific data. The value of every op is a column vector; matrix-valued
     % ops carry .mat=[r c] (column-major flatten, reshape(v,[r c]) recovers it).
-    %   types: 'input' | 'affine'(.W,.b) | 'relu' | 'add' |
-    %          'bmatmul'(.mode 'abt'|'ab', .ra,.ca,.rb,.cb) | 'softmax'(.mat=[N n])
+    %   types: 'input' | 'affine'(.W,.b) | 'relu' | 'add' | 'concat'(.in list) |
+    %          'bmatmul'(.mode 'abt'|'ab', .ra,.ca,.rb,.cb) |
+    %          'exp' | 'reciprocal' | 'eprod'(.in=[E R])
+    %   Softmax is LOWERED by toOps into exp -> reduce_sum(affine) -> reciprocal ->
+    %   broadcast(affine) -> eprod, so the score coefficient flows in the backward pass.
     %
     % Author: NNV Team (ViT track). Date 2026.
 
@@ -321,10 +324,27 @@ classdef ViTCrown
         % ============= CROWN intermediate bounds (backward-pass refinement) ====
         function [lo, hi] = crownBounds(ops, lb, ub, cl, cu, targetOp, mmaps)
             % Tighter [lo,hi] for op targetOp's output via a backward CROWN pass to
-            % the input (vs the looser forward-IBP). lo = min, hi = -min(-x).
+            % the input (vs the looser forward-IBP). lo = min, hi = -min(-x). The two
+            % passes can cross (lo>hi) under FP rounding, or return non-finite values
+            % on nets where the bound overflows; safeRefine (below) handles both when
+            % these are used to tighten a box, never producing an unsound interval.
             d = ops{targetOp}.dim; I = eye(d);
             lo = ViTCrown.backwardCROWN(ops, lb, ub, cl, cu,  I, [], mmaps, [], targetOp);
             hi = -ViTCrown.backwardCROWN(ops, lb, ub, cl, cu, -I, [], mmaps, [], targetOp);
+        end
+
+        function [rlo, rhi] = safeRefine(clv, cuv, lo, hi)
+            % Sound tightening of the IBP box [clv,cuv] by CROWN bounds [lo,hi]:
+            % intersect where [lo,hi] is finite and consistent (lo<=hi), else FALL BACK
+            % to the IBP box. Guarantees a finite, valid (rlo<=rhi) result and never
+            % shrinks the range using a crossed/overflowed CROWN bound (soundness).
+            clv = clv(:); cuv = cuv(:); lo = lo(:); hi = hi(:);
+            ok  = isfinite(lo) & isfinite(hi) & (lo <= hi);
+            rlo = clv; rhi = cuv;                          % default: keep IBP
+            rlo(ok) = max(clv(ok), lo(ok));
+            rhi(ok) = min(cuv(ok), hi(ok));
+            bad = rlo > rhi;                               % emptied intersection -> keep IBP
+            rlo(bad) = clv(bad); rhi(bad) = cuv(bad);
         end
 
         function [cl, cu, mmaps] = refineScores(ops, lb, ub)
@@ -338,7 +358,7 @@ classdef ViTCrown
             for e = expIdx(:)'
                 sc = ops{e}.in;
                 [lo,hi] = ViTCrown.crownBounds(ops, lb, ub, cl, cu, sc, mmaps);
-                ov{sc} = [max(cl{sc},lo(:)), min(cu{sc},hi(:))];
+                [a,b] = ViTCrown.safeRefine(cl{sc}, cu{sc}, lo, hi); ov{sc} = [a, b];
             end
             [cl,cu] = ViTCrown.forwardIBP(ops, lb, ub, ov);
             mmaps = ViTCrown.precomputeMaps(ops, cl, cu);
@@ -366,7 +386,7 @@ classdef ViTCrown
                 ov = cell(numel(ops),1);
                 for tt = sort(targets)
                     [lo,hi] = ViTCrown.crownBounds(ops, lb, ub, cl, cu, tt, mmaps);
-                    ov{tt} = [max(cl{tt},lo(:)), min(cu{tt},hi(:))];
+                    [a,b] = ViTCrown.safeRefine(cl{tt}, cu{tt}, lo, hi); ov{tt} = [a, b];
                 end
                 [cl,cu] = ViTCrown.forwardIBP(ops, lb, ub, ov);
                 mmaps = ViTCrown.precomputeMaps(ops, cl, cu);

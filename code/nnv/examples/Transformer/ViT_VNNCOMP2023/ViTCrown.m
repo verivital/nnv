@@ -122,7 +122,11 @@ classdef ViTCrown
                     case 'bmatmul'
                         A = reshape(val{op.in(1)}, [op.ra op.ca]);
                         B = reshape(val{op.in(2)}, [op.rb op.cb]);
-                        if strcmp(op.mode,'abt'), Cm = A*B'; else, Cm = A*B; end
+if strcmp(op.mode,'abt')
+    Cm = A * B';
+else
+    Cm = A * B;
+end
                         val{k} = Cm(:);
                     case 'softmax'
                         S = reshape(val{op.in}, op.mat);

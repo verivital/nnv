@@ -390,6 +390,18 @@ if ~isnan(eps_shrink) && eps_shrink > 0 && eps_shrink < 1
     end
 end
 
+% ---- SOUND ViT unsat via ViTCrown (robust-or-fall-through; zero regression) --------
+% Emits a SOUND unsat ONLY when ViTCrown proves robustness over the exact vnnlib box +
+% output halfspaces (i_vit_sound_unsat returns 1). ANY other outcome (not robust /
+% weight bundle missing / wrong shape / exception) does NOTHING -> control falls through
+% to the existing ViT falsify -> reach({}) -> unknown path UNCHANGED (no other category
+% is touched). Mirrors the adaptive_cruise UNSAT arm (status=1; write 'unsat'; return).
+if contains(category, "vit") && i_vit_sound_unsat(category, onnx, lb, ub, prop) == 1
+    status = 1; tTime = toc(t);
+    fid = fopen(outputfile, 'w'); fprintf(fid, 'unsat \n'); fclose(fid);
+    return;
+end
+
 % fid = fopen(outputfile, 'w');
 % fprintf(fid, 'unknown \n');
 % fclose(fid);

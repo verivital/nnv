@@ -54,9 +54,23 @@ gen_manifest() {
             || echo "WARN: manifest generation failed; run_instance will report error/unknown."
     fi
 }
+# ViT: extract a weights-only .mat from the ONNX (untimed prepare; VNN-COMP allows
+# ONNX->format conversion in prepare) so the timed run's ViTCrown sound verifier can
+# load it as <onnx>.vitbundle.mat. Only numpy/scipy/onnx are used (no verifier).
+gen_vit_bundle() {
+    local onnx="$1"
+    local bundle="${onnx}.vitbundle.mat"
+    if [ ! -f "${bundle}" ]; then
+        echo "Extracting ViT weight bundle: ${bundle} (via ${PREP_PY})"
+        "${PREP_PY}" "${NNV_ROOT}/examples/Transformer/ViT_VNNCOMP2023/extract_weights_one.py" \
+            "${onnx}" "${bundle}" \
+            || echo "WARN: ViT bundle extraction failed; run_instance falls through to unknown."
+    fi
+}
 case "$2" in
     *lsnc_relu*|*traffic_signs*|*cgan*|*soundnessbench*|*vit*|*test*|*linearize*|*ml4acopf*)
         gen_manifest "$3"
+        case "$2" in *vit*) gen_vit_bundle "$3" ;; esac
         ;;
     *nn4sys*)
         # mscn + pensieve route via the manifest (lindex uses MATLAB's importNetworkFromONNX).

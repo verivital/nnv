@@ -314,8 +314,29 @@ classdef NonLinearODE < handle
             I = init_set.getZono;
             U = input_set.getZono;
             if isempty(U)
-                U = Star(zeros(input_set.dim,1), zeros(input_set.dim,1));
-                U = U.getZono;
+                if input_set.dim == 0
+                    % plant without control inputs: Star.getBox returns []
+                    % for a zero-dimensional star, so build the input
+                    % zonotope directly
+                    U = Star(zeros(0,1), zeros(0,1));
+                    U = U.getZono;
+                else
+                    % getZono returns [] when an LP in Star.getBox ends with
+                    % an exit flag other than l1/g5 (e.g. infeasible, or
+                    % glpk g2 on a non-empty set). Replacing U by {0} would
+                    % not over-approximate the control set, so use the
+                    % LP-free Star.getBoxFast instead, and fail if that box
+                    % is unbounded
+                    B = input_set.getBoxFast;
+                    if isempty(B) || any(~isfinite(B.lb)) || any(~isfinite(B.ub))
+                        error('NonLinearODE:unboundedInputSet', ...
+                            'Cannot bound the input set by a finite zonotope (Star.getBox failed and Star.getBoxFast is unbounded)');
+                    end
+                    warning('NonLinearODE:inputSetBoxFallback', ...
+                        'Star.getBox failed on the input set; using the over-approximate Star.getBoxFast instead');
+                    B = Box(double(B.lb), double(B.ub));
+                    U = B.toZono;
+                end
             end
             
             if ~isempty(varargin)
